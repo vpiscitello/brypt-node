@@ -1,4 +1,4 @@
-To build run: $make build
+To build run: $gcc crypto.c -o crypto -lcrypto -s 
 
 To execute run: $make run
 

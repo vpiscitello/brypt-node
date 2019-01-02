@@ -1,9 +1,8 @@
 CC = gcc
-
 TARGET = crypto
 
-build: $(TARGET)
-	$(CC) crypto.c -o $(TARGET)
+default: $(TARGET)
+	$(CC) crypto.c -o $(TARGET) -s -lcrypto
 
 run: 
 	./$(TARGET)
