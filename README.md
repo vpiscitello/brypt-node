@@ -7,8 +7,9 @@ Installing Arduino IDE:
 Setting up the IDE:
 
 1) Open up the Arduino IDE and go to File -> Preferences (CTRL+Comma)
-2) Paste the following into Additional Boards Manager URLs: 
-- https://adafruit.github.io/arduino-board-index/package_adafruit_index.json,http://arduino.esp8266.com/stable/package_esp8266com_index.json
+2) Paste the following into Additional Boards Manager URLs (comma delimited): 
+- https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
+- http://arduino.esp8266.com/stable/package_esp8266com_index.json
 3) Click 'OK'
 4) Go to Tools -> Board -> Boards Manager
 5) Install the following:
