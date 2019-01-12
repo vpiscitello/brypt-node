@@ -1,12 +1,18 @@
-CC = gcc
+CC = g++
 TARGET = crypto
 
-default: $(TARGET)
-	$(CC) crypto.c -o $(TARGET) -s -lcrypto
+$(TARGET): main.o crypto.o
+	$(CC) main.o crypto.o -lcrypto -o $(TARGET)
+
+main.o: main.cpp
+	$(CC) -c main.cpp
+
+crypto.o: crypto.cpp
+	$(CC) -c crypto.cpp
 
 run: 
 	./$(TARGET)
 
 clean:
-	rm -f $(TARGET)
+	rm -f *.out *.o $(TARGET)
 

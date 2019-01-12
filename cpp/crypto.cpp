@@ -1,4 +1,4 @@
-#include <iostream>	// Only needed for printf
+/*#include <iostream>	// Only needed for printf
 #include <cstdlib>	// For rand()
 #include <string.h>
 #include <openssl/conf.h>
@@ -7,61 +7,26 @@
 #include <openssl/evp.h>	// For HMAC
 #include <openssl/hmac.h>	
 #include <openssl/des.h>
+*/
 
-void triple_des_encrypt(unsigned char*, unsigned char*, unsigned char*, unsigned char*);
-void triple_des_decrypt(unsigned char*, unsigned char*, unsigned char*, unsigned char*);
-void cast5_encrypt(unsigned char*, unsigned char*, unsigned char*, unsigned char*);
-void cast5_decrypt(unsigned char*, unsigned char*, unsigned char*, unsigned char*);
-void aes_ctr_encrypt(unsigned char*, unsigned char*, unsigned char*, unsigned char*);
-void aes_ctr_decrypt(unsigned char*, unsigned char*, unsigned char*, unsigned char*);
-void sha_1(unsigned char*);
-void sha_2(unsigned char*);
-void hmac_sha2(unsigned char*, unsigned char*);
-void hmac_blake2s(unsigned char*, unsigned char*);
-void print_output(unsigned char*);
-void spacer(void);
+#include "./crypto.h"
 
-int main() {
-//	const char plaintext[] = "This is the message.\0";
-	unsigned char* plaintext = (unsigned char *)"message";
-//	unsigned char* key = "1\0";
-	unsigned char* key256 = (unsigned char *)"01234567890123456789012345678901";
-//	unsigned char* key256 = "key256\0";
-	unsigned char* iv128 = (unsigned char *)"0123456789012345";
-//	unsigned char* iv128 = "iv128\0";
-	unsigned char ciphertext[512];
-	unsigned char decryptedtext[512];
-
-	sha_1(plaintext);
-	sha_2(plaintext);
-	hmac_sha2(plaintext, key256);
-	hmac_blake2s(plaintext, key256);
-	spacer();
-
-	aes_ctr_encrypt(plaintext, ciphertext, key256, iv128);
-	aes_ctr_decrypt(ciphertext, decryptedtext, key256, iv128);
-	spacer();
-	cast5_encrypt(plaintext, ciphertext, key256, iv128);
-	cast5_decrypt(ciphertext, decryptedtext, key256, iv128);
-	spacer();
-	triple_des_encrypt(plaintext, ciphertext, key256, iv128);
-	triple_des_decrypt(ciphertext, decryptedtext, key256, iv128);
-
-	return 0;
+crypto::crypto() {
+	plaintext = (unsigned char *)"message";
+	key = (unsigned char *)"01234567890123456789012345678901";
+	iv = (unsigned char *)"0123456789012345";
 }
 
-void spacer(void){
- printf("\n-----------------------------------------------------\n");
-}
+crypto::~crypto(){}
 
 /***************CIPHERS*****************/
-void triple_des_encrypt(unsigned char* plaintext, unsigned char* ciphertext, unsigned char* k, unsigned char* iv) {
+void crypto::triple_des_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
-	EVP_EncryptInit_ex(ctx, EVP_des_ede3(), NULL, k, iv);
+	EVP_EncryptInit_ex(ctx, EVP_des_ede3(), NULL, key, iv);
 	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext));
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
@@ -72,14 +37,14 @@ void triple_des_encrypt(unsigned char* plaintext, unsigned char* ciphertext, uns
 	print_output(ciphertext);
 }
 
-void triple_des_decrypt(unsigned char* ciphertext, unsigned char* plaintext, unsigned char* k, unsigned char* iv) {
+void crypto::triple_des_decrypt() {
 	int length;
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
-	EVP_DecryptInit_ex(ctx, EVP_des_ede3(), NULL, k, iv);
+	EVP_DecryptInit_ex(ctx, EVP_des_ede3(), NULL, key, iv);
 	EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, strlen((char *)ciphertext));
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, plaintext + length, &length);
@@ -91,13 +56,13 @@ void triple_des_decrypt(unsigned char* ciphertext, unsigned char* plaintext, uns
 	printf("%s\n\n", plaintext);
 }
 
-void cast5_encrypt(unsigned char* plaintext, unsigned char* ciphertext, unsigned char* k, unsigned char* iv) {
+void crypto::cast5_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
-	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, k, iv);
+	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
 	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext));
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
@@ -108,14 +73,14 @@ void cast5_encrypt(unsigned char* plaintext, unsigned char* ciphertext, unsigned
 	print_output(ciphertext);
 }
 
-void cast5_decrypt(unsigned char* ciphertext, unsigned char* plaintext, unsigned char* k, unsigned char* iv) {
+void crypto::cast5_decrypt() {
 	int length;
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
-	EVP_DecryptInit_ex(ctx, EVP_cast5_cbc(), NULL, k, iv);
+	EVP_DecryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
 	EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, strlen((char *)ciphertext));
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, plaintext + length, &length);
@@ -127,13 +92,13 @@ void cast5_decrypt(unsigned char* ciphertext, unsigned char* plaintext, unsigned
 	printf("%s\n\n", plaintext);
 }
 
-void aes_ctr_encrypt(unsigned char* plaintext, unsigned char* ciphertext, unsigned char* k, unsigned char* iv) {
+void crypto::aes_ctr_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
-	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, k, iv);
+	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
 	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext));
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
@@ -144,14 +109,14 @@ void aes_ctr_encrypt(unsigned char* plaintext, unsigned char* ciphertext, unsign
 	print_output(ciphertext);
 }
 
-void aes_ctr_decrypt(unsigned char* ciphertext, unsigned char* plaintext, unsigned char* k, unsigned char* iv) {
+void crypto::aes_ctr_decrypt() {
 	int length;
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
-	EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, k, iv);
+	EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
 	EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, strlen((char *)ciphertext));
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, plaintext + length, &length);
@@ -164,38 +129,55 @@ void aes_ctr_decrypt(unsigned char* ciphertext, unsigned char* plaintext, unsign
 }
 
 /***************HASHES******************/
-void sha_1(unsigned char* input){
-	unsigned char output[512];
-	SHA1(input, strlen((char *)input), output);
+void crypto::sha_1(unsigned char* input){
+	SHA1(input, strlen((char *)input), hash);
 	printf("SHA1: \n");
-	print_output(output);
+	print_output(hash);
 }
 
-void sha_2(unsigned char* input){
-	unsigned char output[512];
-	SHA256(input, strlen((char *)input), output);
+void crypto::sha_2(unsigned char* input){
+	SHA256(input, strlen((char *)input), hash);
 	printf("SHA2: \n");
-	print_output(output);
+	print_output(hash);
 }
 
-void hmac_sha2(unsigned char* input, unsigned char* key){
-	unsigned char* digest;
+void crypto::hmac_sha2(unsigned char* input){
 	digest = HMAC(EVP_sha256(), key, strlen((char *)key), input, strlen((char *)input), NULL, NULL);
 	printf("HMAC_SHA2: \n");
 	print_output(digest);
 }
 
-void hmac_blake2s(unsigned char* input, unsigned char* key){
-	unsigned char* digest;
+void crypto::hmac_blake2s(unsigned char* input){
 	digest = HMAC(EVP_blake2s256(), key, strlen((char *)key), input, strlen((char *)input), NULL, NULL);
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest);
 }
 
-void print_output(unsigned char* output) {
+void crypto::print_output(unsigned char* output) {
 	for(int i = 0; i < strlen((char *)output); i++) {
 		printf("%02x", output[i]);
 	}
 	printf("\n\n");
 }
 
+/*****************GETTERS****************/
+
+unsigned char* crypto::get_plaintext(){
+	return plaintext;
+}
+
+unsigned char* crypto::get_ciphertext(){
+	return ciphertext;
+}
+
+unsigned char* crypto::get_decryptedtext(){
+	return decryptedtext;
+}
+
+unsigned char* crypto::get_hash(){
+	return hash;
+}
+
+unsigned char* crypto::get_digest() {
+	return digest;
+}
