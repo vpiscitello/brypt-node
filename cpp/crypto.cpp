@@ -45,15 +45,15 @@ void crypto::triple_des_decrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_des_ede3(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, strlen((char *)ciphertext));
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext));
 	plaintext_len += length;
-	EVP_DecryptFinal_ex(ctx, plaintext + length, &length);
+	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
 	EVP_CIPHER_CTX_free(ctx);
 
 	printf("3DES Decrypted text:\n");
-	plaintext[plaintext_len] = '\0';
-	printf("%s\n\n", plaintext);
+	decryptedtext[plaintext_len] = '\0';
+	printf("%s\n\n", decryptedtext);
 }
 
 void crypto::cast5_encrypt() {
@@ -81,15 +81,15 @@ void crypto::cast5_decrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, strlen((char *)ciphertext));
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext));
 	plaintext_len += length;
-	EVP_DecryptFinal_ex(ctx, plaintext + length, &length);
+	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
 	EVP_CIPHER_CTX_free(ctx);
 
 	printf("CAST5 Decrypted text:\n");
-	plaintext[plaintext_len] = '\0';
-	printf("%s\n\n", plaintext);
+	decryptedtext[plaintext_len] = '\0';
+	printf("%s\n\n", decryptedtext);
 }
 
 void crypto::aes_ctr_encrypt() {
@@ -117,15 +117,15 @@ void crypto::aes_ctr_decrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, plaintext, &length, ciphertext, strlen((char *)ciphertext));
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext));
 	plaintext_len += length;
-	EVP_DecryptFinal_ex(ctx, plaintext + length, &length);
+	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
 	EVP_CIPHER_CTX_free(ctx);
 
 	printf("AES CTR Decrypted text:\n");
-	plaintext[plaintext_len] = '\0';
-	printf("%s\n\n", plaintext);
+	decryptedtext[plaintext_len] = '\0';
+	printf("%s\n\n", decryptedtext);
 }
 
 /***************HASHES******************/

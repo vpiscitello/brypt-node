@@ -19,15 +19,15 @@ int main() {
 	spacer();
 	
 	c.aes_ctr_encrypt();
-//	c.aes_ctr_decrypt();
+	c.aes_ctr_decrypt();
 	spacer();
 
 	c.cast5_encrypt();
-//	c.cast5_decrypt();
+	c.cast5_decrypt();
 	spacer();
 
 	c.triple_des_encrypt();
-//	c.triple_des_decrypt();
+	c.triple_des_decrypt();
 
 	/*	aes_ctr_decrypt(ciphertext, decryptedtext, key256, iv128);
 	spacer();
