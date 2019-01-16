@@ -157,12 +157,14 @@ std::string Node::get_local_address(){
         if (!ifa->ifa_addr) {
             continue;
         }
+
         if (ifa->ifa_addr->sa_family == AF_INET) {
             tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
             char addressBuffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            if (std::string(addressBuffer).find("192") == 0) {
+            if (std::string(ifa->ifa_name).find("en0") == 0) {
                 ip = std::string(addressBuffer);
+                break;
             }
         }
     }
