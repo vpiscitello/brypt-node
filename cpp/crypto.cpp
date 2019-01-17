@@ -48,6 +48,24 @@ void crypto::set_plaintext(unsigned char *p){
 }
 
 /***************CIPHERS*****************/
+/*
+Object type example:
+Crypto crypto;
+crypto.set_plaintext((unsigned char *)"hello");
+crypto.set_key((unsigned char *)"very_secure");
+crypto.set_iv((unsigned char *)"nonce");
+crypto.triple_des_encrypt();
+printf(crypto.get_ciphertext());
+crypto.triple_des_decrypt();
+printf(crypto.get_plaintext());
+*/
+/*
+crypto::triple_des_encrypt()
+REQUIRED MEMBER VARIABLES:
+unsigned char* plaintext;
+unsigned char* key;
+unsigned char* iv;
+*/
 void crypto::triple_des_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
@@ -66,7 +84,13 @@ void crypto::triple_des_encrypt() {
 	printf("3DES Ciphertext (hex representation):\n");
 	print_output(ciphertext);
 }
-
+/*
+crypto::triple_des_decrypt()
+REQUIRED MEMBER VARIABLES:
+unsigned char* key;
+unsigned char* iv;
+unsigned char ciphertext[BUFF_SIZE];
+*/
 void crypto::triple_des_decrypt() {
 	int length;
 	int plaintext_len = 0;
@@ -87,7 +111,13 @@ void crypto::triple_des_decrypt() {
 	decryptedtext[plaintext_len] = '\0';
 	printf("%s\n\n", decryptedtext);
 }
-
+/*
+crypto::cast5_encrypt()
+REQUIRED MEMBER VARIABLES:
+unsigned char* plaintext;
+unsigned char* key;
+unsigned char* iv;
+*/
 void crypto::cast5_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
@@ -106,7 +136,13 @@ void crypto::cast5_encrypt() {
 	printf("CAST5 Ciphertext (hex representation):\n");
 	print_output(ciphertext);
 }
-
+/*
+crypto::cast5_decrypt()
+REQUIRED MEMBER VARIABLES:
+unsigned char* key;
+unsigned char* iv;
+unsigned char ciphertext[BUFF_SIZE];
+*/
 void crypto::cast5_decrypt() {
 	int length;
 	int plaintext_len = 0;
@@ -127,7 +163,13 @@ void crypto::cast5_decrypt() {
 	decryptedtext[plaintext_len] = '\0';
 	printf("%s\n\n", decryptedtext);
 }
-
+/*
+crypto::aes_ctr_encrypt()
+REQUIRED MEMBER VARIABLES:
+unsigned char* plaintext;
+unsigned char* key;
+unsigned char* iv;
+*/
 void crypto::aes_ctr_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
@@ -146,7 +188,13 @@ void crypto::aes_ctr_encrypt() {
 	printf("AES CTR Ciphertext (hex representation):\n");
 	print_output(ciphertext);
 }
-
+/*
+crypto::aes_ctr_decrypt()
+REQUIRED MEMBER VARIABLES:
+unsigned char* key;
+unsigned char* iv;
+unsigned char ciphertext[BUFF_SIZE];
+*/
 void crypto::aes_ctr_decrypt() {
 	int length;
 	int plaintext_len = 0;

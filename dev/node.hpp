@@ -42,7 +42,7 @@ class Node {
         std::string authorityAddress;                              // Networking address of the central authority for the Brypt ecosystem
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
-        std::vector<Connection *> connections;               // A vector of open connections
+        std::vector<Connection *> connections;                     // A vector of open connections
 
         // Node Type Variables
         bool isRoot;                                               // A boolean value of the node's root status
@@ -67,6 +67,7 @@ class Node {
         long long getCurrentTimestamp();                        // Get the current epoch timestamp
 
         // Communication Functions
+        void listen()                                            // Open a socket to listening for network commands
         bool contactAuthority();                                // Contact the central authority for some service
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
