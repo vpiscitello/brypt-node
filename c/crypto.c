@@ -140,7 +140,7 @@ int main() {
 	unsigned char mssg[] = "The quick brown fox jumps over the lazy dog\0";
 	/*strlen() allowed here since we know mssg is c string, but shouldn't be used with 
 	bytes of other formats (it might save temperature data msg length to allow an extra 1 of 256 options in each message byte)*/
-	mssglen = strlen(mssg); 
+	mssg_len = strlen(mssg); 
 //	unsigned char mssg[] = ['0x01', '\0'];
 //	unsigned char key[] = "1\0";
 	unsigned char key256[] = "01234567890123456789012345678901\0";
