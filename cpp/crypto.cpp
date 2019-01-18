@@ -12,12 +12,40 @@
 #include "./crypto.h"
 
 crypto::crypto() {
-	plaintext = (unsigned char *)"message";
+	plaintext = (unsigned char *)"The quick brown fox jumps over the lazy dog";
 	key = (unsigned char *)"01234567890123456789012345678901";
 	iv = (unsigned char *)"0123456789012345";
 }
 
 crypto::~crypto(){}
+
+void crypto::clear_ciphertext(){
+	int i;
+
+	for(i=0; i < strlen((char *)ciphertext); i++) {
+		ciphertext[i] = '\0';
+	}
+}
+
+void crypto::clear_decryptedtext(){
+	int i;
+
+	for(i=0; i < strlen((char *)decryptedtext); i++) {
+		decryptedtext[i] = '\0';
+	}
+}
+
+void crypto::clear_plaintext(){
+	int i;
+
+	for(i=0; i < strlen((char *)plaintext); i++) {
+		plaintext[i] = '\0';
+	}
+}
+
+void crypto::set_plaintext(unsigned char *p){
+	strncpy((char *)plaintext, (char *)p, strlen((char *)p));
+}
 
 /***************CIPHERS*****************/
 /*
@@ -42,10 +70,12 @@ void crypto::triple_des_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
 
+	clear_ciphertext();
+
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_des_ede3(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext));
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext) + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -66,10 +96,12 @@ void crypto::triple_des_decrypt() {
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
+	clear_decryptedtext();
+
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_des_ede3(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext));
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext) + 1);
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
@@ -90,10 +122,12 @@ void crypto::cast5_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
 
+	clear_ciphertext();
+	
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext));
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext) + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -114,10 +148,12 @@ void crypto::cast5_decrypt() {
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
+	clear_decryptedtext();
+	
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext));
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext) + 1);
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
@@ -138,10 +174,12 @@ void crypto::aes_ctr_encrypt() {
 	int length;
 	EVP_CIPHER_CTX *ctx;
 
+	clear_ciphertext();
+
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext));
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, strlen((char *)plaintext) + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -162,10 +200,12 @@ void crypto::aes_ctr_decrypt() {
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
+	clear_decryptedtext();
+
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext));
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, strlen((char *)ciphertext) + 1);
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;

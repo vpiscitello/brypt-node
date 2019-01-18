@@ -25,6 +25,12 @@ class crypto{
 	public:			
 		crypto();
 		~crypto();
+
+		void clear_ciphertext();
+		void clear_decryptedtext();
+		void clear_plaintext();
+		void set_plaintext(unsigned char *);
+
 		void triple_des_encrypt();
 		void triple_des_decrypt();
 		void cast5_encrypt();
