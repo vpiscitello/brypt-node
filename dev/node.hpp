@@ -67,7 +67,6 @@ class Node {
         long long getCurrentTimestamp();                        // Get the current epoch timestamp
 
         // Communication Functions
-        void listen()                                            // Open a socket to listening for network commands
         bool contactAuthority();                                // Contact the central authority for some service
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
@@ -93,6 +92,7 @@ class Node {
         std::string get_local_address();
 
         // Communication Functions
+        void listen();                                           // Open a socket to listening for network commands
         bool transmit();                                        // Transmit some message
         bool receive();                                         // Recieve some message
 
