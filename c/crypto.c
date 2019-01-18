@@ -8,6 +8,7 @@
 
 void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv);
 void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv);
+void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv);
 void sha_1(unsigned char*);
 void sha_2(unsigned char*);
 void hmac_sha2(unsigned char*, unsigned char*);
@@ -68,9 +69,28 @@ void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
-	printf("AES-CTR Plaintext:\n");
+	printf("AES-CTR-256 Plaintext:\n");
 	printf("%s\n\n", input);
-	printf("AES-CTR Ciphertext (hex representation):\n");
+	printf("AES-CTR-256 Ciphertext (hex representation):\n");
+	print_output(ciphertext);
+}
+
+void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
+	int length;
+	unsigned char ciphertext[512];
+	memset(ciphertext, 0x00, sizeof(ciphertext));
+	EVP_CIPHER_CTX *ctx;
+
+	ctx = EVP_CIPHER_CTX_new();
+
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, k, iv);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, input, strlen(input) + 1);
+	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
+	EVP_CIPHER_CTX_free(ctx);
+
+	printf("AES-CTR-128 Plaintext:\n");
+	printf("%s\n\n", input);
+	printf("AES-CTR-128 Ciphertext (hex representation):\n");
 	print_output(ciphertext);
 }
 
@@ -106,7 +126,7 @@ void hmac_blake2s(unsigned char* input, unsigned char* key){
 }
 
 void print_output(unsigned char* output) {
-	for(int i = 0; i < strlen(output); i++) {
+	for(int i = 0; i < 64; i++) {
 		printf("%02x", output[i]);
 	}
 	printf("\n\n");
@@ -117,8 +137,10 @@ int main() {
 //	unsigned char mssg[] = ['0x01', '\0'];
 //	unsigned char key[] = "1\0";
 	unsigned char key256[] = "01234567890123456789012345678901\0";
+	unsigned char key128[] = "0123456789012345\0";
 //	unsigned char key256[] = ['0x01', '\0'];
 	unsigned char iv128[] = "0123456789012345\0";
+	unsigned char iv64[] = "01234567\0";
 //	unsigned char iv128[] = ['0x02', '\0'];
 
 	sha_1(mssg);
@@ -127,6 +149,7 @@ int main() {
 	hmac_blake2s(mssg, key256);
 
 	aes_ctr(mssg, key256, iv128);
+	aes128_ctr(mssg, key128, iv128);
 	cast5(mssg, key256, iv128);
 	triple_des(mssg, key256, iv128);
 
