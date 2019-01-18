@@ -16,18 +16,19 @@ void hmac_blake2s(unsigned char*, unsigned char*);
 void print_output(unsigned char*);
 
 /***************CIPHERS*****************/
-void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv) {
+void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv, 
+int mssg_len) {
 	int length;
 	unsigned char ciphertext[512];
 
 	memset(ciphertext, 0x00, sizeof(ciphertext));
-
+	
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_des_ede3(), NULL, k, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, input, strlen(input) + 1);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -37,7 +38,8 @@ void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	print_output(ciphertext);
 }
 
-void cast5(unsigned char* input, unsigned char* k, unsigned char* iv) {
+void cast5(unsigned char* input, unsigned char* k, unsigned char* iv, 
+int mssg_len) {
 	int length;
 	unsigned char ciphertext[512];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
@@ -46,7 +48,7 @@ void cast5(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, k, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, input, strlen(input) + 1);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -56,7 +58,8 @@ void cast5(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	print_output(ciphertext);
 }
 
-void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
+void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv, 
+int mssg_len) {
 	int length;
 	unsigned char ciphertext[512];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
@@ -65,7 +68,7 @@ void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, k, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, input, strlen(input) + 1);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -75,7 +78,8 @@ void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	print_output(ciphertext);
 }
 
-void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
+void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv, 
+int mssg_len) {
 	int length;
 	unsigned char ciphertext[512];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
@@ -84,7 +88,7 @@ void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv) {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, k, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, input, strlen(input) + 1);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -134,6 +138,9 @@ void print_output(unsigned char* output) {
 
 int main() {
 	unsigned char mssg[] = "The quick brown fox jumps over the lazy dog\0";
+	/*strlen() allowed here since we know mssg is c string, but shouldn't be used with 
+	bytes of other formats (it might save temperature data msg length to allow an extra 1 of 256 options in each message byte)*/
+	mssglen = strlen(mssg); 
 //	unsigned char mssg[] = ['0x01', '\0'];
 //	unsigned char key[] = "1\0";
 	unsigned char key256[] = "01234567890123456789012345678901\0";
@@ -148,10 +155,10 @@ int main() {
 	hmac_sha2(mssg, key256);
 	hmac_blake2s(mssg, key256);
 
-	aes_ctr(mssg, key256, iv128);
-	aes128_ctr(mssg, key128, iv128);
-	cast5(mssg, key256, iv128);
-	triple_des(mssg, key256, iv128);
+	aes_ctr(mssg, key256, iv128, mssg_len);
+	aes128_ctr(mssg, key128, iv128, mssg_len);
+	cast5(mssg, key256, iv128, mssg_len);
+	triple_des(mssg, key256, iv128, mssg_len);
 
 	return 0;
 }
