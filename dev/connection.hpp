@@ -3,6 +3,8 @@
 
 #include "utility.hpp"
 
+#include "zmq.hpp"
+
 class Connection {
     protected:
         bool active;
