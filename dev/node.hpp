@@ -67,6 +67,7 @@ class Node {
         long long getCurrentTimestamp();                        // Get the current epoch timestamp
 
         // Communication Functions
+        void listen();                                           // Open a socket to listening for network commands
         bool contactAuthority();                                // Contact the central authority for some service
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
@@ -84,6 +85,9 @@ class Node {
         Node();
         ~Node();
 
+        // Setup Functions
+        void setup(Options options);
+
         // Information Functions
         // std::map<std::string, std::string> getDeviceInformation();                       // Get the compiled device information as a map
 
@@ -92,7 +96,7 @@ class Node {
         std::string get_local_address();
 
         // Communication Functions
-        void listen();                                           // Open a socket to listening for network commands
+        void setup();                                            // Setup the node
         bool transmit();                                        // Transmit some message
         bool receive();                                         // Recieve some message
 

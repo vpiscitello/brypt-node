@@ -1,18 +1,7 @@
 #include "utility.hpp"
 #include "node.hpp"
 
-enum DeviceFunctions { SERVER, CLIENT };
-
-struct ProgramOptions {
-    bool run_tests;
-    int device_type;
-    int device_function;
-    std::string port;
-    std::string peer_IP;
-    std::string peer_port;
-};
-
-struct ProgramOptions options;
+struct Options options;
 
 void connection_factory_test() {
     std::cout << "== Testing Connection Factory" << '\n';
@@ -56,12 +45,12 @@ void parse_args(int argc, char **argv) {
     // Parse node function. Server option.
     it = find (args.begin(), args.end(), "--server");
     if (it != args.end()) {
-        options.device_function = SERVER;
+        options.operation = SERVER;
     } else {
         // Parse node function. Client option.
         it = find (args.begin(), args.end(), "--client");
         if (it != args.end()) {
-            options.device_function = CLIENT;
+            options.operation = CLIENT;
         } else {
             std::cout << "== You must specify node function." << '\n';
             exit(1);
@@ -78,13 +67,13 @@ void parse_args(int argc, char **argv) {
         } else {
             std::string device_type = *it;
             if (device_type == "DIRECT") {
-                options.device_type = DIRECT_TYPE;
+                options.technology = DIRECT_TYPE;
             } else if (device_type == "BLE") {
-                options.device_type = BLE_TYPE;
+                options.technology = BLE_TYPE;
             } else if (device_type == "LORA") {
-                options.device_type = LORA_TYPE;
+                options.technology = LORA_TYPE;
             } else if (device_type == "WEBSOCKET") {
-                options.device_type = WEBSOCKET_TYPE;
+                options.technology = WEBSOCKET_TYPE;
             } else {
                 std::cout << "== Invalid devic type." << '\n';
                 exit(1);
@@ -111,7 +100,7 @@ void parse_args(int argc, char **argv) {
     }
 
     // Parse Client specific options
-    if (options.device_function == CLIENT) {
+    if (options.operation == CLIENT) {
         // Parse server peer's address
         it = find (args.begin(), args.end(), "-peer");
         if (it != args.end()) {
@@ -163,11 +152,7 @@ int main(int argc, char **argv) {
     std::string local_ip = alpha.get_local_address();
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
 
-    if (options.device_function == SERVER) {
-        alpha.listen();
-    } else {
-
-    }
+    alpha.setup( options );
 
     return 0;
 }
