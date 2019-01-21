@@ -43,6 +43,7 @@ class Node {
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
+		Connection * init_conn;
 
         // Node Type Variables
         bool isRoot;                                               // A boolean value of the node's root status

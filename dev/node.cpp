@@ -129,6 +129,8 @@ void Node::setup(Options options){
             this->isRoot = true;
             this->isBranch = true;
             this->isLeaf = false;
+
+			this->init_conn = ConnectionFactory(CONTROL_TYPE, &options);
             break;
         case CLIENT:
             this->isRoot = false;
@@ -136,7 +138,7 @@ void Node::setup(Options options){
             this->isLeaf = true;
             break;
     }
-    this->connections.push_back(ConnectionFactory(options.technology, &options));
+    //this->connections.push_back(ConnectionFactory(options.technology, &options));
 }
 
 
