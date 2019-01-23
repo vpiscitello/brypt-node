@@ -97,94 +97,94 @@ class Control : public Connection {
         std::string peer_IP;
         std::string peer_port;
 
-		//std::vector<pthread_t *> threads;
+	//std::vector<pthread_t *> threads;
 
         zmq::context_t *context;
         zmq::socket_t *socket;
-		zmq::pollitem_t *item;
+	zmq::pollitem_t *item;
 
-		static void * connection_handler(void * args) {
-			std::cout << "inside connection handler\n";
-			int port_int = (int)(uintptr_t) args;
+	static void * connection_handler(void * args) {
+	    std::cout << "inside connection handler\n";
+	    int port_int = (int)(uintptr_t) args;
+	    char * outstr = new char[200];
+	    sprintf(outstr, "%d", port_int);
+	    std::string port = outstr;
+
+	    zmq::context_t *context2;
+	    zmq::socket_t *socket2;
+
+	    context2 = new zmq::context_t(1);
+	    socket2 = new zmq::socket_t(*context2, ZMQ_REP);
+
+	    std::cout << "Serving..." << "\n";
+	    socket2->bind("tcp://*:" + port);
+	    std::cout << "On port: " << port << "\n";
+	    zmq::message_t request;
+	    socket2->recv( &request );
+	    std::string req = std::string(static_cast<char *>(request.data()), request.size());
+	    std::cout << "RECEIEVED: " <<  req << "\n";
+
+	    return NULL;
+	}
+
+	void serve(){
+	    do {
+		if (zmq_poll(this->item, 1, 100) >= 0) {
+		    if (this->item->revents == 0) {
+			continue;
+		    }
+		    std::cout << "ITEM AVAILABLE: " << this->item->revents << "\n";
+		    std::cout << "Receiving..." << '\n';
+		    zmq::message_t request;
+		    this->socket->recv( &request );
+		    std::string req = std::string(static_cast<char *>(request.data()), request.size());
+		    std::cout << req << "\n";
+		    if (req == "CONNECT") {
+			std::cout << "IT IS CONNECT\n";
+			//get a new port and set it up
+			int port = 3010;
 			char * outstr = new char[200];
-			sprintf(outstr, "%d", port_int);
-			std::string port = outstr;
+			sprintf(outstr, "%d", port);
+			std::string message = outstr;
+			std::cout << "Message is " << message << "\n";
+			zmq::message_t reply(message.size());
+			memcpy(reply.data(), message.c_str(), message.size());
+			//create a new thread to listen
+			pthread_t new_thread;
+			if(pthread_create(&new_thread, NULL, connection_handler, (void *)(uintptr_t)port)) {
+			    fprintf(stderr, "error creating connection thread\n");
+			    return;
+			}
+			std::cout << "Sending: " << message << "\n";
+			this->socket->send(reply);
 
-			zmq::context_t *context2;
-			zmq::socket_t *socket2;
-
-            context2 = new zmq::context_t(1);
-			socket2 = new zmq::socket_t(*context2, ZMQ_REP);
-
-			std::cout << "Serving..." << "\n";
-			socket2->bind("tcp://*:" + port);
-			std::cout << "On port: " << port << "\n";
-			zmq::message_t request;
-			socket2->recv( &request );
-			std::string req = std::string(static_cast<char *>(request.data()), request.size());
-			std::cout << "RECEIEVED: " <<  req << "\n";
-
-			return NULL;
+			if (pthread_join(new_thread, NULL)) {
+			    fprintf(stderr, "error joining thread\n");
+			    return;
+			}
+		    }
+		    sleep( 2 );
+		} else {
+		    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
 		}
+	    } while ( true );
+	}
 
-        void serve(){
-            do {
-				if (zmq_poll(this->item, 1, 100) >= 0) {
-					if (this->item->revents == 0) {
-						continue;
-					}
-					std::cout << "ITEM AVAILABLE: " << this->item->revents << "\n";
-					std::cout << "Receiving..." << '\n';
-					zmq::message_t request;
-					this->socket->recv( &request );
-					std::string req = std::string(static_cast<char *>(request.data()), request.size());
-					std::cout << req << "\n";
-					if (req == "CONNECT") {
-						std::cout << "IT IS CONNECT\n";
-						//get a new port and set it up
-						int port = 3010;
-						char * outstr = new char[200];
-						sprintf(outstr, "%d", port);
-						std::string message = outstr;
-						std::cout << "Message is " << message << "\n";
-						zmq::message_t reply(message.size());
-						memcpy(reply.data(), message.c_str(), message.size());
-						//create a new thread to listen
-						pthread_t new_thread;
-						if(pthread_create(&new_thread, NULL, connection_handler, (void *)(uintptr_t)port)) {
-							fprintf(stderr, "error creating connection thread\n");
-							return;
-						}
-						std::cout << "Sending: " << message << "\n";
-						this->socket->send(reply);
-						
-						if (pthread_join(new_thread, NULL)) {
-							fprintf(stderr, "error joining thread\n");
-							return;
-						}
-					}
-					sleep( 2 );
-				} else {
-					std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
-				}
-        	} while ( true );
-        }
+	void send(){
+	    do {
+		std::cout << "Sending..." << '\n';
+		std::string message = "Request.";
+		zmq::message_t request( message.size() );
+		memcpy( request.data(), message.c_str(), message.size() );
+		this->socket->send( request );
 
-        void send(){
-            do {
-                std::cout << "Sending..." << '\n';
-                std::string message = "Request.";
-    			zmq::message_t request( message.size() );
-    			memcpy( request.data(), message.c_str(), message.size() );
-    			this->socket->send( request );
+		zmq::message_t reply;
+		this->socket->recv( &reply );
+		std::cout << std::string( static_cast< char * >( reply.data() ), reply.size() ) << "\n\n";
 
-    			zmq::message_t reply;
-    			this->socket->recv( &reply );
-                std::cout << std::string( static_cast< char * >( reply.data() ), reply.size() ) << "\n\n";
-
-    			sleep( 5 );
-        	} while ( true );
-        }
+		sleep( 5 );
+	    } while ( true );
+	}
 
     public:
         Control() {}
@@ -199,7 +199,7 @@ class Control : public Connection {
                 case SERVER:
                     this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
 					*this->item = zmq::pollitem_t{*this->socket, 0, ZMQ_POLLIN, 0};
-                    std::cout << "Serving..." << "\n\n";
+                    std::cout << "Control SERVER Serving..." << "\n\n";
                     this->instantiate_connection = true;
                     this->socket->bind("tcp://*:" + options->port);
 					std::cout << "On port: " << options-> port << "\n";
