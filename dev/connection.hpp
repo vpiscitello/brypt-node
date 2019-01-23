@@ -28,36 +28,36 @@ class Direct : public Connection {
         zmq::context_t *context;
         zmq::socket_t *socket;
 
-        void serve(){
+        void serve() {
             do {
                 std::cout << "Receiving..." << '\n';
-        		zmq::message_t request;
-        		this->socket->recv( &request );
+		zmq::message_t request;
+		this->socket->recv( &request );
                 std::cout << std::string( static_cast< char * >( request.data() ), request.size() ) << "\n\n";
 
                 sleep( 2 );
 
-        		std::string message = "Response.";
-        		zmq::message_t reply( message.size() );
-        		memcpy( reply.data(), message.c_str(), message.size() );
-        		this->socket->send( reply );
-        	} while ( true );
+		std::string message = "Response.";
+		zmq::message_t reply( message.size() );
+		memcpy( reply.data(), message.c_str(), message.size() );
+		this->socket->send( reply );
+	    } while ( true );
         }
 
-        void send(){
+        void send() {
             do {
                 std::cout << "Sending..." << '\n';
                 std::string message = "Request.";
-    			zmq::message_t request( message.size() );
-    			memcpy( request.data(), message.c_str(), message.size() );
-    			this->socket->send( request );
+		zmq::message_t request( message.size() );
+		memcpy( request.data(), message.c_str(), message.size() );
+		this->socket->send( request );
 
-    			zmq::message_t reply;
-    			this->socket->recv( &reply );
-                std::cout << std::string( static_cast< char * >( reply.data() ), reply.size() ) << "\n\n";
+		zmq::message_t reply;
+		this->socket->recv( &reply );
+		std::cout << std::string( static_cast< char * >( reply.data() ), reply.size() ) << "\n\n";
 
-    			sleep( 5 );
-        	} while ( true );
+		sleep( 5 );
+	    } while ( true );
         }
 
     public:
