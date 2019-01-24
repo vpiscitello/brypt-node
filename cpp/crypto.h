@@ -14,14 +14,15 @@
 class crypto{
 	
 	private:
-		unsigned char* plaintext;
+		unsigned char plaintext[BUFF_SIZE];
 		unsigned char* key;
 		unsigned char* iv;
 		unsigned char* digest;
 		unsigned char ciphertext[BUFF_SIZE];
 		unsigned char decryptedtext[BUFF_SIZE];
 		unsigned char hash[BUFF_SIZE];
-
+		int ctxt_len;
+		int ptxt_len;
 	public:			
 		crypto();
 		~crypto();
