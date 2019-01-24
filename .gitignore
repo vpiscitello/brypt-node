@@ -1,0 +1,8 @@
+*.o
+*.a
+*.so
+*.exe
+*.test
+*.pem
+
+device

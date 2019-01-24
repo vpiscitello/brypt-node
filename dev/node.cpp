@@ -118,6 +118,27 @@ bool Node::transform(){
     return success;
 }
 
+// Setup Functions
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::setup(Options options){
+    switch (options.operation) {
+        case SERVER:
+            this->isRoot = true;
+            this->isBranch = true;
+            this->isLeaf = false;
+            break;
+        case CLIENT:
+            this->isRoot = false;
+            this->isBranch = false;
+            this->isLeaf = true;
+            break;
+    }
+    this->connections.push_back(ConnectionFactory(options.technology, &options));
+}
+
 
 // Information Functions
 /* **************************************************************************
@@ -176,6 +197,14 @@ std::string Node::get_local_address(){
 
 
 // Communication Functions
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::listen(){
+
+}
+
 /* **************************************************************************
 ** Function:
 ** Description:
