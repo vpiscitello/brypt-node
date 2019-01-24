@@ -6,9 +6,14 @@
 #include <openssl/hmac.h>	
 #include <openssl/des.h>
 
-void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv);
-void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv);
-void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv);
+#define MAX_CTXT 1024
+
+void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv,
+int mssg_len);
+void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv,
+int mssg_len);
+void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv,
+int mssg_len);
 void sha_1(unsigned char*);
 void sha_2(unsigned char*);
 void hmac_sha2(unsigned char*, unsigned char*);
@@ -19,7 +24,7 @@ void print_output(unsigned char*);
 void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
-	unsigned char ciphertext[512];
+	unsigned char ciphertext[MAX_CTXT];
 
 	memset(ciphertext, 0x00, sizeof(ciphertext));
 	
@@ -41,7 +46,7 @@ int mssg_len) {
 void cast5(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
-	unsigned char ciphertext[512];
+	unsigned char ciphertext[MAX_CTXT];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
 	EVP_CIPHER_CTX *ctx;
 
@@ -61,14 +66,16 @@ int mssg_len) {
 void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
-	unsigned char ciphertext[512];
+	unsigned char ciphertext[MAX_CTXT];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, k, iv);
+	printf("mssg_len %d\n",mssg_len);
 	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
+	printf("flushing\n");
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
@@ -81,7 +88,7 @@ int mssg_len) {
 void aes128_ctr(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
-	unsigned char ciphertext[512];
+	unsigned char ciphertext[MAX_CTXT];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
 	EVP_CIPHER_CTX *ctx;
 
@@ -121,26 +128,26 @@ void hmac_sha2(unsigned char* input, unsigned char* key){
 	printf("HMAC_SHA2: \n");
 	print_output(digest);
 }
-
 void hmac_blake2s(unsigned char* input, unsigned char* key){
 	unsigned char* digest;
+	//replacing blake2s256() w/blake2s
 	digest = HMAC(EVP_blake2s256(), key, strlen(key), input, strlen(input), NULL, NULL);
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest);
 }
-
 void print_output(unsigned char* output) {
-	for(int i = 0; i < 64; i++) {
+	for(int i = 0; i < MAX_CTXT; i++) {
 		printf("%02x", output[i]);
 	}
 	printf("\n\n");
 }
 
 int main() {
-	unsigned char mssg[] = "The quick brown fox jumps over the lazy dog\0";
+	//unsigned char mssg[] = "The quick brown fox jumps over the lazy dog\0";
+	unsigned char mssg[] = "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.\0";
 	/*strlen() allowed here since we know mssg is c string, but shouldn't be used with 
 	bytes of other formats (it might save temperature data msg length to allow an extra 1 of 256 options in each message byte)*/
-	mssg_len = strlen(mssg); 
+	int mssg_len = strlen(mssg); 
 //	unsigned char mssg[] = ['0x01', '\0'];
 //	unsigned char key[] = "1\0";
 	unsigned char key256[] = "01234567890123456789012345678901\0";
@@ -153,7 +160,7 @@ int main() {
 	sha_1(mssg);
 	sha_2(mssg);
 	hmac_sha2(mssg, key256);
-	hmac_blake2s(mssg, key256);
+	//hmac_blake2s(mssg, key256);
 
 	aes_ctr(mssg, key256, iv128, mssg_len);
 	aes128_ctr(mssg, key128, iv128, mssg_len);
