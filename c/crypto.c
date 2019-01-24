@@ -25,11 +25,8 @@ void print_output(unsigned char*, int);
 void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
-<<<<<<< HEAD
 	unsigned char padded_ptxt[MAX_CTXT];
-=======
 	int output_len = 0;
->>>>>>> d04826b39162ba55a45d9b4b3ab34e17fc114844
 	unsigned char ciphertext[MAX_CTXT];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
 	memset(padded_ptxt, 0x00, sizeof(padded_ptxt));	
@@ -77,27 +74,20 @@ int mssg_len) {
 void aes256_ctr(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
-<<<<<<< HEAD
 	unsigned char padded_ptxt[MAX_CTXT];
-=======
 	int output_len = 0;
->>>>>>> d04826b39162ba55a45d9b4b3ab34e17fc114844
 	unsigned char ciphertext[MAX_CTXT];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
 	memset(padded_ptxt, 0x00, sizeof(padded_ptxt));	
 	strncpy(padded_ptxt, input, strlen(input));
 	EVP_CIPHER_CTX *ctx;
-	mssg_len = 1024;
+	mssg_len = 16*(mssg_len/16) + 16;
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, k, iv);
 	printf("mssg_len %d\n",mssg_len);
-<<<<<<< HEAD
-	EVP_EncryptUpdate(ctx, ciphertext, &length, padded_ptxt, mssg_len + 1);
-=======
-	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, padded_ptxt, mssg_len);
 	output_len += length;
->>>>>>> d04826b39162ba55a45d9b4b3ab34e17fc114844
 	printf("flushing\n");
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	output_len += length;
@@ -105,7 +95,7 @@ int mssg_len) {
 
 	printf("AES-CTR-256 Plaintext:\n");
 	printf("%s\n\n", padded_ptxt);
-	printf("AES-CTR-256 Ciphertext (hex representation):\n");
+	printf("Output len: %d AES-CTR-256 Ciphertext (hex representation):\n", output_len);
 	print_output(ciphertext, output_len);
 }
 
@@ -163,14 +153,9 @@ void hmac_blake2s(unsigned char* input, unsigned char* key){
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest, HASH_SIZE);
 }
-<<<<<<< HEAD
 */
-void print_output(unsigned char* output) {
-	for(int i = 0; i < MAX_CTXT; i++) {
-=======
 void print_output(unsigned char* output, int len) {
 	for(int i = 0; i < len; i++) {
->>>>>>> d04826b39162ba55a45d9b4b3ab34e17fc114844
 		printf("%02x", output[i]);
 	}
 	printf("\n\n");
