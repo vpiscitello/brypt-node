@@ -24,10 +24,11 @@ void print_output(unsigned char*);
 void triple_des(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
+	unsigned char padded_ptxt[MAX_CTXT];
 	unsigned char ciphertext[MAX_CTXT];
-
 	memset(ciphertext, 0x00, sizeof(ciphertext));
-	
+	memset(padded_ptxt, 0x00, sizeof(padded_ptxt));	
+	strncpy(padded_ptxt, input, strlen(input));
 	EVP_CIPHER_CTX *ctx;
 
 	ctx = EVP_CIPHER_CTX_new();
@@ -38,7 +39,7 @@ int mssg_len) {
 	EVP_CIPHER_CTX_free(ctx);
 
 	printf("3DES Plaintext:\n");
-	printf("%s\n\n", input);
+	printf("%s\n\n", padded_ptxt);
 	printf("3DES Ciphertext (hex representation):\n");
 	print_output(ciphertext);
 }
@@ -66,21 +67,24 @@ int mssg_len) {
 void aes_ctr(unsigned char* input, unsigned char* k, unsigned char* iv, 
 int mssg_len) {
 	int length;
+	unsigned char padded_ptxt[MAX_CTXT];
 	unsigned char ciphertext[MAX_CTXT];
 	memset(ciphertext, 0x00, sizeof(ciphertext));
+	memset(padded_ptxt, 0x00, sizeof(padded_ptxt));	
+	strncpy(padded_ptxt, input, strlen(input));
 	EVP_CIPHER_CTX *ctx;
-
+	mssg_len = 1024;
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, k, iv);
 	printf("mssg_len %d\n",mssg_len);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, input, mssg_len + 1);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, padded_ptxt, mssg_len + 1);
 	printf("flushing\n");
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	EVP_CIPHER_CTX_free(ctx);
 
 	printf("AES-CTR-256 Plaintext:\n");
-	printf("%s\n\n", input);
+	printf("%s\n\n", padded_ptxt);
 	printf("AES-CTR-256 Ciphertext (hex representation):\n");
 	print_output(ciphertext);
 }
@@ -121,13 +125,14 @@ void sha_2(unsigned char* input){
 	printf("SHA2: \n");
 	print_output(output);
 }
-
+/*
 void hmac_sha2(unsigned char* input, unsigned char* key){
 	unsigned char* digest;
 	digest = HMAC(EVP_sha256(), key, strlen(key), input, strlen(input), NULL, NULL);
 	printf("HMAC_SHA2: \n");
 	print_output(digest);
 }
+
 void hmac_blake2s(unsigned char* input, unsigned char* key){
 	unsigned char* digest;
 	//replacing blake2s256() w/blake2s
@@ -135,6 +140,7 @@ void hmac_blake2s(unsigned char* input, unsigned char* key){
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest);
 }
+*/
 void print_output(unsigned char* output) {
 	for(int i = 0; i < MAX_CTXT; i++) {
 		printf("%02x", output[i]);
@@ -144,7 +150,8 @@ void print_output(unsigned char* output) {
 
 int main() {
 	//unsigned char mssg[] = "The quick brown fox jumps over the lazy dog\0";
-	unsigned char mssg[] = "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.\0";
+	//unsigned char mssg[] = "At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus. Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores alias consequatur aut perferendis doloribus asperiores repellat.\0";
+	unsigned char mssg[] = "hi world\0";
 	/*strlen() allowed here since we know mssg is c string, but shouldn't be used with 
 	bytes of other formats (it might save temperature data msg length to allow an extra 1 of 256 options in each message byte)*/
 	int mssg_len = strlen(mssg); 
@@ -159,7 +166,7 @@ int main() {
 
 	sha_1(mssg);
 	sha_2(mssg);
-	hmac_sha2(mssg, key256);
+	//hmac_sha2(mssg, key256);
 	//hmac_blake2s(mssg, key256);
 
 	aes_ctr(mssg, key256, iv128, mssg_len);
@@ -169,4 +176,3 @@ int main() {
 
 	return 0;
 }
-
