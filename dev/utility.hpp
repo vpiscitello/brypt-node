@@ -8,11 +8,11 @@
 // const int BLE = 1;
 // const int LORA = 2;
 // const int WEBSOCKET = 3;
-// const int CONTROL = 4;?
 
 enum DeviceOperation { SERVER, CLIENT };
 
-enum TechnologyType { DIRECT_TYPE, CONTROL_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE };
+//may not need websocket type, shouldn't have control_type
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, CONTROL_TYPE };
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";

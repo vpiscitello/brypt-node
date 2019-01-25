@@ -12,7 +12,7 @@ void connection_factory_test() {
     connections.push_back( ConnectionFactory(DIRECT_TYPE) );
     connections.push_back( ConnectionFactory(WEBSOCKET_TYPE) );
 
-    for (int idx = 0; idx < connections.size(); idx++) {
+    for (int idx = 0; idx < (int)connections.size(); idx++) {
         connections.at(idx)->whatami();
         connections.at(idx)->unspecial();
         std::cout << '\n';
@@ -62,12 +62,14 @@ void parse_args(int argc, char **argv) {
     if (it != args.end()) {
         it++;
         if (*it == "" || it->find("-") != std::string::npos) {
-            std::cout << "== You must specify a devic type." << '\n';
+            std::cout << "== You must specify a device type." << '\n';
             exit(1);
         } else {
             std::string device_type = *it;
             if (device_type == "DIRECT") {
                 options.technology = DIRECT_TYPE;
+	    } else if (device_type == "CONTROL") {
+                options.technology = CONTROL_TYPE;
             } else if (device_type == "BLE") {
                 options.technology = BLE_TYPE;
             } else if (device_type == "LORA") {
@@ -75,7 +77,7 @@ void parse_args(int argc, char **argv) {
             } else if (device_type == "WEBSOCKET") {
                 options.technology = WEBSOCKET_TYPE;
             } else {
-                std::cout << "== Invalid devic type." << '\n';
+                std::cout << "== Invalid device type." << '\n';
                 exit(1);
             }
         }
@@ -153,6 +155,7 @@ int main(int argc, char **argv) {
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
 
     alpha.setup( options );
+    //alpha.listen();
 
     return 0;
 }

@@ -70,6 +70,33 @@ bool Node::notifyAddressChange(){
 ** Function:
 ** Description:
 ** *************************************************************************/
+int Node::determineBestConnectionType(){
+    int best_comm = 5;
+    for (int i = 0; i < (int)this->communicationTechnologies.size(); i++) {
+	if (communicationTechnologies[i] == "WIFI") {
+	    return 0;
+	} else if (communicationTechnologies[i] == "BLE") {
+	    if (best_comm > 1) {
+		best_comm = 1;
+	    }
+	} else if (communicationTechnologies[i] == "WEBSOCKET") {
+	    if (best_comm > 2) {
+		best_comm = 2;
+	    }
+	} else {
+	    if (best_comm > 3) {
+		best_comm = 3;
+	    }
+	}
+    }
+    return best_comm;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+//receive a connection and determine what comm tech it is using.
 int Node::determineConnectionMethod(){
     int method = 0;
 
@@ -129,8 +156,6 @@ void Node::setup(Options options){
             this->isRoot = true;
             this->isBranch = true;
             this->isLeaf = false;
-
-			this->init_conn = ConnectionFactory(CONTROL_TYPE, &options);
             break;
         case CLIENT:
             this->isRoot = false;
@@ -139,8 +164,16 @@ void Node::setup(Options options){
             break;
     }
     //this->connections.push_back(ConnectionFactory(options.technology, &options));
+    Options control_setup;
+    control_setup.technology = CONTROL_TYPE;
+    control_setup.port = "3001";
+    control_setup.operation = SERVER;
+    this->control_conn = (ConnectionFactory(CONTROL_TYPE, &control_setup));
+    //instead of a separate control_type, make a listen class that contains a connection type (defaults to wifi) but can be interrupted to swap to a different class.
+    this->listen();
 }
 
+// Setup will use the functionality known in the device (from ryan's daemon) what connection to create
 
 // Information Functions
 /* **************************************************************************
@@ -204,25 +237,38 @@ std::string Node::get_local_address(){
 ** Description:
 ** *************************************************************************/
 void Node::listen(){
-
+    // this starts the initial control socket, when it receives input, it sends an interrupt upward to this node and requests startup, then it restarts when that is complete.
+    do {
+	this->control_conn->serve(1000);
+    } while (true);
 }
 
+//transmit should loop over all neighbor nodes send a request to connect, receive a status, send a query, receive a query, send an EOM
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::transmit(){
+bool Node::transmit(std::string message){
     bool success = false;
+    //this should send over all neighbor nodes
+    this->control_conn->send(message);
 
     return success;
 }
 
+//receive may not be needed
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::receive(){
-    bool success = false;
+std::string Node::receive(int message_size){
+    std::string message = "ERROR";
+    //use nonblocking check to call this for all connections and see if there is information, if so receive a whole block and return it
+    this->control_conn->serve(message_size);
 
-    return success;
+    return message;
 }
+
+//if we have vector of connections, we essentially have a vector of threads since each connection is on a thread.
+
+//poor nodes will only have one receive from a parent coordinator node

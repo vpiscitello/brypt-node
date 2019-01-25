@@ -5,7 +5,7 @@
 
 int main ()
 {
-	std::string port = "3005";
+	std::string port = "3001";
 	//  Do 10 requests, waiting each time for a response
 	for (int request_nbr = 0; request_nbr != 10; request_nbr++) {
 		// Prepare our context and socket

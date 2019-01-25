@@ -35,7 +35,7 @@ class Node {
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
         unsigned long coordinator;                                 // Coordinator identification number of the node's coordinator
-        std::vector<std::string> nieghborTable;                    // Neighbor table
+        std::vector<std::string> neighborTable;                    // Neighbor table
         unsigned int neighborCount;                                // Number of neighbors to the node
 
         // Network Variables
@@ -43,7 +43,7 @@ class Node {
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
-		Connection * init_conn;
+	Connection * control_conn;
 
         // Node Type Variables
         bool isRoot;                                               // A boolean value of the node's root status
@@ -72,6 +72,7 @@ class Node {
         bool contactAuthority();                                // Contact the central authority for some service
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
+        int determineBestConnectionType();                       // Determine the best connection type the node has
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
@@ -98,8 +99,8 @@ class Node {
 
         // Communication Functions
         void setup();                                            // Setup the node
-        bool transmit();                                        // Transmit some message
-        bool receive();                                         // Recieve some message
+        bool transmit(std::string);                                        // Transmit some message
+	std::string receive(int message_size);                                         // Recieve some message
 
 };
 
