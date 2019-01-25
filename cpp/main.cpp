@@ -15,7 +15,7 @@ int main() {
 	c.hmac_sha2(c.get_plaintext());	
 	spacer();
 
-	c.hmac_blake2s(c.get_plaintext());	
+	//c.hmac_blake2s(c.get_plaintext());	
 	spacer();
 	
 	c.aes_ctr_encrypt();

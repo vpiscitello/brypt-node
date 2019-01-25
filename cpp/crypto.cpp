@@ -14,7 +14,7 @@
 crypto::crypto() {
 	memset(plaintext, 0x00, BUFF_SIZE);
 	set_plaintext((unsigned char *)"The quick brown fox jumps over the lazy dog");
-	key = (unsigned char *)"01234567890123456789012345678901";
+	set_our_key((unsigned char *)"01234567890123456789012345678901",32);
 	iv = (unsigned char *)"0123456789012345";
 }
 
@@ -50,7 +50,13 @@ void crypto::set_plaintext(unsigned char *p){
 	ptxt_len = strlen((const char *)plaintext);
 	ptxt_len = 16*(ptxt_len/16)+16; //cast to 16-byte blocks
 }
-
+void crypto::set_our_key(unsigned char *k, int size){
+	if(size%8!=0 || size>OUR_KEY_SIZE){
+		printf("WEEWOOWEEWOO THAT KEY SEEMS SKETCHY!\n");
+	}
+	memset(key, 0x00, OUR_KEY_SIZE);
+	strncpy((char*) key, (char *)k, size);
+}
 /***************CIPHERS*****************/
 /*
 Object type example:
@@ -235,7 +241,11 @@ void crypto::sha_1(unsigned char* input){
 }
 
 void crypto::sha_2(unsigned char* input){
+	int i;
 	SHA256(input, strlen((char *)input), hash);
+	for(i = 0; i<512; i++){
+		printf("%d", input[i]);
+	}
 	printf("SHA2: \n");
 	print_output(hash);
 }

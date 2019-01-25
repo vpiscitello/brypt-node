@@ -10,17 +10,18 @@
 #include <openssl/des.h>
 
 #define BUFF_SIZE 512
-
+#define HASH_SIZE 32
+#define OUR_KEY_SIZE 32
 class crypto{
 	
 	private:
 		unsigned char plaintext[BUFF_SIZE];
-		unsigned char* key;
+		unsigned char key[OUR_KEY_SIZE];
 		unsigned char* iv;
 		unsigned char* digest;
 		unsigned char ciphertext[BUFF_SIZE];
 		unsigned char decryptedtext[BUFF_SIZE];
-		unsigned char hash[BUFF_SIZE];
+		unsigned char hash[HASH_SIZE];
 		int ctxt_len;
 		int ptxt_len;
 	public:			
@@ -31,6 +32,7 @@ class crypto{
 		void clear_decryptedtext();
 		void clear_plaintext();
 		void set_plaintext(unsigned char *);
+		void set_our_key(unsigned char*, int);
 
 		void triple_des_encrypt();
 		void triple_des_decrypt();
