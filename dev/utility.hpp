@@ -12,7 +12,7 @@
 enum DeviceOperation { SERVER, CLIENT };
 
 //may not need websocket type, shouldn't have control_type
-enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, CONTROL_TYPE };
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, NONE };
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";

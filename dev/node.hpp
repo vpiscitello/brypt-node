@@ -18,6 +18,7 @@
 
 #include "utility.hpp"
 #include "connection.hpp"
+#include "control.hpp"
 
 class Node {
 
@@ -26,7 +27,7 @@ class Node {
         // Identification Variables
         unsigned long id;                                          // Network identification number of the node
         unsigned long serial;                                      // Hardset identification number of the device
-        std::vector<std::string> communicationTechnologies;        // Communication technologies of the node
+        std::vector<TechnologyType> communicationTechnologies;        // Communication technologies of the node
 
         // Adressing Variables
         std::string ip;                                            // IP address of the node
@@ -43,7 +44,7 @@ class Node {
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
-	Connection * control_conn;
+	Control * control;
 
         // Node Type Variables
         bool isRoot;                                               // A boolean value of the node's root status
@@ -68,11 +69,10 @@ class Node {
         long long getCurrentTimestamp();                        // Get the current epoch timestamp
 
         // Communication Functions
-        void listen();                                           // Open a socket to listening for network commands
         bool contactAuthority();                                // Contact the central authority for some service
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
-        int determineBestConnectionType();                       // Determine the best connection type the node has
+        TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
@@ -94,6 +94,7 @@ class Node {
         // std::map<std::string, std::string> getDeviceInformation();                       // Get the compiled device information as a map
 
         // Connection Functions
+        void listen();                                           // Open a socket to listening for network commands
         void connect();
         std::string get_local_address();
 

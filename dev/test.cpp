@@ -68,8 +68,6 @@ void parse_args(int argc, char **argv) {
             std::string device_type = *it;
             if (device_type == "DIRECT") {
                 options.technology = DIRECT_TYPE;
-	    } else if (device_type == "CONTROL") {
-                options.technology = CONTROL_TYPE;
             } else if (device_type == "BLE") {
                 options.technology = BLE_TYPE;
             } else if (device_type == "LORA") {
@@ -155,7 +153,7 @@ int main(int argc, char **argv) {
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
 
     alpha.setup( options );
-    //alpha.listen();
+    alpha.listen();
 
     return 0;
 }
