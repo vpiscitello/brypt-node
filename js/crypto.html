@@ -24,18 +24,12 @@ function sha2() {
 				window.crypto.subtle.digest({
 								name: "SHA-256",
 				},
-								new Uint8Array(arr) //The data you want to hash as an ArrayBuffer
+				encode() //The data you want to hash as an ArrayBuffer
 				).then(function(hash){
-								console.log(new Uint8Array(hash));
+								console.log(buf2hex(new Uint8Array(hash)));
 				}).catch(function(err){
 								console.error(err);
 				});
-}
-
-function encode() {
-				var mssg = "The quick brown fox jumps over the lazy dog";
-				let enc = new TextEncoder();
-				return enc.encode(mssg);
 }
 
 function encode() {
@@ -50,13 +44,21 @@ function aes128Ctr(){
 												name: "AES-CTR",
 												length: 128
 								},
-						//		extractable: true,
 								true,
 								["encrypt", "decrypt"]
 				);
 				k_promise.then(function(key) {
 								key_object = key;
 								console.log("AES-CTR-128");
+								const result = window.crypto.subtle.exportKey("pkcs8", key);
+								result.then(function(stuff) {
+									console.log(stuff);
+								});
+								result.catch(function(err){
+									console.log(err);
+								});
+
+
 								aesEncrypt();
 				});
 				k_promise.catch(function(err) {
@@ -71,7 +73,6 @@ function aes256Ctr(){
 												name: "AES-CTR",
 												length: 256
 								},
-						//		extractable: true,
 								true,
 								["encrypt", "decrypt"]
 				);
@@ -113,7 +114,7 @@ function aesEncrypt() {
 				);
 }
 
-window.onload = main;
+window.onload = sha2;
 </script>
 
 				<title>Crypto!</title>
