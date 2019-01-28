@@ -20,6 +20,10 @@ const std::string CA_SUBDOMAIN = "bridge";
 const std::string CA_PORT = "8080";
 const std::string CA_PROTOCOL = "https://";
 
+const int message_size = 512;
+
+const char eot_char = 4;
+
 struct Options {
     bool run_tests;
     TechnologyType technology;

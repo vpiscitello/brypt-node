@@ -21,9 +21,27 @@ class Control {
 	
 	};
 
-	void listen() {
-	    this->conn->serve(0);
+	//possibly create an optional parameter for serve so that this can override and get all output
+	std::string listen() {
+	    std::string req = this->conn->serve();
+	    if (req == "HELLO") {
+		std::cout << "Was sent HELLO\n";
+		this->conn->send("HELLO");
+		req = this->conn->serve();
+	    }
+
+	    if (req.compare(0, 7, "CONNECT") == 0) {
+		std::cout << "Was sent CONNECT\n";
+		std::string params = req.substr(8, req.length());
+		std::cout << "The remaining string is: " << params << "\n";
+		return "WIFI";
+	    }
+	    return "";
 	};
+
+	void send(std::string message) {
+	    this->conn->send(message);
+	}
 };
 
 #endif

@@ -165,7 +165,8 @@ void Node::setup(Options options){
             break;
     }
     //this->connections.push_back(ConnectionFactory(options.technology, &options));
-    //instead of a separate control_type, make a listen class that contains a connection type (defaults to wifi) but can be interrupted to swap to a different class.
+
+    // Should this socket be running on clients?
     TechnologyType t = determineBestConnectionType();
     t = DIRECT_TYPE; //TEMPORARY
     std::cout << "Technology type is: " << t << "\n";
@@ -241,7 +242,24 @@ std::string Node::get_local_address(){
 ** *************************************************************************/
 void Node::listen(){
     // this starts the initial control socket, when it receives input, it sends an interrupt upward to this node and requests startup, then it restarts when that is complete.
-    this->control->listen();
+    do {
+	std::string req_type = this->control->listen();
+	if (req_type == "WIFI") {
+	    // Create a connection
+	    std::string wifi_port = "3010";
+	    // Push it back on our connections
+	    Options new_wifi_device;
+	    new_wifi_device.technology = DIRECT_TYPE;
+	    new_wifi_device.operation = CLIENT;
+	    new_wifi_device.port = "3001";
+	    new_wifi_device.peer_IP = "localhost";
+	    new_wifi_device.peer_port = wifi_port;
+	    //this->connections.push_back(ConnectionFactory(DIRECT_TYPE, &new_wifi_device));
+
+	    this->control->send(wifi_port);
+	    this->control->listen();
+	}
+    } while (true);
 }
 
 //transmit should loop over all neighbor nodes send a request to connect, receive a status, send a query, receive a query, send an EOM
@@ -253,6 +271,9 @@ bool Node::transmit(std::string message){
     bool success = false;
     //this should send over all neighbor nodes
     //this->control_conn->send(message);
+    //for (int i = 0; i < (int)this->connections.size(); i++) {
+    //    
+    //}
 
     return success;
 }

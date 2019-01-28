@@ -14,7 +14,7 @@ class Connection {
     public:
         // Method method;
         virtual void whatami() = 0;
-        virtual void serve(int) = 0;
+        virtual std::string serve() = 0;
         virtual void send(std::string) = 0;
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
@@ -26,6 +26,9 @@ class Direct : public Connection {
         std::string port;
         std::string peer_IP;
         std::string peer_port;
+
+	std::string request;
+	std::string message;
 
         zmq::context_t *context;
         zmq::socket_t *socket;
@@ -60,8 +63,8 @@ class Direct : public Connection {
         void whatami() {
             std::cout << "I am a Direct implementation." << '\n';
         }
-
-	void serve(int message_size){
+//node class handles getting a whole message, connection class handles the handshake message sending all that
+	std::string serve(){
 	    do {
 		if (zmq_poll(&this->item, 1, 100) >= 0) {
 		    if (this->item.revents == 0) {
@@ -72,11 +75,35 @@ class Direct : public Connection {
 		    this->socket->recv( &request );
 		    std::string req = std::string(static_cast<char *>(request.data()), request.size());
 		    std::cout << "Received: " << req << "\n";
-		    
-		    sleep( 2 );
+		    return req;
 
-		    std::string message = "Response.";
-		    this->send(message);
+		    //if (this->request == "") {
+		    //    if (req == "HELLO") {
+		    //        std::string message = "HELLO";
+		    //        this->send(message);
+		    //    }
+		    //    if (req == "CONNECT") {
+		    //        this->request = "CONNECT";
+		    //        std::string message = "SUCCESS";
+		    //        this->send(message);
+		    //    }
+		    //} else {
+		    //    if (this->request == "CONNECT") {
+		    //        this->message = req;
+		    //        //create the connection
+		    //        this
+
+		    //        sleep(2);
+
+		    //        this->request = "";
+		    //        //std::string message(1, eot_char);// = eot_char + "";
+		    //        std::string message = "EOF";
+		    //        this->send(message);
+		    //    }
+		    //}
+		    
+		    //std::string message = "Response.";
+		    //this->send(message);
 		} else {
 		    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
 		}
@@ -190,7 +217,7 @@ class Direct : public Connection {
 //            std::cout << "I am a Control implementation." << '\n';
 //        }
 //
-	//void serve(int message_size){
+	//void serve(){
 	//    do {
 	//	if (zmq_poll(&this->item, 1, 100) >= 0) {
 	//	    if (this->item.revents == 0) {
@@ -225,7 +252,7 @@ class Bluetooth : public Connection {
             std::cout << "I am a BLE implementation." << '\n';
         }
 	
-	void serve(int message_size){
+	std::string serve(){
 
 	}
 	
@@ -240,7 +267,7 @@ class LoRa : public Connection {
             std::cout << "I am a LoRa implementation." << '\n';
         }
 
-	void serve(int message_size){
+	std::string serve(){
 
 	}
 	
@@ -255,7 +282,7 @@ class Websocket : public Connection {
             std::cout << "I am a Websocket implementation." << '\n';
         }
 
-	void serve(int message_size){
+	std::string serve(){
 
 	}
 	
