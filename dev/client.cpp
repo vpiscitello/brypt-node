@@ -57,8 +57,8 @@ int main ()
 		//    context.close();
 		//}
 
-		socket.close();
-		context.close();
+		//socket.close();
+		//context.close();
 		break;
 
 
@@ -84,15 +84,26 @@ int main ()
 		//sleep(4);
 	}
 
-	//// Prepare our context and socket
-	//zmq::context_t context(1);
-	//zmq::socket_t socket(context, ZMQ_REQ);
+	// Prepare our context and socket
+	zmq::context_t context2(1);
+	zmq::socket_t socket2(context2, ZMQ_REQ);
 
-	//std::string port = "3010";
+	port = "3010";
 
-	//std::cout << "Connecting to server...\n";
-	//socket.connect("tcp://localhost:" + port);
+	std::cout << "Connecting to server...\n";
+	socket2.connect("tcp://localhost:" + port);
 
+	std::string message5 = "HELLO";
+	zmq::message_t request5(message5.size());
+	memcpy(request5.data(), message5.c_str(), message5.size());
+	std::cout << "Sending message: " << message5 << "\n";
+	socket2.send(request5);
+
+	//// Get the reply.
+	//zmq::message_t reply;
+	//socket.recv(&reply);
+	//std::string rpl = std::string(static_cast<char*>(reply.data()), reply.size());
+	//std::cout << "Received: " << rpl << "\n";
 
 
 

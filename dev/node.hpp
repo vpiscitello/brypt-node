@@ -73,6 +73,7 @@ class Node {
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
         TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
+	static void * connection_handler(void *);
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster

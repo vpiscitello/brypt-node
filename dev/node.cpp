@@ -233,7 +233,14 @@ std::string Node::get_local_address(){
     return ip;
 }
 
+void * Node::connection_handler(void * args) {
 
+    Connection * curr_conn = static_cast<Connection *>(args);
+    std::string req = curr_conn->serve();
+    std::cout << "Received " << req << "\n";
+
+    return NULL;
+}
 
 // Communication Functions
 /* **************************************************************************
@@ -250,14 +257,28 @@ void Node::listen(){
 	    // Push it back on our connections
 	    Options new_wifi_device;
 	    new_wifi_device.technology = DIRECT_TYPE;
-	    new_wifi_device.operation = CLIENT;
-	    new_wifi_device.port = "3001";
+	    new_wifi_device.operation = SERVER;
+	    new_wifi_device.port = wifi_port;
 	    new_wifi_device.peer_IP = "localhost";
 	    new_wifi_device.peer_port = wifi_port;
-	    //this->connections.push_back(ConnectionFactory(DIRECT_TYPE, &new_wifi_device));
+
+	    pthread_t new_thread;
+	    Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
+	    this->connections.push_back(curr_conn);
+	    //if(pthread_create(&new_thread, NULL, &Node::connection_handler, (void *)&new_wifi_device)) {
+	    if(pthread_create(&new_thread, NULL, &Node::connection_handler, (void *)curr_conn)) {
+		fprintf(stderr, "error creating connection thread\n");
+		return;
+	    }
 
 	    this->control->send(wifi_port);
 	    this->control->listen();
+
+	    if (pthread_join(new_thread, NULL)) {
+	        fprintf(stderr, "error joining thread\n");
+	        return;
+	    }
+	    std::cout << "After joining\n";
 	}
     } while (true);
 }
