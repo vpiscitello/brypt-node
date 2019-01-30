@@ -27,9 +27,6 @@ class Direct : public Connection {
         std::string peer_IP;
         std::string peer_port;
 
-	std::string request;
-	std::string message;
-
         zmq::context_t *context;
         zmq::socket_t *socket;
 	zmq::pollitem_t item;

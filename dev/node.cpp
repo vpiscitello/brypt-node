@@ -236,8 +236,12 @@ std::string Node::get_local_address(){
 void * Node::connection_handler(void * args) {
 
     Connection * curr_conn = static_cast<Connection *>(args);
-    std::string req = curr_conn->serve();
-    std::cout << "Received " << req << "\n";
+    do {
+	std::string req = curr_conn->serve();
+	std::cout << "[CHILD] Received " << req << "\n";
+	curr_conn->send("rec.");
+	std::cout << "Sent: rec.\n";
+    } while (true);
 
     return NULL;
 }
@@ -273,12 +277,13 @@ void Node::listen(){
 
 	    this->control->send(wifi_port);
 	    this->control->listen();
+	    //break;
 
-	    if (pthread_join(new_thread, NULL)) {
-	        fprintf(stderr, "error joining thread\n");
-	        return;
-	    }
-	    std::cout << "After joining\n";
+	    //if (pthread_join(new_thread, NULL)) {
+	    //    fprintf(stderr, "error joining thread\n");
+	    //    return;
+	    //}
+	    //std::cout << "After joining\n";
 	}
     } while (true);
 }
@@ -293,7 +298,6 @@ bool Node::transmit(std::string message){
     //this should send over all neighbor nodes
     //this->control_conn->send(message);
     //for (int i = 0; i < (int)this->connections.size(); i++) {
-    //    
     //}
 
     return success;
@@ -308,6 +312,14 @@ std::string Node::receive(int message_size){
     std::string message = "ERROR";
     //use nonblocking check to call this for all connections and see if there is information, if so receive a whole block and return it
     //this->control_conn->serve(message_size);
+    //for (int i = 0; i < (int)this->connections.size(); i++) {
+    //    std::string msg = this->connections[i].serve();
+    //    std::cout << "Receive function called, received: " << msg << "\n";
+    //}
+    //std::string req = curr_conn->serve();
+    //std::cout << "[CHILD] Received " << req << "\n";
+    //curr_conn->send("rec.");
+    //std::cout << "Sent: rec.\n";
 
     return message;
 }

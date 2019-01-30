@@ -57,8 +57,8 @@ int main ()
 		//    context.close();
 		//}
 
-		//socket.close();
-		//context.close();
+		socket.close();
+		context.close();
 		break;
 
 
@@ -99,13 +99,30 @@ int main ()
 	std::cout << "Sending message: " << message5 << "\n";
 	socket2.send(request5);
 
-	//// Get the reply.
-	//zmq::message_t reply;
-	//socket.recv(&reply);
-	//std::string rpl = std::string(static_cast<char*>(reply.data()), reply.size());
-	//std::cout << "Received: " << rpl << "\n";
+	// Get the reply.
+	zmq::message_t reply;
+	socket2.recv(&reply);
+	std::string rpl = std::string(static_cast<char*>(reply.data()), reply.size());
+	std::cout << "Received: " << rpl << "\n";
+
+	socket2.close();
+	context2.close();
 
 
+	// Prepare our context and socket
+	zmq::context_t context3(1);
+	zmq::socket_t socket3(context3, ZMQ_REQ);
+
+	port = "3010";
+
+	std::cout << "Connecting to server...\n";
+	socket3.connect("tcp://localhost:" + port);
+
+	std::string message6 = "HELLO";
+	zmq::message_t request6(message6.size());
+	memcpy(request6.data(), message6.c_str(), message6.size());
+	std::cout << "Sending message: " << message6 << "\n";
+	socket3.send(request6);
 
 	return 0;
 }
