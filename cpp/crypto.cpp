@@ -20,10 +20,18 @@ crypto::crypto() {
 
 crypto::~crypto(){}
 
+void crypto::clear_hash(){
+	int i;
+
+	for(i=0; i < HASH_SIZE; i++) {
+		hash[i] = '\0';
+	}
+}
+
 void crypto::clear_ciphertext(){
 	int i;
 
-	for(i=0; i < sizeof(ciphertext); i++) {
+	for(i=0; i < BUFF_SIZE; i++) {
 		ciphertext[i] = '\0';
 	}
 }
@@ -31,7 +39,7 @@ void crypto::clear_ciphertext(){
 void crypto::clear_decryptedtext(){
 	int i;
 
-	for(i=0; i < sizeof(decryptedtext); i++) {
+	for(i=0; i < BUFF_SIZE; i++) {
 		decryptedtext[i] = '\0';
 	}
 }
@@ -39,7 +47,7 @@ void crypto::clear_decryptedtext(){
 void crypto::clear_plaintext(){
 	int i;
 
-	for(i=0; i < sizeof(plaintext); i++) {
+	for(i=0; i < BUFF_SIZE; i++) {
 		plaintext[i] = '\0';
 	}
 }
@@ -93,7 +101,7 @@ void crypto::triple_des_encrypt() {
 	printf("3DES Initial Plaintext:\n");
 	printf("%s\n\n", plaintext);
 	printf("3DES Ciphertext (hex representation):\n");
-	print_output(ciphertext);
+	print_output(ciphertext, ctxt_len);
 }
 /*
 crypto::triple_des_decrypt()
@@ -148,7 +156,7 @@ void crypto::cast5_encrypt() {
 	printf("CAST5 Initial Plaintext:\n");
 	printf("%s\n\n", plaintext);
 	printf("CAST5 Ciphertext (hex representation):\n");
-	print_output(ciphertext);
+	print_output(ciphertext, ctxt_len);
 }
 /*
 crypto::cast5_decrypt()
@@ -203,7 +211,7 @@ void crypto::aes_ctr_encrypt() {
 	printf("AES CTR Initial Plaintext:\n");
 	printf("%s\n\n", plaintext);
 	printf("AES CTR Ciphertext (hex representation):\n");
-	print_output(ciphertext);
+	print_output(ciphertext, ctxt_len);
 }
 /*
 crypto::aes_ctr_decrypt()
@@ -237,7 +245,7 @@ void crypto::aes_ctr_decrypt() {
 void crypto::sha_1(unsigned char* input){
 	SHA1(input, strlen((char *)input), hash);
 	printf("SHA1: \n");
-	print_output(hash);
+	print_output(hash, HASH_SIZE);
 }
 
 void crypto::sha_2(unsigned char* input){
@@ -247,23 +255,25 @@ void crypto::sha_2(unsigned char* input){
 		printf("%d", input[i]);
 	}
 	printf("SHA2: \n");
-	print_output(hash);
+	print_output(hash, HASH_SIZE);
 }
 
 void crypto::hmac_sha2(unsigned char* input){
-	digest = HMAC(EVP_sha256(), key, strlen((char *)key), input, strlen((char *)input), NULL, NULL);
+	unsigned int length = 0;
+	digest = HMAC(EVP_sha256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
 	printf("HMAC_SHA2: \n");
-	print_output(digest);
+	print_output(digest, (int)length);
 }
-/*
+
 void crypto::hmac_blake2s(unsigned char* input){
-	digest = HMAC(EVP_blake2s256(), key, strlen((char *)key), input, strlen((char *)input), NULL, NULL);
+	unsigned int length = 0;
+	digest = HMAC(EVP_blake2s256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
 	printf("HMAC_BLAKE2s256: \n");
-	print_output(digest);
+	print_output(digest, (int)length);
 }
-*/
-void crypto::print_output(unsigned char* output) {
-	for(int i = 0; i < strlen((char *)output); i++) {
+
+void crypto::print_output(unsigned char* output, int len) {
+	for(int i = 0; i < len; i++) {
 		printf("%02x", output[i]);
 	}
 	printf("\n\n");

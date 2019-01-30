@@ -28,6 +28,7 @@ class crypto{
 		crypto();
 		~crypto();
 
+		void clear_hash();
 		void clear_ciphertext();
 		void clear_decryptedtext();
 		void clear_plaintext();
@@ -44,7 +45,7 @@ class crypto{
 		void sha_2(unsigned char*);
 		void hmac_sha2(unsigned char*);
 		void hmac_blake2s(unsigned char*);
-		void print_output(unsigned char*);
+		void print_output(unsigned char*, int);
 
 		unsigned char* get_plaintext();
 		unsigned char* get_ciphertext();
