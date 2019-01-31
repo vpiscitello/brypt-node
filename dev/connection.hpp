@@ -11,6 +11,9 @@ class Connection {
     protected:
         bool active;
         bool instantiate_connection;
+	
+	bool data_available;
+
     public:
         // Method method;
         virtual void whatami() = 0;
@@ -65,7 +68,9 @@ class Direct : public Connection {
 	    do {
 		if (zmq_poll(&this->item, 1, 100) >= 0) {
 		    if (this->item.revents == 0) {
-			continue;
+			//std::cout << "no events available\n";
+			return "";
+			//continue;
 		    }
 		    std::cout << "Receiving..." << '\n';
 		    zmq::message_t request;

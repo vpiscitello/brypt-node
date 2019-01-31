@@ -235,13 +235,21 @@ std::string Node::get_local_address(){
 
 void * Node::connection_handler(void * args) {
 
+    //Options * opts = (Options *)args;
+
+    //Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, opts);
+    //this->connections.push_back(curr_conn);
+
+
+
     Connection * curr_conn = static_cast<Connection *>(args);
-    do {
-	std::string req = curr_conn->serve();
-	std::cout << "[CHILD] Received " << req << "\n";
-	curr_conn->send("rec.");
-	std::cout << "Sent: rec.\n";
-    } while (true);
+
+    //do {
+    //    std::string req = curr_conn->serve();
+    //    std::cout << "[CHILD] Received " << req << "\n";
+    //    curr_conn->send("rec.");
+    //    std::cout << "Sent: rec.\n";
+    //} while (true);
 
     return NULL;
 }
@@ -253,7 +261,7 @@ void * Node::connection_handler(void * args) {
 ** *************************************************************************/
 void Node::listen(){
     // this starts the initial control socket, when it receives input, it sends an interrupt upward to this node and requests startup, then it restarts when that is complete.
-    do {
+    //do {
 	std::string req_type = this->control->listen();
 	if (req_type == "WIFI") {
 	    // Create a connection
@@ -266,17 +274,19 @@ void Node::listen(){
 	    new_wifi_device.peer_IP = "localhost";
 	    new_wifi_device.peer_port = wifi_port;
 
-	    pthread_t new_thread;
 	    Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
 	    this->connections.push_back(curr_conn);
+
+	    pthread_t new_thread;
 	    //if(pthread_create(&new_thread, NULL, &Node::connection_handler, (void *)&new_wifi_device)) {
 	    if(pthread_create(&new_thread, NULL, &Node::connection_handler, (void *)curr_conn)) {
-		fprintf(stderr, "error creating connection thread\n");
-		return;
+	        fprintf(stderr, "error creating connection thread\n");
+	        return;
 	    }
 
 	    this->control->send(wifi_port);
-	    this->control->listen();
+
+	    //this->control->listen();
 	    //break;
 
 	    //if (pthread_join(new_thread, NULL)) {
@@ -285,7 +295,7 @@ void Node::listen(){
 	    //}
 	    //std::cout << "After joining\n";
 	}
-    } while (true);
+    //} while (true);
 }
 
 //transmit should loop over all neighbor nodes send a request to connect, receive a status, send a query, receive a query, send an EOM
@@ -296,9 +306,9 @@ void Node::listen(){
 bool Node::transmit(std::string message){
     bool success = false;
     //this should send over all neighbor nodes
-    //this->control_conn->send(message);
-    //for (int i = 0; i < (int)this->connections.size(); i++) {
-    //}
+    for (int i = 0; i < (int)this->connections.size(); i++) {
+        this->connections[i]->send(message);
+    }
 
     return success;
 }
@@ -310,16 +320,12 @@ bool Node::transmit(std::string message){
 ** *************************************************************************/
 std::string Node::receive(int message_size){
     std::string message = "ERROR";
-    //use nonblocking check to call this for all connections and see if there is information, if so receive a whole block and return it
-    //this->control_conn->serve(message_size);
-    //for (int i = 0; i < (int)this->connections.size(); i++) {
-    //    std::string msg = this->connections[i].serve();
-    //    std::cout << "Receive function called, received: " << msg << "\n";
-    //}
-    //std::string req = curr_conn->serve();
-    //std::cout << "[CHILD] Received " << req << "\n";
-    //curr_conn->send("rec.");
-    //std::cout << "Sent: rec.\n";
+    for (int i = 0; i < (int)this->connections.size(); i++) {
+        message = this->connections[i]->serve();
+	if (message != "") {
+	    this->connections[i]->send("rec.");
+	}
+    }
 
     return message;
 }

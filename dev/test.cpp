@@ -1,6 +1,8 @@
 #include "utility.hpp"
 #include "node.hpp"
 
+#include <string>
+
 struct Options options;
 
 void connection_factory_test() {
@@ -153,7 +155,15 @@ int main(int argc, char **argv) {
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
 
     alpha.setup( options );
-    alpha.listen();
+    do {
+	//std::cout << "listen\n";
+	alpha.listen();
+	//std::cout << "after listen\n";
+	std::string msg = alpha.receive(1024);
+	if (msg != "ERROR" && msg != "") {
+	    std::cout << "Receive gave back: " << msg << "\n";
+	}
+    } while (true);
 
     return 0;
 }
