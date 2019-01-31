@@ -24,6 +24,7 @@ class crypto{
 		unsigned char hash[HASH_SIZE];
 		int ctxt_len;
 		int ptxt_len;
+
 	public:			
 		crypto();
 		~crypto();
@@ -39,8 +40,10 @@ class crypto{
 		void triple_des_decrypt();
 		void cast5_encrypt();
 		void cast5_decrypt();
-		void aes_ctr_encrypt();
-		void aes_ctr_decrypt();
+		void aes_ctr_256_encrypt();
+		void aes_ctr_256_decrypt();
+		void aes_ctr_128_encrypt();
+		void aes_ctr_128_decrypt();
 		void sha_1(unsigned char*);
 		void sha_2(unsigned char*);
 		void hmac_sha2(unsigned char*);

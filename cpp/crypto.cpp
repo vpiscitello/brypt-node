@@ -13,7 +13,7 @@
 
 crypto::crypto() {
 	memset(plaintext, 0x00, BUFF_SIZE);
-	set_plaintext((unsigned char *)"The quick brown fox jumps over the lazy dog");
+	set_plaintext((unsigned char *)"The quick brown fox jumps over the very lazy dog");
 	set_our_key((unsigned char *)"01234567890123456789012345678901",32);
 	iv = (unsigned char *)"0123456789012345";
 }
@@ -34,6 +34,7 @@ void crypto::clear_ciphertext(){
 	for(i=0; i < BUFF_SIZE; i++) {
 		ciphertext[i] = '\0';
 	}
+	ctxt_len = 0;		// Clear the ciphertext length variable
 }
 
 void crypto::clear_decryptedtext(){
@@ -85,7 +86,7 @@ unsigned char* key;
 unsigned char* iv;
 */
 void crypto::triple_des_encrypt() {
-	int length;
+	int length = 0;
 	EVP_CIPHER_CTX *ctx;
 
 	clear_ciphertext();
@@ -93,6 +94,7 @@ void crypto::triple_des_encrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_des_ede3(), NULL, key, iv);
+//	EVP_CIPHER_CTX_set_padding(ctx, 0);
 	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
@@ -111,7 +113,7 @@ unsigned char* iv;
 unsigned char ciphertext[BUFF_SIZE];
 */
 void crypto::triple_des_decrypt() {
-	int length;
+	int length = 0;
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
 
@@ -139,7 +141,7 @@ unsigned char* key;
 unsigned char* iv;
 */
 void crypto::cast5_encrypt() {
-	int length;
+	int length = 0;
 	EVP_CIPHER_CTX *ctx;
 
 	clear_ciphertext();
@@ -147,6 +149,7 @@ void crypto::cast5_encrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
+	EVP_CIPHER_CTX_set_padding(ctx, 0);
 	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
@@ -193,8 +196,8 @@ unsigned char* plaintext;
 unsigned char* key;
 unsigned char* iv;
 */
-void crypto::aes_ctr_encrypt() {
-	int length;
+void crypto::aes_ctr_256_encrypt() {
+	int length = 0;
 	EVP_CIPHER_CTX *ctx;
 
 	clear_ciphertext();
@@ -208,9 +211,10 @@ void crypto::aes_ctr_encrypt() {
 	ctxt_len += length;
 	EVP_CIPHER_CTX_free(ctx);
 
-	printf("AES CTR Initial Plaintext:\n");
+
+	printf("AES CTR 256 Initial Plaintext:\n");
 	printf("%s\n\n", plaintext);
-	printf("AES CTR Ciphertext (hex representation):\n");
+	printf("AES CTR 256 Ciphertext (hex representation):\n");
 	print_output(ciphertext, ctxt_len);
 }
 /*
@@ -220,7 +224,7 @@ unsigned char* key;
 unsigned char* iv;
 unsigned char ciphertext[BUFF_SIZE];
 */
-void crypto::aes_ctr_decrypt() {
+void crypto::aes_ctr_256_decrypt() {
 	int length;
 	int plaintext_len = 0;
 	EVP_CIPHER_CTX *ctx;
@@ -236,10 +240,55 @@ void crypto::aes_ctr_decrypt() {
 	plaintext_len += length;
 	EVP_CIPHER_CTX_free(ctx);
 
+	printf("AES CTR 256 Decrypted text:\n");
+	decryptedtext[plaintext_len] = '\0';
+	printf("%s\n\n", decryptedtext);
+}
+
+void crypto::aes_ctr_128_encrypt() {
+	int length = 0;
+	EVP_CIPHER_CTX *ctx;
+
+	clear_ciphertext();
+
+	ctx = EVP_CIPHER_CTX_new();
+
+	EVP_EncryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key, iv);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	ctxt_len = length;
+	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
+	ctxt_len += length;
+	EVP_CIPHER_CTX_free(ctx);
+
+
+	printf("AES CTR 128 Initial Plaintext:\n");
+	printf("%s\n\n", plaintext);
+	printf("AES CTR 128 Ciphertext (hex representation):\n");
+	print_output(ciphertext, ctxt_len);
+}
+
+
+void crypto::aes_ctr_128_decrypt() {
+	int length;
+	int plaintext_len = 0;
+	EVP_CIPHER_CTX *ctx;
+
+	clear_decryptedtext();
+
+	ctx = EVP_CIPHER_CTX_new();
+
+	EVP_DecryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key, iv);
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, ctxt_len);
+	plaintext_len += length;
+	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
+	plaintext_len += length;
+	EVP_CIPHER_CTX_free(ctx);
+
 	printf("AES CTR Decrypted text:\n");
 	decryptedtext[plaintext_len] = '\0';
 	printf("%s\n\n", decryptedtext);
 }
+
 
 /***************HASHES******************/
 void crypto::sha_1(unsigned char* input){
@@ -277,6 +326,7 @@ void crypto::print_output(unsigned char* output, int len) {
 		printf("%02x", output[i]);
 	}
 	printf("\n\n");
+	printf("CTXT len: %d\n", ctxt_len);
 }
 
 /*****************GETTERS****************/

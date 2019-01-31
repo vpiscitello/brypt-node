@@ -18,14 +18,21 @@ int main() {
 	c.hmac_blake2s(c.get_plaintext());	
 	spacer();
 	
-	c.aes_ctr_encrypt();
-	c.aes_ctr_decrypt();
+	c.aes_ctr_256_encrypt();
+	c.aes_ctr_256_decrypt();
 	spacer();
 
+	c.set_our_key((unsigned char *)"0123456789012345",16);
+	c.aes_ctr_128_encrypt();
+	c.aes_ctr_128_decrypt();
+	spacer();
+	
+	c.set_our_key((unsigned char *)"01234567890123456789012345678901",32);
 	c.cast5_encrypt();
 	c.cast5_decrypt();
 	spacer();
 
+	c.set_our_key((unsigned char *)"012345678901234567890123",24);
 	c.triple_des_encrypt();
 	c.triple_des_decrypt();
 
