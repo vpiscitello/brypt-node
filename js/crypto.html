@@ -54,6 +54,7 @@ function aes128Ctr(){
 								["encrypt", "decrypt"]
 				);
 				k_promise.then(function(key) {
+								
 								key_object = key;
 								console.log("AES-CTR-128");
 								const result = window.crypto.subtle.exportKey("raw", key);
@@ -67,8 +68,19 @@ function aes128Ctr(){
 									console.log(err);
 								});
 */
-
-								aesEncrypt();
+								synchctxt = aesEncrypt();
+								enc_promise = new Promise(function(resolve, reject){
+									setTimeout(() => resolve(aesEncrypt()), 1000);
+								});
+								enc_promise.then(function(synchctxt){
+									console.log("logging from a layer up");
+									console.log(synchctxt);
+								});
+								enc_promise.then(function(err){
+									console.log(err);
+								});
+								console.log("logging from a layer up");
+								console.log(synchctxt);
 				});
 				k_promise.catch(function(err) {
 								console.log(err.message);
@@ -100,7 +112,7 @@ function aesEncrypt() {
 				let ptxt = encode();
 
 
-				enc_promise = window.crypto.subtle.encrypt(
+				return enc_promise = window.crypto.subtle.encrypt(
 								{
 												name: "AES-CTR",
 												counter,
@@ -117,6 +129,7 @@ function aesEncrypt() {
 											//	exportCryptoKey(key_object);
 											//	console.log(window.crypto.subtle.exportKey("pkcs8", key_object));
 												console.log(buf2hex(ciphertext));
+												return buf2hex(ciphertext);
 								}, function(err) {
 												console.log(err.message);
 								}
