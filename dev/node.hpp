@@ -73,7 +73,7 @@ class Node {
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
         TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
-	static void * connection_handler(void *);
+	//static void * connection_handler(void *);
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
@@ -93,6 +93,7 @@ class Node {
 
         // Information Functions
         // std::map<std::string, std::string> getDeviceInformation();                       // Get the compiled device information as a map
+	void add_connection(Connection *);
 
         // Connection Functions
         void listen();                                           // Open a socket to listening for network commands
@@ -105,5 +106,12 @@ class Node {
 	std::string receive(int message_size);                                         // Recieve some message
 
 };
+
+struct ThreadArgs {
+    Node * node;
+    Options * opts;
+};
+
+void * connection_handler(void *);
 
 #endif

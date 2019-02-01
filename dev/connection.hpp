@@ -12,6 +12,7 @@ class Connection {
         bool active;
         bool instantiate_connection;
 	
+	// each connection should have two named pipes
 	bool data_available;
 
     public:

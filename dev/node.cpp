@@ -233,25 +233,18 @@ std::string Node::get_local_address(){
     return ip;
 }
 
-void * Node::connection_handler(void * args) {
+void * connection_handler(void * args) {
 
-    //Options * opts = (Options *)args;
+    ThreadArgs * ta = (ThreadArgs *)args;
 
-    //Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, opts);
-    //this->connections.push_back(curr_conn);
-
-
-
-    Connection * curr_conn = static_cast<Connection *>(args);
-
-    //do {
-    //    std::string req = curr_conn->serve();
-    //    std::cout << "[CHILD] Received " << req << "\n";
-    //    curr_conn->send("rec.");
-    //    std::cout << "Sent: rec.\n";
-    //} while (true);
+    Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, ta->opts);
+    ta->node->add_connection(curr_conn);
 
     return NULL;
+}
+
+void Node::add_connection(Connection * conn) {
+    this->connections.push_back(conn);
 }
 
 // Communication Functions
@@ -260,42 +253,36 @@ void * Node::connection_handler(void * args) {
 ** Description:
 ** *************************************************************************/
 void Node::listen(){
-    // this starts the initial control socket, when it receives input, it sends an interrupt upward to this node and requests startup, then it restarts when that is complete.
-    //do {
-	std::string req_type = this->control->listen();
-	if (req_type == "WIFI") {
-	    // Create a connection
-	    std::string wifi_port = "3010";
-	    // Push it back on our connections
-	    Options new_wifi_device;
-	    new_wifi_device.technology = DIRECT_TYPE;
-	    new_wifi_device.operation = SERVER;
-	    new_wifi_device.port = wifi_port;
-	    new_wifi_device.peer_IP = "localhost";
-	    new_wifi_device.peer_port = wifi_port;
+    std::string req_type = this->control->listen();
+    if (req_type == "WIFI") {
+	// Create a connection
+	std::string wifi_port = "3010";
+	// Push it back on our connections
+	Options new_wifi_device;
+	new_wifi_device.technology = DIRECT_TYPE;
+	new_wifi_device.operation = SERVER;
+	new_wifi_device.port = wifi_port;
+	new_wifi_device.peer_IP = "localhost";
+	new_wifi_device.peer_port = wifi_port;
 
-	    Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
-	    this->connections.push_back(curr_conn);
+	ThreadArgs * t = new ThreadArgs;
+	t->node = this;
+	t->opts = &new_wifi_device;
 
-	    pthread_t new_thread;
-	    //if(pthread_create(&new_thread, NULL, &Node::connection_handler, (void *)&new_wifi_device)) {
-	    if(pthread_create(&new_thread, NULL, &Node::connection_handler, (void *)curr_conn)) {
-	        fprintf(stderr, "error creating connection thread\n");
-	        return;
-	    }
-
-	    this->control->send(wifi_port);
-
-	    //this->control->listen();
-	    //break;
-
-	    //if (pthread_join(new_thread, NULL)) {
-	    //    fprintf(stderr, "error joining thread\n");
-	    //    return;
-	    //}
-	    //std::cout << "After joining\n";
+	pthread_t new_thread;
+	if(pthread_create(&new_thread, NULL, connection_handler, (void *)t)) {
+	    fprintf(stderr, "error creating connection thread\n");
+	    return;
 	}
-    //} while (true);
+
+	this->control->send(wifi_port);
+
+	//if (pthread_join(new_thread, NULL)) {
+	//    fprintf(stderr, "error joining thread\n");
+	//    return;
+	//}
+	//std::cout << "After joining\n";
+    }
 }
 
 //transmit should loop over all neighbor nodes send a request to connect, receive a status, send a query, receive a query, send an EOM
@@ -329,7 +316,3 @@ std::string Node::receive(int message_size){
 
     return message;
 }
-
-//if we have vector of connections, we essentially have a vector of threads since each connection is on a thread.
-
-//poor nodes will only have one receive from a parent coordinator node
