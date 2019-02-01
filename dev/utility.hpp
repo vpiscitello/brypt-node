@@ -13,6 +13,8 @@ enum DeviceOperation { SERVER, CLIENT };
 
 enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE };
 
+enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE };
+
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";
 const std::string CA_SUBDOMAIN = "bridge";
@@ -23,6 +25,7 @@ struct Options {
     bool run_tests;
     TechnologyType technology;
     DeviceOperation operation;
+    std::string IP;
     std::string port;
     std::string peer_IP;
     std::string peer_port;

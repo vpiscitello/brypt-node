@@ -2,8 +2,10 @@
 #define CONNECTION_HPP
 
 #include <unistd.h>
-#include "utility.hpp"
 #include "zmq.hpp"
+
+#include "utility.hpp"
+#include "message.hpp"
 
 class Connection {
     protected:
@@ -12,6 +14,9 @@ class Connection {
     public:
         // Method method;
         virtual void whatami() = 0;
+        void pass_up_message() {
+
+        }
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
         }
@@ -35,6 +40,10 @@ class Direct : public Connection {
 
                 sleep( 2 );
 
+                // Send message up to Node to handle the command Request
+                // Wait for command response from Node
+                // Send command response
+
         		std::string message = "Response.";
         		zmq::message_t reply( message.size() );
         		memcpy( reply.data(), message.c_str(), message.size() );
@@ -49,6 +58,10 @@ class Direct : public Connection {
     			zmq::message_t request( message.size() );
     			memcpy( request.data(), message.c_str(), message.size() );
     			this->socket->send( request );
+
+                // Send message up to Node to handle the command Request
+                // Wait for command response from Node
+                // Send command response
 
     			zmq::message_t reply;
     			this->socket->recv( &reply );
@@ -73,11 +86,13 @@ class Direct : public Connection {
                     std::cout << "Serving..." << "\n\n";
                     this->instantiate_connection = true;
                     this->socket->bind("tcp://*:" + options->port);
+                    // this->socket->bind("tcp://" + options->IP + ":" + options->port);
                     this->serve();
                     break;
                 case CLIENT:
                     this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
                     std::cout << "Connecting..." << "\n\n";
+                    std::cout << "tcp://" + options->peer_IP + ":" + options->peer_port << '\n';
                     this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
                     this->instantiate_connection = false;
                     this->send();

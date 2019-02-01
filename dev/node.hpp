@@ -18,6 +18,10 @@
 
 #include "utility.hpp"
 #include "connection.hpp"
+#include "message.hpp"
+#include "mqueue.hpp"
+#include "command.hpp"
+
 
 class Node {
 
@@ -59,6 +63,12 @@ class Node {
 
         // Security Scheme Variables
         std::string protocol;
+
+        // Node Commands
+        std::vector<Command *> commands;                           // A vector of possible commands to be handled
+
+        // Message Queue
+        MessageQueue mqueue;
 
         // Private Functions
         // Utility Functions
