@@ -12,6 +12,22 @@ function buf2hex(buffer) { // buffer is an ArrayBuffer
 }
 
 function main() {
+	console.log("from main");
+	/*
+	enc_promise2 = new Promise(function(resolve, reject){
+									setTimeout(() => resolve(aes128Ctr()), 1000);
+	});
+	*/
+	enc_promise2 = aes128Ctr();
+	console.log(enc_promise2);
+	enc_promise2.then(function(synchctxt){
+		console.log(synchctxt);
+	});
+	enc_promise2.catch(function(err){
+		console.log(err);
+	});
+	console.log(enc_promise2);
+	console.log("main didnt log");
 	aes128Ctr();
 	aes256Ctr();
 }
@@ -67,20 +83,29 @@ function aes128Ctr(){
 								result.catch(function(err){
 									console.log(err);
 								});
-*/
-								synchctxt = aesEncrypt();
-								enc_promise = new Promise(function(resolve, reject){
-									setTimeout(() => resolve(aesEncrypt()), 1000);
+							*/
+								//synchctxt = aesEncrypt();
+								
+								/*
+								return enc_promise = new Promise(function(resolve, reject){
+									setTimeout(function(){
+										resolve(aesEncrypt());
+									},1000);
 								});
+								*/
+								return enc_promise = aesEncrypt();
 								enc_promise.then(function(synchctxt){
 									console.log("logging from a layer up");
 									console.log(synchctxt);
+									return synchctxt;
 								});
-								enc_promise.then(function(err){
+								enc_promise.catch(function(err){
 									console.log(err);
 								});
 								console.log("logging from a layer up");
-								console.log(synchctxt);
+								//console.log(synchctxt);
+								//return synchctxt;
+								
 				});
 				k_promise.catch(function(err) {
 								console.log(err.message);
