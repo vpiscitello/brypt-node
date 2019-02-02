@@ -17,9 +17,8 @@ function main() {
 	enc_promise2 = new Promise(function(resolve, reject){
 									setTimeout(() => resolve(aes128Ctr()), 1000);
 	});
-	*/
+	
 	enc_promise2 = aes128Ctr();
-	console.log(enc_promise2);
 	enc_promise2.then(function(synchctxt){
 		console.log(synchctxt);
 	});
@@ -27,10 +26,19 @@ function main() {
 		console.log(err);
 	});
 	console.log(enc_promise2);
-	console.log("main didnt log");
-	aes128Ctr();
-	aes256Ctr();
-
+	*/
+	k_prom = ourKG();
+	k_prom.then(function(key){
+		console.log(key);
+		console.log("truly deeply from main");
+		enc_prom = aes128Ctr(key);
+		enc_prom.then(function(ctxt){
+			console.log(ctxt);
+		});
+		enc_prom.catch(function(err){
+			console.log(err);
+		});
+	});
 	hmacSha2();
 }
 
@@ -77,32 +85,7 @@ function encode() {
 				return enc.encode(mssg);
 }
 
-function aes128Ctr(){
-				k_promise = window.crypto.subtle.generateKey(
-								{
-												name: "AES-CTR",
-												length: 128
-								},
-								true,
-								["encrypt", "decrypt"]
-				);
-				k_promise.then(function(key) {
-								
-								key_object = key;
-								console.log("AES-CTR-128");
-								const result = window.crypto.subtle.exportKey("raw", key);
-								console.log("Result:");
-								console.log(result);
-								console.log("End Result:");
-							/*	result.then(function(stuff) {
-									console.log(stuff);
-								});
-								result.catch(function(err){
-									console.log(err);
-								});
-							*/
-								//synchctxt = aesEncrypt();
-								
+function aes128Ctr(key_object){
 								/*
 								return enc_promise = new Promise(function(resolve, reject){
 									setTimeout(function(){
@@ -110,26 +93,41 @@ function aes128Ctr(){
 									},1000);
 								});
 								*/
-								return enc_promise = aesEncrypt();
-								enc_promise.then(function(synchctxt){
-									console.log("logging from a layer up");
-									console.log(synchctxt);
-									return synchctxt;
-								});
-								enc_promise.catch(function(err){
-									console.log(err);
-								});
-								console.log("logging from a layer up");
-								//console.log(synchctxt);
-								//return synchctxt;
-								
+				return enc_promise = aesEncrypt(key_object);
+				enc_promise.then(function(synchctxt){
+					console.log(enc_promise);
+					console.log("logging from a layer up");
+					console.log(synchctxt);
+					return synchctxt;
 				});
-				k_promise.catch(function(err) {
-								console.log(err.message);
+				enc_promise.catch(function(err){
+					console.log(err);
+				});
+				console.log("logging after then");
+				//console.log(synchctxt);
+				//return synchctxt;
+								
+				return enc_promise;
+
+}
+function ourKG(){
+				return k_promise = window.crypto.subtle.generateKey(
+								{
+												name: "AES-CTR",
+												length: 128
+								},
+								true,
+								["encrypt", "decrypt"]
+				);
+				k_promise.then(function(key) {								
+					key_object = key;
+					const result = window.crypto.subtle.exportKey("raw", key);
+					console.log("Raw Key:");
+					console.log(result);
+					return key_object;
 				});
 
 }
-
 function aes256Ctr(){
 				k_promise = window.crypto.subtle.generateKey(
 								{
@@ -150,7 +148,7 @@ function aes256Ctr(){
 
 }
 
-function aesEncrypt() {
+function aesEncrypt(key_object) {
 				let ptxt = encode();
 
 
