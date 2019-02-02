@@ -30,13 +30,30 @@ function main() {
 	console.log("main didnt log");
 	aes128Ctr();
 	aes256Ctr();
+
+	hmacSha2();
 }
 
-/*function hmacSha2(){
+function hmacSha2(){
 	var mssg = "The quick brown fox jumps over the lazy dog";
-	var hash = CryptoJS.HmacSHA256(mssg, "0123456789012345");
-	console.log(hash);
-}*/
+//	var key = "0123456789012345";
+
+	const key = window.crypto.subtle.generateKey(
+		{name:"HMAC", "hash":"SHA-256"},
+		 true,
+		 ["sign", "verify"]);
+		key.then(function(k) {
+				console.log("KEY:");
+				console.log(k);
+			  const buff = new TextEncoder("utf-8").encode(mssg);
+				const sig = window.crypto.subtle.sign("HMAC", k, buff);
+						sig.then(function(s){
+										console.log(buf2hex(s));
+						});
+			}).catch(function(err){
+				console.log(err);			
+			});
+}
 
 function sha2() {
 				var mssg = "The quick brown fox jumps over the lazy dog";
