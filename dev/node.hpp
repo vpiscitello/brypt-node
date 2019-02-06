@@ -68,13 +68,11 @@ class Node {
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue
-        MessageQueue mqueue;
+        MessageQueue in_queue;
+        MessageQueue out_queue;
 
         // Private Functions
         // Utility Functions
-        void pack();                                              // Pack some data into a string
-        void unpack();                                            // Unpack some data into a type
-        long long getCurrentTimestamp();                        // Get the current epoch timestamp
 
         // Communication Functions
         void listen();                                           // Open a socket to listening for network commands

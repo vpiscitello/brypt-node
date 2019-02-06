@@ -13,7 +13,7 @@ enum DeviceOperation { SERVER, CLIENT };
 
 enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE };
 
-enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE };
+enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NULL_CMD };
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";
@@ -30,5 +30,12 @@ struct Options {
     std::string peer_IP;
     std::string peer_port;
 };
+
+inline char * cast_string( std::string s ) {
+	char * cs = new char[ s.size() ];
+	memset( cs, '\0', s.size() );
+	strcpy( cs, s.c_str() );
+	return cs;
+}
 
 #endif
