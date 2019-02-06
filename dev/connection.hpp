@@ -21,6 +21,7 @@ class Connection {
         virtual void whatami() = 0;
         virtual std::string serve() = 0;
         virtual void send(std::string) = 0;
+        virtual void shutdown() = 0;
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
         }
@@ -53,7 +54,7 @@ class Direct : public Connection {
 		this->context = new zmq::context_t(1);
 
 		switch (options->operation) {
-		    case SERVER:
+		    case SERVER: {
 			this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
 			this->item.socket = *this->socket;
 			this->item.events = ZMQ_POLLIN;
@@ -61,12 +62,16 @@ class Direct : public Connection {
 			this->instantiate_connection = true;
 			this->socket->bind("tcp://*:" + options->port); 
 			break;
-		    case CLIENT:
+		    }
+		    case CLIENT: {
 			this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
-			std::cout << "Connecting..." << "\n\n";
+			this->item.socket = *this->socket;
+			this->item.events = ZMQ_POLLIN;
+			std::cout << "[Direct Control Client] Connecting to: " << options->peer_IP << ":" << options->peer_port << "\n\n";
 			this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
 			this->instantiate_connection = false;
 			break;
+		    }
 		}
 		return;
 	    }
@@ -136,11 +141,17 @@ class Direct : public Connection {
 
 	void send(std::string message) {
 	    std::cout << "[Direct] Sending..." << '\n';
-	    zmq::message_t request( message.size() );
-	    memcpy( request.data(), message.c_str(), message.size() );
-	    this->socket->send( request );
+	    zmq::message_t request(message.size());
+	    memcpy(request.data(), message.c_str(), message.size());
+	    this->socket->send(request);
 	    std::cout << "[Direct] Sent: " << message << '\n';
         }
+
+	void shutdown() {
+	    std::cout << "Shutting down socket and context\n";
+	    zmq_close(this->socket);
+	    zmq_ctx_destroy(this->context);
+	}
 };
 
 class Bluetooth : public Connection {
@@ -154,6 +165,10 @@ class Bluetooth : public Connection {
 	}
 	
 	void send(std::string message) {
+
+	}
+
+	void shutdown() {
 
 	}
 };
@@ -171,6 +186,10 @@ class LoRa : public Connection {
 	void send(std::string message) {
 
 	}
+
+	void shutdown() {
+
+	}
 };
 
 class Websocket : public Connection {
@@ -184,6 +203,10 @@ class Websocket : public Connection {
 	}
 	
 	void send(std::string message) {
+
+	}
+
+	void shutdown() {
 
 	}
 };

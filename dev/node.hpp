@@ -44,6 +44,7 @@ class Node {
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
+        Connection * init_conn;                     // A vector of open connections
 	Control * control;
 
         // Node Type Variables
@@ -70,6 +71,7 @@ class Node {
 
         // Communication Functions
         bool contactAuthority();                                // Contact the central authority for some service
+	void setup_initial_contact(Options *);
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
         TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has

@@ -158,7 +158,6 @@ void Node::setup(Options options){
             this->isBranch = true;
             this->isLeaf = false;
 
-	    // Should this socket be running on clients?
 	    TechnologyType t = determineBestConnectionType();
 	    t = DIRECT_TYPE; //TEMPORARY
 	    std::cout << "Technology type is: " << t << "\n";
@@ -173,6 +172,9 @@ void Node::setup(Options options){
             this->isRoot = false;
             this->isBranch = false;
             this->isLeaf = true;
+
+	    //Some sort of setup to determine the host and port to connect to
+	    setup_initial_contact(&options);
             break;
 	}
     }
@@ -200,6 +202,56 @@ void Node::setup(Options options){
 ** *************************************************************************/
 void Node::connect(){
     std::cout << "Connecting..." << '\n';
+}
+
+void Node::setup_initial_contact(Options * opts) {
+    std::cout << "Setting up initial contact\n";
+    std::cout << "Connecting with technology: " << opts->technology << " and on IP:port: " << opts->peer_IP << ":" << opts->peer_port << "\n";
+    // Prevent it from forking
+    opts->is_control = true;
+    this->init_conn = ConnectionFactory(opts->technology, opts);
+    
+    this->init_conn->send("HELLO");
+
+    std::string rpl = "";
+    while (rpl == "") {
+	rpl = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+
+    this->init_conn->send("CONNECT None");
+
+    std::string new_port = "";
+    while (new_port == "") {
+	new_port = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << new_port << "\n";
+
+    this->init_conn->send("EOF");
+
+    rpl = "";
+    while (rpl == "") {
+	rpl = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+
+    this->init_conn->shutdown();
+    opts->peer_port = new_port;
+    sleep(10);
+    this->init_conn = ConnectionFactory(opts->technology, opts);
+    int msg_num = 0;
+    while (1) {
+
+	this->init_conn->send("HELLO" + std::to_string(msg_num));
+
+	std::string rpl = "";
+	while (rpl == "") {
+	    rpl = this->init_conn->serve();
+	}
+	std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+	msg_num++;
+	sleep(3);
+    }
 }
 
 /* **************************************************************************

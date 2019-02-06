@@ -156,9 +156,11 @@ int main(int argc, char **argv) {
 
     std::cout << "Starting out the pid is: " << getpid() << "\n";
     alpha.setup( options );
-    do {
-	alpha.listen();
-    } while (true);
+    if (options.operation == SERVER) {
+	do {
+	    alpha.listen();
+	} while (true);
+    }
 
     return 0;
 }
