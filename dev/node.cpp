@@ -153,28 +153,30 @@ bool Node::transform(){
 ** *************************************************************************/
 void Node::setup(Options options){
     switch (options.operation) {
-        case SERVER:
+        case SERVER: {
             this->isRoot = true;
             this->isBranch = true;
             this->isLeaf = false;
+
+	    // Should this socket be running on clients?
+	    TechnologyType t = determineBestConnectionType();
+	    t = DIRECT_TYPE; //TEMPORARY
+	    std::cout << "Technology type is: " << t << "\n";
+	    if (t == NONE) {
+		std::cout << "No technology types oopsies\n";
+		exit(1);
+	    }
+	    this->control = new Control(t);
             break;
-        case CLIENT:
+	}
+        case CLIENT: {
             this->isRoot = false;
             this->isBranch = false;
             this->isLeaf = true;
             break;
+	}
     }
     //this->connections.push_back(ConnectionFactory(options.technology, &options));
-
-    // Should this socket be running on clients?
-    TechnologyType t = determineBestConnectionType();
-    t = DIRECT_TYPE; //TEMPORARY
-    std::cout << "Technology type is: " << t << "\n";
-    if (t == NONE) {
-	std::cout << "No technology types oopsies\n";
-	exit(1);
-    }
-    this->control = new Control(t);
 }
 
 // Setup will use the functionality known in the device (from ryan's daemon) what connection to create
@@ -233,20 +235,6 @@ std::string Node::get_local_address(){
     return ip;
 }
 
-void * connection_handler(void * args) {
-
-    ThreadArgs * ta = (ThreadArgs *)args;
-
-    Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, ta->opts);
-    ta->node->add_connection(curr_conn);
-
-    return NULL;
-}
-
-void Node::add_connection(Connection * conn) {
-    this->connections.push_back(conn);
-}
-
 // Communication Functions
 /* **************************************************************************
 ** Function:
@@ -264,24 +252,20 @@ void Node::listen(){
 	new_wifi_device.port = wifi_port;
 	new_wifi_device.peer_IP = "localhost";
 	new_wifi_device.peer_port = wifi_port;
+	new_wifi_device.is_control = false;
 
-	ThreadArgs * t = new ThreadArgs;
-	t->node = this;
-	t->opts = &new_wifi_device;
-
-	pthread_t new_thread;
-	if(pthread_create(&new_thread, NULL, connection_handler, (void *)t)) {
-	    fprintf(stderr, "error creating connection thread\n");
-	    return;
-	}
-
+	std::cout << "Sending port " << wifi_port << "\n";
 	this->control->send(wifi_port);
+	std::cout << "Sent port.\n";
 
-	//if (pthread_join(new_thread, NULL)) {
-	//    fprintf(stderr, "error joining thread\n");
-	//    return;
-	//}
-	//std::cout << "After joining\n";
+	this->control->eof_listen();
+	sleep(2);
+
+	std::cout << "Creating connection\n";
+	Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
+	std::cout << "My pid is " << getpid() << "\n";
+	this->connections.push_back(curr_conn);
+	std::cout << "Pushed back connection\n";
     }
 }
 

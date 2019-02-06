@@ -31,6 +31,7 @@ struct Options {
     std::string port;
     std::string peer_IP;
     std::string peer_port;
+    bool is_control;
 };
 
 #endif

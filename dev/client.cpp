@@ -50,7 +50,9 @@ int main ()
 	rpl = std::string(static_cast<char*>(reply.data()), reply.size());
 	std::cout << "Received: " << rpl << "\n";
 
-	sleep(2);
+	zmq_close(socket);
+	zmq_ctx_destroy(context);
+	sleep(10);
 
 
 	// Prepare our context and socket
@@ -67,6 +69,7 @@ int main ()
 	memcpy(request5.data(), message5.c_str(), message5.size());
 	std::cout << "Sending message: " << message5 << "\n";
 	socket2.send(request5);
+	std::cout << "Sent " << message5 << ".\n";
 
 	// Get the reply.
 	socket2.recv(&reply);

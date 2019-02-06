@@ -4,7 +4,6 @@
 #include <unistd.h>
 #include "utility.hpp"
 #include "zmq.hpp"
-#include <pthread.h>
 #include <vector>
 
 class Connection {
@@ -14,6 +13,8 @@ class Connection {
 	
 	// each connection should have two named pipes
 	bool data_available;
+	
+	pid_t c_pid;
 
     public:
         // Method method;
@@ -30,6 +31,8 @@ class Direct : public Connection {
         std::string port;
         std::string peer_IP;
         std::string peer_port;
+	bool control;
+
 
         zmq::context_t *context;
         zmq::socket_t *socket;
@@ -38,28 +41,75 @@ class Direct : public Connection {
     public:
         Direct() {}
         Direct(Options *options) {
+	    std::cout << "Creating direct instance.\n";
             this->port = options->port;
             this->peer_IP = options->peer_IP;
             this->peer_port = options->peer_port;
+	    this->control = options->is_control;
 
-            this->context = new zmq::context_t(1);
+	    if (options->is_control) {
+		std::cout << "[Direct] Creating control socket\n";
 
-            switch (options->operation) {
-                case SERVER:
-                    this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
-		    this->item.socket = *this->socket;
-		    this->item.events = ZMQ_POLLIN;
-                    std::cout << "Serving..." << "\n\n";
-                    this->instantiate_connection = true;
-                    this->socket->bind("tcp://*:" + options->port);
-                    break;
-                case CLIENT:
-                    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
-                    std::cout << "Connecting..." << "\n\n";
-                    this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
-                    this->instantiate_connection = false;
-                    break;
-            }
+		this->context = new zmq::context_t(1);
+
+		switch (options->operation) {
+		    case SERVER:
+			this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
+			this->item.socket = *this->socket;
+			this->item.events = ZMQ_POLLIN;
+			std::cout << "[Control] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
+			this->instantiate_connection = true;
+			this->socket->bind("tcp://*:" + options->port); 
+			break;
+		    case CLIENT:
+			this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+			std::cout << "Connecting..." << "\n\n";
+			this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
+			this->instantiate_connection = false;
+			break;
+		}
+		return;
+	    }
+	    std::cout << "[Direct] Creating normal socket\n";
+	    this->c_pid = fork();
+	    switch (this->c_pid) {
+		case -1:
+		    std::cout << "Error creating child process\n";
+		    return;
+		case 0:
+		    sleep(1);
+		    std::cout << "[Direct] The child id is " << getpid() << "\n";
+		    this->context = new zmq::context_t(1);
+
+		    switch (options->operation) {
+			case SERVER:
+			    this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
+			    this->item.socket = *this->socket;
+			    this->item.events = ZMQ_POLLIN;
+			    std::cout << "[Direct] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
+			    this->instantiate_connection = true;
+			    this->socket->bind("tcp://*:" + options->port);
+			    while (1) {
+				std::string req = this->serve();
+				if (req != "") {
+				    this->send("OK");
+				}
+			    }
+			    break;
+			case CLIENT:
+			    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+			    std::cout << "[Direct] Connecting..." << "\n\n";
+			    this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
+			    this->instantiate_connection = false;
+			    break;
+		    }
+		    return;
+		default:
+		    std::cout << "This parent process id is " << getpid() << " not EXITING\n";
+		    //exit(0);
+		    return;
+	    }
+            
         }
         void whatami() {
             std::cout << "I am a Direct implementation." << '\n';
@@ -69,185 +119,29 @@ class Direct : public Connection {
 	    do {
 		if (zmq_poll(&this->item, 1, 100) >= 0) {
 		    if (this->item.revents == 0) {
-			//std::cout << "no events available\n";
 			return "";
-			//continue;
 		    }
-		    std::cout << "Receiving..." << '\n';
+		    std::cout << "[Direct] Receiving... PID: " << getpid() << '\n';
 		    zmq::message_t request;
-		    this->socket->recv( &request );
+		    this->socket->recv(&request);
 		    std::string req = std::string(static_cast<char *>(request.data()), request.size());
-		    std::cout << "Received: " << req << "\n";
+		    std::cout << "[Direct] Received: " << req << "\n";
 		    return req;
-
-		    //if (this->request == "") {
-		    //    if (req == "HELLO") {
-		    //        std::string message = "HELLO";
-		    //        this->send(message);
-		    //    }
-		    //    if (req == "CONNECT") {
-		    //        this->request = "CONNECT";
-		    //        std::string message = "SUCCESS";
-		    //        this->send(message);
-		    //    }
-		    //} else {
-		    //    if (this->request == "CONNECT") {
-		    //        this->message = req;
-		    //        //create the connection
-		    //        this
-
-		    //        sleep(2);
-
-		    //        this->request = "";
-		    //        //std::string message(1, eot_char);// = eot_char + "";
-		    //        std::string message = "EOF";
-		    //        this->send(message);
-		    //    }
-		    //}
-		    
-		    //std::string message = "Response.";
-		    //this->send(message);
 		} else {
 		    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
+		    exit(1);
 		}
 	    } while ( true );
 	}
 
 	void send(std::string message) {
-	    std::cout << "Sending..." << '\n';
+	    std::cout << "[Direct] Sending..." << '\n';
 	    zmq::message_t request( message.size() );
 	    memcpy( request.data(), message.c_str(), message.size() );
 	    this->socket->send( request );
-	    std::cout << "Sent: " << message << '\n';
+	    std::cout << "[Direct] Sent: " << message << '\n';
         }
 };
-
-//class Control : public Connection {
-//    private:
-//        std::string port;
-//
-//	//std::vector<pthread_t *> threads;
-//
-//        zmq::context_t *context;
-//        zmq::socket_t *socket;
-//	zmq::pollitem_t item;
-//
-//	std::string get_free_port() {
-//	    int port = 3010;
-//	    char * outstr = new char[10];
-//	    sprintf(outstr, "%d", port);
-//	    std::string message = outstr;
-//	    return message;
-//	}
-//
-//	void handle_req_type(std::string req) {
-//	    if (req == "CONNECT") {
-//		std::cout << "Received request for connection\n";
-//		//get a new port and set it up
-//		std::string port = get_free_port();
-//		std::cout << "Port is " << port << "\n";
-//		//zmq::message_t reply(port.size());
-//		//memcpy(reply.data(), port.c_str(), port.size());
-//		//create a new thread to listen
-//		pthread_t new_thread;
-//		if(pthread_create(&new_thread, NULL, connection_handler, (void *)(uintptr_t)std::stoi(port))) {
-//		    fprintf(stderr, "error creating connection thread\n");
-//		    return;
-//		}
-//		std::cout << "Sending: " << port << "\n";
-//		this->send(port);
-//
-//		if (pthread_join(new_thread, NULL)) {
-//		    fprintf(stderr, "error joining thread\n");
-//		    return;
-//		}
-//	    }
-//	}
-//
-//	static void * connection_handler(void * args) {
-//	    std::cout << "Control socket thread\n";
-//	    int port_int = (int)(uintptr_t) args;
-//	    char * outstr = new char[200];
-//	    sprintf(outstr, "%d", port_int);
-//	    std::string port = outstr;
-//
-//	    zmq::context_t *context2;
-//	    zmq::socket_t *socket2;
-//
-//	    context2 = new zmq::context_t(1);
-//	    socket2 = new zmq::socket_t(*context2, ZMQ_REP);
-//
-//	    std::cout << "Control socket thread serving..." << "\n";
-//	    socket2->bind("tcp://*:" + port);
-//	    std::cout << "On port: " << port << "\n";
-//	    zmq::message_t request;
-//	    std::cout << "Control socket thread receiving..." << '\n';
-//	    socket2->recv( &request );
-//	    std::string req = std::string(static_cast<char *>(request.data()), request.size());
-//	    std::cout << "Control socket thread received: " <<  req << "\n";
-//
-//	    return NULL;
-//	}
-//
-//	
-//
-//    public:
-//        Control() {}
-//        Control(Options *options) {
-//            this->port = options->port;
-//
-//            this->context = new zmq::context_t(1);
-//
-//            switch (options->operation) {
-//                case SERVER:
-//                    this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
-//		    this->item.socket = *this->socket;
-//		    this->item.events = ZMQ_POLLIN;
-//                    std::cout << "Control socket serving..." << "\n";
-//                    this->instantiate_connection = true;
-//                    this->socket->bind("tcp://*:" + options->port);
-//		    std::cout << "On port: " << options->port << "\n";
-//                    break;
-//                case CLIENT:
-//                    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
-//                    std::cout << "Connecting..." << "\n";
-//                    //this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
-//                    this->instantiate_connection = false;
-//                    break;
-//            }
-//        }
-//        void whatami() {
-//            std::cout << "I am a Control implementation." << '\n';
-//        }
-//
-	//void serve(){
-	//    do {
-	//	if (zmq_poll(&this->item, 1, 100) >= 0) {
-	//	    if (this->item.revents == 0) {
-	//		continue;
-	//	    }
-	//	    std::cout << "Control socket receiving..." << '\n';
-	//	    zmq::message_t request;
-	//	    this->socket->recv( &request );
-	//	    std::string req = std::string(static_cast<char *>(request.data()), request.size());
-	//	    std::cout << "Control socket received: " << req << "\n";
-	//	    handle_req_type(req);
-	//	    
-	//	    sleep( 2 );
-	//	} else {
-	//	    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
-	//	}
-	//    } while ( true );
-	//}
-//
-//	void send(std::string message) {
-//	    std::cout << "Sending..." << '\n';
-//	    zmq::message_t request( message.size() );
-//	    memcpy( request.data(), message.c_str(), message.size() );
-//	    this->socket->send( request );
-//	}
-//};
-
 
 class Bluetooth : public Connection {
     public:

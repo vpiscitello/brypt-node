@@ -154,15 +154,10 @@ int main(int argc, char **argv) {
     std::string local_ip = alpha.get_local_address();
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
 
+    std::cout << "Starting out the pid is: " << getpid() << "\n";
     alpha.setup( options );
     do {
-	//std::cout << "listen\n";
 	alpha.listen();
-	//std::cout << "after listen\n";
-	std::string msg = alpha.receive(1024);
-	if (msg != "ERROR" && msg != "") {
-	    std::cout << "Receive gave back: " << msg << "\n";
-	}
     } while (true);
 
     return 0;
