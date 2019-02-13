@@ -13,7 +13,7 @@
 
 crypto::crypto() {
 	memset(plaintext, 0x00, BUFF_SIZE);
-	set_plaintext((unsigned char *)"The quick brown fox jumps over the very lazy dog");
+	set_plaintext((unsigned char *)"The quick brown fox jumps over the lazy dog");
 	set_our_key((unsigned char *)"01234567890123456789012345678901",32);
 	iv = (unsigned char *)"0123456789012345";
 }
@@ -309,14 +309,14 @@ void crypto::sha_2(unsigned char* input){
 
 void crypto::hmac_sha2(unsigned char* input){
 	unsigned int length = 0;
-	digest = HMAC(EVP_sha256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
+	digest = HMAC(EVP_sha256(), key, OUR_KEY_SIZE, input, strlen((char *)input), NULL, &length);
 	printf("HMAC_SHA2: \n");
 	print_output(digest, (int)length);
 }
 
 void crypto::hmac_blake2s(unsigned char* input){
 	unsigned int length = 0;
-	digest = HMAC(EVP_blake2s256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
+	digest = HMAC(EVP_blake2s256(), key, OUR_KEY_SIZE, input, strlen((char *)input), NULL, &length);
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest, (int)length);
 }
