@@ -57,7 +57,7 @@ void crypto::set_plaintext(unsigned char *p){
 	memset(plaintext, 0x00, BUFF_SIZE);
 	strncpy((char *)plaintext, (char *)p, strlen((char *)p));
 	ptxt_len = strlen((const char *)plaintext);
-	ptxt_len = 16*(ptxt_len/16)+16; //cast to 16-byte blocks
+//	ptxt_len = 16*(ptxt_len/16)+16; //cast to 16-byte blocks
 }
 void crypto::set_our_key(unsigned char *k, int size){
 	if(size%8!=0 || size>OUR_KEY_SIZE){
@@ -150,7 +150,7 @@ void crypto::cast5_encrypt() {
 
 	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
 	EVP_CIPHER_CTX_set_padding(ctx, 0);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	ctxt_len += length;
@@ -178,7 +178,7 @@ void crypto::cast5_decrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, ctxt_len + 1);
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, ctxt_len);
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
@@ -205,7 +205,7 @@ void crypto::aes_ctr_256_encrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	ctxt_len += length;
@@ -254,7 +254,7 @@ void crypto::aes_ctr_128_encrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	ctxt_len += length;
