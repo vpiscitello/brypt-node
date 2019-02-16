@@ -11,13 +11,18 @@
 
 enum DeviceOperation { SERVER, CLIENT };
 
-enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE };
+//may not need websocket type, shouldn't have control_type
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, NONE };
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";
 const std::string CA_SUBDOMAIN = "bridge";
 const std::string CA_PORT = "8080";
 const std::string CA_PROTOCOL = "https://";
+
+const int message_size = 512;
+
+const char eot_char = 4;
 
 struct Options {
     bool run_tests;
@@ -26,6 +31,7 @@ struct Options {
     std::string port;
     std::string peer_IP;
     std::string peer_port;
+    bool is_control;
 };
 
 #endif

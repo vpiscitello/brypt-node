@@ -1,4 +1,5 @@
 #include "node.hpp"
+#include "control.hpp"
 
 // Constructors and Deconstructors
 /* **************************************************************************
@@ -70,6 +71,33 @@ bool Node::notifyAddressChange(){
 ** Function:
 ** Description:
 ** *************************************************************************/
+TechnologyType Node::determineBestConnectionType(){
+    int best_comm = 4;
+    for (int i = 0; i < (int)this->communicationTechnologies.size(); i++) {
+	if (communicationTechnologies[i] == DIRECT_TYPE) {
+	    return DIRECT_TYPE;
+	} else if (communicationTechnologies[i] == BLE_TYPE) {
+	    if (best_comm > 1) {
+		best_comm = 1;
+	    }
+	} else if (communicationTechnologies[i] == LORA_TYPE) {
+	    if (best_comm > 2) {
+		best_comm = 2;
+	    }
+	} else {
+	    if (best_comm > 3) {
+		best_comm = 3;
+	    }
+	}
+    }
+    return static_cast<TechnologyType>(best_comm);
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+//receive a connection and determine what comm tech it is using.
 int Node::determineConnectionMethod(){
     int method = 0;
 
@@ -125,20 +153,35 @@ bool Node::transform(){
 ** *************************************************************************/
 void Node::setup(Options options){
     switch (options.operation) {
-        case SERVER:
+        case SERVER: {
             this->isRoot = true;
             this->isBranch = true;
             this->isLeaf = false;
+
+	    TechnologyType t = determineBestConnectionType();
+	    t = DIRECT_TYPE; //TEMPORARY
+	    std::cout << "Technology type is: " << t << "\n";
+	    if (t == NONE) {
+		std::cout << "No technology types oopsies\n";
+		exit(1);
+	    }
+	    this->control = new Control(t);
             break;
-        case CLIENT:
+	}
+        case CLIENT: {
             this->isRoot = false;
             this->isBranch = false;
             this->isLeaf = true;
+
+	    //Some sort of setup to determine the host and port to connect to
+	    setup_initial_contact(&options);
             break;
+	}
     }
-    this->connections.push_back(ConnectionFactory(options.technology, &options));
+    //this->connections.push_back(ConnectionFactory(options.technology, &options));
 }
 
+// Setup will use the functionality known in the device (from ryan's daemon) what connection to create
 
 // Information Functions
 /* **************************************************************************
@@ -159,6 +202,56 @@ void Node::setup(Options options){
 ** *************************************************************************/
 void Node::connect(){
     std::cout << "Connecting..." << '\n';
+}
+
+void Node::setup_initial_contact(Options * opts) {
+    std::cout << "Setting up initial contact\n";
+    std::cout << "Connecting with technology: " << opts->technology << " and on IP:port: " << opts->peer_IP << ":" << opts->peer_port << "\n";
+    // Prevent it from forking
+    opts->is_control = true;
+    this->init_conn = ConnectionFactory(opts->technology, opts);
+    
+    this->init_conn->send("HELLO");
+
+    std::string rpl = "";
+    while (rpl == "") {
+	rpl = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+
+    this->init_conn->send("CONNECT None");
+
+    std::string new_port = "";
+    while (new_port == "") {
+	new_port = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << new_port << "\n";
+
+    this->init_conn->send("EOF");
+
+    rpl = "";
+    while (rpl == "") {
+	rpl = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+
+    this->init_conn->shutdown();
+    opts->peer_port = new_port;
+    sleep(10);
+    this->init_conn = ConnectionFactory(opts->technology, opts);
+    int msg_num = 0;
+    while (1) {
+
+	this->init_conn->send("HELLO" + std::to_string(msg_num));
+
+	std::string rpl = "";
+	while (rpl == "") {
+	    rpl = this->init_conn->serve();
+	}
+	std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+	msg_num++;
+	sleep(3);
+    }
 }
 
 /* **************************************************************************
@@ -194,33 +287,68 @@ std::string Node::get_local_address(){
     return ip;
 }
 
-
-
 // Communication Functions
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
 void Node::listen(){
+    std::string req_type = this->control->listen();
+    if (req_type == "WIFI") {
+	// Create a connection
+	std::string wifi_port = "3010";
+	// Push it back on our connections
+	Options new_wifi_device;
+	new_wifi_device.technology = DIRECT_TYPE;
+	new_wifi_device.operation = SERVER;
+	new_wifi_device.port = wifi_port;
+	new_wifi_device.peer_IP = "localhost";
+	new_wifi_device.peer_port = wifi_port;
+	new_wifi_device.is_control = false;
 
+	std::cout << "Sending port " << wifi_port << "\n";
+	this->control->send(wifi_port);
+	std::cout << "Sent port.\n";
+
+	this->control->eof_listen();
+	sleep(2);
+
+	std::cout << "Creating connection\n";
+	Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
+	std::cout << "My pid is " << getpid() << "\n";
+	this->connections.push_back(curr_conn);
+	std::cout << "Pushed back connection\n";
+    }
 }
 
+//transmit should loop over all neighbor nodes send a request to connect, receive a status, send a query, receive a query, send an EOM
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::transmit(){
+bool Node::transmit(std::string message){
     bool success = false;
+    //this should send over all neighbor nodes
+    for (int i = 0; i < (int)this->connections.size(); i++) {
+        this->connections[i]->send(message);
+    }
 
     return success;
 }
 
+//receive may not be needed
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::receive(){
-    bool success = false;
+std::string Node::receive(int message_size){
+    std::string message = "ERROR";
+    for (int i = 0; i < (int)this->connections.size(); i++) {
+        message = this->connections[i]->serve();
+	if (message != "") {
+	    this->connections[i]->send("rec.");
+	}
+    }
 
-    return success;
+    return message;
 }

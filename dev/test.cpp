@@ -1,6 +1,8 @@
 #include "utility.hpp"
 #include "node.hpp"
 
+#include <string>
+
 struct Options options;
 
 void connection_factory_test() {
@@ -12,7 +14,7 @@ void connection_factory_test() {
     connections.push_back( ConnectionFactory(DIRECT_TYPE) );
     connections.push_back( ConnectionFactory(WEBSOCKET_TYPE) );
 
-    for (int idx = 0; idx < connections.size(); idx++) {
+    for (int idx = 0; idx < (int)connections.size(); idx++) {
         connections.at(idx)->whatami();
         connections.at(idx)->unspecial();
         std::cout << '\n';
@@ -62,7 +64,7 @@ void parse_args(int argc, char **argv) {
     if (it != args.end()) {
         it++;
         if (*it == "" || it->find("-") != std::string::npos) {
-            std::cout << "== You must specify a devic type." << '\n';
+            std::cout << "== You must specify a device type." << '\n';
             exit(1);
         } else {
             std::string device_type = *it;
@@ -75,7 +77,7 @@ void parse_args(int argc, char **argv) {
             } else if (device_type == "WEBSOCKET") {
                 options.technology = WEBSOCKET_TYPE;
             } else {
-                std::cout << "== Invalid devic type." << '\n';
+                std::cout << "== Invalid device type." << '\n';
                 exit(1);
             }
         }
@@ -152,7 +154,13 @@ int main(int argc, char **argv) {
     std::string local_ip = alpha.get_local_address();
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
 
+    std::cout << "Starting out the pid is: " << getpid() << "\n";
     alpha.setup( options );
+    if (options.operation == SERVER) {
+	do {
+	    alpha.listen();
+	} while (true);
+    }
 
     return 0;
 }
