@@ -2,9 +2,11 @@
 #define CONNECTION_HPP
 
 #include <unistd.h>
-#include "utility.hpp"
 #include "zmq.hpp"
 #include <vector>
+
+#include "utility.hpp"
+#include "message.hpp"
 
 class Connection {
     protected:
@@ -119,8 +121,8 @@ class Direct : public Connection {
         void whatami() {
             std::cout << "I am a Direct implementation." << '\n';
         }
-//node class handles getting a whole message, connection class handles the handshake message sending all that
-	std::string serve(){
+
+	Message * serve(){
 	    do {
 		if (zmq_poll(&this->item, 1, 100) >= 0) {
 		    if (this->item.revents == 0) {
@@ -129,9 +131,14 @@ class Direct : public Connection {
 		    std::cout << "[Direct] Receiving... PID: " << getpid() << '\n';
 		    zmq::message_t request;
 		    this->socket->recv(&request);
+
 		    std::string req = std::string(static_cast<char *>(request.data()), request.size());
+
 		    std::cout << "[Direct] Received: " << req << "\n";
-		    return req;
+
+		    Message recv_message(req);
+
+		    return &recv_message;
 		} else {
 		    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
 		    exit(1);
@@ -139,12 +146,13 @@ class Direct : public Connection {
 	    } while ( true );
 	}
 
-	void send(std::string message) {
+	void send(Message msg) {
 	    std::cout << "[Direct] Sending..." << '\n';
-	    zmq::message_t request(message.size());
-	    memcpy(request.data(), message.c_str(), message.size());
+	    std::string msg_pack = msg.get_pack();
+	    zmq::message_t request(msg_pack.size());
+	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 	    this->socket->send(request);
-	    std::cout << "[Direct] Sent: " << message << '\n';
+	    std::cout << "[Direct] Sent: " << msg_pack << '\n';
         }
 
 	void shutdown() {

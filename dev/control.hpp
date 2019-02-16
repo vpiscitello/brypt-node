@@ -27,6 +27,9 @@ class Control {
 	    std::string req = this->conn->serve();
 	    //std::cout << "[CONTROL] Received request: " << req << "\n";
 	    if (req == "HELLO") {
+		CommandType command = 
+
+		Message msg_send = 
 		this->conn->send("HELLO");
 		req = this->conn->serve();
 		std::cout << "[CONTROL] Received request2: " << req << "\n";
