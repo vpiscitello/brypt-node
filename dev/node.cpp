@@ -211,7 +211,13 @@ void Node::setup_initial_contact(Options * opts) {
     opts->is_control = true;
     this->init_conn = ConnectionFactory(opts->technology, opts);
     
-    this->init_conn->send("HELLO");
+    CommandType command = CONNECT_TYPE;
+    int phase = 0;
+    std::string node_id = "00-00-00-00-00";
+    std::string data = "HELLO";
+    unsigned int nonce = 998;
+    Message message(node_id, command, phase, data, nonce);
+    this->init_conn->send(&message);
 
     std::string rpl = "";
     while (rpl == "") {
@@ -219,15 +225,10 @@ void Node::setup_initial_contact(Options * opts) {
     }
     std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
 
-    this->init_conn->send("CONNECT None");
-
-    std::string new_port = "";
-    while (new_port == "") {
-	new_port = this->init_conn->serve();
-    }
-    std::cout << "[CLIENT SETUP] Received: " << new_port << "\n";
-
-    this->init_conn->send("EOF");
+    phase = 1;
+    data = "CONNECT None";
+    Message message2(node_id, command, phase, data, nonce);
+    this->init_conn->send(&message2);
 
     rpl = "";
     while (rpl == "") {
@@ -235,23 +236,42 @@ void Node::setup_initial_contact(Options * opts) {
     }
     std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
 
-    this->init_conn->shutdown();
-    opts->peer_port = new_port;
-    sleep(10);
-    this->init_conn = ConnectionFactory(opts->technology, opts);
-    int msg_num = 0;
-    while (1) {
+    std::string new_port = rpl
 
-	this->init_conn->send("HELLO" + std::to_string(msg_num));
 
-	std::string rpl = "";
-	while (rpl == "") {
-	    rpl = this->init_conn->serve();
-	}
-	std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
-	msg_num++;
-	sleep(3);
-    }
+    //this->init_conn->send("CONNECT None");
+
+    //std::string new_port = "";
+    //while (new_port == "") {
+    //    new_port = this->init_conn->serve();
+    //}
+    //std::cout << "[CLIENT SETUP] Received: " << new_port << "\n";
+
+    //this->init_conn->send("EOF");
+
+    //rpl = "";
+    //while (rpl == "") {
+    //    rpl = this->init_conn->serve();
+    //}
+    //std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+
+    //this->init_conn->shutdown();
+    //opts->peer_port = new_port;
+    //sleep(10);
+    //this->init_conn = ConnectionFactory(opts->technology, opts);
+    //int msg_num = 0;
+    //while (1) {
+
+    //    this->init_conn->send("HELLO" + std::to_string(msg_num));
+
+    //    std::string rpl = "";
+    //    while (rpl == "") {
+    //        rpl = this->init_conn->serve();
+    //    }
+    //    std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+    //    msg_num++;
+    //    sleep(3);
+    //}
 }
 
 /* **************************************************************************
@@ -306,18 +326,18 @@ void Node::listen(){
 	new_wifi_device.peer_port = wifi_port;
 	new_wifi_device.is_control = false;
 
-	std::cout << "Sending port " << wifi_port << "\n";
-	this->control->send(wifi_port);
-	std::cout << "Sent port.\n";
+	//std::cout << "Sending port " << wifi_port << "\n";
+	//this->control->send(wifi_port);
+	//std::cout << "Sent port.\n";
 
-	this->control->eof_listen();
-	sleep(2);
+	//this->control->eof_listen();
+	//sleep(2);
 
-	std::cout << "Creating connection\n";
-	Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
-	std::cout << "My pid is " << getpid() << "\n";
-	this->connections.push_back(curr_conn);
-	std::cout << "Pushed back connection\n";
+	//std::cout << "Creating connection\n";
+	//Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
+	//std::cout << "My pid is " << getpid() << "\n";
+	//this->connections.push_back(curr_conn);
+	//std::cout << "Pushed back connection\n";
     }
 }
 
@@ -328,10 +348,10 @@ void Node::listen(){
 ** *************************************************************************/
 bool Node::transmit(std::string message){
     bool success = false;
-    //this should send over all neighbor nodes
-    for (int i = 0; i < (int)this->connections.size(); i++) {
-        this->connections[i]->send(message);
-    }
+    ////this should send over all neighbor nodes
+    //for (int i = 0; i < (int)this->connections.size(); i++) {
+    //    this->connections[i]->send(message);
+    //}
 
     return success;
 }
@@ -343,12 +363,12 @@ bool Node::transmit(std::string message){
 ** *************************************************************************/
 std::string Node::receive(int message_size){
     std::string message = "ERROR";
-    for (int i = 0; i < (int)this->connections.size(); i++) {
-        message = this->connections[i]->serve();
-	if (message != "") {
-	    this->connections[i]->send("rec.");
-	}
-    }
+    //for (int i = 0; i < (int)this->connections.size(); i++) {
+    //    message = this->connections[i]->serve();
+    //    if (message != "") {
+    //        this->connections[i]->send("rec.");
+    //    }
+    //}
 
     return message;
 }

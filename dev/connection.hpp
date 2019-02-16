@@ -21,8 +21,9 @@ class Connection {
     public:
         // Method method;
         virtual void whatami() = 0;
+        //virtual Message * serve() = 0;
         virtual std::string serve() = 0;
-        virtual void send(std::string) = 0;
+        virtual void send(Message *) = 0;
         virtual void shutdown() = 0;
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
@@ -97,10 +98,10 @@ class Direct : public Connection {
 			    this->instantiate_connection = true;
 			    this->socket->bind("tcp://*:" + options->port);
 			    while (1) {
-				std::string req = this->serve();
-				if (req != "") {
-				    this->send("OK");
-				}
+				//std::string req = this->serve();
+				//if (req != "") {
+				//    this->send("OK");
+				//}
 			    }
 			    break;
 			case CLIENT:
@@ -122,7 +123,8 @@ class Direct : public Connection {
             std::cout << "I am a Direct implementation." << '\n';
         }
 
-	Message * serve(){
+	//Message * serve(){
+	std::string serve(){
 	    do {
 		if (zmq_poll(&this->item, 1, 100) >= 0) {
 		    if (this->item.revents == 0) {
@@ -136,9 +138,11 @@ class Direct : public Connection {
 
 		    std::cout << "[Direct] Received: " << req << "\n";
 
-		    Message recv_message(req);
+		    //Message recv_message(req);
+		    //std::cout << "[Direct] WITHIN, id: " << recv_message.get_node_id() << "\n";
 
-		    return &recv_message;
+		    return req;
+		    //return &recv_message;
 		} else {
 		    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
 		    exit(1);
@@ -146,9 +150,9 @@ class Direct : public Connection {
 	    } while ( true );
 	}
 
-	void send(Message msg) {
+	void send(Message * msg) {
 	    std::cout << "[Direct] Sending..." << '\n';
-	    std::string msg_pack = msg.get_pack();
+	    std::string msg_pack = msg->get_pack();
 	    zmq::message_t request(msg_pack.size());
 	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 	    this->socket->send(request);
@@ -168,11 +172,12 @@ class Bluetooth : public Connection {
             std::cout << "I am a BLE implementation." << '\n';
         }
 	
+	//Message * serve(){
 	std::string serve(){
 
 	}
 	
-	void send(std::string message) {
+	void send(Message * msg) {
 
 	}
 
@@ -187,11 +192,12 @@ class LoRa : public Connection {
             std::cout << "I am a LoRa implementation." << '\n';
         }
 
+	//Message * serve(){
 	std::string serve(){
 
 	}
 	
-	void send(std::string message) {
+	void send(Message * msg) {
 
 	}
 
@@ -206,11 +212,12 @@ class Websocket : public Connection {
             std::cout << "I am a Websocket implementation." << '\n';
         }
 
+	//Message * serve(){
 	std::string serve(){
 
 	}
 	
-	void send(std::string message) {
+	void send(Message * msg) {
 
 	}
 
