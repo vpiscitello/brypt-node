@@ -44,6 +44,14 @@ class Control {
 		    }
 		    Message msg(req);
 		    std::cout << "[CONTROL] Message2 unpacked: " << msg.get_pack() << "\n";
+
+		    std::string conn_data = msg.get_data();
+		    if (conn_data.compare(0, 7, "CONNECT") == 0) {
+			std::cout << "[CONTROL] Was sent CONNECT\n";
+			std::string params = conn_data.substr(8, req.length());
+			std::cout << "[CONTROL] The remaining string is: " << params << "\n";
+			return "WIFI";
+		    }
 		}
 	    }
 	    //std::string req = this->conn->serve();

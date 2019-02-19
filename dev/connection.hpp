@@ -90,26 +90,34 @@ class Direct : public Connection {
 		    this->context = new zmq::context_t(1);
 
 		    switch (options->operation) {
-			case SERVER:
+			case SERVER: {
 			    this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
 			    this->item.socket = *this->socket;
 			    this->item.events = ZMQ_POLLIN;
 			    std::cout << "[Direct] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
 			    this->instantiate_connection = true;
 			    this->socket->bind("tcp://*:" + options->port);
+			    CommandType command = INFORMATION_TYPE;
+			    int phase = 0;
+			    std::string node_id = "00-00-00-00-00";
+			    std::string data = "OK";
+			    unsigned int nonce = 998;
+			    Message message(node_id, command, phase, data, nonce);
 			    while (1) {
-				//std::string req = this->serve();
-				//if (req != "") {
-				//    this->send("OK");
-				//}
+				std::string req = this->serve();
+				if (req != "") {
+				    this->send(&message);
+				}
 			    }
 			    break;
-			case CLIENT:
+			}
+			case CLIENT: {
 			    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
 			    std::cout << "[Direct] Connecting..." << "\n\n";
 			    this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
 			    this->instantiate_connection = false;
 			    break;
+			}
 		    }
 		    return;
 		default:
