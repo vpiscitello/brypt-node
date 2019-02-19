@@ -64,11 +64,6 @@ class Node {
         std::string protocol;
 
         // Private Functions
-        // Utility Functions
-        void pack();                                              // Pack some data into a string
-        void unpack();                                            // Unpack some data into a type
-        long long getCurrentTimestamp();                        // Get the current epoch timestamp
-
         // Communication Functions
         bool contactAuthority();                                // Contact the central authority for some service
 	void setup_initial_contact(Options *);

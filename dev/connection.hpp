@@ -25,6 +25,9 @@ class Connection {
         virtual std::string serve() = 0;
         virtual void send(Message *) = 0;
         virtual void shutdown() = 0;
+	void pass_up_message() {
+
+	}
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
         }
