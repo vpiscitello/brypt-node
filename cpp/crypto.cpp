@@ -313,14 +313,63 @@ void crypto::hmac_sha2(unsigned char* input){
 	printf("HMAC_SHA2: \n");
 	print_output(digest, (int)length);
 }
-
+/*
 void crypto::hmac_blake2s(unsigned char* input){
 	unsigned int length = 0;
 	digest = HMAC(EVP_blake2s256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest, (int)length);
 }
+*/
+/* INTELLECTUAL PROPERTY NOTE: heavily influenced by wiki.openssl.org/index.php/Diffie_Hellman*/
+void crypto::modded_DHKA(){
+	DH *privkey;
+	int codes;
+	int secret_size;
+/* Generate the parameters to be used */
+	if(NULL == (privkey = DH_new())) handleErrors();
+	if(1 != DH_generate_parameters_ex(privkey, 1024, DH_GENERATOR_2, NULL)) handleErrors();
+	
+	if(1 != DH_check(privkey, &codes)) handleErrors();
+	if(codes != 0){
+    /* Problems have been found with the generated parameters */
+    /* Handle these here - we'll just abort for this example */
+	    printf("DH_check failed\n");
+	    abort();
+	}
 
+/* Generate the public and private key pair */
+	if(1 != DH_generate_key(privkey)) handleErrors();
+
+/* Send the public key to the peer.
+ *  * How this occurs will be specific to your situation (see main text below) */
+	//BIO_dump_fp(stdout, (const char *)privkey, 128);
+	DHparams_print(garbage, garbage);
+	DHparams_print_fd(stdout, privkey);
+	printf("dhparams failed\n");
+
+/* Receive the public key from the peer. In this example we're just hard coding a value */
+	BIGNUM *pubkey = NULL;
+	if(0 == (BN_dec2bn(&pubkey, "01234567890123456789012345678901234567890123456789"))) handleErrors();
+
+/* Compute the shared secret */
+	unsigned char *secret;
+	if(NULL == (secret = (unsigned char *)OPENSSL_malloc(sizeof(unsigned char) * (DH_size(privkey))))) handleErrors();
+	
+	if(0 > (secret_size = DH_compute_key(secret, pubkey, privkey))) handleErrors();
+
+	/* Do something with the shared secret */
+	/* Note secret_size may be less than DH_size(privkey) */
+	//printf("The shared secret is:\n%s\n", secret);
+	BIO_dump_fp(stdout, (const char *)secret, secret_size);
+	printf("secret size was %d\n", secret_size);
+	OPENSSL_free(secret);
+	DH_free(privkey);
+}
+void crypto::handleErrors(){
+	printf("HALT AND CATCH FIIIIIIIIIIRE\n");
+	abort();
+}
 void crypto::print_output(unsigned char* output, int len) {
 	for(int i = 0; i < len; i++) {
 		printf("%02x", output[i]);

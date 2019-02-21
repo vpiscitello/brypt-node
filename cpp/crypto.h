@@ -8,6 +8,7 @@
 #include <openssl/evp.h>	// For HMAC
 #include <openssl/hmac.h>	
 #include <openssl/des.h>
+#include <openssl/dh.h>
 
 #define BUFF_SIZE 512
 #define HASH_SIZE 32
@@ -48,6 +49,8 @@ class crypto{
 		void sha_2(unsigned char*);
 		void hmac_sha2(unsigned char*);
 		void hmac_blake2s(unsigned char*);
+		void modded_DHKA();
+		void handleErrors();
 		void print_output(unsigned char*, int);
 
 		unsigned char* get_plaintext();

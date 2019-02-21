@@ -15,7 +15,7 @@ int main() {
 	c.hmac_sha2(c.get_plaintext());	
 	spacer();
 
-	c.hmac_blake2s(c.get_plaintext());	
+	//c.hmac_blake2s(c.get_plaintext());	
 	spacer();
 	
 	c.aes_ctr_256_encrypt();
@@ -44,6 +44,7 @@ int main() {
 	triple_des_encrypt(plaintext, ciphertext, key256, iv128);
 	triple_des_decrypt(ciphertext, decryptedtext, key256, iv128);
 */
+	c.modded_DHKA();
 	return 0;
 }
 
