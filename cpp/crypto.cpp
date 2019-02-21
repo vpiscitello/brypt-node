@@ -13,7 +13,7 @@
 
 crypto::crypto() {
 	memset(plaintext, 0x00, BUFF_SIZE);
-	set_plaintext((unsigned char *)"The quick brown fox jumps over the very lazy dog");
+	set_plaintext((unsigned char *)"The quick brown fox jumps over the lazy dog");
 	set_our_key((unsigned char *)"01234567890123456789012345678901",32);
 	iv = (unsigned char *)"0123456789012345";
 }
@@ -57,7 +57,7 @@ void crypto::set_plaintext(unsigned char *p){
 	memset(plaintext, 0x00, BUFF_SIZE);
 	strncpy((char *)plaintext, (char *)p, strlen((char *)p));
 	ptxt_len = strlen((const char *)plaintext);
-	ptxt_len = 16*(ptxt_len/16)+16; //cast to 16-byte blocks
+//	ptxt_len = 16*(ptxt_len/16)+16; //cast to 16-byte blocks
 }
 void crypto::set_our_key(unsigned char *k, int size){
 	if(size%8!=0 || size>OUR_KEY_SIZE){
@@ -150,7 +150,7 @@ void crypto::cast5_encrypt() {
 
 	EVP_EncryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
 	EVP_CIPHER_CTX_set_padding(ctx, 0);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	ctxt_len += length;
@@ -178,7 +178,7 @@ void crypto::cast5_decrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_DecryptInit_ex(ctx, EVP_cast5_cbc(), NULL, key, iv);
-	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, ctxt_len + 1);
+	EVP_DecryptUpdate(ctx, decryptedtext, &length, ciphertext, ctxt_len);
 	plaintext_len += length;
 	EVP_DecryptFinal_ex(ctx, decryptedtext + length, &length);
 	plaintext_len += length;
@@ -205,7 +205,7 @@ void crypto::aes_ctr_256_encrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	ctxt_len += length;
@@ -254,7 +254,7 @@ void crypto::aes_ctr_128_encrypt() {
 	ctx = EVP_CIPHER_CTX_new();
 
 	EVP_EncryptInit_ex(ctx, EVP_aes_128_ctr(), NULL, key, iv);
-	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len);
+	EVP_EncryptUpdate(ctx, ciphertext, &length, plaintext, ptxt_len + 1);
 	ctxt_len = length;
 	EVP_EncryptFinal_ex(ctx, ciphertext + length, &length);
 	ctxt_len += length;
@@ -309,14 +309,14 @@ void crypto::sha_2(unsigned char* input){
 
 void crypto::hmac_sha2(unsigned char* input){
 	unsigned int length = 0;
-	digest = HMAC(EVP_sha256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
+	digest = HMAC(EVP_sha256(), key, OUR_KEY_SIZE, input, strlen((char *)input), NULL, &length);
 	printf("HMAC_SHA2: \n");
 	print_output(digest, (int)length);
 }
 /*
 void crypto::hmac_blake2s(unsigned char* input){
 	unsigned int length = 0;
-	digest = HMAC(EVP_blake2s256(), key, strlen((char *)key), input, strlen((char *)input), NULL, &length);
+	digest = HMAC(EVP_blake2s256(), key, OUR_KEY_SIZE, input, strlen((char *)input), NULL, &length);
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest, (int)length);
 }
