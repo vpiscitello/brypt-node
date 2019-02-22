@@ -28,19 +28,30 @@ void MessageQueue::removePipe(std::string badPipe){
 		}
 	}
 }
+void MessageQueue::addInMessage(Message new_msg){
+	in_msg.push_back(new_msg);
+}
 int MessageQueue::pushPipes(){//finds *inbound* msgs
 	unsigned int i;
 	unsigned int start_size = in_msg.size();
-	int fd;
+	checkPipes();
+	std::string debugstring = "";
+	std::string packet = "";
 	for(i = 0; i<start_size; i++){
-		Message tmp_msg = in_msg[0];
+		Message tmp_msg = in_msg[i];
 		const std::string pipe_name = tmp_msg.get_node_id();
-		tmp_msg.pack();
+		packet = tmp_msg.get_pack();
 		//const std::string raw_top = tmp_msg.get_raw();
 		std::string raw_top = "placeholder";
-		if((fd = open((const char*)pipe_name.c_str(), O_APPEND)==-1)) return 1;
-		write(fd, raw_top.c_str(), raw_top.length());
-		close(fd);
+		std::fstream myfile(pipe_name, std::ios::out | std::ios::binary);
+		for(int i = 0; i<packet.size(); i++){
+			myfile.put(packet.at(i));
+			debugstring.append(sizeof(packet.at(i)), packet.at(i));
+		}
+		
+		myfile.close();
+		std::cout << "debug string was \n" << debugstring << '\n';
+		debugstring = "";
 		in_msg.erase(in_msg.begin());
 	}
 	return 0;
@@ -51,17 +62,21 @@ int MessageQueue::checkPipes(){//finds *outbound* msgs
 	char tmpchar;
 	printf("%d\n",pipes.size());
 	for(i = 0; i<pipes.size(); i++){
-		printf("pipeloop\n");
 		const char* pipe_name = pipes[i].c_str();
 		std::ifstream myfile(pipe_name);
+		printf("opening\n");
 		if(myfile.is_open()){
 			while(myfile.get(tmpchar)){
-				printf("%02x\n",tmpchar);
 				line.append(sizeof(tmpchar),tmpchar);
 			}
+			Message tmpmsg(line);
+			out_msg.push_back(tmpmsg);
 		}
 		myfile.close();
-		printf("pipe name was %s\n",pipe_name);
+		std::fstream truncator(pipe_name, std::ios::in);
+		truncator.open( pipe_name, std::ios::out | std::ios::trunc );
+		truncator.close();
+		std::cout << "Message get_pack\n" << out_msg[0].get_pack() << '\n';
 		//const std::string data_len = read(fd, //TODO: Ask Vince about variable length before packet_len w/ 11 nodes in cluster
 	}
 	return 0;

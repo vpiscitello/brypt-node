@@ -2,6 +2,7 @@
 #include "node.hpp"
 #include "mqueue.hpp"
 #include <sys/stat.h>
+#include <fstream>
 #include <fcntl.h> 
 
 struct Options options;
@@ -54,15 +55,43 @@ void message_command_parse_test() {
 
 }
 void message_queue_test() {
-    int fd;
-    std::cout << "\n== Testing Message Queue" << '\n';
-    MessageQueue message_queue;
-    message_queue.addPipe("1");
-    fd = open("1",O_WRONLY|O_APPEND);
-    printf("%d\n", write(fd, "\0Hell\0o, World\0",(ssize_t)12));
-    close(fd);
-    printf("%d",fd);
-    message_queue.checkPipes();
+	int fd;
+	std::cout << "\n== Testing Message Queue" << '\n';
+	MessageQueue message_queue;
+	int phase = 0;
+	std::string plaintext("H\0el\0lo, Wo\0rld\0",16);
+	std::string node_id = "00-00-00-00-01";
+	CommandType command = ELECTION_TYPE;
+	unsigned int nonce = 998;
+    	Message wrapper( node_id, command, phase, plaintext, nonce );    // Create the message using known data
+	//Message wrapper = Message(plaintext);
+	std::string packet = wrapper.get_pack();
+	
+	/*
+	char bytelike[1024];
+	strncpy(bytelike, packet, sizeof(packet));
+	for(int i = 0; i<packet.size(); i++){
+		printf("%c",bytelike[i]);
+	}
+	*/
+
+	std::cout << packet <<"\n";
+	message_queue.addPipe("1");
+	std::fstream myfile("1", std::ios::out | std::ios::binary);
+	for(int i = 0; i<packet.size(); i++){
+		myfile.put(packet.at(i));
+	}
+	myfile.close();
+	//fd = open("1",O_WRONLY|O_APPEND);
+	//printf("%d\n", write(fd, packet.c_str() ,packet.size()-1));
+	//printf("%d\n", write(fd, plaintext.c_str(), plaintext.size()));
+	//close(fd);
+	//
+	//printf("%d",fd);
+	message_queue.checkPipes();
+	message_queue.addInMessage(wrapper);
+	message_queue.pushPipes();
+	message_queue.checkPipes();
 }
 void message_message_test() {
     std::cout << "\n== Testing Messages" << '\n';

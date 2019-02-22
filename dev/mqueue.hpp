@@ -35,6 +35,7 @@ class MessageQueue {
     public:
         int pushPipes();	//Sends all out_msgs to 
         int checkPipes();	//Checks each FD for new incoming msgs
+	void addInMessage(Message);
 	void addPipe(std::string);
 	void removePipe(std::string);	//nuke everything
 	Message get_next_message();	//return a msg from out_msg and delete after service
