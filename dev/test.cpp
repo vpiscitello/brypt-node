@@ -59,7 +59,7 @@ void message_queue_test() {
     MessageQueue message_queue;
     message_queue.addPipe("1");
     fd = open("1",O_WRONLY|O_APPEND);
-    printf("%d\n", write(fd, "Hello, World\0",(ssize_t)12));
+    printf("%d\n", write(fd, "\0Hell\0o, World\0",(ssize_t)12));
     close(fd);
     printf("%d",fd);
     message_queue.checkPipes();

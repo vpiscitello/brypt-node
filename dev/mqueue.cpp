@@ -47,18 +47,17 @@ int MessageQueue::pushPipes(){//finds *inbound* msgs
 }
 int MessageQueue::checkPipes(){//finds *outbound* msgs
 	unsigned int i;
-	std::string line;
+	std::string line = "";
+	char tmpchar;
 	printf("%d\n",pipes.size());
 	for(i = 0; i<pipes.size(); i++){
+		printf("pipeloop\n");
 		const char* pipe_name = pipes[i].c_str();
 		std::ifstream myfile(pipe_name);
 		if(myfile.is_open()){
-			while(get(myfile,line)){
-				//std::cout << line << '\n';
-				for(int j = 0;j<1024;j++){
-					printf("%x",line[j]);
-					printf("\n");
-				}
+			while(myfile.get(tmpchar)){
+				printf("%02x\n",tmpchar);
+				line.append(sizeof(tmpchar),tmpchar);
 			}
 		}
 		myfile.close();
