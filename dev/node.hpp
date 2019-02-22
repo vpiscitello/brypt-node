@@ -68,8 +68,8 @@ class Node {
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue
-        MessageQueue in_queue;
-        MessageQueue out_queue;
+	class MessageQueue* in_queue;
+	class MessageQueue* out_queue;
 
         // Private Functions
         // Utility Functions

@@ -1,4 +1,5 @@
 #include "mqueue.hpp"
+#include <stdio.h>
 #define len_index 7
 MessageQueue::MessageQueue(){
 	this->in_msg = std::vector<Message>();
@@ -39,21 +40,33 @@ int MessageQueue::pushPipes(){//finds *inbound* msgs
 		std::string raw_top = "placeholder";
 		if((fd = open((const char*)pipe_name.c_str(), O_APPEND)==-1)) return 1;
 		write(fd, raw_top.c_str(), raw_top.length());
+		close(fd);
 		in_msg.erase(in_msg.begin());
 	}
 	return 0;
 }
 int MessageQueue::checkPipes(){//finds *outbound* msgs
 	unsigned int i;
-	int fd;
+	std::string line;
+	printf("%d\n",pipes.size());
 	for(i = 0; i<pipes.size(); i++){
 		const char* pipe_name = pipes[i].c_str();
-		if((fd = open(pipe_name, O_RDONLY|O_TRUNC)==-1)) return 1;
-		
+		std::ifstream myfile(pipe_name);
+		if(myfile.is_open()){
+			while(get(myfile,line)){
+				//std::cout << line << '\n';
+				for(int j = 0;j<1024;j++){
+					printf("%x",line[j]);
+					printf("\n");
+				}
+			}
+		}
+		myfile.close();
+		printf("pipe name was %s\n",pipe_name);
 		//const std::string data_len = read(fd, //TODO: Ask Vince about variable length before packet_len w/ 11 nodes in cluster
 	}
 	return 0;
-}
+}//message get_pack returns your raw string
 Message MessageQueue::get_next_message(){
 	/*
 	if(out_msg.size()<1){

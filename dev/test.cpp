@@ -1,5 +1,8 @@
 #include "utility.hpp"
 #include "node.hpp"
+#include "mqueue.hpp"
+#include <sys/stat.h>
+#include <fcntl.h> 
 
 struct Options options;
 
@@ -50,13 +53,17 @@ void message_command_parse_test() {
 
 
 }
-
 void message_queue_test() {
+    int fd;
     std::cout << "\n== Testing Message Queue" << '\n';
     MessageQueue message_queue;
-
+    message_queue.addPipe("1");
+    fd = open("1",O_WRONLY|O_APPEND);
+    printf("%d\n", write(fd, "Hello, World\0",(ssize_t)12));
+    close(fd);
+    printf("%d",fd);
+    message_queue.checkPipes();
 }
-
 void message_message_test() {
     std::cout << "\n== Testing Messages" << '\n';
 
@@ -103,10 +110,10 @@ void message_message_test() {
 }
 
 void run_tests() {
-    connection_factory_test();
-    message_command_parse_test();
+    //connection_factory_test();
+    //message_command_parse_test();
     message_queue_test();
-    message_message_test();
+    //message_message_test();
 }
 
 void parse_args(int argc, char **argv) {

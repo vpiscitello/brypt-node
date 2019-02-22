@@ -2,7 +2,7 @@
 #define UTILITY_HPP
 
 #include <string>
-
+#include <cstring>
 // Communication Type Constants
 // const int DIRECT = 0;
 // const int BLE = 1;
@@ -33,7 +33,7 @@ struct Options {
 
 inline char * cast_string( std::string s ) {
 	char * cs = new char[ s.size() ];
-	memset( cs, '\0', s.size() );
+	std::memset( cs, '\0', s.size() );
 	strcpy( cs, s.c_str() );
 	return cs;
 }
