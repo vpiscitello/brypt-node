@@ -88,6 +88,9 @@ void message_queue_test() {
 	//close(fd);
 	//
 	//printf("%d",fd);
+	for(int i = 0;i<5;i++){
+		std::cout << wrapper.get_pack() << '\n';
+	}
 	message_queue.checkPipes();
 	message_queue.addInMessage(wrapper);
 	message_queue.pushPipes();
