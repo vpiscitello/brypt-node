@@ -64,17 +64,8 @@ void message_queue_test() {
 	CommandType command = ELECTION_TYPE;
 	unsigned int nonce = 998;
     	Message wrapper( node_id, command, phase, plaintext, nonce );    // Create the message using known data
-	//Message wrapper = Message(plaintext);
 	std::string packet = wrapper.get_pack();
 	
-	/*
-	char bytelike[1024];
-	strncpy(bytelike, packet, sizeof(packet));
-	for(int i = 0; i<packet.size(); i++){
-		printf("%c",bytelike[i]);
-	}
-	*/
-
 	std::cout << packet <<"\n";
 	message_queue.addPipe("1");
 	std::fstream myfile("1", std::ios::out | std::ios::binary);
@@ -82,19 +73,25 @@ void message_queue_test() {
 		myfile.put(packet.at(i));
 	}
 	myfile.close();
-	//fd = open("1",O_WRONLY|O_APPEND);
-	//printf("%d\n", write(fd, packet.c_str() ,packet.size()-1));
-	//printf("%d\n", write(fd, plaintext.c_str(), plaintext.size()));
-	//close(fd);
-	//
-	//printf("%d",fd);
 	for(int i = 0;i<5;i++){
 		std::cout << wrapper.get_pack() << '\n';
 	}
 	message_queue.checkPipes();
+	std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
+	Message tmpmsg = message_queue.pop_next_message();
+	if(tmpmsg.get_phase()!=-1){
+		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
+	}
+	if(tmpmsg.get_phase()!=-1){
+		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
+	}
 	message_queue.addInMessage(wrapper);
 	message_queue.pushPipes();
 	message_queue.checkPipes();
+	message_queue.addPipe("3");
+	tmpmsg.set_node_id("5");
+	message_queue.addInMessage(tmpmsg);
+	message_queue.removePipe("5");
 }
 void message_message_test() {
     std::cout << "\n== Testing Messages" << '\n';

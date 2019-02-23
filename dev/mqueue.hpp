@@ -18,6 +18,7 @@
 #include <net/if.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <algorithm>
 
 #include "utility.hpp"
 #include "connection.hpp"
@@ -38,7 +39,7 @@ class MessageQueue {
 	void addInMessage(Message);
 	void addPipe(std::string);
 	void removePipe(std::string);	//nuke everything
-	Message get_next_message();	//return a msg from out_msg and delete after service
+	Message pop_next_message();	//return a msg from out_msg and delete after service
 	
 	MessageQueue();
 	MessageQueue(std::vector<std::string>);

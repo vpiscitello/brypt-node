@@ -18,17 +18,28 @@ MessageQueue::~MessageQueue(){
 	this->out_msg.clear();
 }
 void MessageQueue::addPipe(std::string newPipe){
+	std::ifstream myFile(newPipe);
+	if(myFile.fail()){
+		std::ofstream outfile(newPipe);
+		outfile.close();
+	}
 	this->pipes.push_back(newPipe);
 }
 void MessageQueue::removePipe(std::string badPipe){
 	unsigned int i;
 	for(i = 0; i<pipes.size(); i++){
 		if(pipes[i].compare(badPipe)!=0){
+			remove(badPipe.c_str());
 			pipes.erase(pipes.begin()+i);
 		}
 	}
 }
 void MessageQueue::addInMessage(Message new_msg){
+	std::string pipe_name = new_msg.get_node_id();
+	if (std::find(pipes.begin(), pipes.end(), pipe_name) == pipes.end()){
+		std::cout << "adinmsg making new pipe?\n";
+		addPipe(pipe_name);
+	}
 	in_msg.push_back(new_msg);
 }
 int MessageQueue::pushPipes(){//finds *inbound* msgs
@@ -76,19 +87,31 @@ int MessageQueue::checkPipes(){//finds *outbound* msgs
 		std::fstream truncator(pipe_name, std::ios::in);
 		truncator.open( pipe_name, std::ios::out | std::ios::trunc );
 		truncator.close();
-		std::cout << "Message get_pack\n" << out_msg[0].get_pack() << '\n';
+		std::cout << "\nMessage get_pack\n" << out_msg[0].get_pack() << '\n';
 		//const std::string data_len = read(fd, //TODO: Ask Vince about variable length before packet_len w/ 11 nodes in cluster
 	}
 	return 0;
 }//message get_pack returns your raw string
-Message MessageQueue::get_next_message(){
+/*
+ * IMPORTANT USAGE NOTE: pop_... will return an empty message if none
+ * are available. Check the return value's command phase for -1 to see
+ * if retruned message is real 
+ */
+Message MessageQueue::pop_next_message(){
 	/*
 	if(out_msg.size()<1){
 		return 1;
 	}
 	*/
-	Message top_msg = this->out_msg[0];
-	return top_msg;
+	if(out_msg.size()>0){
+		Message top_msg = this->out_msg[0];
+		out_msg.erase(out_msg.begin());
+		return top_msg;
+	}else{
+		Message tmpmsg = Message();
+		return tmpmsg;
+	}
+	
 	//this->out_msg.erase(this->out_msg.begin());
 	//TODO things based on top_msg
 }
