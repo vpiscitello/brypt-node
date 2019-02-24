@@ -119,7 +119,7 @@ class Message {
             if ( this->raw == "" ) {
                 this->pack();
             }
-            return this->raw.append( this->auth_token );
+            return this->raw + this->auth_token;
         }
         /* **************************************************************************
         ** Function: get_response
