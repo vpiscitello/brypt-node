@@ -112,6 +112,8 @@ class Bluetooth : public Connection {
 };
 
 class LoRa : public Connection {
+    private:
+
     public:
         void whatami() {
             std::cout << "I am a LoRa implementation." << '\n';
