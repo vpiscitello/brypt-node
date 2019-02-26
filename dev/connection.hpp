@@ -115,6 +115,17 @@ class LoRa : public Connection {
     private:
 
     public:
+        LoRa() {}
+        LoRa(Options *options){
+            switch (options->operation) {
+                case SERVER:
+                    std::cout << "Serving..." << "\n\n";
+                    break;
+                case CLIENT:
+                    std::cout << "Connecting..." << "\n\n";
+                    break;
+            }
+        }
         void whatami() {
             std::cout << "I am a LoRa implementation." << '\n';
         }
