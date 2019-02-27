@@ -61,6 +61,7 @@ class Direct : public Connection {
 
 		switch (options->operation) {
 		    case SERVER: {
+			//this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
 			this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
 			this->item.socket = *this->socket;
 			this->item.events = ZMQ_POLLIN;
@@ -70,7 +71,8 @@ class Direct : public Connection {
 			break;
 		    }
 		    case CLIENT: {
-			this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+			this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
+			//this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
 			this->item.socket = *this->socket;
 			this->item.events = ZMQ_POLLIN;
 			std::cout << "[Direct Control Client] Connecting to: " << options->peer_IP << ":" << options->peer_port << "\n\n";
@@ -94,6 +96,7 @@ class Direct : public Connection {
 
 		    switch (options->operation) {
 			case SERVER: {
+			    //this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
 			    this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
 			    this->item.socket = *this->socket;
 			    this->item.events = ZMQ_POLLIN;
@@ -115,7 +118,8 @@ class Direct : public Connection {
 			    break;
 			}
 			case CLIENT: {
-			    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+			    this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
+			    //this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
 			    std::cout << "[Direct] Connecting..." << "\n\n";
 			    this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
 			    this->instantiate_connection = false;
