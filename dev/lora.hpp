@@ -343,6 +343,7 @@ void receivepacket() {
     if(digitalRead(dio0) == 1)
     {
         if(receive(message)) {
+			char temp[252];
             byte value = readReg(REG_PKT_SNR_VALUE);
             if( value & 0x80 ) // The SNR sign bit is 1
             {
@@ -367,7 +368,11 @@ void receivepacket() {
             printf("SNR: %li, ", SNR);
             printf("Length: %i", (int)receivedbytes);
             printf("\n");
-            printf("Payload: %s\n", message);
+			for(int i = 4; i < 256; i++){
+				temp[i-4] = message[i];
+			}
+            //printf("Payload: %s\n", message);
+			printf("Payload: %s\n", temp);
 
         } // received a message
 
