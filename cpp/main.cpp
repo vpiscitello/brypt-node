@@ -44,6 +44,8 @@ int main() {
 	triple_des_encrypt(plaintext, ciphertext, key256, iv128);
 	triple_des_decrypt(ciphertext, decryptedtext, key256, iv128);
 */
+	c.set_local_ka(local_comp);
+	c.set_remote_ka(remote_comp);
 	c.modded_DHKA();
 	return 0;
 }

@@ -23,6 +23,8 @@ class crypto{
 		unsigned char ciphertext[BUFF_SIZE];
 		unsigned char decryptedtext[BUFF_SIZE];
 		unsigned char hash[HASH_SIZE];
+		EVP_PKEY local_key_comp;
+		EVP_PKEY remote_key_comp;
 		int ctxt_len;
 		int ptxt_len;
 
@@ -36,6 +38,8 @@ class crypto{
 		void clear_plaintext();
 		void set_plaintext(unsigned char *);
 		void set_our_key(unsigned char*, int);
+		void set_local_ka(EVP_PKEY);//set local key agreement component
+		void set_remote_ka(EVP_PKEY);
 
 		void triple_des_encrypt();
 		void triple_des_decrypt();
