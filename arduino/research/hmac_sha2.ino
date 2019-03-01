@@ -5,14 +5,14 @@
 #define HASH_SIZE 32
 
 void hmac(Hash *h, byte *key, byte *result, byte *mssg){
-  h->resetHMAC(key, strlen(key));
-  h->update(mssg, strlen(mssg));
-  h->finalizeHMAC(key, strlen(key), result, HASH_SIZE);
+  h->resetHMAC(key, strlen((char*)key));
+  h->update(mssg, strlen((char*)mssg));
+  h->finalizeHMAC(key, strlen((char*)key), result, HASH_SIZE);
 }
 
 void hash(Hash *h, uint8_t *value, byte *mssg){
     size_t inc = 1;
-    size_t size = strlen(mssg);
+    size_t size = strlen((char*)mssg);
     size_t posn, len;
   //  uint8_t value[HASH_SIZE];
 
@@ -56,25 +56,31 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  unsigned int num_hashes = 0;
+  unsigned long long t_start = 0;
+  unsigned long long t_end = 0;
+  unsigned long duration;
+//  String radiopacket;
   byte mssg[] = "The quick brown fox jumps over the lazy dog";
   byte key256[] = "01234567890123456789012345678901";
-  unsigned long end_time, start_time = -1;
-  
-  start_time = millis();
-//  Serial.println("\nStart");
-//  Serial.println("\n");
-//  Serial.print(start_time);
-  while( num_hashes < 100){
+
+  t_start = millis();
+  for(unsigned long i = 0; i < 5000/*30000000*/; i++){
+   // Serial.print(i, DEC);
+   // Serial.println("");
     sha2_test(key256, mssg);
-    num_hashes = num_hashes + 1;
   }
-  end_time = millis();
+  
+  t_end = millis();
+
+  duration = (unsigned long)(t_end - t_start);
   Serial.println("\nDone");
-  Serial.print(end_time);
+  Serial.print((unsigned long)t_end, DEC);
   Serial.println("\nStart");
-  Serial.print(start_time);
-  while(1){
+  Serial.print((unsigned long)duration, DEC);
+  Serial.println("\n");
+  Serial.print((unsigned long)t_start, DEC);
+  
+  /*while(1){
     ;
-  }
+  }*/
 }
