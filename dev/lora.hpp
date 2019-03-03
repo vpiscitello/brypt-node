@@ -177,7 +177,7 @@ int RST   = 0;
 sf_t sf = SF7;
 
 // Set center frequency
-uint32_t  freq = 868100000; // in Mhz! (868.1)
+uint32_t  freq = 868000000; // in Mhz! (868.1)
 
 byte hello[32] = "HELLO";
 
