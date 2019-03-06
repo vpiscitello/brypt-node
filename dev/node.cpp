@@ -124,6 +124,7 @@ bool Node::transform(){
 ** Description:
 ** *************************************************************************/
 void Node::setup(Options options){
+    options.IP = get_local_address();
     switch (options.operation) {
         case SERVER: {
             this->isRoot = true;

@@ -6,7 +6,8 @@
 struct Options options;
 
 void connection_factory_test() {
-    std::cout << "== Testing Connection Factory" << '\n';
+    std::cout << "\n== Testing Connection Factory" << '\n';
+    // Setup a vector of open connections
     std::vector<Connection *> connections;
     connections.push_back( ConnectionFactory(DIRECT_TYPE) );
     connections.push_back( ConnectionFactory(BLE_TYPE) );
@@ -21,8 +22,94 @@ void connection_factory_test() {
     }
 }
 
+void message_command_parse_test() {
+    std::cout << "\n== Testing Command Parsing" << '\n';
+    // Setup the vector of commands to be used
+    std::vector<Command *> commands;
+    commands.push_back( CommandFactory(INFORMATION_TYPE) );
+    commands.push_back( CommandFactory(QUERY_TYPE) );
+    commands.push_back( CommandFactory(ELECTION_TYPE) );
+    commands.push_back( CommandFactory(TRANSFORM_TYPE) );
+    commands.push_back( CommandFactory(CONNECT_TYPE) );
+
+    // Setup a new message to match to a command
+    CommandType command = ELECTION_TYPE;
+    int phase = 0;
+    std::string node_id = "00-00-00-00-00";
+    std::string data = "Hello World!";
+    unsigned int nonce = 998;
+    Message message( node_id, command, phase, data, nonce );
+
+    // Use the message command to handle the message logic
+    commands.at( message.get_command() )->handle_message( &message );
+
+    if ( message.get_response() == "" ) {
+        std::cout << "Command has no Response." << '\n';
+    } else {
+        std::cout << "Command has no Response." << '\n';
+    }
+
+
+}
+
+/*
+void message_queue_test() {
+    std::cout << "\n== Testing Message Queue" << '\n';
+    MessageQueue message_queue;
+
+}
+*/
+
+void message_message_test() {
+    std::cout << "\n== Testing Messages" << '\n';
+
+    // Setup a new message
+    CommandType command = ELECTION_TYPE;    // Set the message command type
+    int phase = 0;                          // Set the message command phase
+    std::string node_id = "00-00-00-00-00"; // Set the message sender ID
+    std::string data = "Hello World!";      // Set the message data
+    unsigned int nonce = 998;               // Set the message key nonce
+    Message message( node_id, command, phase, data, nonce );    // Create the message using known data
+
+    std::string recv_raw = message.get_pack();      // Get the message as a packed string
+    std::cout << "Message Raw: " << recv_raw << '\n';
+
+    Message recv_message( recv_raw );       // Initialize a new message using a recieved raw string
+    std::cout << "Message Sender: "  << recv_message.get_node_id() << '\n';
+    std::cout << "Message Content: "  << recv_message.get_data() << '\n';
+
+    // TODO: verify message
+    bool verified = recv_message.verify();      // Verify the message by checking the HMAC
+    if (verified) {
+        std::cout << "Message Verification: Success!" << '\n';
+    } else {
+        std::cout << "Message Verification: Tampered!" << '\n';
+    }
+
+    std::string resp_node_id = "11-11-11-11-11";             // Set the message response sender ID
+    std::string resp_data = "Re: Hello World! - Hi.";        // Set the message response data
+    recv_message.set_response( resp_node_id, resp_data );   // Set the message's response using the known data
+    std::cout << "Message Response: "  << recv_message.get_response() << "\n\n";
+
+    std::string tampered_raw = recv_raw;    // Get the raw message string to tamper
+    tampered_raw.at( 49 ) = '?';            // Replace a character in the data
+    std::cout << "Tampered Message: " << tampered_raw << '\n';
+    Message tamp_message( tampered_raw );       // Create a tampered message
+    std::cout << "Tampered Content: "  << tamp_message.get_data() << '\n';
+
+    bool tamp_verified = tamp_message.verify();     // Verify the tampered message by checking the HMAC
+    if (tamp_verified) {
+        std::cout << "Message Verification: Success!\n" << '\n';
+    } else {
+        std::cout << "Message Verification: Tampered!\n" << '\n';
+    }
+}
+
 void run_tests() {
     connection_factory_test();
+    message_command_parse_test();
+    //message_queue_test();
+    message_message_test();
 }
 
 void parse_args(int argc, char **argv) {

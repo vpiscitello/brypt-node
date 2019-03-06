@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string.h>
+#include <string>
 
 // Communication Type Constants
 // const int DIRECT = 0;
@@ -13,6 +14,8 @@
 enum DeviceOperation { SERVER, CLIENT };
 
 enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, NONE };
+
+enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NULL_CMD };
 
 enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NULL_CMD };
 
