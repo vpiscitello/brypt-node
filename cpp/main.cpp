@@ -1,7 +1,7 @@
 #include "./crypto.h"
-
+#include "../misc/DHKAgeneration.cpp"
 void spacer(void);
-
+EVP_PKEY* gen();
 int main() {
 
 	crypto c;
@@ -44,9 +44,21 @@ int main() {
 	triple_des_encrypt(plaintext, ciphertext, key256, iv128);
 	triple_des_decrypt(ciphertext, decryptedtext, key256, iv128);
 */
-	c.set_local_ka(local_comp);
-	c.set_remote_ka(remote_comp);
-	c.modded_DHKA();
+	//c.set_local_ka(local_comp);
+	//c.set_remote_ka(remote_comp);
+	//c.modded_DHKA();
+	EVP_PKEY *local_key;
+	EVP_PKEY *remote_key;
+	EVP_PKEY *params;
+	params = genParams();
+	local_key = gen(params);
+	remote_key = gen(params);
+	crypto wrapper;
+	wrapper.modded_DHKA(local_key, remote_key);
+	wrapper.modded_DHKA(local_key, remote_key);
+	static BIO* out = BIO_new_fp(stdout, BIO_NOCLOSE);
+	EVP_PKEY_print_private(out,local_key,3,NULL);
+
 	return 0;
 }
 
