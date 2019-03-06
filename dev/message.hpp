@@ -104,6 +104,13 @@ class Message {
             return this->data;
         }
         /* **************************************************************************
+        ** Function: get_nonce
+        ** Description: Return the nonce of the message.
+        ** *************************************************************************/
+        unsigned int get_nonce() {
+            return this->nonce;
+        }
+        /* **************************************************************************
         ** Function: get_timestamp
         ** Description: Return the timestamp of when the message was created.
         ** *************************************************************************/

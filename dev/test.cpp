@@ -51,11 +51,13 @@ void message_command_parse_test() {
 
 }
 
+/*
 void message_queue_test() {
     std::cout << "\n== Testing Message Queue" << '\n';
     MessageQueue message_queue;
 
 }
+*/
 
 void message_message_test() {
     std::cout << "\n== Testing Messages" << '\n';
@@ -105,7 +107,7 @@ void message_message_test() {
 void run_tests() {
     connection_factory_test();
     message_command_parse_test();
-    message_queue_test();
+    //message_queue_test();
     message_message_test();
 }
 

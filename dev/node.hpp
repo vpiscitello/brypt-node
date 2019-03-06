@@ -19,7 +19,6 @@
 #include "utility.hpp"
 #include "connection.hpp"
 #include "message.hpp"
-#include "mqueue.hpp"
 #include "command.hpp"
 
 
@@ -68,8 +67,8 @@ class Node {
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue
-        MessageQueue in_queue;
-        MessageQueue out_queue;
+        //MessageQueue in_queue;
+        //MessageQueue out_queue;
 
         // Private Functions
         // Utility Functions
