@@ -227,7 +227,7 @@ void Node::setup_initial_contact(Options * opts) {
     sleep(10);
     this->init_conn = ConnectionFactory(opts->technology, opts);
     int msg_num = 0;
-    while (1) {
+    while (msg_num < 3) {
 
 	data = "HELLO" + std::to_string(msg_num);
 	Message repeat_msg(node_id, command, phase, data, nonce);
@@ -239,8 +239,20 @@ void Node::setup_initial_contact(Options * opts) {
         }
         std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
         msg_num++;
-        sleep(3);
+        sleep(2);
     }
+
+    data = "SHUTDOWN";
+    Message repeat_msg(node_id, command, phase, data, nonce);
+    this->init_conn->send(&repeat_msg);
+
+    rpl = "";
+    while (rpl == "") {
+	rpl = this->init_conn->serve();
+    }
+    std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
+
+    this->init_conn->shutdown();
 }
 
 /* **************************************************************************
@@ -284,8 +296,9 @@ std::string Node::get_local_address(){
 void Node::listen(){
     std::string req_type = this->control->listen();
     if (req_type == "WIFI") {
+	this->next_comm_port++;
 	// Create a connection
-	std::string wifi_port = "3010";
+	std::string wifi_port = std::to_string(this->next_comm_port);
 	// Push it back on our connections
 	Options new_wifi_device;
 	new_wifi_device.technology = DIRECT_TYPE;

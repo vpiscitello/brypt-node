@@ -29,6 +29,7 @@ class Control {
 		Message msg(req);
 		std::cout << "[CONTROL] Message unpacked: " << msg.get_pack() << "\n";
 		if (msg.get_command() == CONNECT_TYPE) {
+		    std::cout << "[CONTROL] Command is CONNECT_TYPE\n";
 		    CommandType command = INFORMATION_TYPE;
 		    int phase = 0;
 		    std::string node_id = "00-00-00-00-00";
@@ -54,46 +55,28 @@ class Control {
 		    }
 		}
 	    }
-	    //std::string req = this->conn->serve();
-	    //std::cout << "[CONTROL] Received request: " << req << "\n";
-	    //if (req == "HELLO") {
-	    //    CommandType command = INFORMATION_TYPE;
-	    //    int phase = 0;
-	    //    std::string node_id = "00-00-00-00-00";
-	    //    std::string data = "HELLO";
-	    //    unsigned int nonce = 998;
-	    //    Message message(node_id, command, phase, data, nonce);
-	    //    //std::string recv_raw = message.get_pack();
-	    //    //std::cout << "Message Raw: " << recv_raw << '\n';
-
-	    //    this->conn->send(&message);
-	    //    Message * req = this->conn->serve();
-	    //    std::cout << "[CONTROL] Received request2: " << req->get_node_id() << "\n";
-	    //    //std::cout << "[CONTROL] Received request2: " << req << "\n";
-
-	    //    //if (req.compare(0, 7, "CONNECT") == 0) {
-	    //    //    std::cout << "[CONTROL] Was sent CONNECT\n";
-	    //    //    std::string params = req.substr(8, req.length());
-	    //    //    std::cout << "[CONTROL] The remaining string is: " << params << "\n";
-	    //    //    return "WIFI";
-	    //    //}
-	    //} else if (req == "EOF") {
-	    //    //this->conn->send("EOF");
-	    //    //std::cout << "[CONTROL] Client sent EOF, sending back EOF\n\n";
-	    //    //return "";
-	    //}
 	    return "";
 	};
 
 	// Listen for the EOF of a connection, if received, send back EOF
 	void eof_listen() {
-	    //Message * req = this->conn->serve();
-	    //std::cout << "[CONTROL] Received request2: " << req->get_node_id() << "\n";
-	    //std::cout << "[CONTROL] Received request: " << req << "\n";
-	    //if (req == "EOF") {
-	    //    this->conn->send("EOF");
-	    //    std::cout << "[CONTROL] Client sent EOF, sending back EOF\n\n";
-	    //}
+	    std::string req = this->conn->serve();
+	    if (req != "") {
+		Message msg(req);
+		std::cout << "[CONTROL]-EOF Listen, Message unpacked: " << msg.get_pack() << "\n";
+		if (msg.get_data() == "EOF") {
+		    std::cout << "[CONTROL]-EOF Listen, got EOF\n";
+		    CommandType command = INFORMATION_TYPE;
+		    int phase = 0;
+		    std::string node_id = "00-00-00-00-00";
+		    std::string data = "EOF";
+		    unsigned int nonce = 998;
+		    Message message(node_id, command, phase, data, nonce);
+
+		    this->conn->send(&message);
+		    std::cout << "[CONTROL]-EOF Listen, sent EOF\n";
+		}
+	    }
 	};
 
 	// Passthrough for send function of the connection type

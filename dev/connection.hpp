@@ -71,8 +71,8 @@ class Direct : public Connection {
 			break;
 		    }
 		    case CLIENT: {
-			this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
-			//this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+			//this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
+			this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
 			this->item.socket = *this->socket;
 			this->item.events = ZMQ_POLLIN;
 			std::cout << "[Direct Control Client] Connecting to: " << options->peer_IP << ":" << options->peer_port << "\n\n";
@@ -103,23 +103,36 @@ class Direct : public Connection {
 			    std::cout << "[Direct] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
 			    this->instantiate_connection = true;
 			    this->socket->bind("tcp://*:" + options->port);
+
+			    handle_messaging();
 			    CommandType command = INFORMATION_TYPE;
 			    int phase = 0;
 			    std::string node_id = "00-00-00-00-00";
 			    std::string data = "OK";
 			    unsigned int nonce = 998;
 			    Message message(node_id, command, phase, data, nonce);
+
 			    while (1) {
 				std::string req = this->serve();
 				if (req != "") {
-				    this->send(&message);
+				    data = "OK";
+				    Message eof_message(node_id, command, phase, data, nonce);
+				    Message msg_req(req);
+				    if (msg_req.get_data() == "SHUTDOWN") {
+					this->shutdown();
+					this->send(&eof_message);
+					break;
+				    } else {
+					this->send(&message);
+				    }
 				}
+				sleep(2);
 			    }
 			    break;
 			}
 			case CLIENT: {
-			    this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
-			    //this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+			    //this->socket = new zmq::socket_t(*this->context, ZMQ_STREAM);
+			    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
 			    std::cout << "[Direct] Connecting..." << "\n\n";
 			    this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
 			    this->instantiate_connection = false;
@@ -178,6 +191,33 @@ class Direct : public Connection {
 	    std::cout << "Shutting down socket and context\n";
 	    zmq_close(this->socket);
 	    zmq_ctx_destroy(this->context);
+	}
+
+	void handle_messaging() {
+	    CommandType command = INFORMATION_TYPE;
+	    int phase = 0;
+	    std::string node_id = "00-00-00-00-00";
+	    std::string data = "OK";
+	    unsigned int nonce = 998;
+	    Message message(node_id, command, phase, data, nonce);
+
+	    while (1) {
+		std::string req = this->serve();
+		if (req != "") {
+		    data = "OK";
+		    Message eof_message(node_id, command, phase, data, nonce);
+		    Message msg_req(req);
+		    if (msg_req.get_data() == "SHUTDOWN") {
+			this->shutdown();
+			this->send(&eof_message);
+			exit(0);
+			//break;
+		    } else {
+			this->send(&message);
+		    }
+		}
+		sleep(2);
+	    }
 	}
 };
 

@@ -33,6 +33,8 @@ class Node {
         std::string ip;                                            // IP address of the node
         unsigned int port;                                         // Networking port of the node
 
+	unsigned int next_comm_port = 3010;
+
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
         unsigned long coordinator;                                 // Coordinator identification number of the node's coordinator
