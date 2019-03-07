@@ -54,6 +54,7 @@ class crypto{
 		void hmac_sha2(unsigned char*);
 		void hmac_blake2s(unsigned char*);
 		void modded_DHKA(EVP_PKEY*, EVP_PKEY*);
+		void modded_ECDH(EVP_PKEY*, EVP_PKEY*);
 		void handleErrors();
 		void print_output(unsigned char*, int);
 

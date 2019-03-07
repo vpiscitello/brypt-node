@@ -1,5 +1,6 @@
 #include "./crypto.h"
 #include "../misc/DHKAgeneration.cpp"
+#include "../misc/ECDHgeneration.cpp"
 void spacer(void);
 EVP_PKEY* gen();
 int main() {
@@ -47,18 +48,32 @@ int main() {
 	//c.set_local_ka(local_comp);
 	//c.set_remote_ka(remote_comp);
 	//c.modded_DHKA();
+	
 	EVP_PKEY *local_key;
 	EVP_PKEY *remote_key;
 	EVP_PKEY *params;
-	params = genParams();
-	local_key = gen(params);
-	remote_key = gen(params);
+	params = genDHKAParams();
+	local_key = genDHKA(params);
+	remote_key = genDHKA(params);
 	crypto wrapper;
 	wrapper.modded_DHKA(local_key, remote_key);
 	wrapper.modded_DHKA(local_key, remote_key);
 	static BIO* out = BIO_new_fp(stdout, BIO_NOCLOSE);
 	EVP_PKEY_print_private(out,local_key,3,NULL);
 
+	EVP_PKEY *local_key2;
+	EVP_PKEY *remote_key2;
+	EVP_PKEY *params2;
+	params2 = genECDHParams();
+	printf("ec param'd\n");
+	local_key2 = genECDH(params2);
+	remote_key2 = genECDH(params2);
+	printf("ran ec twice\n");
+	crypto wrapper2;
+	wrapper2.modded_ECDH(local_key2, remote_key2);
+	wrapper2.modded_ECDH(local_key2, remote_key2);
+	//static BIO* out2 = BIO_new_fp(stdout, BIO_NOCLOSE);
+	EVP_PKEY_print_private(out,local_key2,3,NULL);
 	return 0;
 }
 
