@@ -3,6 +3,9 @@
 
 #include <string>
 #include <cstring>
+#include <iostream>
+#include <string.h>
+
 // Communication Type Constants
 // const int DIRECT = 0;
 // const int BLE = 1;
@@ -11,7 +14,7 @@
 
 enum DeviceOperation { SERVER, CLIENT };
 
-enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE };
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, NONE };
 
 enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NULL_CMD };
 
@@ -29,13 +32,14 @@ struct Options {
     std::string port;
     std::string peer_IP;
     std::string peer_port;
+    bool is_control;
 };
 
 inline char * cast_string( std::string s ) {
-	char * cs = new char[ s.size() ];
-	std::memset( cs, '\0', s.size() );
-	strcpy( cs, s.c_str() );
-	return cs;
+    char * cs = new char[ s.size() ];
+    memset( cs, '\0', s.size() );
+    strcpy( cs, s.c_str() );
+    return cs;
 }
 
 #endif

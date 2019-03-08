@@ -22,6 +22,7 @@
 #include "mqueue.hpp"
 #include "command.hpp"
 
+#include "control.hpp"
 
 class Node {
 
@@ -30,16 +31,18 @@ class Node {
         // Identification Variables
         unsigned long id;                                          // Network identification number of the node
         unsigned long serial;                                      // Hardset identification number of the device
-        std::vector<std::string> communicationTechnologies;        // Communication technologies of the node
+        std::vector<TechnologyType> communicationTechnologies;        // Communication technologies of the node
 
         // Adressing Variables
         std::string ip;                                            // IP address of the node
         unsigned int port;                                         // Networking port of the node
 
+	unsigned int next_comm_port = 3010;
+
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
         unsigned long coordinator;                                 // Coordinator identification number of the node's coordinator
-        std::vector<std::string> nieghborTable;                    // Neighbor table
+        std::vector<std::string> neighborTable;                    // Neighbor table
         unsigned int neighborCount;                                // Number of neighbors to the node
 
         // Network Variables
@@ -47,6 +50,8 @@ class Node {
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
+        Connection * init_conn;                     // A vector of open connections
+	Control * control;
 
         // Node Type Variables
         bool isRoot;                                               // A boolean value of the node's root status
@@ -75,10 +80,12 @@ class Node {
         // Utility Functions
 
         // Communication Functions
-        void listen();                                           // Open a socket to listening for network commands
         bool contactAuthority();                                // Contact the central authority for some service
+	void setup_initial_contact(Options *);
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
+        TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
+	//static void * connection_handler(void *);
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
@@ -98,16 +105,25 @@ class Node {
 
         // Information Functions
         // std::map<std::string, std::string> getDeviceInformation();                       // Get the compiled device information as a map
+	void add_connection(Connection *);
 
         // Connection Functions
+        void listen();                                           // Open a socket to listening for network commands
         void connect();
         std::string get_local_address();
 
         // Communication Functions
         void setup();                                            // Setup the node
-        bool transmit();                                        // Transmit some message
-        bool receive();                                         // Recieve some message
+        bool transmit(std::string);                                        // Transmit some message
+	std::string receive(int message_size);                                         // Recieve some message
 
 };
+
+struct ThreadArgs {
+    Node * node;
+    Options * opts;
+};
+
+void * connection_handler(void *);
 
 #endif
