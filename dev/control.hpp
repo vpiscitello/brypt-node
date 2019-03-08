@@ -19,12 +19,12 @@ class Control {
 	}
 
 	void restart() {
-	
+
 	};
 
-	// Listen for requests, if a request is received serve it and then return the request back to node.cpp listen function
+	// Listen for requests, if a request is received recv it and then return the request back to node.cpp listen function
 	std::string listen() {
-	    std::string req = this->conn->serve();
+	    std::string req = this->conn->recv();
 	    if (req != "") {
 		Message msg(req);
 		std::cout << "[CONTROL] Message unpacked: " << msg.get_pack() << "\n";
@@ -41,7 +41,7 @@ class Control {
 
 		    req = "";
 		    while (req == "") {
-			req = this->conn->serve();
+			req = this->conn->recv();
 		    }
 		    Message msg(req);
 		    std::cout << "[CONTROL] Message2 unpacked: " << msg.get_pack() << "\n";
@@ -60,7 +60,7 @@ class Control {
 
 	// Listen for the EOF of a connection, if received, send back EOF
 	void eof_listen() {
-	    std::string req = this->conn->serve();
+	    std::string req = this->conn->recv();
 	    if (req != "") {
 		Message msg(req);
 		std::cout << "[CONTROL]-EOF Listen, Message unpacked: " << msg.get_pack() << "\n";

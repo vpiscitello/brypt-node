@@ -183,7 +183,7 @@ void Node::setup_initial_contact(Options * opts) {
     // Prevent it from forking
     opts->is_control = true;
     this->init_conn = ConnectionFactory(opts->technology, opts);
-    
+
     CommandType command = CONNECT_TYPE;
     int phase = 0;
     std::string node_id = "00-00-00-00-00";
@@ -194,7 +194,7 @@ void Node::setup_initial_contact(Options * opts) {
 
     std::string rpl = "";
     while (rpl == "") {
-	rpl = this->init_conn->serve();
+	rpl = this->init_conn->recv();
     }
     std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
 
@@ -205,7 +205,7 @@ void Node::setup_initial_contact(Options * opts) {
 
     rpl = "";
     while (rpl == "") {
-	rpl = this->init_conn->serve();
+	rpl = this->init_conn->recv();
     }
     std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
 
@@ -219,7 +219,7 @@ void Node::setup_initial_contact(Options * opts) {
 
     rpl = "";
     while (rpl == "") {
-        rpl = this->init_conn->serve();
+        rpl = this->init_conn->recv();
     }
     std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
 
@@ -236,7 +236,7 @@ void Node::setup_initial_contact(Options * opts) {
 
         std::string rpl = "";
         while (rpl == "") {
-            rpl = this->init_conn->serve();
+            rpl = this->init_conn->recv();
         }
         std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
         msg_num++;
@@ -249,7 +249,7 @@ void Node::setup_initial_contact(Options * opts) {
 
     rpl = "";
     while (rpl == "") {
-	rpl = this->init_conn->serve();
+	rpl = this->init_conn->recv();
     }
     std::cout << "[CLIENT SETUP] Received: " << rpl << "\n";
 
@@ -353,7 +353,7 @@ bool Node::transmit(std::string message){
 std::string Node::receive(int message_size){
     std::string message = "ERROR";
     //for (int i = 0; i < (int)this->connections.size(); i++) {
-    //    message = this->connections[i]->serve();
+    //    message = this->connections[i]->recv();
     //    if (message != "") {
     //        this->connections[i]->send("rec.");
     //    }
