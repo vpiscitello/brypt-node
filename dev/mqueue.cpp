@@ -10,7 +10,7 @@ MessageQueue::MessageQueue(std::vector<std::string> setupPipes){
 	this->pipes = setupPipes;
 	this->in_msg = std::vector<Message>();
 	this->out_msg = std::vector<Message>();
-	
+
 }
 MessageQueue::~MessageQueue(){
 	this->pipes.clear();
@@ -59,7 +59,7 @@ int MessageQueue::pushPipes(){//finds *inbound* msgs
 			myfile.put(packet.at(i));
 			debugstring.append(sizeof(packet.at(i)), packet.at(i));
 		}
-		
+
 		myfile.close();
 		std::cout << "debug string was \n" << debugstring << '\n';
 		debugstring = "";
@@ -71,7 +71,7 @@ int MessageQueue::checkPipes(){//finds *outbound* msgs
 	unsigned int i;
 	std::string line = "";
 	char tmpchar;
-	printf("%d\n",pipes.size());
+	printf("%lu\n",pipes.size());
 	for(i = 0; i<pipes.size(); i++){
 		const char* pipe_name = pipes[i].c_str();
 		std::ifstream myfile(pipe_name);
@@ -95,7 +95,7 @@ int MessageQueue::checkPipes(){//finds *outbound* msgs
 /*
  * IMPORTANT USAGE NOTE: pop_... will return an empty message if none
  * are available. Check the return value's command phase for -1 to see
- * if retruned message is real 
+ * if retruned message is real
  */
 Message MessageQueue::pop_next_message(){
 	/*
@@ -111,7 +111,7 @@ Message MessageQueue::pop_next_message(){
 		Message tmpmsg = Message();
 		return tmpmsg;
 	}
-	
+
 	//this->out_msg.erase(this->out_msg.begin());
 	//TODO things based on top_msg
 }

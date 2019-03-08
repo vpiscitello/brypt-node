@@ -3,7 +3,7 @@
 #include "mqueue.hpp"
 #include <sys/stat.h>
 #include <fstream>
-#include <fcntl.h> 
+#include <fcntl.h>
 
 #include <string>
 
@@ -57,7 +57,6 @@ void message_command_parse_test() {
 
 }
 void message_queue_test() {
-	int fd;
 	std::cout << "\n== Testing Message Queue" << '\n';
 	MessageQueue message_queue;
 	int phase = 0;
@@ -67,7 +66,7 @@ void message_queue_test() {
 	unsigned int nonce = 998;
     	Message wrapper( node_id, command, phase, plaintext, nonce );    // Create the message using known data
 	std::string packet = wrapper.get_pack();
-	
+
 	std::cout << packet <<"\n";
 	message_queue.addPipe("1");
 	std::fstream myfile("1", std::ios::out | std::ios::binary);

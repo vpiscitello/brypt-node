@@ -15,22 +15,34 @@ class Connection {
     protected:
         bool active;
         bool instantiate_connection;
+
         std::string pipe_name;
         unsigned long message_sequence;
     	pid_t c_pid;
 
     public:
-        // Method method;
         virtual void whatami() = 0;
-
-        void pass_up_message() {
-
-        }
-
         virtual std::string recv() = 0;
         virtual void send(Message *) = 0;
         virtual void shutdown() = 0;
-        virtual get
+
+        bool get_status() {
+            return this->active;
+        }
+
+        std::string get_pipe_name() {
+            return this->pipe_name;
+        }
+
+
+        void write_to_pipe(std::string message) {
+
+        }
+
+        std::string read_from_pipe() {
+
+            return "Message...";
+        }
 
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
@@ -240,18 +252,18 @@ class Bluetooth : public Connection {
             std::cout << "I am a BLE implementation." << '\n';
         }
 
-	//Message * recv(){
-	std::string recv(){
+    	std::string recv(){
 
-	}
+            return "Message";
+    	}
 
-	void send(Message * msg) {
+    	void send(Message * msg) {
 
-	}
+    	}
 
-	void shutdown() {
+    	void shutdown() {
 
-	}
+    	}
 };
 
 class LoRa : public Connection {
@@ -269,22 +281,23 @@ class LoRa : public Connection {
                     break;
             }
         }
+
         void whatami() {
             std::cout << "I am a LoRa implementation." << '\n';
         }
 
-	//Message * recv(){
-	std::string recv(){
+    	std::string recv(){
 
-	}
+            return "Message";
+    	}
 
-	void send(Message * msg) {
+    	void send(Message * msg) {
 
-	}
+    	}
 
-	void shutdown() {
+    	void shutdown() {
 
-	}
+    	}
 };
 
 class Websocket : public Connection {
@@ -293,18 +306,18 @@ class Websocket : public Connection {
             std::cout << "I am a Websocket implementation." << '\n';
         }
 
-	//Message * recv(){
-	std::string recv(){
+    	std::string recv(){
 
-	}
+            return "Message";
+    	}
 
-	void send(Message * msg) {
+    	void send(Message * msg) {
 
-	}
+    	}
 
-	void shutdown() {
+    	void shutdown() {
 
-	}
+    	}
 };
 
 inline Connection* ConnectionFactory(TechnologyType technology) {
@@ -320,6 +333,9 @@ inline Connection* ConnectionFactory(TechnologyType technology) {
             break;
         case WEBSOCKET_TYPE:
             return new Websocket;
+            break;
+        case NONE:
+            return NULL;
             break;
     }
     return NULL;
@@ -338,6 +354,9 @@ inline Connection* ConnectionFactory(TechnologyType technology, Options *options
             break;
         case WEBSOCKET_TYPE:
             return new Websocket();
+            break;
+        case NONE:
+            return NULL;
             break;
     }
     return NULL;

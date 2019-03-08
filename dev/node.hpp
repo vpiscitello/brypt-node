@@ -37,7 +37,7 @@ class Node {
         std::string ip;                                            // IP address of the node
         unsigned int port;                                         // Networking port of the node
 
-	unsigned int next_comm_port = 3010;
+       unsigned int next_comm_port = 3010;
 
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
@@ -51,7 +51,7 @@ class Node {
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
         Connection * init_conn;                     // A vector of open connections
-	Control * control;
+        Control * control;
 
         // Node Type Variables
         bool isRoot;                                               // A boolean value of the node's root status
@@ -73,19 +73,19 @@ class Node {
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue
-	class MessageQueue* in_queue;
-	class MessageQueue* out_queue;
+        class MessageQueue* in_queue;
+        class MessageQueue* out_queue;
 
         // Private Functions
         // Utility Functions
 
         // Communication Functions
         bool contactAuthority();                                // Contact the central authority for some service
-	void setup_initial_contact(Options *);
+        void setup_initial_contact(Options *);
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
         TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
-	//static void * connection_handler(void *);
+        //static void * connection_handler(void *);
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
@@ -115,7 +115,7 @@ class Node {
         // Communication Functions
         void setup();                                            // Setup the node
         bool transmit(std::string);                                        // Transmit some message
-	std::string receive(int message_size);                                         // Recieve some message
+        std::string receive(int message_size);                                         // Recieve some message
 
 };
 
