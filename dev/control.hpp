@@ -24,9 +24,19 @@ class Control {
 
 	};
 
-	// Listen for requests, if a request is received recv it and then return the request back to node.cpp listen function
-	std::string listen() {
-	    std::string request = this->conn->recv();
+	// Passthrough for send function of the connection type
+	void send(Message * message) {
+	    this->conn->send(message);
+	}
+
+    // Passthrough for send function of the connection type
+    void send(const char * message) {
+        this->conn->send(message);
+    }
+
+    // Receive for requests, if a request is received recv it and then return the message string
+    std::string recv() {
+        std::string request = this->conn->recv();
 
         switch (request.size()) {
             case 0: {
@@ -56,14 +66,9 @@ class Control {
             }
         }
 
-	    return "";
-	};
+        return "";
+    };
 
-	// Passthrough for send function of the connection type
-	void send(Message * message) {
-	    this->conn->send(message);
-	}
-    
 };
 
 #endif

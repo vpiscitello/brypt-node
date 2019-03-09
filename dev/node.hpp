@@ -29,15 +29,15 @@ class Node {
     private:
         // Private Variables
         // Identification Variables
-        unsigned long id;                                          // Network identification number of the node
-        unsigned long serial;                                      // Hardset identification number of the device
+        std::string id;                                            // Network identification number of the node
+        std::string serial;                                        // Hardset identification number of the device
         std::vector<TechnologyType> communicationTechnologies;     // Communication technologies of the node
 
         // Adressing Variables
         std::string ip;                                            // IP address of the node
         unsigned int port;                                         // Networking port of the node
 
-        unsigned int next_comm_port = 3010;
+        unsigned int next_conn_port = 3010;
 
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
@@ -77,13 +77,20 @@ class Node {
 
         // Private Functions
         // Utility Functions
+        int determineConnectionMethod();                       // Determine the connection method for a particular transmission
+        TechnologyType determineBestConnectionType();          // Determine the best connection type the node has
+        void add_connection(Connection *);
+
+        // Setup Functions
+        Connection * setup_wifi_connection(std::string port);
 
         // Communication Functions
+        void initial_contact(Options *opts);
         bool contactAuthority();                                // Contact the central authority for some service
-        void setup_initial_contact(Options *);
         bool notifyAddressChange();                             // Notify the cluster of some address change
-        int determineConnectionMethod();                       // Determine the connection method for a particular transmission
-        TechnologyType determineBestConnectionType();           // Determine the best connection type the node has
+
+        // Request Handlers
+        void handle_control_request(std::string message);
         //static void * connection_handler(void *);
 
         // Election Functions
@@ -101,17 +108,12 @@ class Node {
 
         // Setup Functions
         void setup(Options options);
-
-        // Information Functions
-        void add_connection(Connection *);
+        void setup();                                            // Setup the node
 
         // Connection Functions
         void listen();                                           // Open a socket to listening for network commands
         void connect();
         std::string get_local_address();
-
-        // Communication Functions
-        void setup();                                            // Setup the node
 
 };
 

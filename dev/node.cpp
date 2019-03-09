@@ -18,25 +18,37 @@ Node::~Node() {
 
 }
 
-// Communication Functions
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::contactAuthority(){
-    bool success = false;
+std::string Node::get_local_address(){
+    std::string ip = "";
 
-    return success;
-}
+    struct ifaddrs * ifAddrStruct=NULL;
+    struct ifaddrs * ifa=NULL;
+    void * tmpAddrPtr=NULL;
 
-/* **************************************************************************
-** Function:
-** Description:
-** *************************************************************************/
-bool Node::notifyAddressChange(){
-    bool success = false;
+    getifaddrs(&ifAddrStruct);
 
-    return success;
+    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr) {
+            continue;
+        }
+
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+            tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
+            char addressBuffer[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+            if (std::string(ifa->ifa_name).find("en0") == 0) {
+                ip = std::string(addressBuffer);
+                break;
+            }
+        }
+    }
+    if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
+
+    return ip;
 }
 
 /* **************************************************************************
@@ -65,17 +77,6 @@ TechnologyType Node::determineBestConnectionType(){
     }
 
     return static_cast<TechnologyType>(best_comm);
-}
-
-/* **************************************************************************
-** Function:
-** Description:
-** *************************************************************************/
-//receive a connection and determine what comm tech it is using.
-int Node::determineConnectionMethod(){
-    int method = 0;
-
-    return method;
 }
 
 
@@ -126,6 +127,7 @@ bool Node::transform(){
 ** Description:
 ** *************************************************************************/
 void Node::setup(Options options){
+    this->id = options.id;
     options.IP = get_local_address();
     switch (options.operation) {
         case SERVER: {
@@ -152,25 +154,41 @@ void Node::setup(Options options){
             this->isLeaf = true;
 
             //Some sort of setup to determine the host and port to connect to
-            setup_initial_contact(&options);
+            initial_contact(&options);
             break;
         }
     }
     //this->connections.push_back(ConnectionFactory(options.technology, &options));
 }
 
-// Setup will use the functionality known in the device (from ryan's daemon) what connection to create
-
-// Connect Functions
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Node::connect(){
+Connection * Node::setup_wifi_connection(std::string port) {
+    Options opts;
+    opts.technology = DIRECT_TYPE;
+    opts.operation = SERVER;
+    opts.port = port;
+    opts.is_control = false;
+    Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
+    return connection;
+}
+
+// Communication Functions
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::connect() {
     std::cout << "Connecting..." << '\n';
 }
 
-void Node::setup_initial_contact(Options * opts) {
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::initial_contact(Options * opts) {
     Connection * connection;
     std::string response;
 
@@ -182,94 +200,79 @@ void Node::setup_initial_contact(Options * opts) {
 
     connection->send("\x06");
     response = connection->recv();
-    std::cout << "== [CLIENT SETUP] Received: " << response << "\n";
+    std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
 
 
     connection->send("\x16");
     response = connection->recv();
-    std::cout << "== [CLIENT SETUP] Received: " << response << "\n";
+    std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
 
-    Message port_msg(response);
-    std::string new_port = port_msg.get_data();
-    std::cout << "== [CLIENT SETUP] Port received: " << port_msg.get_data() << "\n";
+    Message port_message(response);
+    opts->peer_port = port_message.get_data();
+    std::cout << "== [Node] Port received: " << opts->peer_port << "\n";
 
-    // data = "EOF";
-    // Message message3(node_id, command, phase, data, nonce);
-    // connection->send(&message3);
-    //
-    // response = "";
-    // while (response == "") {
-    //     response = connection->recv();
-    // }
-    // std::cout << "== [CLIENT SETUP] Received: " << response << "\n";
+    Message info_message(this->id, INFORMATION_TYPE, 1, "Device Information", 0);
+    connection->send(&info_message);
+
+    response = connection->recv();
+    std::cout << "== [Node] Connection sequence completed. Connecting to new endpoint.\n";
 
     connection->shutdown();
-    opts->peer_port = new_port;
-
-    // sleep(10);
-    //
-    // connection = ConnectionFactory(opts->technology, opts);
-    // int msg_num = 0;
-    // while (msg_num < 3) {
-    //
-	// data = "HELLO" + std::to_string(msg_num);
-	// Message repeat_msg(node_id, command, phase, data, nonce);
-    //     connection->send(&repeat_msg);
-    //
-    //     std::string response = "";
-    //     while (response == "") {
-    //         response = connection->recv();
-    //     }
-    //     std::cout << "== [CLIENT SETUP] Received: " << response << "\n";
-    //     msg_num++;
-    //     sleep(2);
-    // }
-    //
-    // data = "SHUTDOWN";
-    // Message repeat_msg(node_id, command, phase, data, nonce);
-    // connection->send(&repeat_msg);
-    //
-    // response = "";
-    // while (response == "") {
-    //     response = connection->recv();
-    // }
-    // std::cout << "== [CLIENT SETUP] Received: " << response << "\n";
-    //
-    // connection->shutdown();
 }
 
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-std::string Node::get_local_address(){
-    std::string ip = "";
+bool Node::contactAuthority(){
+    bool success = false;
 
-    struct ifaddrs * ifAddrStruct=NULL;
-    struct ifaddrs * ifa=NULL;
-    void * tmpAddrPtr=NULL;
-
-    getifaddrs(&ifAddrStruct);
-
-    for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
-        if (!ifa->ifa_addr) {
-            continue;
-        }
-
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
-            char addressBuffer[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            if (std::string(ifa->ifa_name).find("en0") == 0) {
-                ip = std::string(addressBuffer);
-                break;
-            }
-        }
-    }
-    if (ifAddrStruct!=NULL) freeifaddrs(ifAddrStruct);
-
-    return ip;
+    return success;
 }
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+bool Node::notifyAddressChange(){
+    bool success = false;
+
+    return success;
+}
+
+// Request Handlers
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::handle_control_request(std::string request) {
+    if (request == "WIFI") {
+        std::string full_port = "";
+        std::string device_info = "";
+
+        this->next_conn_port++;
+        full_port = std::to_string(this->next_conn_port);
+
+        std::cout << "== [Node] Sending port: " << full_port << "\n";
+        Message port_message(this->id, CONNECT_TYPE, 0, full_port, 0);
+        this->control->send(&port_message);
+
+        device_info = this->control->recv();
+        std::cout << "== [Node] Received: " << device_info << "\n";
+
+        this->control->send("\x04");
+
+        sleep(2);
+
+        std::cout << "== [Node] Setting up full connection\n";
+
+        Connection *full = this->setup_wifi_connection(full_port);
+        this->connections.push_back(full);
+
+        std::cout << "== [Node] New connection pushed back\n";
+    }
+}
+
 
 // Communication Functions
 /* **************************************************************************
@@ -277,36 +280,10 @@ std::string Node::get_local_address(){
 ** Description:
 ** *************************************************************************/
 void Node::listen(){
-    std::string req_type = this->control->listen();
+    std::string control_request = "";
+    std::string queued_request = "";
 
-    if (req_type == "WIFI") {
-    	this->next_comm_port++;
-
-    	std::string wifi_port = std::to_string(this->next_comm_port);
-
-    	Options new_wifi_device;
-    	new_wifi_device.technology = DIRECT_TYPE;
-    	new_wifi_device.operation = SERVER;
-    	new_wifi_device.port = wifi_port;
-    	new_wifi_device.is_control = false;
-
-    	std::cout << "== [Control] Sending port: " << wifi_port << "\n";
-    	CommandType command = CONNECT_TYPE;
-    	int phase = 0;
-    	std::string node_id = "00-00-00-00-00";
-    	std::string data = wifi_port;
-    	unsigned int nonce = 998;
-    	Message message(node_id, command, phase, data, nonce);
-    	this->control->send(&message);
-    	std::cout << "Sent port.\n";
-
-    	sleep(2);
-
-    	std::cout << "Creating connection\n";
-    	Connection * curr_conn = ConnectionFactory(DIRECT_TYPE, &new_wifi_device);
-    	std::cout << "My pid is " << getpid() << "\n";
-    	this->connections.push_back(curr_conn);
-    	std::cout << "Pushed back connection\n";
-    }
+    control_request = this->control->recv();
+    this->handle_control_request(control_request);
 
 }

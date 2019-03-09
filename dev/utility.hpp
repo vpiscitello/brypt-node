@@ -28,6 +28,7 @@ struct Options {
     bool run_tests;
     TechnologyType technology;
     DeviceOperation operation;
+    std::string id;
     std::string IP;
     std::string port;
     std::string peer_IP;

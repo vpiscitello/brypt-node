@@ -192,6 +192,21 @@ void parse_args(int argc, char **argv) {
         }
     }
 
+    // Parse node's port to open
+    it = find (args.begin(), args.end(), "-id");
+    if (it != args.end()) {
+        it++;
+        if (*it == "" || it->find("-") != std::string::npos) {
+            std::cout << "== You must specify an ID." << '\n';
+            exit(1);
+        } else {
+            options.id = *it;
+        }
+    } else {
+        std::cout << "== You must specify an ID." << '\n';
+        exit(1);
+    }
+
     // Parse device's connection technology
     it = find (args.begin(), args.end(), "-type");
     if (it != args.end()) {
