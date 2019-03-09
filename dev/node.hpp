@@ -31,13 +31,13 @@ class Node {
         // Identification Variables
         unsigned long id;                                          // Network identification number of the node
         unsigned long serial;                                      // Hardset identification number of the device
-        std::vector<TechnologyType> communicationTechnologies;        // Communication technologies of the node
+        std::vector<TechnologyType> communicationTechnologies;     // Communication technologies of the node
 
         // Adressing Variables
         std::string ip;                                            // IP address of the node
         unsigned int port;                                         // Networking port of the node
 
-       unsigned int next_comm_port = 3010;
+        unsigned int next_comm_port = 3010;
 
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
@@ -50,7 +50,7 @@ class Node {
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
         std::vector<Connection *> connections;                     // A vector of open connections
-        Connection * init_conn;                     // A vector of open connections
+        // Connection * init_conn;                                    // A vector of open connections
         Control * control;
 
         // Node Type Variables
@@ -73,8 +73,7 @@ class Node {
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue
-        class MessageQueue* in_queue;
-        class MessageQueue* out_queue;
+        class MessageQueue mqueue;
 
         // Private Functions
         // Utility Functions
@@ -84,7 +83,7 @@ class Node {
         void setup_initial_contact(Options *);
         bool notifyAddressChange();                             // Notify the cluster of some address change
         int determineConnectionMethod();                       // Determine the connection method for a particular transmission
-        TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
+        TechnologyType determineBestConnectionType();           // Determine the best connection type the node has
         //static void * connection_handler(void *);
 
         // Election Functions
@@ -104,8 +103,7 @@ class Node {
         void setup(Options options);
 
         // Information Functions
-        // std::map<std::string, std::string> getDeviceInformation();                       // Get the compiled device information as a map
-	void add_connection(Connection *);
+        void add_connection(Connection *);
 
         // Connection Functions
         void listen();                                           // Open a socket to listening for network commands
@@ -114,8 +112,6 @@ class Node {
 
         // Communication Functions
         void setup();                                            // Setup the node
-        bool transmit(std::string);                                        // Transmit some message
-        std::string receive(int message_size);                                         // Recieve some message
 
 };
 

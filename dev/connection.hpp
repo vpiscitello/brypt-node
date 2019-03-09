@@ -2,11 +2,10 @@
 #define CONNECTION_HPP
 
 #include <unistd.h>
-#include "zmq.hpp"
 #include <vector>
+#include <fstream>
 
-#include "utility.hpp"
-#include "message.hpp"
+#include "zmq.hpp"
 
 #include "utility.hpp"
 #include "message.hpp"
@@ -16,6 +15,9 @@ class Connection {
         bool active;
         bool instantiate_connection;
 
+        std::string peer_name;
+
+        std::fstream pipe;
         std::string pipe_name;
         unsigned long message_sequence;
     	pid_t c_pid;
@@ -24,6 +26,7 @@ class Connection {
         virtual void whatami() = 0;
         virtual std::string recv() = 0;
         virtual void send(Message *) = 0;
+        virtual void send(const char * message) = 0;
         virtual void shutdown() = 0;
 
         bool get_status() {
@@ -34,14 +37,42 @@ class Connection {
             return this->pipe_name;
         }
 
+        bool create_pipe() {
+            if (this->peer_name == "") {
+                return false;
+            }
 
-        void write_to_pipe(std::string message) {
+            std::string filename = this->peer_name + ".pipe";
 
+            this->pipe_name = filename;
+            this->pipe.open(filename, std::fstream::in | std::fstream::out);
+
+            if( this->pipe.fail() ){
+                this->pipe.close();
+                return false;
+            }
+
+            return true;
+        }
+
+        bool write_to_pipe(std::string message) {
+            if ( !this->pipe.is_open() ) {
+                return false;
+            }
+
+            this->pipe.write( message.c_str(), message.size() );
+            return true;
         }
 
         std::string read_from_pipe() {
+            if ( !this->pipe.is_open() ) {
+                return "";
+            }
 
-            return "Message...";
+            std::string raw_message;
+            std::getline(this->pipe, raw_message);
+
+            return raw_message;
         }
 
         void unspecial() {
@@ -66,7 +97,7 @@ class Direct : public Connection {
         Direct() {}
         Direct(Options *options) {
 
-            std::cout << "== Creating direct instance.\n";
+            std::cout << "== [Control] Creating direct instance.\n";
 
             this->port = options->port;
             this->peer_IP = options->peer_IP;
@@ -74,27 +105,19 @@ class Direct : public Connection {
             this->control = options->is_control;
 
     	    if (options->is_control) {
-        		std::cout << "[Direct] Creating control socket\n";
+        		std::cout << "== [Control] Creating control socket\n";
 
         		this->context = new zmq::context_t(1);
 
         		switch (options->operation) {
                     case SERVER: {
-                        this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
-                        this->item.socket = *this->socket;
-                        this->item.events = ZMQ_POLLIN;
-                        std::cout << "[Control] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
-                        this->instantiate_connection = true;
-                        this->socket->bind("tcp://*:" + options->port);
+                        std::cout << "== [Control] Setting up REP socket on port " << options->port << "\n\n";
+                        this->setup_rep_socket(options->port);
                         break;
                     }
                     case CLIENT: {
-                        this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
-                        this->item.socket = *this->socket;
-                        this->item.events = ZMQ_POLLIN;
-                        std::cout << "[Direct Control Client] Connecting to: " << options->peer_IP << ":" << options->peer_port << "\n\n";
-                        this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
-                        this->instantiate_connection = false;
+                        std::cout << "== [Control] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n\n";
+                        this->setup_req_socket(options->peer_IP, options->peer_port);
                         break;
                     }
         		}
@@ -103,7 +126,7 @@ class Direct : public Connection {
 
     	    }
 
-    	    std::cout << "[Direct] Creating normal socket\n";
+    	    std::cout << "== [Control] Creating DIRECT connection thread\n";
     	    this->c_pid = fork();
 
     	    switch (this->c_pid) {
@@ -114,50 +137,21 @@ class Direct : public Connection {
 
         		case 0: {
                     sleep(1);
-                    std::cout << "[Direct] The child id is " << getpid() << "\n";
-
+                    std::cout << "== [Direct] Connection thread PID " << getpid() << "\n";
                     this->context = new zmq::context_t(1);
 
                     switch (options->operation) {
                         case SERVER: {
-                            this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
-                            this->item.socket = *this->socket;
-                            this->item.events = ZMQ_POLLIN;
-                            std::cout << "[Direct] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
-                            this->instantiate_connection = true;
-                            this->socket->bind("tcp://*:" + options->port);
+                            std::cout << "== [Direct] Setting up REP socket on port " << options->port << "\n\n";
+                            this->setup_rep_socket(options->port);
 
                             handle_messaging();
-                            CommandType command = INFORMATION_TYPE;
-                            int phase = 0;
-                            std::string node_id = "00-00-00-00-00";
-                            std::string data = "OK";
-                            unsigned int nonce = 998;
-                            Message message(node_id, command, phase, data, nonce);
-
-                            while (1) {
-                            std::string req = this->recv();
-                            if (req != "") {
-                                data = "OK";
-                                Message eof_message(node_id, command, phase, data, nonce);
-                                Message msg_req(req);
-                                if (msg_req.get_data() == "SHUTDOWN") {
-                                this->shutdown();
-                                this->send(&eof_message);
-                                break;
-                                } else {
-                                this->send(&message);
-                                }
-                            }
-                            sleep(2);
-                            }
                             break;
                         }
                         case CLIENT: {
-                            this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
-                            std::cout << "[Direct] Connecting..." << "\n\n";
-                            this->socket->connect("tcp://" + options->peer_IP + ":" + options->peer_port);
-                            this->instantiate_connection = false;
+                            std::cout << "== [Direct] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n\n";
+                            this->setup_req_socket(options->peer_IP, options->peer_port);
+
                             break;
                         }
                     }
@@ -165,8 +159,6 @@ class Direct : public Connection {
                 }
 
         		default: {
-                    std::cout << "This parent process id is " << getpid() << " not EXITING\n";
-                    //exit(0);
                     return;
                 }
     	    }
@@ -177,40 +169,65 @@ class Direct : public Connection {
             std::cout << "I am a Direct implementation." << '\n';
         }
 
-    	std::string recv(){
-    	    do {
-    		if (zmq_poll(&this->item, 1, 100) >= 0) {
-    		    if (this->item.revents == 0) {
-    			return "";
-    		    }
-    		    std::cout << "[Direct] Receiving... PID: " << getpid() << '\n';
-    		    zmq::message_t request;
-    		    this->socket->recv(&request);
+        void setup_rep_socket(std::string port) {
+            this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
+            this->item.socket = *this->socket;
+            this->item.events = ZMQ_POLLIN;
+            this->instantiate_connection = true;
+            this->socket->bind("tcp://*:" + port);
+        }
 
-    		    std::string req = std::string(static_cast<char *>(request.data()), request.size());
+        void setup_req_socket(std::string ip, std::string port) {
+            this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+            this->item.socket = *this->socket;
+            this->item.events = ZMQ_POLLIN;
+            this->socket->connect("tcp://" + ip + ":" + port);
+            this->instantiate_connection = false;
+        }
 
-    		    std::cout << "[Direct] Received: " << req << "\n";
+    	void send(Message * message) {
+    	    std::cout << "== [Direct] Sending..." << '\n';
 
-    		    //Message recv_message(req);
-    		    //std::cout << "[Direct] WITHIN, id: " << recv_message.get_node_id() << "\n";
-
-    		    return req;
-    		    //return &recv_message;
-    		} else {
-    		    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
-    		    exit(1);
-    		}
-    	    } while ( true );
-    	}
-
-    	void send(Message * msg) {
-    	    std::cout << "[Direct] Sending..." << '\n';
-    	    std::string msg_pack = msg->get_pack();
+    	    std::string msg_pack = message->get_pack();
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
+
     	    this->socket->send(request);
-    	    std::cout << "[Direct] Sent: " << msg_pack << '\n';
-            }
+
+    	    std::cout << "== [Direct] Sent: " << msg_pack << '\n';
+        }
+
+        void send(const char * message) {
+            std::cout << "== [Direct] Sending..." << '\n';
+
+            zmq::message_t request(strlen(message));
+            memcpy(request.data(), message, strlen(message));
+            this->socket->send(request);
+
+            std::cout << "== [Direct] Sent: " << message << '\n';
+        }
+
+        std::string recv(){
+            do {
+                if (zmq_poll(&this->item, 1, 100) >= 0) {
+                    if (this->item.revents == 0) {
+                        return "";
+                    }
+                    std::cout << "[Direct] Receiving... PID: " << getpid() << '\n';
+                    zmq::message_t request;
+                    this->socket->recv(&request);
+
+                    std::string req = std::string(static_cast<char *>(request.data()), request.size());
+
+                    std::cout << "[Direct] Received: " << req << "\n";
+
+                    return req;
+                } else {
+                    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
+                    exit(1);
+                }
+            } while ( true );
+        }
 
     	void shutdown() {
     	    std::cout << "Shutting down socket and context\n";
@@ -227,21 +244,21 @@ class Direct : public Connection {
     	    Message message(node_id, command, phase, data, nonce);
 
     	    while (1) {
-    		std::string req = this->recv();
-    		if (req != "") {
-    		    data = "OK";
-    		    Message eof_message(node_id, command, phase, data, nonce);
-    		    Message msg_req(req);
-    		    if (msg_req.get_data() == "SHUTDOWN") {
-    			this->shutdown();
-    			this->send(&eof_message);
-    			exit(0);
-    			//break;
-    		    } else {
-    			this->send(&message);
-    		    }
-    		}
-    		sleep(2);
+        		std::string req = this->recv();
+        		if (req != "") {
+        		    data = "OK";
+        		    Message eof_message(node_id, command, phase, data, nonce);
+        		    Message msg_req(req);
+        		    if (msg_req.get_data() == "SHUTDOWN") {
+        			this->shutdown();
+        			this->send(&eof_message);
+        			exit(0);
+        			//break;
+        		    } else {
+        			this->send(&message);
+        		    }
+        		}
+        		sleep(2);
     	    }
     	}
 };
@@ -252,13 +269,17 @@ class Bluetooth : public Connection {
             std::cout << "I am a BLE implementation." << '\n';
         }
 
+        void send(Message * msg) {
+            msg->get_pack();
+        }
+
+        void send(const char * message) {
+            std::cout << "[Direct] Sent: " << message << '\n';
+        }
+
     	std::string recv(){
 
             return "Message";
-    	}
-
-    	void send(Message * msg) {
-
     	}
 
     	void shutdown() {
@@ -286,13 +307,18 @@ class LoRa : public Connection {
             std::cout << "I am a LoRa implementation." << '\n';
         }
 
+        void send(Message * msg) {
+            msg->get_pack();
+
+        }
+
+        void send(const char * message) {
+            std::cout << "[Direct] Sent: " << message << '\n';
+        }
+
     	std::string recv(){
 
             return "Message";
-    	}
-
-    	void send(Message * msg) {
-
     	}
 
     	void shutdown() {
@@ -306,13 +332,17 @@ class Websocket : public Connection {
             std::cout << "I am a Websocket implementation." << '\n';
         }
 
+        void send(Message * msg) {
+            msg->get_pack();
+        }
+
+        void send(const char * message) {
+            std::cout << "[Direct] Sent: " << message << '\n';
+        }
+
     	std::string recv(){
 
             return "Message";
-    	}
-
-    	void send(Message * msg) {
-
     	}
 
     	void shutdown() {

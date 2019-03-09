@@ -27,7 +27,7 @@ void connection_factory_test() {
     }
 }
 
-void message_command_parse_test() {
+void command_parse_test() {
     std::cout << "\n== Testing Command Parsing" << '\n';
     // Setup the vector of commands to be used
     std::vector<Command *> commands;
@@ -56,45 +56,57 @@ void message_command_parse_test() {
 
 
 }
+
 void message_queue_test() {
 	std::cout << "\n== Testing Message Queue" << '\n';
+
 	MessageQueue message_queue;
+
 	int phase = 0;
 	std::string plaintext("H\0el\0lo, Wo\0rld\0",16);
 	std::string node_id = "00-00-00-00-01";
 	CommandType command = ELECTION_TYPE;
 	unsigned int nonce = 998;
-    	Message wrapper( node_id, command, phase, plaintext, nonce );    // Create the message using known data
-	std::string packet = wrapper.get_pack();
 
+	Message wrapper( node_id, command, phase, plaintext, nonce );    // Create the message using known data
+	std::string packet = wrapper.get_pack();
 	std::cout << packet <<"\n";
+
 	message_queue.addPipe("1");
 	std::fstream myfile("1", std::ios::out | std::ios::binary);
-	for(int i = 0; i<packet.size(); i++){
+
+	for(int i = 0; i < (int)packet.size(); i++){
 		myfile.put(packet.at(i));
 	}
+
 	myfile.close();
-	for(int i = 0;i<5;i++){
+	for( int i = 0; i < 5 ; i++ ){
 		std::cout << wrapper.get_pack() << '\n';
 	}
+
 	message_queue.checkPipes();
 	std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
 	Message tmpmsg = message_queue.pop_next_message();
-	if(tmpmsg.get_phase()!=-1){
+
+	if( tmpmsg.get_phase() != UINT_MAX ){
 		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
 	}
-	if(tmpmsg.get_phase()!=-1){
+
+	if( tmpmsg.get_phase() != UINT_MAX ){
 		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
 	}
+
 	message_queue.addInMessage(wrapper);
 	message_queue.pushPipes();
 	message_queue.checkPipes();
 	message_queue.addPipe("3");
+
 	tmpmsg.set_node_id("5");
 	message_queue.addInMessage(tmpmsg);
 	message_queue.removePipe("5");
 }
-void message_message_test() {
+
+void message_test() {
     std::cout << "\n== Testing Messages" << '\n';
 
     // Setup a new message
@@ -140,10 +152,10 @@ void message_message_test() {
 }
 
 void run_tests() {
-    //connection_factory_test();
-    //message_command_parse_test();
+    connection_factory_test();
+    command_parse_test();
     message_queue_test();
-    //message_message_test();
+    message_test();
 }
 
 void parse_args(int argc, char **argv) {
@@ -269,18 +281,19 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    std::cout << "== Starting Brypt Node" << std::endl;
+    std::cout << "\n== Starting Brypt Node" << std::endl;
 
     class Node alpha;
     std::string local_ip = alpha.get_local_address();
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
+    std::cout << "Main process PID: " << getpid() << "\n\n";
 
-    std::cout << "Starting out the pid is: " << getpid() << "\n";
     alpha.setup( options );
+
     if (options.operation == SERVER) {
-	do {
-	    alpha.listen();
-	} while (true);
+    	do {
+    	    alpha.listen();
+    	} while (true);
     }
 
     return 0;

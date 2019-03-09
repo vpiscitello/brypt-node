@@ -9,12 +9,14 @@ class Control {
 
     public:
 	//Control() {}
-	Control(TechnologyType t) {
+	Control(TechnologyType t, std::string port) {
 	    Options control_setup;
+
 	    control_setup.technology = t;
-	    control_setup.port = "3001";
+	    control_setup.port = port;
 	    control_setup.operation = SERVER;
 	    control_setup.is_control = true;
+
 	    this->conn = ConnectionFactory(t, &control_setup);
 	}
 
@@ -24,65 +26,44 @@ class Control {
 
 	// Listen for requests, if a request is received recv it and then return the request back to node.cpp listen function
 	std::string listen() {
-	    std::string req = this->conn->recv();
-	    if (req != "") {
-		Message msg(req);
-		std::cout << "[CONTROL] Message unpacked: " << msg.get_pack() << "\n";
-		if (msg.get_command() == CONNECT_TYPE) {
-		    std::cout << "[CONTROL] Command is CONNECT_TYPE\n";
-		    CommandType command = INFORMATION_TYPE;
-		    int phase = 0;
-		    std::string node_id = "00-00-00-00-00";
-		    std::string data = "HELLO";
-		    unsigned int nonce = 998;
-		    Message message(node_id, command, phase, data, nonce);
+	    std::string request = this->conn->recv();
 
-		    this->conn->send(&message);
+        switch (request.size()) {
+            case 0: {
+                return "";
+            }
+            case 1: {
+                std::cout << "== [CONTROL] Recieved connection byte\n";
 
-		    req = "";
-		    while (req == "") {
-			req = this->conn->recv();
-		    }
-		    Message msg(req);
-		    std::cout << "[CONTROL] Message2 unpacked: " << msg.get_pack() << "\n";
+                if (request == "\x06") {
+                    std::cout << "== [CONTROL] Device connection acknowledgement\n";
 
-		    std::string conn_data = msg.get_data();
-		    if (conn_data.compare(0, 7, "CONNECT") == 0) {
-			std::cout << "[CONTROL] Was sent CONNECT\n";
-			std::string params = conn_data.substr(8, req.length());
-			std::cout << "[CONTROL] The remaining string is: " << params << "\n";
-			return "WIFI";
-		    }
-		}
-	    }
+                    this->conn->send("\x06");
+                    std::cout << "== [CONTROL] Device was sent acknowledgement\n";
+
+                    request = this->conn->recv();
+
+                    if (request.compare(0, 1, "\x16") == 0) {
+                        std::cout << "== [CONTROL] Device waiting for connection port\n";
+                        return "WIFI";
+                    }
+
+                }
+            }
+            default: {
+                Message message(request);
+                return message.get_pack();
+            }
+        }
+
 	    return "";
-	};
-
-	// Listen for the EOF of a connection, if received, send back EOF
-	void eof_listen() {
-	    std::string req = this->conn->recv();
-	    if (req != "") {
-		Message msg(req);
-		std::cout << "[CONTROL]-EOF Listen, Message unpacked: " << msg.get_pack() << "\n";
-		if (msg.get_data() == "EOF") {
-		    std::cout << "[CONTROL]-EOF Listen, got EOF\n";
-		    CommandType command = INFORMATION_TYPE;
-		    int phase = 0;
-		    std::string node_id = "00-00-00-00-00";
-		    std::string data = "EOF";
-		    unsigned int nonce = 998;
-		    Message message(node_id, command, phase, data, nonce);
-
-		    this->conn->send(&message);
-		    std::cout << "[CONTROL]-EOF Listen, sent EOF\n";
-		}
-	    }
 	};
 
 	// Passthrough for send function of the connection type
 	void send(Message * message) {
 	    this->conn->send(message);
 	}
+    
 };
 
 #endif

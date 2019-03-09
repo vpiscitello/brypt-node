@@ -1,1 +1,1 @@
-g++ node.cpp test.cpp -o device -O2 -lzmq -Wall -std=c++11
+g++ test.cpp mqueue.cpp node.cpp -o device -O2 -Wall -Wextra -lzmq -std=c++11
