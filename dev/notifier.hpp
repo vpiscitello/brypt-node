@@ -17,7 +17,7 @@ class Notifier {
 
     public:
     	Notifier(std::string port) : context(1), publisher(context, ZMQ_PUB), subscriber(context, ZMQ_SUB) {
-            std::cout << "== [Node] Setting up publisher socket on port " + port + "\n";
+            std::cout << "== [Notifier] Setting up publisher socket on port " + port + "\n";
             publisher.bind("tcp://*:" + port);
     	}
 
@@ -26,7 +26,7 @@ class Notifier {
     	};
 
         void connect(std::string ip, std::string port) {
-            std::cout << "== [Node] Subscribing to peer at " + ip + ":" + port + "\n";
+            std::cout << "== [Notifier] Subscribing to peer at " + ip + ":" + port + "\n";
             subscriber.connect("tcp://" + ip + ":" + port);
             this->subscribed = true;
         }
@@ -54,11 +54,13 @@ class Notifier {
             if (!this->subscribed) {
                 return "";
             }
-            zmq::message_t notification;
 
-            this->subscriber.recv(&notification, ZMQ_NOBLOCK);
+            zmq::message_t message;
+            this->subscriber.recv(&message, ZMQ_NOBLOCK);
+            std::string notification = std::string(static_cast<char *>(message.data()), message.size());
+            std::cout << "== [Notifier] Recieved: " + notification + "\n";
 
-            return "";
+            return notification;
         };
 
 };

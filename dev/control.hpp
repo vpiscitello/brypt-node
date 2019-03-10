@@ -61,7 +61,9 @@ class Control {
                         if (request.compare(0, 1, "\x16") == 0) {
                             std::cout << "== [Control] Device waiting for connection port\n";
                             // TODO: Add connection type byte
+
                             std::string device_info = this->handle_contact(DIRECT_TYPE);
+                            
                             return device_info;
                         } else {
                             std::cout << "\n== [Control] Somethings not right" << '\n';
@@ -104,8 +106,6 @@ class Control {
 
                     device_info = this->conn->recv();
                     std::cout << "== [Control] Received: " << device_info << "\n";
-
-                    this->conn->send("\x04");
 
                     return device_info;
                 }

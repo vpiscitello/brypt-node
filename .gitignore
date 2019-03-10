@@ -4,5 +4,6 @@
 *.exe
 *.test
 *.pem
+*.pipe
 
 device

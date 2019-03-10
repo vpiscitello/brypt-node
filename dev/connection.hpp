@@ -146,7 +146,7 @@ class Direct : public Connection {
                     switch (options->operation) {
                         case ROOT: {
                             std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
-                            this->setup_rep_socket(options->port);
+                            // this->setup_rep_socket(options->port);
 
                             // handle_messaging();
                             break;
@@ -214,27 +214,6 @@ class Direct : public Connection {
             this->socket->recv(&message, flag);
             std::string request = std::string(static_cast<char *>(message.data()), message.size());
             return request;
-
-            // NOTE: Following code block is causing an error with sleep in main process
-            // do {
-            //     if (zmq_poll(&this->item, 1, 100) >= 0) {
-            //         if (this->item.revents == 0) {
-            //             return "";
-            //         }
-            //
-            //         zmq::message_t request;
-            //         this->socket->recv(&request);
-            //
-            //         std::string req = std::string(static_cast<char *>(request.data()), request.size());
-            //
-            //         std::cout << "== [Connection] Received message on PID " << getpid() << "\n";
-            //
-            //         return req;
-            //     } else {
-            //         std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
-            //         exit(1);
-            //     }
-            // } while ( true );
         }
 
     	void shutdown() {

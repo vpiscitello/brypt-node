@@ -179,7 +179,7 @@ Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) 
 
     Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
 
-    return connection;
+    return NULL;
 }
 
 // Communication Functions
@@ -223,7 +223,10 @@ void Node::initial_contact(Options * opts) {
     connection->send(&info_message);    // Send node information to peer
 
     response = connection->recv();  // Expect EOT back from peer
+    std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
     std::cout << "== [Node] Connection sequence completed. Connecting to new endpoint.\n";
+
+    sleep(2);
 
     connection->shutdown(); // Shutdown initial connection
 }
@@ -262,6 +265,7 @@ void Node::handle_control_request(std::string message) {
     }
 
     try {
+
         Message request(message);
 
         switch (request.get_command()) {
@@ -274,9 +278,13 @@ void Node::handle_control_request(std::string message) {
                 this->connections.push_back(full);
 
                 std::cout << "== [Node] New connection pushed back\n";
+                this->control->send("\x04");
+                exit(1);
+                break;
             }
             default: {
                 this->control->send("\x15");
+                break;
             }
         }
 
