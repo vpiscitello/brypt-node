@@ -8,8 +8,8 @@ MessageQueue::MessageQueue(){
 	this->pipes = std::vector<std::string>();
 }
 
-MessageQueue::MessageQueue(std::vector<std::string> setupPipes){
-	this->pipes = setupPipes;
+MessageQueue::MessageQueue(std::vector<std::string> setup_pipes){
+	this->pipes = setup_pipes;
 	this->in_msg = std::vector<Message>();
 	this->out_msg = std::vector<Message>();
 
@@ -21,25 +21,25 @@ MessageQueue::~MessageQueue(){
 	this->out_msg.clear();
 }
 
-void MessageQueue::addPipe(std::string newPipe){
-	std::ifstream myFile(newPipe);
+void MessageQueue::push_pipe(std::string filename){
+	std::ifstream myFile(filename);
 
 	if( myFile.fail() ){
-		std::ofstream outfile(newPipe);
+		std::ofstream outfile(filename);
 		outfile.close();
 	}
 
-	this->pipes.push_back(newPipe);
+	this->pipes.push_back(filename);
 
 }
 
-void MessageQueue::removePipe(std::string badPipe){
+void MessageQueue::remove_pipe(std::string filename){
 	unsigned int i;
 
-	for(i = 0; i<pipes.size(); i++){
+	for(i = 0; i < pipes.size(); i++){
 
-		if( pipes[i].compare( badPipe ) != 0 ) {
-			remove( badPipe.c_str() );
+		if( pipes[i].compare( filename ) != 0 ) {
+			remove( filename.c_str() );
 			pipes.erase( pipes.begin() + i );
 		}
 
@@ -47,23 +47,23 @@ void MessageQueue::removePipe(std::string badPipe){
 
 }
 
-void MessageQueue::addInMessage(Message new_msg){
-	std::string pipe_name = new_msg.get_node_id();
+void MessageQueue::add_message(Message message){
+	std::string pipe_name = message.get_node_id();
 
 	if ( std::find( pipes.begin(), pipes.end(), pipe_name ) == pipes.end() ){
 		std::cout << "adinmsg making new pipe?\n";
-		addPipe( pipe_name );
+		this->push_pipe( pipe_name );
 	}
 
-	in_msg.push_back( new_msg );
+	in_msg.push_back( message );
 
 }
 
-int MessageQueue::pushPipes(){//finds *inbound* msgs
+int MessageQueue::push_pipes(){//finds *inbound* msgs
 	unsigned int i;
 	unsigned int start_size = in_msg.size();
 
-	checkPipes();
+	this->check_pipes();
 
 	std::string debugstring = "";
 	std::string packet = "";
@@ -93,7 +93,7 @@ int MessageQueue::pushPipes(){//finds *inbound* msgs
 	return 0;
 }
 
-int MessageQueue::checkPipes(){//finds *outbound* msgs
+int MessageQueue::check_pipes(){//finds *outbound* msgs
 	std::string line = "";
 	char tmpchar;
 

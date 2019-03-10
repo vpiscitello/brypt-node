@@ -17,15 +17,15 @@ class MessageQueue {
         std::vector<std::string> pipes;
 
     public:
-        int pushPipes();	//Sends all out_msgs to
-        int checkPipes();	//Checks each FD for new incoming msgs
-    	void addInMessage(Message);
-    	void addPipe(std::string);
-    	void removePipe(std::string);	//nuke everything
+        int push_pipes();	//Sends all out_msgs to
+        int check_pipes();	//Checks each FD for new incoming msgs
+    	void add_message(Message message);
+    	void push_pipe(std::string filename);
+    	void remove_pipe(std::string filename);	//nuke everything
     	Message pop_next_message();	//return a msg from out_msg and delete after service
 
     	MessageQueue();
-    	MessageQueue(std::vector<std::string>);
+    	MessageQueue(std::vector<std::string> setup_pipes);
     	~MessageQueue();
 };
 #endif

@@ -24,7 +24,7 @@ class Connection {
 
     public:
         virtual void whatami() = 0;
-        virtual std::string recv() = 0;
+        virtual std::string recv(int flag = 0) = 0;
         virtual void send(Message *) = 0;
         virtual void send(const char * message) = 0;
         virtual void shutdown() = 0;
@@ -97,7 +97,7 @@ class Direct : public Connection {
         Direct() {}
         Direct(Options *options) {
 
-            std::cout << "== [Control] Creating direct instance.\n";
+            std::cout << "== [Connection] Creating direct instance.\n";
 
             this->port = options->port;
             this->peer_IP = options->peer_IP;
@@ -105,18 +105,21 @@ class Direct : public Connection {
             this->control = options->is_control;
 
     	    if (options->is_control) {
-        		std::cout << "== [Control] Creating control socket\n";
+        		std::cout << "== [Connection] Creating control socket\n";
 
         		this->context = new zmq::context_t(1);
 
         		switch (options->operation) {
-                    case SERVER: {
-                        std::cout << "== [Control] Setting up REP socket on port " << options->port << "\n\n";
+                    case ROOT: {
+                        std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
                         this->setup_rep_socket(options->port);
                         break;
                     }
-                    case CLIENT: {
-                        std::cout << "== [Control] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n\n";
+                    case BRANCH: {
+                        break;
+                    }
+                    case LEAF: {
+                        std::cout << "== [Connection] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n";
                         this->setup_req_socket(options->peer_IP, options->peer_port);
                         break;
                     }
@@ -126,7 +129,7 @@ class Direct : public Connection {
 
     	    }
 
-    	    std::cout << "== [Control] Creating DIRECT connection thread\n";
+    	    std::cout << "== [Connection] Creating DIRECT connection thread\n";
     	    this->c_pid = fork();
 
     	    switch (this->c_pid) {
@@ -137,19 +140,22 @@ class Direct : public Connection {
 
         		case 0: {
                     sleep(1);
-                    std::cout << "== [Direct] Connection thread PID " << getpid() << "\n";
+                    std::cout << "== [Connection] Connection thread PID " << getpid() << "\n";
                     this->context = new zmq::context_t(1);
 
                     switch (options->operation) {
-                        case SERVER: {
-                            std::cout << "== [Direct] Setting up REP socket on port " << options->port << "\n\n";
+                        case ROOT: {
+                            std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
                             this->setup_rep_socket(options->port);
 
-                            handle_messaging();
+                            // handle_messaging();
                             break;
                         }
-                        case CLIENT: {
-                            std::cout << "== [Direct] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n\n";
+                        case BRANCH: {
+                            break;
+                        }
+                        case LEAF: {
+                            std::cout << "== [Connection] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n";
                             this->setup_req_socket(options->peer_IP, options->peer_port);
 
                             break;
@@ -186,47 +192,49 @@ class Direct : public Connection {
         }
 
     	void send(Message * message) {
-    	    std::cout << "== [Direct] Sending..." << '\n';
-
     	    std::string msg_pack = message->get_pack();
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 
     	    this->socket->send(request);
 
-    	    std::cout << "== [Direct] Sent: " << msg_pack << '\n';
+            std::cout << "== [Connection] Sent\n";
         }
 
         void send(const char * message) {
-            std::cout << "== [Direct] Sending..." << '\n';
-
             zmq::message_t request(strlen(message));
             memcpy(request.data(), message, strlen(message));
             this->socket->send(request);
 
-            std::cout << "== [Direct] Sent: " << message << '\n';
+            std::cout << "== [Connection] Sent\n";
         }
 
-        std::string recv(){
-            do {
-                if (zmq_poll(&this->item, 1, 100) >= 0) {
-                    if (this->item.revents == 0) {
-                        return "";
-                    }
-                    std::cout << "[Direct] Receiving... PID: " << getpid() << '\n';
-                    zmq::message_t request;
-                    this->socket->recv(&request);
+        std::string recv(int flag){
+            zmq::message_t message;
+            this->socket->recv(&message, flag);
+            std::string request = std::string(static_cast<char *>(message.data()), message.size());
+            return request;
 
-                    std::string req = std::string(static_cast<char *>(request.data()), request.size());
-
-                    std::cout << "[Direct] Received: " << req << "\n";
-
-                    return req;
-                } else {
-                    std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
-                    exit(1);
-                }
-            } while ( true );
+            // NOTE: Following code block is causing an error with sleep in main process
+            // do {
+            //     if (zmq_poll(&this->item, 1, 100) >= 0) {
+            //         if (this->item.revents == 0) {
+            //             return "";
+            //         }
+            //
+            //         zmq::message_t request;
+            //         this->socket->recv(&request);
+            //
+            //         std::string req = std::string(static_cast<char *>(request.data()), request.size());
+            //
+            //         std::cout << "== [Connection] Received message on PID " << getpid() << "\n";
+            //
+            //         return req;
+            //     } else {
+            //         std::cout << "Code: " << zmq_errno() << " message: " << zmq_strerror(zmq_errno()) << "\n";
+            //         exit(1);
+            //     }
+            // } while ( true );
         }
 
     	void shutdown() {
@@ -236,30 +244,7 @@ class Direct : public Connection {
     	}
 
     	void handle_messaging() {
-    	    CommandType command = INFORMATION_TYPE;
-    	    int phase = 0;
-    	    std::string node_id = "00-00-00-00-00";
-    	    std::string data = "OK";
-    	    unsigned int nonce = 998;
-    	    Message message(node_id, command, phase, data, nonce);
 
-    	    while (1) {
-        		std::string req = this->recv();
-        		if (req != "") {
-        		    data = "OK";
-        		    Message eof_message(node_id, command, phase, data, nonce);
-        		    Message msg_req(req);
-        		    if (msg_req.get_data() == "SHUTDOWN") {
-        			this->shutdown();
-        			this->send(&eof_message);
-        			exit(0);
-        			//break;
-        		    } else {
-        			this->send(&message);
-        		    }
-        		}
-        		sleep(2);
-    	    }
     	}
 };
 
@@ -274,10 +259,10 @@ class Bluetooth : public Connection {
         }
 
         void send(const char * message) {
-            std::cout << "[Direct] Sent: " << message << '\n';
+            std::cout << "[Connection] Sent: " << message << '\n';
         }
 
-    	std::string recv(){
+    	std::string recv(int flag){
 
             return "Message";
     	}
@@ -294,11 +279,14 @@ class LoRa : public Connection {
         LoRa() {}
         LoRa(Options *options){
             switch (options->operation) {
-                case SERVER:
-                    std::cout << "Serving..." << "\n\n";
+                case ROOT:
+                    std::cout << "Serving..." << "\n";
                     break;
-                case CLIENT:
-                    std::cout << "Connecting..." << "\n\n";
+                case BRANCH:
+                    std::cout << "Serving..." << "\n";
+                    break;
+                case LEAF:
+                    std::cout << "Connecting..." << "\n";
                     break;
             }
         }
@@ -313,10 +301,10 @@ class LoRa : public Connection {
         }
 
         void send(const char * message) {
-            std::cout << "[Direct] Sent: " << message << '\n';
+            std::cout << "[Connection] Sent: " << message << '\n';
         }
 
-    	std::string recv(){
+    	std::string recv(int flag){
 
             return "Message";
     	}
@@ -337,10 +325,10 @@ class Websocket : public Connection {
         }
 
         void send(const char * message) {
-            std::cout << "[Direct] Sent: " << message << '\n';
+            std::cout << "[Connection] Sent: " << message << '\n';
         }
 
-    	std::string recv(){
+    	std::string recv(int flag){
 
             return "Message";
     	}

@@ -6,13 +6,7 @@
 #include <iostream>
 #include <string.h>
 
-// Communication Type Constants
-// const int DIRECT = 0;
-// const int BLE = 1;
-// const int LORA = 2;
-// const int WEBSOCKET = 3;
-
-enum DeviceOperation { SERVER, CLIENT };
+enum DeviceOperation { ROOT, BRANCH, LEAF };
 
 enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, NONE };
 
@@ -23,6 +17,7 @@ const std::string CA_DOMAIN = "brypt.com";
 const std::string CA_SUBDOMAIN = "bridge";
 const std::string CA_PORT = "8080";
 const std::string CA_PROTOCOL = "https://";
+const unsigned int PORT_GAP = 16;
 
 struct Options {
     bool run_tests;
@@ -33,7 +28,9 @@ struct Options {
     std::string port;
     std::string peer_IP;
     std::string peer_port;
+
     bool is_control;
+    std::string pipe_name;
 };
 
 inline char * cast_string( std::string s ) {

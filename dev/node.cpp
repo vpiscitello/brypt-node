@@ -1,5 +1,4 @@
 #include "node.hpp"
-#include "control.hpp"
 
 // Constructors and Deconstructors
 /* **************************************************************************
@@ -127,32 +126,36 @@ bool Node::transform(){
 ** Description:
 ** *************************************************************************/
 void Node::setup(Options options){
+    std::cout << "\n== Setting up Brypt Node\n";
+
+    unsigned int port_num = std::stoi(options.port);
+
     this->id = options.id;
+    this->operation = options.operation;
+    this->next_full_port = port_num + PORT_GAP;
+    this->notifier = new Notifier(std::to_string(port_num + 1));
+
     options.IP = get_local_address();
+
     switch (options.operation) {
-        case SERVER: {
-            this->isRoot = true;
-            this->isBranch = true;
-            this->isLeaf = false;
+        case ROOT: {
+            TechnologyType technology = determineBestConnectionType();
+            technology = DIRECT_TYPE; //TEMPORARY
 
-            TechnologyType t = determineBestConnectionType();
-            t = DIRECT_TYPE; //TEMPORARY
-
-            std::cout << "Technology type is: " << t << "\n";
-            if (t == NONE) {
-                std::cout << "No technology types oopsies\n";
+            if (technology == NONE) {
+                std::cout << "== [Node] No technology types oopsies\n";
                 exit(1);
             }
 
-            this->control = new Control(t, options.port);
+            this->control = new Control(technology, &this->id, options.port);
 
             break;
         }
-        case CLIENT: {
-            this->isRoot = false;
-            this->isBranch = false;
-            this->isLeaf = true;
+        case BRANCH: {
 
+            break;
+        }
+        case LEAF: {
             //Some sort of setup to determine the host and port to connect to
             initial_contact(&options);
             break;
@@ -165,13 +168,17 @@ void Node::setup(Options options){
 ** Function:
 ** Description:
 ** *************************************************************************/
-Connection * Node::setup_wifi_connection(std::string port) {
+Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) {
     Options opts;
     opts.technology = DIRECT_TYPE;
-    opts.operation = SERVER;
+    opts.operation = ROOT;
     opts.port = port;
     opts.is_control = false;
+    opts.pipe_name = peer_id + ".pipe";
+    this->message_queue.push_pipe(opts.pipe_name);
+
     Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
+
     return connection;
 }
 
@@ -198,26 +205,27 @@ void Node::initial_contact(Options * opts) {
     opts->is_control = true;
     connection = ConnectionFactory(opts->technology, opts);
 
-    connection->send("\x06");
-    response = connection->recv();
+    std::cout << "== [Node] Sending coordinator acknowledgement\n";
+    connection->send("\x06");   // Send initial ACK byte to peer
+    response = connection->recv();  // Expect ACK back from peer
     std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
 
-
-    connection->send("\x16");
-    response = connection->recv();
-    std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
+    std::cout << "== [Node] Sending SYN byte\n";
+    connection->send("\x16");   // Send SYN byte to peer
+    response = connection->recv();  // Expect new connection port from peer
 
     Message port_message(response);
     opts->peer_port = port_message.get_data();
     std::cout << "== [Node] Port received: " << opts->peer_port << "\n";
 
-    Message info_message(this->id, INFORMATION_TYPE, 1, "Device Information", 0);
-    connection->send(&info_message);
+    std::cout << "== [Node] Sending node information\n";
+    Message info_message(this->id, INFORMATION_TYPE, 1, "Node Information", 0);
+    connection->send(&info_message);    // Send node information to peer
 
-    response = connection->recv();
+    response = connection->recv();  // Expect EOT back from peer
     std::cout << "== [Node] Connection sequence completed. Connecting to new endpoint.\n";
 
-    connection->shutdown();
+    connection->shutdown(); // Shutdown initial connection
 }
 
 /* **************************************************************************
@@ -245,32 +253,54 @@ bool Node::notifyAddressChange(){
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Node::handle_control_request(std::string request) {
-    if (request == "WIFI") {
-        std::string full_port = "";
-        std::string device_info = "";
+void Node::handle_control_request(std::string message) {
+    std::cout << "== [Node] Handling request from control socket\n";
 
-        this->next_conn_port++;
-        full_port = std::to_string(this->next_conn_port);
-
-        std::cout << "== [Node] Sending port: " << full_port << "\n";
-        Message port_message(this->id, CONNECT_TYPE, 0, full_port, 0);
-        this->control->send(&port_message);
-
-        device_info = this->control->recv();
-        std::cout << "== [Node] Received: " << device_info << "\n";
-
-        this->control->send("\x04");
-
-        sleep(2);
-
-        std::cout << "== [Node] Setting up full connection\n";
-
-        Connection *full = this->setup_wifi_connection(full_port);
-        this->connections.push_back(full);
-
-        std::cout << "== [Node] New connection pushed back\n";
+    if (message == "") {
+        std::cout << "== [Node] No request to handle\n";
+        return;
     }
+
+    try {
+        Message request(message);
+
+        switch (request.get_command()) {
+            case INFORMATION_TYPE: {
+                std::cout << "== [Node] Setting up full connection\n";
+                this->next_full_port++;
+                std::string full_port = std::to_string(this->next_full_port);
+
+                Connection *full = this->setup_wifi_connection(request.get_node_id(), full_port);
+                this->connections.push_back(full);
+
+                std::cout << "== [Node] New connection pushed back\n";
+            }
+            default: {
+                this->control->send("\x15");
+            }
+        }
+
+    } catch (...) {
+        std::cout << "== [Node] Control message failed to unpack.\n";
+        return;
+    }
+
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::handle_notification(std::string request) {
+    std::cout << "== [Node] Handling notification from coordinator\n";
+
+    if (request == "") {
+        std::cout << "== [Node] No notification to handle\n";
+        return;
+    }
+
+
+
 }
 
 
@@ -280,10 +310,42 @@ void Node::handle_control_request(std::string request) {
 ** Description:
 ** *************************************************************************/
 void Node::listen(){
-    std::string control_request = "";
-    std::string queued_request = "";
+    std::cout << "== Brypt Node is listening\n";
+    do {
+        std::string control_request = "";
+        std::string notification = "";
+        std::string queue_request = "";
 
-    control_request = this->control->recv();
-    this->handle_control_request(control_request);
+        control_request = this->control->recv();
+        this->handle_control_request(control_request);
 
+        notification = this->notifier->recv();
+        this->handle_notification(notification);
+
+        std::cout << '\n';
+
+        sleep(2);
+
+    } while (true);
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::startup() {
+    std::cout << "\n== Starting up Brypt Node\n";
+
+    switch (this->operation) {
+        case ROOT: {
+            this->listen();
+            break;
+        }
+        case BRANCH: {
+            break;
+        }
+        case LEAF: {
+            break;
+        }
+    }
 }

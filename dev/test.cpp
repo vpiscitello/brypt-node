@@ -72,7 +72,7 @@ void message_queue_test() {
 	std::string packet = wrapper.get_pack();
 	std::cout << packet <<"\n";
 
-	message_queue.addPipe("1");
+	message_queue.push_pipe("1");
 	std::fstream myfile("1", std::ios::out | std::ios::binary);
 
 	for(int i = 0; i < (int)packet.size(); i++){
@@ -84,7 +84,7 @@ void message_queue_test() {
 		std::cout << wrapper.get_pack() << '\n';
 	}
 
-	message_queue.checkPipes();
+	message_queue.check_pipes();
 	std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
 	Message tmpmsg = message_queue.pop_next_message();
 
@@ -96,14 +96,14 @@ void message_queue_test() {
 		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
 	}
 
-	message_queue.addInMessage(wrapper);
-	message_queue.pushPipes();
-	message_queue.checkPipes();
-	message_queue.addPipe("3");
+	message_queue.add_message(wrapper);
+	message_queue.push_pipes();
+	message_queue.check_pipes();
+	message_queue.push_pipe("3");
 
 	tmpmsg.set_node_id("5");
-	message_queue.addInMessage(tmpmsg);
-	message_queue.removePipe("5");
+	message_queue.add_message(tmpmsg);
+	message_queue.remove_pipe("5");
 }
 
 void message_test() {
@@ -178,17 +178,22 @@ void parse_args(int argc, char **argv) {
     }
 
     // Parse node function. Server option.
-    it = find (args.begin(), args.end(), "--server");
+    it = find (args.begin(), args.end(), "--root");
     if (it != args.end()) {
-        options.operation = SERVER;
+        options.operation = ROOT;
     } else {
         // Parse node function. Client option.
-        it = find (args.begin(), args.end(), "--client");
+        it = find (args.begin(), args.end(), "--branch");
         if (it != args.end()) {
-            options.operation = CLIENT;
+            options.operation = BRANCH;
         } else {
-            std::cout << "== You must specify node function." << '\n';
-            exit(1);
+            it = find (args.begin(), args.end(), "--leaf");
+            if (it != args.end()) {
+                options.operation = LEAF;
+            } else {
+                std::cout << "== You must specify node function." << '\n';
+                exit(1);
+            }
         }
     }
 
@@ -250,7 +255,7 @@ void parse_args(int argc, char **argv) {
     }
 
     // Parse Client specific options
-    if (options.operation == CLIENT) {
+    if (options.operation == BRANCH || options.operation == LEAF) {
         // Parse server peer's address
         it = find (args.begin(), args.end(), "-peer");
         if (it != args.end()) {
@@ -296,20 +301,16 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    std::cout << "\n== Starting Brypt Node" << std::endl;
+    std::cout << "\n== Welcome to the Brypt Network\n";
 
     class Node alpha;
     std::string local_ip = alpha.get_local_address();
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
-    std::cout << "Main process PID: " << getpid() << "\n\n";
+    std::cout << "Main process PID: " << getpid() << "\n";
 
     alpha.setup( options );
 
-    if (options.operation == SERVER) {
-    	do {
-    	    alpha.listen();
-    	} while (true);
-    }
+	alpha.startup();
 
     return 0;
 }
