@@ -2,6 +2,7 @@
 #define CONTROL_HPP
 
 #include "connection.hpp"
+#include <sys/socket.h>
 
 class Control {
     private:

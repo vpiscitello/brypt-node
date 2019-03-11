@@ -1,16 +1,17 @@
 #ifndef UTILITY_HPP
 #define UTILITY_HPP
 
-#include <string>
-#include <cstring>
 #include <iostream>
 #include <string.h>
+#include <string>
 
 enum DeviceOperation { ROOT, BRANCH, LEAF };
 
-enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, NONE };
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, TCP_TYPE, NONE };
 
 enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NULL_CMD };
+
+enum DeviceSocketCapability { MASTER, SLAVE };
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";

@@ -5,6 +5,8 @@
 #include <fstream>
 #include <fcntl.h>
 
+#include <limits.h>
+
 #include <string>
 
 struct Options options;
@@ -289,7 +291,15 @@ void parse_args(int argc, char **argv) {
 
     }
 
+}
 
+void create_tcp_socket() {
+    Options tcp_setup;
+    tcp_setup.technology = TCP_TYPE;
+    tcp_setup.port = "3001";
+    Connection * conn = ConnectionFactory(tcp_setup.technology, &tcp_setup);
+    conn->recv(1);
+    conn->send("THIS IS A MESSAGE");
 }
 
 int main(int argc, char **argv) {
@@ -303,14 +313,18 @@ int main(int argc, char **argv) {
 
     std::cout << "\n== Welcome to the Brypt Network\n";
 
+    create_tcp_socket();
+    return 0;
+
     class Node alpha;
+
     std::string local_ip = alpha.get_local_address();
     std::cout << "Local Connection IPV4: " << local_ip << '\n';
     std::cout << "Main process PID: " << getpid() << "\n";
 
     alpha.setup( options );
 
-	alpha.startup();
+    alpha.startup();
 
     return 0;
 }
