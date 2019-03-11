@@ -313,8 +313,8 @@ int main(int argc, char **argv) {
 
     std::cout << "\n== Welcome to the Brypt Network\n";
 
-    create_tcp_socket();
-    return 0;
+    // create_tcp_socket();
+    // return 0;
 
     class Node alpha;
 
