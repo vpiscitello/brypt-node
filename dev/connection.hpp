@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <vector>
 #include <fstream>
+#include <thread>
 
 #include "zmq.hpp"
 
@@ -20,10 +21,14 @@ class Connection {
         std::fstream pipe;
         std::string pipe_name;
         unsigned long message_sequence;
-    	pid_t c_pid;
+
+        bool worker_active;
+        std::thread worker_thread;
 
     public:
         virtual void whatami() = 0;
+        virtual void spawn() = 0;
+        virtual void worker() = 0;
         virtual std::string recv(int flag = 0) = 0;
         virtual void send(Message *) = 0;
         virtual void send(const char * message) = 0;
@@ -45,7 +50,7 @@ class Connection {
             std::string filename = this->peer_name + ".pipe";
 
             this->pipe_name = filename;
-            this->pipe.open(filename, std::fstream::in | std::fstream::out);
+            this->pipe.open(filename, std::ios::app);
 
             if( this->pipe.fail() ){
                 this->pipe.close();
@@ -60,7 +65,9 @@ class Connection {
                 return false;
             }
 
-            this->pipe.write( message.c_str(), message.size() );
+            // this->pipe.write( message.c_str(), message.size() );
+            std::cout << "== [Connection] Writing \"" << message << "\" to pipe" << '\n';
+            this->pipe << message;
             return true;
         }
 
@@ -86,7 +93,7 @@ class Direct : public Connection {
         bool control;
 
         std::string port;
-        std::string peer_IP;
+        std::string peer_addr;
         std::string peer_port;
 
         zmq::context_t *context;
@@ -100,9 +107,12 @@ class Direct : public Connection {
             std::cout << "== [Connection] Creating direct instance.\n";
 
             this->port = options->port;
-            this->peer_IP = options->peer_IP;
+            this->peer_name = options->peer_name;
+            this->peer_addr = options->peer_addr;
             this->peer_port = options->peer_port;
             this->control = options->is_control;
+
+            this->worker_active = false;
 
     	    if (options->is_control) {
         		std::cout << "== [Connection] Creating control socket\n";
@@ -119,8 +129,8 @@ class Direct : public Connection {
                         break;
                     }
                     case LEAF: {
-                        std::cout << "== [Connection] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n";
-                        this->setup_req_socket(options->peer_IP, options->peer_port);
+                        std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+                        this->setup_req_socket(options->peer_addr, options->peer_port);
                         break;
                     }
         		}
@@ -129,50 +139,72 @@ class Direct : public Connection {
 
     	    }
 
-    	    std::cout << "== [Connection] Creating DIRECT connection thread\n";
-    	    this->c_pid = fork();
+            this->spawn();
 
-    	    switch (this->c_pid) {
-        		case -1: {
-                    std::cout << "Error creating child process\n";
-                    return;
-                }
-
-        		case 0: {
-                    sleep(1);
-                    std::cout << "== [Connection] Connection thread PID " << getpid() << "\n";
-                    this->context = new zmq::context_t(1);
-
-                    switch (options->operation) {
-                        case ROOT: {
-                            std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
-                            // this->setup_rep_socket(options->port);
-
-                            // handle_messaging();
-                            break;
-                        }
-                        case BRANCH: {
-                            break;
-                        }
-                        case LEAF: {
-                            std::cout << "== [Connection] Connecting REQ socket to " << options->peer_IP << ":" << options->peer_port << "\n";
-                            this->setup_req_socket(options->peer_IP, options->peer_port);
-
-                            break;
-                        }
-                    }
-                    return;
-                }
-
-        		default: {
-                    return;
-                }
-    	    }
+    	    // switch (this->c_pid) {
+        	// 	case -1: {
+            //         std::cout << "Error creating child process\n";
+            //         return;
+            //     }
+            //
+        	// 	case 0: {
+            //         sleep(1);
+            //
+            //         try {
+            //             std::cout << "== [Connection] Connection thread PID " << getpid() << "\n";
+            //
+            //             this->context = new zmq::context_t(1);
+            //
+            //             switch (options->operation) {
+            //                 case ROOT: {
+            //                     std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
+            //                     this->setup_rep_socket(options->port);
+            //
+            //                     // handle_messaging();
+            //                     break;
+            //                 }
+            //                 case BRANCH: {
+            //                     break;
+            //                 }
+            //                 case LEAF: {
+            //                     std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+            //                     this->setup_req_socket(options->peer_addr, options->peer_port);
+            //
+            //                     break;
+            //                 }
+            //             }
+            //         } catch(...) {
+            //             std::cout << "Error creating child process\n";
+            //         }
+            //
+            //         return;
+            //     }
+            //
+        	// 	default: {
+            //         return;
+            //     }
+    	    // }
 
         }
 
         void whatami() {
             std::cout << "I am a Direct implementation." << '\n';
+        }
+
+        void spawn() {
+            std::cout << "== [Connection] Spawning DIRECT_TYPE connection thread\n";
+            this->worker_thread = std::thread(&Direct::worker, this);
+        }
+
+        void worker() {
+            this->worker_active = true;
+            this->create_pipe();
+            unsigned int run = 0;
+            while (true) {
+                this->write_to_pipe(std::to_string(run) + " Here is some work!");
+                run++;
+                sleep(1);
+            }
         }
 
         void setup_rep_socket(std::string port) {
@@ -183,11 +215,11 @@ class Direct : public Connection {
             this->socket->bind("tcp://*:" + port);
         }
 
-        void setup_req_socket(std::string ip, std::string port) {
+        void setup_req_socket(std::string addr, std::string port) {
             this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
             this->item.socket = *this->socket;
             this->item.events = ZMQ_POLLIN;
-            this->socket->connect("tcp://" + ip + ":" + port);
+            this->socket->connect("tcp://" + addr + ":" + port);
             this->instantiate_connection = false;
         }
 
@@ -233,6 +265,14 @@ class Bluetooth : public Connection {
             std::cout << "I am a BLE implementation." << '\n';
         }
 
+        void spawn() {
+
+        }
+
+        void worker() {
+
+        }
+
         void send(Message * msg) {
             msg->get_pack();
         }
@@ -274,6 +314,14 @@ class LoRa : public Connection {
             std::cout << "I am a LoRa implementation." << '\n';
         }
 
+        void spawn() {
+
+        }
+
+        void worker() {
+
+        }
+
         void send(Message * msg) {
             msg->get_pack();
 
@@ -297,6 +345,14 @@ class Websocket : public Connection {
     public:
         void whatami() {
             std::cout << "I am a Websocket implementation." << '\n';
+        }
+
+        void spawn() {
+
+        }
+
+        void worker() {
+
         }
 
         void send(Message * msg) {

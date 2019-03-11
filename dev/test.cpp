@@ -264,7 +264,7 @@ void parse_args(int argc, char **argv) {
                 std::cout << "== You must specify a peer address." << '\n';
                 exit(1);
             } else {
-                options.peer_IP = *it;
+                options.peer_addr = *it;
             }
         } else {
             std::cout << "== You must specify a peer address." << '\n';

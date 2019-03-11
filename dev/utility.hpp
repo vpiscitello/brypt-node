@@ -24,13 +24,14 @@ struct Options {
     TechnologyType technology;
     DeviceOperation operation;
     std::string id;
-    std::string IP;
+    std::string addr;
     std::string port;
-    std::string peer_IP;
+
+    std::string peer_name;
+    std::string peer_addr;
     std::string peer_port;
 
     bool is_control;
-    std::string pipe_name;
 };
 
 inline char * cast_string( std::string s ) {

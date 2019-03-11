@@ -34,7 +34,7 @@ class Node {
         std::vector<TechnologyType> communicationTechnologies;     // Communication technologies of the node
 
         // Adressing Variables
-        std::string ip;                                            // IP address of the node
+        std::string addr;                                          // IP address of the node
         unsigned int port;                                         // Networking port of the node
         unsigned int next_full_port;
 

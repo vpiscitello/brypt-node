@@ -135,7 +135,7 @@ void Node::setup(Options options){
     this->next_full_port = port_num + PORT_GAP;
     this->notifier = new Notifier(std::to_string(port_num + 1));
 
-    options.IP = get_local_address();
+    options.addr = get_local_address();
 
     switch (options.operation) {
         case ROOT: {
@@ -174,12 +174,12 @@ Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) 
     opts.operation = ROOT;
     opts.port = port;
     opts.is_control = false;
-    opts.pipe_name = peer_id + ".pipe";
-    this->message_queue.push_pipe(opts.pipe_name);
+    opts.peer_name = peer_id;
+    this->message_queue.push_pipe(opts.peer_name + ".pipe");
 
     Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
 
-    return NULL;
+    return connection;
 }
 
 // Communication Functions
@@ -200,7 +200,7 @@ void Node::initial_contact(Options * opts) {
     std::string response;
 
     std::cout << "Setting up initial contact\n";
-    std::cout << "Connecting with technology: " << opts->technology << " and on IP:port: " << opts->peer_IP << ":" << opts->peer_port << "\n";
+    std::cout << "Connecting with technology: " << opts->technology << " and on addr:port: " << opts->peer_addr << ":" << opts->peer_port << "\n";
 
     opts->is_control = true;
     connection = ConnectionFactory(opts->technology, opts);
@@ -279,7 +279,6 @@ void Node::handle_control_request(std::string message) {
 
                 std::cout << "== [Node] New connection pushed back\n";
                 this->control->send("\x04");
-                exit(1);
                 break;
             }
             default: {
