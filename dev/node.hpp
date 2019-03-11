@@ -17,27 +17,26 @@
 #include <arpa/inet.h>
 
 #include "utility.hpp"
+#include "control.hpp"
+#include "notifier.hpp"
 #include "connection.hpp"
 #include "message.hpp"
 #include "mqueue.hpp"
 #include "command.hpp"
-
-#include "control.hpp"
 
 class Node {
 
     private:
         // Private Variables
         // Identification Variables
-        unsigned long id;                                          // Network identification number of the node
-        unsigned long serial;                                      // Hardset identification number of the device
-        std::vector<TechnologyType> communicationTechnologies;        // Communication technologies of the node
+        std::string id;                                            // Network identification number of the node
+        std::string serial;                                        // Hardset identification number of the device
+        std::vector<TechnologyType> communicationTechnologies;     // Communication technologies of the node
 
         // Adressing Variables
         std::string ip;                                            // IP address of the node
         unsigned int port;                                         // Networking port of the node
-
-	unsigned int next_comm_port = 3010;
+        unsigned int next_full_port;
 
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
@@ -49,14 +48,15 @@ class Node {
         std::string authorityAddress;                              // Networking address of the central authority for the Brypt ecosystem
         std::string networkToken;                                  // Access token for the Brypt network
         unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
+
+        // Connection Variables
+        Control * control;
+        Notifier * notifier;
         std::vector<Connection *> connections;                     // A vector of open connections
-        Connection * init_conn;                     // A vector of open connections
-	Control * control;
+
 
         // Node Type Variables
-        bool isRoot;                                               // A boolean value of the node's root status
-        bool isBranch;                                             // A boolean value of the node's coordinator status
-        bool isLeaf;                                               // A boolean value of the node's leaf status
+        DeviceOperation operation;                                 // A boolean value of the node's root status
 
         // Sensor Variables
         unsigned short readingPin;                                 // The GPIO pin the node will read from
@@ -73,25 +73,36 @@ class Node {
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue
-	class MessageQueue* in_queue;
-	class MessageQueue* out_queue;
+        class MessageQueue message_queue;
 
         // Private Functions
         // Utility Functions
+        int determineConnectionMethod();                       // Determine the connection method for a particular transmission
+        TechnologyType determineBestConnectionType();          // Determine the best connection type the node has
+        void add_connection(Connection *);
+
+        // Setup Functions
+        Connection * setup_wifi_connection(std::string peer_id, std::string port);
 
         // Communication Functions
+        void initial_contact(Options *opts);
         bool contactAuthority();                                // Contact the central authority for some service
-	void setup_initial_contact(Options *);
         bool notifyAddressChange();                             // Notify the cluster of some address change
-        int determineConnectionMethod();                       // Determine the connection method for a particular transmission
-        TechnologyType determineBestConnectionType();                       // Determine the best connection type the node has
-	//static void * connection_handler(void *);
+
+        // Request Handlers
+        void handle_control_request(std::string message);
+        void handle_notification(std::string message);
+        //static void * connection_handler(void *);
 
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
         bool election();                                         // Call for an election for cluster leader
         float determineNodePower();                             // Determine the node value to the network
         bool transform();                                        // Transform the node's function in the cluster/network
+
+        // Run Functions
+        void listen();                                           // Open a socket to listening for network commands
+        void connect();
 
 
     public:
@@ -102,20 +113,11 @@ class Node {
 
         // Setup Functions
         void setup(Options options);
-
-        // Information Functions
-        // std::map<std::string, std::string> getDeviceInformation();                       // Get the compiled device information as a map
-	void add_connection(Connection *);
-
-        // Connection Functions
-        void listen();                                           // Open a socket to listening for network commands
-        void connect();
-        std::string get_local_address();
-
-        // Communication Functions
         void setup();                                            // Setup the node
-        bool transmit(std::string);                                        // Transmit some message
-	std::string receive(int message_size);                                         // Recieve some message
+
+        // Run Functions
+        void startup();
+        std::string get_local_address();
 
 };
 

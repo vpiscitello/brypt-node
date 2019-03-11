@@ -6,126 +6,119 @@
 
 class Control {
     private:
-       Connection * conn;
+        std::string * node_id;
+        Connection * conn;
+        unsigned int next_full_port;
 
     public:
-    	//Control() {}
-    	Control(TechnologyType t) {
-    	    Options control_setup;
-    	    control_setup.technology = t;
-    	    control_setup.port = "3001";
-    	    control_setup.operation = SERVER;
-    	    control_setup.is_control = true;
-    	    this->conn = ConnectionFactory(t, &control_setup);
-	    //int server_fd, new_socket, valread; 
-	    //struct sockaddr_in address; 
-	    //int opt = 1; 
-	    //int addrlen = sizeof(address); 
-	    //char buffer[1024] = {0}; 
-	    //char *hello = "Hello from server"; 
+        //Control() {}
+        Control(TechnologyType technology, std::string *node_id, std::string port) {
+            Options control_setup;
 
-	    //if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) 
-	    //{ 
-	    //    std::cout << "Socket failed\n"; 
-	    //} 
+            control_setup.technology = technology;
+            control_setup.port = port;
+            control_setup.operation = ROOT;
+            control_setup.is_control = true;
 
-	    //// Forcefully attaching socket to the port 8080 
-	    //if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, 
-	    //&opt, sizeof(opt))) 
-	    //{ 
-	    //    std::cout << "Setsockopt failed\n"; 
-	    //} 
-	    //address.sin_family = AF_INET; 
-	    //address.sin_addr.s_addr = INADDR_ANY; 
-	    //address.sin_port = htons( PORT ); 
+            this->node_id = node_id;
+            this->next_full_port = std::stoi(port) + PORT_GAP;
 
-	    //// Forcefully attaching socket to the port 8080 
-	    //if (bind(server_fd, (struct sockaddr *)&address,  
-	    //sizeof(address))<0) 
-	    //{ 
-	    //    std::cout << "Setsockopt failed\n"; 
-	    //} 
-	    //if (listen(server_fd, 3) < 0) 
-	    //{ 
-	    //    std::cout << "Listen failed\n"; 
-	    //} 
-	    //if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
-	    //(socklen_t*)&addrlen))<0) 
-	    //{ 
-	    //    std::cout << "Accept failed\n"; 
-	    //} 
-	    //valread = read( new_socket , buffer, 1024); 
-	    //printf("%s\n",buffer ); 
-	    //send(new_socket , hello , strlen(hello) , 0 ); 
-	    //printf("Hello message sent\n");
-    	}
+            this->conn = ConnectionFactory(technology, &control_setup);
+        }
 
-    	void restart() {
+        void restart() {
 
-    	};
+        };
 
-    	// Listen for requests, if a request is received recv it and then return the request back to node.cpp listen function
-    	std::string listen() {
-    	    std::string req = this->conn->recv();
-    	    if (req != "") {
-		Message msg(req);
-		std::cout << "[CONTROL] Message unpacked: " << msg.get_pack() << "\n";
-		if (msg.get_command() == CONNECT_TYPE) {
-		    std::cout << "[CONTROL] Command is CONNECT_TYPE\n";
-		    CommandType command = INFORMATION_TYPE;
-		    int phase = 0;
-		    std::string node_id = "00-00-00-00-00";
-		    std::string data = "HELLO";
-		    unsigned int nonce = 998;
-		    Message message(node_id, command, phase, data, nonce);
+        // Passthrough for send function of the connection type
+        void send(Message * message) {
+            this->conn->send(message);
+        }
 
-		    this->conn->send(&message);
+        // Passthrough for send function of the connection type
+        void send(const char * message) {
+            this->conn->send(message);
+        }
 
-		    req = "";
-		    while (req == "") {
-			req = this->conn->recv();
-		    }
+        // Receive for requests, if a request is received recv it and then return the message string
+        std::string recv() {
+            std::string request = this->conn->recv(ZMQ_NOBLOCK);
 
-		    Message msg(req);
-		    std::cout << "[CONTROL] Message2 unpacked: " << msg.get_pack() << "\n";
+            switch (request.size()) {
+                case 0: {
+                    return "";
+                }
+                case 1: {
+                    std::cout << "== [Control] Recieved connection byte\n";
 
-		    std::string conn_data = msg.get_data();
-		    if (conn_data.compare(0, 7, "CONNECT") == 0) {
-			std::cout << "[CONTROL] Was sent CONNECT\n";
-			std::string params = conn_data.substr(8, req.length());
-			std::cout << "[CONTROL] The remaining string is: " << params << "\n";
-			return "WIFI";
-		    }
-		}
-    	    }
-    	    return "";
-    	};
+                    if (request == "\x06") {
+                        std::cout << "== [Control] Device connection acknowledgement\n";
 
-    	// Listen for the EOF of a connection, if received, send back EOF
-    	void eof_listen() {
-    	    std::string req = this->conn->recv();
-    	    if (req != "") {
-		Message msg(req);
-		std::cout << "[CONTROL]-EOF Listen, Message unpacked: " << msg.get_pack() << "\n";
-		if (msg.get_data() == "EOF") {
-		    std::cout << "[CONTROL]-EOF Listen, got EOF\n";
-		    CommandType command = INFORMATION_TYPE;
-		    int phase = 0;
-		    std::string node_id = "00-00-00-00-00";
-		    std::string data = "EOF";
-		    unsigned int nonce = 998;
-		    Message message(node_id, command, phase, data, nonce);
+                        this->conn->send("\x06");
+                        std::cout << "== [Control] Device was sent acknowledgement\n";
 
-		    this->conn->send(&message);
-		    std::cout << "[CONTROL]-EOF Listen, sent EOF\n";
-		}
-    	    }
-    	};
+                        request = this->conn->recv();
 
-    	// Passthrough for send function of the connection type
-    	void send(Message * message) {
-    	    this->conn->send(message);
-    	}
+                        if (request.compare(0, 1, "\x16") == 0) {
+                            std::cout << "== [Control] Device waiting for connection port\n";
+                            // TODO: Add connection type byte
+
+                            std::string device_info = this->handle_contact(DIRECT_TYPE);
+                            
+                            return device_info;
+                        } else {
+                            std::cout << "\n== [Control] Somethings not right" << '\n';
+                            try {
+                                this->conn->send("\x15");
+                            } catch(...) {
+
+                            }
+                        }
+
+                    }
+                }
+                default: {
+                    Message message(request);
+                    return message.get_pack();
+                }
+            }
+
+            return "";
+        };
+
+        /* **************************************************************************
+        ** Function:
+        ** Description:
+        ** *************************************************************************/
+        std::string handle_contact(TechnologyType technology) {
+            std::cout << "== [Node] Handling request from control socket\n";
+
+            switch (technology) {
+                case DIRECT_TYPE: {
+                    std::string full_port = "";
+                    std::string device_info = "";
+
+                    this->next_full_port++;
+                    full_port = std::to_string(this->next_full_port);
+
+                    std::cout << "== [Control] Sending port: " << full_port << "\n";
+                    Message port_message(*this->node_id, CONNECT_TYPE, 0, full_port, 0);
+                    this->conn->send(&port_message);
+
+                    device_info = this->conn->recv();
+                    std::cout << "== [Control] Received: " << device_info << "\n";
+
+                    return device_info;
+                }
+                default: {
+                    this->conn->send("\x15");
+                }
+            }
+
+            return "";
+
+        }
+
 };
 
 #endif
