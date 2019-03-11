@@ -5,6 +5,8 @@
 #include <fstream>
 #include <fcntl.h>
 
+#include <limits.h>
+
 #include <string>
 
 struct Options options;
