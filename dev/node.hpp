@@ -92,6 +92,7 @@ class Node {
         // Request Handlers
         void handle_control_request(std::string message);
         void handle_notification(std::string message);
+        void handle_queue_request(Message * message);
         //static void * connection_handler(void *);
 
         // Election Functions

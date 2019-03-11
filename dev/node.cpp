@@ -175,7 +175,7 @@ Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) 
     opts.port = port;
     opts.is_control = false;
     opts.peer_name = peer_id;
-    this->message_queue.push_pipe(opts.peer_name + ".pipe");
+    this->message_queue.push_pipe("./tmp/" + opts.peer_name + ".pipe");
 
     Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
 
@@ -226,7 +226,7 @@ void Node::initial_contact(Options * opts) {
     std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
     std::cout << "== [Node] Connection sequence completed. Connecting to new endpoint.\n";
 
-    sleep(2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     connection->shutdown(); // Shutdown initial connection
 }
@@ -298,15 +298,46 @@ void Node::handle_control_request(std::string message) {
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Node::handle_notification(std::string request) {
+void Node::handle_notification(std::string message) {
     std::cout << "== [Node] Handling notification from coordinator\n";
 
-    if (request == "") {
+    if (message == "") {
         std::cout << "== [Node] No notification to handle\n";
         return;
     }
 
 
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::handle_queue_request(Message * message) {
+    std::cout << "== [Node] Handling queue request from connection thread\n";
+
+    if (message == NULL) {
+        std::cout << "== [Node] No request to handle\n";
+        return;
+    }
+
+    try {
+
+        switch (message->get_command()) {
+            case QUERY_TYPE: {
+                std::cout << "== [Node] Recieved " << message->get_data() << " from thread" << '\n';
+                break;
+            }
+            default: {
+                // this->control->send("\x15");
+                break;
+            }
+        }
+
+    } catch (...) {
+        std::cout << "== [Node] Queue message failed to unpack.\n";
+        return;
+    }
 
 }
 
@@ -321,7 +352,7 @@ void Node::listen(){
     do {
         std::string control_request = "";
         std::string notification = "";
-        std::string queue_request = "";
+        Message queue_request;
 
         control_request = this->control->recv();
         this->handle_control_request(control_request);
@@ -329,9 +360,14 @@ void Node::listen(){
         notification = this->notifier->recv();
         this->handle_notification(notification);
 
+        this->message_queue.check_pipes();
+
+        queue_request = message_queue.pop_next_message();
+        this->handle_queue_request(&queue_request);
+
         std::cout << '\n';
 
-        sleep(2);
+        std::this_thread::sleep_for(std::chrono::seconds(2));
 
     } while (true);
 }

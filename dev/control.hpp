@@ -64,7 +64,7 @@ class Control {
                             // TODO: Add connection type byte
 
                             std::string device_info = this->handle_contact(DIRECT_TYPE);
-                            
+
                             return device_info;
                         } else {
                             std::cout << "\n== [Control] Somethings not right" << '\n';

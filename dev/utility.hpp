@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string.h>
 #include <string>
+#include <chrono>
+#include <thread>
 
 enum DeviceOperation { ROOT, BRANCH, LEAF };
 

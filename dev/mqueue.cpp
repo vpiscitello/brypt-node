@@ -98,13 +98,11 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 	std::string line = "";
 	char tmpchar;
 
-	printf("%lu\n",pipes.size());
-
 	for(int i = 0; i < (int)pipes.size(); i++){
 
 		const char* pipe_name = pipes[i].c_str();
 		std::ifstream myfile(pipe_name);
-		printf("opening\n");
+		// printf("opening\n");
 
 		if( myfile.is_open() ){
 
@@ -112,8 +110,14 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 				line.append( sizeof( tmpchar ),tmpchar );
 			}
 
-			Message tmpmsg(line);
-			out_msg.push_back(tmpmsg);
+			try {
+				// TODO: Clear pipe file contents
+				Message tmpmsg(line);
+				out_msg.push_back(tmpmsg);
+			} catch(...) {
+				std::cout << "== [Message Queue] Message in queue not formatted properly" << '\n';
+			}
+
 		}
 
 		myfile.close();
@@ -122,7 +126,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 		truncator.open( pipe_name, std::ios::out | std::ios::trunc );
 		truncator.close();
 
-		std::cout << "\nMessage get_pack\n" << out_msg[0].get_pack() << '\n';
+		// std::cout << "\nMessage get_pack\n" << out_msg[0].get_pack() << '\n';
 
 	}
 

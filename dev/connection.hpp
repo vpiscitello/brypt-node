@@ -5,8 +5,6 @@
 #include <vector>
 #include <fstream>
 
-#include <thread>
-
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <netinet/in.h>
@@ -55,10 +53,10 @@ class Connection {
                 return false;
             }
 
-            std::string filename = this->peer_name + ".pipe";
+            std::string filename = "./tmp/" + this->peer_name + ".pipe";
 
             this->pipe_name = filename;
-            this->pipe.open(filename, std::ios::app);
+            this->pipe.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 
             if( this->pipe.fail() ){
                 this->pipe.close();
@@ -69,23 +67,33 @@ class Connection {
         }
 
         bool write_to_pipe(std::string message) {
-            if ( !this->pipe.is_open() ) {
+            if ( !this->pipe.good() ) {
                 return false;
             }
 
-            // this->pipe.write( message.c_str(), message.size() );
             std::cout << "== [Connection] Writing \"" << message << "\" to pipe" << '\n';
-            this->pipe << message;
+            this->pipe.clear();
+            this->pipe.seekp(0);
+            this->pipe << message << std::endl;
+            this->pipe.flush();
             return true;
         }
 
         std::string read_from_pipe() {
-            if ( !this->pipe.is_open() ) {
-                return "";
+            std::string raw_message = "";
+
+            if ( !this->pipe.good() ) {
+                return raw_message;
             }
 
-            std::string raw_message;
-            std::getline(this->pipe, raw_message);
+            this->pipe.clear();
+            this->pipe.seekg(0);
+
+            if (this->pipe.eof()) {
+                return raw_message;
+            }
+
+            std::getline( this->pipe, raw_message );
 
             return raw_message;
         }
@@ -208,9 +216,13 @@ class Direct : public Connection {
             this->create_pipe();
             unsigned int run = 0;
             while (true) {
-                this->write_to_pipe(std::to_string(run) + " Here is some work!");
+                Message message(this->peer_name, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
+                this->write_to_pipe(message.get_pack());
+                std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+                if (run > 10) {
+                    return;
+                }
                 run++;
-                sleep(1);
             }
         }
 
