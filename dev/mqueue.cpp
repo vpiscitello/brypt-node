@@ -13,7 +13,6 @@ MessageQueue::MessageQueue(std::vector<std::string> setup_pipes){
 	this->pipes = setup_pipes;
 	this->in_queue = std::queue<Message>();
 	this->out_queue = std::queue<Message>();
-
 }
 
 MessageQueue::~MessageQueue(){
@@ -29,7 +28,7 @@ void MessageQueue::push_pipe(std::string filename){
 		std::cout << "== [Message Queue] Pipe already being watched" << '\n';
 		return;
 	}
-	
+
 	std::ifstream push_file(filename);
 
 	std::cout << "== [Message Queue] Pushing " << filename << '\n';
@@ -69,13 +68,13 @@ void MessageQueue::add_message(Message message){
 		this->push_pipe( pipe_name );
 	}
 
-	in_queue.push( message );
+	out_queue.push( message );
 
 }
 
 int MessageQueue::push_pipes(){//finds *inbound* msgs
 	unsigned int i;
-	unsigned int start_size = in_queue.size();
+	unsigned int start_size = out_queue.size();
 
 	this->check_pipes();
 
@@ -84,10 +83,10 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 
 	for( i = 0; i < start_size; i++ ) {
 
-		Message tmp_msg = in_queue.front();
+		Message tmp_msg = out_queue.front();
 		const std::string pipe_name = "./tmp/" + tmp_msg.get_node_id() + ".pipe";
 		packet = tmp_msg.get_pack();
-		in_queue.pop();
+		out_queue.pop();
 
 		std::fstream push_file(pipe_name, std::ios::out | std::ios::binary);
 
@@ -134,7 +133,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 
 			try {
 				Message pipe_message(line);
-				out_queue.push(pipe_message);
+				in_queue.push(pipe_message);
 
 				std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
 				clear_file.close();
@@ -159,12 +158,12 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 
 Message MessageQueue::pop_next_message(){
 
-	if( !out_queue.empty() ) {
+	if( !in_queue.empty() ) {
 
-		Message message = this->out_queue.front();
-		this->out_queue.pop();
+		Message message = this->in_queue.front();
+		this->in_queue.pop();
 
-		std::cout << "== [Message Queue] " << out_queue.size() << " left in outgoing queue" << '\n';
+		std::cout << "== [Message Queue] " << in_queue.size() << " left in outgoing queue" << '\n';
 
 		return message;
 
