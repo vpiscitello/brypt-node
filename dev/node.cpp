@@ -276,6 +276,9 @@ void Node::handle_control_request(std::string message) {
 
                 Connection *full = this->setup_wifi_connection(request.get_node_id(), full_port);
                 this->connections.push_back(full);
+                if (full->get_worker_status()) {
+                    std::cout << "== [Node] Connection worker thread is ready" << '\n';
+                }
 
                 std::cout << "== [Node] New connection pushed back\n";
                 this->control->send("\x04");

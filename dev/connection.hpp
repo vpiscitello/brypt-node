@@ -16,20 +16,21 @@
 #include "message.hpp"
 
 
-
 class Connection {
     protected:
         bool active;
         bool instantiate_connection;
+        DeviceOperation operation;
 
         std::string peer_name;
-
-        std::fstream pipe;
         std::string pipe_name;
+        std::fstream pipe;
         unsigned long message_sequence;
 
-        bool worker_active;
+        bool worker_active = false;
         std::thread worker_thread;
+        std::mutex worker_mutex;
+        std::condition_variable worker_conditional;
 
     public:
         virtual void whatami() = 0;
@@ -42,6 +43,10 @@ class Connection {
 
         bool get_status() {
             return this->active;
+        }
+
+        bool get_worker_status() {
+            return this->worker_active;
         }
 
         std::string get_pipe_name() {
@@ -126,8 +131,9 @@ class Direct : public Connection {
             this->peer_addr = options->peer_addr;
             this->peer_port = options->peer_port;
             this->control = options->is_control;
+            this->operation = options->operation;
 
-            this->worker_active = false;
+            // this->worker_active = false;
 
     	    if (options->is_control) {
         		std::cout << "== [Connection] Creating control socket\n";
@@ -156,49 +162,11 @@ class Direct : public Connection {
 
             this->spawn();
 
-    	    // switch (this->c_pid) {
-        	// 	case -1: {
-            //         std::cout << "Error creating child process\n";
-            //         return;
-            //     }
-            //
-        	// 	case 0: {
-            //         sleep(1);
-            //
-            //         try {
-            //             std::cout << "== [Connection] Connection thread PID " << getpid() << "\n";
-            //
-            //             this->context = new zmq::context_t(1);
-            //
-            //             switch (options->operation) {
-            //                 case ROOT: {
-            //                     std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
-            //                     this->setup_rep_socket(options->port);
-            //
-            //                     // handle_messaging();
-            //                     break;
-            //                 }
-            //                 case BRANCH: {
-            //                     break;
-            //                 }
-            //                 case LEAF: {
-            //                     std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
-            //                     this->setup_req_socket(options->peer_addr, options->peer_port);
-            //
-            //                     break;
-            //                 }
-            //             }
-            //         } catch(...) {
-            //             std::cout << "Error creating child process\n";
-            //         }
-            //
-            //         return;
-            //     }
-            //
-        	// 	default: {
-            //         return;
-            //     }
-    	    // }
+            std::unique_lock<std::mutex> thread_lock(worker_mutex);
+            this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+            thread_lock.unlock();
+
+            // CHECK WORKER ACTIVE FROM CALLING FUNCTION
 
         }
 
@@ -214,6 +182,49 @@ class Direct : public Connection {
         void worker() {
             this->worker_active = true;
             this->create_pipe();
+
+            // Create appriopiate network socket
+            this->context = new zmq::context_t(1);
+
+            switch (this->operation) {
+                case ROOT: {
+                    std::cout << "== [Connection] Setting up REP socket on port " << this->port << "\n";
+                    this->setup_rep_socket(this->port);
+                    // handle_messaging();
+                    break;
+                }
+                case BRANCH: {
+                    break;
+                }
+                case LEAF: {
+                    std::cout << "== [Connection] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
+                    this->setup_req_socket(this->peer_addr, this->peer_port);
+
+                    break;
+                }
+            }
+
+            this->worker_active = true;
+
+            // Notify the calling thread that the connection worker is ready
+            std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+            worker_conditional.notify_one();
+            thread_lock.unlock();
+
+            // do {
+            //     std::string message = "";
+            //     // Receive message
+            //     message = this->socket->recv();
+            //     this->write_to_pipe(message);
+            //
+            //     // Wait for message from pipe then send
+            //
+            //     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+            // } while(true);
+
+
+
+
             unsigned int run = 0;
             while (true) {
                 Message message(this->peer_name, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
@@ -224,6 +235,8 @@ class Direct : public Connection {
                 }
                 run++;
             }
+
+
         }
 
         void setup_rep_socket(std::string port) {
