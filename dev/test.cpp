@@ -82,27 +82,19 @@ void message_queue_test() {
 	}
 
 	myfile.close();
-	for( int i = 0; i < 5 ; i++ ){
-		std::cout << wrapper.get_pack() << '\n';
-	}
 
 	message_queue.check_pipes();
-	std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
-	Message tmpmsg = message_queue.pop_next_message();
-
+    Message tmpmsg = message_queue.pop_next_message();
 	if( tmpmsg.get_phase() != UINT_MAX ){
-		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
-	}
-
-	if( tmpmsg.get_phase() != UINT_MAX ){
-		std::cout << "Pop msg \n" << message_queue.pop_next_message().get_pack() << '\n';
+		std::cout << "Pop msg \n" << tmpmsg.get_pack() << '\n';
 	}
 
 	message_queue.add_message(wrapper);
+
 	message_queue.push_pipes();
 	message_queue.check_pipes();
-	message_queue.push_pipe("3");
 
+	message_queue.push_pipe("3");
 	tmpmsg.set_node_id("5");
 	message_queue.add_message(tmpmsg);
 	message_queue.remove_pipe("5");

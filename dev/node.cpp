@@ -316,7 +316,7 @@ void Node::handle_notification(std::string message) {
 void Node::handle_queue_request(Message * message) {
     std::cout << "== [Node] Handling queue request from connection thread\n";
 
-    if (message == NULL) {
+    if (message->get_command() == NULL_CMD) {
         std::cout << "== [Node] No request to handle\n";
         return;
     }
@@ -325,7 +325,7 @@ void Node::handle_queue_request(Message * message) {
 
         switch (message->get_command()) {
             case QUERY_TYPE: {
-                std::cout << "== [Node] Recieved " << message->get_data() << " from thread" << '\n';
+                std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_node_id() << " thread" << '\n';
                 break;
             }
             default: {

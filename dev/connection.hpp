@@ -218,8 +218,8 @@ class Direct : public Connection {
             while (true) {
                 Message message(this->peer_name, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
                 this->write_to_pipe(message.get_pack());
-                std::this_thread::sleep_for(std::chrono::milliseconds(2500));
-                if (run > 10) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(3750));
+                if (run > 4) {
                     return;
                 }
                 run++;

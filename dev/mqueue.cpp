@@ -4,33 +4,46 @@
 #define len_index 7
 
 MessageQueue::MessageQueue(){
-	this->in_msg = std::vector<Message>();
-	this->out_msg = std::vector<Message>();
+	this->in_queue = std::queue<Message>();
+	this->out_queue = std::queue<Message>();
 	this->pipes = std::vector<std::string>();
 }
 
 MessageQueue::MessageQueue(std::vector<std::string> setup_pipes){
 	this->pipes = setup_pipes;
-	this->in_msg = std::vector<Message>();
-	this->out_msg = std::vector<Message>();
+	this->in_queue = std::queue<Message>();
+	this->out_queue = std::queue<Message>();
 
 }
 
 MessageQueue::~MessageQueue(){
 	this->pipes.clear();
-	this->in_msg.clear();
-	this->out_msg.clear();
 }
 
 void MessageQueue::push_pipe(std::string filename){
-	std::ifstream myFile(filename);
+	std::vector<std::string>::iterator it;
+	for (it = this->pipes.begin(); it != this->pipes.end(); it++) {
+		if (*it != filename) {
+			continue;
+		}
+		std::cout << "== [Message Queue] Pipe already being watched" << '\n';
+		return;
+	}
+	
+	std::ifstream push_file(filename);
 
-	if( myFile.fail() ){
+	std::cout << "== [Message Queue] Pushing " << filename << '\n';
+
+	if( push_file.fail() ){
 		std::ofstream outfile(filename);
 		outfile.close();
 	}
 
+	push_file.close();
+
 	this->pipes.push_back(filename);
+
+	std::cout << "== [Message Queue] Pipes being watched: " << this->pipes.size() << '\n';
 
 }
 
@@ -56,13 +69,13 @@ void MessageQueue::add_message(Message message){
 		this->push_pipe( pipe_name );
 	}
 
-	in_msg.push_back( message );
+	in_queue.push( message );
 
 }
 
 int MessageQueue::push_pipes(){//finds *inbound* msgs
 	unsigned int i;
-	unsigned int start_size = in_msg.size();
+	unsigned int start_size = in_queue.size();
 
 	this->check_pipes();
 
@@ -71,23 +84,21 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 
 	for( i = 0; i < start_size; i++ ) {
 
-		Message tmp_msg = in_msg[i];
-		const std::string pipe_name = tmp_msg.get_node_id();
+		Message tmp_msg = in_queue.front();
+		const std::string pipe_name = "./tmp/" + tmp_msg.get_node_id() + ".pipe";
 		packet = tmp_msg.get_pack();
-		//const std::string raw_top = tmp_msg.get_raw();
+		in_queue.pop();
 
-		std::string raw_top = "placeholder";
-		std::fstream myfile(pipe_name, std::ios::out | std::ios::binary);
+		std::fstream push_file(pipe_name, std::ios::out | std::ios::binary);
 
 		for(int i = 0; i < (int)packet.size(); i++){
-			myfile.put(packet.at(i));
+			push_file.put(packet.at(i));
 			debugstring.append(sizeof(packet.at(i)), packet.at(i));
 		}
 
-		myfile.close();
+		push_file.close();
 		std::cout << "debug string was \n" << debugstring << '\n';
 		debugstring = "";
-		in_msg.erase( in_msg.begin() );
 
 	}
 
@@ -95,38 +106,45 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 }
 
 int MessageQueue::check_pipes(){//finds *outbound* msgs
-	std::string line = "";
-	char tmpchar;
+	for(int idx = 0; idx < (int)pipes.size(); idx++) {
 
-	for(int i = 0; i < (int)pipes.size(); i++){
+		std::string pipe_name = pipes[idx];
+		std::cout << "== [Message Queue] Checking " << pipe_name << '\n';
+		std::ifstream check_file(pipe_name);
 
-		const char* pipe_name = pipes[i].c_str();
-		std::ifstream myfile(pipe_name);
-		// printf("opening\n");
+		if( check_file.good() ) {
 
-		if( myfile.is_open() ){
+			std::string line = "";
+			char current;
 
-			while( myfile.get( tmpchar ) ){
-				line.append( sizeof( tmpchar ),tmpchar );
+			std::cout << "== [Message Queue] ";
+
+			while( check_file.get( current ) ){
+				std::cout << (int)current << ' ';
+				line.append( sizeof( current ), current );
 			}
 
+
+			if (line.size() < 1) {
+				std::cout << "No message in checked pipe" << '\n';
+				continue;
+			}
+
+			std::cout << '\n';
+
 			try {
-				// TODO: Clear pipe file contents
-				Message tmpmsg(line);
-				out_msg.push_back(tmpmsg);
+				Message pipe_message(line);
+				out_queue.push(pipe_message);
+
+				std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
+				clear_file.close();
 			} catch(...) {
 				std::cout << "== [Message Queue] Message in queue not formatted properly" << '\n';
 			}
 
 		}
 
-		myfile.close();
-
-		std::fstream truncator(pipe_name, std::ios::in);
-		truncator.open( pipe_name, std::ios::out | std::ios::trunc );
-		truncator.close();
-
-		// std::cout << "\nMessage get_pack\n" << out_msg[0].get_pack() << '\n';
+		check_file.close();
 
 	}
 
@@ -141,17 +159,17 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 
 Message MessageQueue::pop_next_message(){
 
-	if( out_msg.size() > 0 ) {
+	if( !out_queue.empty() ) {
 
-		Message top_msg = this->out_msg[0];
-		out_msg.erase(out_msg.begin());
-		return top_msg;
+		Message message = this->out_queue.front();
+		this->out_queue.pop();
 
-	} else {
+		std::cout << "== [Message Queue] " << out_queue.size() << " left in outgoing queue" << '\n';
 
-		Message tmpmsg = Message();
-		return tmpmsg;
+		return message;
 
 	}
+
+	return Message();
 
 }

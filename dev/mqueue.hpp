@@ -5,24 +5,25 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <queue>
 
 #include "utility.hpp"
 #include "message.hpp"
 
 class MessageQueue {
     private:
-        std::vector<Message> in_msg;
-        std::vector<Message> out_msg;
+        std::queue<Message> in_queue;
+        std::queue<Message> out_queue;
 
         std::vector<std::string> pipes;
 
     public:
-        int push_pipes();	//Sends all out_msgs to
+        int push_pipes();	//Sends all out_queues to
         int check_pipes();	//Checks each FD for new incoming msgs
     	void add_message(Message message);
     	void push_pipe(std::string filename);
     	void remove_pipe(std::string filename);	//nuke everything
-    	Message pop_next_message();	//return a msg from out_msg and delete after service
+    	Message pop_next_message();	//return a msg from out_queue and delete after service
 
     	MessageQueue();
     	MessageQueue(std::vector<std::string> setup_pipes);
