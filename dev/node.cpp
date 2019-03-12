@@ -132,6 +132,7 @@ void Node::setup(Options options){
 
     this->id = options.id;
     this->operation = options.operation;
+    this->coordinator_technology = options.technology;
     this->next_full_port = port_num + PORT_GAP;
     this->notifier = new Notifier(std::to_string(port_num + 1));
 
@@ -156,8 +157,8 @@ void Node::setup(Options options){
             break;
         }
         case LEAF: {
-            //Some sort of setup to determine the host and port to connect to
-            initial_contact(&options);
+            this->coordinator_addr = options.peer_addr;
+            initial_contact(&options);  // Contact coordinator peer to get connection port
             break;
         }
     }
@@ -187,14 +188,6 @@ Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) 
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Node::connect() {
-    std::cout << "Connecting..." << '\n';
-}
-
-/* **************************************************************************
-** Function:
-** Description:
-** *************************************************************************/
 void Node::initial_contact(Options * opts) {
     Connection * connection;
     std::string response;
@@ -215,8 +208,9 @@ void Node::initial_contact(Options * opts) {
     response = connection->recv();  // Expect new connection port from peer
 
     Message port_message(response);
-    opts->peer_port = port_message.get_data();
-    std::cout << "== [Node] Port received: " << opts->peer_port << "\n";
+    this->coordinator_id = port_message.get_node_id();
+    this->coordinator_port = port_message.get_data();
+    std::cout << "== [Node] Port received: " << this->coordinator_port << "\n";
 
     std::cout << "== [Node] Sending node information\n";
     Message info_message(this->id, INFORMATION_TYPE, 1, "Node Information", 0);
@@ -229,6 +223,31 @@ void Node::initial_contact(Options * opts) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     connection->shutdown(); // Shutdown initial connection
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::join_coordinator() {
+    Connection * connection;
+
+    std::cout << "Joining coordinator cluster with full connection\n";
+    std::cout << "Connecting with technology: " << this->coordinator_technology;
+    std::cout << " and on addr:port: " << this->coordinator_addr << ":" << this->coordinator_port << "\n";
+
+    Options options;
+
+    options.port = "";
+    options.technology = this->coordinator_technology;
+    options.peer_name = this->coordinator_id;
+    options.peer_addr = this->coordinator_addr;
+    options.peer_port = this->coordinator_port;
+    options.operation = LEAF;
+    options.is_control = true;
+
+    connection = ConnectionFactory(this->coordinator_technology, &options);
+    this->connections.push_back(connection);
 }
 
 /* **************************************************************************
@@ -345,7 +364,7 @@ void Node::handle_queue_request(Message * message) {
 }
 
 
-// Communication Functions
+// Run Functions
 /* **************************************************************************
 ** Function:
 ** Description:
@@ -371,7 +390,37 @@ void Node::listen(){
         std::cout << '\n';
 
         std::this_thread::sleep_for(std::chrono::seconds(2));
+    } while (true);
+}
 
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::connect(){
+    std::cout << "== Brypt Node is connecting\n";
+    this->join_coordinator();
+    unsigned int run = 0;
+
+    do {
+        std::string response = "";
+        std::string notification = "";
+
+        // Handle Notification
+        notification = this->notifier->recv();
+        this->handle_notification(notification);
+
+        // Send information to coordinator based on notification
+        // Send Request to the server
+        Message message(this->id, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
+        this->connections[0]->send(&message);
+
+        // Recieve Response from the server
+        response = this->connections[0]->recv();
+        std::cout << "== [Node] Recieved: " << response << '\n';
+
+        run++;
+        std::this_thread::sleep_for(std::chrono::milliseconds(3750));
     } while (true);
 }
 
@@ -391,6 +440,7 @@ void Node::startup() {
             break;
         }
         case LEAF: {
+            this->connect();
             break;
         }
     }

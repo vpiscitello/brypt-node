@@ -211,30 +211,37 @@ class Direct : public Connection {
             worker_conditional.notify_one();
             thread_lock.unlock();
 
-            // do {
-            //     std::string message = "";
-            //     // Receive message
-            //     message = this->socket->recv();
-            //     this->write_to_pipe(message);
-            //
-            //     // Wait for message from pipe then send
-            //
-            //     std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-            // } while(true);
-
-
-
-
             unsigned int run = 0;
-            while (true) {
-                Message message(this->peer_name, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
-                this->write_to_pipe(message.get_pack());
-                std::this_thread::sleep_for(std::chrono::milliseconds(3750));
-                if (run > 4) {
-                    return;
-                }
+
+            do {
+                std::string request = "";
+                // Receive message
+                request = this->recv(0);
+                this->write_to_pipe(request);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+
+                Message response("1", QUERY_TYPE, 1, "Message Response", run);
+                this->send(&response);
+
+
+                // Wait for message from pipe then send
                 run++;
-            }
+                std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+            } while(true);
+
+
+            // unsigned int run = 0;
+            // while (true) {
+            //     Message message(this->peer_name, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
+            //     this->write_to_pipe(message.get_pack());
+            //     std::this_thread::sleep_for(std::chrono::milliseconds(3750));
+            //     if (run > 4) {
+            //         return;
+            //     }
+            //     run++;
+            // }
 
 
         }

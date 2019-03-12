@@ -40,9 +40,9 @@ class Node {
 
         // Cluster Variables
         unsigned long cluster;                                     // Cluster identification number of the node's cluster
-        unsigned long coordinator;                                 // Coordinator identification number of the node's coordinator
-        std::vector<std::string> neighborTable;                    // Neighbor table
-        unsigned int neighborCount;                                // Number of neighbors to the node
+        std::string coordinator_id;                                // Coordinator identification number of the node's coordinator
+        std::string coordinator_addr;
+        std::string coordinator_port;
 
         // Network Variables
         std::string authorityAddress;                              // Networking address of the central authority for the Brypt ecosystem
@@ -54,9 +54,9 @@ class Node {
         Notifier * notifier;
         std::vector<Connection *> connections;                     // A vector of open connections
 
-
         // Node Type Variables
         DeviceOperation operation;                                 // A boolean value of the node's root status
+        TechnologyType coordinator_technology;
 
         // Sensor Variables
         unsigned short readingPin;                                 // The GPIO pin the node will read from
@@ -86,6 +86,7 @@ class Node {
 
         // Communication Functions
         void initial_contact(Options *opts);
+        void join_coordinator();
         bool contactAuthority();                                // Contact the central authority for some service
         bool notifyAddressChange();                             // Notify the cluster of some address change
 
