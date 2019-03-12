@@ -433,13 +433,19 @@ void Node::startup() {
 
     switch (this->operation) {
         case ROOT: {
+            // Move to thread?
             this->listen();
             break;
         }
         case BRANCH: {
+            // Listen in thread?
+            // Connect in another thread?
+            // Bridge threads to receive upstream notifications and then pass down to own leafs
+            // + pass aggregated messages to connect thread to respond with
             break;
         }
         case LEAF: {
+            // Move to thread?
             this->connect();
             break;
         }
