@@ -60,11 +60,13 @@ void MessageQueue::remove_pipe(std::string filename){
 
 }
 
-void MessageQueue::add_message(Message message){
-	std::string pipe_name = message.get_node_id();
+void MessageQueue::add_message(std::string destination_id, Message message){
+	std::string pipe_name = "./tmp/" + destination_id + ".pipe";
 
+	std::cout << "== [Message Queue] Message queued for " << pipe_name << '\n';
+
+	// Create new pipe if the pipe name is not found in the managed pipes
 	if ( std::find( pipes.begin(), pipes.end(), pipe_name ) == pipes.end() ){
-		std::cout << "adinmsg making new pipe?\n";
 		this->push_pipe( pipe_name );
 	}
 
@@ -84,9 +86,11 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 	for( i = 0; i < start_size; i++ ) {
 
 		Message tmp_msg = out_queue.front();
-		const std::string pipe_name = "./tmp/" + tmp_msg.get_node_id() + ".pipe";
+		const std::string pipe_name = "./tmp/" + tmp_msg.get_destination_id() + ".pipe";
 		packet = tmp_msg.get_pack();
 		out_queue.pop();
+
+		std::cout << "== [Message Queue] Pushing message for " << pipe_name << '\n';
 
 		std::fstream push_file(pipe_name, std::ios::out | std::ios::binary);
 
@@ -94,6 +98,8 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 			push_file.put(packet.at(i));
 			debugstring.append(sizeof(packet.at(i)), packet.at(i));
 		}
+
+		// std::this_thread::sleep_for(std::chrono::seconds(120));
 
 		push_file.close();
 		std::cout << "debug string was \n" << debugstring << '\n';
@@ -163,7 +169,7 @@ Message MessageQueue::pop_next_message(){
 		Message message = this->in_queue.front();
 		this->in_queue.pop();
 
-		std::cout << "== [Message Queue] " << in_queue.size() << " left in outgoing queue" << '\n';
+		std::cout << "== [Message Queue] " << in_queue.size() << " left in incoming queue" << '\n';
 
 		return message;
 

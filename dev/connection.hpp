@@ -28,6 +28,7 @@ class Connection {
         unsigned long message_sequence;
 
         bool worker_active = false;
+        bool response_needed = false;
         std::thread worker_thread;
         std::mutex worker_mutex;
         std::condition_variable worker_conditional;
@@ -47,6 +48,10 @@ class Connection {
 
         bool get_worker_status() {
             return this->worker_active;
+        }
+
+        std::string get_peer_name() {
+            return this->peer_name;
         }
 
         std::string get_pipe_name() {
@@ -100,7 +105,22 @@ class Connection {
 
             std::getline( this->pipe, raw_message );
 
+            std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
+            clear_file.close();
+
             return raw_message;
+        }
+
+        void response_ready(std::string id) {
+            if (this->peer_name != id) {
+                std::cout << "== [Connection] Response was not for this peer" << '\n';
+                return;
+            }
+
+            this->response_needed = false;
+            std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+            worker_conditional.notify_one();
+            thread_lock.unlock();
         }
 
         void unspecial() {
@@ -219,12 +239,20 @@ class Direct : public Connection {
                 request = this->recv(0);
                 this->write_to_pipe(request);
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                // std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+                this->response_needed = true;
 
                 // Wait for message from pipe then send
+                std::unique_lock<std::mutex> thread_lock(worker_mutex);
+                this->worker_conditional.wait(thread_lock, [this]{return !this->response_needed;});
+                thread_lock.unlock();
 
-                Message response("1", QUERY_TYPE, 1, "Message Response", run);
-                this->send(&response);
+                std::string response = this->read_from_pipe();
+                this->send(response.c_str());
+
+                // Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
+                // this->send(&response);
 
                 run++;
                 std::this_thread::sleep_for(std::chrono::nanoseconds(1000));

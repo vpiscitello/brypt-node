@@ -11,10 +11,11 @@ class Message {
     private:
         std::string raw;                // Raw string format of the message
 
-        std::string node_id;            // ID of the sending node
+        std::string source_id;          // ID of the sending node
+        std::string destination_id;     // ID of the sending node
 
         CommandType command;            // Command type to be run
-        unsigned int phase;                      // Phase of the Command state
+        unsigned int phase;             // Phase of the Command state
 
         std::string data;               // Encrypted data to be sent
         std::string timestamp;          // Current timestamp
@@ -25,8 +26,8 @@ class Message {
         unsigned int nonce;             // Current message nonce
 
         enum MessageChunk {
-            NODEID_CHUNK, COMMAND_CHUNK, PHASE_CHUNK, NONCE_CHUNK, DATASIZE_CHUNK, DATA_CHUNK, TIMESTAMP_CHUNK,
-            FIRST_CHUNK = NODEID_CHUNK,
+            SOURCEID_CHUNK, DESTINATIONID_CHUNK, COMMAND_CHUNK, PHASE_CHUNK, NONCE_CHUNK, DATASIZE_CHUNK, DATA_CHUNK, TIMESTAMP_CHUNK,
+            FIRST_CHUNK = SOURCEID_CHUNK,
             LAST_CHUNK = TIMESTAMP_CHUNK
         };
 
@@ -38,7 +39,8 @@ class Message {
         ** *************************************************************************/
         Message() {
             this->raw = "";
-            this->node_id = "";
+            this->source_id = "";
+            this->destination_id = "";
             this->command = NULL_CMD;
             this->phase = -1;
             this->data = "";
@@ -61,9 +63,10 @@ class Message {
         ** Function: Constructor for new Messages
         ** Description: Initializes new messages provided the intended values.
         ** *************************************************************************/
-        Message(std::string node_id, CommandType command, int phase, std::string data, unsigned int nonce) {
+        Message(std::string source_id, std::string destination_id, CommandType command, int phase, std::string data, unsigned int nonce) {
             this->raw = "";
-            this->node_id = node_id;
+            this->source_id = source_id;
+            this->destination_id = destination_id;
             this->command = command;
             this->phase = phase;
             this->data = data;
@@ -76,11 +79,18 @@ class Message {
 
         // Getter Functions
         /* **************************************************************************
-        ** Function: get_node_id
+        ** Function: get_source_id
         ** Description: Return the ID of the Node that sent the message.
         ** *************************************************************************/
-        std::string get_node_id() {
-            return this->node_id;
+        std::string get_source_id() {
+            return this->source_id;
+        }
+        /* **************************************************************************
+        ** Function: get_destination_id
+        ** Description: Return the ID of the Node message going to.
+        ** *************************************************************************/
+        std::string get_destination_id() {
+            return this->destination_id;
         }
         /* **************************************************************************
         ** Function: get_command
@@ -109,6 +119,13 @@ class Message {
         ** *************************************************************************/
         std::string get_timestamp() {
             return this->timestamp;
+        }
+        /* **************************************************************************
+        ** Function: get_nonce
+        ** Description: Return the commands phase.
+        ** *************************************************************************/
+        unsigned int get_nonce() {
+            return this->nonce;
         }
         /* **************************************************************************
         ** Function: get_pack
@@ -141,11 +158,18 @@ class Message {
             this->raw = raw;
         }
         /* **************************************************************************
-        ** Function: set_node_id
+        ** Function: set_source_id
         ** Description: Set the Node ID of the message.
         ** *************************************************************************/
-        void set_node_id(std::string node_id) {
-            this->node_id = node_id;
+        void set_source_id(std::string source_id) {
+            this->source_id = source_id;
+        }
+        /* **************************************************************************
+        ** Function: set_destination_id
+        ** Description: Set the Node ID of the message.
+        ** *************************************************************************/
+        void set_destination_id(std::string destination_id) {
+            this->destination_id = destination_id;
         }
         /* **************************************************************************
         ** Function: set_command
@@ -188,11 +212,12 @@ class Message {
         ** Description: Set the message Response provided the data content and sending
         ** Node ID.
         ** *************************************************************************/
-        void set_response(std::string node_id, std::string data) {
+        void set_response(std::string source_id, std::string data) {
             if (this->response == NULL) {
-                this->response = new Message(node_id, this->command, this->phase + 1, data, this->nonce + 1);
+                this->response = new Message(source_id, this->source_id, this->command, this->phase + 1, data, this->nonce + 1);
             } else {
-                this->response->set_node_id( node_id );
+                this->response->set_source_id( source_id );
+                this->response->set_destination_id( this->source_id );
                 this->response->set_command( this->command, this->phase + 1 );
                 this->response->set_data( data );
                 this->response->set_nonce( this->nonce + 1 );
@@ -236,7 +261,8 @@ class Message {
 
             packed.append( 1, 1 );	// Start of telemetry pack
 
-            packed.append( this->pack_chunk( this->node_id ) );
+            packed.append( this->pack_chunk( this->source_id ) );
+            packed.append( this->pack_chunk( this->destination_id ) );
             packed.append( this->pack_chunk( (unsigned int)this->command ) );
             packed.append( this->pack_chunk( (unsigned int)this->phase ) );
             packed.append( this->pack_chunk( (unsigned int)this->nonce ) );
@@ -264,9 +290,13 @@ class Message {
                 std::size_t chunk_end = this->raw.find( ( char ) 29, last_end + 1 );     // Find chunk seperator
 
                 switch (chunk) {
-                    // Node ID
-                    case NODEID_CHUNK:
-                        this->node_id = this->raw.substr( last_end + 2, ( chunk_end - 1 ) - ( last_end + 2) );
+                    // Source ID
+                    case SOURCEID_CHUNK:
+                        this->source_id = this->raw.substr( last_end + 2, ( chunk_end - 1 ) - ( last_end + 2) );
+                        break;
+                    // Destination ID
+                    case DESTINATIONID_CHUNK:
+                        this->destination_id = this->raw.substr( last_end + 2, ( chunk_end - 1 ) - ( last_end + 2) );
                         break;
                     // Command Type
                     case COMMAND_CHUNK:
