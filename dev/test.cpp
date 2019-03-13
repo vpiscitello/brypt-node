@@ -289,7 +289,29 @@ void create_tcp_socket() {
     Options tcp_setup;
     tcp_setup.technology = TCP_TYPE;
     tcp_setup.port = "3001";
+    tcp_setup.operation = ROOT;
     Connection * conn = ConnectionFactory(tcp_setup.technology, &tcp_setup);
+    conn->recv(1);
+    conn->send("THIS IS A MESSAGE");
+}
+
+void create_tcp_connection() {
+    Options tcp_setup;
+    tcp_setup.technology = TCP_TYPE;
+    tcp_setup.peer_addr = "127.0.0.1";
+    tcp_setup.peer_port = "3001";
+    tcp_setup.operation = LEAF;
+    Connection * conn = ConnectionFactory(tcp_setup.technology, &tcp_setup);
+    conn->send("THIS IS A MESSAGE");
+    conn->recv(1);
+}
+
+void create_streambridge_socket() {
+    Options streambridge_setup;
+    streambridge_setup.technology = STREAMBRIDGE_TYPE;
+    streambridge_setup.port = "3001";
+    streambridge_setup.operation = ROOT;
+    Connection * conn = ConnectionFactory(streambridge_setup.technology, &streambridge_setup);
     conn->recv(1);
     conn->send("THIS IS A MESSAGE");
 }
@@ -306,7 +328,9 @@ int main(int argc, char **argv) {
     std::cout << "\n== Welcome to the Brypt Network\n";
 
     // create_tcp_socket();
-    // return 0;
+    //create_streambridge_socket();
+    create_tcp_connection();
+    return 0;
 
     class Node alpha;
 
