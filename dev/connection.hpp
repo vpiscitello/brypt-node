@@ -30,10 +30,11 @@ class Connection {
 	std::fstream pipe;
 	unsigned long message_sequence;
 
-	bool worker_active = false;
-	std::thread worker_thread;
-	std::mutex worker_mutex;
-	std::condition_variable worker_conditional;
+        bool worker_active = false;
+        bool response_needed = false;
+        std::thread worker_thread;
+        std::mutex worker_mutex;
+        std::condition_variable worker_conditional;
 
     public:
 	virtual void whatami() = 0;
@@ -52,9 +53,13 @@ class Connection {
 	    return this->worker_active;
 	}
 
-	std::string get_pipe_name() {
-	    return this->pipe_name;
-	}
+        std::string get_peer_name() {
+            return this->peer_name;
+        }
+
+        std::string get_pipe_name() {
+            return this->pipe_name;
+        }
 
 	bool create_pipe() {
 	    if (this->peer_name == "") {
@@ -103,12 +108,27 @@ class Connection {
 
 	    std::getline( this->pipe, raw_message );
 
-	    return raw_message;
-	}
+            std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
+            clear_file.close();
 
-	void unspecial() {
-	    std::cout << "I am calling an unspecialized function." << '\n';
-	}
+            return raw_message;
+        }
+
+        void response_ready(std::string id) {
+            if (this->peer_name != id) {
+                std::cout << "== [Connection] Response was not for this peer" << '\n';
+                return;
+            }
+
+            this->response_needed = false;
+            std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+            worker_conditional.notify_one();
+            thread_lock.unlock();
+        }
+
+        void unspecial() {
+            std::cout << "I am calling an unspecialized function." << '\n';
+        }
 
 };
 
@@ -136,125 +156,133 @@ class Direct : public Connection {
 	    this->control = options->is_control;
 	    this->operation = options->operation;
 
-	    // this->worker_active = false;
+            // this->worker_active = false;
 
-	    if (options->is_control) {
-		std::cout << "== [connection] creating control socket\n";
+    	    if (options->is_control) {
+        		std::cout << "== [Connection] Creating control socket\n";
 
-		this->context = new zmq::context_t(1);
+        		this->context = new zmq::context_t(1);
 
-		switch (options->operation) {
-		    case ROOT: {
-				   std::cout << "== [connection] setting up rep socket on port " << options->port << "\n";
-				   this->setup_rep_socket(options->port);
-				   break;
-			       }
-		    case BRANCH: {
-				     break;
-				 }
-		    case LEAF: {
-				   std::cout << "== [connection] connecting req socket to " << options->peer_addr << ":" << options->peer_port << "\n";
-				   this->setup_req_socket(options->peer_addr, options->peer_port);
-				   break;
-			       }
-		}
+        		switch (options->operation) {
+                    case ROOT: {
+                        std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
+                        this->setup_rep_socket(options->port);
+                        break;
+                    }
+                    case BRANCH: {
+                        break;
+                    }
+                    case LEAF: {
+                        std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+                        this->setup_req_socket(options->peer_addr, options->peer_port);
+                        break;
+                    }
+        		}
 
-		return;
+        		return;
 
-	    }
+    	    }
 
-	    this->spawn();
+            this->spawn();
 
-	    std::unique_lock<std::mutex> thread_lock(worker_mutex);
-	    this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
-	    thread_lock.unlock();
+            std::unique_lock<std::mutex> thread_lock(worker_mutex);
+            this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+            thread_lock.unlock();
 
-	    // CHECK WORKER ACTIVE FROM CALLING FUNCTION
+            // CHECK WORKER ACTIVE FROM CALLING FUNCTION
 
-	}
+        }
 
-	void whatami() {
-	    std::cout << "I am a Direct implementation." << '\n';
-	}
+        void whatami() {
+            std::cout << "I am a Direct implementation." << '\n';
+        }
 
-	void spawn() {
-	    std::cout << "== [Connection] Spawning DIRECT_TYPE connection thread\n";
-	    this->worker_thread = std::thread(&Direct::worker, this);
-	}
+        void spawn() {
+            std::cout << "== [Connection] Spawning DIRECT_TYPE connection thread\n";
+            this->worker_thread = std::thread(&Direct::worker, this);
+        }
 
-	void worker() {
-	    this->worker_active = true;
-	    this->create_pipe();
+        void worker() {
+            this->worker_active = true;
+            this->create_pipe();
 
-	    // Create appriopiate network socket
-	    this->context = new zmq::context_t(1);
+            // Create appriopiate network socket
+            this->context = new zmq::context_t(1);
 
-	    switch (this->operation) {
-		case ROOT: {
-			       std::cout << "== [Connection] Setting up REP socket on port " << this->port << "\n";
-			       this->setup_rep_socket(this->port);
-			       // handle_messaging();
-			       break;
-			   }
-		case BRANCH: {
-				 break;
-			     }
-		case LEAF: {
-			       std::cout << "== [Connection] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
-			       this->setup_req_socket(this->peer_addr, this->peer_port);
+            switch (this->operation) {
+                case ROOT: {
+                    std::cout << "== [Connection] Setting up REP socket on port " << this->port << "\n";
+                    this->setup_rep_socket(this->port);
+                    // handle_messaging();
+                    break;
+                }
+                case BRANCH: {
+                    break;
+                }
+                case LEAF: {
+                    std::cout << "== [Connection] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
+                    this->setup_req_socket(this->peer_addr, this->peer_port);
 
-			       break;
-			   }
-	    }
+                    break;
+                }
+            }
 
-	    this->worker_active = true;
+            this->worker_active = true;
 
-	    // Notify the calling thread that the connection worker is ready
-	    std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
-	    worker_conditional.notify_one();
-	    thread_lock.unlock();
+            // Notify the calling thread that the connection worker is ready
+            std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+            worker_conditional.notify_one();
+            thread_lock.unlock();
 
-	    unsigned int run = 0;
+            unsigned int run = 0;
 
-	    do {
-		std::string request = "";
-		// Receive message
-		request = this->recv(0);
-		this->write_to_pipe(request);
+            do {
+                std::string request = "";
+                // Receive message
+                request = this->recv(0);
+                this->write_to_pipe(request);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                // std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-		// Wait for message from pipe then send
+                this->response_needed = true;
 
-		Message response("1", QUERY_TYPE, 1, "Message Response", run);
-		this->send(&response);
+                // Wait for message from pipe then send
+                std::unique_lock<std::mutex> thread_lock(worker_mutex);
+                this->worker_conditional.wait(thread_lock, [this]{return !this->response_needed;});
+                thread_lock.unlock();
 
-		run++;
-		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-	    } while(true);
+                std::string response = this->read_from_pipe();
+                this->send(response.c_str());
 
-	}
+                // Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
+                // this->send(&response);
 
-	void setup_rep_socket(std::string port) {
-	    this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
-	    this->item.socket = *this->socket;
-	    this->item.events = ZMQ_POLLIN;
-	    this->instantiate_connection = true;
-	    this->socket->bind("tcp://*:" + port);
-	}
+                run++;
+                std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+            } while(true);
 
-	void setup_req_socket(std::string addr, std::string port) {
-	    this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
-	    this->item.socket = *this->socket;
-	    this->item.events = ZMQ_POLLIN;
-	    this->socket->connect("tcp://" + addr + ":" + port);
-	    this->instantiate_connection = false;
-	}
+        }
 
-	void send(Message * message) {
-	    std::string msg_pack = message->get_pack();
-	    zmq::message_t request(msg_pack.size());
-	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
+        void setup_rep_socket(std::string port) {
+            this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
+            this->item.socket = *this->socket;
+            this->item.events = ZMQ_POLLIN;
+            this->instantiate_connection = true;
+            this->socket->bind("tcp://*:" + port);
+        }
+
+        void setup_req_socket(std::string addr, std::string port) {
+            this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
+            this->item.socket = *this->socket;
+            this->item.events = ZMQ_POLLIN;
+            this->socket->connect("tcp://" + addr + ":" + port);
+            this->instantiate_connection = false;
+        }
+
+    	void send(Message * message) {
+    	    std::string msg_pack = message->get_pack();
+    	    zmq::message_t request(msg_pack.size());
+    	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 
 	    this->socket->send(request);
 

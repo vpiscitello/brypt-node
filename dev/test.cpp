@@ -45,7 +45,7 @@ void command_parse_test() {
     std::string node_id = "00-00-00-00-00";
     std::string data = "Hello World!";
     unsigned int nonce = 998;
-    Message message( node_id, command, phase, data, nonce );
+    Message message( node_id, "", command, phase, data, nonce );
 
     // Use the message command to handle the message logic
     commands.at( message.get_command() )->handle_message( &message );
@@ -70,7 +70,7 @@ void message_queue_test() {
 	CommandType command = ELECTION_TYPE;
 	unsigned int nonce = 998;
 
-	Message wrapper( node_id, command, phase, plaintext, nonce );    // Create the message using known data
+	Message wrapper( node_id, "", command, phase, plaintext, nonce );    // Create the message using known data
 	std::string packet = wrapper.get_pack();
 	std::cout << packet <<"\n";
 
@@ -89,15 +89,15 @@ void message_queue_test() {
 		std::cout << "Pop msg \n" << tmpmsg.get_pack() << '\n';
 	}
 
-	message_queue.add_message(wrapper);
-
-	message_queue.push_pipes();
-	message_queue.check_pipes();
-
-	message_queue.push_pipe("3");
-	tmpmsg.set_node_id("5");
-	message_queue.add_message(tmpmsg);
-	message_queue.remove_pipe("5");
+	// message_queue.add_message(wrapper);
+    //
+	// message_queue.push_pipes();
+	// message_queue.check_pipes();
+    //
+	// message_queue.push_pipe("3");
+	// tmpmsg.set_node_id("5");
+	// message_queue.add_message(tmpmsg);
+	// message_queue.remove_pipe("5");
 }
 
 void message_test() {
@@ -109,13 +109,13 @@ void message_test() {
     std::string node_id = "00-00-00-00-00"; // Set the message sender ID
     std::string data = "Hello World!";      // Set the message data
     unsigned int nonce = 998;               // Set the message key nonce
-    Message message( node_id, command, phase, data, nonce );    // Create the message using known data
+    Message message( node_id, "", command, phase, data, nonce );    // Create the message using known data
 
     std::string recv_raw = message.get_pack();      // Get the message as a packed string
     std::cout << "Message Raw: " << recv_raw << '\n';
 
     Message recv_message( recv_raw );       // Initialize a new message using a recieved raw string
-    std::cout << "Message Sender: "  << recv_message.get_node_id() << '\n';
+    std::cout << "Message Sender: "  << recv_message.get_source_id() << '\n';
     std::cout << "Message Content: "  << recv_message.get_data() << '\n';
 
     // TODO: verify message

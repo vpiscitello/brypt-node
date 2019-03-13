@@ -102,7 +102,7 @@ class Control {
                     full_port = std::to_string(this->next_full_port);
 
                     std::cout << "== [Control] Sending port: " << full_port << "\n";
-                    Message port_message(*this->node_id, CONNECT_TYPE, 0, full_port, 0);
+                    Message port_message(*this->node_id, "We'll Cross that Brypt When We Come to It.", CONNECT_TYPE, 0, full_port, 0);
                     this->conn->send(&port_message);
 
                     device_info = this->conn->recv();

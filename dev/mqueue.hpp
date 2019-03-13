@@ -20,7 +20,7 @@ class MessageQueue {
     public:
         int push_pipes();	//Sends all out_queues to
         int check_pipes();	//Checks each FD for new incoming msgs
-    	void add_message(Message message);
+    	void add_message(std::string destination_id, Message message);
     	void push_pipe(std::string filename);
     	void remove_pipe(std::string filename);	//nuke everything
     	Message pop_next_message();	//return a msg from out_queue and delete after service

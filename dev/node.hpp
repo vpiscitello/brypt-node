@@ -31,7 +31,7 @@ class Node {
         // Identification Variables
         std::string id;                                            // Network identification number of the node
         std::string serial;                                        // Hardset identification number of the device
-        std::vector<TechnologyType> communicationTechnologies;     // Communication technologies of the node
+        std::vector<TechnologyType> communication_technologies;     // Communication technologies of the node
 
         // Adressing Variables
         std::string addr;                                          // IP address of the node
@@ -52,6 +52,7 @@ class Node {
         // Connection Variables
         Control * control;
         Notifier * notifier;
+        // Change to hash table? based on peer name?
         std::vector<Connection *> connections;                     // A vector of open connections
 
         // Node Type Variables
@@ -77,8 +78,8 @@ class Node {
 
         // Private Functions
         // Utility Functions
-        int determineConnectionMethod();                       // Determine the connection method for a particular transmission
-        TechnologyType determineBestConnectionType();          // Determine the best connection type the node has
+        int determine_connection_method();                       // Determine the connection method for a particular transmission
+        TechnologyType determine_best_connection_type();          // Determine the best connection type the node has
         void add_connection(Connection *);
 
         // Setup Functions
@@ -87,8 +88,9 @@ class Node {
         // Communication Functions
         void initial_contact(Options *opts);
         void join_coordinator();
-        bool contactAuthority();                                // Contact the central authority for some service
-        bool notifyAddressChange();                             // Notify the cluster of some address change
+        bool contact_authority();                                // Contact the central authority for some service
+        bool notify_address_change();                           // Notify the cluster of some address change
+        void notify_connection(std::string id);
 
         // Request Handlers
         void handle_control_request(std::string message);
@@ -99,7 +101,7 @@ class Node {
         // Election Functions
         bool vote();                                              // Vote for leader of the cluster
         bool election();                                         // Call for an election for cluster leader
-        float determineNodePower();                             // Determine the node value to the network
+        float determine_node_power();                             // Determine the node value to the network
         bool transform();                                        // Transform the node's function in the cluster/network
 
         // Run Functions

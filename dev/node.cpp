@@ -54,17 +54,17 @@ std::string Node::get_local_address(){
 ** Function:
 ** Description:
 ** *************************************************************************/
-TechnologyType Node::determineBestConnectionType(){
+TechnologyType Node::determine_best_connection_type(){
     int best_comm = 4;
 
-    for (int i = 0; i < (int)this->communicationTechnologies.size(); i++) {
-    	if (communicationTechnologies[i] == DIRECT_TYPE) {
+    for (int i = 0; i < (int)this->communication_technologies.size(); i++) {
+    	if (communication_technologies[i] == DIRECT_TYPE) {
     	    return DIRECT_TYPE;
-    	} else if (communicationTechnologies[i] == BLE_TYPE) {
+    	} else if (communication_technologies[i] == BLE_TYPE) {
     	    if (best_comm > 1) {
     		    best_comm = 1;
     	    }
-    	} else if (communicationTechnologies[i] == LORA_TYPE) {
+    	} else if (communication_technologies[i] == LORA_TYPE) {
     	    if (best_comm > 2) {
     		    best_comm = 2;
     	    }
@@ -104,7 +104,7 @@ bool Node::election(){
 ** Function:
 ** Description:
 ** *************************************************************************/
-float Node::determineNodePower(){
+float Node::determine_node_power(){
     float value = 0.0;
 
     return value;
@@ -140,7 +140,7 @@ void Node::setup(Options options){
 
     switch (options.operation) {
         case ROOT: {
-            TechnologyType technology = determineBestConnectionType();
+            TechnologyType technology = determine_best_connection_type();
             technology = DIRECT_TYPE; //TEMPORARY
 
             if (technology == NONE) {
@@ -208,12 +208,12 @@ void Node::initial_contact(Options * opts) {
     response = connection->recv();  // Expect new connection port from peer
 
     Message port_message(response);
-    this->coordinator_id = port_message.get_node_id();
+    this->coordinator_id = port_message.get_source_id();
     this->coordinator_port = port_message.get_data();
     std::cout << "== [Node] Port received: " << this->coordinator_port << "\n";
 
     std::cout << "== [Node] Sending node information\n";
-    Message info_message(this->id, INFORMATION_TYPE, 1, "Node Information", 0);
+    Message info_message(this->id, this->coordinator_id, INFORMATION_TYPE, 1, "Node Information", 0);
     connection->send(&info_message);    // Send node information to peer
 
     response = connection->recv();  // Expect EOT back from peer
@@ -254,7 +254,7 @@ void Node::join_coordinator() {
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::contactAuthority(){
+bool Node::contact_authority(){
     bool success = false;
 
     return success;
@@ -264,10 +264,23 @@ bool Node::contactAuthority(){
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::notifyAddressChange(){
+bool Node::notify_address_change(){
     bool success = false;
 
     return success;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::notify_connection(std::string id) {
+    std::vector<Connection *>::iterator it;
+    for (it = this->connections.begin(); it != this->connections.end(); it++) {
+        if ((*it)->get_peer_name() == id) {
+            (*it)->response_ready(id);
+        }
+    }
 }
 
 // Request Handlers
@@ -293,7 +306,7 @@ void Node::handle_control_request(std::string message) {
                 this->next_full_port++;
                 std::string full_port = std::to_string(this->next_full_port);
 
-                Connection *full = this->setup_wifi_connection(request.get_node_id(), full_port);
+                Connection *full = this->setup_wifi_connection(request.get_source_id(), full_port);
                 this->connections.push_back(full);
                 if (full->get_worker_status()) {
                     std::cout << "== [Node] Connection worker thread is ready" << '\n';
@@ -343,23 +356,23 @@ void Node::handle_queue_request(Message * message) {
         return;
     }
 
-    try {
-
-        switch (message->get_command()) {
-            case QUERY_TYPE: {
-                std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_node_id() << " thread" << '\n';
-                break;
-            }
-            default: {
-                // this->control->send("\x15");
-                break;
-            }
+    switch (message->get_command()) {
+        case QUERY_TYPE: {
+            std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
+            // Need to track encryption keys and nonces
+            Message response(this->id, message->get_source_id(), QUERY_TYPE, message->get_phase() + 1, "Message Response", message->get_nonce() + 1);
+            this->message_queue.add_message(message->get_source_id(), response);
+            break;
         }
-
-    } catch (...) {
-        std::cout << "== [Node] Queue message failed to unpack.\n";
-        return;
+        default: {
+            // this->control->send("\x15");
+            break;
+        }
     }
+
+    this->message_queue.push_pipes();
+
+    this->notify_connection(message->get_source_id());
 
 }
 
@@ -412,7 +425,7 @@ void Node::connect(){
 
         // Send information to coordinator based on notification
         // Send Request to the server
-        Message message(this->id, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
+        Message message(this->id, this->coordinator_id, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
         this->connections[0]->send(&message);
 
         // Recieve Response from the server
