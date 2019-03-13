@@ -93,6 +93,7 @@ class Connection {
             std::string raw_message = "";
 
             if ( !this->pipe.good() ) {
+                std::cout << "== [Connection] Pipe file is not good" << '\n';
                 return raw_message;
             }
 
@@ -100,10 +101,14 @@ class Connection {
             this->pipe.seekg(0);
 
             if (this->pipe.eof()) {
+                std::cout << "== [Connection] Pipe file is at the EOF" << '\n';
                 return raw_message;
             }
 
             std::getline( this->pipe, raw_message );
+            this->pipe.clear();
+
+            std::cout << "== [Connection] Sending " << raw_message << '\n';
 
             std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
             clear_file.close();

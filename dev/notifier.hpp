@@ -28,6 +28,7 @@ class Notifier {
         void connect(std::string ip, std::string port) {
             std::cout << "== [Notifier] Subscribing to peer at " + ip + ":" + port + "\n";
             subscriber.connect("tcp://" + ip + ":" + port);
+            subscriber.setsockopt(ZMQ_SUBSCRIBE, "", 0);
             this->subscribed = true;
         }
 
@@ -55,10 +56,17 @@ class Notifier {
                 return "";
             }
 
+            int recvd_bytes = 0;
+            std::string notification = "";
+
             zmq::message_t message;
-            this->subscriber.recv(&message, ZMQ_NOBLOCK);
-            std::string notification = std::string(static_cast<char *>(message.data()), message.size());
-            std::cout << "== [Notifier] Recieved: " + notification + "\n";
+            recvd_bytes = this->subscriber.recv(&message, ZMQ_DONTWAIT);
+            if (recvd_bytes < 1) {
+                return notification;
+            }
+
+            notification = std::string(static_cast<char *>(message.data()), message.size());
+            std::cout << "== [Notifier] Recieved: " << notification << "\n";
 
             return notification;
         };

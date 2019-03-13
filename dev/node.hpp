@@ -43,6 +43,7 @@ class Node {
         std::string coordinator_id;                                // Coordinator identification number of the node's coordinator
         std::string coordinator_addr;
         std::string coordinator_port;
+        std::string publisher_port;
 
         // Network Variables
         std::string authorityAddress;                              // Networking address of the central authority for the Brypt ecosystem

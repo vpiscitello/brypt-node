@@ -158,6 +158,7 @@ void Node::setup(Options options){
         }
         case LEAF: {
             this->coordinator_addr = options.peer_addr;
+            this->publisher_port = std::to_string(std::stoi(options.peer_port) + 1);
             initial_contact(&options);  // Contact coordinator peer to get connection port
             break;
         }
@@ -235,6 +236,8 @@ void Node::join_coordinator() {
     std::cout << "Joining coordinator cluster with full connection\n";
     std::cout << "Connecting with technology: " << this->coordinator_technology;
     std::cout << " and on addr:port: " << this->coordinator_addr << ":" << this->coordinator_port << "\n";
+
+    this->notifier->connect(this->coordinator_addr, this->publisher_port);
 
     Options options;
 
@@ -342,6 +345,35 @@ void Node::handle_notification(std::string message) {
     }
 
 
+    try {
+
+        std::string response = "";
+        Message notification(message);
+
+        switch (notification.get_command()) {
+            case QUERY_TYPE: {
+                std::cout << "== [Node] Recieved " << notification.get_data() << " from " << notification.get_source_id() << '\n';
+                // Send Request to the server
+                Message request(this->id, this->coordinator_id, QUERY_TYPE, notification.get_phase() + 1, " Here is some work!", 0);
+                this->connections[0]->send(&request);
+
+                // Recieve Response from the server
+                response = this->connections[0]->recv();
+                std::cout << "== [Node] Recieved: " << response << '\n';
+                break;
+            }
+            default: {
+                // this->control->send("\x15");
+                break;
+            }
+        }
+
+    } catch (...) {
+        std::cout << "== [Node] Notice message failed to unpack.\n";
+        return;
+    }
+
+
 }
 
 /* **************************************************************************
@@ -384,6 +416,7 @@ void Node::handle_queue_request(Message * message) {
 ** *************************************************************************/
 void Node::listen(){
     std::cout << "== Brypt Node is listening\n";
+    unsigned int run = 1;
     do {
         std::string control_request = "";
         std::string notification = "";
@@ -402,6 +435,13 @@ void Node::listen(){
 
         std::cout << '\n';
 
+        if(run % 12 == 0) {
+            std::cout << "== [Node] Sending notification for query request" << '\n';
+            Message notice(this->id, "ALL", QUERY_TYPE, 0, "Request for Sensor Readings.", 0);
+            this->notifier->send(&notice);
+        }
+
+        run++;
         std::this_thread::sleep_for(std::chrono::seconds(2));
     } while (true);
 }
@@ -421,16 +461,8 @@ void Node::connect(){
 
         // Handle Notification
         notification = this->notifier->recv();
-        this->handle_notification(notification);
-
         // Send information to coordinator based on notification
-        // Send Request to the server
-        Message message(this->id, this->coordinator_id, QUERY_TYPE, 0, std::to_string(run) + " Here is some work!", run);
-        this->connections[0]->send(&message);
-
-        // Recieve Response from the server
-        response = this->connections[0]->recv();
-        std::cout << "== [Node] Recieved: " << response << '\n';
+        this->handle_notification(notification);
 
         run++;
         std::this_thread::sleep_for(std::chrono::milliseconds(3750));
