@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
 
 #include "zmq.hpp"
 
@@ -18,14 +21,14 @@
 
 class Connection {
     protected:
-        bool active;
-        bool instantiate_connection;
-        DeviceOperation operation;
+	bool active;
+	bool instantiate_connection;
+	DeviceOperation operation;
 
-        std::string peer_name;
-        std::string pipe_name;
-        std::fstream pipe;
-        unsigned long message_sequence;
+	std::string peer_name;
+	std::string pipe_name;
+	std::fstream pipe;
+	unsigned long message_sequence;
 
         bool worker_active = false;
         bool response_needed = false;
@@ -34,71 +37,70 @@ class Connection {
         std::condition_variable worker_conditional;
 
     public:
-        virtual void whatami() = 0;
-        virtual void spawn() = 0;
-        virtual void worker() = 0;
-        virtual std::string recv(int flag = 0) = 0;
-        virtual void send(Message *) = 0;
-        virtual void send(const char * message) = 0;
-        virtual void shutdown() = 0;
+    	virtual void whatami() = 0;
+    	virtual void spawn() = 0;
+    	virtual void worker() = 0;
+    	virtual std::string recv(int flag = 0) = 0;
+    	virtual void send(Message *) = 0;
+    	virtual void send(const char * message) = 0;
+    	virtual void shutdown() = 0;
 
-        bool get_status() {
-            return this->active;
-        }
+    	bool get_status() {
+    	    return this->active;
+    	}
 
-        bool get_worker_status() {
-            return this->worker_active;
-        }
+    	bool get_worker_status() {
+    	    return this->worker_active;
+    	}
 
-        std::string get_peer_name() {
-            return this->peer_name;
-        }
-
-        std::string get_pipe_name() {
-            return this->pipe_name;
-        }
-
-        bool create_pipe() {
-            if (this->peer_name == "") {
-                return false;
+            std::string get_peer_name() {
+                return this->peer_name;
             }
 
-            std::string filename = "./tmp/" + this->peer_name + ".pipe";
-
-            this->pipe_name = filename;
-            this->pipe.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
-
-            if( this->pipe.fail() ){
-                this->pipe.close();
-                return false;
+            std::string get_pipe_name() {
+                return this->pipe_name;
             }
 
-            return true;
-        }
+    	bool create_pipe() {
+    	    if (this->peer_name == "") {
+    		return false;
+    	    }
 
-        bool write_to_pipe(std::string message) {
-            if ( !this->pipe.good() ) {
-                return false;
-            }
+    	    std::string filename = "./tmp/" + this->peer_name + ".pipe";
 
-            std::cout << "== [Connection] Writing \"" << message << "\" to pipe" << '\n';
-            this->pipe.clear();
-            this->pipe.seekp(0);
-            this->pipe << message << std::endl;
-            this->pipe.flush();
-            return true;
-        }
+    	    this->pipe_name = filename;
+    	    this->pipe.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 
-        std::string read_from_pipe() {
-            std::string raw_message = "";
+    	    if( this->pipe.fail() ){
+    		this->pipe.close();
+    		return false;
+    	    }
+
+    	    return true;
+    	}
+
+    	bool write_to_pipe(std::string message) {
+    	    if ( !this->pipe.good() ) {
+    		return false;
+    	    }
+
+    	    std::cout << "== [Connection] Writing \"" << message << "\" to pipe" << '\n';
+    	    this->pipe.clear();
+    	    this->pipe.seekp(0);
+    	    this->pipe << message << std::endl;
+    	    this->pipe.flush();
+    	    return true;
+    	}
+
+    	std::string read_from_pipe() {
+    	    std::string raw_message = "";
 
             if ( !this->pipe.good() ) {
                 std::cout << "== [Connection] Pipe file is not good" << '\n';
                 return raw_message;
             }
-
-            this->pipe.clear();
-            this->pipe.seekg(0);
+    	    this->pipe.clear();
+    	    this->pipe.seekg(0);
 
             if (this->pipe.eof()) {
                 std::cout << "== [Connection] Pipe file is at the EOF" << '\n';
@@ -109,6 +111,7 @@ class Connection {
             this->pipe.clear();
 
             std::cout << "== [Connection] Sending " << raw_message << '\n';
+
 
             std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
             clear_file.close();
@@ -136,27 +139,27 @@ class Connection {
 
 class Direct : public Connection {
     private:
-        bool control;
+	bool control;
 
-        std::string port;
-        std::string peer_addr;
-        std::string peer_port;
+	std::string port;
+	std::string peer_addr;
+	std::string peer_port;
 
-        zmq::context_t *context;
-        zmq::socket_t *socket;
-        zmq::pollitem_t item;
+	zmq::context_t *context;
+	zmq::socket_t *socket;
+	zmq::pollitem_t item;
 
     public:
-        Direct() {}
-        Direct(Options *options) {
-            std::cout << "== [Connection] Creating direct instance.\n";
+	Direct() {}
+	Direct(Options *options) {
+	    std::cout << "== [Connection] Creating direct instance.\n";
 
-            this->port = options->port;
-            this->peer_name = options->peer_name;
-            this->peer_addr = options->peer_addr;
-            this->peer_port = options->peer_port;
-            this->control = options->is_control;
-            this->operation = options->operation;
+	    this->port = options->port;
+	    this->peer_name = options->peer_name;
+	    this->peer_addr = options->peer_addr;
+	    this->peer_port = options->peer_port;
+	    this->control = options->is_control;
+	    this->operation = options->operation;
 
             // this->worker_active = false;
 
@@ -286,424 +289,566 @@ class Direct : public Connection {
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 
-    	    this->socket->send(request);
+	    this->socket->send(request);
 
-            std::cout << "== [Connection] Sent\n";
-        }
+	    std::cout << "== [Connection] Sent\n";
+	}
 
-        void send(const char * message) {
-            zmq::message_t request(strlen(message));
-            memcpy(request.data(), message, strlen(message));
-            this->socket->send(request);
+	void send(const char * message) {
+	    zmq::message_t request(strlen(message));
+	    memcpy(request.data(), message, strlen(message));
+	    this->socket->send(request);
 
-            std::cout << "== [Connection] Sent\n";
-        }
+	    std::cout << "== [Connection] Sent\n";
+	}
 
-        std::string recv(int flag){
-            zmq::message_t message;
-            this->socket->recv(&message, flag);
-            std::string request = std::string(static_cast<char *>(message.data()), message.size());
-            return request;
-        }
+	std::string recv(int flag){
+	    zmq::message_t message;
+	    this->socket->recv(&message, flag);
+	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
+	    return request;
+	}
 
-    	void shutdown() {
-    	    std::cout << "Shutting down socket and context\n";
-    	    zmq_close(this->socket);
-    	    zmq_ctx_destroy(this->context);
-    	}
+	void shutdown() {
+	    std::cout << "Shutting down socket and context\n";
+	    zmq_close(this->socket);
+	    zmq_ctx_destroy(this->context);
+	}
 
-    	void handle_messaging() {
+	void handle_messaging() {
 
-    	}
+	}
 };
 
 class StreamBridge : public Connection {
     private:
-        bool control;
+	bool control;
 
-        std::string port;
-        std::string peer_addr;
-        std::string peer_port;
+	std::string port;
+	std::string peer_addr;
+	std::string peer_port;
 
-    	void *context;
-    	void *socket;
+	void *context;
+	void *socket;
 
-    	uint8_t id[256];
-    	size_t id_size = 256;
+	uint8_t id[256];
+	size_t id_size = 256;
 
     public:
-        StreamBridge() {}
-        StreamBridge(Options *options) {
-            std::cout << "Creating StreamBridge instance.\n";
+	StreamBridge() {}
+	StreamBridge(Options *options) {
+	    std::cout << "Creating StreamBridge instance.\n";
 
-            this->port = options->port;
-            this->peer_addr = options->peer_addr;
-            this->peer_port = options->peer_port;
-            this->control = options->is_control;
+	    this->port = options->port;
+	    this->peer_addr = options->peer_addr;
+	    this->peer_port = options->peer_port;
+	    this->control = options->is_control;
+	    this->operation = options->operation;
 
-            if (options->is_control) {
-                std::cout << "[StreamBridge] Creating control socket\n";
-                this->context = zmq_ctx_new();// add 1 or no
+	    // this->worker_active = false;
 
-        		//TODO Implement this in the switch statement
-        		this->socket = zmq_socket(this->context, ZMQ_STREAM);
-        		setup_stream_socket(options->port);
-                return;
-            }
+	    if (options->is_control) {
+		std::cout << "== [StreamBridge] creating control socket\n";
 
-	    // Add forking/threading portion
-        }
+		this->context = zmq_ctx_new();// add 1 or no
 
-        void whatami() {
-            std::cout << "I am a StreamBridge implementation." << '\n';
-        }
+		switch (options->operation) {
+		    case ROOT: {
+				    std::cout << "== [StreamBridge] setting up stream socket on port " << options->port << "\n";
+				    this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				    setup_streambridge_socket(options->port);
+				    break;
+			       }
+		    case BRANCH: {
+				     break;
+				 }
+		    case LEAF: {
+				    //std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+				    //this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				    //setup_streambridge_socket(options->port);
+				    //this->setup_req_socket(options->peer_addr, options->peer_port);
+				    //break;
+			       }
+		}
+		return;
+	    }
 
-        void spawn() {
+	    this->spawn();
 
-        }
+	    std::unique_lock<std::mutex> thread_lock(worker_mutex);
+	    this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+	    thread_lock.unlock();
+	}
 
-        void worker() {
+	void whatami() {
+	    std::cout << "I am a StreamBridge implementation." << '\n';
+	}
 
-        }
+	void spawn() {
+	    std::cout << "== [StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread\n";
+	    this->worker_thread = std::thread(&StreamBridge::worker, this);
+	}
 
-    	void setup_stream_socket(std::string port) {
-    	    std::cout << "[Control] Setting up connection on port " << port << "... PID: " << getpid() << "\n\n";
-    	    this->instantiate_connection = true;
-    	    std::string conn_data = "tcp://*:" + port;
-    	    zmq_bind(this->socket, conn_data.c_str());
-    	}
+	void worker() {
+	    this->worker_active = true;
+	    this->create_pipe();
 
-        std::string recv(int flag){
-            //do {
-    		char buffer[512];
-    		memset(buffer, '\0', 512);
+	    this->context = zmq_ctx_new();// add 1 or no
 
-    		//TODO CHANGE THE 14
-    		// Receive 3 times, first is ID, second is nothing, third is message
-    		size_t msg_size = zmq_recv(this->socket, buffer, 14, 0);
-    		memset(buffer, '\0', 512);
-    		msg_size = zmq_recv(this->socket, buffer, 14, 0);
-    		memset(buffer, '\0', 512);
-    		msg_size = zmq_recv(this->socket, buffer, 14, 0);
-    		std::cout << "Received: " << buffer << "\n";
+	    switch (this->operation) {
+		case ROOT: {
+				std::cout << "== [StreamBridge] setting up stream socket on port " << this->port << "\n";
+				this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				setup_streambridge_socket(this->port);
+				break;
+			   }
+		case BRANCH: {
+				 break;
+			     }
+		case LEAF: {
+				//std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+				//this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				//setup_streambridge_socket(options->port);
+				//this->setup_req_socket(options->peer_addr, options->peer_port);
+				//break;
+			   }
+	    }
 
-    		return buffer;
-            //} while ( true );
-    	}
+	    this->worker_active = true;
 
-    	void send(Message * msg) {
-    	    std::cout << "[StreamBridge] Sending..." << '\n';
-    	    std::string msg_pack = msg->get_pack();
-    	    zmq_send(this->socket, id, id_size, ZMQ_SNDMORE);
-    	    zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
-    	    std::cout << "[StreamBridge] Sent: (" << strlen(msg_pack.c_str()) << ") " << msg_pack << '\n';
-        }
+	    // Notify the calling thread that the connection worker is ready
+	    std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+	    worker_conditional.notify_one();
+	    thread_lock.unlock();
 
-        void send(const char * message) {
-    	    std::cout << "[StreamBridge] Sending..." << '\n';
-    	    zmq_send(this->socket, id, id_size, ZMQ_SNDMORE);
-    	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
-    	    std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
-        }
+	    unsigned int run = 0;
 
-    	void shutdown() {
+	    do {
+		std::string request = "";
+		// Receive message
+		request = this->recv(0);
+		this->write_to_pipe(request);
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+		// Wait for message from pipe then send
+
+		Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
+		this->send(&response);
+
+		run++;
+		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+	    } while(true);
+	}
+
+	void setup_streambridge_socket(std::string port) {
+	    std::cout << "[Control] Setting up streambridge socket on port " << port << "... PID: " << getpid() << "\n\n";
+	    this->instantiate_connection = true;
+	    std::string conn_data = "tcp://*:" + port;
+	    zmq_bind(this->socket, conn_data.c_str());
+	}
+
+	std::string recv(int flag){
+	    //do {
+	    char buffer[512];
+	    memset(buffer, '\0', 512);
+
+	    // Receive 3 times, first is ID, second is nothing, third is message
+	    this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+	    size_t msg_size = zmq_recv(this->socket, buffer, 14, 0);
+	    memset(buffer, '\0', 512);
+	    msg_size = zmq_recv(this->socket, buffer, 14, 0);
+	    memset(buffer, '\0', 512);
+	    msg_size = zmq_recv(this->socket, buffer, 14, 0);
+	    std::cout << "Received: " << buffer << "\n";
+
+	    return buffer;
+	    //} while ( true );
+	}
+
+	void send(Message * msg) {
+	    std::cout << "[StreamBridge] Sending..." << '\n';
+	    std::string msg_pack = msg->get_pack();
+	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
+	    zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
+	    std::cout << "[StreamBridge] Sent: (" << strlen(msg_pack.c_str()) << ") " << msg_pack << '\n';
+	}
+
+	void send(const char * message) {
+	    std::cout << "[StreamBridge] Sending..." << '\n';
+	    zmq_send(this->socket, id, id_size, ZMQ_SNDMORE);
+	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
+	    std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
+	}
+
+	void shutdown() {
 	    // possibly do the send 0 length message thing
-    	    //std::cout << "Shutting down socket and context\n";
-    	    //zmq_close(this->socket);
-    	    //zmq_ctx_destroy(this->context);
-    	}
+	    //std::cout << "Shutting down socket and context\n";
+	    //zmq_close(this->socket);
+	    //zmq_ctx_destroy(this->context);
+	}
 
 };
 
 
 class TCP : public Connection {
     private:
-        bool control;
+	bool control;
 
-        std::string port;
-        std::string peer_addr;
-        std::string peer_port;
+	std::string port;
+	std::string peer_addr;
+	std::string peer_port;
 
-    	int server_fd, new_socket;
-    	struct sockaddr_in address;
-    	int opt = 1;
-    	int addrlen = sizeof(address);
+	int socket, connection;
+	struct sockaddr_in address;
+	int opt = 1;
+	int addrlen = sizeof(address);
 
     public:
-        TCP() {}
-        TCP(Options *options) {
-            std::cout << "[TCP] Creating TCP instance.\n";
+	TCP() {}
+	TCP(Options *options) {
+	    std::cout << "[TCP] Creating TCP instance.\n";
 
-            this->port = options->port;
-            this->peer_addr = options->peer_addr;
-            this->peer_port = options->peer_port;
-            this->control = options->is_control;
+	    this->port = options->port;
+	    this->peer_addr = options->peer_addr;
+	    this->peer_port = options->peer_port;
+	    this->control = options->is_control;
+	    this->operation = options->operation;
 
-            if (options->is_control) {
-                std::cout << "[TCP] Creating control socket\n";
+	    // this->worker_active = false;
 
-        		std::cout << "[TCP] Setting up connection on port " << options->port << "... PID: " << getpid() << "\n\n";
-        		setup_tcp_socket(options->port);
-                return;
-            }
+	    if (options->is_control) {
+		std::cout << "== [TCP] creating control socket\n";
 
-        }
+		switch (options->operation) {
+		    case ROOT: {
+				   std::cout << "== [TCP] setting up tcp socket on port " << options->port << "\n";
+				   this->setup_tcp_socket(options->port);
+				   break;
+			       }
+		    case BRANCH: {
+				     break;
+				 }
+		    case LEAF: {
+				   std::cout << "== [TCP] connecting tcp client socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+				   this->setup_tcp_connection(options->peer_addr, options->peer_port);
+				   break;
+			       }
+		}
 
-        void whatami() {
-            std::cout << "I am a TCP implementation." << '\n';
-        }
+		this->spawn();
 
-        void spawn() {
+		std::unique_lock<std::mutex> thread_lock(worker_mutex);
+		this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+		thread_lock.unlock();
 
-        }
+		return;
+	    }
+	}
 
-        void worker() {
+	void whatami() {
+	    std::cout << "I am a TCP implementation." << '\n';
+	}
 
-        }
+	void spawn() {
+	    std::cout << "== [TCP] Spawning TCP_TYPE connection thread\n";
+	    this->worker_thread = std::thread(&TCP::worker, this);
+	}
 
-    	void setup_tcp_socket(std::string port) {
-    	    // Creating socket file descriptor
-    	    if ((this->server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-    		std::cout << "Socket failed\n";
-    		return;
-    	    }
+	void worker() {
+	    this->worker_active = true;
+	    this->create_pipe();
 
-    	    if (setsockopt(this->server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &this->opt, sizeof(this->opt))) {
-    		std::cout << "Setsockopt failed\n";
-    		return;
-    	    }
-    	    this->address.sin_family = AF_INET;
-    	    this->address.sin_addr.s_addr = INADDR_ANY;
-    	    int PORT = std::stoi(port);
-    	    this->address.sin_port = htons( PORT );
+	    switch (this->operation) {
+		case ROOT: {
+		    std::cout << "== [TCP] Setting up tcp socket on port " << this->port << "\n";
+		    this->setup_tcp_socket(this->port);
+		    // handle_messaging();
+		    break;
+		}
+		case BRANCH: {
+		    break;
+		}
+		case LEAF: {
+		    std::cout << "== [TCP] Connecting tcp client socket to " << this->peer_addr << ":" << this->peer_port << "\n";
+		    this->setup_tcp_connection(this->peer_addr, this->peer_port);
 
-    	    if (bind(this->server_fd, (struct sockaddr *)&this->address, sizeof(this->address))<0) {
-    		std::cout << "Bind failed\n";
-    		return;
-    	    }
-    	    if (listen(this->server_fd, 30) < 0) {
-    		std::cout << "Listen failed\n";
-    		return;
-    	    }
-    	    if ((this->new_socket = accept(this->server_fd, (struct sockaddr *)&this->address, (socklen_t*)&this->addrlen))<0) {
-    		std::cout << "Socket failed\n";
-    	    }
-            }
+		    break;
+		}
+	    }
 
-            std::string recv(int flag){
-    	    char buffer[1024];
-    	    memset(buffer, '\0', 1024);
-    	    int valread = read(this->new_socket , buffer, 1024);
-    	    printf("Received: (%d) %s\n", valread, buffer);
+	    this->worker_active = true;
 
-    	    return buffer;
-        	}
+	    // Notify the calling thread that the connection worker is ready
+	    std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+	    worker_conditional.notify_one();
+	    thread_lock.unlock();
 
-        	void send(Message * msg) {
-    	    std::cout << "[TCP] Sending...\n";
-        	    std::string msg_pack = msg->get_pack();
-    	    ssize_t bytes = ::send(new_socket, msg_pack.c_str(), strlen(msg_pack.c_str()), 0);
-        	    std::cout << "[TCP] Sent: (" << (int)bytes << ") " << msg_pack << '\n';
-            }
+	    unsigned int run = 0;
 
-            void send(const char * message) {
-    	    std::cout << "[TCP] Sending...\n";
-    	    ssize_t bytes = ::send(new_socket, message, strlen(message), 0);
-        	    std::cout << "[TCP] Sent: (" << (int)bytes << ") " << message << '\n';
-    	}
+	    do {
+		std::string request = "";
+		// Receive message
+		request = this->recv(0);
+		this->write_to_pipe(request);
 
-    	void shutdown() {
-	    // possibly do the send 0 length message thing
-    	//    //std::cout << "Shutting down socket and context\n";
-    	//    //zmq_close(this->socket);
-    	//    //zmq_ctx_destroy(this->context);
-    	}
+		std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    	//void handle_messaging() {
-        //    CommandType command = INFORMATION_TYPE;
-        //    int phase = 0;
-        //    std::string node_id = "00-00-00-00-00";
-        //    std::string data = "OK";
-        //    unsigned int nonce = 998;
-        //    Message message(node_id, command, phase, data, nonce);
+		// Wait for message from pipe then send
 
-        //    while (1) {
-        //        std::string req = this->recv();
-        //        if (req != "") {
-        //            data = "OK";
-        //            Message eof_message(node_id, command, phase, data, nonce);
-        //            Message msg_req(req);
-        //            if (msg_req.get_data() == "SHUTDOWN") {
-        //                this->shutdown();
-        //                this->send(&eof_message);
-        //                exit(0);
-        //                //break;
-        //            } else {
-        //                this->send(&message);
-        //            }
-        //        }
-        //        sleep(2);
-        //    }
-	//}
+		Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
+		this->send(&response);
+
+		run++;
+		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+	    } while(true);
+	}
+
+	void setup_tcp_socket(std::string port) {
+	    // Creating socket file descriptor
+	    if ((this->socket = ::socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		std::cout << "Socket failed\n";
+		return;
+	    }
+
+	    if (setsockopt(this->socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &this->opt, sizeof(this->opt))) {
+		std::cout << "Setsockopt failed\n";
+		return;
+	    }
+	    this->address.sin_family = AF_INET;
+	    this->address.sin_addr.s_addr = INADDR_ANY;
+	    int PORT = std::stoi(port);
+	    this->address.sin_port = htons( PORT );
+
+	    if (bind(this->socket, (struct sockaddr *)&this->address, sizeof(this->address))<0) {
+		std::cout << "Bind failed\n";
+		return;
+	    }
+	    if (listen(this->socket, 30) < 0) {
+		std::cout << "Listen failed\n";
+		return;
+	    }
+	    if ((this->connection = accept(this->socket, (struct sockaddr *)&this->address, (socklen_t*)&this->addrlen))<0) {
+		std::cout << "Socket failed\n";
+	    }
+	}
+
+	void setup_tcp_connection(std::string peer_addr, std::string peer_port) {
+	    if ((this->connection = ::socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		printf("Socket creation error\n");
+		return;
+	    }
+
+	    memset(&this->address, '0', sizeof(this->address));
+
+	    this->address.sin_family = AF_INET;
+	    int PORT = std::stoi(peer_port);
+	    this->address.sin_port = htons(PORT);
+
+	    // Convert IPv4 and IPv6 addresses from text to binary form
+	    if (inet_pton(AF_INET, peer_addr.c_str(), &(this->address.sin_addr)) <= 0) {
+		printf("\nInvalid address/ Address not supported \n");
+		return;
+	    }
+
+	    if (connect(this->connection, (struct sockaddr *)&(this->address), sizeof(this->address)) < 0) {
+		printf("\nConnection Failed \n");
+		return;
+	    }
+	}
+
+	std::string recv(int flag){
+	    char buffer[1024];
+	    memset(buffer, '\0', 1024);
+	    int valread = read(this->connection, buffer, 1024);
+	    printf("Received: (%d) %s\n", valread, buffer);
+
+	    return buffer;
+	}
+
+	void send(Message * msg) {
+	    std::cout << "[TCP] Sending...\n";
+	    std::string msg_pack = msg->get_pack();
+	    ssize_t bytes = ::send(this->connection, msg_pack.c_str(), strlen(msg_pack.c_str()), 0);
+	    std::cout << "[TCP] Sent: (" << (int)bytes << ") " << msg_pack << '\n';
+	}
+
+	void send(const char * message) {
+	    std::cout << "[TCP] Sending...\n";
+	    ssize_t bytes = ::send(this->connection, message, strlen(message), 0);
+	    std::cout << "[TCP] Sent: (" << (int)bytes << ") " << message << '\n';
+	}
+
+	void shutdown() {
+	    close(this->connection);
+	    close(this->socket);
+	}
+
 };
 
 
 class Bluetooth : public Connection {
     public:
-        void whatami() {
-            std::cout << "I am a BLE implementation." << '\n';
-        }
+	void whatami() {
+	    std::cout << "I am a BLE implementation." << '\n';
+	}
 
-        void spawn() {
+	void spawn() {
 
-        }
+	}
 
-        void worker() {
+	void worker() {
 
-        }
+	}
 
-        void send(Message * msg) {
-            msg->get_pack();
-        }
+	void send(Message * msg) {
+	    msg->get_pack();
+	}
 
-        void send(const char * message) {
-            std::cout << "[Connection] Sent: " << message << '\n';
-        }
+	void send(const char * message) {
+	    std::cout << "[Connection] Sent: " << message << '\n';
+	}
 
-    	std::string recv(int flag){
+	std::string recv(int flag){
 
-            return "Message";
-    	}
+	    return "Message";
+	}
 
-    	void shutdown() {
+	void shutdown() {
 
-    	}
+	}
 };
 
 class LoRa : public Connection {
     public:
-        LoRa() {}
-        LoRa(Options *options){
-            switch (options->operation) {
-                case ROOT:
-                    std::cout << "Serving..." << "\n";
-                    break;
-                case BRANCH:
-                    std::cout << "Serving..." << "\n";
-                    break;
-                case LEAF:
-                    std::cout << "Connecting..." << "\n";
-                    break;
-            }
-        }
+	LoRa() {}
+	LoRa(Options *options){
+	    switch (options->operation) {
+		case ROOT:
+		    std::cout << "Serving..." << "\n";
+		    break;
+		case BRANCH:
+		    std::cout << "Serving..." << "\n";
+		    break;
+		case LEAF:
+		    std::cout << "Connecting..." << "\n";
+		    break;
+	    }
+	}
 
-        void whatami() {
-            std::cout << "I am a LoRa implementation." << '\n';
-        }
+	void whatami() {
+	    std::cout << "I am a LoRa implementation." << '\n';
+	}
 
-        void spawn() {
+	void spawn() {
 
-        }
+	}
 
-        void worker() {
+	void worker() {
 
-        }
+	}
 
-        void send(Message * msg) {
-            msg->get_pack();
+	void send(Message * msg) {
+	    msg->get_pack();
 
-        }
+	}
 
-        void send(const char * message) {
-            std::cout << "[Connection] Sent: " << message << '\n';
-        }
+	void send(const char * message) {
+	    std::cout << "[Connection] Sent: " << message << '\n';
+	}
 
-    	std::string recv(int flag){
+	std::string recv(int flag){
 
-            return "Message";
-    	}
+	    return "Message";
+	}
 
-    	void shutdown() {
+	void shutdown() {
 
-    	}
+	}
 };
 
 class Websocket : public Connection {
     public:
-        void whatami() {
-            std::cout << "I am a Websocket implementation." << '\n';
-        }
+	void whatami() {
+	    std::cout << "I am a Websocket implementation." << '\n';
+	}
 
-        void spawn() {
+	void spawn() {
 
-        }
+	}
 
-        void worker() {
+	void worker() {
 
-        }
+	}
 
-        void send(Message * msg) {
-            msg->get_pack();
-        }
+	void send(Message * msg) {
+	    msg->get_pack();
+	}
 
-        void send(const char * message) {
-            std::cout << "[Connection] Sent: " << message << '\n';
-        }
+	void send(const char * message) {
+	    std::cout << "[Connection] Sent: " << message << '\n';
+	}
 
-    	std::string recv(int flag){
+	std::string recv(int flag){
 
-            return "Message";
-    	}
+	    return "Message";
+	}
 
-    	void shutdown() {
+	void shutdown() {
 
-    	}
+	}
 };
 
 inline Connection* ConnectionFactory(TechnologyType technology) {
     switch (technology) {
-        case DIRECT_TYPE:
-            return new Direct;
-            break;
-        case BLE_TYPE:
-            return new Bluetooth;
-            break;
-        case LORA_TYPE:
-            return new LoRa;
-            break;
-        case WEBSOCKET_TYPE:
-            return new Websocket;
-            break;
-        case TCP_TYPE:
-            return new TCP;
-            break;
-        case NONE:
-            return NULL;
-            break;
+	case DIRECT_TYPE:
+	    return new Direct;
+	    break;
+	case BLE_TYPE:
+	    return new Bluetooth;
+	    break;
+	case LORA_TYPE:
+	    return new LoRa;
+	    break;
+	case WEBSOCKET_TYPE:
+	    return new Websocket;
+	    break;
+	case TCP_TYPE:
+	    return new TCP;
+	    break;
+	case STREAMBRIDGE_TYPE:
+	    return new StreamBridge;
+	    break;
+	case NONE:
+	    return NULL;
+	    break;
     }
     return NULL;
 }
 
 inline Connection* ConnectionFactory(TechnologyType technology, Options *options) {
     switch (technology) {
-        case DIRECT_TYPE:
-            return new Direct(options);
-            break;
-        case BLE_TYPE:
-            return new Bluetooth();
-            break;
-        case LORA_TYPE:
-            return new LoRa();
-            break;
-        case WEBSOCKET_TYPE:
-            return new Websocket();
-            break;
-        case TCP_TYPE:
-            return new TCP(options);
-            break;
-        case NONE:
-            return NULL;
-            break;
+	case DIRECT_TYPE:
+	    return new Direct(options);
+	    break;
+	case BLE_TYPE:
+	    return new Bluetooth();
+	    break;
+	case LORA_TYPE:
+	    return new LoRa();
+	    break;
+	case WEBSOCKET_TYPE:
+	    return new Websocket();
+	    break;
+	case TCP_TYPE:
+	    return new TCP(options);
+	    break;
+	case STREAMBRIDGE_TYPE:
+	    return new StreamBridge(options);
+	    break;
+	case NONE:
+	    return NULL;
+	    break;
     }
     return NULL;
 }
