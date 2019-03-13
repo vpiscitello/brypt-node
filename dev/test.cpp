@@ -328,9 +328,9 @@ int main(int argc, char **argv) {
     std::cout << "\n== Welcome to the Brypt Network\n";
 
     // create_tcp_socket();
-    //create_streambridge_socket();
-    create_tcp_connection();
-    return 0;
+    // create_streambridge_socket();
+    // create_tcp_connection();
+    // return 0;
 
     class Node alpha;
 
