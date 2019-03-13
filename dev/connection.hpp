@@ -390,11 +390,11 @@ class StreamBridge : public Connection {
 
 	    this->context = zmq_ctx_new();// add 1 or no
 
-	    switch (options->operation) {
+	    switch (this->operation) {
 		case ROOT: {
-				std::cout << "== [StreamBridge] setting up stream socket on port " << options->port << "\n";
+				std::cout << "== [StreamBridge] setting up stream socket on port " << this->port << "\n";
 				this->socket = zmq_socket(this->context, ZMQ_STREAM);
-				setup_streambridge_socket(options->port);
+				setup_streambridge_socket(this->port);
 				break;
 			   }
 		case BRANCH: {
@@ -428,7 +428,7 @@ class StreamBridge : public Connection {
 
 		// Wait for message from pipe then send
 
-		Message response("1", QUERY_TYPE, 1, "Message Response", run);
+		Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
 		this->send(&response);
 
 		run++;
@@ -591,7 +591,7 @@ class TCP : public Connection {
 
 		// Wait for message from pipe then send
 
-		Message response("1", QUERY_TYPE, 1, "Message Response", run);
+		Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
 		this->send(&response);
 
 		run++;
@@ -631,7 +631,7 @@ class TCP : public Connection {
 	void setup_tcp_connection(std::string peer_addr, std::string peer_port) {
 	    if ((this->connection = ::socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		printf("Socket creation error\n");
-		return(1);
+		return;
 	    }
 
 	    memset(&this->address, '0', sizeof(this->address));
@@ -643,12 +643,12 @@ class TCP : public Connection {
 	    // Convert IPv4 and IPv6 addresses from text to binary form
 	    if (inet_pton(AF_INET, peer_addr.c_str(), &(this->address.sin_addr)) <= 0) {
 		printf("\nInvalid address/ Address not supported \n");
-		return(1);
+		return;
 	    }
 
 	    if (connect(this->connection, (struct sockaddr *)&(this->address), sizeof(this->address)) < 0) {
 		printf("\nConnection Failed \n");
-		return(1);
+		return;
 	    }
 	}
 
