@@ -17,6 +17,7 @@
 #include <arpa/inet.h>
 
 #include "utility.hpp"
+#include "state.hpp"
 #include "control.hpp"
 #include "notifier.hpp"
 #include "connection.hpp"
@@ -28,48 +29,14 @@ class Node {
 
     private:
         // Private Variables
-        // Identification Variables
-        std::string id;                                            // Network identification number of the node
-        std::string serial;                                        // Hardset identification number of the device
-        std::vector<TechnologyType> communication_technologies;     // Communication technologies of the node
-
-        // Adressing Variables
-        std::string addr;                                          // IP address of the node
-        unsigned int port;                                         // Networking port of the node
-        unsigned int next_full_port;
-
-        // Cluster Variables
-        unsigned long cluster;                                     // Cluster identification number of the node's cluster
-        std::string coordinator_id;                                // Coordinator identification number of the node's coordinator
-        std::string coordinator_addr;
-        std::string coordinator_port;
-        std::string publisher_port;
-
-        // Network Variables
-        std::string authorityAddress;                              // Networking address of the central authority for the Brypt ecosystem
-        std::string networkToken;                                  // Access token for the Brypt network
-        unsigned int knownNodes;                                   // The number of nodes the node has been in contact with
+        // State struct
+        State state;
 
         // Connection Variables
         Control * control;
         Notifier * notifier;
         // Change to hash table? based on peer name?
         std::vector<Connection *> connections;                     // A vector of open connections
-
-        // Node Type Variables
-        DeviceOperation operation;                                 // A boolean value of the node's root status
-        TechnologyType coordinator_technology;
-
-        // Sensor Variables
-        unsigned short readingPin;                                 // The GPIO pin the node will read from
-
-        // Lifecycle Variables
-        std::time_t uptime;                                        // The amount of time the node has been live
-        std::time_t addTimestamp;                                  // The timestamp the node was added to the network
-        std::time_t updateTimestamp;                               // The timestamp the node was last updated
-
-        // Security Scheme Variables
-        std::string protocol;
 
         // Node Commands
         std::vector<Command *> commands;                           // A vector of possible commands to be handled

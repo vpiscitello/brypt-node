@@ -21,14 +21,14 @@
 
 class Connection {
     protected:
-	bool active;
-	bool instantiate_connection;
-	DeviceOperation operation;
+    	bool active;
+    	bool instantiate_connection;
+    	DeviceOperation operation;
 
-	std::string peer_name;
-	std::string pipe_name;
-	std::fstream pipe;
-	unsigned long message_sequence;
+    	std::string peer_name;
+    	std::string pipe_name;
+    	std::fstream pipe;
+    	unsigned long message_sequence;
 
         bool worker_active = false;
         bool response_needed = false;
@@ -139,27 +139,27 @@ class Connection {
 
 class Direct : public Connection {
     private:
-	bool control;
+    	bool control;
 
-	std::string port;
-	std::string peer_addr;
-	std::string peer_port;
+    	std::string port;
+    	std::string peer_addr;
+    	std::string peer_port;
 
-	zmq::context_t *context;
-	zmq::socket_t *socket;
-	zmq::pollitem_t item;
+    	zmq::context_t *context;
+    	zmq::socket_t *socket;
+    	zmq::pollitem_t item;
 
     public:
-	Direct() {}
-	Direct(Options *options) {
-	    std::cout << "== [Connection] Creating direct instance.\n";
+        Direct() {}
+        Direct(Options *options) {
+            std::cout << "== [Connection] Creating direct instance.\n";
 
-	    this->port = options->port;
-	    this->peer_name = options->peer_name;
-	    this->peer_addr = options->peer_addr;
-	    this->peer_port = options->peer_port;
-	    this->control = options->is_control;
-	    this->operation = options->operation;
+            this->port = options->port;
+            this->peer_name = options->peer_name;
+            this->peer_addr = options->peer_addr;
+            this->peer_port = options->peer_port;
+            this->control = options->is_control;
+            this->operation = options->operation;
 
             // this->worker_active = false;
 
@@ -180,6 +180,11 @@ class Direct : public Connection {
                     case LEAF: {
                         std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
                         this->setup_req_socket(options->peer_addr, options->peer_port);
+                        break;
+                    }
+                    case NO_OPER: {
+                        std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+                        exit(0);
                         break;
                     }
         		}
@@ -228,6 +233,11 @@ class Direct : public Connection {
                     std::cout << "== [Connection] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
                     this->setup_req_socket(this->peer_addr, this->peer_port);
 
+                    break;
+                }
+                case NO_OPER: {
+                    std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+                    exit(0);
                     break;
                 }
             }
@@ -369,6 +379,11 @@ class StreamBridge : public Connection {
 				    //this->setup_req_socket(options->peer_addr, options->peer_port);
 				    //break;
 			       }
+                   case NO_OPER: {
+                       std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+                       exit(0);
+                       break;
+                   }
 		}
 		return;
 	    }
@@ -412,6 +427,11 @@ class StreamBridge : public Connection {
 				//this->setup_req_socket(options->peer_addr, options->peer_port);
 				//break;
 			   }
+               case NO_OPER: {
+                   std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+                   exit(0);
+                   break;
+               }
 	    }
 
 	    this->worker_active = true;
@@ -534,6 +554,11 @@ class TCP : public Connection {
 				   this->setup_tcp_connection(options->peer_addr, options->peer_port);
 				   break;
 			       }
+           case NO_OPER: {
+               std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+               exit(0);
+               break;
+           }
 		}
 
 		this->spawn();
@@ -575,6 +600,11 @@ class TCP : public Connection {
 
 		    break;
 		}
+        case NO_OPER: {
+            std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+            exit(0);
+            break;
+        }
 	    }
 
 	    this->worker_active = true;
@@ -733,6 +763,10 @@ class LoRa : public Connection {
 		case LEAF:
 		    std::cout << "Connecting..." << "\n";
 		    break;
+        case NO_OPER:
+            std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+            exit(0);
+            break;
 	    }
 	}
 
@@ -819,7 +853,7 @@ inline Connection* ConnectionFactory(TechnologyType technology) {
 	case STREAMBRIDGE_TYPE:
 	    return new StreamBridge;
 	    break;
-	case NONE:
+	case NO_TECH:
 	    return NULL;
 	    break;
     }
@@ -846,7 +880,7 @@ inline Connection* ConnectionFactory(TechnologyType technology, Options *options
 	case STREAMBRIDGE_TYPE:
 	    return new StreamBridge(options);
 	    break;
-	case NONE:
+	case NO_TECH:
 	    return NULL;
 	    break;
     }

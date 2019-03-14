@@ -8,10 +8,16 @@ class Command {
     protected:
         int phase;
         Message * message;
+
+        bool aggregation_needed = false;
+        unsigned int nodes_expected = 0;
+        unsigned int nodes_responded = 0;
+        std::string response;
+
     public:
         // Method method;
         virtual void whatami() = 0;
-        virtual void handle_message(Message * message) = 0;
+        virtual Message handle_message(Message * message) = 0;
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
         }
@@ -23,15 +29,19 @@ class Information : public Command {
         enum Phase { PRIVATE_PHASE, NETWORK_PHASE, CLOSE_PHASE };
     public:
         void whatami() {
-            std::cout << "I am a Information Command." << '\n';
+            std::cout << "== [Command] Handling response to Information request" << '\n';
         }
-        void handle_message(Message * message) {
+        Message handle_message(Message * message) {
+            Message response;
+
             this->whatami();
             std::cout << "Handling Message..." << '\n';
             this->message = message;
             if ( message->get_phase() == 0 ) {
                 /* code */
             }
+
+            return response;
         }
 };
 
@@ -41,15 +51,19 @@ class Query : public Command {
         enum Phase { PASSDOWN_PHASE, SENSOR_PHASE, CLOSE_PHASE };
     public:
         void whatami() {
-            std::cout << "I am a Query Command." << '\n';
+            std::cout << "== [Command] Handling response to Query request" << '\n';
         }
-        void handle_message(Message * message) {
+        Message handle_message(Message * message) {
+            Message response;
+
             this->whatami();
             std::cout << "Handling Message..." << '\n';
             this->message = message;
             if ( message->get_phase() == 0 ) {
                 /* code */
             }
+
+            return response;
         }
 };
 
@@ -59,15 +73,19 @@ class Election : public Command {
         enum Phase { PROBE_PHASE, PRECOMMIT_PHASE, VOTE_PHASE, ABORT_PHASE, RESULTS_PHASE, CLOSE_PHASE };
     public:
         void whatami() {
-            std::cout << "I am an Election Command." << '\n';
+            std::cout << "== [Command] Handling response to Election request" << '\n';
         }
-        void handle_message(Message * message) {
+        Message handle_message(Message * message) {
+            Message response;
+
             this->whatami();
             std::cout << "Handling Message..." << '\n';
             this->message = message;
             if ( message->get_phase() == 0 ) {
                 /* code */
             }
+
+            return response;
         }
 };
 
@@ -77,15 +95,19 @@ class Transform : public Command {
         enum Phase { INFO_PHASE, HOST_PHASE, CONNECT_PHASE, CLOSE_PHASE };
     public:
         void whatami() {
-            std::cout << "I am a Transform Command." << '\n';
+            std::cout << "== [Command] Handling response to Transform request" << '\n';
         }
-        void handle_message(Message * message) {
+        Message handle_message(Message * message) {
+            Message response;
+
             this->whatami();
             std::cout << "Handling Message..." << '\n';
             this->message = message;
             if ( message->get_phase() == 0 ) {
                 /* code */
             }
+
+            return response;
         }
 };
 
@@ -95,9 +117,11 @@ class Connect : public Command {
         enum Phase { CONTACT_PHASE, JOIN_PHASE, CLOSE_PHASE };
     public:
         void whatami() {
-            std::cout << "I am a Connect Command." << '\n';
+            std::cout << "== [Command] Handling response to Connect request" << '\n';
         }
-        void handle_message(Message * message) {
+        Message handle_message(Message * message) {
+            Message response;
+
             this->whatami();
             std::cout << "Handling Message..." << '\n';
             this->message = message;
@@ -113,6 +137,7 @@ class Connect : public Command {
                     break;
             }
 
+            return response;
         }
 };
 
@@ -135,7 +160,7 @@ inline Command* CommandFactory(CommandType command) {
         case CONNECT_TYPE:
             return new Connect;
             break;
-        case NULL_CMD:
+        case NO_CMD:
             return NULL;
             break;
     }

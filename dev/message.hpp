@@ -41,7 +41,7 @@ class Message {
             this->raw = "";
             this->source_id = "";
             this->destination_id = "";
-            this->command = NULL_CMD;
+            this->command = NO_CMD;
             this->phase = -1;
             this->data = "";
             this->timestamp = "";

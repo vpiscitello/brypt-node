@@ -6,7 +6,11 @@
 ** Description:
 ** *************************************************************************/
 Node::Node() {
-
+    this->commands.push_back( CommandFactory(INFORMATION_TYPE) );
+    this->commands.push_back( CommandFactory(QUERY_TYPE) );
+    this->commands.push_back( CommandFactory(ELECTION_TYPE) );
+    this->commands.push_back( CommandFactory(TRANSFORM_TYPE) );
+    this->commands.push_back( CommandFactory(CONNECT_TYPE) );
 }
 
 /* **************************************************************************
@@ -14,7 +18,24 @@ Node::Node() {
 ** Description:
 ** *************************************************************************/
 Node::~Node() {
-
+    if (this->control != NULL) {
+        free(this->control);
+    }
+    if (this->notifier != NULL) {
+        free(this->notifier);
+    }
+    std::vector<Connection *>::iterator conn_it;
+    for(conn_it = this->connections.begin(); conn_it != this->connections.end(); conn_it++) {
+        if ((*conn_it) != NULL) {
+            free(*conn_it);
+        }
+    }
+    std::vector<Command *>::iterator cmd_it;
+    for(cmd_it = this->commands.begin(); cmd_it != this->commands.end(); cmd_it++) {
+        if ((*cmd_it) != NULL) {
+            free(*cmd_it);
+        }
+    }
 }
 
 /* **************************************************************************
@@ -57,14 +78,14 @@ std::string Node::get_local_address(){
 TechnologyType Node::determine_best_connection_type(){
     int best_comm = 4;
 
-    for (int i = 0; i < (int)this->communication_technologies.size(); i++) {
-    	if (communication_technologies[i] == DIRECT_TYPE) {
+    for (int i = 0; i < (int)this->state.self.available_technologies.size(); i++) {
+    	if (this->state.self.available_technologies[i] == DIRECT_TYPE) {
     	    return DIRECT_TYPE;
-    	} else if (communication_technologies[i] == BLE_TYPE) {
+    	} else if (this->state.self.available_technologies[i] == BLE_TYPE) {
     	    if (best_comm > 1) {
     		    best_comm = 1;
     	    }
-    	} else if (communication_technologies[i] == LORA_TYPE) {
+    	} else if (this->state.self.available_technologies[i] == LORA_TYPE) {
     	    if (best_comm > 2) {
     		    best_comm = 2;
     	    }
@@ -130,10 +151,10 @@ void Node::setup(Options options){
 
     unsigned int port_num = std::stoi(options.port);
 
-    this->id = options.id;
-    this->operation = options.operation;
-    this->coordinator_technology = options.technology;
-    this->next_full_port = port_num + PORT_GAP;
+    this->state.self.id = options.id;
+    this->state.self.operation = options.operation;
+    this->state.coordinator.technology = options.technology;
+    this->state.self.next_full_port = port_num + PORT_GAP;
     this->notifier = new Notifier(std::to_string(port_num + 1));
 
     options.addr = get_local_address();
@@ -143,12 +164,12 @@ void Node::setup(Options options){
             TechnologyType technology = determine_best_connection_type();
             technology = DIRECT_TYPE; //TEMPORARY
 
-            if (technology == NONE) {
+            if (technology == NO_TECH) {
                 std::cout << "== [Node] No technology types oopsies\n";
                 exit(1);
             }
 
-            this->control = new Control(technology, &this->id, options.port);
+            this->control = new Control(technology, &this->state.self.id, options.port);
 
             break;
         }
@@ -157,9 +178,14 @@ void Node::setup(Options options){
             break;
         }
         case LEAF: {
-            this->coordinator_addr = options.peer_addr;
-            this->publisher_port = std::to_string(std::stoi(options.peer_port) + 1);
+            this->state.coordinator.addr = options.peer_addr;
+            this->state.coordinator.publisher_port = std::to_string(std::stoi(options.peer_port) + 1);
             initial_contact(&options);  // Contact coordinator peer to get connection port
+            break;
+        }
+        case NO_OPER: {
+            std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+            exit(0);
             break;
         }
     }
@@ -209,12 +235,12 @@ void Node::initial_contact(Options * opts) {
     response = connection->recv();  // Expect new connection port from peer
 
     Message port_message(response);
-    this->coordinator_id = port_message.get_source_id();
-    this->coordinator_port = port_message.get_data();
-    std::cout << "== [Node] Port received: " << this->coordinator_port << "\n";
+    this->state.coordinator.id = port_message.get_source_id();
+    this->state.coordinator.request_port = port_message.get_data();
+    std::cout << "== [Node] Port received: " << this->state.coordinator.request_port << "\n";
 
     std::cout << "== [Node] Sending node information\n";
-    Message info_message(this->id, this->coordinator_id, INFORMATION_TYPE, 1, "Node Information", 0);
+    Message info_message(this->state.self.id, this->state.coordinator.id, CONNECT_TYPE, 0, "Node Information", 0);
     connection->send(&info_message);    // Send node information to peer
 
     response = connection->recv();  // Expect EOT back from peer
@@ -234,22 +260,22 @@ void Node::join_coordinator() {
     Connection * connection;
 
     std::cout << "Joining coordinator cluster with full connection\n";
-    std::cout << "Connecting with technology: " << this->coordinator_technology;
-    std::cout << " and on addr:port: " << this->coordinator_addr << ":" << this->coordinator_port << "\n";
+    std::cout << "Connecting with technology: " << this->state.coordinator.technology;
+    std::cout << " and on addr:port: " << this->state.coordinator.addr << ":" << this->state.coordinator.request_port << "\n";
 
-    this->notifier->connect(this->coordinator_addr, this->publisher_port);
+    this->notifier->connect(this->state.coordinator.addr, this->state.coordinator.publisher_port);
 
     Options options;
 
     options.port = "";
-    options.technology = this->coordinator_technology;
-    options.peer_name = this->coordinator_id;
-    options.peer_addr = this->coordinator_addr;
-    options.peer_port = this->coordinator_port;
+    options.technology = this->state.coordinator.technology;
+    options.peer_name = this->state.coordinator.id;
+    options.peer_addr = this->state.coordinator.addr;
+    options.peer_port = this->state.coordinator.request_port;
     options.operation = LEAF;
     options.is_control = true;
 
-    connection = ConnectionFactory(this->coordinator_technology, &options);
+    connection = ConnectionFactory(this->state.coordinator.technology, &options);
     this->connections.push_back(connection);
 }
 
@@ -304,10 +330,10 @@ void Node::handle_control_request(std::string message) {
         Message request(message);
 
         switch (request.get_command()) {
-            case INFORMATION_TYPE: {
+            case CONNECT_TYPE: {
                 std::cout << "== [Node] Setting up full connection\n";
-                this->next_full_port++;
-                std::string full_port = std::to_string(this->next_full_port);
+                this->state.self.next_full_port++;
+                std::string full_port = std::to_string(this->state.self.next_full_port);
 
                 Connection *full = this->setup_wifi_connection(request.get_source_id(), full_port);
                 this->connections.push_back(full);
@@ -354,7 +380,7 @@ void Node::handle_notification(std::string message) {
             case QUERY_TYPE: {
                 std::cout << "== [Node] Recieved " << notification.get_data() << " from " << notification.get_source_id() << '\n';
                 // Send Request to the server
-                Message request(this->id, this->coordinator_id, QUERY_TYPE, notification.get_phase() + 1, " Here is some work!", 0);
+                Message request(this->state.self.id, this->state.coordinator.id, QUERY_TYPE, notification.get_phase() + 1, " Here is some work!", 0);
                 this->connections[0]->send(&request);
 
                 // Recieve Response from the server
@@ -383,16 +409,17 @@ void Node::handle_notification(std::string message) {
 void Node::handle_queue_request(Message * message) {
     std::cout << "== [Node] Handling queue request from connection thread\n";
 
-    if (message->get_command() == NULL_CMD) {
+    if (message->get_command() == NO_CMD) {
         std::cout << "== [Node] No request to handle\n";
         return;
     }
 
+    // Match Command to vector of commands
     switch (message->get_command()) {
         case QUERY_TYPE: {
             std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
             // Need to track encryption keys and nonces
-            Message response(this->id, message->get_source_id(), QUERY_TYPE, message->get_phase() + 1, "Message Response", message->get_nonce() + 1);
+            Message response(this->state.self.id, message->get_source_id(), QUERY_TYPE, message->get_phase() + 1, "Message Response", message->get_nonce() + 1);
             this->message_queue.add_message(message->get_source_id(), response);
             break;
         }
@@ -437,7 +464,7 @@ void Node::listen(){
 
         if(run % 12 == 0) {
             std::cout << "== [Node] Sending notification for query request" << '\n';
-            Message notice(this->id, "ALL", QUERY_TYPE, 0, "Request for Sensor Readings.", 0);
+            Message notice(this->state.self.id, "ALL", QUERY_TYPE, 0, "Request for Sensor Readings.", 0);
             this->notifier->send(&notice);
         }
 
@@ -476,7 +503,7 @@ void Node::connect(){
 void Node::startup() {
     std::cout << "\n== Starting up Brypt Node\n";
 
-    switch (this->operation) {
+    switch (this->state.self.operation) {
         case ROOT: {
             // Move to thread?
             this->listen();
@@ -492,6 +519,11 @@ void Node::startup() {
         case LEAF: {
             // Move to thread?
             this->connect();
+            break;
+        }
+        case NO_OPER: {
+            std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+            exit(0);
             break;
         }
     }
