@@ -39,6 +39,7 @@ class Node {
         std::vector<Connection *> connections;                     // A vector of open connections
 
         // Node Commands
+        // Change to hash table? based on command name?
         std::vector<Command *> commands;                           // A vector of possible commands to be handled
 
         // Message Queue

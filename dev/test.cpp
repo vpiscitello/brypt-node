@@ -32,12 +32,13 @@ void connection_factory_test() {
 void command_parse_test() {
     std::cout << "\n== Testing Command Parsing" << '\n';
     // Setup the vector of commands to be used
+    State state;
     std::vector<Command *> commands;
-    commands.push_back( CommandFactory(INFORMATION_TYPE) );
-    commands.push_back( CommandFactory(QUERY_TYPE) );
-    commands.push_back( CommandFactory(ELECTION_TYPE) );
-    commands.push_back( CommandFactory(TRANSFORM_TYPE) );
-    commands.push_back( CommandFactory(CONNECT_TYPE) );
+    commands.push_back( CommandFactory(INFORMATION_TYPE, &state) );
+    commands.push_back( CommandFactory(QUERY_TYPE, &state) );
+    commands.push_back( CommandFactory(ELECTION_TYPE, &state) );
+    commands.push_back( CommandFactory(TRANSFORM_TYPE, &state) );
+    commands.push_back( CommandFactory(CONNECT_TYPE, &state) );
 
     // Setup a new message to match to a command
     CommandType command = ELECTION_TYPE;

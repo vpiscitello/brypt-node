@@ -6,11 +6,11 @@
 ** Description:
 ** *************************************************************************/
 Node::Node() {
-    this->commands.push_back( CommandFactory(INFORMATION_TYPE) );
-    this->commands.push_back( CommandFactory(QUERY_TYPE) );
-    this->commands.push_back( CommandFactory(ELECTION_TYPE) );
-    this->commands.push_back( CommandFactory(TRANSFORM_TYPE) );
-    this->commands.push_back( CommandFactory(CONNECT_TYPE) );
+    this->commands.push_back( CommandFactory(INFORMATION_TYPE, &state) );
+    this->commands.push_back( CommandFactory(QUERY_TYPE, &state) );
+    this->commands.push_back( CommandFactory(ELECTION_TYPE, &state) );
+    this->commands.push_back( CommandFactory(TRANSFORM_TYPE, &state) );
+    this->commands.push_back( CommandFactory(CONNECT_TYPE, &state) );
 }
 
 /* **************************************************************************
@@ -154,6 +154,7 @@ void Node::setup(Options options){
     this->state.self.id = options.id;
     this->state.self.operation = options.operation;
     this->state.coordinator.technology = options.technology;
+    this->state.self.port = options.port;
     this->state.self.next_full_port = port_num + PORT_GAP;
     this->notifier = new Notifier(std::to_string(port_num + 1));
 
@@ -169,7 +170,7 @@ void Node::setup(Options options){
                 exit(1);
             }
 
-            this->control = new Control(technology, &this->state.self.id, options.port);
+            this->control = new Control(technology, &this->state.self);
 
             break;
         }
@@ -263,6 +264,8 @@ void Node::join_coordinator() {
     std::cout << "Connecting with technology: " << this->state.coordinator.technology;
     std::cout << " and on addr:port: " << this->state.coordinator.addr << ":" << this->state.coordinator.request_port << "\n";
 
+    this->state.network.known_nodes++;
+
     this->notifier->connect(this->state.coordinator.addr, this->state.coordinator.publisher_port);
 
     Options options;
@@ -332,7 +335,6 @@ void Node::handle_control_request(std::string message) {
         switch (request.get_command()) {
             case CONNECT_TYPE: {
                 std::cout << "== [Node] Setting up full connection\n";
-                this->state.self.next_full_port++;
                 std::string full_port = std::to_string(this->state.self.next_full_port);
 
                 Connection *full = this->setup_wifi_connection(request.get_source_id(), full_port);
@@ -343,6 +345,9 @@ void Node::handle_control_request(std::string message) {
 
                 std::cout << "== [Node] New connection pushed back\n";
                 this->control->send("\x04");
+
+                this->state.network.known_nodes++;
+
                 break;
             }
             default: {
@@ -418,8 +423,10 @@ void Node::handle_queue_request(Message * message) {
     switch (message->get_command()) {
         case QUERY_TYPE: {
             std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
+
             // Need to track encryption keys and nonces
             Message response(this->state.self.id, message->get_source_id(), QUERY_TYPE, message->get_phase() + 1, "Message Response", message->get_nonce() + 1);
+
             this->message_queue.add_message(message->get_source_id(), response);
             break;
         }
@@ -461,6 +468,18 @@ void Node::listen(){
         this->handle_queue_request(&queue_request);
 
         std::cout << '\n';
+
+        // Get Request from client parse command and its a request for all nodes
+        // Send out notification for Requests
+        // Place message back in queue?
+        // Track responses from nodes
+        // If all responses have been recieved send out the response on next handling?
+
+        // Get request for a response from a single cluster or node
+        // Send out notification for Requests
+        // Place mssage back in queue?
+        // Track response from branch or leaf?
+        // If branch or lead response has been recieved handle request on next pass?
 
         if(run % 12 == 0) {
             std::cout << "== [Node] Sending notification for query request" << '\n';

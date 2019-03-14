@@ -2,10 +2,13 @@
 #define COMMAND_HPP
 
 #include "utility.hpp"
+#include "state.hpp"
 #include "message.hpp"
 
 class Command {
     protected:
+        State * state;
+
         int phase;
         Message * message;
 
@@ -28,6 +31,9 @@ class Information : public Command {
     private:
         enum Phase { PRIVATE_PHASE, NETWORK_PHASE, CLOSE_PHASE };
     public:
+        Information(State * state) {
+            this->state = state;
+        }
         void whatami() {
             std::cout << "== [Command] Handling response to Information request" << '\n';
         }
@@ -50,6 +56,9 @@ class Query : public Command {
     private:
         enum Phase { PASSDOWN_PHASE, SENSOR_PHASE, CLOSE_PHASE };
     public:
+        Query(State * state) {
+            this->state = state;
+        }
         void whatami() {
             std::cout << "== [Command] Handling response to Query request" << '\n';
         }
@@ -72,6 +81,9 @@ class Election : public Command {
     private:
         enum Phase { PROBE_PHASE, PRECOMMIT_PHASE, VOTE_PHASE, ABORT_PHASE, RESULTS_PHASE, CLOSE_PHASE };
     public:
+        Election(State * state) {
+            this->state = state;
+        }
         void whatami() {
             std::cout << "== [Command] Handling response to Election request" << '\n';
         }
@@ -94,6 +106,9 @@ class Transform : public Command {
     private:
         enum Phase { INFO_PHASE, HOST_PHASE, CONNECT_PHASE, CLOSE_PHASE };
     public:
+        Transform(State * state) {
+            this->state = state;
+        }
         void whatami() {
             std::cout << "== [Command] Handling response to Transform request" << '\n';
         }
@@ -116,6 +131,9 @@ class Connect : public Command {
     private:
         enum Phase { CONTACT_PHASE, JOIN_PHASE, CLOSE_PHASE };
     public:
+        Connect(State * state) {
+            this->state = state;
+        }
         void whatami() {
             std::cout << "== [Command] Handling response to Connect request" << '\n';
         }
@@ -135,6 +153,8 @@ class Connect : public Command {
                     break;
                 case CLOSE_PHASE:
                     break;
+                default:
+                    break;
             }
 
             return response;
@@ -143,22 +163,22 @@ class Connect : public Command {
 
 
 
-inline Command* CommandFactory(CommandType command) {
+inline Command* CommandFactory(CommandType command, State * state) {
     switch (command) {
         case INFORMATION_TYPE:
-            return new Information;
+            return new Information(state);
             break;
         case QUERY_TYPE:
-            return new Query;
+            return new Query(state);
             break;
         case ELECTION_TYPE:
-            return new Election;
+            return new Election(state);
             break;
         case TRANSFORM_TYPE:
-            return new Transform;
+            return new Transform(state);
             break;
         case CONNECT_TYPE:
-            return new Connect;
+            return new Connect(state);
             break;
         case NO_CMD:
             return NULL;

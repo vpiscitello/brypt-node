@@ -6,22 +6,23 @@
 
 class Control {
     private:
-        std::string * node_id;
+        Self * self;
         Connection * conn;
-        unsigned int next_full_port;
 
     public:
         //Control() {}
-        Control(TechnologyType technology, std::string *node_id, std::string port) {
+        Control(TechnologyType technology, Self * self) {
+            this->self = self;
+
             Options control_setup;
 
             control_setup.technology = technology;
-            control_setup.port = port;
+            control_setup.port = (*this->self).port;
             control_setup.operation = ROOT;
             control_setup.is_control = true;
 
-            this->node_id = node_id;
-            this->next_full_port = std::stoi(port) + PORT_GAP;
+            // this->node_id = *self.node_id;
+            // this->next_full_port = *self.next_full_port;
 
             this->conn = ConnectionFactory(technology, &control_setup);
         }
@@ -98,11 +99,11 @@ class Control {
                     std::string full_port = "";
                     std::string device_info = "";
 
-                    this->next_full_port++;
-                    full_port = std::to_string(this->next_full_port);
+                    (*this->self).next_full_port++;
+                    full_port = std::to_string((*this->self).next_full_port);
 
                     std::cout << "== [Control] Sending port: " << full_port << "\n";
-                    Message port_message(*this->node_id, "We'll Cross that Brypt When We Come to It.", CONNECT_TYPE, 0, full_port, 0);
+                    Message port_message((*this->self).id, "We'll Cross that Brypt When We Come to It.", CONNECT_TYPE, 0, full_port, 0);
                     this->conn->send(&port_message);
 
                     device_info = this->conn->recv();

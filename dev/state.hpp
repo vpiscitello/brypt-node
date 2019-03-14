@@ -10,6 +10,7 @@ struct Self {
     std::string id = "";    // Network identification number of the node
     std::string serial = "";    // Hardset identification number of the device
     std::string addr = "";  // IP address of the node
+    std::string port = "";  // IP address of the node
     std::string control_port = "";  // Networking port of the node
     unsigned int next_full_port = 0;
     std::vector<TechnologyType> available_technologies; // Communication technologies of the node
