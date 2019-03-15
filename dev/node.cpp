@@ -6,11 +6,11 @@
 ** Description:
 ** *************************************************************************/
 Node::Node() {
-    this->commands.push_back( CommandFactory(INFORMATION_TYPE, &state) );
-    this->commands.push_back( CommandFactory(QUERY_TYPE, &state) );
-    this->commands.push_back( CommandFactory(ELECTION_TYPE, &state) );
-    this->commands.push_back( CommandFactory(TRANSFORM_TYPE, &state) );
-    this->commands.push_back( CommandFactory(CONNECT_TYPE, &state) );
+    this->commands.push_back( CommandFactory(INFORMATION_TYPE, this, &state) );
+    this->commands.push_back( CommandFactory(QUERY_TYPE, this, &state) );
+    this->commands.push_back( CommandFactory(ELECTION_TYPE, this, &state) );
+    this->commands.push_back( CommandFactory(TRANSFORM_TYPE, this, &state) );
+    this->commands.push_back( CommandFactory(CONNECT_TYPE, this, &state) );
 }
 
 /* **************************************************************************
@@ -36,6 +36,46 @@ Node::~Node() {
             free(*cmd_it);
         }
     }
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+class Control * Node::get_control() {
+    return this->control;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+class Notifier * Node::get_notifier() {
+    return this->notifier;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+std::vector<class Connection *> * Node::get_connections() {
+    return &this->connections;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+class Connection * Node::get_connection(unsigned int index) {
+    return this->connections.at(index);
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+class MessageQueue * Node::get_message_queue() {
+    return &this->message_queue;
 }
 
 /* **************************************************************************
@@ -75,6 +115,16 @@ std::string Node::get_local_address(){
 ** Function:
 ** Description:
 ** *************************************************************************/
+float Node::determine_node_power(){
+    float value = 0.0;
+
+    return value;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
 TechnologyType Node::determine_best_connection_type(){
     int best_comm = 4;
 
@@ -105,30 +155,10 @@ TechnologyType Node::determine_best_connection_type(){
 ** Function:
 ** Description:
 ** *************************************************************************/
-bool Node::vote(){
-    bool success = false;
-
-    return success;
-}
-
-/* **************************************************************************
-** Function:
-** Description:
-** *************************************************************************/
 bool Node::election(){
     bool success = false;
 
     return success;
-}
-
-/* **************************************************************************
-** Function:
-** Description:
-** *************************************************************************/
-float Node::determine_node_power(){
-    float value = 0.0;
-
-    return value;
 }
 
 /* **************************************************************************
@@ -241,7 +271,7 @@ void Node::initial_contact(Options * opts) {
     std::cout << "== [Node] Port received: " << this->state.coordinator.request_port << "\n";
 
     std::cout << "== [Node] Sending node information\n";
-    Message info_message(this->state.self.id, this->state.coordinator.id, CONNECT_TYPE, 0, "Node Information", 0);
+    Message info_message(this->state.self.id, this->state.coordinator.id, CONNECT_TYPE, 1, "Node Information", 0);
     connection->send(&info_message);    // Send node information to peer
 
     response = connection->recv();  // Expect EOT back from peer
@@ -332,29 +362,7 @@ void Node::handle_control_request(std::string message) {
 
         Message request(message);
 
-        switch (request.get_command()) {
-            case CONNECT_TYPE: {
-                std::cout << "== [Node] Setting up full connection\n";
-                std::string full_port = std::to_string(this->state.self.next_full_port);
-
-                Connection *full = this->setup_wifi_connection(request.get_source_id(), full_port);
-                this->connections.push_back(full);
-                if (full->get_worker_status()) {
-                    std::cout << "== [Node] Connection worker thread is ready" << '\n';
-                }
-
-                std::cout << "== [Node] New connection pushed back\n";
-                this->control->send("\x04");
-
-                this->state.network.known_nodes++;
-
-                break;
-            }
-            default: {
-                this->control->send("\x15");
-                break;
-            }
-        }
+        this->commands[request.get_command()]->handle_message(&request);
 
     } catch (...) {
         std::cout << "== [Node] Control message failed to unpack.\n";
@@ -381,23 +389,7 @@ void Node::handle_notification(std::string message) {
         std::string response = "";
         Message notification(message);
 
-        switch (notification.get_command()) {
-            case QUERY_TYPE: {
-                std::cout << "== [Node] Recieved " << notification.get_data() << " from " << notification.get_source_id() << '\n';
-                // Send Request to the server
-                Message request(this->state.self.id, this->state.coordinator.id, QUERY_TYPE, notification.get_phase() + 1, " Here is some work!", 0);
-                this->connections[0]->send(&request);
-
-                // Recieve Response from the server
-                response = this->connections[0]->recv();
-                std::cout << "== [Node] Recieved: " << response << '\n';
-                break;
-            }
-            default: {
-                // this->control->send("\x15");
-                break;
-            }
-        }
+        this->commands[notification.get_command()]->handle_message(&notification);
 
     } catch (...) {
         std::cout << "== [Node] Notice message failed to unpack.\n";
@@ -419,26 +411,7 @@ void Node::handle_queue_request(Message * message) {
         return;
     }
 
-    // Match Command to vector of commands
-    switch (message->get_command()) {
-        case QUERY_TYPE: {
-            std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
-
-            // Need to track encryption keys and nonces
-            Message response(this->state.self.id, message->get_source_id(), QUERY_TYPE, message->get_phase() + 1, "Message Response", message->get_nonce() + 1);
-
-            this->message_queue.add_message(message->get_source_id(), response);
-            break;
-        }
-        default: {
-            // this->control->send("\x15");
-            break;
-        }
-    }
-
-    this->message_queue.push_pipes();
-
-    this->notify_connection(message->get_source_id());
+    this->commands[message->get_command()]->handle_message(message);
 
 }
 

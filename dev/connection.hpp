@@ -18,6 +18,10 @@
 #include "utility.hpp"
 #include "message.hpp"
 
+// TODO:
+// * Drop connections if the connected node does not match the intended device
+// * Maintain key and nonce state for connections
+
 
 class Connection {
     protected:

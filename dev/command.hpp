@@ -2,11 +2,13 @@
 #define COMMAND_HPP
 
 #include "utility.hpp"
+#include "node.hpp"
 #include "state.hpp"
 #include "message.hpp"
 
 class Command {
     protected:
+        class Node * node_instance;
         State * state;
 
         int phase;
@@ -31,49 +33,39 @@ class Information : public Command {
     private:
         enum Phase { PRIVATE_PHASE, NETWORK_PHASE, CLOSE_PHASE };
     public:
-        Information(State * state) {
+        Information(Node * instance, State * state) {
+            this->node_instance = instance;
             this->state = state;
         }
         void whatami() {
             std::cout << "== [Command] Handling response to Information request" << '\n';
         }
-        Message handle_message(Message * message) {
-            Message response;
 
-            this->whatami();
-            std::cout << "Handling Message..." << '\n';
-            this->message = message;
-            if ( message->get_phase() == 0 ) {
-                /* code */
-            }
+        Message handle_message(Message * message);
 
-            return response;
-        }
+        void private_handler();
+        void network_handler();
+        void close_handler();
 };
 
 // Handle Requests regarding Sensor readings
 class Query : public Command {
     private:
-        enum Phase { PASSDOWN_PHASE, SENSOR_PHASE, CLOSE_PHASE };
+        enum Phase { RESPOND_PHASE, AGGREGATE_PHASE, CLOSE_PHASE };
     public:
-        Query(State * state) {
+        Query(class Node * instance, State * state) {
+            this->node_instance = instance;
             this->state = state;
         }
         void whatami() {
             std::cout << "== [Command] Handling response to Query request" << '\n';
         }
-        Message handle_message(Message * message) {
-            Message response;
 
-            this->whatami();
-            std::cout << "Handling Message..." << '\n';
-            this->message = message;
-            if ( message->get_phase() == 0 ) {
-                /* code */
-            }
+        Message handle_message(Message * message);
 
-            return response;
-        }
+        void respond_handler(Self * self, Coordinator * coordinator, Message * message, Connection * connection);
+        void aggregate_handler(Self * self, Message * message, MessageQueue * message_queue);
+        void close_handler();
 };
 
 // Handle Requests regarding Elections
@@ -81,24 +73,22 @@ class Election : public Command {
     private:
         enum Phase { PROBE_PHASE, PRECOMMIT_PHASE, VOTE_PHASE, ABORT_PHASE, RESULTS_PHASE, CLOSE_PHASE };
     public:
-        Election(State * state) {
+        Election(class Node * instance, State * state) {
+            this->node_instance = instance;
             this->state = state;
         }
         void whatami() {
             std::cout << "== [Command] Handling response to Election request" << '\n';
         }
-        Message handle_message(Message * message) {
-            Message response;
 
-            this->whatami();
-            std::cout << "Handling Message..." << '\n';
-            this->message = message;
-            if ( message->get_phase() == 0 ) {
-                /* code */
-            }
+        Message handle_message(Message * message);
 
-            return response;
-        }
+        void probe_handler();
+        void precommit_handler();
+        void vote_handler();
+        void abort_handler();
+        void results_handler();
+        void close_handler();
 };
 
 // Handle Requests regarding Transforming Node type
@@ -106,24 +96,20 @@ class Transform : public Command {
     private:
         enum Phase { INFO_PHASE, HOST_PHASE, CONNECT_PHASE, CLOSE_PHASE };
     public:
-        Transform(State * state) {
+        Transform(class Node * instance, State * state) {
+            this->node_instance = instance;
             this->state = state;
         }
         void whatami() {
             std::cout << "== [Command] Handling response to Transform request" << '\n';
         }
-        Message handle_message(Message * message) {
-            Message response;
 
-            this->whatami();
-            std::cout << "Handling Message..." << '\n';
-            this->message = message;
-            if ( message->get_phase() == 0 ) {
-                /* code */
-            }
+        Message handle_message(Message * message);
 
-            return response;
-        }
+        void info_handler();
+        void host_handler();
+        void connect_handler();
+        void close_handler();
 };
 
 // Handle Requests regarding Connecting to a new network or peer
@@ -131,54 +117,39 @@ class Connect : public Command {
     private:
         enum Phase { CONTACT_PHASE, JOIN_PHASE, CLOSE_PHASE };
     public:
-        Connect(State * state) {
+        Connect(class Node * instance, State * state) {
+            this->node_instance = instance;
             this->state = state;
         }
         void whatami() {
             std::cout << "== [Command] Handling response to Connect request" << '\n';
         }
-        Message handle_message(Message * message) {
-            Message response;
 
-            this->whatami();
-            std::cout << "Handling Message..." << '\n';
-            this->message = message;
+        Message handle_message(Message * message);
 
-            this->phase = this->message->get_phase();
-
-            switch ( ( Phase )this->phase ) {
-                case CONTACT_PHASE:
-                    break;
-                case JOIN_PHASE:
-                    break;
-                case CLOSE_PHASE:
-                    break;
-                default:
-                    break;
-            }
-
-            return response;
-        }
+        void contact_handler();
+        void join_handler(Self * self, Network * network, Message * message, Control * control);
+        void close_handler();
 };
 
 
 
-inline Command* CommandFactory(CommandType command, State * state) {
+inline Command* CommandFactory(CommandType command, class Node * instance, State * state) {
     switch (command) {
         case INFORMATION_TYPE:
-            return new Information(state);
+            return new Information(instance, state);
             break;
         case QUERY_TYPE:
-            return new Query(state);
+            return new Query(instance, state);
             break;
         case ELECTION_TYPE:
-            return new Election(state);
+            return new Election(instance, state);
             break;
         case TRANSFORM_TYPE:
-            return new Transform(state);
+            return new Transform(instance, state);
             break;
         case CONNECT_TYPE:
-            return new Connect(state);
+            return new Connect(instance, state);
             break;
         case NO_CMD:
             return NULL;
