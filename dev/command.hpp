@@ -51,7 +51,7 @@ class Information : public Command {
 // Handle Requests regarding Sensor readings
 class Query : public Command {
     private:
-        enum Phase { RESPOND_PHASE, AGGREGATE_PHASE, CLOSE_PHASE };
+        enum Phase { FLOOD_PHASE, RESPOND_PHASE, AGGREGATE_PHASE, CLOSE_PHASE };
     public:
         Query(class Node * instance, State * state) {
             this->node_instance = instance;
@@ -63,6 +63,7 @@ class Query : public Command {
 
         Message handle_message(Message * message);
 
+        void flood_handler(Self * self, Message * message, Notifier * notifier) ;
         void respond_handler(Self * self, Coordinator * coordinator, Message * message, Connection * connection);
         void aggregate_handler(Self * self, Message * message, MessageQueue * message_queue);
         void close_handler();

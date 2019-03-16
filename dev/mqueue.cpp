@@ -1,8 +1,6 @@
 #include "mqueue.hpp"
 #include <algorithm>
 
-#define len_index 7
-
 MessageQueue::MessageQueue(){
 	this->in_queue = std::queue<Message>();
 	this->out_queue = std::queue<Message>();

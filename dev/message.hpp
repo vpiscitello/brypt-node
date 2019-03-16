@@ -12,7 +12,8 @@ class Message {
         std::string raw;                // Raw string format of the message
 
         std::string source_id;          // ID of the sending node
-        std::string destination_id;     // ID of the sending node
+        std::string destination_id;     // ID of the receiving node
+        std::string await_id;           // ID of the awaiting request on a passdown message
 
         CommandType command;            // Command type to be run
         unsigned int phase;             // Phase of the Command state
@@ -91,6 +92,13 @@ class Message {
         ** *************************************************************************/
         std::string get_destination_id() {
             return this->destination_id;
+        }
+        /* **************************************************************************
+        ** Function: get_await_id
+        ** Description: Return the ID of the AwaitObject attached to flood request.
+        ** *************************************************************************/
+        std::string get_await_id() {
+            return this->await_id;
         }
         /* **************************************************************************
         ** Function: get_command
@@ -341,6 +349,23 @@ class Message {
 
             this->auth_token = this->raw.substr( last_end + 2 );
             this->raw = this->raw.substr( 0, ( this->raw.size() - this->auth_token.size() ) );
+
+            std::size_t id_sep_found;
+            id_sep_found = this->source_id.find(ID_SEPERATOR);
+            if (id_sep_found != std::string::npos) {
+                this->await_id = this->source_id.substr(id_sep_found + 1);
+                this->source_id = this->source_id.substr(0, id_sep_found);
+            }
+
+            id_sep_found = this->destination_id.find(ID_SEPERATOR);
+            if (id_sep_found != std::string::npos) {
+                this->await_id = this->destination_id.substr(id_sep_found + 1);
+                this->destination_id = this->destination_id.substr(0, id_sep_found);
+            }
+
+            std::cout << "== [Message] Source: " << this->source_id << '\n';
+            std::cout << "== [Message] Destination: " << this->destination_id << '\n';
+            std::cout << "== [Message] Await: " << this->await_id << '\n';
 
         }
         /* **************************************************************************

@@ -25,6 +25,8 @@ const std::string CA_PORT = "8080";
 const std::string CA_PROTOCOL = "https://";
 const unsigned int PORT_GAP = 16;
 
+const std::string ID_SEPERATOR = ";";
+
 struct Options {
     bool run_tests;
     TechnologyType technology;

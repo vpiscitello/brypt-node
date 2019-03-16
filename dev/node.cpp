@@ -82,6 +82,14 @@ class MessageQueue * Node::get_message_queue() {
 ** Function:
 ** Description:
 ** *************************************************************************/
+class AwaitContainer * Node::get_awaiting() {
+    return &this->awaiting;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
 std::string Node::get_local_address(){
     std::string ip = "";
 
@@ -454,13 +462,15 @@ void Node::listen(){
         // Track response from branch or leaf?
         // If branch or lead response has been recieved handle request on next pass?
 
+        // SIMULATE CLIENT REQUEST
         if(run % 12 == 0) {
-            std::cout << "== [Node] Sending notification for query request" << '\n';
-            Message notice(this->state.self.id, "ALL", QUERY_TYPE, 0, "Request for Sensor Readings.", 0);
-            this->notifier->send(&notice);
+            std::cout << "== [Node] Simulating client sensor Query request" << '\n';
+            Message message("999", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", 0);
+            this->commands[message.get_command()]->handle_message(&message);
         }
 
         run++;
+        // std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
         std::this_thread::sleep_for(std::chrono::seconds(2));
     } while (true);
 }
@@ -484,6 +494,7 @@ void Node::connect(){
         this->handle_notification(notification);
 
         run++;
+        // std::this_thread::sleep_for(std::chrono::nanoseconds(3750));
         std::this_thread::sleep_for(std::chrono::milliseconds(3750));
     } while (true);
 }

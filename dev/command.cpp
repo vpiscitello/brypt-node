@@ -8,7 +8,6 @@ Message Information::handle_message(Message * message) {
     Message response;
 
     this->whatami();
-    std::cout << "Handling Message..." << '\n';
     this->message = message;
     switch ( ( Phase )this->phase ) {
         case PRIVATE_PHASE: {
@@ -65,10 +64,13 @@ Message Query::handle_message(Message * message) {
     Message response;
 
     this->whatami();
-    std::cout << "Handling Message..." << '\n';
     this->message = message;
 
     switch ( message->get_phase() ) {
+        case FLOOD_PHASE: {
+            this->flood_handler(&(*this->state).self, message, this->node_instance->get_notifier());
+            break;
+        }
         case RESPOND_PHASE: {
             this->respond_handler(&(*this->state).self, &(*this->state).coordinator, message, this->node_instance->get_connection(0));
             break;
@@ -90,10 +92,39 @@ Message Query::handle_message(Message * message) {
 ** Function:
 ** Description:
 ** *************************************************************************/
+void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
+    std::cout << "== [Node] Sending notification for Query request" << '\n';
+
+    // Push message into AwaitContainer
+    // Need to figure out how to attach this.id and hash of message as the destination
+    unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size();
+    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, expected_responses);
+
+    std::string source_id = (*self).id + ";" + await_key;
+    std::string destination_id = "ALL";
+    unsigned int nonce = 0;
+    Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
+
+    notifier->send(&notice);
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
 void Query::respond_handler(Self * self, Coordinator * coordinator, Message * message, Connection * connection) {
     std::cout << "== [Node] Recieved " << this->message->get_data() << " from " << this->message->get_source_id() << '\n';
+
     // Send Request to the server
-    Message request((*self).id, (*coordinator).id, QUERY_TYPE, message->get_phase() + 1, " Here is some work!", 0);
+    std::string source_id = (*self).id;
+    std::string destination_id = message->get_source_id();
+    std::string await_id = message->get_await_id();
+    if (await_id != "") {
+        destination_id += ";" + await_id;
+    }
+    unsigned int nonce = message->get_nonce() + 1;
+    Message request(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, "Here is some work!", nonce);
+
     connection->send(&request);
 
     // Recieve Response from the server
@@ -108,11 +139,16 @@ void Query::respond_handler(Self * self, Coordinator * coordinator, Message * me
 void Query::aggregate_handler(Self * self, Message * message, MessageQueue * message_queue) {
     std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
 
+    this->node_instance->get_awaiting()->push_response(*message);
+    // If ready or if string filled from push response send off to client?
+
     // Need to track encryption keys and nonces
-    Message response((*self).id, message->get_source_id(), QUERY_TYPE, message->get_phase() + 1, "Message Response", message->get_nonce() + 1);
+    std::string source_id = (*self).id;
+    std::string destination_id = message->get_source_id();
+    unsigned int nonce = message->get_nonce() + 1;
+    Message response(source_id , destination_id, QUERY_TYPE, CLOSE_PHASE, "Message Response", nonce);
 
     message_queue->add_message(message->get_source_id(), response);
-
     message_queue->push_pipes();
 
     this->node_instance->notify_connection(message->get_source_id());
@@ -136,7 +172,6 @@ Message Election::handle_message(Message * message) {
     Message response;
 
     this->whatami();
-    std::cout << "Handling Message..." << '\n';
     this->message = message;
     this->phase = this->message->get_phase();
 
@@ -232,7 +267,6 @@ Message Transform::handle_message(Message * message) {
     Message response;
 
     this->whatami();
-    std::cout << "Handling Message..." << '\n';
     this->message = message;
     this->phase = this->message->get_phase();
 
@@ -304,7 +338,6 @@ Message Connect::handle_message(Message * message) {
     Message response;
 
     this->whatami();
-    std::cout << "Handling Message..." << '\n';
     this->message = message;
     this->phase = this->message->get_phase();
 

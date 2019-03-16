@@ -24,6 +24,7 @@
 #include "message.hpp"
 #include "mqueue.hpp"
 #include "command.hpp"
+#include "await.hpp"
 
 class Node {
 
@@ -44,6 +45,7 @@ class Node {
 
         // Message Queue
         class MessageQueue message_queue;
+        class AwaitContainer awaiting;
 
         // Private Functions
         // Utility Functions
@@ -90,6 +92,7 @@ class Node {
         std::vector<class Connection *> * get_connections();
         class Connection * get_connection(unsigned int index);
         class MessageQueue * get_message_queue();
+        class AwaitContainer * get_awaiting();
 
         // Communication Functions
         void notify_connection(std::string id);
