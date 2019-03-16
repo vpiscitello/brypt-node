@@ -72,7 +72,7 @@ Message Query::handle_message(Message * message) {
             break;
         }
         case RESPOND_PHASE: {
-            this->respond_handler(&(*this->state).self, &(*this->state).coordinator, message, this->node_instance->get_connection(0));
+            this->respond_handler(&(*this->state).self, message, this->node_instance->get_connection(0));
             break;
         }
         case AGGREGATE_PHASE: {
@@ -112,7 +112,7 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Query::respond_handler(Self * self, Coordinator * coordinator, Message * message, Connection * connection) {
+void Query::respond_handler(Self * self, Message * message, Connection * connection) {
     std::cout << "== [Node] Recieved " << this->message->get_data() << " from " << this->message->get_source_id() << '\n';
 
     // Send Request to the server

@@ -64,7 +64,7 @@ class Query : public Command {
         Message handle_message(Message * message);
 
         void flood_handler(Self * self, Message * message, Notifier * notifier) ;
-        void respond_handler(Self * self, Coordinator * coordinator, Message * message, Connection * connection);
+        void respond_handler(Self * self, Message * message, Connection * connection);
         void aggregate_handler(Self * self, Message * message, MessageQueue * message_queue);
         void close_handler();
 };

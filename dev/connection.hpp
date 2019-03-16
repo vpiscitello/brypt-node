@@ -22,7 +22,6 @@
 // * Drop connections if the connected node does not match the intended device
 // * Maintain key and nonce state for connections
 
-
 class Connection {
     protected:
     	bool active;
@@ -473,6 +472,7 @@ class StreamBridge : public Connection {
 	}
 
 	std::string recv(int flag){
+        if (flag) {}
 	    //do {
 	    char buffer[512];
 	    memset(buffer, '\0', 512);
@@ -692,6 +692,7 @@ class TCP : public Connection {
 	}
 
 	std::string recv(int flag){
+        if (flag) {}
 	    char buffer[1024];
 	    memset(buffer, '\0', 1024);
 	    int valread = read(this->connection, buffer, 1024);
@@ -744,6 +745,7 @@ class Bluetooth : public Connection {
 	}
 
 	std::string recv(int flag){
+        if (flag) {}
 
 	    return "Message";
 	}
@@ -796,6 +798,7 @@ class LoRa : public Connection {
 	}
 
 	std::string recv(int flag){
+        if (flag) {}
 
 	    return "Message";
 	}
@@ -828,6 +831,7 @@ class Websocket : public Connection {
 	}
 
 	std::string recv(int flag){
+        if (flag) {}
 
 	    return "Message";
 	}
