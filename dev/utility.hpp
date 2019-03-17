@@ -4,11 +4,14 @@
 #include <iostream>
 #include <string.h>
 #include <string>
+#include <sstream>
 #include <chrono>
 
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+
+typedef std::chrono::time_point<std::chrono::system_clock> SystemClock;
 
 enum DeviceOperation { ROOT, BRANCH, LEAF, NO_OPER };
 
@@ -47,6 +50,21 @@ inline char * cast_string( std::string s ) {
     memset( cs, '\0', s.size() );
     strcpy( cs, s.c_str() );
     return cs;
+}
+
+inline SystemClock get_system_clock() {
+    return std::chrono::system_clock::now();
+}
+
+inline std::string get_system_timestamp() {
+    std::stringstream epoch_ss;
+    std::chrono::seconds seconds;
+    SystemClock current_time;
+    current_time = std::chrono::system_clock::now();
+    seconds = std::chrono::duration_cast<std::chrono::seconds>( current_time.time_since_epoch() );
+    epoch_ss.clear();
+    epoch_ss << seconds.count();
+    return epoch_ss.str();
 }
 
 #endif

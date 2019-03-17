@@ -64,7 +64,7 @@ class Node {
         void handle_control_request(std::string message);
         void handle_notification(std::string message);
         void handle_queue_request(Message * message);
-        //static void * connection_handler(void *);
+        void handle_fulfilled();
 
         // Election Functions
         bool election();                                         // Call for an election for cluster leader

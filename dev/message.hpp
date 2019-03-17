@@ -206,14 +206,7 @@ class Message {
         ** Description: Determine the timestamp of the message using the system clock.
         ** *************************************************************************/
         void set_timestamp() {
-            std::stringstream ss;
-            std::chrono::seconds seconds;
-            std::chrono::time_point<std::chrono::system_clock> current_time;
-            current_time = std::chrono::system_clock::now();
-            seconds = std::chrono::duration_cast<std::chrono::seconds>( current_time.time_since_epoch() );
-            ss.clear();
-            ss << seconds.count();
-            this->timestamp = ss.str();
+            this->timestamp = get_system_timestamp();
         }
         /* **************************************************************************
         ** Function: set_response

@@ -19,6 +19,7 @@ class AwaitObject {
         unsigned int received_responses;
         class Message request;
         json11::Json::object aggregate_object;
+        SystemClock expire;
 
     public:
         AwaitObject(class Message request, unsigned int expected_responses) {
@@ -26,11 +27,21 @@ class AwaitObject {
             this->received_responses = 0;
             this->expected_responses = expected_responses;
             this->request = request;
+            this->expire = get_system_clock() + std::chrono::milliseconds(500);
         }
 
         std::string get_response() {
+            bool ready = false;
             std::string response = "";
+
             if (this->expected_responses == this->received_responses) {
+                ready = true;
+            } else {
+                if (this->expire < get_system_clock()) {
+                    ready = true;
+                }
+
+            if (ready) {
                 json11::Json aggregate_json = json11::Json::object(this->aggregate_object);
                 response = aggregate_json.dump();
             }
@@ -53,9 +64,7 @@ class AwaitObject {
 
 class AwaitContainer {
     private:
-        // std::vector<class AwaitObject> awaiting;
         AwaitMap awaiting;
-        // AwaitMap::hasher hash = awaiting.hash_function();
 
         std::string key_generator(std::string pack) {
             unsigned char digest[MD5_DIGEST_LENGTH];
@@ -84,6 +93,18 @@ class AwaitContainer {
             return key;
         }
 
+        bool push_response(std::string key, class Message message) {
+            bool success = true;
+
+            std::cout << "== [Await] Pushing response to AwaitObject " << key << '\n';
+            bool fulfilled = this->awaiting.at(key).update_response(message);
+            if (fulfilled) {
+                std::cout << "== [Await] AwaitObject has been fulfilled, Waiting to transmit" << '\n';
+            }
+
+            return success;
+        }
+
         bool push_response(class Message message) {
             bool success = true;
 
@@ -97,10 +118,27 @@ class AwaitContainer {
             return success;
         }
 
-        bool check_awaiting() {
-            bool success = true;
+        std::vector<std::string> get_fulfilled() {
+            std::vector<std::string> fulfilled;
+            fulfilled.reserve(this->awaiting.size());
 
-            return success;
+            for ( auto it = this->awaiting.begin(); it != this->awaiting.end(); ) {
+                std::cout << "== [Await] Checking AwaitObject " << it->first << '\n';
+                std::string response = it->second.get_response();
+                if (response != "") {
+                    std::cout << response << '\n';
+                    fulfilled.push_back(response);
+                    it = this->awaiting.erase(it);
+                } else {
+                    it++;
+                }
+            }
+
+            return fulfilled;
+        }
+
+        bool empty() {
+            return this->awaiting.empty();
         }
 
 };

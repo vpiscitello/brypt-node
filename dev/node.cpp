@@ -423,6 +423,24 @@ void Node::handle_queue_request(Message * message) {
 
 }
 
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+void Node::handle_fulfilled() {
+    std::cout << "== [Node] Sending off fulfilled requests\n";
+
+    if (this->awaiting.empty()) {
+        std::cout << "== [Node] No awaiting requests\n";
+        return;
+    }
+
+    std::cout << "== [Node] Fulfulled requests:" << '\n';
+    std::vector<std::string> response = this->awaiting.get_fulfilled();
+
+}
+
+
 
 // Run Functions
 /* **************************************************************************
@@ -448,6 +466,8 @@ void Node::listen(){
         queue_request = message_queue.pop_next_message();
         this->handle_queue_request(&queue_request);
 
+        this->handle_fulfilled();
+
         std::cout << '\n';
 
         // Get Request from client parse command and its a request for all nodes
@@ -463,15 +483,15 @@ void Node::listen(){
         // If branch or lead response has been recieved handle request on next pass?
 
         // SIMULATE CLIENT REQUEST
-        if(run % 12 == 0) {
+        if(run % 250 == 0) {
             std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-            Message message("999", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", 0);
+            Message message("999", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
             this->commands[message.get_command()]->handle_message(&message);
         }
 
         run++;
-        // std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
-        std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
+        // std::this_thread::sleep_for(std::chrono::seconds(2));
     } while (true);
 }
 
@@ -494,8 +514,8 @@ void Node::connect(){
         this->handle_notification(notification);
 
         run++;
-        // std::this_thread::sleep_for(std::chrono::nanoseconds(3750));
-        std::this_thread::sleep_for(std::chrono::milliseconds(3750));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(3750));
     } while (true);
 }
 
@@ -505,6 +525,8 @@ void Node::connect(){
 ** *************************************************************************/
 void Node::startup() {
     std::cout << "\n== Starting up Brypt Node\n";
+
+    srand(time(NULL));
 
     switch (this->state.self.operation) {
         case ROOT: {

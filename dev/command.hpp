@@ -1,10 +1,14 @@
 #ifndef COMMAND_HPP
 #define COMMAND_HPP
 
+#include <sstream>
+
 #include "utility.hpp"
 #include "node.hpp"
 #include "state.hpp"
 #include "message.hpp"
+
+std::string generate_reading();
 
 class Command {
     protected:

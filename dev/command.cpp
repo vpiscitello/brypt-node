@@ -4,6 +4,23 @@
 ** Function:
 ** Description:
 ** *************************************************************************/
+std::string generate_reading() {
+    int reading = rand() % ( 74 - 68 ) + 68;
+
+    std::string epoch_str = get_system_timestamp();
+
+    json11::Json reading_json = json11::Json::object({
+        { "reading", reading },
+        { "timestamp", epoch_str }
+    });
+
+    return reading_json.dump();
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
 Message Information::handle_message(Message * message) {
     Message response;
 
@@ -93,16 +110,24 @@ Message Query::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
-    std::cout << "== [Node] Sending notification for Query request" << '\n';
+    std::cout << "== [Command] Sending notification for Query request" << '\n';
 
     // Push message into AwaitContainer
     // Need to figure out how to attach this.id and hash of message as the destination
-    unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size();
+    unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
     std::string await_key = this->node_instance->get_awaiting()->push_request(*message, expected_responses);
 
-    std::string source_id = (*self).id + ";" + await_key;
-    std::string destination_id = "ALL";
+    std::string source_id = (*self).id;
+    std::string destination_id = message->get_source_id();
     unsigned int nonce = 0;
+    std::string reading_data = generate_reading();
+
+    Message self_reading(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, reading_data, nonce);
+
+    this->node_instance->get_awaiting()->push_response(await_key, self_reading);
+
+    source_id += ";" + await_key;
+    destination_id = "ALL";
     Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
 
     notifier->send(&notice);
@@ -123,7 +148,9 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
         destination_id += ";" + await_id;
     }
     unsigned int nonce = message->get_nonce() + 1;
-    Message request(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, "Here is some work!", nonce);
+    std::string data = generate_reading();
+
+    Message request(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, data, nonce);
 
     connection->send(&request);
 
