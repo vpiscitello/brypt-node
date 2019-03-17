@@ -1,8 +1,6 @@
 #ifndef COMMAND_HPP
 #define COMMAND_HPP
 
-#include <sstream>
-
 #include "utility.hpp"
 #include "node.hpp"
 #include "state.hpp"
@@ -26,7 +24,7 @@ class Command {
     public:
         // Method method;
         virtual void whatami() = 0;
-        virtual Message handle_message(Message * message) = 0;
+        virtual Message handle_message(class Message * message) = 0;
         void unspecial() {
             std::cout << "I am calling an unspecialized function." << '\n';
         }
@@ -37,7 +35,7 @@ class Information : public Command {
     private:
         enum Phase { PRIVATE_PHASE, NETWORK_PHASE, CLOSE_PHASE };
     public:
-        Information(Node * instance, State * state) {
+        Information(class Node * instance, struct State * state) {
             this->node_instance = instance;
             this->state = state;
         }
@@ -45,7 +43,7 @@ class Information : public Command {
             std::cout << "== [Command] Handling response to Information request" << '\n';
         }
 
-        Message handle_message(Message * message);
+        Message handle_message(class Message * message);
 
         void private_handler();
         void network_handler();
@@ -57,7 +55,7 @@ class Query : public Command {
     private:
         enum Phase { FLOOD_PHASE, RESPOND_PHASE, AGGREGATE_PHASE, CLOSE_PHASE };
     public:
-        Query(class Node * instance, State * state) {
+        Query(class Node * instance, struct State * state) {
             this->node_instance = instance;
             this->state = state;
         }
@@ -65,7 +63,7 @@ class Query : public Command {
             std::cout << "== [Command] Handling response to Query request" << '\n';
         }
 
-        Message handle_message(Message * message);
+        Message handle_message(class Message * message);
 
         void flood_handler(Self * self, Message * message, Notifier * notifier) ;
         void respond_handler(Self * self, Message * message, Connection * connection);
@@ -78,7 +76,7 @@ class Election : public Command {
     private:
         enum Phase { PROBE_PHASE, PRECOMMIT_PHASE, VOTE_PHASE, ABORT_PHASE, RESULTS_PHASE, CLOSE_PHASE };
     public:
-        Election(class Node * instance, State * state) {
+        Election(class Node * instance, struct State * state) {
             this->node_instance = instance;
             this->state = state;
         }
@@ -86,7 +84,7 @@ class Election : public Command {
             std::cout << "== [Command] Handling response to Election request" << '\n';
         }
 
-        Message handle_message(Message * message);
+        Message handle_message(class Message * message);
 
         void probe_handler();
         void precommit_handler();
@@ -101,7 +99,7 @@ class Transform : public Command {
     private:
         enum Phase { INFO_PHASE, HOST_PHASE, CONNECT_PHASE, CLOSE_PHASE };
     public:
-        Transform(class Node * instance, State * state) {
+        Transform(class Node * instance, struct State * state) {
             this->node_instance = instance;
             this->state = state;
         }
@@ -109,7 +107,7 @@ class Transform : public Command {
             std::cout << "== [Command] Handling response to Transform request" << '\n';
         }
 
-        Message handle_message(Message * message);
+        Message handle_message(class Message * message);
 
         void info_handler();
         void host_handler();
@@ -122,7 +120,7 @@ class Connect : public Command {
     private:
         enum Phase { CONTACT_PHASE, JOIN_PHASE, CLOSE_PHASE };
     public:
-        Connect(class Node * instance, State * state) {
+        Connect(class Node * instance, struct State * state) {
             this->node_instance = instance;
             this->state = state;
         }
@@ -130,7 +128,7 @@ class Connect : public Command {
             std::cout << "== [Command] Handling response to Connect request" << '\n';
         }
 
-        Message handle_message(Message * message);
+        Message handle_message(class Message * message);
 
         void contact_handler();
         void join_handler(Self * self, Network * network, Message * message, Control * control);
@@ -139,7 +137,7 @@ class Connect : public Command {
 
 
 
-inline Command* CommandFactory(CommandType command, class Node * instance, State * state) {
+inline Command* CommandFactory(CommandType command, class Node * instance, struct State * state) {
     switch (command) {
         case INFORMATION_TYPE:
             return new Information(instance, state);
@@ -161,6 +159,5 @@ inline Command* CommandFactory(CommandType command, class Node * instance, State
             break;
     }
 }
-
 
 #endif

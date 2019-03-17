@@ -152,6 +152,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 
     Message request(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, data, nonce);
 
+    // TODO: Add method to defer if node_instance is a coordinator
     connection->send(&request);
 
     // Recieve Response from the server

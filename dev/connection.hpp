@@ -56,13 +56,13 @@ class Connection {
     	    return this->worker_active;
     	}
 
-            std::string get_peer_name() {
-                return this->peer_name;
-            }
+        std::string get_peer_name() {
+            return this->peer_name;
+        }
 
-            std::string get_pipe_name() {
-                return this->pipe_name;
-            }
+        std::string get_pipe_name() {
+            return this->pipe_name;
+        }
 
     	bool create_pipe() {
     	    if (this->peer_name == "") {
@@ -154,7 +154,7 @@ class Direct : public Connection {
 
     public:
         Direct() {}
-        Direct(Options *options) {
+        Direct(struct Options *options) {
             std::cout << "== [Connection] Creating direct instance.\n";
 
             this->port = options->port;
@@ -297,7 +297,7 @@ class Direct : public Connection {
             this->instantiate_connection = false;
         }
 
-    	void send(Message * message) {
+    	void send(class Message * message) {
     	    std::string msg_pack = message->get_pack();
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
@@ -349,7 +349,7 @@ class StreamBridge : public Connection {
 
     public:
 	StreamBridge() {}
-	StreamBridge(Options *options) {
+	StreamBridge(struct Options *options) {
 	    std::cout << "Creating StreamBridge instance.\n";
 
 	    this->port = options->port;
@@ -490,7 +490,7 @@ class StreamBridge : public Connection {
 	    //} while ( true );
 	}
 
-	void send(Message * msg) {
+	void send(class Message * msg) {
 	    std::cout << "[StreamBridge] Sending..." << '\n';
 	    std::string msg_pack = msg->get_pack();
 	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
@@ -530,7 +530,7 @@ class TCP : public Connection {
 
     public:
 	TCP() {}
-	TCP(Options *options) {
+	TCP(struct Options *options) {
 	    std::cout << "[TCP] Creating TCP instance.\n";
 
 	    this->port = options->port;
@@ -736,7 +736,7 @@ class Bluetooth : public Connection {
 
 	}
 
-	void send(Message * msg) {
+	void send(class Message * msg) {
 	    msg->get_pack();
 	}
 
@@ -758,7 +758,7 @@ class Bluetooth : public Connection {
 class LoRa : public Connection {
     public:
 	LoRa() {}
-	LoRa(Options *options){
+	LoRa(struct Options *options){
 	    switch (options->operation) {
 		case ROOT:
 		    std::cout << "Serving..." << "\n";
@@ -788,7 +788,7 @@ class LoRa : public Connection {
 
 	}
 
-	void send(Message * msg) {
+	void send(class Message * msg) {
 	    msg->get_pack();
 
 	}
@@ -822,7 +822,7 @@ class Websocket : public Connection {
 
 	}
 
-	void send(Message * msg) {
+	void send(class Message * msg) {
 	    msg->get_pack();
 	}
 

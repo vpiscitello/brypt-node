@@ -24,6 +24,9 @@ Node::~Node() {
     if (this->notifier != NULL) {
         free(this->notifier);
     }
+    if (this->watcher != NULL) {
+        free(this->watcher);
+    }
     std::vector<Connection *>::iterator conn_it;
     for(conn_it = this->connections.begin(); conn_it != this->connections.end(); conn_it++) {
         if ((*conn_it) != NULL) {
@@ -195,6 +198,7 @@ void Node::setup(Options options){
     this->state.self.port = options.port;
     this->state.self.next_full_port = port_num + PORT_GAP;
     this->notifier = new Notifier(std::to_string(port_num + 1));
+    this->watcher = new PeerWatcher(this, &state);
 
     options.addr = get_local_address();
 

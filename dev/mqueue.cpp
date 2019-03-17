@@ -23,13 +23,13 @@ void MessageQueue::push_pipe(std::string filename){
 		if (*it != filename) {
 			continue;
 		}
-		std::cout << "== [Message Queue] Pipe already being watched" << '\n';
+		std::cout << "== [MessageQueue] Pipe already being watched" << '\n';
 		return;
 	}
 
 	std::ifstream push_file(filename);
 
-	std::cout << "== [Message Queue] Pushing " << filename << '\n';
+	std::cout << "== [MessageQueue] Pushing " << filename << '\n';
 
 	if( push_file.fail() ){
 		std::ofstream outfile(filename);
@@ -40,7 +40,7 @@ void MessageQueue::push_pipe(std::string filename){
 
 	this->pipes.push_back(filename);
 
-	std::cout << "== [Message Queue] Pipes being watched: " << this->pipes.size() << '\n';
+	std::cout << "== [MessageQueue] Pipes being watched: " << this->pipes.size() << '\n';
 
 }
 
@@ -61,7 +61,7 @@ void MessageQueue::remove_pipe(std::string filename){
 void MessageQueue::add_message(std::string destination_id, Message message){
 	std::string pipe_name = "./tmp/" + destination_id + ".pipe";
 
-	std::cout << "== [Message Queue] Message queued for " << pipe_name << '\n';
+	std::cout << "== [MessageQueue] MessageQueued for " << pipe_name << '\n';
 
 	// Create new pipe if the pipe name is not found in the managed pipes
 	if ( std::find( pipes.begin(), pipes.end(), pipe_name ) == pipes.end() ){
@@ -88,7 +88,7 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 		packet = tmp_msg.get_pack();
 		out_queue.pop();
 
-		std::cout << "== [Message Queue] Pushing message for " << pipe_name << '\n';
+		std::cout << "== [MessageQueue] Pushing message for " << pipe_name << '\n';
 
 		std::fstream push_file(pipe_name, std::ios::out | std::ios::binary);
 
@@ -112,7 +112,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 	for(int idx = 0; idx < (int)pipes.size(); idx++) {
 
 		std::string pipe_name = pipes[idx];
-		std::cout << "== [Message Queue] Checking " << pipe_name << '\n';
+		std::cout << "== [MessageQueue] Checking " << pipe_name << '\n';
 		std::ifstream check_file(pipe_name);
 
 		if( check_file.good() ) {
@@ -120,7 +120,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 			std::string line = "";
 			char current;
 
-			std::cout << "== [Message Queue] ";
+			std::cout << "== [MessageQueue] ";
 
 			while( check_file.get( current ) ){
 				std::cout << (int)current << ' ';
@@ -142,7 +142,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 				std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
 				clear_file.close();
 			} catch(...) {
-				std::cout << "== [Message Queue] Message in queue not formatted properly" << '\n';
+				std::cout << "== [MessageQueue] Message in queue not formatted properly" << '\n';
 			}
 
 		}
@@ -167,7 +167,7 @@ Message MessageQueue::pop_next_message(){
 		Message message = this->in_queue.front();
 		this->in_queue.pop();
 
-		std::cout << "== [Message Queue] " << in_queue.size() << " left in incoming queue" << '\n';
+		std::cout << "== [MessageQueue] " << in_queue.size() << " left in incoming queue" << '\n';
 
 		return message;
 

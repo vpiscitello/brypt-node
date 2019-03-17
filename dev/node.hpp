@@ -25,6 +25,7 @@
 #include "mqueue.hpp"
 #include "command.hpp"
 #include "await.hpp"
+#include "watcher.hpp"
 
 class Node {
 
@@ -36,6 +37,7 @@ class Node {
         // Connection Variables
         class Control * control;
         class Notifier * notifier;
+        class PeerWatcher * watcher;
         // Change to hash table? based on peer name?
         std::vector<class Connection *> connections;                     // A vector of open connections
 

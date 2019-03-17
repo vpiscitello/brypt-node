@@ -40,11 +40,13 @@ class AwaitObject {
                 if (this->expire < get_system_clock()) {
                     ready = true;
                 }
+            }
 
             if (ready) {
                 json11::Json aggregate_json = json11::Json::object(this->aggregate_object);
                 response = aggregate_json.dump();
             }
+
             return response;
         }
 
