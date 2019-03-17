@@ -30,22 +30,35 @@ class AwaitObject {
             this->expire = get_system_clock() + std::chrono::milliseconds(500);
         }
 
-        std::string get_response() {
-            bool ready = false;
-            std::string response = "";
+        bool ready() {
 
             if (this->expected_responses == this->received_responses) {
-                ready = true;
+                this->fulfilled = true;
             } else {
                 if (this->expire < get_system_clock()) {
-                    ready = true;
+                    this->fulfilled = true;
                 }
             }
 
-            if (ready) {
+            return this->fulfilled;
+        }
+
+        class Message get_response() {
+            std::string data = "";
+
+            if (this->fulfilled) {
                 json11::Json aggregate_json = json11::Json::object(this->aggregate_object);
-                response = aggregate_json.dump();
+                data = aggregate_json.dump();
             }
+
+            class Message response(
+                this->request.get_destination_id(),
+                this->request.get_source_id(),
+                this->request.get_command(),
+                this->request.get_phase() + 1,
+                data,
+                this->request.get_nonce() + 1
+            );
 
             return response;
         }
@@ -120,15 +133,15 @@ class AwaitContainer {
             return success;
         }
 
-        std::vector<std::string> get_fulfilled() {
-            std::vector<std::string> fulfilled;
+        std::vector<class Message> get_fulfilled() {
+            std::vector<class Message> fulfilled;
             fulfilled.reserve(this->awaiting.size());
 
             for ( auto it = this->awaiting.begin(); it != this->awaiting.end(); ) {
                 std::cout << "== [Await] Checking AwaitObject " << it->first << '\n';
-                std::string response = it->second.get_response();
-                if (response != "") {
-                    std::cout << response << '\n';
+                if (it->second.ready()) {
+                    class Message response = it->second.get_response();
+                    std::cout << response.get_data() << '\n';
                     fulfilled.push_back(response);
                     it = this->awaiting.erase(it);
                 } else {

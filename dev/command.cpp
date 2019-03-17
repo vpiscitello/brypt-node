@@ -85,7 +85,7 @@ Message Information::handle_message(Message * message) {
 
     this->whatami();
     this->message = message;
-    switch ( ( Phase )this->phase ) {
+    switch ( message->get_phase() ) {
         case FLOOD_PHASE: {
             this->flood_handler(&(*this->state).self, message, this->node_instance->get_notifier());
             break;
@@ -111,7 +111,7 @@ Message Information::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
-    std::cout << "== [Command] Sending notification for Query request" << '\n';
+    std::cout << "== [Command] Sending notification for Information request" << '\n';
 
     // Push message into AwaitContainer
     // unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;

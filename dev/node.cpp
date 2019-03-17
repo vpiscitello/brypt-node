@@ -440,7 +440,13 @@ void Node::handle_fulfilled() {
     }
 
     std::cout << "== [Node] Fulfulled requests:" << '\n';
-    std::vector<std::string> response = this->awaiting.get_fulfilled();
+    std::vector<class Message> responses = this->awaiting.get_fulfilled();
+
+    for (auto it = responses.begin(); it != responses.end(); it++) {
+        this->message_queue.add_message((*it).get_destination_id(), *it);
+    }
+
+    this->message_queue.push_pipes();
 
 }
 
