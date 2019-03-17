@@ -448,6 +448,10 @@ void Node::handle_fulfilled() {
 
     this->message_queue.push_pipes();
 
+    for (auto it = responses.begin(); it != responses.end(); it++) {
+        this->notify_connection((*it).get_destination_id());
+    }
+
 }
 
 
