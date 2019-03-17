@@ -21,18 +21,77 @@ std::string generate_reading() {
 ** Function:
 ** Description:
 ** *************************************************************************/
+std::string generate_node_info(struct State * state) {
+    std::string epoch_str = get_system_timestamp();
+
+    // json11::Json device_info = json11::Json::object ({
+    //     { "uid", (*state).self.id },
+    //     { "cluster", (*state).self.cluster },
+    //     { "coordinator", (*state).coordinator.id },
+    //     { "neighbor_count", (*state).network.known_nodes },
+    //     { "designation", (*state).self.operation },
+    //     { "comm_techs", json11::Json::array { "WiFi" } },
+    //     { "update_timestamp", epoch_str }
+    // });
+
+    json11::Json nodes_json = json11::Json::array {
+        json11::Json::object {
+            { "uid", "1" },
+            { "cluster", 0 },
+            { "coordinator", 1 },
+            { "neighbor_count", 4 },
+            { "designation", "root" },
+            { "comm_techs", json11::Json::array { "WiFi" } },
+            { "update_timestamp", epoch_str }
+        },
+        json11::Json::object {
+            { "uid", "2" },
+            { "cluster", 0 },
+            { "coordinator", 1 },
+            { "neighbor_count", 4 },
+            { "designation", "node" },
+            { "comm_techs", json11::Json::array { "WiFi" } },
+            { "update_timestamp", epoch_str }
+        },
+        json11::Json::object {
+            { "uid", "3" },
+            { "cluster", 0 },
+            { "coordinator", 1 },
+            { "neighbor_count", 6 },
+            { "designation", "coordinator" },
+            { "comm_techs", json11::Json::array { "WiFi", "LoRa" } },
+            { "update_timestamp", epoch_str }
+        },
+        json11::Json::object {
+            { "uid", "6" },
+            { "cluster", 0 },
+            { "coordinator", 0 },
+            { "neighbor_count", 4 },
+            { "designation", "node" },
+            { "comm_techs", json11::Json::array { "WiFi" } },
+            { "update_timestamp", epoch_str }
+        }
+    };
+
+    return nodes_json.dump();
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
 Message Information::handle_message(Message * message) {
     Message response;
 
     this->whatami();
     this->message = message;
     switch ( ( Phase )this->phase ) {
-        case PRIVATE_PHASE: {
-            this->private_handler();
+        case FLOOD_PHASE: {
+            this->flood_handler(&(*this->state).self, message, this->node_instance->get_notifier());
             break;
         }
-        case NETWORK_PHASE: {
-            this->network_handler();
+        case RESPOND_PHASE: {
+            this->respond_handler();
             break;
         }
         case CLOSE_PHASE: {
@@ -51,15 +110,34 @@ Message Information::handle_message(Message * message) {
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Information::private_handler() {
+void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
+    std::cout << "== [Command] Sending notification for Query request" << '\n';
 
+    // Push message into AwaitContainer
+    // unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
+    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, 1);
+
+    std::string source_id = (*self).id;
+    std::string destination_id = message->get_source_id();
+    unsigned int nonce = 0;
+    std::string network_data = generate_node_info(this->state);
+
+    Message self_reading(source_id, destination_id, INFORMATION_TYPE, RESPOND_PHASE, network_data, nonce);
+
+    this->node_instance->get_awaiting()->push_response(await_key, self_reading);
+
+    // source_id += ";" + await_key;
+    // destination_id = "ALL";
+    // Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
+    //
+    // notifier->send(&notice);
 }
 
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Information::network_handler() {
+void Information::respond_handler() {
 
 }
 
@@ -113,7 +191,6 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
     std::cout << "== [Command] Sending notification for Query request" << '\n';
 
     // Push message into AwaitContainer
-    // Need to figure out how to attach this.id and hash of message as the destination
     unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
     std::string await_key = this->node_instance->get_awaiting()->push_request(*message, expected_responses);
 

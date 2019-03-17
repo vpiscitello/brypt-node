@@ -487,11 +487,19 @@ void Node::listen(){
         // If branch or lead response has been recieved handle request on next pass?
 
         // SIMULATE CLIENT REQUEST
-        if(run % 250 == 0) {
+        /*
+        if (run % 500 == 0) {
+            std::cout << "== [Node] Simulating client sensor Information request" << '\n';
+            Message message("999", this->state.self.id, INFORMATION_TYPE, 0, "Request for Network Information.", run);
+            this->commands[message.get_command()]->handle_message(&message);
+        }
+
+        if(run % 500 == 0) {
             std::cout << "== [Node] Simulating client sensor Query request" << '\n';
             Message message("999", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
             this->commands[message.get_command()]->handle_message(&message);
         }
+        */
 
         run++;
         std::this_thread::sleep_for(std::chrono::nanoseconds(2000));

@@ -7,6 +7,7 @@
 #include "message.hpp"
 
 std::string generate_reading();
+std::string generate_node_info(struct State * state);
 
 class Command {
     protected:
@@ -33,7 +34,7 @@ class Command {
 // Handle Requests regarding Node information
 class Information : public Command {
     private:
-        enum Phase { PRIVATE_PHASE, NETWORK_PHASE, CLOSE_PHASE };
+        enum Phase { FLOOD_PHASE, RESPOND_PHASE, CLOSE_PHASE };
     public:
         Information(class Node * instance, struct State * state) {
             this->node_instance = instance;
@@ -45,8 +46,8 @@ class Information : public Command {
 
         Message handle_message(class Message * message);
 
-        void private_handler();
-        void network_handler();
+        void flood_handler(Self * self, Message * message, Notifier * notifier);
+        void respond_handler();
         void close_handler();
 };
 
