@@ -1,4 +1,3 @@
-#include <SoftwareSerial.h>
 #include <Crypto.h>
 #include <AES.h>
 #include <CTR.h>
@@ -14,63 +13,21 @@ void aes256_dec(byte *key, byte *iv, byte *buffer){
   CTR<AES256> aes_ctr_256;
   memset(buffer, 0x00, 128);
 
-//  byte mssg[] = "The quick brown fox jumps over the lazy dog";
-//  byte key[] = "01234567890123456789012345678901";
-//  byte iv[] = "0123456789012345";
-
   crypto_feed_watchdog();
   aes_ctr_256.setKey(key, 32);
   aes_ctr_256.setIV(iv, 16);
   aes_ctr_256.setCounterSize(4);
   aes_ctr_256.decrypt(buffer, ctxt, 44);
- /* Serial.println("");
-  Serial.println("AES-CTR-256 Decrypted text:");
- // Serial.print((char *)buffer);
-  for (int x = 0; x < 128; x++) {
-    Serial.print((char)buffer[x]);
- //   Serial.print(" ");
-  }
-  Serial.println("");
-*/
 }
 
-SoftwareSerial mySerial(10, 11); //rx, tx
-
-void setup() {
-  // put your setup code here, to run once:
-
- /* Serial.begin(57600);
-  while(!Serial){
-    ;
-  }*/
-}
+void setup() {}
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  unsigned long long t_start = 0;
-  unsigned long long t_end = 0;
-  unsigned long duration;
   byte key256[] = "01234567890123456789012345678901";
   byte iv[] = "0123456789012345";
   byte buffer[128];
 
-  t_start = millis();
-  for(unsigned long i = 0; i < 5000/*30000000*/; i++){
+	while(1){
     aes256_dec(key256, iv, buffer);
-  }
-  
-  t_end = millis();
-
-  duration = (unsigned long)(t_end - t_start);
-  Serial.println("\nDone");
-  Serial.print((unsigned long)t_end, DEC);
-  Serial.println("\nStart");
-  Serial.print((unsigned long)t_start, DEC);
-  Serial.println("\nDuration:");
-  Serial.print((unsigned long)duration, DEC);
-  Serial.println("\n");
-  
-  /*while(1){
-    ;
-  }*/
+	}
 }
