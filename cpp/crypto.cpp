@@ -326,15 +326,33 @@ void crypto::modded_DHKA(EVP_PKEY *local_key, EVP_PKEY *remote_key){
 	//prime param 1024bit
 	EVP_PKEY_CTX *local_ctx;
 	unsigned char *skey;
+	//void *skey;
 	size_t skeylen;
-	local_ctx = EVP_PKEY_CTX_new(local_key);
+	local_ctx = EVP_PKEY_CTX_new(local_key,NULL);
 	if(!local_ctx) handleErrors();
 	if(EVP_PKEY_derive_init(local_ctx)<=0) handleErrors();
-	if(EVP_PKEY_derive_set_peer(local_ctx, remotekey)<=0) handleErrors();
+	if(EVP_PKEY_derive_set_peer(local_ctx, remote_key)<=0) handleErrors();
 	if(EVP_PKEY_derive(local_ctx, NULL, &skeylen)<=0) handleErrors();
-	skey = OPENSSL_malloc(skeylen);
+	skey = (unsigned char *)OPENSSL_malloc(skeylen);
 	if(!skey) handleErrors();
-	if(EVP_PKEY_derive(local_ctx, skey, skeylen)<=0)handleErrors();
+	if(EVP_PKEY_derive(local_ctx, skey, &skeylen)<=0)handleErrors();
+	printf("dhka defo ran...\n");
+	print_output(skey, skeylen);
+}
+void crypto::modded_ECDH(EVP_PKEY *local_key, EVP_PKEY* remote_key){
+	EVP_PKEY_CTX *local_ctx;
+	unsigned char *skey;
+	//void *skey;
+	size_t skeylen;
+	local_ctx = EVP_PKEY_CTX_new(local_key,NULL);
+	if(!local_ctx) handleErrors();
+	if(EVP_PKEY_derive_init(local_ctx)<=0) handleErrors();
+	if(EVP_PKEY_derive_set_peer(local_ctx, remote_key)<=0) handleErrors();
+	if(EVP_PKEY_derive(local_ctx, NULL, &skeylen)<=0) handleErrors();
+	skey = (unsigned char *)OPENSSL_malloc(skeylen);
+	if(!skey) handleErrors();
+	if(EVP_PKEY_derive(local_ctx, skey, &skeylen)<=0)handleErrors();
+	printf("ecdh defo ran...\n");
 	print_output(skey, skeylen);
 }
 void crypto::handleErrors(){
