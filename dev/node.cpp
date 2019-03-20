@@ -197,8 +197,8 @@ void Node::setup(Options options){
     this->state.coordinator.technology = options.technology;
     this->state.self.port = options.port;
     this->state.self.next_full_port = port_num + PORT_GAP;
-    this->notifier = new Notifier(std::to_string(port_num + 1));
-    this->watcher = new PeerWatcher(this, &state);
+    this->notifier = new Notifier(&this->state, std::to_string(port_num + 1));
+    this->watcher = new PeerWatcher(this, &this->state);
 
     options.addr = get_local_address();
 
@@ -395,11 +395,16 @@ void Node::handle_notification(std::string message) {
         return;
     }
 
-
     try {
+        std::string notice_filter = "";
+        std::string raw_notification = "";
+        std::size_t filter_found = message.find(":");
+        if (filter_found != std::string::npos && filter_found < 16) {
+            notice_filter = message.substr(0, filter_found);
+            raw_notification = message.substr(filter_found);
+        }
 
-        std::string response = "";
-        Message notification(message);
+        Message notification(raw_notification);
 
         this->commands[notification.get_command()]->handle_message(&notification);
 
@@ -442,6 +447,7 @@ void Node::handle_fulfilled() {
     std::cout << "== [Node] Fulfulled requests:" << '\n';
     std::vector<class Message> responses = this->awaiting.get_fulfilled();
 
+    /*
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->message_queue.add_message((*it).get_destination_id(), *it);
     }
@@ -451,6 +457,7 @@ void Node::handle_fulfilled() {
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->notify_connection((*it).get_destination_id());
     }
+    */
 
 }
 
@@ -497,22 +504,22 @@ void Node::listen(){
         // If branch or lead response has been recieved handle request on next pass?
 
         // SIMULATE CLIENT REQUEST
-        /*
-        if (run % 500 == 0) {
+        // /*
+        if (run % 10 == 0) {
             std::cout << "== [Node] Simulating client sensor Information request" << '\n';
-            Message message("999", this->state.self.id, INFORMATION_TYPE, 0, "Request for Network Information.", run);
+            Message message("0xFFFFFFFF", this->state.self.id, INFORMATION_TYPE, 0, "Request for Network Information.", run);
             this->commands[message.get_command()]->handle_message(&message);
         }
 
-        if(run % 500 == 0) {
+        if(run % 10 == 0) {
             std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-            Message message("999", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
+            Message message("0xFFFFFFFF", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
             this->commands[message.get_command()]->handle_message(&message);
         }
-        */
+        // */
 
         run++;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         // std::this_thread::sleep_for(std::chrono::seconds(2));
     } while (true);
 }
@@ -536,7 +543,7 @@ void Node::connect(){
         this->handle_notification(notification);
 
         run++;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(2000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
         // std::this_thread::sleep_for(std::chrono::milliseconds(3750));
     } while (true);
 }

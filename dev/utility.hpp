@@ -14,12 +14,10 @@
 typedef std::chrono::time_point<std::chrono::system_clock> SystemClock;
 
 enum DeviceOperation { ROOT, BRANCH, LEAF, NO_OPER };
-
-enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, TCP_TYPE, STREAMBRIDGE_TYPE, NO_TECH };
-
-enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NO_CMD };
-
 enum DeviceSocketCapability { MASTER, SLAVE };
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, TCP_TYPE, STREAMBRIDGE_TYPE, NO_TECH };
+enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NO_CMD };
+enum NotificationType { NETWORK_NOTICE, CLUSTER_NOTICE, NODE_NOTICE, NO_NOTICE };
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";

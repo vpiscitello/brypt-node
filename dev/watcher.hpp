@@ -9,14 +9,17 @@
 #include "connection.hpp"
 #include "message.hpp"
 
+const std::chrono::milliseconds UPDATE_TIMEOUT = std::chrono::milliseconds(100);
+
 class PeerWatcher {
     private:
         class Node * node_instance;
         State * state;
-        std::vector<std::pair<SystemClock, class Connection *>> watched;
-        size_t watched_count = 0;
+        std::vector<class Connection *> * watched = NULL;
+        size_t known_count = 0;
 
         SystemClock last_check;
+        SystemClock update_required_by;
 
         bool worker_active = false;
         std::thread worker_thread;
@@ -27,25 +30,17 @@ class PeerWatcher {
         PeerWatcher(class Node * instance, struct State * state) {
             this->node_instance = instance;
             this->state = state;
-            this->setup();
+            this->populate();
             this->spawn();
+            this->last_check = get_system_clock();
+            this->update_required_by = this->last_check + UPDATE_TIMEOUT;
         }
 
-        void setup();
-
-        void spawn() {
-            std::cout << "== [PeerWatcher] Spawning PeerWatcher thread\n";
-            this->worker_thread = std::thread(&PeerWatcher::worker, this);
-        }
-
-        void worker() {
-            this->worker_active = true;
-
-        }
-
-        void heartbeat() {
-
-        }
+        void populate();
+        void spawn();
+        void worker();
+        void check_peers();
+        void heartbeat();
 
 };
 

@@ -11,6 +11,8 @@
 #include "json11.hpp"
 
 typedef std::unordered_map<std::string, class AwaitObject> AwaitMap;
+// const std::chrono::milliseconds AWAIT_TIMEOUT = std::chrono::milliseconds(500);
+const std::chrono::milliseconds AWAIT_TIMEOUT = std::chrono::milliseconds(1500);
 
 class AwaitObject {
     private:
@@ -27,7 +29,7 @@ class AwaitObject {
             this->received_responses = 0;
             this->expected_responses = expected_responses;
             this->request = request;
-            this->expire = get_system_clock() + std::chrono::milliseconds(500);
+            this->expire = get_system_clock() + AWAIT_TIMEOUT;
         }
 
         bool ready() {

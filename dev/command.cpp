@@ -130,7 +130,7 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
     // destination_id = "ALL";
     // Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
     //
-    // notifier->send(&notice);
+    // notifier->send(&notice, NETWORK_NOTICE);
 }
 
 /* **************************************************************************
@@ -207,7 +207,7 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
     destination_id = "ALL";
     Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
 
-    notifier->send(&notice);
+    notifier->send(&notice, NETWORK_NOTICE);
 }
 
 /* **************************************************************************

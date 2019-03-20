@@ -33,6 +33,8 @@ class Connection {
     	std::fstream pipe;
     	unsigned long message_sequence;
 
+        SystemClock update_clock;
+
         bool worker_active = false;
         bool response_needed = false;
         std::thread worker_thread;
@@ -62,6 +64,10 @@ class Connection {
 
         std::string get_pipe_name() {
             return this->pipe_name;
+        }
+
+        SystemClock get_update_clock() {
+            return this->update_clock;
         }
 
     	bool create_pipe() {
@@ -164,7 +170,7 @@ class Direct : public Connection {
             this->control = options->is_control;
             this->operation = options->operation;
 
-            // this->worker_active = false;
+            this->update_clock = get_system_clock();
 
     	    if (options->is_control) {
         		std::cout << "== [Connection] Creating control socket\n";
@@ -319,6 +325,11 @@ class Direct : public Connection {
 	    zmq::message_t message;
 	    this->socket->recv(&message, flag);
 	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
+
+        if (request != "") {
+            this->update_clock = get_system_clock();
+        }
+
 	    return request;
 	}
 
