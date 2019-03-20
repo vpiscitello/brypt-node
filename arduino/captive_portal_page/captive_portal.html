@@ -1,0 +1,171 @@
+<!--<link rel="stylesheet" href="https://www.brypt.com/css/base.css">-->
+<body style="">
+    <div class="box" style="">
+	<form action="/action_page.php">
+	    <h1 style="">Available connections</h1>
+	    <br>
+	    <div class="listelems" style="">
+		<div class="net-item" style=""><p>(0) Brypt1</p></div>
+	    </div>
+	    <br>
+	    <div class="entries" style="">
+			<input type="text" name="ap_name" placeholder="Access Point Number" style="">
+			<input type="text" name="host_ip" placeholder="Host IP Address" style="">
+			<input type="text" name="host_port" placeholder="Host Port Number" style="">
+			<input type="submit" value="Submit" style="">
+	    </div>
+	</form>
+    </div>
+</body>
+
+<style type="text/css" media="screen">
+body {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    background: #F4F7F8;
+    background: linear-gradient(to right, #E6E9F0, #F4F7F8);
+}
+
+.box {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: nowrap;
+    height: 580px;
+    width: 420px;
+    background: #FBFBFB;
+    border-radius: 8px;
+    box-shadow: 0px 0px 20px rgba(30, 30, 30, 0.15);
+    box-sizing: border-box;
+    color: #4A5C62;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.15;
+    margin-top: 50px;
+}
+
+.entries {
+    text-align: center;
+    background: #FBFBFB;
+    border-radius: 8px;
+    box-sizing: border-box;
+    color: #4A5C62;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    line-height: 1.15;
+}
+
+.entries input {
+    position: relative;
+}
+
+.entries input[type=text] {
+    margin-top: 10px;
+}
+
+.entries input[type=submit] {
+    margin-top: 10px;
+}
+
+.listelems {
+    position: relative;
+    overflow-y: scroll;
+    height: 200px;
+    text-align: center;
+    width: 250px;
+    display: block;
+    position: relative;
+    display: block;
+    margin: 0 auto;
+}
+
+h1 {
+    position: relative;
+    width: 80%;
+    margin-bottom: 30px;
+    font-size: 2em;
+    color: #2D383C;
+    text-transform: uppercase;
+    text-align: center;
+    font-weight: 700;
+    font-family: 'Chivo', sans-serif;
+    margin-block-start: 0.83em;
+    margin-block-end: 0.83em;
+    box-sizing: border-box;
+    display: block;
+    line-height: 1.15;
+    margin: 0 auto;
+}
+
+input[type=submit] {
+    font-size: 1em;
+    font-weight: 700;
+    font-family: 'Chivo', sans-serif;
+    display: block;
+    position: relative;
+    top: 0px;
+    width: 250px;
+    height: 45px;
+    margin: 0 auto;
+    font-size: 1.4em;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(251, 251, 251, 0.6);
+    cursor: pointer;
+    -webkit-appearance: none;
+    background: rgb(26, 204, 149);
+    background: linear-gradient(to right top, rgb(26, 204, 148) 0%, rgb(67, 231, 179) 100%);
+    opacity: 0.85;
+    border: none;
+    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.5);
+    transition: 0.3s ease-in-out all;
+    border-radius: 4px;
+    text-decoration: none;
+}
+
+input[type=submit]:hover {
+    top: -4px;
+    color: rgba(251, 251, 251, 1);
+    background: rgb(26, 204, 149);
+    background: linear-gradient(to right top, rgb(26, 204, 148) 25%, rgb(67, 231, 179) 100%);
+    opacity: 1;
+    box-shadow: 0px 4px 20px rgba(26, 204, 149, 0.6);
+}
+
+.net-item {
+    padding-top: 5px;
+    padding-bottom: 5px;
+    transition: 0.3s ease-in-out all;
+}
+
+.net-item:hover {
+    top: -4px;
+    background: rgba(30, 30, 30, 0.15);
+    opacity: 1;
+    box-shadow: 0px 4px 20px rgba(20, 20, 20, 0.15);
+    transition: 0.3s ease-in-out all;
+}
+
+input[type=text] {
+    margin: 0px 0px;
+    background: rgba(126, 154, 148, 0.05);
+    box-shadow: none;
+    width: 60%;
+    padding: 12px 14px;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    outline: none;
+}
+
+input[type=text]:focus {
+    border: 2px solid rgba(26, 204, 149, 1);
+    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);
+}
+
+</style>
