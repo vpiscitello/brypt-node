@@ -14,7 +14,7 @@ void aes256_enc(byte *key, byte *mssg, byte *iv){
   aes_ctr_256.setKey(key, 32);
   aes_ctr_256.setIV(iv, 16);
   aes_ctr_256.setCounterSize(4);
-  aes_ctr_256.encrypt(ctxt, mssg, strlen(mssg) + 1);
+  aes_ctr_256.encrypt(ctxt, mssg, strlen((const char*)mssg) + 1);
 }
 
 void setup() {}
