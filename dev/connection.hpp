@@ -22,6 +22,24 @@
 // * Drop connections if the connected node does not match the intended device
 // * Maintain key and nonce state for connections
 
+class direct_monitor_t : public zmq::monitor_t {
+    public:
+        bool connected = false;
+        bool disconnected = false;
+
+        void on_event_connected(const zmq_event_t &, const char *) ZMQ_OVERRIDE {
+            this->connected = true;
+        }
+
+        void on_event_closed(const zmq_event_t &, const char *) ZMQ_OVERRIDE {
+            this->disconnected = true;
+        }
+
+        void on_event_disconnected(const zmq_event_t &, const char *) ZMQ_OVERRIDE {
+            this->disconnected = true;
+        }
+};
+
 class Connection {
     protected:
     	bool active;

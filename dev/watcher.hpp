@@ -9,7 +9,7 @@
 #include "connection.hpp"
 #include "message.hpp"
 
-const std::chrono::milliseconds UPDATE_TIMEOUT = std::chrono::milliseconds(100);
+const std::chrono::milliseconds UPDATE_TIMEOUT = std::chrono::milliseconds(500);
 
 class PeerWatcher {
     private:
