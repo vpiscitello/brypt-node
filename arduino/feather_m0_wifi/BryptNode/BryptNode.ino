@@ -207,17 +207,12 @@ void loop() {
   	    }
   	} else if (state = SERVER_CONNECTED) {
   	    // As soon as we have connected to the socket, send a message
-  
-//  	    CommandType command = CONNECT_TYPE;
-//  	    String node_id = "00-00-00-00-00";
-//  	    unsigned int nonce = 998;
-//  	    Message message(node_id, command, phase, data, nonce);
+
+        // TODO Add the handshake process
   	    Serial.print("Message is: ");
         String msg = "Hello";
         Serial.println(msg);
         server_connection.println(msg);
-//  	    Serial.println(message.get_pack());
-//  	    server_connection.println(message.get_pack());
   	    server_connection.flush();
   	    // server_connection.stop();
   	    delay(100);
@@ -227,7 +222,7 @@ void loop() {
         		Serial.write(c);
             message = message + c;
             // TODO determine when we have read the whole message
-            handle_messaging(message)
+            handle_messaging(message);
   	    }
   
   	    Serial.println();
@@ -263,6 +258,10 @@ void handle_messaging(String message) {
                     String data = "23.1";
 
                     Message message(source_id, destination_id, command, phase, data, nonce);
+
+                    String response = message.get_pack();
+                    server_connection.println(response);
+                    server_connection.flush();
                     break
                 case 2: // Aggregate phase
                     // Not handled by feathers because they don't have anything to receive from
@@ -270,10 +269,20 @@ void handle_messaging(String message) {
                 case 3: // Close phase
                     break
             }
-//            server_connection.println("asdf");
-//            server_connection.flush();
             break;
         case INFORMATION_TYPE:
+            switch(recvd_msg.get_phase()) {
+                case 0: // Flood phase
+                    // Not handled by feathers because it has nothing to forward it on to
+                    break
+                case 1: // Respond phase
+                    break
+                case 2: // Aggregate phase
+                    // Not handled by feathers because they don't have anything to receive from
+                    break
+                case 3: // Close phase
+                    break
+            }
             break;
 //        case HEARTBEAT_TYPE:
 //            break;
