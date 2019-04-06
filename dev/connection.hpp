@@ -370,6 +370,8 @@ class StreamBridge : public Connection {
 	std::string peer_addr;
 	std::string peer_port;
 
+	int init_msg = 1;
+
 	void *context;
 	void *socket;
 
@@ -398,6 +400,7 @@ class StreamBridge : public Connection {
 		    case ROOT: {
 				    std::cout << "== [StreamBridge] setting up stream socket on port " << options->port << "\n";
 				    this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				    this->init_msg = 1;
 				    setup_streambridge_socket(options->port);
 				    break;
 			       }
@@ -408,7 +411,6 @@ class StreamBridge : public Connection {
 				    //std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
 				    //this->socket = zmq_socket(this->context, ZMQ_STREAM);
 				    //setup_streambridge_socket(options->port);
-				    //this->setup_req_socket(options->peer_addr, options->peer_port);
 				    //break;
 			       }
                    case NO_OPER: {
@@ -446,6 +448,7 @@ class StreamBridge : public Connection {
 		case ROOT: {
 				std::cout << "== [StreamBridge] setting up stream socket on port " << this->port << "\n";
 				this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				this->init_msg = 1;
 				setup_streambridge_socket(this->port);
 				break;
 			   }
@@ -456,7 +459,6 @@ class StreamBridge : public Connection {
 				//std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
 				//this->socket = zmq_socket(this->context, ZMQ_STREAM);
 				//setup_streambridge_socket(options->port);
-				//this->setup_req_socket(options->peer_addr, options->peer_port);
 				//break;
 			   }
                case NO_OPER: {
@@ -506,14 +508,26 @@ class StreamBridge : public Connection {
 	    char buffer[512];
 	    memset(buffer, '\0', 512);
 
-	    // Receive 3 times, first is ID, second is nothing, third is message
-	    this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-	    size_t msg_size = zmq_recv(this->socket, buffer, 14, 0);
-	    memset(buffer, '\0', 512);
-	    msg_size = zmq_recv(this->socket, buffer, 14, 0);
-	    memset(buffer, '\0', 512);
-	    msg_size = zmq_recv(this->socket, buffer, 14, 0);
-	    std::cout << "Received: " << buffer << "\n";
+	    if (this->init_msg == 1) {
+		// Receive 4 times, first is ID, second is nothing, third is message
+		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+		std::cout << "Received ID: " << this->id << "\n";
+		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
+		std::cout << "Received: " << buffer << "\n";
+		memset(buffer, '\0', 512);
+		msg_size = zmq_recv(this->socket, buffer, 512, 0);
+		std::cout << "Received: " << buffer << "\n";
+		memset(buffer, '\0', 512);
+		msg_size = zmq_recv(this->socket, buffer, 512, 0);
+		std::cout << "Received: " << buffer << "\n";
+		this->init_msg = 0;
+	    } else {
+		// Receive 2 times, first is ID, second is nothing, third is message
+		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+		std::cout << "Received ID: " << this->id << "\n";
+		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
+		std::cout << "Received: " << buffer << "\n";
+	    }
 
 	    return buffer;
 	    //} while ( true );
@@ -536,9 +550,10 @@ class StreamBridge : public Connection {
 
 	void shutdown() {
 	    // possibly do the send 0 length message thing
-	    //std::cout << "Shutting down socket and context\n";
-	    //zmq_close(this->socket);
-	    //zmq_ctx_destroy(this->context);
+	    this->init_msg = 1;
+	    std::cout << "Shutting down socket and context\n";
+	    zmq_close(this->socket);
+	    zmq_ctx_destroy(this->context);
 	}
 
 };
@@ -587,21 +602,20 @@ class TCP : public Connection {
 				   this->setup_tcp_connection(options->peer_addr, options->peer_port);
 				   break;
 			       }
-           case NO_OPER: {
-               std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
-               exit(0);
-               break;
-           }
+		    case NO_OPER: {
+			std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+			exit(0);
+			break;
+		    }
 		}
-
-		this->spawn();
-
-		std::unique_lock<std::mutex> thread_lock(worker_mutex);
-		this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
-		thread_lock.unlock();
-
 		return;
 	    }
+
+	    this->spawn();
+
+	    std::unique_lock<std::mutex> thread_lock(worker_mutex);
+	    this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+	    thread_lock.unlock();
 	}
 
 	void whatami() {
@@ -633,11 +647,11 @@ class TCP : public Connection {
 
 		    break;
 		}
-        case NO_OPER: {
-            std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
-            exit(0);
-            break;
-        }
+		case NO_OPER: {
+		    std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+		    exit(0);
+		    break;
+		}
 	    }
 
 	    this->worker_active = true;
