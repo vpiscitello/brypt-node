@@ -4,18 +4,11 @@
 #include "message.hpp"
 #include "utility.hpp"
 
-//#include "zmqduino.h"
-// #include "arduino_connection.hpp"
-
 const int NETWORK_LIST_SIZE = 20;
 const int AP_NAME_LEN = 40;
 
 // Enum to keep track of current state
 enum CurrentState { DETERMINE_NETWORK, AP_DETERMINED, AP_CONNECTED, SERVER_CONNECTED };
-
-
-// int last_scan = 0;
-// const int SCAN_DURATION = 10000;
 
 int builtin_led =  LED_BUILTIN;
 
@@ -48,8 +41,6 @@ int remote_port = 3001;
 
 WiFiClient server_connection;
 
-String data = "Hello World!";      // Set the message data
-int phase = 0;                          // Set the message command phase
 
 void setup() {
     // Configure pins for Adafruit ATWINC1500 Feather
@@ -57,9 +48,9 @@ void setup() {
 
     //Initialize serial and wait for port to open:
     Serial.begin(9600);
-    while (!Serial) {
-	      ; // wait for serial port to connect. Needed for native USB port only
-    }
+//    while (!Serial) {
+//	      ; // wait for serial port to connect. Needed for native USB port only
+//    }
 
     // Turn the LED on in order to indicate that the upload is complete
     pinMode(builtin_led, OUTPUT);
@@ -72,10 +63,6 @@ void setup() {
     }
 
     scan_available_networks();
-
-    // by default the local IP address of will be 192.168.1.1
-    // you can override it with the following:
-    // WiFi.config(IPAddress(10, 0, 0, 1));
 
     char ssid[] = "feather_m0_setup";
     start_access_point(ssid);
@@ -134,17 +121,6 @@ void loop() {
                             Serial.print("ap_num value is ");
                             Serial.print(ap_num_str);
                             Serial.println("");
-//                            int flag = 0;
-//                            for (int i = 0; i < ap_num_str.length(); i++) {
-//                                if (ap_num_str.charAt(i) == ' ' || ap_num_str.charAt(i) == '&') {
-//                                    Serial.println("Found space");
-//                                    ap_num_str.setCharAt(i, '\0');
-//                                    flag = 1;
-//                                }
-//                                if (flag == 1) {
-//                                    ap_num_str.setCharAt(i, '\0');
-//                                }
-//                            }
                             access_point = AP_names[ap_num_str.toInt()];
                             Serial.print("Access point: ");
                             Serial.println(access_point);
@@ -197,8 +173,6 @@ void loop() {
   	    // Print out information about the network
   	    Serial.print("Successfully connected to the network");
   	    printWiFiStatus();
-  	    // printCurrentNet();
-  	    // printWiFiData();
   
   	    // Get the current time now that we (maybe) have internet
   	    Serial.print("Wifi Time: ");
@@ -229,11 +203,12 @@ void loop() {
         		char c = server_connection.read();
         		Serial.write(c);
             message = message + c;
-            if (c == (char)4) {
-                // TODO determine when we have read the whole message
-                handle_messaging(message);
-            }
+            // We have read the whole message
+//            if (c == (char)4) {
+//                handle_messaging(message);
+//            }
   	    }
+       handle_messaging(message);
   
   	    Serial.println();
         //TEMPORARY
@@ -269,6 +244,7 @@ void handle_messaging(String message) {
                     String source_id = recvd_msg.get_destination_id();
                     String destination_id = recvd_msg.get_source_id();
                     String await_id = recvd_msg.get_await_id();
+                    int phase = recvd_msg.get_phase();
                     if (await_id != "") {
                         destination_id = destination_id + ";" + await_id;
                     }
