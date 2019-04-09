@@ -249,215 +249,214 @@ enum MessageChunk {
             LAST_CHUNK = TIMESTAMP_CHUNK
         };
 
-void unpack(String raw) {
-    int loops = 0;
-    MessageChunk chunk = FIRST_CHUNK;
-    int last_end = 0;
-    int data_size = 0;
-
-
-//    String raw;                // Raw string format of the message
-
-        String source_id;          // ID of the sending node
-        String destination_id;     // ID of the receiving node
-        String await_id;           // ID of the awaiting request on a passdown message
-
-        CommandType command;            // Command type to be run
-        unsigned int phase;                      // Phase of the Command state
-
-        String data;               // Encrypted data to be sent
-        String timestamp;          // Current timestamp
-
-        Message * response;             // A circular message for the response to the current message
-
-        String auth_token;         // Current authentication token created via HMAC
-        unsigned int nonce;             // Current message nonce
-
-        
-
-    // Iterate while there are message chunks to be parsed.
-    Serial.println("");
-
-    while (chunk <= LAST_CHUNK ) {
-        int chunk_end = raw.indexOf( ( char ) 29 );     // Find chunk seperator
-        Serial.println("");
-        Serial.print("STRING IS: ");
-        Serial.println(raw);
-        Serial.print("CHUNK ENDS AT: ");
-        Serial.println(chunk_end);
-        last_end = 0;
-        Serial.print("LAST END: ");
-        Serial.println(last_end);
-
-        switch (chunk) {
-            // Source ID
-            case SOURCEID_CHUNK:
-                source_id = raw.substring( 2, ( chunk_end - 1 ) );
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("Source ID: ");
-                Serial.println(source_id);
-                break;
-            // Destination ID
-            case DESTINATIONID_CHUNK:
-                destination_id = raw.substring( 1, ( chunk_end - 1 ) );
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("DEST ID: ");
-                Serial.println(destination_id);
-                break;
-            // Command Type
-            case COMMAND_CHUNK:
-                Serial.print("COMMAND PARSE: ");
-                Serial.println(raw.substring( 1, ( chunk_end - 1 )));
-//                Serial.println(raw.substring( 1, 1));
-//                Serial.println(raw.substring( 1, 2));
-//                Serial.println(raw.substring( 1, 3));
-//                Serial.println(raw.substring( 2, 2));
-//                Serial.println(raw.substring( 2, 3));
-                command = ( CommandType ) (
-                                    raw.substring( 1, ( chunk_end - 1 ) )
-                                ).toInt();
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("COMMAND: ");
-                Serial.println(command);
-                break;
-            // Command Phase
-            case PHASE_CHUNK:
-                Serial.print("PHASE PARSE: ");
-                Serial.println(raw.substring( 1, ( chunk_end - 1 )));
-                phase = (
-                                raw.substring( 1, ( chunk_end - 1 ) )
-                              ).toInt();
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("PHASE: ");
-                Serial.println(phase);
-                break;
-            // Nonce
-            case NONCE_CHUNK:
-                nonce = (
-                                raw.substring( 1, ( chunk_end - 1 ) )
-                              ).toInt();
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("NONCE: ");
-                Serial.println(nonce);
-                break;
-            // Data Size
-            case DATASIZE_CHUNK:
-                data_size = (
-                                raw.substring( 1, ( chunk_end - 1 ) )
-                            ).toInt() + 1;
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("DATASIZE: ");
-                Serial.println(data_size);
-                break;
-            // Data
-            case DATA_CHUNK:
-                data = raw.substring( 1, data_size );
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("DATA: ");
-                Serial.println(data);
-                break;
-            // Timestamp
-            case TIMESTAMP_CHUNK:
-                timestamp = raw.substring( 1, ( chunk_end - 1 ) );
-                raw = raw.substring(chunk_end + 1);
-                Serial.print("TIMESTAMP: ");
-                Serial.println(timestamp);
-                break;
-            // End of Message Parsing
-            default:
-                break;
-        }
-
-        last_end = chunk_end;
-        loops++;
-        chunk = (MessageChunk) loops;
-    }
-
-    auth_token = raw.substring( last_end + 2 );
-    raw = raw.substring( 0, ( raw.length() - auth_token.length() ) );
-
-    std::size_t id_sep_found;
-    id_sep_found = source_id.indexOf(ID_SEPERATOR);
-    if (id_sep_found != -1) {
-        await_id = source_id.substring(id_sep_found + 1);
-        source_id = source_id.substring(0, id_sep_found);
-    }
-
-    id_sep_found = destination_id.indexOf(ID_SEPERATOR);
-    if (id_sep_found != -1) {
-        await_id = destination_id.substring(id_sep_found + 1);
-        destination_id = destination_id.substring(0, id_sep_found);
-    }
-
-}
+//void unpack(String raw) {
+//    int loops = 0;
+//    MessageChunk chunk = FIRST_CHUNK;
+//    int last_end = 0;
+//    int data_size = 0;
+//
+//
+////    String raw;                // Raw string format of the message
+//
+//        String source_id;          // ID of the sending node
+//        String destination_id;     // ID of the receiving node
+//        String await_id;           // ID of the awaiting request on a passdown message
+//
+//        CommandType command;            // Command type to be run
+//        unsigned int phase;                      // Phase of the Command state
+//
+//        String data;               // Encrypted data to be sent
+//        String timestamp;          // Current timestamp
+//
+//        Message * response;             // A circular message for the response to the current message
+//
+//        String auth_token;         // Current authentication token created via HMAC
+//        unsigned int nonce;             // Current message nonce
+//
+//        
+//
+//    // Iterate while there are message chunks to be parsed.
+//    Serial.println("");
+//
+//    while (chunk <= LAST_CHUNK ) {
+//        int chunk_end = raw.indexOf( ( char ) 29 );     // Find chunk seperator
+//        Serial.println("");
+//        Serial.print("STRING IS: ");
+//        Serial.println(raw);
+//        Serial.print("CHUNK ENDS AT: ");
+//        Serial.println(chunk_end);
+//        last_end = 0;
+//        Serial.print("LAST END: ");
+//        Serial.println(last_end);
+//
+//        switch (chunk) {
+//            // Source ID
+//            case SOURCEID_CHUNK:
+//                source_id = raw.substring( 2, ( chunk_end - 1 ) );
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("Source ID: ");
+//                Serial.println(source_id);
+//                break;
+//            // Destination ID
+//            case DESTINATIONID_CHUNK:
+//                destination_id = raw.substring( 1, ( chunk_end - 1 ) );
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("DEST ID: ");
+//                Serial.println(destination_id);
+//                break;
+//            // Command Type
+//            case COMMAND_CHUNK:
+//                Serial.print("COMMAND PARSE: ");
+//                Serial.println(raw.substring( 1, ( chunk_end - 1 )));
+////                Serial.println(raw.substring( 1, 1));
+////                Serial.println(raw.substring( 1, 2));
+////                Serial.println(raw.substring( 1, 3));
+////                Serial.println(raw.substring( 2, 2));
+////                Serial.println(raw.substring( 2, 3));
+//                command = ( CommandType ) (
+//                                    raw.substring( 1, ( chunk_end - 1 ) )
+//                                ).toInt();
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("COMMAND: ");
+//                Serial.println(command);
+//                break;
+//            // Command Phase
+//            case PHASE_CHUNK:
+//                Serial.print("PHASE PARSE: ");
+//                Serial.println(raw.substring( 1, ( chunk_end - 1 )));
+//                phase = (
+//                                raw.substring( 1, ( chunk_end - 1 ) )
+//                              ).toInt();
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("PHASE: ");
+//                Serial.println(phase);
+//                break;
+//            // Nonce
+//            case NONCE_CHUNK:
+//                nonce = (
+//                                raw.substring( 1, ( chunk_end - 1 ) )
+//                              ).toInt();
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("NONCE: ");
+//                Serial.println(nonce);
+//                break;
+//            // Data Size
+//            case DATASIZE_CHUNK:
+//                data_size = (
+//                                raw.substring( 1, ( chunk_end - 1 ) )
+//                            ).toInt() + 1;
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("DATASIZE: ");
+//                Serial.println(data_size);
+//                break;
+//            // Data
+//            case DATA_CHUNK:
+//                data = raw.substring( 1, data_size );
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("DATA: ");
+//                Serial.println(data);
+//                break;
+//            // Timestamp
+//            case TIMESTAMP_CHUNK:
+//                timestamp = raw.substring( 1, ( chunk_end - 1 ) );
+//                raw = raw.substring(chunk_end + 1);
+//                Serial.print("TIMESTAMP: ");
+//                Serial.println(timestamp);
+//                break;
+//            // End of Message Parsing
+//            default:
+//                break;
+//        }
+//
+//        last_end = chunk_end;
+//        loops++;
+//        chunk = (MessageChunk) loops;
+//    }
+//
+//    auth_token = raw.substring( last_end + 2 );
+//    raw = raw.substring( 0, ( raw.length() - auth_token.length() ) );
+//
+//    std::size_t id_sep_found;
+//    id_sep_found = source_id.indexOf(ID_SEPERATOR);
+//    if (id_sep_found != -1) {
+//        await_id = source_id.substring(id_sep_found + 1);
+//        source_id = source_id.substring(0, id_sep_found);
+//    }
+//
+//    id_sep_found = destination_id.indexOf(ID_SEPERATOR);
+//    if (id_sep_found != -1) {
+//        await_id = destination_id.substring(id_sep_found + 1);
+//        destination_id = destination_id.substring(0, id_sep_found);
+//    }
+//
+//}
 
 void handle_messaging(String message) {
-//    Message recvd_msg(message);
-    unpack(message);
+    Message recvd_msg(message);
+//    unpack(message);
 
-//    Serial.println("");
-//    Serial.print("Source ID: ");
-//    Serial.println(recvd_msg.get_source_id());
-//    Serial.print("Dest ID: ");
-//    Serial.println(recvd_msg.get_destination_id());
-//    Serial.print("Command: ");
-//    Serial.println(recvd_msg.get_command());
-//    Serial.print("Phase: ");
-//    Serial.println(recvd_msg.get_phase());
-//    Serial.print("Data: ");
-//    Serial.println(recvd_msg.get_data());
-//
-//    switch(recvd_msg.get_command()) {
-//        case 0:
-////        case QUERY_TYPE:
-//            switch(recvd_msg.get_phase()) {
-////                case 0: // Flood phase
-////                    // Not handled by feathers because it has nothing to forward it on to
-////                    break;
-//                case 0: // Respond phase SHOULD BE 1
-//                    // get my own ID?
-//                    String source_id = recvd_msg.get_destination_id();
-//                    String destination_id = recvd_msg.get_source_id();
-//                    String await_id = recvd_msg.get_await_id();
-//                    if (await_id != "") {
-//                        destination_id = destination_id + ";" + await_id;
-//                    }
-//                    CommandType command = QUERY_TYPE;
-//                    unsigned int nonce = recvd_msg.get_nonce() + 1;
-//                    String data = "23.1";
-//
-//                    Message message(source_id, destination_id, command, phase, data, nonce);
-//
-//                    String response = message.get_pack();
-//                    Serial.print("Response now is: ");
-//                    Serial.println(response);
-//                    server_connection.println(response);
-//                    server_connection.flush();
+    Serial.println("");
+    Serial.print("Source ID: ");
+    Serial.println(recvd_msg.get_source_id());
+    Serial.print("Dest ID: ");
+    Serial.println(recvd_msg.get_destination_id());
+    Serial.print("Command: ");
+    Serial.println(recvd_msg.get_command());
+    Serial.print("Phase: ");
+    Serial.println(recvd_msg.get_phase());
+    Serial.print("Data: ");
+    Serial.println(recvd_msg.get_data());
+
+    switch(recvd_msg.get_command()) {
+        case QUERY_TYPE:
+            switch(recvd_msg.get_phase()) {
+//                case 0: // Flood phase
+//                    // Not handled by feathers because it has nothing to forward it on to
 //                    break;
-////                case 2: // Aggregate phase
-////                    // Not handled by feathers because they don't have anything to receive from
-////                    break;
-////                case 3: // Close phase
-////                    break;
+                case 1: // Respond phase
+                    // get my own ID?
+                    String source_id = recvd_msg.get_destination_id();
+                    String destination_id = recvd_msg.get_source_id();
+                    String await_id = recvd_msg.get_await_id();
+                    if (await_id != "") {
+                        destination_id = destination_id + ";" + await_id;
+                    }
+                    CommandType command = QUERY_TYPE;
+                    unsigned int nonce = recvd_msg.get_nonce() + 1;
+                    String data = "23.1";
+
+                    Message message(source_id, destination_id, command, phase, data, nonce);
+
+                    String response = message.get_pack();
+                    Serial.print("Response now is: ");
+                    Serial.println(response);
+                    server_connection.println(response);
+                    server_connection.flush();
+                    break;
+//                case 2: // Aggregate phase
+//                    // Not handled by feathers because they don't have anything to receive from
+//                    break;
+//                case 3: // Close phase
+//                    break;
+            }
+            break;
+//        case INFORMATION_TYPE:
+//            switch(recvd_msg.get_phase()) {
+//                case 0: // Flood phase
+//                    // Not handled by feathers because it has nothing to forward it on to
+//                    break;
+//                case 1: // Respond phase
+//                    break;
+//                case 2: // Aggregate phase
+//                    // Not handled by feathers because they don't have anything to receive from
+//                    break;
+//                case 3: // Close phase
+//                    break;
 //            }
 //            break;
-////        case INFORMATION_TYPE:
-////            switch(recvd_msg.get_phase()) {
-////                case 0: // Flood phase
-////                    // Not handled by feathers because it has nothing to forward it on to
-////                    break;
-////                case 1: // Respond phase
-////                    break;
-////                case 2: // Aggregate phase
-////                    // Not handled by feathers because they don't have anything to receive from
-////                    break;
-////                case 3: // Close phase
-////                    break;
-////            }
-////            break;
-////        case HEARTBEAT_TYPE:
-////            break;
-//    }
+//        case HEARTBEAT_TYPE:
+//            break;
+    }
 }
 
 // void printWiFiData() {
