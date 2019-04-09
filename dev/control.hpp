@@ -64,7 +64,8 @@ class Control {
                             std::cout << "== [Control] Device waiting for connection port\n";
                             // TODO: Add connection type byte
 
-                            std::string device_info = this->handle_contact(DIRECT_TYPE);
+                            //std::string device_info = this->handle_contact(DIRECT_TYPE);
+                            std::string device_info = this->handle_contact(STREAMBRIDGE_TYPE);// TEMPORARY
 
                             return device_info;
                         } else {

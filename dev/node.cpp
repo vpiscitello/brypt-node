@@ -205,7 +205,9 @@ void Node::setup(Options options){
     switch (options.operation) {
         case ROOT: {
             TechnologyType technology = determine_best_connection_type();
-            technology = DIRECT_TYPE; //TEMPORARY
+            //technology = DIRECT_TYPE; //TEMPORARY
+            //technology = TCP_TYPE; //TEMPORARY
+            technology = STREAMBRIDGE_TYPE; //TEMPORARY
 
             if (technology == NO_TECH) {
                 std::cout << "== [Node] No technology types oopsies\n";

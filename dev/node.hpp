@@ -49,6 +49,9 @@ class Node {
         class MessageQueue message_queue;
         class AwaitContainer awaiting;
 
+	// Node capabilities
+	DeviceSocketCapability capability;
+
         // Private Functions
         // Utility Functions
         float determine_node_power();                           // Determine the node value to the network
