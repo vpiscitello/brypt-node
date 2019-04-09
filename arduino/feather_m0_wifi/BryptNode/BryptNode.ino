@@ -42,7 +42,9 @@ String access_point;
 CurrentState state = DETERMINE_NETWORK;
 
 // CONFIG IP address of server to connect to
-IPAddress remote_server(192,168,30,5);
+IPAddress remote_server(192,168,137,22);
+//String remote_server = "";
+int remote_port = 3001;
 
 WiFiClient server_connection;
 
@@ -78,10 +80,10 @@ void setup() {
     char ssid[] = "feather_m0_setup";
     start_access_point(ssid);
 
-//    // TESTING
-//    Serial.println("Ending AP");
-//    WiFi.end();
-//    state = AP_DETERMINED;
+    // TESTING
+    Serial.println("Ending AP");
+    WiFi.end();
+    state = AP_DETERMINED;
 }
 
 void loop() {
@@ -122,46 +124,52 @@ void loop() {
                   int action_page = currentLine.indexOf("action_page");
                   if (action_page > 0) {
                         currentLine = currentLine.substring(action_page);
+                        Serial.print("Currentline outside: ");
+                        Serial.println(currentLine);
                         if (currentLine.indexOf("ap_name=") > 0) {
                             int ap_num = currentLine.indexOf("ap_name=");
-                            currentLine = currentLine.substring(ap_num);
-                            int ampersand_index = currentLine.indexOf("&");
+//                            currentLine = currentLine.substring(ap_num);
+                            int ampersand_index = currentLine.indexOf("&host_ip");
                             String ap_num_str = currentLine.substring(ap_num+8, ampersand_index);
                             Serial.print("ap_num value is ");
                             Serial.print(ap_num_str);
                             Serial.println("");
-                            int flag = 0;
-                            for (int i = 0; i < ap_num_str.length(); i++) {
-                                if (ap_num_str.charAt(i) == ' ') {
-                                    Serial.println("Found space");
-                                    ap_num_str.setCharAt(i, '\0');
-                                    flag = 1;
-                                }
-                                if (flag == 1) {
-                                    ap_num_str.setCharAt(i, '\0');
-                                }
-                            }
+//                            int flag = 0;
+//                            for (int i = 0; i < ap_num_str.length(); i++) {
+//                                if (ap_num_str.charAt(i) == ' ' || ap_num_str.charAt(i) == '&') {
+//                                    Serial.println("Found space");
+//                                    ap_num_str.setCharAt(i, '\0');
+//                                    flag = 1;
+//                                }
+//                                if (flag == 1) {
+//                                    ap_num_str.setCharAt(i, '\0');
+//                                }
+//                            }
                             access_point = AP_names[ap_num_str.toInt()];
                             Serial.print("Access point: ");
                             Serial.println(access_point);
                         }
+                        Serial.print("Currentline outside2: ");
+                        Serial.println(currentLine);
                         if (currentLine.indexOf("host_ip=") > 0) {
                             int host_ip = currentLine.indexOf("host_ip=");
-                            currentLine = currentLine.substring(host_ip);
-                            int ampersand_index = currentLine.indexOf("&");
+//                            currentLine = currentLine.substring(host_ip);
+                            int ampersand_index = currentLine.indexOf("&host_port");
                             String host_ip_str = currentLine.substring(host_ip+8, ampersand_index);
                             Serial.print("Host IP value is ");
-                            Serial.print(host_ip_str);
-                            Serial.println("");
+                            Serial.println(host_ip_str);
+//                            remote_server = host_ip_str;
                         }
+                        Serial.print("Currentline outside3: ");
+                        Serial.println(currentLine);
                         if (currentLine.indexOf("host_port=") > 0) {
                             int host_port = currentLine.indexOf("host_port=");
-                            currentLine = currentLine.substring(host_port);
-                            int ampersand_index = currentLine.indexOf("&");
-                            String host_port_str = currentLine.substring(host_port+10, ampersand_index);
-                            Serial.print("Host IP value is ");
-                            Serial.print(host_port_str);
-                            Serial.println("");
+//                            currentLine = currentLine.substring(host_port);
+                            int space_index = currentLine.indexOf(" HTTP");
+                            String host_port_str = currentLine.substring(host_port+10, space_index);
+                            Serial.print("Host Port is ");
+                            Serial.println(host_port_str);
+                            remote_port = host_port_str.toInt();
                         }
                         client.stop();
                         WiFi.end();
@@ -180,8 +188,8 @@ void loop() {
         		Serial.print("Attempting to connect to WPA SSID: ");
         		Serial.println(access_point);
         		// Connect to WPA/WPA2 network:
-//            		wifi_status = WiFi.begin("brypt1", "asdfasdf");
-  		      wifi_status = WiFi.begin(access_point);
+          		wifi_status = WiFi.begin("brypt1", "asdfasdf");
+//  		      wifi_status = WiFi.begin(access_point);
         
         		delay(1000);
   	    }
@@ -199,7 +207,7 @@ void loop() {
   	} else if (state == AP_CONNECTED) {
   	    Serial.println("\nStarting connection to server...");
   	    // Try to connect to the TCP or StreamBridge socket
-  	    if (server_connection.connect(remote_server, 3001)) {
+  	    if (server_connection.connect(remote_server, remote_port)) {
         		Serial.println("Connected to server");
         		state = SERVER_CONNECTED;
   	    } else {
@@ -221,72 +229,235 @@ void loop() {
         		char c = server_connection.read();
         		Serial.write(c);
             message = message + c;
-            // TODO determine when we have read the whole message
-            handle_messaging(message);
+            if (c == (char)4) {
+                // TODO determine when we have read the whole message
+                handle_messaging(message);
+            }
   	    }
   
   	    Serial.println();
-  	    delay(1000);
+        //TEMPORARY
+        while (true) {
+  	        delay(1000);
+        }
   	}
 }
 
-void handle_messaging(String message) {
-    Message recvd_msg(message);
+enum MessageChunk {
+            SOURCEID_CHUNK, DESTINATIONID_CHUNK, COMMAND_CHUNK, PHASE_CHUNK, NONCE_CHUNK, DATASIZE_CHUNK, DATA_CHUNK, TIMESTAMP_CHUNK,
+            FIRST_CHUNK = SOURCEID_CHUNK,
+            LAST_CHUNK = TIMESTAMP_CHUNK
+        };
 
-    Serial.print("Command: ");
-    Serial.println(recvd_msg.get_command());
-    Serial.print("Phase: ");
-    Serial.println(recvd_msg.get_phase());
-    Serial.print("Data: ");
-    Serial.println(recvd_msg.get_data());
+void unpack(String raw) {
+    int loops = 0;
+    MessageChunk chunk = FIRST_CHUNK;
+    int last_end = 0;
+    int data_size = 0;
 
-    switch(recvd_msg.get_command()) {
-        case QUERY_TYPE:
-            switch(recvd_msg.get_phase()) {
-                case 0: // Flood phase
-                    // Not handled by feathers because it has nothing to forward it on to
-                    break
-                case 1: // Respond phase
-                    // get my own ID?
-                    String source_id = recvd_msg.get_destination_id();
-                    String destination_id = recvd_msg.get_source_id();
-                    String await_id = recvd_msg.get_await_id();
-                    if (await_id != "") {
-                        destination_id = destination_id + ";" + await_id;
-                    }
-                    unsigned int nonce = recvd_msg.get_nonce() + 1;
-                    String data = "23.1";
 
-                    Message message(source_id, destination_id, command, phase, data, nonce);
+//    String raw;                // Raw string format of the message
 
-                    String response = message.get_pack();
-                    server_connection.println(response);
-                    server_connection.flush();
-                    break
-                case 2: // Aggregate phase
-                    // Not handled by feathers because they don't have anything to receive from
-                    break
-                case 3: // Close phase
-                    break
-            }
-            break;
-        case INFORMATION_TYPE:
-            switch(recvd_msg.get_phase()) {
-                case 0: // Flood phase
-                    // Not handled by feathers because it has nothing to forward it on to
-                    break
-                case 1: // Respond phase
-                    break
-                case 2: // Aggregate phase
-                    // Not handled by feathers because they don't have anything to receive from
-                    break
-                case 3: // Close phase
-                    break
-            }
-            break;
-//        case HEARTBEAT_TYPE:
-//            break;
+        String source_id;          // ID of the sending node
+        String destination_id;     // ID of the receiving node
+        String await_id;           // ID of the awaiting request on a passdown message
+
+        CommandType command;            // Command type to be run
+        unsigned int phase;                      // Phase of the Command state
+
+        String data;               // Encrypted data to be sent
+        String timestamp;          // Current timestamp
+
+        Message * response;             // A circular message for the response to the current message
+
+        String auth_token;         // Current authentication token created via HMAC
+        unsigned int nonce;             // Current message nonce
+
+        
+
+    // Iterate while there are message chunks to be parsed.
+    Serial.println("");
+
+    while (chunk <= LAST_CHUNK ) {
+        int chunk_end = raw.indexOf( ( char ) 29 );     // Find chunk seperator
+        Serial.println("");
+        Serial.print("STRING IS: ");
+        Serial.println(raw);
+        Serial.print("CHUNK ENDS AT: ");
+        Serial.println(chunk_end);
+        last_end = 0;
+        Serial.print("LAST END: ");
+        Serial.println(last_end);
+
+        switch (chunk) {
+            // Source ID
+            case SOURCEID_CHUNK:
+                source_id = raw.substring( 2, ( chunk_end - 1 ) );
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("Source ID: ");
+                Serial.println(source_id);
+                break;
+            // Destination ID
+            case DESTINATIONID_CHUNK:
+                destination_id = raw.substring( 1, ( chunk_end - 1 ) );
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("DEST ID: ");
+                Serial.println(destination_id);
+                break;
+            // Command Type
+            case COMMAND_CHUNK:
+                Serial.print("COMMAND PARSE: ");
+                Serial.println(raw.substring( 1, ( chunk_end - 1 )));
+//                Serial.println(raw.substring( 1, 1));
+//                Serial.println(raw.substring( 1, 2));
+//                Serial.println(raw.substring( 1, 3));
+//                Serial.println(raw.substring( 2, 2));
+//                Serial.println(raw.substring( 2, 3));
+                command = ( CommandType ) (
+                                    raw.substring( 1, ( chunk_end - 1 ) )
+                                ).toInt();
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("COMMAND: ");
+                Serial.println(command);
+                break;
+            // Command Phase
+            case PHASE_CHUNK:
+                Serial.print("PHASE PARSE: ");
+                Serial.println(raw.substring( 1, ( chunk_end - 1 )));
+                phase = (
+                                raw.substring( 1, ( chunk_end - 1 ) )
+                              ).toInt();
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("PHASE: ");
+                Serial.println(phase);
+                break;
+            // Nonce
+            case NONCE_CHUNK:
+                nonce = (
+                                raw.substring( 1, ( chunk_end - 1 ) )
+                              ).toInt();
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("NONCE: ");
+                Serial.println(nonce);
+                break;
+            // Data Size
+            case DATASIZE_CHUNK:
+                data_size = (
+                                raw.substring( 1, ( chunk_end - 1 ) )
+                            ).toInt() + 1;
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("DATASIZE: ");
+                Serial.println(data_size);
+                break;
+            // Data
+            case DATA_CHUNK:
+                data = raw.substring( 1, data_size );
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("DATA: ");
+                Serial.println(data);
+                break;
+            // Timestamp
+            case TIMESTAMP_CHUNK:
+                timestamp = raw.substring( 1, ( chunk_end - 1 ) );
+                raw = raw.substring(chunk_end + 1);
+                Serial.print("TIMESTAMP: ");
+                Serial.println(timestamp);
+                break;
+            // End of Message Parsing
+            default:
+                break;
+        }
+
+        last_end = chunk_end;
+        loops++;
+        chunk = (MessageChunk) loops;
     }
+
+    auth_token = raw.substring( last_end + 2 );
+    raw = raw.substring( 0, ( raw.length() - auth_token.length() ) );
+
+    std::size_t id_sep_found;
+    id_sep_found = source_id.indexOf(ID_SEPERATOR);
+    if (id_sep_found != -1) {
+        await_id = source_id.substring(id_sep_found + 1);
+        source_id = source_id.substring(0, id_sep_found);
+    }
+
+    id_sep_found = destination_id.indexOf(ID_SEPERATOR);
+    if (id_sep_found != -1) {
+        await_id = destination_id.substring(id_sep_found + 1);
+        destination_id = destination_id.substring(0, id_sep_found);
+    }
+
+}
+
+void handle_messaging(String message) {
+//    Message recvd_msg(message);
+    unpack(message);
+
+//    Serial.println("");
+//    Serial.print("Source ID: ");
+//    Serial.println(recvd_msg.get_source_id());
+//    Serial.print("Dest ID: ");
+//    Serial.println(recvd_msg.get_destination_id());
+//    Serial.print("Command: ");
+//    Serial.println(recvd_msg.get_command());
+//    Serial.print("Phase: ");
+//    Serial.println(recvd_msg.get_phase());
+//    Serial.print("Data: ");
+//    Serial.println(recvd_msg.get_data());
+//
+//    switch(recvd_msg.get_command()) {
+//        case 0:
+////        case QUERY_TYPE:
+//            switch(recvd_msg.get_phase()) {
+////                case 0: // Flood phase
+////                    // Not handled by feathers because it has nothing to forward it on to
+////                    break;
+//                case 0: // Respond phase SHOULD BE 1
+//                    // get my own ID?
+//                    String source_id = recvd_msg.get_destination_id();
+//                    String destination_id = recvd_msg.get_source_id();
+//                    String await_id = recvd_msg.get_await_id();
+//                    if (await_id != "") {
+//                        destination_id = destination_id + ";" + await_id;
+//                    }
+//                    CommandType command = QUERY_TYPE;
+//                    unsigned int nonce = recvd_msg.get_nonce() + 1;
+//                    String data = "23.1";
+//
+//                    Message message(source_id, destination_id, command, phase, data, nonce);
+//
+//                    String response = message.get_pack();
+//                    Serial.print("Response now is: ");
+//                    Serial.println(response);
+//                    server_connection.println(response);
+//                    server_connection.flush();
+//                    break;
+////                case 2: // Aggregate phase
+////                    // Not handled by feathers because they don't have anything to receive from
+////                    break;
+////                case 3: // Close phase
+////                    break;
+//            }
+//            break;
+////        case INFORMATION_TYPE:
+////            switch(recvd_msg.get_phase()) {
+////                case 0: // Flood phase
+////                    // Not handled by feathers because it has nothing to forward it on to
+////                    break;
+////                case 1: // Respond phase
+////                    break;
+////                case 2: // Aggregate phase
+////                    // Not handled by feathers because they don't have anything to receive from
+////                    break;
+////                case 3: // Close phase
+////                    break;
+////            }
+////            break;
+////        case HEARTBEAT_TYPE:
+////            break;
+//    }
 }
 
 // void printWiFiData() {
@@ -475,8 +646,8 @@ void send_http_response(WiFiClient client) {
           client.println("</p></div>");
       }
   }
-
-  client.println("</div>      <br>      <div class=\"entries\" style=\"text-align: center;    background: #FBFBFB;    border-radius: 8px;    box-sizing: border-box;    color: #4A5C62;    font-family: 'Source Sans Pro', sans-serif;    font-size: 14px;    font-weight: 300;    line-height: 1.15;\">      <input type=\"text\" name=\"ap_name\" placeholder=\"Access Point Number\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"text\" name=\"host_ip\" placeholder=\"Host IP Address\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"text\" name=\"host_port\" placeholder=\"Host Port Number\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"submit\" value=\"Submit\" style=\"position: relative;margin-top: 10px;font-size: 1em;    font-weight: 700;    font-family: 'Chivo', sans-serif;    display: block;    position: relative;    top: 0px;    width: 250px;    height: 45px;    margin: 0 auto; margin-top: 10px;    font-size: 1.4em;    font-weight: 700;    text-transform: uppercase;    letter-spacing: 0.1em;    color: rgba(251, 251, 251, 0.6);    cursor: pointer;    -webkit-appearance: none;    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 0%, rgb(67, 231, 179) 100%);    opacity: 0.85;    border: none;    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.5);    transition: 0.3s ease-in-out all;    border-radius: 4px;    text-decoration: none;hover {    top: -4px;    color: rgba(251, 251, 251, 1);    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 25%, rgb(67, 231, 179) 100%);    opacity: 1;    box-shadow: 0px 4px 20px rgba(26, 204, 149, 0.6);}\">      </div>  </form>    </div></body>");
+  client.println("</div>      <br>      <div class=\"entries\" style=\"\">      <input type=\"text\" name=\"ap_name\" placeholder=\"Access Point Number\" style=\"\">      <input type=\"text\" name=\"host_ip\" placeholder=\"Host IP Address\" style=\"\">      <input type=\"text\" name=\"host_port\" placeholder=\"Host Port Number\" style=\"\">      <input type=\"submit\" value=\"Submit\" style=\"\">      </div>");
+//  client.println("</div>      <br>      <div class=\"entries\" style=\"text-align: center;    background: #FBFBFB;    border-radius: 8px;    box-sizing: border-box;    color: #4A5C62;    font-family: 'Source Sans Pro', sans-serif;    font-size: 14px;    font-weight: 300;    line-height: 1.15;\">      <input type=\"text\" name=\"ap_name\" placeholder=\"Access Point Number\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"text\" name=\"host_ip\" placeholder=\"Host IP Address\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"text\" name=\"host_port\" placeholder=\"Host Port Number\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"submit\" value=\"Submit\" style=\"position: relative;margin-top: 10px;font-size: 1em;    font-weight: 700;    font-family: 'Chivo', sans-serif;    display: block;    position: relative;    top: 0px;    width: 250px;    height: 45px;    margin: 0 auto; margin-top: 10px;    font-size: 1.4em;    font-weight: 700;    text-transform: uppercase;    letter-spacing: 0.1em;    color: rgba(251, 251, 251, 0.6);    cursor: pointer;    -webkit-appearance: none;    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 0%, rgb(67, 231, 179) 100%);    opacity: 0.85;    border: none;    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.5);    transition: 0.3s ease-in-out all;    border-radius: 4px;    text-decoration: none;hover {    top: -4px;    color: rgba(251, 251, 251, 1);    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 25%, rgb(67, 231, 179) 100%);    opacity: 1;    box-shadow: 0px 4px 20px rgba(26, 204, 149, 0.6);}\">      </div>  </form>    </div></body>");
   client.println();
 }
 
