@@ -50,7 +50,7 @@ class Message {
             this->response = NULL;
             this->auth_token = "";
             this->nonce = 0;
-            // this->set_timestamp();
+            this->set_timestamp();
         }
         /* **************************************************************************
         ** Function: Constructor for Recieved Messages
@@ -76,7 +76,7 @@ class Message {
           this->response = NULL;
           this->auth_token = "";
           this->nonce = nonce;
-          // this->set_timestamp();
+          this->set_timestamp();
         }
 
         // Getter Functions
@@ -206,16 +206,17 @@ class Message {
         ** Function: set_timestamp
         ** Description: Determine the timestamp of the message using the system clock.
         ** *************************************************************************/
-        // void set_timestamp() {
-        //     std::stringstream ss;
-        //     std::chrono::seconds seconds;
-        //     std::chrono::time_point<std::chrono::system_clock> current_time;
-        //     current_time = std::chrono::system_clock::now();
-        //     seconds = std::chrono::duration_cast<std::chrono::seconds>( current_time.time_since_epoch() );
-        //     ss.clear();
-        //     ss << seconds.count();
-        //     this->timestamp = ss.str();
-        // }
+        void set_timestamp() {
+			this->timestamp = 628909897;
+            // std::stringstream ss;
+            // std::chrono::seconds seconds;
+            // std::chrono::time_point<std::chrono::system_clock> current_time;
+            // current_time = std::chrono::system_clock::now();
+            // seconds = std::chrono::duration_cast<std::chrono::seconds>( current_time.time_since_epoch() );
+            // ss.clear();
+            // ss << seconds.count();
+            // this->timestamp = ss.str();
+        }
         /* **************************************************************************
         ** Function: set_response
         ** Description: Set the message Response provided the data content and sending
