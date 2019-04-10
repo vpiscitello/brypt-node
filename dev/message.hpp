@@ -65,9 +65,9 @@ class Message {
         ** Function: Constructor for Recieved Messages
         ** Description: Takes raw string input and unpacks it into the class variables.
         ** *************************************************************************/
-        Message(std::string raw, std::string key) {
+        Message(std::string raw) {
             this->raw = raw;
-						this->key = key;
+						this->key = netKey;
             this->unpack();
 						this->aes_ctr_256_decrypt(this->data, this->data.size());
             this->response = NULL;
@@ -76,7 +76,7 @@ class Message {
         ** Function: Constructor for new Messages
         ** Description: Initializes new messages provided the intended values.
         ** *************************************************************************/
-        Message(std::string source_id, std::string destination_id, CommandType command, int phase, std::string data, std::string key, unsigned int nonce) {
+        Message(std::string source_id, std::string destination_id, CommandType command, int phase, std::string data, unsigned int nonce) {
             this->raw = "";
             this->source_id = source_id;
             this->destination_id = destination_id;
@@ -88,7 +88,7 @@ class Message {
             this->auth_token = "";
             this->nonce = nonce;
             this->set_timestamp();
-						this->key = key;
+						this->key = netKey;  // In utility
 						this->aes_ctr_256_encrypt(this->data, this->data.size());
         }
 
@@ -229,7 +229,7 @@ class Message {
         ** *************************************************************************/
         void set_response(std::string source_id, std::string data) {
             if (this->response == NULL) {
-                this->response = new Message(source_id, this->source_id, this->command, this->phase + 1, data, this->key, this->nonce + 1);
+                this->response = new Message(source_id, this->source_id, this->command, this->phase + 1, data, this->nonce + 1);
             } else {
                 this->response->set_source_id( source_id );
                 this->response->set_destination_id( this->source_id );

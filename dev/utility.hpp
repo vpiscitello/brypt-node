@@ -19,6 +19,9 @@ enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, TCP_TYPE
 enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NO_CMD };
 enum NotificationType { NETWORK_NOTICE, CLUSTER_NOTICE, NODE_NOTICE, NO_NOTICE };
 
+// Super Secured NetKey
+const std::string netKey = "01234567890123456789012345678901";
+
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";
 const std::string CA_SUBDOMAIN = "bridge";
