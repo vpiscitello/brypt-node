@@ -140,8 +140,8 @@ TechnologyType Node::determine_best_connection_type(){
     int best_comm = 4;
 
     for (int i = 0; i < (int)this->state.self.available_technologies.size(); i++) {
-    	if (this->state.self.available_technologies[i] == DIRECT_TYPE) {
-    	    return DIRECT_TYPE;
+    	if (this->state.self.available_technologies[i] == DIRECT_TYPE || this->state.self.available_technologies[i] == STREAMBRIDGE_TYPE || this->state.self.available_technologies[i] == TCP_TYPE) {
+    	    return state.self.available_technologies[i];
     	} else if (this->state.self.available_technologies[i] == BLE_TYPE) {
     	    if (best_comm > 1) {
     		    best_comm = 1;
@@ -151,13 +151,27 @@ TechnologyType Node::determine_best_connection_type(){
     		    best_comm = 2;
     	    }
     	} else {
-    	    if (best_comm > 3) {
-    		    best_comm = 3;
+    	    if (best_comm > 4) {
+    		    best_comm = 4;
     	    }
     	}
     }
 
     return static_cast<TechnologyType>(best_comm);
+}
+
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
+bool Node::has_communication_type(TechnologyType t){
+    for (int i = 0; i < (int) this->state.self.available_technologies.size(); i++) {
+	if (this->state.self.available_technologies[i] == t) {
+	    return true;
+	}
+    }
+    return false;
 }
 
 
@@ -204,10 +218,16 @@ void Node::setup(Options options){
 
     switch (options.operation) {
         case ROOT: {
-            TechnologyType technology = determine_best_connection_type();
-            //technology = DIRECT_TYPE; //TEMPORARY
-            //technology = TCP_TYPE; //TEMPORARY
-            technology = STREAMBRIDGE_TYPE; //TEMPORARY
+	    // Currently a ROOT node only has one control socket so there is only one communication type for it. In the future, coordinators may have control sockets on both communication types and thus this functionality will change.
+	    TechnologyType technology = NO_TECH;
+	    this->state.self.available_technologies.push_back(options.technology);// TEMPORARY
+	    if (has_communication_type(BLE_TYPE)) {
+		technology = BLE_TYPE;
+	    } else if (has_communication_type(LORA_TYPE)) {
+		technology = LORA_TYPE;
+	    } else if (has_communication_type(DIRECT_TYPE) || has_communication_type(STREAMBRIDGE_TYPE) || has_communication_type(TCP_TYPE)){
+		technology = TCP_TYPE;
+	    }
 
             if (technology == NO_TECH) {
                 std::cout << "== [Node] No technology types oopsies\n";
@@ -223,14 +243,24 @@ void Node::setup(Options options){
             break;
         }
         case LEAF: {
+	    this->state.self.available_technologies.push_back(options.technology);// TEMPORARY
+            TechnologyType technology = determine_best_connection_type();
+
+            if (technology == NO_TECH) {
+                std::cout << "== [Node] No technology types oopsies\n";
+                exit(1);
+            }
+
             this->state.coordinator.addr = options.peer_addr;
             this->state.coordinator.publisher_port = std::to_string(std::stoi(options.peer_port) + 1);
             initial_contact(&options);  // Contact coordinator peer to get connection port
+
             break;
         }
         case NO_OPER: {
             std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
             exit(0);
+
             break;
         }
     }
@@ -256,6 +286,7 @@ Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) 
 }
 
 // Communication Functions
+// This is called from the LEAF
 /* **************************************************************************
 ** Function:
 ** Description:
@@ -263,40 +294,55 @@ Connection * Node::setup_wifi_connection(std::string peer_id, std::string port) 
 void Node::initial_contact(Options * opts) {
     Connection * connection;
     std::string response;
+    TechnologyType initial_contact_technology;
 
-    std::cout << "Setting up initial contact\n";
-    std::cout << "Connecting with technology: " << opts->technology << " and on addr:port: " << opts->peer_addr << ":" << opts->peer_port << "\n";
+    if (opts->technology == LORA_TYPE) {
+	initial_contact_technology = LORA_TYPE;
+    } else if (opts->technology == BLE_TYPE) {
+	initial_contact_technology = BLE_TYPE;
+    } else {
+	initial_contact_technology = TCP_TYPE;
+    }
+
+    std::cout << "== [Node] [initial_contact] Setting up initial contact with coordinator\n";
+    std::cout << "== [Node] [initial_contact] Connecting with initial contact technology: " << initial_contact_technology << " and on addr:port: " << opts->peer_addr << ":" << opts->peer_port << "\n";
 
     opts->is_control = true;
-    connection = ConnectionFactory(opts->technology, opts);
+    connection = ConnectionFactory(initial_contact_technology, opts);
 
-    std::cout << "== [Node] Sending coordinator acknowledgement\n";
+    std::cout << "== [Node] [initial_contact] Sending coordinator acknowledgement\n";
     connection->send("\x06");   // Send initial ACK byte to peer
     response = connection->recv();  // Expect ACK back from peer
-    std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
+    std::cout << "== [Node] [initial_contact] Received: " << (int)response.c_str()[0] << "\n";
 
-    std::cout << "== [Node] Sending SYN byte\n";
-    connection->send("\x16");   // Send SYN byte to peer
-    response = connection->recv();  // Expect new connection port from peer
+    // Dont send SYN, instead send communication technology preferred
+    std::cout << "== [Node] [initial_contact] Sending preferred contact technology\n";
+    connection->send(std::to_string(opts->technology).c_str());
+    //connection->send("Hi");
+    //std::cout << "== [Node] Sending SYN byte\n";
+    //connection->send("\x16");   // Send SYN byte to peer
+    response = connection->recv();  // Expect new connection port from peer or something related to LoRa/Bluetooth
 
     Message port_message(response);
     this->state.coordinator.id = port_message.get_source_id();
     this->state.coordinator.request_port = port_message.get_data();
-    std::cout << "== [Node] Port received: " << this->state.coordinator.request_port << "\n";
+    std::cout << "== [Node] [initial_contact] Port received: " << this->state.coordinator.request_port << "\n";
 
-    std::cout << "== [Node] Sending node information\n";
+    std::cout << "== [Node] [initial_contact] Sending node information\n";
     Message info_message(this->state.self.id, this->state.coordinator.id, CONNECT_TYPE, 1, "Node Information", 0);
     connection->send(&info_message);    // Send node information to peer
 
     response = connection->recv();  // Expect EOT back from peer
-    std::cout << "== [Node] Received: " << (int)response.c_str()[0] << "\n";
-    std::cout << "== [Node] Connection sequence completed. Connecting to new endpoint.\n";
+    std::cout << "== [Node] [initial_contact] Received: " << (int)response.c_str()[0] << "\n";
+    std::cout << "== [Node] [initial_contact] Connection sequence completed. Connecting to new endpoint.\n";
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+    std::cout << "== [Node] [initial_contact] Connection sequence completed. Shutting down initial connection.\n";
     connection->shutdown(); // Shutdown initial connection
 }
 
+// This is called from the leaf
 /* **************************************************************************
 ** Function:
 ** Description:
@@ -304,8 +350,8 @@ void Node::initial_contact(Options * opts) {
 void Node::join_coordinator() {
     Connection * connection;
 
-    std::cout << "Joining coordinator cluster with full connection\n";
-    std::cout << "Connecting with technology: " << this->state.coordinator.technology;
+    std::cout << "[join_coordinator] Joining coordinator cluster with full connection\n";
+    std::cout << "[join_coordinator] Connecting with technology: " << this->state.coordinator.technology;
     std::cout << " and on addr:port: " << this->state.coordinator.addr << ":" << this->state.coordinator.request_port << "\n";
 
     this->state.network.known_nodes++;
@@ -479,6 +525,7 @@ void Node::listen(){
         Message queue_request;
 
         control_request = this->control->recv();
+	std::cout << "[listen] Received control request " << control_request << "\n";
         this->handle_control_request(control_request);
 
         notification = this->notifier->recv();

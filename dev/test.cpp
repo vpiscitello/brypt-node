@@ -352,18 +352,6 @@ void create_streambridge_send_query() {
     std::cout << "Message Content: " << resp_msg.get_data() << '\n';
 
     c->handle_message(&resp_msg);
-
-    //// Use the message command to handle the message logic
-    //c->handle_message( &message );
-
-    //if ( message.get_response() == "" ) {
-    //    std::cout << "Command has no Response." << '\n';
-    //} else {
-    //    std::cout << "Command has no Response." << '\n';
-    //}
-
-
-    //conn->send("THIS IS A MESSAGE");
 }
 
 
@@ -379,13 +367,13 @@ int main(int argc, char **argv) {
     std::cout << "\n== Welcome to the Brypt Network\n";
 
     //// create_tcp_socket();
-    //create_streambridge_socket();
+    ////create_streambridge_socket();
     //// create_tcp_connection();
-    create_streambridge_send_query();
-    while (true) {
-        sleep(1);
-    }
-    return 0;
+    //create_streambridge_send_query();
+    //while (true) {
+    //    sleep(1);
+    //}
+    //return 0;
 
     class Node alpha;
 

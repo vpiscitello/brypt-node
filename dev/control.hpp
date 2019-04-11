@@ -2,6 +2,8 @@
 #define CONTROL_HPP
 
 #include "connection.hpp"
+#include "utility.hpp"
+
 #include <sys/socket.h>
 
 class Control {
@@ -60,21 +62,30 @@ class Control {
 
                         request = this->conn->recv();
 
+			std::cout << "Request was " << request << "\n";
+
                         if (request.compare(0, 1, "\x16") == 0) {
                             std::cout << "== [Control] Device waiting for connection port\n";
                             // TODO: Add connection type byte
 
-                            //std::string device_info = this->handle_contact(DIRECT_TYPE);
-                            std::string device_info = this->handle_contact(STREAMBRIDGE_TYPE);// TEMPORARY
+                            std::string device_info = this->handle_contact(DIRECT_TYPE);
 
                             return device_info;
                         } else {
-                            std::cout << "\n== [Control] Somethings not right" << '\n';
-                            try {
-                                this->conn->send("\x15");
-                            } catch(...) {
+			    int comm_requested = (int)request[0] - 48;
+			    if (comm_requested >= 0 && comm_requested <= 6) {
+				std::cout << "Communication type requested: " << comm_requested << "\n";
+				std::string device_info = this->handle_contact((TechnologyType)comm_requested);
 
-                            }
+				return device_info;
+			    } else {
+			        std::cout << "\n== [Control] Somethings not right" << '\n';
+			        try {
+			            this->conn->send("\x15");
+			        } catch(...) {
+
+			        }
+			    }
                         }
 
                     }
@@ -112,6 +123,7 @@ class Control {
 
                     return device_info;
                 }
+		//TODO add LORA
                 default: {
                     this->conn->send("\x15");
                 }

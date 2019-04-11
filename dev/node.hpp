@@ -57,6 +57,7 @@ class Node {
         float determine_node_power();                           // Determine the node value to the network
         int determine_connection_method();                       // Determine the connection method for a particular transmission
         TechnologyType determine_best_connection_type();          // Determine the best connection type the node has
+	bool has_communication_type(TechnologyType);
         void add_connection(Connection *);
 
         // Communication Functions
