@@ -31,7 +31,7 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
             { "cluster", (*state).self.cluster },
             { "coordinator", (*state).coordinator.id },
             { "neighbor_count", (int)(*state).network.known_nodes },
-            { "designation", (*state).self.operation },
+            { "designation", get_designation((*state).self.operation) },
             { "comm_techs", json11::Json::array { "WiFi" } },
             { "update_timestamp", get_system_timestamp() }
         }

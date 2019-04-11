@@ -50,6 +50,25 @@ inline char * cast_string( std::string s ) {
     return cs;
 }
 
+inline std::string get_designation(DeviceOperation operation) {
+    std::string designation = "";
+    switch (operation) {
+        case ROOT: {
+            designation = "root";
+        }
+        case BRANCH: {
+            designation = "coordinator";
+        }
+        case LEAF: {
+            designation = "node";
+        }
+        case NO_OPER: {
+            designation = "NA";
+        }
+    }
+    return designation;
+}
+
 inline SystemClock get_system_clock() {
     return std::chrono::system_clock::now();
 }
