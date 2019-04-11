@@ -580,6 +580,7 @@ void Node::listen(){
 void Node::connect(){
     std::cout << "== Brypt Node is connecting\n";
     this->join_coordinator();
+    std::cout << "Joined coordinator\n";
     unsigned int run = 0;
 
     do {

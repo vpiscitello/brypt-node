@@ -107,6 +107,7 @@ class Control {
             std::cout << "== [Node] Handling request from control socket\n";
 
             switch (technology) {
+		case TCP_TYPE:
                 case DIRECT_TYPE: {
                     std::string full_port = "";
                     std::string device_info = "";
@@ -123,6 +124,22 @@ class Control {
 
                     return device_info;
                 }
+		//case STREAMBRIDGE_TYPE: {
+                //    std::string full_port = "";
+                //    std::string device_info = "";
+
+                //    (*this->self).next_full_port++;
+                //    full_port = std::to_string((*this->self).next_full_port);
+
+                //    std::cout << "== [Control] Sending port: " << full_port << "\n";
+                //    Message port_message((*this->self).id, "We'll Cross that Brypt When We Come to It.", CONNECT_TYPE, 0, full_port, 0);
+                //    this->conn->send(&port_message);
+
+                //    device_info = this->conn->recv();
+                //    std::cout << "== [Control] Received: " << device_info << "\n";
+
+                //    return device_info;
+                //}
 		//TODO add LORA
                 default: {
                     this->conn->send("\x15");
