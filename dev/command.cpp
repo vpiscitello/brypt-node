@@ -22,8 +22,6 @@ std::string generate_reading() {
 ** Description:
 ** *************************************************************************/
 std::string generate_node_info(class Node * node_instance, struct State * state) {
-    std::string epoch_str = get_system_timestamp();
-
     std::vector<class Connection *> * connections = node_instance->get_connections();
     std::vector<json11::Json::object> nodes_info;
 
@@ -42,6 +40,14 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
     std::vector<class Connection *>::iterator conn_it = connections->begin();
 
     for (conn_it; conn_it != connections->end(); conn_it++) {
+
+        std::stringstream epoch_ss;
+        std::chrono::seconds seconds;
+
+        seconds = std::chrono::duration_cast<std::chrono::seconds>( (*conn_it)->get_update_clock().time_since_epoch() );
+        epoch_ss.clear();
+        epoch_ss << seconds.count();
+
         nodes_info.emplace_back(
             json11::Json::object {
                 { "uid", (*conn_it)->get_peer_name() },
@@ -50,7 +56,7 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
                 { "neighbor_count", 0 },
                 { "designation", "node" },
                 { "comm_techs", json11::Json::array { (*conn_it)->get_type() } },
-                { "update_timestamp", get_system_timestamp() }
+                { "update_timestamp", epoch_ss.str() }
             }
         );
     }
