@@ -177,7 +177,7 @@ int RST   = 0;
 sf_t sf = SF7;
 
 // Set center frequency
-uint32_t  freq = 868000000; // in Mhz! (868.1)
+uint32_t  freq = 868100000; // in Mhz! (868.1)
 
 byte hello[32] = "HELLO";
 
@@ -367,12 +367,12 @@ void receivepacket() {
             printf("RSSI: %d, ", readReg(0x1B)-rssicorr);
             printf("SNR: %li, ", SNR);
             printf("Length: %i", (int)receivedbytes);
-            printf("\n");
-			for(int i = 4; i < 256; i++){
+            //printf("\n");
+			/*for(int i = 4; i < 256; i++){
 				temp[i-4] = message[i];
-			}
-            //printf("Payload: %s\n", message);
-			printf("Payload: %s\n", temp);
+			}*/
+            printf("Payload: %s\n", message);
+			//printf("Payload: %s\n", temp);
 
         } // received a message
 
