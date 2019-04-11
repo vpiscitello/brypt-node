@@ -55,15 +55,19 @@ inline std::string get_designation(DeviceOperation operation) {
     switch (operation) {
         case ROOT: {
             designation = "root";
+            break;
         }
         case BRANCH: {
             designation = "coordinator";
+            break;
         }
         case LEAF: {
             designation = "node";
+            break;
         }
         case NO_OPER: {
             designation = "NA";
+            break;
         }
     }
     return designation;
