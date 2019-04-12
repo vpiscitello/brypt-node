@@ -39,6 +39,7 @@ int contacted = 0;
 IPAddress remote_server(192,168,137,22);
 //String remote_server = "";
 int remote_port = 3001;
+String device_id = "01-01-00-00-00";
 
 WiFiClient server_connection;
 
@@ -142,11 +143,22 @@ void loop() {
                         if (currentLine.indexOf("host_port=") > 0) {
                             int host_port = currentLine.indexOf("host_port=");
 //                            currentLine = currentLine.substring(host_port);
-                            int space_index = currentLine.indexOf(" HTTP");
+                            int space_index = currentLine.indexOf("&device_id");
                             String host_port_str = currentLine.substring(host_port+10, space_index);
                             Serial.print("Host Port is ");
                             Serial.println(host_port_str);
                             remote_port = host_port_str.toInt();
+                        }
+                        Serial.print("Currentline outside4: ");
+                        Serial.println(currentLine);
+                        if (currentLine.indexOf("device_id=") > 0) {
+                            int host_port = currentLine.indexOf("device_id=");
+//                            currentLine = currentLine.substring(host_port);
+                            int space_index = currentLine.indexOf(" HTTP");
+                            String device_id_str = currentLine.substring(host_port+10, space_index);
+                            Serial.print("Device ID is ");
+                            Serial.println(device_id_str);
+                            device_id = device_id_str;
                         }
                         client.stop();
                         WiFi.end();
@@ -227,10 +239,7 @@ void loop() {
         Serial.print("Req port: ");
         Serial.println(req_port);
 
-//        coord_id = "00-00-00-00-01";
-//        req_port = "3018";
-        String self_id = "00-00-00-11-00"; // SHOULD GET FROM WEB FORM
-        Message info_message(self_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, 0);
+        Message info_message(device_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, 0);
         delay(100);
         server_connection.println(info_message.get_pack());
         server_connection.flush();
@@ -254,37 +263,7 @@ void loop() {
         String message = "";
         while (true) {
             cont_recv();
-//            if (message != "") {
-//                Serial.println("Going to handle a message");
-//                handle_messaging(message);
-//            }
         }
-
-        
-//  	    Serial.print("Message is: ");
-//        String msg = "Hello";
-//        Serial.println(msg);
-//        server_connection.println(msg);
-//  	    server_connection.flush();
-//  	    // server_connection.stop();
-//  	    delay(100);
-//        String message;
-//  	    while (server_connection.available()) {
-//        		char c = server_connection.read();
-//        		Serial.write(c);
-//            message = message + c;
-//            // We have read the whole message
-////            if (c == (char)4) {
-////                handle_messaging(message);
-////            }
-//  	    }
-//       handle_messaging(message);
-  
-//  	    Serial.println();
-//        //TEMPORARY
-//        while (true) {
-//  	        delay(1000);
-//        }
   	}
 }
 
@@ -312,7 +291,9 @@ void cont_recv() {
         // We have read the whole message
         if (c == (char)4) {
 //            return message;
-            handle_messaging(message);
+            if (message.length() > 1) {
+                handle_messaging(message);
+            }
         }
     }
 //    return message;
@@ -526,18 +507,18 @@ void send_http_response(WiFiClient client) {
   client.println("Content-type:text/html");
   client.println();
 
-  client.println("<body style=\"display: flex;    flex-direction: column;    justify-content: flex-start;    align-items: center;    background: #F4F7F8;    background: linear-gradient(to right, #E6E9F0, #F4F7F8);\">    <div class=\"box\" style=\"display: flex;    flex-direction: row;    justify-content: center;    align-items: center;    flex-wrap: nowrap;    height: 580px;    width: 420px;    background: #FBFBFB;    border-radius: 8px;    box-shadow: 0px 0px 20px rgba(30, 30, 30, 0.15);    box-sizing: border-box;    color: #4A5C62;    font-family: 'Source Sans Pro', sans-serif;    font-size: 14px;    font-weight: 300;    line-height: 1.15;    margin-top: 50px;\">  <form action=\"/action_page.php\">      <h1 style=\"position: relative;    width: 80%;    margin-bottom: 30px;    font-size: 2em;    color: #2D383C;    text-transform: uppercase;    text-align: center;    font-weight: 700;    font-family: 'Chivo', sans-serif;    margin-block-start: 0.83em;    margin-block-end: 0.83em;    box-sizing: border-box;    display: block;    line-height: 1.15;    margin: 0 auto;\">Available connections</h1>      <br>      <div class=\"listelems\" style=\"position: relative;    overflow-y: scroll;    height: 200px;    text-align: center;    width: 250px;    display: block;    position: relative;    display: block;    margin: 0 auto;\">");
+  client.println("<body style=\"display: flex;    flex-direction: column;    justify-content: flex-start;    align-items: center;    background: #F4F7F8;    background: linear-gradient(to right, #E6E9F0, #F4F7F8);\">    <div class=\"box\" style=\"display: flex;    flex-direction: row;    justify-content: center;    align-items: center;    flex-wrap: nowrap;    height: 640px;    width: 420px;    background: #FBFBFB;    border-radius: 8px;    box-shadow: 0px 0px 20px rgba(30, 30, 30, 0.15);    box-sizing: border-box;    color: #4A5C62;    font-family: 'Source Sans Pro', sans-serif;    font-size: 14px;    font-weight: 300;    line-height: 1.15;    margin-top: 50px;\">  <form action=\"/action_page.php\">      <h1 style=\"position: relative;    width: 80%;    margin-bottom: 30px;    font-size: 2em;    color: #2D383C;    text-transform: uppercase;    text-align: center;    font-weight: 700;    font-family: 'Chivo', sans-serif;    margin-block-start: 0.83em;    margin-block-end: 0.83em;    box-sizing: border-box;    display: block;    line-height: 1.15;    margin: 0 auto;\">Available connections</h1>      <br>      <div class=\"listelems\" style=\"position: relative;    overflow-y: scroll;    height: 200px;    text-align: center;    width: 250px;    display: block;    position: relative;    display: block;    margin: 0 auto;\">");
   for (int i = 0; i < 10; i++) {
       if (strcmp(AP_names[i], "") != 0) {
-          client.print("<div class=\"net-item\" style=\"padding-top: 5px;    padding-bottom: 5px;    transition: 0.3s ease-in-out all; hover {    top: -4px;    background: rgba(30, 30, 30, 0.15);    opacity: 1;    box-shadow: 0px 4px 20px rgba(20, 20, 20, 0.15);    transition: 0.3s ease-in-out all;}\"><p>(");
+          client.print("<div class=\"net-item\" style=\"padding-top: 5px;    padding-bottom: 5px;    transition: 0.3s ease-in-out all;\"><p>(");
           client.print(i);
           client.print(") ");
           client.print(AP_names[i]);
           client.println("</p></div>");
       }
   }
-  client.println("</div>      <br>      <div class=\"entries\" style=\"\">      <input type=\"text\" name=\"ap_name\" placeholder=\"Access Point Number\" style=\"\">      <input type=\"text\" name=\"host_ip\" placeholder=\"Host IP Address\" style=\"\">      <input type=\"text\" name=\"host_port\" placeholder=\"Host Port Number\" style=\"\">      <input type=\"submit\" value=\"Submit\" style=\"\">      </div>");
-//  client.println("</div>      <br>      <div class=\"entries\" style=\"text-align: center;    background: #FBFBFB;    border-radius: 8px;    box-sizing: border-box;    color: #4A5C62;    font-family: 'Source Sans Pro', sans-serif;    font-size: 14px;    font-weight: 300;    line-height: 1.15;\">      <input type=\"text\" name=\"ap_name\" placeholder=\"Access Point Number\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"text\" name=\"host_ip\" placeholder=\"Host IP Address\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"text\" name=\"host_port\" placeholder=\"Host Port Number\" style=\"position: relative;margin-top: 10px;    background: rgba(126, 154, 148, 0.05);    box-shadow: none;    width: 60%;    padding: 12px 14px;    border: 2px solid transparent;    border-radius: 4px;    outline: none;focus {    border: 2px solid rgba(26, 204, 149, 1);    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.4);}\">      <input type=\"submit\" value=\"Submit\" style=\"position: relative;margin-top: 10px;font-size: 1em;    font-weight: 700;    font-family: 'Chivo', sans-serif;    display: block;    position: relative;    top: 0px;    width: 250px;    height: 45px;    margin: 0 auto; margin-top: 10px;    font-size: 1.4em;    font-weight: 700;    text-transform: uppercase;    letter-spacing: 0.1em;    color: rgba(251, 251, 251, 0.6);    cursor: pointer;    -webkit-appearance: none;    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 0%, rgb(67, 231, 179) 100%);    opacity: 0.85;    border: none;    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.5);    transition: 0.3s ease-in-out all;    border-radius: 4px;    text-decoration: none;hover {    top: -4px;    color: rgba(251, 251, 251, 1);    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 25%, rgb(67, 231, 179) 100%);    opacity: 1;    box-shadow: 0px 4px 20px rgba(26, 204, 149, 0.6);}\">      </div>  </form>    </div></body>");
+  // For some reason when adding styling to the inputs it causes issues
+  client.println("</div>      <br>      <div class=\"entries\" style=\"text-align: center;    background: #FBFBFB;    border-radius: 8px;    box-sizing: border-box;    color: #4A5C62;    font-family: 'Source Sans Pro', sans-serif;    font-size: 14px;    font-weight: 300;    line-height: 1.15;\">      <input type=\"text\" name=\"ap_name\" placeholder=\"Access Point Number\" style=\"\">      <input type=\"text\" name=\"host_ip\" placeholder=\"Host IP Address\" style=\"\">      <input type=\"text\" name=\"host_port\" placeholder=\"Host Port Number\" style=\"\">      <input type=\"text\" name=\"device_id\" placeholder=\"Device ID Number\" style=\"\">      <input type=\"submit\" value=\"Submit\" style=\"position: relative;font-size: 1em;    font-weight: 700;    font-family: 'Chivo', sans-serif;    display: block;    position: relative;    top: 0px;    width: 250px;    height: 45px;    margin: 0 auto;margin-top: 10px;    font-size: 1.4em;    font-weight: 700;    text-transform: uppercase;    letter-spacing: 0.1em;    color: rgba(251, 251, 251, 0.6);    cursor: pointer;    -webkit-appearance: none;    background: rgb(26, 204, 149);    background: linear-gradient(to right top, rgb(26, 204, 148) 0%, rgb(67, 231, 179) 100%);    opacity: 0.85;    border: none;    box-shadow: 0px 0px 20px rgba(26, 204, 149, 0.5);    transition: 0.3s ease-in-out all;    border-radius: 4px;    text-decoration: none;\">      </div>  </form>    </div></body>");
   client.println();
 }
 
