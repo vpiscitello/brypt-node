@@ -67,13 +67,14 @@ int main (int argc, char *argv[]) {
 	printf("------------------\n");
 	while(1){
 		opmode(OPMODE_STANDBY);
-		delay(1);
 		txlora(hello, strlen((char*) hello));
+		delay(100);
 		clock_t now = clock();
-		while(((clock() - now)/CLOCKS_PER_SEC) > 5){
+		while(((clock() - now)/CLOCKS_PER_SEC) < 5){
 			opmode(OPMODE_STANDBY);
 			opmode(OPMODE_RX);
 			receivepacket();
+			delay(100);
 		}
 	}
 	
