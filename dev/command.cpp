@@ -484,6 +484,8 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
     std::cout << "== [Command] Setting up full connection\n";
     std::string full_port = std::to_string(self->next_full_port);
 
+    std::cout << "MESSAGE: " << message->get_pack() << "\n";
+    std::cout << "MESSAGE DATA: " << message->get_data() << "\n";
     Connection *full = this->node_instance->setup_wifi_connection(message->get_source_id(), full_port);
     this->node_instance->get_connections()->push_back(full);
     if (full->get_worker_status()) {

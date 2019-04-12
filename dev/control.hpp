@@ -75,7 +75,13 @@ class Control {
 			    int comm_requested = (int)request[0] - 48;
 			    if (comm_requested >= 0 && comm_requested <= 6) {
 				std::cout << "Communication type requested: " << comm_requested << "\n";
-				std::string device_info = this->handle_contact((TechnologyType)comm_requested);
+				TechnologyType server_comm_type;
+				if ((TechnologyType)comm_requested == TCP_TYPE) {
+				    server_comm_type = STREAMBRIDGE_TYPE;
+				} else {
+				    server_comm_type = (TechnologyType)comm_requested;
+				}
+				std::string device_info = this->handle_contact(server_comm_type);
 
 				return device_info;
 			    } else {
@@ -108,6 +114,7 @@ class Control {
 
             switch (technology) {
 		case TCP_TYPE:
+		case STREAMBRIDGE_TYPE:
                 case DIRECT_TYPE: {
                     std::string full_port = "";
                     std::string device_info = "";
