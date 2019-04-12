@@ -420,22 +420,22 @@ class Message {
 		 ** Description: HMAC a provided message and return the authentication token.
 		 ** *************************************************************************/
 		/*
-		String hmac(String message) {
-			//int key = 3005;
-			//String in_key, out_key, inner, token;
-			String token;
-			//token = "12345";
-			BLAKE2s blake2s; 
-			byte buffer[128];
-			byte result[HASH_SIZE];
+		   String hmac(String message) {
+		//int key = 3005;
+		//String in_key, out_key, inner, token;
+		String token;
+		//token = "12345";
+		BLAKE2s blake2s; 
+		byte buffer[128];
+		byte result[HASH_SIZE];
 
-			memset(buffer, 0x00, sizeof(buffer));
-			memset(result, 0x00, sizeof(result));
+		memset(buffer, 0x00, sizeof(buffer));
+		memset(result, 0x00, sizeof(result));
 
-			hash(&blake2s, buffer, mssg);
-			hmac(&blake2s, key, result, mssg); 
+		hash(&blake2s, buffer, mssg);
+		hmac(&blake2s, key, result, mssg); 
 
-			return token;
+		return token;
 		}
 		*/
 		String hmac(String mssg){
@@ -465,7 +465,7 @@ class Message {
 			trueres = String((char *)result);
 			return trueres;
 		}
-		
+
 		/*
 		   String hash(Hash *h, uint8_t *value, byte *mssg){
 		   h->reset();
@@ -504,6 +504,23 @@ bool verify() {
 
 	return verified;
 }
+/*
+void encrypt(String plaintext){
+
+}
+void decrypt(String ciphertext){
+	unsigned char noncebuf[12];
+	atoi(this->nonce, noncebuf, 10);
+	crypto_feed_watchdog();
+	aes_ctr_256.setKey(key, 32);
+	aes_ctr_256.setIV(nonce, 12);
+	aes_ctr_256.setCounterSize(4);
+	byte buffer[ciphertext.length()+1];
+	aes_ctr_256.decrypt(buffer, ctxt, ciphertext.length());
+	Serial.println(buffer[0]);
+	Serial.println("AES-CTR-256 Decrypted text:");
+}
+*/
 };
 
 #endif
