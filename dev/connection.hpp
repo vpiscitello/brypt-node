@@ -755,6 +755,14 @@ class TCP : public Connection {
 	    memset(buffer, '\0', 1024);
 	    int valread = read(this->connection, buffer, 1024);
 	    printf("[TCP] Received: (%d) %s\n", valread, buffer);
+	    // Sometimes TCP receives weird info
+	    if (strlen(buffer) == 2) {
+		    std::cout << "TCP got 2: (1) " << (int)buffer[0] << " (2) " << (int)buffer[1] << "\n";
+		    if ((int)buffer[0] == 13 && (int)buffer[1] == 10) {
+			    memset(buffer, '\0', 1024);
+			    return buffer;
+		    }
+	    }
 
 	    return buffer;
 	}
