@@ -343,7 +343,7 @@ void receivepacket() {
     if(digitalRead(dio0) == 1)
     {
         if(receive(message)) {
-			char temp[252];
+			//char temp[252];
             byte value = readReg(REG_PKT_SNR_VALUE);
             if( value & 0x80 ) // The SNR sign bit is 1
             {
@@ -404,14 +404,14 @@ static void configPower (int8_t pw) {
 
 
 static void writeBuf(byte addr, byte *value, byte len) {                                                       
-    unsigned char spibuf[256];                                                                          
-    spibuf[0] = addr | 0x80;                                                                            
-    for (int i = 0; i < len; i++) {                                                                         
-        spibuf[i + 1] = value[i];                                                                       
-    }                                                                                                   
-    selectreceiver();                                                                                   
-    wiringPiSPIDataRW(CHANNEL, spibuf, len + 1);                                                        
-    unselectreceiver();                                                                                 
+    unsigned char spibuf[256]; 
+    spibuf[0] = addr | 0x80;
+    for (int i = 0; i < len; i++) {
+        spibuf[i + 1] = value[i];
+    }
+    selectreceiver(); 
+    wiringPiSPIDataRW(CHANNEL, spibuf, len + 1);
+    unselectreceiver();
 }
 
 void txlora(byte *frame, byte datalen) {

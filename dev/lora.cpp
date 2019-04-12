@@ -6,10 +6,10 @@
 
 int main (int argc, char *argv[]) {
 
-    if (argc < 2) {
-        printf ("Usage: argv[0] sender|rec [message]\n");
-        exit(1);
-    }
+    // if (argc < 2) {
+    //     printf ("Usage: argv[0] sender|rec [message]\n");
+    //     exit(1);
+    // }
 
     wiringPiSetup () ;
     pinMode(ssPin, OUTPUT);
@@ -20,7 +20,7 @@ int main (int argc, char *argv[]) {
 
     SetupLoRa();
 
-    if (!strcmp("sender", argv[1])) {
+    /*if (!strcmp("sender", argv[1])) {
         opmodeLora();
         // enter standby mode (required for FIFO loading))
         opmode(OPMODE_STANDBY);
@@ -52,7 +52,27 @@ int main (int argc, char *argv[]) {
             delay(1);
         }
 
-    }
+    }*/
+
+	
+	opmodeLora();
+	opmode(OPMODE_STANDBY);
+
+	writeReg(RegPaRamp, (readReg(RegPaRamp) & 0xF0) | 0x08); // set PA ramp-up time 50 uSec
+
+	configPower(23);
+
+	printf("Send and recieve packets at SF%i on %.6lf Mhz.\n", sf, (double) freq/1000000);
+	printf("------------------\n");
+	while(1){
+		txlora(hello, strlen((char*) hello));
+		opmode(OPMODE_STANDBY);
+		opmode(OPMODE_RX);
+		receivepacket();
+		opmode(OPMODE_STANDBY);
+		delay(1000);
+	}
+	
 
     return (0);
 }
