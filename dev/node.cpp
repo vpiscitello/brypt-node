@@ -69,6 +69,14 @@ std::vector<class Connection *> * Node::get_connections() {
 ** Function:
 ** Description:
 ** *************************************************************************/
+std::vector<class Connection *> * Node::get_slave_connections() {
+    return &this->slave_connections;
+}
+
+/* **************************************************************************
+** Function:
+** Description:
+** *************************************************************************/
 class Connection * Node::get_connection(unsigned int index) {
     return this->connections.at(index);
 }
