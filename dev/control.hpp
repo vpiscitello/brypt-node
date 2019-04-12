@@ -64,36 +64,26 @@ class Control {
 
 			std::cout << "Request was " << request << "\n";
 
-                        if (request.compare(0, 1, "\x16") == 0) {
-                            std::cout << "== [Control] Device waiting for connection port\n";
-                            // TODO: Add connection type byte
-
-                            std::string device_info = this->handle_contact(DIRECT_TYPE);
-
-                            return device_info;
-                        } else {
-			    int comm_requested = (int)request[0] - 48;
-			    if (comm_requested >= 0 && comm_requested <= 6) {
-				std::cout << "Communication type requested: " << comm_requested << "\n";
-				TechnologyType server_comm_type;
-				if ((TechnologyType)comm_requested == TCP_TYPE) {
-				    server_comm_type = STREAMBRIDGE_TYPE;
-				} else {
-				    server_comm_type = (TechnologyType)comm_requested;
-				}
-				std::string device_info = this->handle_contact(server_comm_type);
-
-				return device_info;
+			int comm_requested = (int)request[0] - 48;
+			if (comm_requested >= 0 && comm_requested <= 6) {
+			    std::cout << "Communication type requested: " << comm_requested << "\n";
+			    TechnologyType server_comm_type;
+			    if ((TechnologyType)comm_requested == TCP_TYPE) {
+				server_comm_type = STREAMBRIDGE_TYPE;
 			    } else {
-			        std::cout << "\n== [Control] Somethings not right" << '\n';
-			        try {
-			            this->conn->send("\x15");
-			        } catch(...) {
-
-			        }
+				server_comm_type = (TechnologyType)comm_requested;
 			    }
-                        }
+			    std::string device_info = this->handle_contact(server_comm_type);
 
+			    return device_info;
+			} else {
+			    std::cout << "\n== [Control] Somethings not right" << '\n';
+			    try {
+				this->conn->send("\x15");
+			    } catch(...) {
+
+			    }
+			}
                     }
                 }
                 default: {
