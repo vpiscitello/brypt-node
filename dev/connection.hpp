@@ -180,7 +180,7 @@ class Direct : public Connection {
     public:
         Direct() {}
         Direct(struct Options *options) {
-            std::cout << "== [Connection] Creating direct instance.\n";
+            std::cout << "== [Direct] Creating direct instance.\n";
 
             this->port = options->port;
             this->peer_name = options->peer_name;
@@ -192,13 +192,13 @@ class Direct : public Connection {
             this->update_clock = get_system_clock();
 
     	    if (options->is_control) {
-        		std::cout << "== [Connection] Creating control socket\n";
+        		std::cout << "== [Direct] Creating control socket\n";
 
         		this->context = new zmq::context_t(1);
 
         		switch (options->operation) {
                     case ROOT: {
-                        std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
+                        std::cout << "== [Direct] Setting up REP socket on port " << options->port << "\n";
                         this->setup_rep_socket(options->port);
                         break;
                     }
@@ -206,7 +206,7 @@ class Direct : public Connection {
                         break;
                     }
                     case LEAF: {
-                        std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+                        std::cout << "== [Direct] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
                         this->setup_req_socket(options->peer_addr, options->peer_port);
                         break;
                     }
@@ -236,7 +236,7 @@ class Direct : public Connection {
         }
 
         void spawn() {
-            std::cout << "== [Connection] Spawning DIRECT_TYPE connection thread\n";
+            std::cout << "== [Direct] Spawning DIRECT_TYPE connection thread\n";
             this->worker_thread = std::thread(&Direct::worker, this);
         }
 
@@ -249,7 +249,7 @@ class Direct : public Connection {
 
             switch (this->operation) {
                 case ROOT: {
-                    std::cout << "== [Connection] Setting up REP socket on port " << this->port << "\n";
+                    std::cout << "== [Direct] Setting up REP socket on port " << this->port << "\n";
                     this->setup_rep_socket(this->port);
                     // handle_messaging();
                     break;
@@ -258,7 +258,7 @@ class Direct : public Connection {
                     break;
                 }
                 case LEAF: {
-                    std::cout << "== [Connection] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
+                    std::cout << "== [Direct] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
                     this->setup_req_socket(this->peer_addr, this->peer_port);
 
                     break;
@@ -329,7 +329,7 @@ class Direct : public Connection {
 
 	    this->socket->send(request);
 
-	    std::cout << "== [Connection] Sent\n";
+	    std::cout << "== [Direct] Sent\n";
 	}
 
 	void send(const char * message) {
@@ -337,7 +337,7 @@ class Direct : public Connection {
 	    memcpy(request.data(), message, strlen(message));
 	    this->socket->send(request);
 
-	    std::cout << "== [Connection] Sent\n";
+	    std::cout << "== [Direct] Sent\n";
 	}
 
 	std::string recv(int flag){
@@ -349,6 +349,7 @@ class Direct : public Connection {
             this->update_clock = get_system_clock();
         }
 
+	    std::cout << "== [Direct] Received: " << request << "\n";
 	    return request;
 	}
 
@@ -514,16 +515,16 @@ class StreamBridge : public Connection {
 	    //if (this->init_msg == 1) {
 		// Receive 4 times, first is ID, second is nothing, third is message
 		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-		std::cout << "Received ID: " << this->id << "\n";
+		std::cout << "[StreamBridge] Received ID: " << this->id << "\n";
 		std::cout << "THE ID SIZE IS: " << this->id_size << "\n";
 		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
+		std::cout << "[StreamBridge] Received: " << buffer << "\n";
 		memset(buffer, '\0', 512);
 		msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
+		std::cout << "[StreamBridge] Received: " << buffer << "\n";
 		memset(buffer, '\0', 512);
 		msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
+		std::cout << "[StreamBridge] Received: " << buffer << "\n";
 		this->init_msg = 0;
 	    //} else {
 	    //    // Receive 2 times, first is ID, second is nothing, third is message
@@ -753,7 +754,7 @@ class TCP : public Connection {
 	    char buffer[1024];
 	    memset(buffer, '\0', 1024);
 	    int valread = read(this->connection, buffer, 1024);
-	    printf("Received: (%d) %s\n", valread, buffer);
+	    printf("[TCP] Received: (%d) %s\n", valread, buffer);
 
 	    return buffer;
 	}
