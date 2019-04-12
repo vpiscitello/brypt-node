@@ -508,7 +508,7 @@ class StreamBridge : public Connection {
 	    char buffer[512];
 	    memset(buffer, '\0', 512);
 
-	    if (this->init_msg == 1) {
+	    //if (this->init_msg == 1) {
 		// Receive 4 times, first is ID, second is nothing, third is message
 		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
 		std::cout << "Received ID: " << this->id << "\n";
@@ -521,13 +521,13 @@ class StreamBridge : public Connection {
 		msg_size = zmq_recv(this->socket, buffer, 512, 0);
 		std::cout << "Received: " << buffer << "\n";
 		this->init_msg = 0;
-	    } else {
-		// Receive 2 times, first is ID, second is nothing, third is message
-		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-		std::cout << "Received ID: " << this->id << "\n";
-		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
-	    }
+	    //} else {
+	    //    // Receive 2 times, first is ID, second is nothing, third is message
+	    //    this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+	    //    std::cout << "Received ID: " << this->id << "\n";
+	    //    size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
+	    //    std::cout << "Received: " << buffer << "\n";
+	    //}
 
 	    return buffer;
 	    //} while ( true );
