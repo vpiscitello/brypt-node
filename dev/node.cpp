@@ -300,7 +300,7 @@ Connection * Node::setup_full_connection(std::string peer_id, std::string port, 
     opts.peer_name = peer_id;
     this->message_queue.push_pipe("./tmp/" + opts.peer_name + ".pipe");
 
-    Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
+    Connection * connection = ConnectionFactory(comm_tech, &opts);
 
     return connection;
 }
