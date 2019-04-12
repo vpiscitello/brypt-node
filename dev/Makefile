@@ -34,5 +34,14 @@ watcher.o: watcher.cpp
 run:
 	./$(TARGET)
 
+root:
+	./$(TARGET) --root -id 1 -type DIRECT -port 3005
+
+leaf_two:
+	./$(TARGET) --leaf -id 2 -type DIRECT -port 4005 -peer 192.168.30.1 -pp 3005
+
+leaf_three:
+	./$(TARGET) --leaf -id 3 -type DIRECT -port 5005 -peer 192.168.30.1 -pp 3005
+
 clean:
 	rm -f *.out *.o $(TARGET)

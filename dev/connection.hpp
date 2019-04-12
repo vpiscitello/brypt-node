@@ -60,7 +60,8 @@ class Connection {
         std::condition_variable worker_conditional;
 
     public:
-    	virtual void whatami() = 0;
+        virtual void whatami() = 0;
+    	virtual std::string get_type() = 0;
     	virtual void spawn() = 0;
     	virtual void worker() = 0;
     	virtual std::string recv(int flag = 0) = 0;
@@ -234,6 +235,10 @@ class Direct : public Connection {
             std::cout << "I am a Direct implementation." << '\n';
         }
 
+        std::string get_type() {
+            return "WiFi";
+        }
+
         void spawn() {
             std::cout << "== [Connection] Spawning DIRECT_TYPE connection thread\n";
             this->worker_thread = std::thread(&Direct::worker, this);
@@ -326,40 +331,43 @@ class Direct : public Connection {
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 
-	    this->socket->send(request);
+    	    this->socket->send(request);
+            this->message_sequence++;
 
-	    std::cout << "== [Connection] Sent\n";
-	}
+    	    std::cout << "== [Connection] Sent\n";
+    	}
 
-	void send(const char * message) {
-	    zmq::message_t request(strlen(message));
-	    memcpy(request.data(), message, strlen(message));
-	    this->socket->send(request);
+    	void send(const char * message) {
+    	    zmq::message_t request(strlen(message));
+    	    memcpy(request.data(), message, strlen(message));
+    	    this->socket->send(request);
+            this->message_sequence++;
 
-	    std::cout << "== [Connection] Sent\n";
-	}
+    	    std::cout << "== [Connection] Sent\n";
+    	}
 
-	std::string recv(int flag){
-	    zmq::message_t message;
-	    this->socket->recv(&message, flag);
-	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
+    	std::string recv(int flag){
+    	    zmq::message_t message;
+    	    this->socket->recv(&message, flag);
+    	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
 
-        if (request != "") {
-            this->update_clock = get_system_clock();
-        }
+            if (request != "") {
+                this->update_clock = get_system_clock();
+                this->message_sequence++;
+            }
 
-	    return request;
-	}
+    	    return request;
+    	}
 
-	void shutdown() {
-	    std::cout << "Shutting down socket and context\n";
-	    zmq_close(this->socket);
-	    zmq_ctx_destroy(this->context);
-	}
+    	void shutdown() {
+    	    std::cout << "Shutting down socket and context\n";
+    	    zmq_close(this->socket);
+    	    zmq_ctx_destroy(this->context);
+    	}
 
-	void handle_messaging() {
+    	void handle_messaging() {
 
-	}
+    	}
 };
 
 class StreamBridge : public Connection {
@@ -430,6 +438,10 @@ class StreamBridge : public Connection {
 	void whatami() {
 	    std::cout << "I am a StreamBridge implementation." << '\n';
 	}
+
+    std::string get_type() {
+        return "WiFi";
+    }
 
 	void spawn() {
 	    std::cout << "== [StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread\n";
@@ -608,6 +620,10 @@ class TCP : public Connection {
 	    std::cout << "I am a TCP implementation." << '\n';
 	}
 
+    std::string get_type() {
+        return "WiFi";
+    }
+
 	void spawn() {
 	    std::cout << "== [TCP] Spawning TCP_TYPE connection thread\n";
 	    this->worker_thread = std::thread(&TCP::worker, this);
@@ -757,6 +773,10 @@ class Bluetooth : public Connection {
 	    std::cout << "I am a BLE implementation." << '\n';
 	}
 
+    std::string get_type() {
+        return "BLE";
+    }
+
 	void spawn() {
 
 	}
@@ -809,39 +829,9 @@ class LoRa : public Connection {
 	    std::cout << "I am a LoRa implementation." << '\n';
 	}
 
-	void spawn() {
-
-	}
-
-	void worker() {
-
-	}
-
-	void send(class Message * msg) {
-	    msg->get_pack();
-
-	}
-
-	void send(const char * message) {
-	    std::cout << "[Connection] Sent: " << message << '\n';
-	}
-
-	std::string recv(int flag){
-        if (flag) {}
-
-	    return "Message";
-	}
-
-	void shutdown() {
-
-	}
-};
-
-class Websocket : public Connection {
-    public:
-	void whatami() {
-	    std::cout << "I am a Websocket implementation." << '\n';
-	}
+    std::string get_type() {
+        return "LoRa";
+    }
 
 	void spawn() {
 
@@ -853,6 +843,7 @@ class Websocket : public Connection {
 
 	void send(class Message * msg) {
 	    msg->get_pack();
+
 	}
 
 	void send(const char * message) {
@@ -881,9 +872,6 @@ inline Connection* ConnectionFactory(TechnologyType technology) {
 	case LORA_TYPE:
 	    return new LoRa;
 	    break;
-	case WEBSOCKET_TYPE:
-	    return new Websocket;
-	    break;
 	case TCP_TYPE:
 	    return new TCP;
 	    break;
@@ -907,9 +895,6 @@ inline Connection* ConnectionFactory(TechnologyType technology, Options *options
 	    break;
 	case LORA_TYPE:
 	    return new LoRa();
-	    break;
-	case WEBSOCKET_TYPE:
-	    return new Websocket();
 	    break;
 	case TCP_TYPE:
 	    return new TCP(options);

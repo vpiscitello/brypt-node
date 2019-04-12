@@ -19,7 +19,6 @@ void connection_factory_test() {
     connections.push_back( ConnectionFactory(BLE_TYPE) );
     connections.push_back( ConnectionFactory(LORA_TYPE) );
     connections.push_back( ConnectionFactory(DIRECT_TYPE) );
-    connections.push_back( ConnectionFactory(WEBSOCKET_TYPE) );
 
     // Check the connection type and run a shared function
     for (int idx = 0; idx < (int)connections.size(); idx++) {
@@ -223,8 +222,6 @@ void parse_args(int argc, char **argv) {
                 options.technology = BLE_TYPE;
             } else if (device_type == "LORA") {
                 options.technology = LORA_TYPE;
-            } else if (device_type == "WEBSOCKET") {
-                options.technology = WEBSOCKET_TYPE;
             } else {
                 std::cout << "== Invalid device type." << '\n';
                 exit(1);
