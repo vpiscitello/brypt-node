@@ -49,15 +49,11 @@ class Node {
         class MessageQueue message_queue;
         class AwaitContainer awaiting;
 
-	// Node capabilities
-	DeviceSocketCapability capability;
-
         // Private Functions
         // Utility Functions
         float determine_node_power();                           // Determine the node value to the network
         int determine_connection_method();                       // Determine the connection method for a particular transmission
         TechnologyType determine_best_connection_type();          // Determine the best connection type the node has
-	bool has_communication_type(TechnologyType);
         void add_connection(Connection *);
 
         // Communication Functions
@@ -90,7 +86,7 @@ class Node {
         // Setup Functions
         void setup(Options options);
         void setup();                                            // Setup the node
-	Connection * setup_full_connection(std::string peer_id, std::string port, TechnologyType comm_tech);
+        Connection * setup_wifi_connection(std::string peer_id, std::string port);
 
         // Getter Functions
         class Control * get_control();
