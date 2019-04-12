@@ -242,7 +242,7 @@ void Node::setup(Options options){
                 exit(1);
             }
 
-	    technology = STREAMBRIDGE_TYPE; // Temporary
+	    //technology = STREAMBRIDGE_TYPE; // Temporary
 
             this->control = new Control(technology, &this->state.self);
 

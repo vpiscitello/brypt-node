@@ -45,7 +45,8 @@ class Control {
 
         // Receive for requests, if a request is received recv it and then return the message string
         std::string recv() {
-            std::string request = this->conn->recv(ZMQ_NOBLOCK);
+            //std::string request = this->conn->recv(ZMQ_NOBLOCK);
+            std::string request = this->conn->recv(0);//blocking mode
 
             switch (request.size()) {
                 case 0: {
@@ -60,11 +61,17 @@ class Control {
                         this->conn->send("\x06");
                         std::cout << "== [Control] Device was sent acknowledgement\n";
 
-                        request = this->conn->recv();
+                        request = this->conn->recv(0);
 
 			std::cout << "Request was " << request << "\n";
 
 			int comm_requested = (int)request[0] - 48;
+			if (comm_requested < 0 || comm_requested > 6) {
+				request = this->conn->recv(0);
+				std::cout << "Request again? was " << request << "\n";
+			}
+
+			comm_requested = (int)request[0] - 48;
 			if (comm_requested >= 0 && comm_requested <= 6) {
 			    std::cout << "Communication type requested: " << comm_requested << "\n";
 			    TechnologyType server_comm_type;
