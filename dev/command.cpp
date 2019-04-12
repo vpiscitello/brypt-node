@@ -484,14 +484,8 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
     std::cout << "== [Command] Setting up full connection\n";
     std::string full_port = std::to_string(self->next_full_port);
 
-    TechnologyType comm_tech = (TechnologyType)(std::stoi(message->get_data()));
-    if (comm_tech == TCP_TYPE) {
-	comm_tech = STREAMBRIDGE_TYPE;
-    }
-    Connection * full = this->node_instance->setup_full_connection(message->get_source_id(), full_port, comm_tech);
-
+    Connection *full = this->node_instance->setup_wifi_connection(message->get_source_id(), full_port);
     this->node_instance->get_connections()->push_back(full);
-
     if (full->get_worker_status()) {
         std::cout << "== [Command] Connection worker thread is ready" << '\n';
     }
