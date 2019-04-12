@@ -500,6 +500,8 @@ class StreamBridge : public Connection {
 	    std::cout << "[Control] Setting up streambridge socket on port " << port << "... PID: " << getpid() << "\n\n";
 	    this->instantiate_connection = true;
 	    std::string conn_data = "tcp://*:" + port;
+	    //int timeout = 100;
+	    //zmq_setsockopt(this->socket, ZMQ_RCV_TIMEO, &timeout, sizeof(timeout));
 	    zmq_bind(this->socket, conn_data.c_str());
 	}
 
@@ -513,6 +515,7 @@ class StreamBridge : public Connection {
 		// Receive 4 times, first is ID, second is nothing, third is message
 		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
 		std::cout << "Received ID: " << this->id << "\n";
+		std::cout << "THE ID SIZE IS: " << this->id_size << "\n";
 		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
 		std::cout << "Received: " << buffer << "\n";
 		memset(buffer, '\0', 512);
@@ -544,7 +547,7 @@ class StreamBridge : public Connection {
 
 	void send(const char * message) {
 	    std::cout << "[StreamBridge] Sending..." << '\n';
-	    zmq_send(this->socket, id, id_size, ZMQ_SNDMORE);
+	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
 	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
 	    std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
 	}
