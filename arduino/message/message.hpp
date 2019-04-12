@@ -17,6 +17,7 @@
 
 #define HASH_SIZE 32
 #define CRYPTO_AES_DEFAULT "AES-256-CTR"
+#define KEY_SIZE 32
 
 class Message {
 	private:
@@ -298,7 +299,7 @@ class Message {
 		 ** Function: unpack
 		 ** Description: Unpack the raw message string into the Message class variables.
 		 ** *************************************************************************/
-		void unpack() {
+		void unpack() {//decrypt
 			int loops = 0;
 			MessageChunk chunk = FIRST_CHUNK;
 			int data_size = 0;
@@ -418,6 +419,7 @@ class Message {
 		 ** Function: hmac
 		 ** Description: HMAC a provided message and return the authentication token.
 		 ** *************************************************************************/
+		/*
 		String hmac(String message) {
 			//int key = 3005;
 			//String in_key, out_key, inner, token;
@@ -435,18 +437,35 @@ class Message {
 
 			return token;
 		}
-		String hmac(byte *key, byte *result, byte *mssg){
+		*/
+		String hmac(String mssg){
+			unsigned char result[HASH_SIZE];
+			unsigned char tmpres[HASH_SIZE];
+			int mlen = mssg.length();
+			char * mssgptr;
+			char noncebuf[12];
+			mssg.toCharArray(mssgptr, mlen);
+			itoa(this->nonce, noncebuf, 10);
+			byte tmpkey[32];
 			memset(result, 0x00, sizeof(result));
-			BLAKE2s hash;
-			long keynum = key.toInt();
-			keynum = keynum+nonce;
-			key = String(keynum);
-			h->resetHMAC(key, strlen(key));
-			h->update(mssg, strlen(mssg));
-			h->finalizeHMAC(key, strlen(key), result, HASH_SIZE);
-			Serial.println(result);
-			return result;
+			BLAKE2s *h;
+			//long keynum = this->key.toInt();
+			//keynum = keynum+nonce;
+			//String(keynum).getBytes(tmpkey, 32);
+
+			h->resetHMAC(key, 32);
+			h->update(noncebuf, 12);
+			h->finalizeHMAC(key, 12, tmpkey, HASH_SIZE);
+
+			h->resetHMAC(tmpkey, 32);
+			h->update(mssgptr, mlen);
+			h->finalizeHMAC(tmpkey, mlen, result, HASH_SIZE);
+			Serial.println(result[0]);
+			String trueres;
+			trueres = String((char *)result);
+			return trueres;
 		}
+		
 		/*
 		   String hash(Hash *h, uint8_t *value, byte *mssg){
 		   h->reset();
