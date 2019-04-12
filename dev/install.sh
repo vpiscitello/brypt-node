@@ -51,7 +51,7 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 
 				# Run DNSMasq and HostAPD
 				read -r -p "The script will now install packages necessary for instantiating a Wi-Fi access point/hotspot. This will cause your device to restart. Do you wish to continue? [y/N]" cont
-				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; yhen
+				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 								sudo apt-get update
 								sudo apt-get upgrade
 								sudo apt-get install dnsmasq hostapd
