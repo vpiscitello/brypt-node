@@ -208,12 +208,6 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
     Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
 
     notifier->send(&notice, NETWORK_NOTICE);
-    std::cout << "GETTING SLAVE CONNECTIONS\n";
-    std::cout << "SIZE OF SLAVE CONNECTIONS: " << (int)(this->node_instance->get_slave_connections()->size()) << "\n";
-    for (int idx = 0; idx < (int)(this->node_instance->get_slave_connections()->size()); idx++) {
-        std::cout << "Testing a whatami on each of the slave connections\n";
-        this->node_instance->get_slave_connections()->at(idx)->whatami();
-    }
 }
 
 /* **************************************************************************
@@ -496,14 +490,7 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
     }
     Connection * full = this->node_instance->setup_full_connection(message->get_source_id(), full_port, comm_tech);
 
-    // If it is incapable of notifier connecting then put it as a slave_connection
-    if (comm_tech == STREAMBRIDGE_TYPE) {
-	std::cout << "Setting it up as a slave connection\n";
-	this->node_instance->get_slave_connections()->push_back(full);
-    } else {
-	std::cout << "Setting it up as a normal connection\n";
-	this->node_instance->get_connections()->push_back(full);
-    }
+    this->node_instance->get_connections()->push_back(full);
 
     if (full->get_worker_status()) {
         std::cout << "== [Command] Connection worker thread is ready" << '\n';

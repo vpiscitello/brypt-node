@@ -40,7 +40,6 @@ class Node {
         class PeerWatcher * watcher;
         // Change to hash table? based on peer name?
         std::vector<class Connection *> connections;                     // A vector of open connections
-        std::vector<class Connection *> slave_connections;                     // A vector of open connections
 
         // Node Commands
         // Change to hash table? based on command name?
@@ -97,7 +96,6 @@ class Node {
         class Control * get_control();
         class Notifier * get_notifier();
         std::vector<class Connection *> * get_connections();
-        std::vector<class Connection *> * get_slave_connections();
         class Connection * get_connection(unsigned int index);
         class MessageQueue * get_message_queue();
         class AwaitContainer * get_awaiting();

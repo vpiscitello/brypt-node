@@ -739,7 +739,7 @@ class TCP : public Connection {
 	}
 
 	std::string recv(int flag){
-	    if (flag) {
+	    if (flag == ZMQ_NOBLOCK) {
 		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) | O_NONBLOCK) < 0) {
 		    std::cout << "Fcntl failed\n";
 		    return "";
