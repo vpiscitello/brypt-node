@@ -1,3 +1,4 @@
+#include <time.h>
 #include "lora.hpp"
 
 // Compilation instructions:
@@ -65,12 +66,15 @@ int main (int argc, char *argv[]) {
 	printf("Send and recieve packets at SF%i on %.6lf Mhz.\n", sf, (double) freq/1000000);
 	printf("------------------\n");
 	while(1){
+		opmode(OPMODE_STANDBY);
+		delay(1);
 		txlora(hello, strlen((char*) hello));
-		opmode(OPMODE_STANDBY);
-		opmode(OPMODE_RX);
-		receivepacket();
-		opmode(OPMODE_STANDBY);
-		delay(1000);
+		clock_t now = clock();
+		while(((clock() - now)/CLOCKS_PER_SEC) > 5){
+			opmode(OPMODE_STANDBY);
+			opmode(OPMODE_RX);
+			receivepacket();
+		}
 	}
 	
 
