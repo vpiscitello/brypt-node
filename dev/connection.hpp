@@ -742,12 +742,12 @@ class TCP : public Connection {
 	    if (flag) {
 		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) | O_NONBLOCK) < 0) {
 		    std::cout << "Fcntl failed\n";
-		    return;
+		    return "";
 		}
 	    } else {
 		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) & (~O_NONBLOCK)) < 0) {
 		    std::cout << "Fcntl failed\n";
-		    return;
+		    return "";
 		}
 	    }
 	    char buffer[1024];
