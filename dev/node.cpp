@@ -267,13 +267,31 @@ void Node::setup(Options options){
     //this->connections.push_back(ConnectionFactory(options.technology, &options));
 }
 
+///* **************************************************************************
+//** Function:
+//** Description:
+//** *************************************************************************/
+//Connection * Node::setup_direct_connection(std::string peer_id, std::string port) {
+//    Options opts;
+//    opts.technology = DIRECT_TYPE;
+//    opts.operation = ROOT;
+//    opts.port = port;
+//    opts.is_control = false;
+//    opts.peer_name = peer_id;
+//    this->message_queue.push_pipe("./tmp/" + opts.peer_name + ".pipe");
+//
+//    Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
+//
+//    return connection;
+//}
+
 /* **************************************************************************
 ** Function:
 ** Description:
 ** *************************************************************************/
-Connection * Node::setup_direct_connection(std::string peer_id, std::string port) {
+Connection * Node::setup_full_connection(std::string peer_id, std::string port, TechnologyType comm_tech) {
     Options opts;
-    opts.technology = DIRECT_TYPE;
+    opts.technology = comm_tech;
     opts.operation = ROOT;
     opts.port = port;
     opts.is_control = false;
@@ -285,24 +303,23 @@ Connection * Node::setup_direct_connection(std::string peer_id, std::string port
     return connection;
 }
 
-/* **************************************************************************
-** Function:
-** Description:
-** *************************************************************************/
-Connection * Node::setup_streambridge_connection(std::string peer_id, std::string port) {
-    Options opts;
-    opts.technology = STREAMBRIDGE_TYPE;
-    opts.operation = ROOT;
-    opts.port = port;
-    opts.is_control = false;
-    opts.peer_name = peer_id;
-    this->message_queue.push_pipe("./tmp/" + opts.peer_name + ".pipe");
-
-    Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
-
-    return connection;
-}
-
+///* **************************************************************************
+//** Function:
+//** Description:
+//** *************************************************************************/
+//Connection * Node::setup_streambridge_connection(std::string peer_id, std::string port) {
+//    Options opts;
+//    opts.technology = STREAMBRIDGE_TYPE;
+//    opts.operation = ROOT;
+//    opts.port = port;
+//    opts.is_control = false;
+//    opts.peer_name = peer_id;
+//    this->message_queue.push_pipe("./tmp/" + opts.peer_name + ".pipe");
+//
+//    Connection * connection = ConnectionFactory(DIRECT_TYPE, &opts);
+//
+//    return connection;
+//}
 
 // Communication Functions
 // This is called from the LEAF
