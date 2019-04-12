@@ -90,7 +90,8 @@ class Node {
         // Setup Functions
         void setup(Options options);
         void setup();                                            // Setup the node
-        Connection * setup_wifi_connection(std::string peer_id, std::string port);
+        Connection * setup_direct_connection(std::string peer_id, std::string port);
+        Connection * setup_streambridge_connection(std::string peer_id, std::string port);
 
         // Getter Functions
         class Control * get_control();

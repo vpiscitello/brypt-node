@@ -490,11 +490,13 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
     Connection * full;
     switch ((TechnologyType)(std::stoi(message->get_data()))) {
 	case DIRECT_TYPE: {
-	    full = this->node_instance->setup_wifi_connection(message->get_source_id(), full_port);
+	    std::cout << "We are in setup_direct_connection\n";
+	    full = this->node_instance->setup_direct_connection(message->get_source_id(), full_port);
 	    break;
 	}
 	case TCP_TYPE: {
-	    //full = this->node_instance->setup_streambridge_connection(message->get_source_id(), full_port);
+	    std::cout << "We are in setup_streambridge_connection\n";
+	    full = this->node_instance->setup_streambridge_connection(message->get_source_id(), full_port);
 	    break;
 	}
     }
