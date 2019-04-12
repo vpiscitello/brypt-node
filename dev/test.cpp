@@ -225,10 +225,6 @@ void parse_args(int argc, char **argv) {
                 options.technology = LORA_TYPE;
             } else if (device_type == "WEBSOCKET") {
                 options.technology = WEBSOCKET_TYPE;
-            } else if (device_type == "STREAMBRIDGE") {
-                options.technology = STREAMBRIDGE_TYPE;
-            } else if (device_type == "TCP") {
-                options.technology = TCP_TYPE;
             } else {
                 std::cout << "== Invalid device type." << '\n';
                 exit(1);
@@ -297,13 +293,8 @@ void create_tcp_socket() {
     tcp_setup.port = "3001";
     tcp_setup.operation = ROOT;
     Connection * conn = ConnectionFactory(tcp_setup.technology, &tcp_setup);
-    while (true) {
-	std::string recvd = conn->recv(1);
-	if (recvd.length() > 2) {
-	    conn->send("THIS IS A MESSAGE");
-	}
-        sleep(1);
-    }
+    conn->recv(1);
+    conn->send("THIS IS A MESSAGE");
 }
 
 void create_tcp_connection() {
@@ -323,42 +314,9 @@ void create_streambridge_socket() {
     streambridge_setup.port = "3001";
     streambridge_setup.operation = ROOT;
     Connection * conn = ConnectionFactory(streambridge_setup.technology, &streambridge_setup);
-    //conn->recv(1);
-    //conn->send("THIS IS A MESSAGE");
+    conn->recv(1);
+    conn->send("THIS IS A MESSAGE");
 }
-
-void create_streambridge_send_query() {
-    Options streambridge_setup;
-    streambridge_setup.technology = STREAMBRIDGE_TYPE;
-    //streambridge_setup.technology = TCP_TYPE;
-    streambridge_setup.port = "3001";
-    streambridge_setup.operation = ROOT;
-    Connection * conn = ConnectionFactory(streambridge_setup.technology, &streambridge_setup);
-    std::string resp = conn->recv(1);
-    std::cout << "Received: " << resp << "\n";
-    Command * c;
-    Node node;
-    State state;
-    c = CommandFactory(QUERY_TYPE, &node, &state);
-    
-    CommandType command = QUERY_TYPE;
-    int phase = 0;
-    std::string node_id = "00-00-00-00-00";
-    std::string data = "INITIAL COMMAND!";
-    unsigned int nonce = 998;
-    Message message( node_id, "", command, phase, data, nonce );
-
-    conn->send(&message);
-
-    resp = conn->recv(1);
-    std::cout << "Received: " << resp << "\n";
-
-    Message resp_msg( resp );
-    std::cout << "Message Content: " << resp_msg.get_data() << '\n';
-
-    c->handle_message(&resp_msg);
-}
-
 
 int main(int argc, char **argv) {
 
@@ -371,14 +329,10 @@ int main(int argc, char **argv) {
 
     std::cout << "\n== Welcome to the Brypt Network\n";
 
-    //create_tcp_socket();
-    //create_streambridge_socket();
+    // create_tcp_socket();
+    // create_streambridge_socket();
     // create_tcp_connection();
-    //create_streambridge_send_query();
-    //while (true) {
-    //    sleep(1);
-    //}
-    //return 0;
+    // return 0;
 
     class Node alpha;
 
