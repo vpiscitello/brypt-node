@@ -51,7 +51,7 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 
 				# Run DNSMasq and HostAPD
 				read -r -p "The script will now install packages necessary for instantiating a Wi-Fi access point/hotspot. This will cause your device to restart. Do you wish to continue? [y/N]" cont
-				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
+				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; yhen
 								sudo apt-get update
 								sudo apt-get upgrade
 								sudo apt-get install dnsmasq hostapd
@@ -65,10 +65,19 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				fi
 fi
 
+
 # Prepare the system for reboot and starting the access point
 sudo cp /etc/rc.local /home/pi/brypt-node/dev/config/AP/rc.local.base
 sudo cp /home/pi/brypt-node/dev/config/AP/rc.local.reboot /etc/rc.local
 sudo chmod +x /etc/rc.local
+
+# Add hostapd.conf file
+sudo touch /home/pi/hostapd.conf
+sudo echo "interface=wlan0" >> /home/pi/hostapd.conf
+sudo echo "driver=nl80211" >> /home/pi/hostapd.conf
+sudo echo "ssid=brypt-net-00000" >> home/pi/hostapd.conf
+sudo echo "channel=7" >> /home/pi/hostapd.conf
+sudo mv /home/pi/hostapd.conf /etc/hostapd/
 
 echo "The system will now restart in 10 seconds. Press Ctrl-C to stop reboot."
 sleep 10
