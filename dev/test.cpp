@@ -297,8 +297,13 @@ void create_tcp_socket() {
     tcp_setup.port = "3001";
     tcp_setup.operation = ROOT;
     Connection * conn = ConnectionFactory(tcp_setup.technology, &tcp_setup);
-    conn->recv(1);
-    conn->send("THIS IS A MESSAGE");
+    while (true) {
+	std::string recvd = conn->recv(1);
+	if (recvd.length() > 2) {
+	    conn->send("THIS IS A MESSAGE");
+	}
+        sleep(1);
+    }
 }
 
 void create_tcp_connection() {
@@ -366,9 +371,9 @@ int main(int argc, char **argv) {
 
     std::cout << "\n== Welcome to the Brypt Network\n";
 
-    //// create_tcp_socket();
-    ////create_streambridge_socket();
-    //// create_tcp_connection();
+    //create_tcp_socket();
+    //create_streambridge_socket();
+    // create_tcp_connection();
     //create_streambridge_send_query();
     //while (true) {
     //    sleep(1);

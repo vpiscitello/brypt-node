@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "zmq.hpp"
 
@@ -706,7 +707,7 @@ class TCP : public Connection {
 		return;
 	    }
 	    if ((this->connection = accept(this->socket, (struct sockaddr *)&this->address, (socklen_t*)&this->addrlen))<0) {
-		std::cout << "Socket failed\n";
+		std::cout << "Accept failed\n";
 	    }
 	}
 
@@ -735,7 +736,17 @@ class TCP : public Connection {
 	}
 
 	std::string recv(int flag){
-        if (flag) {}
+	    if (flag) {
+		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) | O_NONBLOCK) < 0) {
+		    std::cout << "Fcntl failed\n";
+		    return;
+		}
+	    } else {
+		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) & (~O_NONBLOCK)) < 0) {
+		    std::cout << "Fcntl failed\n";
+		    return;
+		}
+	    }
 	    char buffer[1024];
 	    memset(buffer, '\0', 1024);
 	    int valread = read(this->connection, buffer, 1024);
