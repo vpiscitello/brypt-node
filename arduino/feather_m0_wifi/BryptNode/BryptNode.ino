@@ -211,7 +211,7 @@ void loop() {
         String ack_msg = "\x06";
         server_connection.println(ack_msg);
         server_connection.flush();
-        delay(100);
+        delay(500);
 
         // Should get an ACK back
         String resp = recv();
@@ -226,7 +226,7 @@ void loop() {
         delay(100);
         server_connection.println(preferred_comm_tech);
         server_connection.flush();
-        delay(100);
+        delay(500);
         
         resp = recv();
         Serial.print("Received: ");
@@ -243,7 +243,7 @@ void loop() {
         delay(100);
         server_connection.println(info_message.get_pack());
         server_connection.flush();
-        delay(100);
+        delay(500);
         
         resp = recv();
         Serial.print("Received: ");
