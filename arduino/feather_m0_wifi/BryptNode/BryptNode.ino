@@ -33,6 +33,7 @@ String access_point;
 
 // Initial state on setup is to determine the network
 CurrentState state = DETERMINE_NETWORK;
+int contacted = 0;
 
 // CONFIG IP address of server to connect to
 IPAddress remote_server(192,168,137,22);
@@ -187,36 +188,136 @@ void loop() {
   	    } else {
             delay(1000);
   	    }
-  	} else if (state = SERVER_CONNECTED) {
-  	    // As soon as we have connected to the socket, send a message
+  	} else if (state == SERVER_CONNECTED && !contacted) {
+  	    // As soon as we have connected to the socket, conduct initial_contact
+        Serial.println("Setting up initial contact with coordinator");
+        Serial.print("Connecting on port: ");
+        Serial.println(remote_port);
+        delay(100);
 
-        // TODO Add the handshake process
-  	    Serial.print("Message is: ");
-        String msg = "Hello";
-        Serial.println(msg);
-        server_connection.println(msg);
-  	    server_connection.flush();
-  	    // server_connection.stop();
-  	    delay(100);
-        String message;
-  	    while (server_connection.available()) {
-        		char c = server_connection.read();
-        		Serial.write(c);
-            message = message + c;
-            // We have read the whole message
-//            if (c == (char)4) {
+        // Send ack
+        String ack_msg = "\x06";
+        server_connection.println(ack_msg);
+        server_connection.flush();
+        delay(100);
+
+        // Should get an ACK back
+        String resp = recv();
+        Serial.print("Received: ");
+        Serial.println((int)resp.charAt(0));
+
+        
+        TechnologyType t = TCP_TYPE;
+        String preferred_comm_tech = String((int)t);
+        Serial.print("Going to send comm tech: ");
+        Serial.println(preferred_comm_tech);
+        delay(100);
+        server_connection.println(preferred_comm_tech);
+        server_connection.flush();
+        delay(100);
+        
+        resp = recv();
+        Serial.print("Received: ");
+        Serial.println(resp);
+        Message port_message(resp);
+        String coord_id = port_message.get_source_id();
+        String req_port = port_message.get_data();
+        Serial.print("Coord id: ");
+        Serial.println(coord_id);
+        Serial.print("Req port: ");
+        Serial.println(req_port);
+
+//        coord_id = "00-00-00-00-01";
+//        req_port = "3018";
+        String self_id = "00-00-00-11-00"; // SHOULD GET FROM WEB FORM
+        Message info_message(self_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, 0);
+        delay(100);
+        server_connection.println(info_message.get_pack());
+        server_connection.flush();
+        delay(100);
+        
+        resp = recv();
+        Serial.print("Received: ");
+        Serial.println((int)resp.charAt(0));
+
+        // Should shut down connection now
+        server_connection.stop();
+
+        // Connect to the new port
+        while (!server_connection.connect(remote_server, req_port.toInt())) {
+            delay(1000);
+        }
+        Serial.println("Connected to secondary port");
+        contacted = 1;
+  	} else if (state == SERVER_CONNECTED && contacted) {
+        // TODO Add the startup portion
+        String message = "";
+        while (true) {
+            cont_recv();
+//            if (message != "") {
+//                Serial.println("Going to handle a message");
 //                handle_messaging(message);
 //            }
-  	    }
-       handle_messaging(message);
-  
-  	    Serial.println();
-        //TEMPORARY
-        while (true) {
-  	        delay(1000);
         }
+
+        
+//  	    Serial.print("Message is: ");
+//        String msg = "Hello";
+//        Serial.println(msg);
+//        server_connection.println(msg);
+//  	    server_connection.flush();
+//  	    // server_connection.stop();
+//  	    delay(100);
+//        String message;
+//  	    while (server_connection.available()) {
+//        		char c = server_connection.read();
+//        		Serial.write(c);
+//            message = message + c;
+//            // We have read the whole message
+////            if (c == (char)4) {
+////                handle_messaging(message);
+////            }
+//  	    }
+//       handle_messaging(message);
+  
+//  	    Serial.println();
+//        //TEMPORARY
+//        while (true) {
+//  	        delay(1000);
+//        }
   	}
 }
+
+String recv() {
+    String message = "";
+    while (server_connection.available()) {
+        char c = server_connection.read();
+        Serial.write(c);
+        message = message + c;
+        // We have read the whole message
+        if (c == (char)4) {
+            return message;
+//            handle_messaging(message);
+        }
+    }
+    return message;
+}
+
+void cont_recv() {
+    String message = "";
+    while (server_connection.available()) {
+        char c = server_connection.read();
+        Serial.write(c);
+        message = message + c;
+        // We have read the whole message
+        if (c == (char)4) {
+//            return message;
+            handle_messaging(message);
+        }
+    }
+//    return message;
+}
+
 
 void handle_messaging(String message) {
     Message recvd_msg(message);
@@ -259,6 +360,7 @@ void handle_messaging(String message) {
                     Serial.println(response);
                     server_connection.println(response);
                     server_connection.flush();
+                    delay(100);
                     break;
 //                case 2: // Aggregate phase
 //                    // Not handled by feathers because they don't have anything to receive from
