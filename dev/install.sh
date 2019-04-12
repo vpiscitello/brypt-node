@@ -9,6 +9,8 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				echo "================ Installing Necessary Packages =================="
 				echo "================================================================="
 				# Start with necessary packages
+				sudo apt-get update
+				sudo apt-get upgrade
 				sudo apt-get install libtool pkg-config build-essential autoconf automake git
 
 				# Download ZMQ package
@@ -44,6 +46,8 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				# Run DNSMasq and HostAPD
 				read -r -p "The script will now install packages necessary for instantiating a Wi-Fi access point/hotspot. This will cause your device to restart. Do you wish to continue? [y/N]" cont
 				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
+								sudo apt-get update
+								sudo apt-get upgrade
 								sudo apt-get install dnsmasq hostapd
 								sudo systemctl stop dnsmasq
 								sudo systemctl stop hostapd
