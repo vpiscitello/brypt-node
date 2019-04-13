@@ -74,7 +74,7 @@ sudo chmod +x /etc/rc.local
 sudo touch /home/pi/hostapd.conf
 sudo echo "interface=wlan0" >> /home/pi/hostapd.conf
 sudo echo "driver=nl80211" >> /home/pi/hostapd.conf
-sudo echo "ssid=brypt-net-00000" >> home/pi/hostapd.conf
+sudo echo "ssid=brypt-net-00000" >> /home/pi/hostapd.conf
 sudo echo "channel=7" >> /home/pi/hostapd.conf
 sudo mv /home/pi/hostapd.conf /etc/hostapd/
 
