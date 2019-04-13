@@ -71,8 +71,10 @@ int main (int argc, char *argv[]) {
 		delay(100);
 		clock_t now = clock();
 		while(((clock() - now)/CLOCKS_PER_SEC) < 5){
+			clock_t t = clock();
 			opmode(OPMODE_STANDBY);
 			opmode(OPMODE_RX);
+			while(((clock() - t)/CLOCKS_PER_SEC) < 0.1);
 			receivepacket();
 			delay(100);
 		}
