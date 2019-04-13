@@ -14,7 +14,6 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				sudo apt-get install libtool pkg-config build-essential autoconf automake git
 
 				# Uninstall and reinstall openssl
-				sudo apt-get purge openssl
 				sudo apt-get update
 				sudo apt-get upgrade
 				sudo apt-get install openssl libssl-dev
