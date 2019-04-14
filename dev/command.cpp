@@ -102,7 +102,7 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
     //     }
     // };
 
-    return nodes_json.dump();
+    return nodes_json[0].dump();
 }
 
 /* **************************************************************************
