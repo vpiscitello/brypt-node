@@ -299,7 +299,7 @@ class Message {
 		 ** Function: unpack
 		 ** Description: Unpack the raw message string into the Message class variables.
 		 ** *************************************************************************/
-		void unpack(String raw) {//decrypt
+		void unpack() {//decrypt
 		  int loops = 0;
 		  MessageChunk chunk = FIRST_CHUNK;
 		  int data_size = 0;
@@ -337,7 +337,7 @@ class Message {
 				break;
 				// Data Size
 			  case DATASIZE_CHUNK:
-				this->data_size = (
+				data_size = (
 					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
 					  ).toInt();
 				break;
@@ -360,7 +360,7 @@ class Message {
 		  }
 
 		  this->auth_token = this->raw.substring( last_end + 2 );
-		  this->raw = this->raw.substr( 0, ( this->raw.size() - this->auth_token.size() ) );
+		  this->raw = this->raw.substring( 0, ( this->raw.length() - this->auth_token.length() ) );
 		  
 		  std::size_t id_sep_found;
 		  id_sep_found = this->source_id.indexOf(ID_SEPERATOR);
@@ -379,25 +379,13 @@ class Message {
 		 ** Function: hmac
 		 ** Description: HMAC a provided message and return the authentication token.
 		 ** *************************************************************************/
-		/*
-		   String hmac(String message) {
-		//int key = 3005;
-		//String in_key, out_key, inner, token;
-		String token;
-		//token = "12345";
-		BLAKE2s blake2s; 
-		byte buffer[128];
-		byte result[HASH_SIZE];
-
-		memset(buffer, 0x00, sizeof(buffer));
-		memset(result, 0x00, sizeof(result));
-
-		hash(&blake2s, buffer, mssg);
-		hmac(&blake2s, key, result, mssg); 
-
-		return token;
-		}
-		*/
+	    /*String hmac(String message) {
+			int key = 3005;
+			String in_key, out_key, inner, token;
+			token = "12345";
+			
+			return token;
+		}*/
 		String hmac(String mssg){
 			unsigned char result[HASH_SIZE];
 			unsigned char tmpres[HASH_SIZE];
@@ -425,67 +413,61 @@ class Message {
 			trueres = String((char *)result);
 			return trueres;
 		}
-		/*
-		   String hash(Hash *h, uint8_t *value, byte *mssg){
-		   h->reset();
-		   h->update(mssg, sizeof(mssg));
-		   h->finalize(buffer, h->hashSize()); 
-
-		   size_t inc = 1;
-		   size_t size = strlen(mssg);
-		   size_t posn, len;
-//  uint8_t value[HASH_SIZE];
-
-h->reset();
-for (posn = 0; posn < size; posn += inc) {
-len = size - posn;
-if (len > inc)
-len = inc;
-h->update(mssg + posn, len);
-}
-h->finalize(value, HASH_SIZE);
-}
-*/
-/* **************************************************************************
- ** Function: verify
- ** Description: Compare the Message token with the computed HMAC.
- ** *************************************************************************/
-bool verify() {
-	bool verified = false;
-	String check_token = "";
-
-	if (this->raw != "" || this->auth_token != "") {
-		check_token = this->hmac( this->raw );
-		if (this->auth_token == check_token) {
-			verified = true;
+		String hash(Hash *h, uint8_t *value, byte *mssg){
+			h->reset();
+			h->update(mssg, sizeof(mssg));
+			h->finalize(buffer, h->hashSize()); 
+			size_t inc = 1;
+			size_t size = strlen(mssg);
+			size_t posn, len;
+			//  uint8_t value[HASH_SIZE];
+			h->reset();
+			for (posn = 0; posn < size; posn += inc) {
+				len = size - posn;
+				if (len > inc)
+				len = inc;
+				h->update(mssg + posn, len);
+			}
+			h->finalize(value, HASH_SIZE);
 		}
-	}
+		void encrypt(String plaintext){
+			CTR<AES256> aes_ctr_256;
+		}
+		void decrypt(String ciphertext){
+			CTR<AES256> aes_ctr_256;
+			int cipherlen = ciphertext.length();
+			unsigned char ctxtptr[cipherlen+1];
+			void *temp = (void*)(std::to_string(this->nonce)).c_str();
+			iv = ( unsigned char * )temp;
+			ivlen = strlen(iv);
+			ciphertext.toCharArray((char*)ctxtptr, cipherlen);
+			//crypto_feed_watchdog();
+			aes_ctr_256.setKey(key, 32);
+			aes_ctr_256.setIV(iv, ivlen);
+			aes_ctr_256.setCounterSize(4);
+			byte buffer[ciphertext.length()+1];
+			aes_ctr_256.decrypt(buffer, ctxtptr, ciphertext.length());
+			strncpy((char *)this->data, (char *)buffer, 512);
+			Serial.println(buffer[0]);
+			Serial.println("AES-CTR-256 Decrypted text:");
+		}
+		/* **************************************************************************
+		 ** Function: verify
+		 ** Description: Compare the Message token with the computed HMAC.
+		 ** *************************************************************************/
+		bool verify() {
+			bool verified = false;
+			String check_token = "";
 
-	return verified;
-}
+			if (this->raw != "" || this->auth_token != "") {
+				check_token = this->hmac( this->raw );
+				if (this->auth_token == check_token) {
+					verified = true;
+				}
+			}
 
-void encrypt(String plaintext){
-	CTR<AES256> aes_ctr_256;
-
-}
-void decrypt(String ciphertext){
-	CTR<AES256> aes_ctr_256;
-	int cipherlen = ciphertext.length();
-	unsigned char ctxtptr[cipherlen+1];
-	void *temp = (void*)(std::to_string(this->nonce)).c_str();
-	iv = ( unsigned char * )temp;
-	ivlen = strlen(iv);
-	ciphertext.toCharArray((char*)ctxtptr, cipherlen);
-	//crypto_feed_watchdog();
-	aes_ctr_256.setKey(key, 32);
-	aes_ctr_256.setIV(iv, ivlen);
-	aes_ctr_256.setCounterSize(4);
-	byte buffer[ciphertext.length()+1];
-	aes_ctr_256.decrypt(buffer, ctxtptr, ciphertext.length());
-	strncpy((char *)this->data, (char *)buffer, 512);
-	Serial.println(buffer[0]);
-	Serial.println("AES-CTR-256 Decrypted text:");
-}
+			return verified;
+		}
 };
 
 #endif
