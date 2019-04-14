@@ -278,6 +278,7 @@ class Message {
 		 ** Description: Pack the Message class values into a single raw string.
 		 ** *************************************************************************/
 		void pack() {
+			encrypt(this->data);
 			String packed;
 
 			packed = packed + (char)1;
@@ -374,6 +375,7 @@ class Message {
 			this->await_id = this->destination_id.substring(id_sep_found + 1);
 			this->destination_id = this->destination_id.substring(0, id_sep_found);
 		  }
+			decrypt(this->data);
 		}
 		/* **************************************************************************
 		 ** Function: hmac
