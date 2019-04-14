@@ -300,144 +300,92 @@ class Message {
 		 ** Description: Unpack the raw message string into the Message class variables.
 		 ** *************************************************************************/
 		void unpack() {//decrypt
-			int loops = 0;
-			MessageChunk chunk = FIRST_CHUNK;
-			int data_size = 0;
+		  int loops = 0;
+		  MessageChunk chunk = FIRST_CHUNK;
+		  int data_size = 0;
+		  int last_end = 0;
 
-			String raw_orig = this->raw;
+		  while (chunk <= LAST_CHUNK ) {
+			int chunk_end = this->raw.indexOf( ( char ) 29, (last_end + 1) );     // Find chunk seperator
 
-			while (chunk <= LAST_CHUNK ) {
-				int chunk_end = this->raw.indexOf( ( char ) 29 );     // Find chunk seperator
-				// Serial.println("");
-				// Serial.print("STRING IS: ");
-				// Serial.println(this->raw);
-				// Serial.print("CHUNK ENDS AT: ");
-				// Serial.println(chunk_end);
-				// Serial.print("LAST END: ");
-				// Serial.println(last_end);
-
-				switch (chunk) {
-					// Source ID
-					case SOURCEID_CHUNK:
-						this->source_id = this->raw.substring( 2, ( chunk_end - 1 ) );
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("Source ID: ");
-						// Serial.println(source_id);
-						break;
-						// Destination ID
-					case DESTINATIONID_CHUNK:
-						this->destination_id = this->raw.substring( 1, ( chunk_end - 1 ) );
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("DEST ID: ");
-						// Serial.println(destination_id);
-						break;
-						// Command Type
-					case COMMAND_CHUNK:
-						// Serial.print("COMMAND PARSE: ");
-						// Serial.println(this->raw.substring( 1, ( chunk_end - 1 )));
-						//                Serial.println(this->raw.substring( 1, 1));
-						//                Serial.println(this->raw.substring( 1, 2));
-						//                Serial.println(this->raw.substring( 1, 3));
-						//                Serial.println(this->raw.substring( 2, 2));
-						//                Serial.println(this->raw.substring( 2, 3));
-						this->command = ( CommandType ) (
-								this->raw.substring( 1, ( chunk_end - 1 ) )
-								).toInt();
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("COMMAND: ");
-						// Serial.println(command);
-						break;
-						// Command Phase
-					case PHASE_CHUNK:
-						// Serial.print("PHASE PARSE: ");
-						// Serial.println(this->raw.substring( 1, ( chunk_end - 1 )));
-						this->phase = (
-								this->raw.substring( 1, ( chunk_end - 1 ) )
-							      ).toInt();
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("PHASE: ");
-						// Serial.println(phase);
-						break;
-						// Nonce
-					case NONCE_CHUNK:
-						this->nonce = (
-								this->raw.substring( 1, ( chunk_end - 1 ) )
-							      ).toInt();
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("NONCE: ");
-						// Serial.println(nonce);
-						break;
-						// Data Size
-					case DATASIZE_CHUNK:
-						data_size = (
-								this->raw.substring( 1, ( chunk_end - 1 ) )
-							    ).toInt() + 1;
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("DATASIZE: ");
-						// Serial.println(data_size);
-						break;
-						// Data
-					case DATA_CHUNK:
-						this->data = this->raw.substring( 1, data_size );
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("DATA: ");
-						// Serial.println(data);
-						break;
-						// Timestamp
-					case TIMESTAMP_CHUNK:
-						this->timestamp = this->raw.substring( 1, ( chunk_end - 1 ) );
-						this->raw = this->raw.substring(chunk_end + 1);
-						// Serial.print("TIMESTAMP: ");
-						// Serial.println(timestamp);
-						break;
-						// End of Message Parsing
-					default:
-						break;
-				}
-
-				loops++;
-				chunk = (MessageChunk) loops;
+			switch (chunk) {
+			  // Source ID
+			  case SOURCEID_CHUNK:
+				this->source_id = this->raw.substring( last_end + 2, ( chunk_end - 1 ) );
+				break;
+				// Destination ID
+			  case DESTINATIONID_CHUNK:
+				this->destination_id = this->raw.substring( last_end + 2, ( chunk_end - 1 ) );
+				break;
+				// Command Type
+			  case COMMAND_CHUNK:
+				this->command = ( CommandType ) (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
+					).toInt();
+				break;
+				// Command Phase
+			  case PHASE_CHUNK:
+				this->phase = (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
+						).toInt();
+				break;
+				// Nonce
+			  case NONCE_CHUNK:
+				this->nonce = (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
+						).toInt();
+				break;
+				// Data Size
+			  case DATASIZE_CHUNK:
+				data_size = (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
+					  ).toInt();
+				break;
+				// Data
+			  case DATA_CHUNK:
+				this->data = this->raw.substring( last_end + 2, ( last_end + data_size + 2 ) );
+				break;
+				// Timestamp
+			  case TIMESTAMP_CHUNK:
+				this->timestamp = this->raw.substring( last_end + 2, ( chunk_end - 1 ) );
+				break;
+				// End of Message Parsing
+			  default:
+				break;
 			}
 
-			this->auth_token = this->raw.substring( 1 );
-			this->raw = raw_orig.substring( 0, ( raw_orig.length() - this->auth_token.length() ) );
+			last_end = chunk_end;
+			loops++;
+			chunk = (MessageChunk) loops;
+		  }
 
-			std::size_t id_sep_found;
-			id_sep_found = this->source_id.indexOf(ID_SEPERATOR);
-			if (id_sep_found != -1) {
-				this->await_id = this->source_id.substring(id_sep_found + 1);
-				this->source_id = this->source_id.substring(0, id_sep_found);
-			}
+		  this->auth_token = this->raw.substring( last_end + 2 );
+		  this->raw = this->raw.substring( 0, ( this->raw.length() - this->auth_token.length() ) );
+		  
+		  std::size_t id_sep_found;
+		  id_sep_found = this->source_id.indexOf(ID_SEPERATOR);
+		  if (id_sep_found != -1) {
+			this->await_id = this->source_id.substring(id_sep_found + 1);
+			this->source_id = this->source_id.substring(0, id_sep_found);
+		  }
 
-			id_sep_found = this->destination_id.indexOf(ID_SEPERATOR);
-			if (id_sep_found != -1) {
-				this->await_id = this->destination_id.substring(id_sep_found + 1);
-				this->destination_id = this->destination_id.substring(0, id_sep_found);
-			}
+		  id_sep_found = this->destination_id.indexOf(ID_SEPERATOR);
+		  if (id_sep_found != -1) {
+			this->await_id = this->destination_id.substring(id_sep_found + 1);
+			this->destination_id = this->destination_id.substring(0, id_sep_found);
+		  }
 		}
 		/* **************************************************************************
 		 ** Function: hmac
 		 ** Description: HMAC a provided message and return the authentication token.
 		 ** *************************************************************************/
-		/*
-		   String hmac(String message) {
-		//int key = 3005;
-		//String in_key, out_key, inner, token;
-		String token;
-		//token = "12345";
-		BLAKE2s blake2s; 
-		byte buffer[128];
-		byte result[HASH_SIZE];
-
-		memset(buffer, 0x00, sizeof(buffer));
-		memset(result, 0x00, sizeof(result));
-
-		hash(&blake2s, buffer, mssg);
-		hmac(&blake2s, key, result, mssg); 
-
-		return token;
-		}
-		*/
+	    /*String hmac(String message) {
+			int key = 3005;
+			String in_key, out_key, inner, token;
+			token = "12345";
+			
+			return token;
+		}*/
 		String hmac(String mssg){
 			unsigned char result[HASH_SIZE];
 			unsigned char tmpres[HASH_SIZE];
@@ -465,62 +413,61 @@ class Message {
 			trueres = String((char *)result);
 			return trueres;
 		}
-
-		/*
-		   String hash(Hash *h, uint8_t *value, byte *mssg){
-		   h->reset();
-		   h->update(mssg, sizeof(mssg));
-		   h->finalize(buffer, h->hashSize()); 
-
-		   size_t inc = 1;
-		   size_t size = strlen(mssg);
-		   size_t posn, len;
-//  uint8_t value[HASH_SIZE];
-
-h->reset();
-for (posn = 0; posn < size; posn += inc) {
-len = size - posn;
-if (len > inc)
-len = inc;
-h->update(mssg + posn, len);
-}
-h->finalize(value, HASH_SIZE);
-}
-*/
-/* **************************************************************************
- ** Function: verify
- ** Description: Compare the Message token with the computed HMAC.
- ** *************************************************************************/
-bool verify() {
-	bool verified = false;
-	String check_token = "";
-
-	if (this->raw != "" || this->auth_token != "") {
-		check_token = this->hmac( this->raw );
-		if (this->auth_token == check_token) {
-			verified = true;
+		String hash(Hash *h, uint8_t *value, byte *mssg){
+			h->reset();
+			h->update(mssg, sizeof(mssg));
+			h->finalize(buffer, h->hashSize()); 
+			size_t inc = 1;
+			size_t size = strlen(mssg);
+			size_t posn, len;
+			//  uint8_t value[HASH_SIZE];
+			h->reset();
+			for (posn = 0; posn < size; posn += inc) {
+				len = size - posn;
+				if (len > inc)
+				len = inc;
+				h->update(mssg + posn, len);
+			}
+			h->finalize(value, HASH_SIZE);
 		}
-	}
+		void encrypt(String plaintext){
+			CTR<AES256> aes_ctr_256;
+		}
+		void decrypt(String ciphertext){
+			CTR<AES256> aes_ctr_256;
+			int cipherlen = ciphertext.length();
+			unsigned char ctxtptr[cipherlen+1];
+			void *temp = (void*)(std::to_string(this->nonce)).c_str();
+			iv = ( unsigned char * )temp;
+			ivlen = strlen(iv);
+			ciphertext.toCharArray((char*)ctxtptr, cipherlen);
+			//crypto_feed_watchdog();
+			aes_ctr_256.setKey(key, 32);
+			aes_ctr_256.setIV(iv, ivlen);
+			aes_ctr_256.setCounterSize(4);
+			byte buffer[ciphertext.length()+1];
+			aes_ctr_256.decrypt(buffer, ctxtptr, ciphertext.length());
+			strncpy((char *)this->data, (char *)buffer, 512);
+			Serial.println(buffer[0]);
+			Serial.println("AES-CTR-256 Decrypted text:");
+		}
+		/* **************************************************************************
+		 ** Function: verify
+		 ** Description: Compare the Message token with the computed HMAC.
+		 ** *************************************************************************/
+		bool verify() {
+			bool verified = false;
+			String check_token = "";
 
-	return verified;
-}
-/*
-void encrypt(String plaintext){
+			if (this->raw != "" || this->auth_token != "") {
+				check_token = this->hmac( this->raw );
+				if (this->auth_token == check_token) {
+					verified = true;
+				}
+			}
 
-}
-void decrypt(String ciphertext){
-	unsigned char noncebuf[12];
-	atoi(this->nonce, noncebuf, 10);
-	crypto_feed_watchdog();
-	aes_ctr_256.setKey(key, 32);
-	aes_ctr_256.setIV(nonce, 12);
-	aes_ctr_256.setCounterSize(4);
-	byte buffer[ciphertext.length()+1];
-	aes_ctr_256.decrypt(buffer, ctxt, ciphertext.length());
-	Serial.println(buffer[0]);
-	Serial.println("AES-CTR-256 Decrypted text:");
-}
-*/
+			return verified;
+		}
 };
 
 #endif
