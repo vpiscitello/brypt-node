@@ -45,9 +45,6 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 			#	git fetch origin rthowerton
 			#	git checkout -t origin/rthowerton
 				cd /home/pi/brypt-node/dev
-				sudo perl -pe 's/\r$//' < startup_ap.sh > startup_ap.sh2
-				sudo rm -f /home/pi/brypt-node/dev/startup_ap.sh
-				sudo mv startup_ap.sh2 startup_ap.sh
 				chmod +x /home/pi/brypt-node/dev/config/AP/startup_ap.sh
 				g++ node.cpp "test.cpp" -o device -O2 -Wall -lzmq
 
