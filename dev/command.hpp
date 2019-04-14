@@ -7,7 +7,7 @@
 #include "message.hpp"
 
 std::string generate_reading();
-std::string generate_node_info(struct State * state);
+std::string generate_node_info(class Node * node, struct State * state);
 
 class Command {
     protected:

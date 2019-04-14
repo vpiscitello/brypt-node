@@ -204,6 +204,9 @@ void Node::setup(Options options){
 
     switch (options.operation) {
         case ROOT: {
+            this->state.coordinator.id = this->state.self.id;
+            this->state.self.cluster = "0";
+
             TechnologyType technology = determine_best_connection_type();
             technology = DIRECT_TYPE; //TEMPORARY
 
@@ -504,7 +507,7 @@ void Node::listen(){
         // If branch or lead response has been recieved handle request on next pass?
 
         // SIMULATE CLIENT REQUEST
-        // /*
+        /*
         if (run % 10 == 0) {
             std::cout << "== [Node] Simulating client sensor Information request" << '\n';
             Message message("0xFFFFFFFF", this->state.self.id, INFORMATION_TYPE, 0, "Request for Network Information.", run);
@@ -516,7 +519,7 @@ void Node::listen(){
             Message message("0xFFFFFFFF", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
             this->commands[message.get_command()]->handle_message(&message);
         }
-        // */
+        */
 
         run++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

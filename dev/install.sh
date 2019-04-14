@@ -14,7 +14,6 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				sudo apt-get install libtool pkg-config build-essential autoconf automake git
 
 				# Uninstall and reinstall openssl
-				sudo apt-get purge openssl
 				sudo apt-get update
 				sudo apt-get upgrade
 				sudo apt-get install openssl libssl-dev
@@ -51,7 +50,7 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 
 				# Run DNSMasq and HostAPD
 				read -r -p "The script will now install packages necessary for instantiating a Wi-Fi access point/hotspot. This will cause your device to restart. Do you wish to continue? [y/N]" cont
-				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; yhen
+				if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 								sudo apt-get update
 								sudo apt-get upgrade
 								sudo apt-get install dnsmasq hostapd
@@ -75,7 +74,7 @@ sudo chmod +x /etc/rc.local
 sudo touch /home/pi/hostapd.conf
 sudo echo "interface=wlan0" >> /home/pi/hostapd.conf
 sudo echo "driver=nl80211" >> /home/pi/hostapd.conf
-sudo echo "ssid=brypt-net-00000" >> home/pi/hostapd.conf
+sudo echo "ssid=brypt-net-00000" >> /home/pi/hostapd.conf
 sudo echo "channel=7" >> /home/pi/hostapd.conf
 sudo mv /home/pi/hostapd.conf /etc/hostapd/
 

@@ -21,59 +21,88 @@ std::string generate_reading() {
 ** Function:
 ** Description:
 ** *************************************************************************/
-std::string generate_node_info(struct State * state) {
-    std::string epoch_str = get_system_timestamp();
+std::string generate_node_info(class Node * node_instance, struct State * state) {
+    std::vector<class Connection *> * connections = node_instance->get_connections();
+    std::vector<json11::Json::object> nodes_info;
 
-    // json11::Json device_info = json11::Json::object ({
-    //     { "uid", (*state).self.id },
-    //     { "cluster", (*state).self.cluster },
-    //     { "coordinator", (*state).coordinator.id },
-    //     { "neighbor_count", (*state).network.known_nodes },
-    //     { "designation", (*state).self.operation },
-    //     { "comm_techs", json11::Json::array { "WiFi" } },
-    //     { "update_timestamp", epoch_str }
-    // });
-
-    json11::Json nodes_json = json11::Json::array {
+    nodes_info.emplace_back(
         json11::Json::object {
-            { "uid", "1" },
-            { "cluster", 0 },
-            { "coordinator", 1 },
-            { "neighbor_count", 4 },
-            { "designation", "root" },
+            { "uid", (*state).self.id },
+            { "cluster", (*state).self.cluster },
+            { "coordinator", (*state).coordinator.id },
+            { "neighbor_count", (int)(*state).network.known_nodes },
+            { "designation", get_designation((*state).self.operation) },
             { "comm_techs", json11::Json::array { "WiFi" } },
-            { "update_timestamp", epoch_str }
-        },
-        json11::Json::object {
-            { "uid", "2" },
-            { "cluster", 0 },
-            { "coordinator", 1 },
-            { "neighbor_count", 4 },
-            { "designation", "node" },
-            { "comm_techs", json11::Json::array { "WiFi" } },
-            { "update_timestamp", epoch_str }
-        },
-        json11::Json::object {
-            { "uid", "3" },
-            { "cluster", 0 },
-            { "coordinator", 1 },
-            { "neighbor_count", 6 },
-            { "designation", "coordinator" },
-            { "comm_techs", json11::Json::array { "WiFi", "LoRa" } },
-            { "update_timestamp", epoch_str }
-        },
-        json11::Json::object {
-            { "uid", "6" },
-            { "cluster", 0 },
-            { "coordinator", 0 },
-            { "neighbor_count", 4 },
-            { "designation", "node" },
-            { "comm_techs", json11::Json::array { "WiFi" } },
-            { "update_timestamp", epoch_str }
+            { "update_timestamp", get_system_timestamp() }
         }
-    };
+    );
 
-    return nodes_json.dump();
+    std::vector<class Connection *>::iterator conn_it = connections->begin();
+
+    for (conn_it; conn_it != connections->end(); conn_it++) {
+
+        std::stringstream epoch_ss;
+        std::chrono::seconds seconds;
+
+        seconds = std::chrono::duration_cast<std::chrono::seconds>( (*conn_it)->get_update_clock().time_since_epoch() );
+        epoch_ss.clear();
+        epoch_ss << seconds.count();
+
+        nodes_info.emplace_back(
+            json11::Json::object {
+                { "uid", (*conn_it)->get_peer_name() },
+                { "cluster", (*state).self.cluster },
+                { "coordinator", (*state).self.id },
+                { "neighbor_count", 0 },
+                { "designation", "node" },
+                { "comm_techs", json11::Json::array { (*conn_it)->get_type() } },
+                { "update_timestamp", epoch_ss.str() }
+            }
+        );
+    }
+
+    json11::Json nodes_json = json11::Json::array({nodes_info});
+
+    // json11::Json nodes_json = json11::Json::array {
+    //     json11::Json::object {
+    //         { "uid", "1" },
+    //         { "cluster", 0 },
+    //         { "coordinator", 1 },
+    //         { "neighbor_count", 4 },
+    //         { "designation", "root" },
+    //         { "comm_techs", json11::Json::array { "WiFi" } },
+    //         { "update_timestamp", epoch_str }
+    //     },
+    //     json11::Json::object {
+    //         { "uid", "2" },
+    //         { "cluster", 0 },
+    //         { "coordinator", 1 },
+    //         { "neighbor_count", 4 },
+    //         { "designation", "node" },
+    //         { "comm_techs", json11::Json::array { "WiFi" } },
+    //         { "update_timestamp", epoch_str }
+    //     },
+    //     json11::Json::object {
+    //         { "uid", "3" },
+    //         { "cluster", 0 },
+    //         { "coordinator", 1 },
+    //         { "neighbor_count", 6 },
+    //         { "designation", "coordinator" },
+    //         { "comm_techs", json11::Json::array { "WiFi", "LoRa" } },
+    //         { "update_timestamp", epoch_str }
+    //     },
+    //     json11::Json::object {
+    //         { "uid", "6" },
+    //         { "cluster", 0 },
+    //         { "coordinator", 0 },
+    //         { "neighbor_count", 4 },
+    //         { "designation", "node" },
+    //         { "comm_techs", json11::Json::array { "WiFi" } },
+    //         { "update_timestamp", epoch_str }
+    //     }
+    // };
+
+    return nodes_json[0].dump();
 }
 
 /* **************************************************************************
@@ -120,11 +149,11 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
     std::string source_id = (*self).id;
     std::string destination_id = message->get_source_id();
     unsigned int nonce = 0;
-    std::string network_data = generate_node_info(this->state);
+    std::string network_data = generate_node_info(this->node_instance, this->state);
 
-    Message self_reading(source_id, destination_id, INFORMATION_TYPE, RESPOND_PHASE, network_data, nonce);
+    Message self_info(source_id, destination_id, INFORMATION_TYPE, RESPOND_PHASE, network_data, nonce);
 
-    this->node_instance->get_awaiting()->push_response(await_key, self_reading);
+    this->node_instance->get_awaiting()->push_response(await_key, self_info);
 
     // source_id += ";" + await_key;
     // destination_id = "ALL";
