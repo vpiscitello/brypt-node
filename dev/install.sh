@@ -64,11 +64,6 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
 				fi
 fi
 
-# Prepare the system for reboot and starting the access point
-sudo cp /etc/rc.local /home/pi/brypt-node/dev/config/AP/rc.local.base
-sudo cp /home/pi/brypt-node/dev/config/AP/rc.local.reboot /etc/rc.local
-sudo chmod +x /etc/rc.local
-
 # Add hostapd.conf file
 sudo touch /home/pi/hostapd.conf
 sudo echo "interface=wlan0" >> /home/pi/hostapd.conf
@@ -76,6 +71,11 @@ sudo echo "driver=nl80211" >> /home/pi/hostapd.conf
 sudo echo "ssid=brypt-net-00000" >> /home/pi/hostapd.conf
 sudo echo "channel=7" >> /home/pi/hostapd.conf
 sudo mv /home/pi/hostapd.conf /etc/hostapd/
+
+# Prepare the system for reboot and starting the access point
+sudo cp /etc/rc.local /home/pi/brypt-node/dev/config/AP/rc.local.base
+sudo cp /home/pi/brypt-node/dev/config/AP/rc.local.reboot /etc/rc.local
+sudo chmod +x /etc/rc.local
 
 echo "The system will now restart in 10 seconds. Press Ctrl-C to stop reboot."
 sleep 10
