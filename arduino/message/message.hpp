@@ -306,48 +306,48 @@ class Message {
 		  int last_end = 0;
 
 		  while (chunk <= LAST_CHUNK ) {
-			int chunk_end = raw.indexOf( ( char ) 29, (last_end + 1) );     // Find chunk seperator
+			int chunk_end = this->raw.indexOf( ( char ) 29, (last_end + 1) );     // Find chunk seperator
 
 			switch (chunk) {
 			  // Source ID
 			  case SOURCEID_CHUNK:
-				source_id = raw.substring( last_end + 2, ( chunk_end - 1 ) );
+				this->source_id = this->raw.substring( last_end + 2, ( chunk_end - 1 ) );
 				break;
 				// Destination ID
 			  case DESTINATIONID_CHUNK:
-				destination_id = raw.substring( last_end + 2, ( chunk_end - 1 ) );
+				this->destination_id = this->raw.substring( last_end + 2, ( chunk_end - 1 ) );
 				break;
 				// Command Type
 			  case COMMAND_CHUNK:
-				command = ( CommandType ) (
-					raw.substring( last_end + 2, ( chunk_end - 1 ) )
+				this->command = ( CommandType ) (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
 					).toInt();
 				break;
 				// Command Phase
 			  case PHASE_CHUNK:
-				phase = (
-					raw.substring( last_end + 2, ( chunk_end - 1 ) )
+				this->phase = (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
 						).toInt();
 				break;
 				// Nonce
 			  case NONCE_CHUNK:
-				nonce = (
-					raw.substring( last_end + 2, ( chunk_end - 1 ) )
+				this->nonce = (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
 						).toInt();
 				break;
 				// Data Size
 			  case DATASIZE_CHUNK:
-				data_size = (
-					raw.substring( last_end + 2, ( chunk_end - 1 ) )
+				this->data_size = (
+					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
 					  ).toInt();
 				break;
 				// Data
 			  case DATA_CHUNK:
-				data = raw.substring( last_end + 2, ( last_end + data_size + 2 ) );
+				this->data = this->raw.substring( last_end + 2, ( last_end + data_size + 2 ) );
 				break;
 				// Timestamp
 			  case TIMESTAMP_CHUNK:
-				timestamp = raw.substring( last_end + 2, ( chunk_end - 1 ) );
+				this->timestamp = this->raw.substring( last_end + 2, ( chunk_end - 1 ) );
 				break;
 				// End of Message Parsing
 			  default:
@@ -359,20 +359,20 @@ class Message {
 			chunk = (MessageChunk) loops;
 		  }
 
-		  auth_token = raw.substring( last_end + 2 );
-		  raw = raw.substr( 0, ( raw.size() - auth_token.size() ) );
+		  this->auth_token = this->raw.substring( last_end + 2 );
+		  this->raw = this->raw.substr( 0, ( this->raw.size() - this->auth_token.size() ) );
 		  
 		  std::size_t id_sep_found;
-		  id_sep_found = source_id.indexOf(ID_SEPERATOR);
+		  id_sep_found = this->source_id.indexOf(ID_SEPERATOR);
 		  if (id_sep_found != -1) {
-			await_id = source_id.substring(id_sep_found + 1);
-			source_id = source_id.substring(0, id_sep_found);
+			this->await_id = this->source_id.substring(id_sep_found + 1);
+			this->source_id = this->source_id.substring(0, id_sep_found);
 		  }
 
-		  id_sep_found = destination_id.indexOf(ID_SEPERATOR);
+		  id_sep_found = this->destination_id.indexOf(ID_SEPERATOR);
 		  if (id_sep_found != -1) {
-			await_id = destination_id.substring(id_sep_found + 1);
-			destination_id = destination_id.substring(0, id_sep_found);
+			this->await_id = this->destination_id.substring(id_sep_found + 1);
+			this->destination_id = this->destination_id.substring(0, id_sep_found);
 		  }
 		}
 		/* **************************************************************************
