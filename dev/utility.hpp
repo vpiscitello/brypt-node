@@ -15,12 +15,9 @@ typedef std::chrono::time_point<std::chrono::system_clock> SystemClock;
 
 enum DeviceOperation { ROOT, BRANCH, LEAF, NO_OPER };
 enum DeviceSocketCapability { MASTER, SLAVE };
-enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, WEBSOCKET_TYPE, TCP_TYPE, STREAMBRIDGE_TYPE, NO_TECH };
+enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, TCP_TYPE, STREAMBRIDGE_TYPE, NO_TECH };
 enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NO_CMD };
 enum NotificationType { NETWORK_NOTICE, CLUSTER_NOTICE, NODE_NOTICE, NO_NOTICE };
-
-// Super Secured NetKey
-const std::string netKey = "01234567890123456789012345678901";
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";
@@ -51,6 +48,29 @@ inline char * cast_string( std::string s ) {
     memset( cs, '\0', s.size() );
     strcpy( cs, s.c_str() );
     return cs;
+}
+
+inline std::string get_designation(DeviceOperation operation) {
+    std::string designation = "";
+    switch (operation) {
+        case ROOT: {
+            designation = "root";
+            break;
+        }
+        case BRANCH: {
+            designation = "coordinator";
+            break;
+        }
+        case LEAF: {
+            designation = "node";
+            break;
+        }
+        case NO_OPER: {
+            designation = "NA";
+            break;
+        }
+    }
+    return designation;
 }
 
 inline SystemClock get_system_clock() {
