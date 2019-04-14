@@ -434,6 +434,22 @@ class Message {
 		*/
 		void encrypt(String plaintext){
 			CTR<AES256> aes_ctr_256;
+			int ptxtlen = plaintext.length();
+			unsigned char ptxtptr[ptxtlen+1];
+			unsigned char iv[16];
+			itoa(this->nonce, (char *)iv, 10);
+			int ivlen = strlen((char *)iv);
+			plaintext.toCharArray((char *)ptxtptr, ptxtlen);
+			aes_ctr_256.setKey(key, 32);
+			aes_ctr_256.setIV(iv, ivlen);
+			aes_ctr_256.setCounterSize(4);
+			byte buffer[ptxtlen+1];//SEGFAULT? might need whole block of leeway. same w/ decrypt
+			aes_ctr_256.encrypt(buffer, ptxtptr, ptxtlen);
+
+			String cpystr((char *)buffer);
+			this->data = cpystr;
+			Serial.println(cpystr);
+			
 		}
 		void decrypt(String ciphertext){
 			CTR<AES256> aes_ctr_256;
