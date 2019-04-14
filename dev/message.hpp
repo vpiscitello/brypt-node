@@ -67,7 +67,7 @@ class Message {
         ** *************************************************************************/
         Message(std::string raw) {
             this->raw = raw;
-						this->key = netKey;
+						this->key = NET_KEY;
             this->unpack();
 						this->aes_ctr_256_decrypt(this->data, this->data.size());
             this->response = NULL;
@@ -88,7 +88,7 @@ class Message {
             this->auth_token = "";
             this->nonce = nonce;
             this->set_timestamp();
-						this->key = netKey;  // In utility
+						this->key = NET_KEY;  // In utility
 						this->aes_ctr_256_encrypt(this->data, this->data.size());
         }
 
