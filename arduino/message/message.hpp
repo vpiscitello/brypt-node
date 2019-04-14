@@ -413,6 +413,7 @@ class Message {
 			trueres = String((char *)result);
 			return trueres;
 		}
+		/*
 		String hash(Hash *h, uint8_t *value, byte *mssg){
 			h->reset();
 			h->update(mssg, sizeof(mssg));
@@ -430,6 +431,7 @@ class Message {
 			}
 			h->finalize(value, HASH_SIZE);
 		}
+		*/
 		void encrypt(String plaintext){
 			CTR<AES256> aes_ctr_256;
 		}
@@ -437,9 +439,11 @@ class Message {
 			CTR<AES256> aes_ctr_256;
 			int cipherlen = ciphertext.length();
 			unsigned char ctxtptr[cipherlen+1];
-			void *temp = (void*)(std::to_string(this->nonce)).c_str();
-			iv = ( unsigned char * )temp;
-			ivlen = strlen(iv);
+			unsigned char iv[16];
+			//void *temp = (void*)(std::to_string(this->nonce)).c_str();
+
+			itoa(this->nonce, (char *)iv, 10);
+			int ivlen = strlen((char *)iv);
 			ciphertext.toCharArray((char*)ctxtptr, cipherlen);
 			//crypto_feed_watchdog();
 			aes_ctr_256.setKey(key, 32);
@@ -447,7 +451,9 @@ class Message {
 			aes_ctr_256.setCounterSize(4);
 			byte buffer[ciphertext.length()+1];
 			aes_ctr_256.decrypt(buffer, ctxtptr, ciphertext.length());
-			strncpy((char *)this->data, (char *)buffer, 512);
+			//strncpy((char *)this->data, (char *)buffer, 512);
+			String cpystr((char *)buffer);
+			this->data = cpystr;
 			Serial.println(buffer[0]);
 			Serial.println("AES-CTR-256 Decrypted text:");
 		}
