@@ -313,14 +313,52 @@ void crypto::hmac_sha2(unsigned char* input){
 	printf("HMAC_SHA2: \n");
 	print_output(digest, (int)length);
 }
-
+/*
 void crypto::hmac_blake2s(unsigned char* input){
 	unsigned int length = 0;
 	digest = HMAC(EVP_blake2s256(), key, OUR_KEY_SIZE, input, strlen((char *)input), NULL, &length);
 	printf("HMAC_BLAKE2s256: \n");
 	print_output(digest, (int)length);
 }
-
+*/
+void crypto::modded_DHKA(EVP_PKEY *local_key, EVP_PKEY *remote_key){
+	//secret exps are 256bit
+	//prime param 1024bit
+	EVP_PKEY_CTX *local_ctx;
+	unsigned char *skey;
+	//void *skey;
+	size_t skeylen;
+	local_ctx = EVP_PKEY_CTX_new(local_key,NULL);
+	if(!local_ctx) handleErrors();
+	if(EVP_PKEY_derive_init(local_ctx)<=0) handleErrors();
+	if(EVP_PKEY_derive_set_peer(local_ctx, remote_key)<=0) handleErrors();
+	if(EVP_PKEY_derive(local_ctx, NULL, &skeylen)<=0) handleErrors();
+	skey = (unsigned char *)OPENSSL_malloc(skeylen);
+	if(!skey) handleErrors();
+	if(EVP_PKEY_derive(local_ctx, skey, &skeylen)<=0)handleErrors();
+	printf("dhka defo ran...\n");
+	print_output(skey, skeylen);
+}
+void crypto::modded_ECDH(EVP_PKEY *local_key, EVP_PKEY* remote_key){
+	EVP_PKEY_CTX *local_ctx;
+	unsigned char *skey;
+	//void *skey;
+	size_t skeylen;
+	local_ctx = EVP_PKEY_CTX_new(local_key,NULL);
+	if(!local_ctx) handleErrors();
+	if(EVP_PKEY_derive_init(local_ctx)<=0) handleErrors();
+	if(EVP_PKEY_derive_set_peer(local_ctx, remote_key)<=0) handleErrors();
+	if(EVP_PKEY_derive(local_ctx, NULL, &skeylen)<=0) handleErrors();
+	skey = (unsigned char *)OPENSSL_malloc(skeylen);
+	if(!skey) handleErrors();
+	if(EVP_PKEY_derive(local_ctx, skey, &skeylen)<=0)handleErrors();
+	printf("ecdh defo ran...\n");
+	print_output(skey, skeylen);
+}
+void crypto::handleErrors(){
+	printf("HALT AND CATCH FIIIIIIIIIIRE\n");
+	abort();
+}
 void crypto::print_output(unsigned char* output, int len) {
 	for(int i = 0; i < len; i++) {
 		printf("%02x", output[i]);

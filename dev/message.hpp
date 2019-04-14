@@ -4,8 +4,15 @@
 #include <chrono>
 #include <sstream>
 #include <functional>
+#include <string>
 
 #include "utility.hpp"
+
+#include <openssl/conf.h>
+#include <openssl/err.h>
+#include <openssl/sha.h>
+#include <openssl/evp.h>
+#include <openssl/hmac.h>
 
 class Message {
     private:
@@ -19,8 +26,11 @@ class Message {
         unsigned int phase;             // Phase of the Command state
 
         std::string data;               // Encrypted data to be sent
-        std::string timestamp;          // Current timestamp
+        unsigned int dataLen;						// Data length
+				
+				std::string timestamp;          // Current timestamp
 
+				std::string key;								//Key used for crypto
         Message * response;             // A circular message for the response to the current message
 
         std::string auth_token;         // Current authentication token created via HMAC
@@ -57,7 +67,9 @@ class Message {
         ** *************************************************************************/
         Message(std::string raw) {
             this->raw = raw;
+						this->key = netKey;
             this->unpack();
+						this->aes_ctr_256_decrypt(this->data, this->data.size());
             this->response = NULL;
         }
         /* **************************************************************************
@@ -76,6 +88,8 @@ class Message {
             this->auth_token = "";
             this->nonce = nonce;
             this->set_timestamp();
+						this->key = netKey;  // In utility
+						this->aes_ctr_256_encrypt(this->data, this->data.size());
         }
 
         // Getter Functions
@@ -273,7 +287,7 @@ class Message {
 
             packed.append( 1, 4 );	// End of telemetry pack
 
-            this->auth_token = this->hmac( packed );
+            this->auth_token = this->hmac_blake2s( packed , packed.size() );
             this->raw = packed;
         }
         /* **************************************************************************
@@ -360,47 +374,141 @@ class Message {
             std::cout << "== [Message] Destination: " << this->destination_id << '\n';
             std::cout << "== [Message] Await: " << this->await_id << '\n';
 
-        }
-        /* **************************************************************************
-        ** Function: hmac
-        ** Description: HMAC a provided message and return the authentication token.
-        ** *************************************************************************/
-        std::string hmac(std::string message) {
-            int key = 3005;
-        	std::stringstream token, inner, in_key, out_key;
+				}
 
-        	unsigned long in_val = ( ( unsigned long ) key ^ ( 0x5c * 32 ) );      // Get the inner key
-        	unsigned long out_val = ( ( unsigned long ) key ^ ( 0x36 * 32 ) );     // Get the outer key
-        	in_key << in_val;
-        	out_key << out_val;
+				/* **************************************************************************
+				 * ** Function: clear_buff
+				 * ** Description: Clears provided buffer
+				 * ** *************************************************************************/
+				void clear_buff(unsigned char* buff, unsigned int buffLen){
+								unsigned int i;
+								for(i=0; i < buffLen; i++){
+												buff[i] = '\0';
+								}
+				}
 
-            inner << std::hash<std::string>{}( in_key.str() + message );
-            token << std::hash<std::string>{}( out_key.str() + inner.str() );      // Generate the HMAC
+				/* **************************************************************************
+				 * ** Function: aes_ctr_256_encrypt
+				 * ** Description: Encrypt a provided message with AES-CTR-256 and return ciphert
+				 * ext.
+				 * ** *************************************************************************/
+				std::string aes_ctr_256_encrypt(std::string mssg, unsigned int mssgLen) {
+								unsigned char ciphertext[512]; // Temp buffer
+								unsigned char* iv;
 
-            // token = std::hash<std::string>{}(
-            //                 out_key.str() +
-            //                 std::hash<std::string>{}( in_key.str() + message )
-            //         );      // Generate the HMAC
+								int length = 0;
+								this->dataLen = 0;
 
-            return token.str();
-        }
-        /* **************************************************************************
-        ** Function: verify
-        ** Description: Compare the Message token with the computed HMAC.
-        ** *************************************************************************/
-        bool verify() {
-            bool verified = false;
-            std::string check_token = "";
+								clear_buff(ciphertext, 512);
 
-            if (this->raw != "" || this->auth_token != "") {
-                check_token = this->hmac( this->raw );
-                if (this->auth_token == check_token) {
-                    verified = true;
-                }
-            }
+								void *temp = (void*)(std::to_string(this->nonce)).c_str();
+								iv = ( unsigned char * )temp;
 
-            return verified;
-        }
+								EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+								EVP_EncryptInit_ex( ctx, EVP_aes_256_ctr(), NULL, (const unsigned char*)this->key.c_str(), iv );
+								EVP_EncryptUpdate( ctx, ciphertext, &length, (const unsigned char*)mssg.c_str(), mssg.size() + 1);
+
+								dataLen = length;
+								EVP_EncryptFinal_ex( ctx, ciphertext + length, &length );
+								dataLen += length;
+
+								EVP_CIPHER_CTX_free( ctx );
+								strncpy((char *)this->data.c_str(), (char *)ciphertext, 512);
+
+								return std::string( reinterpret_cast< char * >( ciphertext ) );
+				}
+
+				/* **************************************************************************
+				 * ** Function: aes_ctr_256_decrypt
+				 * ** Description: Decrypt a provided message with AES-CTR-256 and return decrypt
+				 * ed text.
+				 * ** *************************************************************************/
+				std::string aes_ctr_256_decrypt(std::string mssg, unsigned int mssgLen) {
+								unsigned char decryptedtext[512];  // Temp buffer
+								unsigned char* iv;
+
+								int length = 0;
+								this->dataLen = 0;
+
+								clear_buff(decryptedtext, 512);
+
+								void* temp = (void *)(std::to_string(this->nonce)).c_str();
+								iv = (unsigned char *)temp;
+
+								EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
+								EVP_DecryptInit_ex( ctx, EVP_aes_256_ctr(), NULL, (const unsigned char*)this->key.c_str(), iv );
+								EVP_DecryptUpdate( ctx, decryptedtext, &length, (const unsigned char*)mssg.c_str(), mssg.size());
+
+								dataLen = length;
+								EVP_DecryptFinal_ex( ctx, decryptedtext + length, &length );
+								dataLen += length;
+
+								EVP_CIPHER_CTX_free( ctx );
+								strncpy((char *)this->data.c_str(), (char *)decryptedtext, 512);
+
+								return std::string( reinterpret_cast< char * >( decryptedtext ) );
+				}
+
+				/* **************************************************************************
+				 * ** Function: hmac_sha2
+				 * ** Description: HMAC SHA2 a provided message and return the authentication tok
+				 * en.
+				 * ** *************************************************************************/
+				std::string hmac_sha2(std::string mssgData, int mssgLen) {
+								const EVP_MD *md;
+								md = EVP_get_digestbyname("sha256");
+								const unsigned char* mssg = (const unsigned char*)mssgData.c_str();
+								const unsigned char* k = (const unsigned char*)key.c_str();
+								unsigned int length = 0;
+								unsigned char* d;
+								d = HMAC(md, k, this->key.size(), mssg, mssgLen, NULL, &length);
+								std::string cppDigest = (char*)d;
+								return cppDigest;
+				}
+
+				/* **************************************************************************
+				 * ** Function: hmac_blake2s
+				 * ** Description: HMAC Blake2s a provided message and return the authentication token.
+				 * ** *************************************************************************/
+				std::string hmac_blake2s(std::string mssgData, int mssgLen) {
+								const EVP_MD *md;
+								md = EVP_get_digestbyname("blake2s256");
+								const unsigned char* mssg = (const unsigned char*)mssgData.c_str();
+								const unsigned char* k = (const unsigned char*)key.c_str();
+								unsigned int length = 0;
+								unsigned char* d;
+								d = HMAC(md, k, this->key.size(), mssg, mssgLen, NULL, &length);
+								std::string cppDigest = (char*)d;
+								return cppDigest;
+				}
+/*
+				inner << std::hash<std::string>{}( in_key.str() + message );
+				token << std::hash<std::string>{}( out_key.str() + inner.str() );      // Generate the HMAC
+
+				// token = std::hash<std::string>{}(
+				//                 out_key.str() +
+				//                 std::hash<std::string>{}( in_key.str() + message )
+				//         );      // Generate the HMAC
+
+				return token.str();
+}*/
+/* **************************************************************************
+ ** Function: verify
+ ** Description: Compare the Message token with the computed HMAC.
+ ** *************************************************************************/
+bool verify() {
+				bool verified = false;
+				std::string check_token = "";
+
+				if (this->raw != "" || this->auth_token != "") {
+								check_token = this->hmac_blake2s( this->raw, this->raw.size() );
+								if (this->auth_token == check_token) {
+												verified = true;
+								}
+				}
+
+				return verified;
+}
 };
 
 #endif
