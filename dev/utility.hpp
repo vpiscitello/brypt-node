@@ -21,6 +21,7 @@ enum NotificationType { NETWORK_NOTICE, CLUSTER_NOTICE, NODE_NOTICE, NO_NOTICE }
 
 // Super Secure NET_KEY
 const std::string NET_KEY = "01234567890123456789012345678901";
+const unsigned int NET_NONCE = 998;
 
 // Central Authority Connection Constants
 const std::string CA_DOMAIN = "brypt.com";

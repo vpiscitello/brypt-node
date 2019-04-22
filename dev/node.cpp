@@ -450,7 +450,7 @@ void Node::handle_fulfilled() {
     std::cout << "== [Node] Fulfulled requests:" << '\n';
     std::vector<class Message> responses = this->awaiting.get_fulfilled();
 
-    /*
+    
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->message_queue.add_message((*it).get_destination_id(), *it);
     }
@@ -460,7 +460,6 @@ void Node::handle_fulfilled() {
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->notify_connection((*it).get_destination_id());
     }
-    */
 
 }
 
