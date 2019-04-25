@@ -55,7 +55,7 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
                 { "coordinator", (*state).self.id },
                 { "neighbor_count", 0 },
                 { "designation", "node" },
-                { "comm_techs", json11::Json::array { (*conn_it)->get_type() } },
+                { "comm_techs", json11::Json::array { (*conn_it)->get_protocol_type() } },
                 { "update_timestamp", epoch_ss.str() }
             }
         );
