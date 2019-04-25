@@ -5,6 +5,7 @@
 #include "node.hpp"
 #include "state.hpp"
 #include "message.hpp"
+#include "notifier.hpp"
 
 std::string generate_reading();
 std::string generate_node_info(class Node * node, struct State * state);
@@ -46,7 +47,7 @@ class Information : public Command {
 
         Message handle_message(class Message * message);
 
-        void flood_handler(Self * self, Message * message, Notifier * notifier);
+        void flood_handler(Self * self, Message * message, class Notifier * notifier);
         void respond_handler();
         void close_handler();
 };
@@ -66,7 +67,7 @@ class Query : public Command {
 
         Message handle_message(class Message * message);
 
-        void flood_handler(Self * self, Message * message, Notifier * notifier) ;
+        void flood_handler(Self * self, Message * message, class Notifier * notifier) ;
         void respond_handler(Self * self, Message * message, Connection * connection);
         void aggregate_handler(Self * self, Message * message, MessageQueue * message_queue);
         void close_handler();

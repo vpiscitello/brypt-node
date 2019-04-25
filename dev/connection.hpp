@@ -8,10 +8,11 @@
 #include <sys/socket.h>
 #include <stdlib.h>
 #include <netinet/in.h>
-#include <string.h>
+#include <string>
 #include <stdio.h>
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #include "zmq.hpp"
 
@@ -60,13 +61,15 @@ class Connection {
         std::condition_variable worker_conditional;
 
     public:
-        virtual void whatami() = 0;
-    	virtual std::string get_type() = 0;
+    	virtual void whatami() = 0;
     	virtual void spawn() = 0;
     	virtual void worker() = 0;
+	virtual std::string get_protocol_type() = 0;
+	virtual std::string get_internal_type() = 0;
     	virtual std::string recv(int flag = 0) = 0;
     	virtual void send(Message *) = 0;
     	virtual void send(const char * message) = 0;
+	virtual void prepare_for_next() = 0;
     	virtual void shutdown() = 0;
 
     	bool get_status() {
@@ -180,7 +183,7 @@ class Direct : public Connection {
     public:
         Direct() {}
         Direct(struct Options *options) {
-            std::cout << "== [Connection] Creating direct instance.\n";
+            std::cout << "== [Direct] Creating direct instance.\n";
 
             this->port = options->port;
             this->peer_name = options->peer_name;
@@ -192,13 +195,13 @@ class Direct : public Connection {
             this->update_clock = get_system_clock();
 
     	    if (options->is_control) {
-        		std::cout << "== [Connection] Creating control socket\n";
+        		std::cout << "== [Direct] Creating control socket\n";
 
         		this->context = new zmq::context_t(1);
 
         		switch (options->operation) {
                     case ROOT: {
-                        std::cout << "== [Connection] Setting up REP socket on port " << options->port << "\n";
+                        std::cout << "== [Direct] Setting up REP socket on port " << options->port << "\n";
                         this->setup_rep_socket(options->port);
                         break;
                     }
@@ -206,7 +209,7 @@ class Direct : public Connection {
                         break;
                     }
                     case LEAF: {
-                        std::cout << "== [Connection] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+                        std::cout << "== [Direct] Connecting REQ socket to " << options->peer_addr << ":" << options->peer_port << "\n";
                         this->setup_req_socket(options->peer_addr, options->peer_port);
                         break;
                     }
@@ -235,14 +238,18 @@ class Direct : public Connection {
             std::cout << "I am a Direct implementation." << '\n';
         }
 
-        std::string get_type() {
-            return "WiFi";
-        }
-
         void spawn() {
-            std::cout << "== [Connection] Spawning DIRECT_TYPE connection thread\n";
+            std::cout << "== [Direct] Spawning DIRECT_TYPE connection thread\n";
             this->worker_thread = std::thread(&Direct::worker, this);
         }
+
+	std::string get_protocol_type() {
+	    return "WiFi";
+	}
+
+	std::string get_internal_type() {
+	    return "Direct";
+	}
 
         void worker() {
             this->worker_active = true;
@@ -253,7 +260,7 @@ class Direct : public Connection {
 
             switch (this->operation) {
                 case ROOT: {
-                    std::cout << "== [Connection] Setting up REP socket on port " << this->port << "\n";
+                    std::cout << "== [Direct] Setting up REP socket on port " << this->port << "\n";
                     this->setup_rep_socket(this->port);
                     // handle_messaging();
                     break;
@@ -262,7 +269,7 @@ class Direct : public Connection {
                     break;
                 }
                 case LEAF: {
-                    std::cout << "== [Connection] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
+                    std::cout << "== [Direct] Connecting REQ socket to " << this->peer_addr << ":" << this->peer_port << "\n";
                     this->setup_req_socket(this->peer_addr, this->peer_port);
 
                     break;
@@ -331,43 +338,48 @@ class Direct : public Connection {
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 
-    	    this->socket->send(request);
+	    this->socket->send(request);
             this->message_sequence++;
 
-    	    std::cout << "== [Connection] Sent\n";
-    	}
+	    std::cout << "== [Direct] Sent\n";
+	}
 
-    	void send(const char * message) {
-    	    zmq::message_t request(strlen(message));
-    	    memcpy(request.data(), message, strlen(message));
-    	    this->socket->send(request);
+	void send(const char * message) {
+	    zmq::message_t request(strlen(message));
+	    memcpy(request.data(), message, strlen(message));
+	    this->socket->send(request);
             this->message_sequence++;
 
-    	    std::cout << "== [Connection] Sent\n";
-    	}
+	    std::cout << "== [Direct] Sent\n";
+	}
 
-    	std::string recv(int flag){
-    	    zmq::message_t message;
-    	    this->socket->recv(&message, flag);
-    	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
+	std::string recv(int flag){
+	    zmq::message_t message;
+	    this->socket->recv(&message, flag);
+	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
 
-            if (request != "") {
-                this->update_clock = get_system_clock();
+	    if (request != "") {
+		this->update_clock = get_system_clock();
                 this->message_sequence++;
-            }
+	    }
 
-    	    return request;
-    	}
+	    std::cout << "== [Direct] Received: " << request << "\n";
+	    return request;
+	}
 
-    	void shutdown() {
-    	    std::cout << "Shutting down socket and context\n";
-    	    zmq_close(this->socket);
-    	    zmq_ctx_destroy(this->context);
-    	}
+	void prepare_for_next() {
 
-    	void handle_messaging() {
+	}
 
-    	}
+	void shutdown() {
+	    std::cout << "Shutting down socket and context\n";
+	    zmq_close(this->socket);
+	    zmq_ctx_destroy(this->context);
+	}
+
+	void handle_messaging() {
+
+	}
 };
 
 class StreamBridge : public Connection {
@@ -441,13 +453,17 @@ class StreamBridge : public Connection {
 	    std::cout << "I am a StreamBridge implementation." << '\n';
 	}
 
-    std::string get_type() {
-        return "WiFi";
-    }
-
 	void spawn() {
 	    std::cout << "== [StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread\n";
 	    this->worker_thread = std::thread(&StreamBridge::worker, this);
+	}
+
+	std::string get_protocol_type() {
+	    return "WiFi";
+	}
+
+	std::string get_internal_type() {
+	    return "StreamBridge";
 	}
 
 	void worker() {
@@ -499,9 +515,6 @@ class StreamBridge : public Connection {
 
 		// Wait for message from pipe then send
 
-		Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
-		this->send(&response);
-
 		run++;
 		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
 	    } while(true);
@@ -516,33 +529,24 @@ class StreamBridge : public Connection {
 
 	std::string recv(int flag){
         if (flag) {}
-	    //do {
 	    char buffer[512];
 	    memset(buffer, '\0', 512);
 
-	    if (this->init_msg == 1) {
-		// Receive 4 times, first is ID, second is nothing, third is message
-		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-		std::cout << "Received ID: " << this->id << "\n";
-		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
-		memset(buffer, '\0', 512);
-		msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
-		memset(buffer, '\0', 512);
-		msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
-		this->init_msg = 0;
-	    } else {
-		// Receive 2 times, first is ID, second is nothing, third is message
-		this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-		std::cout << "Received ID: " << this->id << "\n";
-		size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
-		std::cout << "Received: " << buffer << "\n";
-	    }
+	    // Receive 4 times, first is ID, second is nothing, third is message
+	    this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+	    std::cout << "[StreamBridge] Received ID: " << this->id << "\n";
+	    std::cout << "THE ID SIZE IS: " << this->id_size << "\n";
+	    size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
+	    std::cout << "[StreamBridge] Received: " << buffer << "\n";
+	    memset(buffer, '\0', 512);
+	    msg_size = zmq_recv(this->socket, buffer, 512, 0);
+	    std::cout << "[StreamBridge] Received: " << buffer << "\n";
+	    memset(buffer, '\0', 512);
+	    msg_size = zmq_recv(this->socket, buffer, 512, 0);
+	    std::cout << "[StreamBridge] Received: " << buffer << "\n";
+	    this->init_msg = 0;
 
 	    return buffer;
-	    //} while ( true );
 	}
 
 	void send(class Message * msg) {
@@ -555,9 +559,13 @@ class StreamBridge : public Connection {
 
 	void send(const char * message) {
 	    std::cout << "[StreamBridge] Sending..." << '\n';
-	    zmq_send(this->socket, id, id_size, ZMQ_SNDMORE);
+	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
 	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
 	    std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
+	}
+
+	void prepare_for_next() {
+
 	}
 
 	void shutdown() {
@@ -579,7 +587,8 @@ class TCP : public Connection {
 	std::string peer_addr;
 	std::string peer_port;
 
-	int socket, connection;
+	int socket;
+	int connection = -1;
 	struct sockaddr_in address;
 	int opt = 1;
 	int addrlen = sizeof(address);
@@ -634,13 +643,17 @@ class TCP : public Connection {
 	    std::cout << "I am a TCP implementation." << '\n';
 	}
 
-    std::string get_type() {
-        return "WiFi";
-    }
-
 	void spawn() {
 	    std::cout << "== [TCP] Spawning TCP_TYPE connection thread\n";
 	    this->worker_thread = std::thread(&TCP::worker, this);
+	}
+
+	std::string get_protocol_type() {
+	    return "WiFi";
+	}
+
+	std::string get_internal_type() {
+	    return "TCP";
 	}
 
 	void worker() {
@@ -689,9 +702,6 @@ class TCP : public Connection {
 
 		// Wait for message from pipe then send
 
-		Message response("1", this->peer_name, QUERY_TYPE, 1, "Message Response", run);
-		this->send(&response);
-
 		run++;
 		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
 	    } while(true);
@@ -721,8 +731,10 @@ class TCP : public Connection {
 		std::cout << "Listen failed\n";
 		return;
 	    }
-	    if ((this->connection = accept(this->socket, (struct sockaddr *)&this->address, (socklen_t*)&this->addrlen))<0) {
-		std::cout << "Socket failed\n";
+	    // Make the socket non-blocking
+	    if (fcntl(this->socket, F_SETFL, fcntl(this->socket, F_GETFL) | O_NONBLOCK) < 0) {
+		//std::cout << "Fcntl failed\n";
+		return;
 	    }
 	}
 
@@ -751,13 +763,77 @@ class TCP : public Connection {
 	}
 
 	std::string recv(int flag){
-        if (flag) {}
+	    if (this->connection == -1) {
+		if (flag != ZMQ_NOBLOCK) {
+		    if (fcntl(this->socket, F_SETFL, fcntl(this->socket, F_GETFL) & (~O_NONBLOCK)) < 0) {
+			std::cout << "Fcntl failed\n";
+			return "";
+		    }
+		}
+		if ((this->connection = accept(this->socket, (struct sockaddr *)&this->address, (socklen_t*)&this->addrlen))<0) {
+		    //std::cout << "Accept failed\n";
+		}
+		if (fcntl(this->socket, F_SETFL, fcntl(this->socket, F_GETFL) | O_NONBLOCK) < 0) {
+		    //std::cout << "Fcntl failed\n";
+		    return "";
+		}
+	    }
+	    if (flag == ZMQ_NOBLOCK) {
+		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) | O_NONBLOCK) < 0) {
+		    //std::cout << "Fcntl failed\n";
+		    return "";
+		}
+	    } else {
+		if (fcntl(this->connection, F_SETFL, fcntl(this->connection, F_GETFL) & (~O_NONBLOCK)) < 0) {
+		    //std::cout << "Fcntl failed\n";
+		    return "";
+		}
+	    }
+	    if (flag != ZMQ_NOBLOCK) {
+		std::string recvd = this->internal_recv();
+
+		while (this->test_tcp_message(recvd) != 1) {
+		    recvd = this->internal_recv();
+		}
+		return recvd;
+	    } else {
+		char buffer[1024];
+		memset(buffer, '\0', 1024);
+		int valread = read(this->connection, buffer, 1024);
+		printf("[TCP] Received: (%d) %s\n", valread, buffer);
+
+		// Sometimes TCP receives weird info
+		if (strlen(buffer) == 2) {
+		    std::cout << "TCP got 2: (1) " << (int)buffer[0] << " (2) " << (int)buffer[1] << "\n";
+		    if ((int)buffer[0] == 13 && (int)buffer[1] == 10) {
+			memset(buffer, '\0', 1024);
+			//return buffer;
+			return "";
+		    }
+		}
+
+		return std::string(buffer, strlen(buffer));
+	    }
+	}
+
+	int test_tcp_message(std::string message) {
+	    // Sometimes TCP receives weird info
+	    if (message.length() == 2) {
+		std::cout << "TCP got 2: (1) " << (int)message.at(0) << " (2) " << (int)message.at(1) << "\n";
+		if ((int)message.at(0) == 13 && (int)message.at(1) == 10) {
+		    return 0;
+		}
+	    }
+	    return 1;
+	}
+
+	std::string internal_recv() {
 	    char buffer[1024];
 	    memset(buffer, '\0', 1024);
 	    int valread = read(this->connection, buffer, 1024);
-	    printf("Received: (%d) %s\n", valread, buffer);
+	    printf("[TCP] Received: (%d) %s\n", valread, buffer);
 
-	    return buffer;
+	    return std::string(buffer, strlen(buffer));
 	}
 
 	void send(Message * msg) {
@@ -771,6 +847,11 @@ class TCP : public Connection {
 	    std::cout << "[TCP] Sending...\n";
 	    ssize_t bytes = ::send(this->connection, message, strlen(message), 0);
 	    std::cout << "[TCP] Sent: (" << (int)bytes << ") " << message << '\n';
+	}
+
+	void prepare_for_next() {
+	    close(this->connection);
+	    this->connection = -1;
 	}
 
 	void shutdown() {
@@ -787,12 +868,16 @@ class Bluetooth : public Connection {
 	    std::cout << "I am a BLE implementation." << '\n';
 	}
 
-    std::string get_type() {
-        return "BLE";
-    }
-
 	void spawn() {
 
+	}
+
+	std::string get_protocol_type() {
+	    return "BLE";
+	}
+
+	std::string get_internal_type() {
+	    return "BLE";
 	}
 
 	void worker() {
@@ -811,6 +896,10 @@ class Bluetooth : public Connection {
         if (flag) {}
 
 	    return "Message";
+	}
+
+	void prepare_for_next() {
+
 	}
 
 	void shutdown() {
@@ -843,12 +932,16 @@ class LoRa : public Connection {
 	    std::cout << "I am a LoRa implementation." << '\n';
 	}
 
-    std::string get_type() {
-        return "LoRa";
-    }
-
 	void spawn() {
 
+	}
+
+	std::string get_protocol_type() {
+	    return "LoRa";
+	}
+
+	std::string get_internal_type() {
+	    return "LoRa";
 	}
 
 	void worker() {
@@ -868,6 +961,10 @@ class LoRa : public Connection {
         if (flag) {}
 
 	    return "Message";
+	}
+
+	void prepare_for_next() {
+
 	}
 
 	void shutdown() {
