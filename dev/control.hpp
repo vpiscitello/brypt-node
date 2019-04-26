@@ -66,12 +66,6 @@ class Control {
 			std::cout << "Request was " << request << "\n";
 
 			int comm_requested = (int)request[0] - 48;
-			if (comm_requested < 0 || comm_requested > 6) {
-				request = this->conn->recv(0);
-				std::cout << "Request again? was " << request << "\n";
-			}
-
-			comm_requested = (int)request[0] - 48;
 			if (comm_requested >= 0 && comm_requested <= 6) {
 			    std::cout << "Communication type requested: " << comm_requested << "\n";
 			    TechnologyType server_comm_type;
