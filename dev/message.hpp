@@ -507,141 +507,141 @@ class Message {
 	 * ** Description: HMAC Blake2s a provided message and return the authentication token.
 	 * ** *************************************************************************/
 	std::string hmac_blake2s(std::string mssgData, int mssgLen) {
-	    const EVP_MD *md;
-	    md = EVP_get_digestbyname("blake2s256");
+	    // Using md instead of directly using EVP_blake2s256() breaks on Adam's computer
+	    //const EVP_MD *md;
+	    //md = EVP_get_digestbyname("blake2s256");
 	    const unsigned char* mssg = (const unsigned char*)mssgData.c_str();
-	    const unsigned char* k = (const unsigned char*)key.c_str();
+	    const unsigned char* k = (const unsigned char*)(this->key.c_str());
 	    unsigned int length = 0;
 	    unsigned char* d;
-	    d = HMAC(md, k, this->key.size(), mssg, mssgLen, NULL, &length);
+	    d = HMAC(EVP_blake2s256(), k, (this->key).size(), mssg, mssgLen, NULL, &length);
 	    std::string cppDigest = (char*)d;
 	    return cppDigest;
 	}
-	/*
-	   inner << std::hash<std::string>{}( in_key.str() + message );
-	   token << std::hash<std::string>{}( out_key.str() + inner.str() );      // Generate the HMAC
+	//
+	//   inner << std::hash<std::string>{}( in_key.str() + message );
+	//   token << std::hash<std::string>{}( out_key.str() + inner.str() );      // Generate the HMAC
 
-	// token = std::hash<std::string>{}(
-	//                 out_key.str() +
-	//                 std::hash<std::string>{}( in_key.str() + message )
-	//         );      // Generate the HMAC
+	//// token = std::hash<std::string>{}(
+	////                 out_key.str() +
+	////                 std::hash<std::string>{}( in_key.str() + message )
+	////         );      // Generate the HMAC
 
-	return token.str();
-	}*/
+	//return token.str();
 
-/* **************************************************************************
- ** Function: base64_encode
- ** Description: Encode a std::string to a Base64 message
- ** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
- ** *************************************************************************/
-std::string base64_encode(std::string message, unsigned int in_len) {
-    std::string encoded;
-    int idx = 0, jdx = 0;
-    unsigned char char_array_3[3], char_array_4[4];
-    unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
+	/* **************************************************************************
+	 ** Function: base64_encode
+	 ** Description: Encode a std::string to a Base64 message
+	 ** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
+	 ** *************************************************************************/
+	std::string base64_encode(std::string message, unsigned int in_len) {
+	    std::string encoded;
+	    int idx = 0, jdx = 0;
+	    unsigned char char_array_3[3], char_array_4[4];
+	    unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
 
-    while (in_len--) {
-	char_array_3[idx++] = *(bytes_to_encode++);
+	    while (in_len--) {
+		char_array_3[idx++] = *(bytes_to_encode++);
 
-	if(idx == 3) {
-	    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-	    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-	    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
-	    char_array_4[3] = char_array_3[2] & 0x3f;
+		if(idx == 3) {
+		    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
+		    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+		    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+		    char_array_4[3] = char_array_3[2] & 0x3f;
 
-	    for (idx = 0; idx < 4; idx++) {
-		encoded += base64_chars[char_array_4[idx]];
+		    for (idx = 0; idx < 4; idx++) {
+			encoded += base64_chars[char_array_4[idx]];
+		    }
+
+		    idx = 0;
+		}
 	    }
 
-	    idx = 0;
-	}
-    }
+	    if (idx) {
+		for (jdx = idx; jdx < 3; jdx++) {
+		    char_array_3[jdx] = '\0';
+		}
 
-    if (idx) {
-	for (jdx = idx; jdx < 3; jdx++) {
-	    char_array_3[jdx] = '\0';
-	}
+		char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;	
+		char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+		char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );	    
 
-	char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;	
-	char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-	char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );	    
+		for (jdx = 0; jdx < idx + 1; jdx++) {
+		    encoded += base64_chars[char_array_4[jdx]];
+		}
 
-	for (jdx = 0; jdx < idx + 1; jdx++) {
-	    encoded += base64_chars[char_array_4[jdx]];
-	}
-
-	while (idx++ < 3) {
-	    encoded += '=';
-	}
-    }
-
-    return encoded;
-}
-
-/* **************************************************************************
- ** Function: base64_decode
- ** Description: Decode a Base64 message to a std::string
- ** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
- ** *************************************************************************/
-std::string base64_decode(std::string const& message) {
-    std::string decoded;
-    int in_len = message.size();
-    int idx = 0, jdx = 0, in_ = 0;
-    unsigned char char_array_3[3], char_array_4[4];
-
-    while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
-	char_array_4[idx++] = message[in_]; in_++;
-
-	if (idx == 4 ) {
-	    for (idx = 0; idx < 4; idx++) {
-		char_array_4[idx] = base64_chars.find( char_array_4[idx] );
+		while (idx++ < 3) {
+		    encoded += '=';
+		}
 	    }
 
-	    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-	    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-	    char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+	    return encoded;
+	}
 
-	    for (idx = 0; idx < 3; idx++) {
-		decoded += char_array_3[idx];
+	/* **************************************************************************
+	 ** Function: base64_decode
+	 ** Description: Decode a Base64 message to a std::string
+	 ** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
+	 ** *************************************************************************/
+	std::string base64_decode(std::string const& message) {
+	    std::string decoded;
+	    int in_len = message.size();
+	    int idx = 0, jdx = 0, in_ = 0;
+	    unsigned char char_array_3[3], char_array_4[4];
+
+	    while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
+		char_array_4[idx++] = message[in_]; in_++;
+
+		if (idx == 4 ) {
+		    for (idx = 0; idx < 4; idx++) {
+			char_array_4[idx] = base64_chars.find( char_array_4[idx] );
+		    }
+
+		    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
+		    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+		    char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+
+		    for (idx = 0; idx < 3; idx++) {
+			decoded += char_array_3[idx];
+		    }
+
+		    idx = 0;
+		}
 	    }
 
-	    idx = 0;
+	    if (idx) {
+		for (jdx = 0; jdx < idx; jdx++) {
+		    char_array_4[jdx] = base64_chars.find( char_array_4[jdx] );
+		}
+
+		char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );	
+		char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+
+		for (jdx = 0; jdx < idx - 1; jdx++) {
+		    decoded += char_array_3[jdx];
+		}
+	    }
+
+	    return decoded;
 	}
-    }
 
-    if (idx) {
-	for (jdx = 0; jdx < idx; jdx++) {
-	    char_array_4[jdx] = base64_chars.find( char_array_4[jdx] );
+	/* **************************************************************************
+	 ** Function: verify
+	 ** Description: Compare the Message token with the computed HMAC.
+	 ** *************************************************************************/
+	bool verify() {
+	    bool verified = false;
+	    std::string check_token = "";
+
+	    if (this->raw != "" || this->auth_token != "") {
+		check_token = this->hmac_blake2s( this->raw, this->raw.size() );
+		if (this->auth_token == check_token) {
+		    verified = true;
+		}
+	    }
+
+	    return verified;
 	}
-
-	char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );	
-	char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-
-	for (jdx = 0; jdx < idx - 1; jdx++) {
-	    decoded += char_array_3[jdx];
-	}
-    }
-
-    return decoded;
-}
-
-/* **************************************************************************
- ** Function: verify
- ** Description: Compare the Message token with the computed HMAC.
- ** *************************************************************************/
-bool verify() {
-    bool verified = false;
-    std::string check_token = "";
-
-    if (this->raw != "" || this->auth_token != "") {
-	check_token = this->hmac_blake2s( this->raw, this->raw.size() );
-	if (this->auth_token == check_token) {
-	    verified = true;
-	}
-    }
-
-    return verified;
-}
 };
 
 #endif
