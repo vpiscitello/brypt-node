@@ -789,42 +789,20 @@ class TCP : public Connection {
 		    return "";
 		}
 	    }
-	    if (flag != ZMQ_NOBLOCK) {
-		std::string recvd = this->internal_recv();
+	    char buffer[1024];
+	    memset(buffer, '\0', 1024);
+	    int valread = read(this->connection, buffer, 1024);
+	    printf("[TCP] Received: (%d) %s\n", valread, buffer);
 
-		while (this->test_tcp_message(recvd) != 1) {
-		    recvd = this->internal_recv();
-		}
-		return recvd;
-	    } else {
-		char buffer[1024];
-		memset(buffer, '\0', 1024);
-		int valread = read(this->connection, buffer, 1024);
-		printf("[TCP] Received: (%d) %s\n", valread, buffer);
+	    //// Sometimes TCP receives newlines
+	    //if (strlen(buffer) == 2) {
+	    //    std::cout << "TCP got 2: (1) " << (int)buffer[0] << " (2) " << (int)buffer[1] << "\n";
+	    //    if ((int)buffer[0] == 13 && (int)buffer[1] == 10) {
+	    //        return "";
+	    //    }
+	    //}
 
-		// Sometimes TCP receives weird info
-		if (strlen(buffer) == 2) {
-		    std::cout << "TCP got 2: (1) " << (int)buffer[0] << " (2) " << (int)buffer[1] << "\n";
-		    if ((int)buffer[0] == 13 && (int)buffer[1] == 10) {
-			memset(buffer, '\0', 1024);
-			//return buffer;
-			return "";
-		    }
-		}
-
-		return std::string(buffer, strlen(buffer));
-	    }
-	}
-
-	int test_tcp_message(std::string message) {
-	    // Sometimes TCP receives weird info
-	    if (message.length() == 2) {
-		std::cout << "TCP got 2: (1) " << (int)message.at(0) << " (2) " << (int)message.at(1) << "\n";
-		if ((int)message.at(0) == 13 && (int)message.at(1) == 10) {
-		    return 0;
-		}
-	    }
-	    return 1;
+	    return std::string(buffer, strlen(buffer));
 	}
 
 	std::string internal_recv() {
