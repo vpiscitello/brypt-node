@@ -8,8 +8,9 @@
 
 #include "utility.hpp"
 
-#include <Hash.h>
+#include <Base64.h>
 
+#include <Hash.h>
 //#include <SHA256.h>
 #include <BLAKE2s.h>
 #include <AES.h>
@@ -37,7 +38,7 @@ class Message {
 
 		String auth_token;         // Current authentication token created via HMAC
 		unsigned int nonce;             // Current message nonce
-		unsigned char* key;
+		String key;
 
 		enum MessageChunk {
 			SOURCEID_CHUNK, DESTINATIONID_CHUNK, COMMAND_CHUNK, PHASE_CHUNK, NONCE_CHUNK, DATASIZE_CHUNK, DATA_CHUNK, TIMESTAMP_CHUNK,
@@ -64,15 +65,32 @@ class Message {
 			this->nonce = 0;
 			this->set_timestamp();
 		}
+		
 		/* **************************************************************************
 		 ** Function: Constructor for Recieved Messages
 		 ** Description: Takes raw string input and unpacks it into the class variables.
 		 ** *************************************************************************/
 		Message(String raw){
 			this->raw = raw;
+			
+			char raw_chars[raw.length()];
+			raw.toCharArray(raw_chars, raw.length());
+			int raw_chars_len = sizeof(raw_chars);
+			
+			int decode_len = base64_dec_len(raw_chars, raw_chars_len);
+			char decoded[decode_len];
+			
+			base64_decode(decoded, raw_chars, raw_chars_len);
+			
+			String real_raw(decoded);
+			this->raw = real_raw;
+			
+			this->key = NET_KEY;
+			
 			this->unpack();
 			this->response = NULL;
 		}
+		
 		/* **************************************************************************
 		 ** Function: Constructor for new Messages
 		 ** Description: Initializes new messages provided the intended values.
@@ -89,6 +107,7 @@ class Message {
 			this->auth_token = "";
 			this->nonce = nonce;
 			this->set_timestamp();
+			this->encrypt(this->data);
 		}
 
 		// Getter Functions
@@ -99,6 +118,7 @@ class Message {
 		String get_source_id() {
 			return this->source_id;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_destination_id
 		 ** Description: Return the ID of the Node message going to.
@@ -106,6 +126,7 @@ class Message {
 		String get_destination_id() {
 			return this->destination_id;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_await_id
 		 ** Description: Return the ID of the AwaitObject attached to flood request.
@@ -113,6 +134,7 @@ class Message {
 		String get_await_id() {
 			return this->await_id;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_command
 		 ** Description: Return the designated command to handle the message.
@@ -120,6 +142,7 @@ class Message {
 		CommandType get_command() {
 			return this->command;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_phase
 		 ** Description: Return the commands phase.
@@ -127,6 +150,7 @@ class Message {
 		unsigned int get_phase() {
 			return this->phase;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_data
 		 ** Description: Return the data content of the message.
@@ -134,6 +158,7 @@ class Message {
 		String get_data() {
 			return this->data;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_timestamp
 		 ** Description: Return the timestamp of when the message was created.
@@ -141,6 +166,7 @@ class Message {
 		String get_timestamp() {
 			return this->timestamp;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_nonce
 		 ** Description: Return the commands phase.
@@ -148,6 +174,7 @@ class Message {
 		unsigned int get_nonce() {
 			return this->nonce;
 		}
+		
 		/* **************************************************************************
 		 ** Function: get_pack
 		 ** Description: Return the packed data of the message. If it has not been
@@ -157,7 +184,20 @@ class Message {
 			if ( this->raw == "" ) {
 				this->pack();
 			}
-			return (this->raw + this->auth_token);
+			String raw_pack = (this->raw + this->auth_token);
+			// Encode
+			char raw_chars[raw_pack.length()+1];
+			int raw_chars_len = sizeof(raw_chars);
+			
+			raw_pack.toCharArray(raw_chars, (raw_pack.length()+1));
+			int encoded_len = base64_enc_len(raw_chars_len);
+			char encoded[encoded_len];
+			
+			base64_encode(encoded, raw_chars, raw_chars_len);
+			
+			String encoded_str(encoded);
+			
+			return encoded_str;
 		}
 		/* **************************************************************************
 		 ** Function: get_response
@@ -178,6 +218,7 @@ class Message {
 		void set_raw(String raw) {
 			this->raw = raw;
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_source_id
 		 ** Description: Set the Node ID of the message.
@@ -185,6 +226,7 @@ class Message {
 		void set_source_id(String source_id) {
 			this->source_id = source_id;
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_destination_id
 		 ** Description: Set the Node ID of the message.
@@ -192,6 +234,7 @@ class Message {
 		void set_destination_id(String destination_id) {
 			this->destination_id = destination_id;
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_command
 		 ** Description: Set the command of the message.
@@ -200,6 +243,7 @@ class Message {
 			this->command = command;
 			this->phase = phase;
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_data
 		 ** Description: Set the data content of the message.
@@ -207,6 +251,7 @@ class Message {
 		void set_data(String data) {
 			this->data = data;
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_nonce
 		 ** Description: Set the current nonce of the message.
@@ -214,12 +259,13 @@ class Message {
 		void set_nonce(unsigned int nonce) {
 			this->nonce = nonce;
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_timestamp
 		 ** Description: Determine the timestamp of the message using the system clock.
 		 ** *************************************************************************/
 		void set_timestamp() {
-			this->timestamp = 628909897;
+			this->timestamp = "000000000";
 			// std::stringstream ss;
 			// std::chrono::seconds seconds;
 			// std::chrono::time_point<std::chrono::system_clock> current_time;
@@ -229,6 +275,7 @@ class Message {
 			// ss << seconds.count();
 			// this->timestamp = ss.str();
 		}
+		
 		/* **************************************************************************
 		 ** Function: set_response
 		 ** Description: Set the message Response provided the data content and sending
@@ -245,9 +292,7 @@ class Message {
 				this->response->set_nonce( this->nonce + 1 );
 			}
 		}
-		void set_key(unsigned char* tmpkey){
-			this->key = tmpkey;
-		}
+		
 		// Utility Functions
 		/* **************************************************************************
 		 ** Function: pack_chunk
@@ -261,6 +306,7 @@ class Message {
 			packed = packed + (char)29;
 			return packed;
 		}
+		
 		/* **************************************************************************
 		 ** Function: pack_chunk
 		 ** Description: Wrap an unsigned int message chunk with seperators.
@@ -273,12 +319,12 @@ class Message {
 			packed = packed + (char)29;
 			return packed;
 		}
+		
 		/* **************************************************************************
 		 ** Function: pack
 		 ** Description: Pack the Message class values into a single raw string.
 		 ** *************************************************************************/
 		void pack() {
-			encrypt(this->data);
 			String packed;
 
 			packed = packed + (char)1;
@@ -296,6 +342,7 @@ class Message {
 			this->auth_token = this->hmac( packed );
 			this->raw = packed;
 		}
+		
 		/* **************************************************************************
 		 ** Function: unpack
 		 ** Description: Unpack the raw message string into the Message class variables.
@@ -345,6 +392,7 @@ class Message {
 				// Data
 			  case DATA_CHUNK:
 				this->data = this->raw.substring( last_end + 2, ( last_end + data_size + 2 ) );
+				this->decrypt(this->data);
 				break;
 				// Timestamp
 			  case TIMESTAMP_CHUNK:
@@ -375,8 +423,8 @@ class Message {
 			this->await_id = this->destination_id.substring(id_sep_found + 1);
 			this->destination_id = this->destination_id.substring(0, id_sep_found);
 		  }
-			decrypt(this->data);
 		}
+		
 		/* **************************************************************************
 		 ** Function: hmac
 		 ** Description: HMAC a provided message and return the authentication token.
@@ -388,6 +436,7 @@ class Message {
 			
 			return token;
 		}*/
+		
 		String hmac(String mssg){
 			unsigned char result[HASH_SIZE];
 			unsigned char tmpres[HASH_SIZE];
@@ -403,18 +452,21 @@ class Message {
 			//keynum = keynum+nonce;
 			//String(keynum).getBytes(tmpkey, 32);
 
-			h->resetHMAC(key, 32);
+			char key_chars[(this->key).length()];
+			(this->key).toCharArray(key_chars, sizeof(key_chars));
+			h->resetHMAC((void *)key_chars, 32);
 			h->update(noncebuf, 12);
-			h->finalizeHMAC(key, 12, tmpkey, HASH_SIZE);
+			h->finalizeHMAC((const void *)key_chars, (size_t)12, (void *)tmpkey, (size_t)HASH_SIZE);
 
 			h->resetHMAC(tmpkey, 32);
-			h->update(mssgptr, mlen);
-			h->finalizeHMAC(tmpkey, mlen, result, HASH_SIZE);
+			h->update((const void *)mssgptr, (size_t)mlen);
+			h->finalizeHMAC((const void *)tmpkey, (size_t)mlen, (void *)result, (size_t)HASH_SIZE);
 			Serial.println(result[0]);
 			String trueres;
 			trueres = String((char *)result);
 			return trueres;
 		}
+		
 		/*
 		String hash(Hash *h, uint8_t *value, byte *mssg){
 			h->reset();
@@ -434,6 +486,7 @@ class Message {
 			h->finalize(value, HASH_SIZE);
 		}
 		*/
+		
 		void encrypt(String plaintext){
 			CTR<AES256> aes_ctr_256;
 			int ptxtlen = plaintext.length();
@@ -442,17 +495,21 @@ class Message {
 			itoa(this->nonce, (char *)iv, 10);
 			int ivlen = strlen((char *)iv);
 			plaintext.toCharArray((char *)ptxtptr, ptxtlen);
-			aes_ctr_256.setKey(key, 32);
-			aes_ctr_256.setIV(iv, ivlen);
-			aes_ctr_256.setCounterSize(4);
+			
+			char key_chars[(this->key).length()];
+			(this->key).toCharArray(key_chars, sizeof(key_chars));
+			aes_ctr_256.setKey((const uint8_t *)key_chars, (size_t)32);
+			aes_ctr_256.setIV((const uint8_t *)iv, (size_t)ivlen);
+			aes_ctr_256.setCounterSize((size_t)4);
 			byte buffer[ptxtlen+1];//SEGFAULT? might need whole block of leeway. same w/ decrypt
-			aes_ctr_256.encrypt(buffer, ptxtptr, ptxtlen);
+			aes_ctr_256.encrypt((uint8_t *)buffer, (const uint8_t *)ptxtptr, (size_t)ptxtlen);
 
 			String cpystr((char *)buffer);
 			this->data = cpystr;
 			Serial.println(cpystr);
 			
 		}
+		
 		void decrypt(String ciphertext){
 			CTR<AES256> aes_ctr_256;
 			int cipherlen = ciphertext.length();
@@ -463,18 +520,21 @@ class Message {
 			itoa(this->nonce, (char *)iv, 10);
 			int ivlen = strlen((char *)iv);
 			ciphertext.toCharArray((char*)ctxtptr, cipherlen);
-			//crypto_feed_watchdog();
-			aes_ctr_256.setKey(key, 32);
-			aes_ctr_256.setIV(iv, ivlen);
-			aes_ctr_256.setCounterSize(4);
+			//crypto_feed_watchdog
+			char key_chars[(this->key).length()];
+			(this->key).toCharArray(key_chars, sizeof(key_chars));
+			aes_ctr_256.setKey((const uint8_t *)key_chars, (size_t)32);
+			aes_ctr_256.setIV((const uint8_t *)iv, (size_t)ivlen);
+			aes_ctr_256.setCounterSize((size_t)4);
 			byte buffer[ciphertext.length()+1];
-			aes_ctr_256.decrypt(buffer, ctxtptr, ciphertext.length());
+			aes_ctr_256.decrypt((uint8_t *)buffer, (const uint8_t *)ctxtptr, (size_t)(ciphertext.length()));
 			//strncpy((char *)this->data, (char *)buffer, 512);
 			String cpystr((char *)buffer);
 			this->data = cpystr;
 			Serial.println(buffer[0]);
 			Serial.println("AES-CTR-256 Decrypted text:");
 		}
+		
 		/* **************************************************************************
 		 ** Function: verify
 		 ** Description: Compare the Message token with the computed HMAC.

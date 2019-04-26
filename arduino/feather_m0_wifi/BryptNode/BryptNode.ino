@@ -36,9 +36,7 @@ CurrentState state = DETERMINE_NETWORK;
 int contacted = 0;
 
 // CONFIG IP address of server to connect to
-IPAddress remote_server(192,168,137,63);
-//IPAddress remote_server(192,168,137,158);
-//String remote_server = "";
+IPAddress remote_server(192,168,137,186);
 int remote_port = 3001;
 String device_id = "01-01-00-00-00";
 
@@ -76,7 +74,7 @@ void setup() {
     state = AP_DETERMINED;
 }
 
-void loop() {
+void loop() {   
     if (state == DETERMINE_NETWORK) {
         wifi_status = check_wifi_status(wifi_status);
       
@@ -246,8 +244,11 @@ void loop() {
         Serial.print("Req port: ");
         Serial.println(req_port);
 
+        Serial.println("Making info message");
         Message info_message(device_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, 0);
         delay(100);
+
+        Serial.println("Sending info message");
         server_connection.print(info_message.get_pack());
         server_connection.flush();
         delay(500);
