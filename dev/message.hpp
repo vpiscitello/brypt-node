@@ -507,14 +507,13 @@ class Message {
 	 * ** Description: HMAC Blake2s a provided message and return the authentication token.
 	 * ** *************************************************************************/
 	std::string hmac_blake2s(std::string mssgData, int mssgLen) {
-	    // Using md instead of directly using EVP_blake2s256() breaks on Adam's computer
-	    //const EVP_MD *md;
-	    //md = EVP_get_digestbyname("blake2s256");
+	    const EVP_MD *md;
+	    md = EVP_get_digestbyname("blake2s256");
 	    const unsigned char* mssg = (const unsigned char*)mssgData.c_str();
 	    const unsigned char* k = (const unsigned char*)(this->key.c_str());
 	    unsigned int length = 0;
 	    unsigned char* d;
-	    d = HMAC(EVP_blake2s256(), k, (this->key).size(), mssg, mssgLen, NULL, &length);
+	    d = HMAC(md, k, (this->key).size(), mssg, mssgLen, NULL, &length);
 	    std::string cppDigest = (char*)d;
 	    return cppDigest;
 	}
