@@ -313,13 +313,13 @@ void Node::initial_contact(Options * opts) {
 
     std::cout << "== [Node] [initial_contact] Sending coordinator acknowledgement\n";
     connection->send("\x06");   // Send initial ACK byte to peer
-    response = connection->recv();  // Expect ACK back from peer
+    response = connection->recv(0);  // Expect ACK back from peer
     std::cout << "== [Node] [initial_contact] Received: " << (int)response.c_str()[0] << "\n";
 
     // Send communication technology preferred
     std::cout << "== [Node] [initial_contact] Sending preferred contact technology\n";
     connection->send(std::to_string(opts->technology).c_str());
-    response = connection->recv();  // Expect new connection port from peer or something related to LoRa/Bluetooth
+    response = connection->recv(0);  // Expect new connection port from peer or something related to LoRa/Bluetooth
 
     Message port_message(response);
     this->state.coordinator.id = port_message.get_source_id();
@@ -330,7 +330,7 @@ void Node::initial_contact(Options * opts) {
     Message info_message(this->state.self.id, this->state.coordinator.id, CONNECT_TYPE, 1, std::to_string(opts->technology).c_str(), 0);
     connection->send(&info_message);    // Send node information to peer
 
-    response = connection->recv();  // Expect EOT back from peer
+    response = connection->recv(0);  // Expect EOT back from peer
     std::cout << "== [Node] [initial_contact] Received: " << (int)response.c_str()[0] << "\n";
     std::cout << "== [Node] [initial_contact] Connection sequence completed. Connecting to new endpoint.\n";
 
