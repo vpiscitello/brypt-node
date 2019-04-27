@@ -63,6 +63,7 @@ void setup() {
         while (true);
     }
 
+
     scan_available_networks();
 
     char ssid[] = "feather_m0_setup";
@@ -74,7 +75,91 @@ void setup() {
     state = AP_DETERMINED;
 }
 
-void loop() {   
+#include <Base64.h>
+
+#include <Hash.h>
+//#include <SHA256.h>
+#include <BLAKE2s.h>
+#include <AES.h>
+#include <CTR.h>
+
+
+//make sure it is 16 bytes long
+//make sure it is properly null terminated
+
+String encrypt(String plaintext){
+    CTR<AES256> aes_ctr_256;
+    int ptxtlen = plaintext.length();
+    Serial.print("Ptxt len: ");
+    Serial.println(ptxtlen);
+    unsigned char ptxtptr[ptxtlen+1];
+    unsigned char iv[16];
+    itoa(NET_NONCE, (char *)iv, 10);
+    int ivlen = strlen((char *)iv);
+    Serial.print("IV: ");
+    Serial.println((char *)iv);
+    plaintext.toCharArray((char *)ptxtptr, ptxtlen);
+    
+//    char key_chars[(this->key).length()];
+    char key_chars[NET_KEY.length()];
+//    (this->key).toCharArray(key_chars, sizeof(key_chars));
+    NET_KEY.toCharArray(key_chars, sizeof(key_chars));
+    
+    aes_ctr_256.setKey((const uint8_t *)key_chars, (size_t)32);
+    aes_ctr_256.setIV((const uint8_t *)iv, (size_t)ivlen);
+    aes_ctr_256.setCounterSize((size_t)4);
+    byte buffer[ptxtlen+1];//SEGFAULT? might need whole block of leeway. same w/ decrypt
+    aes_ctr_256.encrypt((uint8_t *)buffer, (const uint8_t *)ptxtptr, (size_t)ptxtlen);
+
+    String cpystr((char *)buffer);
+    String data = cpystr;
+//    Serial.println(cpystr);
+    return data;
+}
+
+String decrypt(String ciphertext){
+    CTR<AES256> aes_ctr_256;
+    int cipherlen = ciphertext.length();
+    Serial.print("Ctxt len: ");
+    Serial.println(cipherlen);
+    unsigned char ctxtptr[cipherlen+1];
+    unsigned char iv[16];
+    //void *temp = (void*)(std::to_string(this->nonce)).c_str();
+
+    itoa(NET_NONCE, (char *)iv, 10);
+    int ivlen = strlen((char *)iv);
+    Serial.print("IV: ");
+    Serial.println((char *)iv);
+    ciphertext.toCharArray((char*)ctxtptr, cipherlen);
+    //crypto_feed_watchdog
+//    char key_chars[(this->key).length()];
+    char key_chars[NET_KEY.length()];
+//    (this->key).toCharArray(key_chars, sizeof(key_chars));
+    NET_KEY.toCharArray(key_chars, sizeof(key_chars));
+    
+    aes_ctr_256.setKey((const uint8_t *)key_chars, (size_t)32);
+    aes_ctr_256.setIV((const uint8_t *)iv, (size_t)ivlen);
+    aes_ctr_256.setCounterSize((size_t)4);
+    byte buffer[ciphertext.length()+1];
+    aes_ctr_256.decrypt((uint8_t *)buffer, (const uint8_t *)ctxtptr, (size_t)(ciphertext.length()));
+    //strncpy((char *)this->data, (char *)buffer, 512);
+    String cpystr((char *)buffer);
+    String data = cpystr;
+//    Serial.println(buffer[0]);
+//    Serial.println("AES-CTR-256 Decrypted text:");
+    return data;
+}
+
+
+void loop() {
+//    Serial.println("Going to encrypt");
+    String data = encrypt("11111111");
+    Serial.print("Data: ");
+    Serial.println(data);
+    data = decrypt(data);
+    Serial.print("Data: ");
+    Serial.println(data);
+    while (true);
     if (state == DETERMINE_NETWORK) {
         wifi_status = check_wifi_status(wifi_status);
       
