@@ -43,6 +43,108 @@ String device_id = "01-01-00-00-00";
 WiFiClient server_connection;
 
 
+
+
+/* **************************************************************************
+** Function: base64_encode
+** Description: Encode a std::string to a Base64 message
+** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
+** *************************************************************************/
+String base64_encode(String message, unsigned int in_len) {
+  String encoded;
+  int idx = 0, jdx = 0;
+  unsigned char char_array_3[3], char_array_4[4];
+  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
+
+  while (in_len--) {
+    char_array_3[idx++] = *(bytes_to_encode++);
+
+    if(idx == 3) {
+      char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
+      char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+      char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+      char_array_4[3] = char_array_3[2] & 0x3f;
+
+      for (idx = 0; idx < 4; idx++) {
+        encoded += base64_chars[char_array_4[idx]];
+      }
+
+      idx = 0;
+    }
+  }
+
+  if (idx) {
+    for (jdx = idx; jdx < 3; jdx++) {
+      char_array_3[jdx] = '\0';
+    }
+     
+    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
+    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
+
+    for (jdx = 0; jdx < idx + 1; jdx++) {
+      encoded += base64_chars[char_array_4[jdx]];
+    }
+
+    while (idx++ < 3) {
+      encoded += '=';
+    }
+  }
+
+  return encoded;
+}
+
+/* **************************************************************************
+** Function: base64_decode
+** Description: Decode a Base64 message to a std::string
+** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
+** *************************************************************************/
+String base64_decode(String const& message) {
+  String decoded;
+  int in_len = message.length();
+  int idx = 0, jdx = 0, in_ = 0;
+  unsigned char char_array_3[3], char_array_4[4];
+
+  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
+    char_array_4[idx++] = message[in_]; in_++;
+    
+    if (idx == 4 ) {
+      for (idx = 0; idx < 4; idx++) {
+        char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
+      }
+
+      char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
+      char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+      char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+
+      for (idx = 0; idx < 3; idx++) {
+        decoded += char_array_3[idx];
+      }
+
+      idx = 0;
+    }
+  }
+
+  if (idx) {
+    for (jdx = 0; jdx < idx; jdx++) {
+      char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
+    }
+
+    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
+    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+
+    for (jdx = 0; jdx < idx - 1; jdx++) {
+      decoded += char_array_3[jdx];
+    }
+  }
+
+  return decoded;
+}
+
+
+
+
+
 void setup() {
     // Configure pins for Adafruit ATWINC1500 Feather
     WiFi.setPins(8,7,4,2);
@@ -64,18 +166,16 @@ void setup() {
     }
 
 
-    scan_available_networks();
-
-    char ssid[] = "feather_m0_setup";
-    start_access_point(ssid);
+//    scan_available_networks();
+//
+//    char ssid[] = "feather_m0_setup";
+//    start_access_point(ssid);
 
     // TESTING
     Serial.println("Ending AP");
     WiFi.end();
     state = AP_DETERMINED;
 }
-
-#include <Base64.h>
 
 #include <Hash.h>
 //#include <SHA256.h>
@@ -84,82 +184,134 @@ void setup() {
 #include <CTR.h>
 
 
-//make sure it is 16 bytes long
-//make sure it is properly null terminated
+void encode_and_decode(String str) {
+  String str_encoded = base64_encode(str, str.length());
+  Serial.print("Encoded: ");
+  Serial.println(str_encoded);
+
+  String str_decoded = base64_decode(str_encoded);
+  Serial.print("Decoded: ");
+  Serial.println(str_decoded);
+}
+
+
+
+void encrypt_and_decrypt(String plaintext) {
+    byte buffer[16];
+    CTR<AES256> aes256;
+  
+    byte key[32];
+    NET_KEY.getBytes(key, 32);
+    aes256.setKey(key, 32);
+    
+    byte iv[16];
+    String nonce(NET_NONCE);
+    nonce.getBytes(iv, 16);
+    aes256.setIV(iv, 16);
+  
+    byte ptxt[16];
+    plaintext.getBytes(ptxt, 16);
+  
+    String cpystr2((char *)ptxt);
+    String ciphertext2 = cpystr2;
+    Serial.print("Plaintext: ");
+    Serial.println(ciphertext2);
+    
+    aes256.encrypt(buffer, ptxt, 16);
+  
+    String cpystr((char *)buffer);
+    String ciphertext = cpystr;
+    Serial.print("Ciphertext: ");
+    Serial.println(ciphertext);
+  
+    // Decrypt
+    byte buffer2[16];
+    aes256.setKey(key, 32);
+    aes256.setIV(iv, 16);
+    aes256.decrypt(buffer2, buffer, 16);
+  
+    
+    if (memcmp(ptxt, buffer2, 16) == 0) {
+        Serial.println("Matches");
+    } else {
+        Serial.println("Doesnt match");
+    }
+}
+
+
 
 String encrypt(String plaintext){
-    CTR<AES256> aes_ctr_256;
-    int ptxtlen = plaintext.length();
-    Serial.print("Ptxt len: ");
-    Serial.println(ptxtlen);
-    unsigned char ptxtptr[ptxtlen+1];
-    unsigned char iv[16];
-    itoa(NET_NONCE, (char *)iv, 10);
-    int ivlen = strlen((char *)iv);
-    Serial.print("IV: ");
-    Serial.println((char *)iv);
-    plaintext.toCharArray((char *)ptxtptr, ptxtlen);
+    byte buffer[16];
+    CTR<AES256> aes256;
+  
+    byte key[32];
+    NET_KEY.getBytes(key, 32);
+    aes256.setKey(key, 32);
     
-//    char key_chars[(this->key).length()];
-    char key_chars[NET_KEY.length()];
-//    (this->key).toCharArray(key_chars, sizeof(key_chars));
-    NET_KEY.toCharArray(key_chars, sizeof(key_chars));
+    byte iv[16];
+    String nonce(NET_NONCE);
+    nonce.getBytes(iv, 16);
+    aes256.setIV(iv, 16);
+  
+    byte ptxt[16];
+    plaintext.getBytes(ptxt, 16);
+  
+    String cpystr2((char *)ptxt);
+    String ciphertext2 = cpystr2;
+    Serial.print("Plaintext: ");
+    Serial.println(ciphertext2);
     
-    aes_ctr_256.setKey((const uint8_t *)key_chars, (size_t)32);
-    aes_ctr_256.setIV((const uint8_t *)iv, (size_t)ivlen);
-    aes_ctr_256.setCounterSize((size_t)4);
-    byte buffer[ptxtlen+1];//SEGFAULT? might need whole block of leeway. same w/ decrypt
-    aes_ctr_256.encrypt((uint8_t *)buffer, (const uint8_t *)ptxtptr, (size_t)ptxtlen);
-
+    aes256.encrypt(buffer, ptxt, 16);
+  
     String cpystr((char *)buffer);
-    String data = cpystr;
-//    Serial.println(cpystr);
-    return data;
+    String ciphertext = cpystr;
+    Serial.print("Ciphertext: ");
+    Serial.println(ciphertext);
+
+    return base64_encode(ciphertext, ciphertext.length());
 }
 
-String decrypt(String ciphertext){
-    CTR<AES256> aes_ctr_256;
-    int cipherlen = ciphertext.length();
-    Serial.print("Ctxt len: ");
-    Serial.println(cipherlen);
-    unsigned char ctxtptr[cipherlen+1];
-    unsigned char iv[16];
-    //void *temp = (void*)(std::to_string(this->nonce)).c_str();
-
-    itoa(NET_NONCE, (char *)iv, 10);
-    int ivlen = strlen((char *)iv);
-    Serial.print("IV: ");
-    Serial.println((char *)iv);
-    ciphertext.toCharArray((char*)ctxtptr, cipherlen);
-    //crypto_feed_watchdog
-//    char key_chars[(this->key).length()];
-    char key_chars[NET_KEY.length()];
-//    (this->key).toCharArray(key_chars, sizeof(key_chars));
-    NET_KEY.toCharArray(key_chars, sizeof(key_chars));
+void decrypt(String ciphertext){
+    ciphertext = base64_decode(ciphertext);
+    CTR<AES256> aes256;
+  
+    byte key[32];
+    NET_KEY.getBytes(key, 32);
+    aes256.setKey(key, 32);
     
-    aes_ctr_256.setKey((const uint8_t *)key_chars, (size_t)32);
-    aes_ctr_256.setIV((const uint8_t *)iv, (size_t)ivlen);
-    aes_ctr_256.setCounterSize((size_t)4);
-    byte buffer[ciphertext.length()+1];
-    aes_ctr_256.decrypt((uint8_t *)buffer, (const uint8_t *)ctxtptr, (size_t)(ciphertext.length()));
-    //strncpy((char *)this->data, (char *)buffer, 512);
-    String cpystr((char *)buffer);
-    String data = cpystr;
-//    Serial.println(buffer[0]);
-//    Serial.println("AES-CTR-256 Decrypted text:");
-    return data;
+    byte iv[16];
+    String nonce(NET_NONCE);
+    nonce.getBytes(iv, 16);
+    aes256.setIV(iv, 16);
+  
+    byte ctxt[16];
+    ciphertext.getBytes(ctxt, 16);
+  
+    // Decrypt
+    byte buffer2[16];
+    aes256.setKey(key, 32);
+    aes256.setIV(iv, 16);
+    aes256.decrypt(buffer2, ctxt, 16);
+
+    
+    String cpystr((char *)buffer2);
+    String plain = cpystr;
+    Serial.print("Plaintext: ");
+    Serial.println(plain);
 }
+
 
 
 void loop() {
-//    Serial.println("Going to encrypt");
-    String data = encrypt("11111111");
-    Serial.print("Data: ");
-    Serial.println(data);
-    data = decrypt(data);
-    Serial.print("Data: ");
-    Serial.println(data);
+    Serial.println("Encrypt and decrypt 1");
+    encrypt_and_decrypt("asdf");
+    Serial.println("Base64 encode and decode");
+    encode_and_decode("asdf");
+    Serial.println("Second");
+    String ctxt = encrypt("asdf");
+    decrypt(ctxt);
     while (true);
+    
     if (state == DETERMINE_NETWORK) {
         wifi_status = check_wifi_status(wifi_status);
       
