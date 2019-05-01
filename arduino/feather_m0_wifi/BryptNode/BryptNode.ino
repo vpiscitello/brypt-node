@@ -118,7 +118,7 @@ String base64_decode(String const& message) {
       char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
 
       for (idx = 0; idx < 3; idx++) {
-        decoded += char_array_3[idx];
+        decoded += (char)char_array_3[idx];
       }
 
       idx = 0;
@@ -134,7 +134,7 @@ String base64_decode(String const& message) {
     char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
 
     for (jdx = 0; jdx < idx - 1; jdx++) {
-      decoded += char_array_3[jdx];
+      decoded += (char)char_array_3[jdx];
     }
   }
 
@@ -166,10 +166,10 @@ void setup() {
     }
 
 
-//    scan_available_networks();
-//
-//    char ssid[] = "feather_m0_setup";
-//    start_access_point(ssid);
+    scan_available_networks();
+
+    char ssid[] = "feather_m0_setup";
+    start_access_point(ssid);
 
     // TESTING
     Serial.println("Ending AP");
@@ -182,78 +182,144 @@ void setup() {
 #include <BLAKE2s.h>
 #include <AES.h>
 #include <CTR.h>
+#include <Crypto.h>
 
 
-void encode_and_decode(String str) {
-  String str_encoded = base64_encode(str, str.length());
-  Serial.print("Encoded: ");
-  Serial.println(str_encoded);
+//void encode_and_decode(String str) {
+//  String str_encoded = base64_encode(str, str.length());
+//  Serial.print("Encoded: ");
+//  Serial.println(str_encoded);
+//
+//  String str_decoded = base64_decode(str_encoded);
+//  Serial.print("Decoded: ");
+//  Serial.println(str_decoded);
+//}
 
-  String str_decoded = base64_decode(str_encoded);
-  Serial.print("Decoded: ");
-  Serial.println(str_decoded);
-}
 
 
+//void encrypt_and_decrypt(String plaintext) {
+//    byte buffer[16];
+//    CTR<AES256> aes256;
+//  
+//    byte key[32];
+//    NET_KEY.getBytes(key, 32);
+//    aes256.setKey(key, 32);
+//    
+//    byte iv[16];
+//    memset(iv, '\0', 16);
+//    String nonce(NET_NONCE);
+//    Serial.print("NONCE: ");
+//    Serial.println(nonce);
+//    nonce.getBytes(iv, 16);
+//    
+//    String cpystr5((char *)iv);
+//    String ciphertext5 = cpystr5;
+//    Serial.print("IV: ");
+//    Serial.println(ciphertext5);
+//    
+//    aes256.setIV(iv, 16);
+//  
+//    byte ptxt[16];
+//    plaintext.getBytes(ptxt, 16);
+//  
+//    String cpystr2((char *)ptxt);
+//    String ciphertext2 = cpystr2;
+//    Serial.print("Plaintext: ");
+//    Serial.println(ciphertext2);
+//    
+//    aes256.encrypt(buffer, ptxt, 16);
+//  
+//    String cpystr((char *)buffer);
+//    String ciphertext = cpystr;
+//    Serial.print("Ciphertext: ");
+//    Serial.println(ciphertext);
+//  
+//    // Decrypt
+//    byte buffer2[16];
+//    aes256.setKey(key, 32);
+//    aes256.setIV(iv, 16);
+//    aes256.decrypt(buffer2, buffer, 16);
+//  
+//    
+//    if (memcmp(ptxt, buffer2, 16) == 0) {
+//        Serial.println("Matches");
+//    } else {
+//        Serial.println("Doesnt match");
+//    }
+//}
 
-void encrypt_and_decrypt(String plaintext) {
-    byte buffer[16];
-    CTR<AES256> aes256;
-  
-    byte key[32];
-    NET_KEY.getBytes(key, 32);
-    aes256.setKey(key, 32);
-    
-    byte iv[16];
-    String nonce(NET_NONCE);
-    nonce.getBytes(iv, 16);
-    aes256.setIV(iv, 16);
-  
-    byte ptxt[16];
-    plaintext.getBytes(ptxt, 16);
-  
-    String cpystr2((char *)ptxt);
-    String ciphertext2 = cpystr2;
-    Serial.print("Plaintext: ");
-    Serial.println(ciphertext2);
-    
-    aes256.encrypt(buffer, ptxt, 16);
-  
-    String cpystr((char *)buffer);
-    String ciphertext = cpystr;
-    Serial.print("Ciphertext: ");
-    Serial.println(ciphertext);
-  
-    // Decrypt
-    byte buffer2[16];
-    aes256.setKey(key, 32);
-    aes256.setIV(iv, 16);
-    aes256.decrypt(buffer2, buffer, 16);
-  
-    
-    if (memcmp(ptxt, buffer2, 16) == 0) {
-        Serial.println("Matches");
-    } else {
-        Serial.println("Doesnt match");
-    }
-}
+//void encrypt(String plaintext){
+//    CTR<AES256> aes_ctr_256;
+//    int ptxtlen = plaintext.length();
+//    unsigned char ptxtptr[ptxtlen+1];
+//    unsigned char iv[16];
+//    itoa(this->nonce, (char *)iv, 10);
+//    int ivlen = strlen((char *)iv);
+//    plaintext.toCharArray((char *)ptxtptr, ptxtlen);
+//    aes_ctr_256.setKey(key, 32);
+//    aes_ctr_256.setIV(iv, ivlen);
+//    aes_ctr_256.setCounterSize(4);
+//    byte buffer[ptxtlen+1];//SEGFAULT? might need whole block of leeway. same w/ decrypt
+//    aes_ctr_256.encrypt(buffer, ptxtptr, ptxtlen);
+//
+//    String cpystr((char *)buffer);
+//    this->data = cpystr;
+//    Serial.println(cpystr);
+//    
+//}
 
 
 
 String encrypt(String plaintext){
     byte buffer[16];
     CTR<AES256> aes256;
+
+    Serial.print("Aes key size: ");
+    Serial.println(aes256.keySize());
+    Serial.print("Aes IV size: ");
+    Serial.println(aes256.ivSize());
   
     byte key[32];
+    memset(key, '\0', 32);
     NET_KEY.getBytes(key, 32);
+
+    String cpystr6((char *)key);
+    String ciphertext6 = cpystr6;
+    Serial.print("key: ");
+    Serial.println(ciphertext6);
+    Serial.println("Key ints: ");
+    for (int idx = 0; idx < 32; idx++) {
+        Serial.print((int)(ciphertext6.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+    
     aes256.setKey(key, 32);
     
+    
     byte iv[16];
+    memset(iv, '\0', 16);
     String nonce(NET_NONCE);
+    Serial.print("NONCE: ");
+    Serial.println(nonce);
     nonce.getBytes(iv, 16);
+    
+    String cpystr5((char *)iv);
+    String ciphertext5 = cpystr5;
+    Serial.print("IV: ");
+    Serial.println(ciphertext5);
+    
+    Serial.println("IV ints: ");
+    for (int idx = 0; idx < 16; idx++) {
+        Serial.print((int)(ciphertext5.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+    
     aes256.setIV(iv, 16);
-  
+    
     byte ptxt[16];
+    memset(ptxt, '\0', 16);
     plaintext.getBytes(ptxt, 16);
   
     String cpystr2((char *)ptxt);
@@ -267,24 +333,45 @@ String encrypt(String plaintext){
     String ciphertext = cpystr;
     Serial.print("Ciphertext: ");
     Serial.println(ciphertext);
+    Serial.println("Ciphertext ints: ");
+    for (int idx = 0; idx < ciphertext.length(); idx++) {
+        Serial.print((int)(ciphertext.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
 
-    return base64_encode(ciphertext, ciphertext.length());
+    return ciphertext;
+//    return base64_encode(ciphertext, ciphertext.length());
 }
 
-void decrypt(String ciphertext){
-    ciphertext = base64_decode(ciphertext);
+String decrypt(String ciphertext){
+//    ciphertext = base64_decode(ciphertext);
+    Serial.print("Ciphertext decoded: ");
+    Serial.println(ciphertext);
     CTR<AES256> aes256;
   
     byte key[32];
+    memset(key, '\0', 32);
     NET_KEY.getBytes(key, 32);
     aes256.setKey(key, 32);
     
+    
     byte iv[16];
+    memset(iv, '\0', 16);
     String nonce(NET_NONCE);
+    Serial.print("NONCE: ");
+    Serial.println(nonce);
     nonce.getBytes(iv, 16);
+    
+    String cpystr5((char *)iv);
+    String ciphertext5 = cpystr5;
+    Serial.print("IV: ");
+    Serial.println(ciphertext5);
+    
     aes256.setIV(iv, 16);
   
     byte ctxt[16];
+    memset(ctxt, '\0', 16);
     ciphertext.getBytes(ctxt, 16);
   
     // Decrypt
@@ -298,18 +385,87 @@ void decrypt(String ciphertext){
     String plain = cpystr;
     Serial.print("Plaintext: ");
     Serial.println(plain);
+    return plain;
+}
+
+byte ctxt[128];
+
+
+// print out bytes
+void aes256_enc(byte * key, byte * mssg, byte * iv) {
+    CTR<AES256> aes_ctr_256;
+    memset(ctxt, 0x00, sizeof(ctxt));
+
+    crypto_feed_watchdog();
+    aes_ctr_256.setKey(key, 32);
+    aes_ctr_256.setIV(iv, 16);
+    aes_ctr_256.setCounterSize(4);
+    aes_ctr_256.encrypt(ctxt, mssg, strlen((const char *)mssg));
+    
+    String cpystr((char *)ctxt);
+    String plain = cpystr;
+    Serial.print("Ciphertext: ");
+    Serial.println(plain);
+
+    
+    
+    Serial.println("CTXT ints: ");
+    for (int idx = 0; idx < plain.length(); idx++) {
+        Serial.print((int)(plain.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+}
+
+void aes256_dec(byte * key, byte * iv, byte * buffer) {
+    CTR<AES256> aes_ctr_256;
+    memset(buffer, 0x00, sizeof(ctxt));
+
+    crypto_feed_watchdog();
+    aes_ctr_256.setKey(key, 32);
+    aes_ctr_256.setIV(iv, 16);
+    aes_ctr_256.setCounterSize(4);
+    aes_ctr_256.decrypt(buffer, ctxt, 4);
+    
+    String cpystr((char *)buffer);
+    String plain = cpystr;
+    Serial.print("Plaintext: ");
+    Serial.println(plain);
 }
 
 
-
 void loop() {
-    Serial.println("Encrypt and decrypt 1");
-    encrypt_and_decrypt("asdf");
-    Serial.println("Base64 encode and decode");
-    encode_and_decode("asdf");
-    Serial.println("Second");
-    String ctxt = encrypt("asdf");
-    decrypt(ctxt);
+//    Serial.println("\nEncrypt and decrypt 1");
+//    encrypt_and_decrypt("asdf");
+//    Serial.println("\nBase64 encode and decode");
+//    encode_and_decode("asdf");
+    Serial.println("\nEncrypt then decrypt");
+//    String ctxt = "";
+//    ctxt += (char)134;
+//    ctxt += (char)145;
+//    ctxt += (char)185;
+//    ctxt += (char)9;
+//    String ctxt = encrypt("3018");
+//    Serial.print("Ciphertext encoded: ");
+//    Serial.println(ctxt);
+//    String dec = decrypt(ctxt);
+//    Serial.print("Ciphertext Decrypted: ");
+//    Serial.println(dec);
+    byte mssg[] = "3018";
+//    byte key256[] = "01234567890123456789012345678901";
+    byte key256[32];
+    memset(key256, '\0', 32);
+    NET_KEY.getBytes(key256, 32);
+    
+//    byte iv[] = "998";
+    byte iv[16];
+    memset(iv, '\0', 16);
+    String nonce(NET_NONCE);
+    nonce.getBytes(iv, 16);
+
+    aes256_enc(key256, mssg, iv);
+    byte buffer[128];
+    aes256_dec(key256, iv, buffer);
     while (true);
     
     if (state == DETERMINE_NETWORK) {

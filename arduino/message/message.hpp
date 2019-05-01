@@ -81,7 +81,11 @@ class Message {
 		 ** Description: Takes raw string input and unpacks it into the class variables.
 		 ** *************************************************************************/
 		Message(String raw){
+			Serial.print("Raw: ");
+			Serial.println(raw);
 			this->raw = this->base64_decode(raw);
+			Serial.print("Raw Decoded: ");
+			Serial.println(this->raw);
 			
 			this->key = NET_KEY;
 			
@@ -473,20 +477,33 @@ class Message {
 		}
 		*/
 		
-		void encrypt(String plaintext){
+		String encrypt(String plaintext){
+			Serial.println("ENCRYPT");
 			byte buffer[16];
 			CTR<AES256> aes256;
 		  
 			byte key[32];
+			memset(key, '\0', 32);
 			NET_KEY.getBytes(key, 32);
 			aes256.setKey(key, 32);
 			
+			
 			byte iv[16];
+			memset(iv, '\0', 16);
 			String nonce(NET_NONCE);
+			Serial.print("NONCE: ");
+			Serial.println(nonce);
 			nonce.getBytes(iv, 16);
+			
+			String cpystr5((char *)iv);
+			String ciphertext5 = cpystr5;
+			Serial.print("IV: ");
+			Serial.println(ciphertext5);
+			
 			aes256.setIV(iv, 16);
-		  
+			
 			byte ptxt[16];
+			memset(ptxt, '\0', 16);
 			plaintext.getBytes(ptxt, 16);
 		  
 			String cpystr2((char *)ptxt);
@@ -500,20 +517,46 @@ class Message {
 			String ciphertext = cpystr;
 			Serial.print("Ciphertext: ");
 			Serial.println(ciphertext);
+			
+			//return base64_encode(ciphertext, ciphertext.length());
+			return ciphertext;
 		}
 		
-		void decrypt(String ciphertext){
-			CTR<AES256> aes256;  
+		String decrypt(String ciphertext){
+			Serial.println("DECRYPT");
+			//ciphertext = base64_decode(ciphertext);
+			Serial.print("Ciphertext: ");
+			Serial.println(ciphertext);
+			Serial.println("Ciphertext ints: ");
+			for (int idx = 0; idx < ciphertext.length(); idx++) {
+				Serial.print((int)(ciphertext.charAt(idx)));
+				Serial.print(" ");
+			}
+			Serial.println("");
+			CTR<AES256> aes256;
+		  
 			byte key[32];
+			memset(key, '\0', 32);
 			NET_KEY.getBytes(key, 32);
 			aes256.setKey(key, 32);
 			
+			
 			byte iv[16];
+			memset(iv, '\0', 16);
 			String nonce(NET_NONCE);
+			Serial.print("NONCE: ");
+			Serial.println(nonce);
 			nonce.getBytes(iv, 16);
+			
+			String cpystr5((char *)iv);
+			String ciphertext5 = cpystr5;
+			Serial.print("IV: ");
+			Serial.println(ciphertext5);
+			
 			aes256.setIV(iv, 16);
 		  
 			byte ctxt[16];
+			memset(ctxt, '\0', 16);
 			ciphertext.getBytes(ctxt, 16);
 		  
 			// Decrypt
@@ -527,6 +570,7 @@ class Message {
 			String plain = cpystr;
 			Serial.print("Plaintext: ");
 			Serial.println(plain);
+			return plain;
 		}
 		
 		/* **************************************************************************
@@ -553,47 +597,47 @@ class Message {
 		** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
 		** *************************************************************************/
 		String base64_encode(String message, unsigned int in_len) {
-			String encoded;
-			int idx = 0, jdx = 0;
-			unsigned char char_array_3[3], char_array_4[4];
-			unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
+		  String encoded;
+		  int idx = 0, jdx = 0;
+		  unsigned char char_array_3[3], char_array_4[4];
+		  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
 
-			while (in_len--) {
-				char_array_3[idx++] = *(bytes_to_encode++);
+		  while (in_len--) {
+			char_array_3[idx++] = *(bytes_to_encode++);
 
-				if(idx == 3) {
-					char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-					char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-					char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
-					char_array_4[3] = char_array_3[2] & 0x3f;
+			if(idx == 3) {
+			  char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
+			  char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+			  char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+			  char_array_4[3] = char_array_3[2] & 0x3f;
 
-					for (idx = 0; idx < 4; idx++) {
-						encoded += base64_chars[char_array_4[idx]];
-					}
+			  for (idx = 0; idx < 4; idx++) {
+				encoded += base64_chars[char_array_4[idx]];
+			  }
 
-					idx = 0;
-				}
+			  idx = 0;
+			}
+		  }
+
+		  if (idx) {
+			for (jdx = idx; jdx < 3; jdx++) {
+			  char_array_3[jdx] = '\0';
+			}
+			 
+			char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
+			char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+			char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
+
+			for (jdx = 0; jdx < idx + 1; jdx++) {
+			  encoded += base64_chars[char_array_4[jdx]];
 			}
 
-			if (idx) {
-				for (jdx = idx; jdx < 3; jdx++) {
-					char_array_3[jdx] = '\0';
-				}
-			   
-				char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;	
-				char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-				char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );	    
-
-				for (jdx = 0; jdx < idx + 1; jdx++) {
-					encoded += base64_chars[char_array_4[jdx]];
-				}
-
-				while (idx++ < 3) {
-					encoded += '=';
-				}
+			while (idx++ < 3) {
+			  encoded += '=';
 			}
+		  }
 
-			return encoded;
+		  return encoded;
 		}
 
 		/* **************************************************************************
@@ -602,45 +646,45 @@ class Message {
 		** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
 		** *************************************************************************/
 		String base64_decode(String const& message) {
-			String decoded;
-			int in_len = message.length();
-			int idx = 0, jdx = 0, in_ = 0;
-			unsigned char char_array_3[3], char_array_4[4];
+		  String decoded;
+		  int in_len = message.length();
+		  int idx = 0, jdx = 0, in_ = 0;
+		  unsigned char char_array_3[3], char_array_4[4];
 
-			while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
-				char_array_4[idx++] = message[in_]; in_++;
-				
-				if (idx == 4 ) {
-					for (idx = 0; idx < 4; idx++) {
-						char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
-					}
+		  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
+			char_array_4[idx++] = message[in_]; in_++;
+			
+			if (idx == 4 ) {
+			  for (idx = 0; idx < 4; idx++) {
+				char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
+			  }
 
-					char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-					char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-					char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+			  char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
+			  char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+			  char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
 
-					for (idx = 0; idx < 3; idx++) {
-						decoded += char_array_3[idx];
-					}
+			  for (idx = 0; idx < 3; idx++) {
+				decoded += (char)char_array_3[idx];
+			  }
 
-					idx = 0;
-				}
+			  idx = 0;
+			}
+		  }
+
+		  if (idx) {
+			for (jdx = 0; jdx < idx; jdx++) {
+			  char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
 			}
 
-			if (idx) {
-				for (jdx = 0; jdx < idx; jdx++) {
-					char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
-				}
+			char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
+			char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
 
-				char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );	
-				char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-
-				for (jdx = 0; jdx < idx - 1; jdx++) {
-					decoded += char_array_3[jdx];
-				}
+			for (jdx = 0; jdx < idx - 1; jdx++) {
+			  decoded += (char)char_array_3[jdx];
 			}
+		  }
 
-			return decoded;
+		  return decoded;
 		}
 };
 
