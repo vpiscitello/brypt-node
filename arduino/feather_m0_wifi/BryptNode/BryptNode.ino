@@ -45,101 +45,101 @@ WiFiClient server_connection;
 
 
 
-/* **************************************************************************
-** Function: base64_encode
-** Description: Encode a std::string to a Base64 message
-** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
-** *************************************************************************/
-String base64_encode(String message, unsigned int in_len) {
-  String encoded;
-  int idx = 0, jdx = 0;
-  unsigned char char_array_3[3], char_array_4[4];
-  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
-
-  while (in_len--) {
-    char_array_3[idx++] = *(bytes_to_encode++);
-
-    if(idx == 3) {
-      char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-      char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-      char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
-      char_array_4[3] = char_array_3[2] & 0x3f;
-
-      for (idx = 0; idx < 4; idx++) {
-        encoded += base64_chars[char_array_4[idx]];
-      }
-
-      idx = 0;
-    }
-  }
-
-  if (idx) {
-    for (jdx = idx; jdx < 3; jdx++) {
-      char_array_3[jdx] = '\0';
-    }
-     
-    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
-    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
-
-    for (jdx = 0; jdx < idx + 1; jdx++) {
-      encoded += base64_chars[char_array_4[jdx]];
-    }
-
-    while (idx++ < 3) {
-      encoded += '=';
-    }
-  }
-
-  return encoded;
-}
-
-/* **************************************************************************
-** Function: base64_decode
-** Description: Decode a Base64 message to a std::string
-** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
-** *************************************************************************/
-String base64_decode(String const& message) {
-  String decoded;
-  int in_len = message.length();
-  int idx = 0, jdx = 0, in_ = 0;
-  unsigned char char_array_3[3], char_array_4[4];
-
-  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
-    char_array_4[idx++] = message[in_]; in_++;
-    
-    if (idx == 4 ) {
-      for (idx = 0; idx < 4; idx++) {
-        char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
-      }
-
-      char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-      char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-      char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
-
-      for (idx = 0; idx < 3; idx++) {
-        decoded += (char)char_array_3[idx];
-      }
-
-      idx = 0;
-    }
-  }
-
-  if (idx) {
-    for (jdx = 0; jdx < idx; jdx++) {
-      char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
-    }
-
-    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
-    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-
-    for (jdx = 0; jdx < idx - 1; jdx++) {
-      decoded += (char)char_array_3[jdx];
-    }
-  }
-
-  return decoded;
-}
+///* **************************************************************************
+//** Function: base64_encode
+//** Description: Encode a std::string to a Base64 message
+//** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
+//** *************************************************************************/
+//String base64_encode(String message, unsigned int in_len) {
+//  String encoded;
+//  int idx = 0, jdx = 0;
+//  unsigned char char_array_3[3], char_array_4[4];
+//  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
+//
+//  while (in_len--) {
+//    char_array_3[idx++] = *(bytes_to_encode++);
+//
+//    if(idx == 3) {
+//      char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
+//      char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+//      char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+//      char_array_4[3] = char_array_3[2] & 0x3f;
+//
+//      for (idx = 0; idx < 4; idx++) {
+//        encoded += base64_chars[char_array_4[idx]];
+//      }
+//
+//      idx = 0;
+//    }
+//  }
+//
+//  if (idx) {
+//    for (jdx = idx; jdx < 3; jdx++) {
+//      char_array_3[jdx] = '\0';
+//    }
+//     
+//    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
+//    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+//    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
+//
+//    for (jdx = 0; jdx < idx + 1; jdx++) {
+//      encoded += base64_chars[char_array_4[jdx]];
+//    }
+//
+//    while (idx++ < 3) {
+//      encoded += '=';
+//    }
+//  }
+//
+//  return encoded;
+//}
+//
+///* **************************************************************************
+//** Function: base64_decode
+//** Description: Decode a Base64 message to a std::string
+//** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
+//** *************************************************************************/
+//String base64_decode(String const& message) {
+//  String decoded;
+//  int in_len = message.length();
+//  int idx = 0, jdx = 0, in_ = 0;
+//  unsigned char char_array_3[3], char_array_4[4];
+//
+//  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
+//    char_array_4[idx++] = message[in_]; in_++;
+//    
+//    if (idx == 4 ) {
+//      for (idx = 0; idx < 4; idx++) {
+//        char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
+//      }
+//
+//      char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
+//      char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+//      char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+//
+//      for (idx = 0; idx < 3; idx++) {
+//        decoded += (char)char_array_3[idx];
+//      }
+//
+//      idx = 0;
+//    }
+//  }
+//
+//  if (idx) {
+//    for (jdx = 0; jdx < idx; jdx++) {
+//      char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
+//    }
+//
+//    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
+//    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+//
+//    for (jdx = 0; jdx < idx - 1; jdx++) {
+//      decoded += (char)char_array_3[jdx];
+//    }
+//  }
+//
+//  return decoded;
+//}
 
 
 
@@ -270,129 +270,168 @@ void setup() {
 
 
 
-String encrypt(String plaintext){
-    byte buffer[16];
-    CTR<AES256> aes256;
+//String encrypt(String plaintext){
+//    byte buffer[16];
+//    CTR<AES256> aes256;
+//
+//    Serial.print("Aes key size: ");
+//    Serial.println(aes256.keySize());
+//    Serial.print("Aes IV size: ");
+//    Serial.println(aes256.ivSize());
+//  
+//    byte key[32];
+//    memset(key, '\0', 32);
+//    NET_KEY.getBytes(key, 32);
+//
+//    String cpystr6((char *)key);
+//    String ciphertext6 = cpystr6;
+//    Serial.print("key: ");
+//    Serial.println(ciphertext6);
+//    Serial.println("Key ints: ");
+//    for (int idx = 0; idx < 32; idx++) {
+//        Serial.print((int)(ciphertext6.charAt(idx)));
+//        Serial.print(" ");
+//    }
+//    Serial.println("");
+//    
+//    aes256.setKey(key, 32);
+//    
+//    
+//    byte iv[16];
+//    memset(iv, '\0', 16);
+//    String nonce(NET_NONCE);
+//    Serial.print("NONCE: ");
+//    Serial.println(nonce);
+//    nonce.getBytes(iv, 16);
+//    
+//    String cpystr5((char *)iv);
+//    String ciphertext5 = cpystr5;
+//    Serial.print("IV: ");
+//    Serial.println(ciphertext5);
+//    
+//    Serial.println("IV ints: ");
+//    for (int idx = 0; idx < 16; idx++) {
+//        Serial.print((int)(ciphertext5.charAt(idx)));
+//        Serial.print(" ");
+//    }
+//    Serial.println("");
+//    
+//    aes256.setIV(iv, 16);
+//    
+//    byte ptxt[16];
+//    memset(ptxt, '\0', 16);
+//    plaintext.getBytes(ptxt, 16);
+//  
+//    String cpystr2((char *)ptxt);
+//    String ciphertext2 = cpystr2;
+//    Serial.print("Plaintext: ");
+//    Serial.println(ciphertext2);
+//    
+//    aes256.encrypt(buffer, ptxt, 16);
+//  
+//    String cpystr((char *)buffer);
+//    String ciphertext = cpystr;
+//    Serial.print("Ciphertext: ");
+//    Serial.println(ciphertext);
+//    Serial.println("Ciphertext ints: ");
+//    for (int idx = 0; idx < ciphertext.length(); idx++) {
+//        Serial.print((int)(ciphertext.charAt(idx)));
+//        Serial.print(" ");
+//    }
+//    Serial.println("");
+//
+//    return ciphertext;
+////    return base64_encode(ciphertext, ciphertext.length());
+//}
+//
+//String decrypt(String ciphertext){
+////    ciphertext = base64_decode(ciphertext);
+//    Serial.print("Ciphertext decoded: ");
+//    Serial.println(ciphertext);
+//    CTR<AES256> aes256;
+//  
+//    byte key[32];
+//    memset(key, '\0', 32);
+//    NET_KEY.getBytes(key, 32);
+//    aes256.setKey(key, 32);
+//    
+//    
+//    byte iv[16];
+//    memset(iv, '\0', 16);
+//    String nonce(NET_NONCE);
+//    Serial.print("NONCE: ");
+//    Serial.println(nonce);
+//    nonce.getBytes(iv, 16);
+//    
+//    String cpystr5((char *)iv);
+//    String ciphertext5 = cpystr5;
+//    Serial.print("IV: ");
+//    Serial.println(ciphertext5);
+//    
+//    aes256.setIV(iv, 16);
+//  
+//    byte ctxt[16];
+//    memset(ctxt, '\0', 16);
+//    ciphertext.getBytes(ctxt, 16);
+//  
+//    // Decrypt
+//    byte buffer2[16];
+//    aes256.setKey(key, 32);
+//    aes256.setIV(iv, 16);
+//    aes256.decrypt(buffer2, ctxt, 16);
+//
+//    
+//    String cpystr((char *)buffer2);
+//    String plain = cpystr;
+//    Serial.print("Plaintext: ");
+//    Serial.println(plain);
+//    return plain;
+//}
 
-    Serial.print("Aes key size: ");
-    Serial.println(aes256.keySize());
-    Serial.print("Aes IV size: ");
-    Serial.println(aes256.ivSize());
-  
-    byte key[32];
-    memset(key, '\0', 32);
-    NET_KEY.getBytes(key, 32);
-
-    String cpystr6((char *)key);
-    String ciphertext6 = cpystr6;
-    Serial.print("key: ");
-    Serial.println(ciphertext6);
-    Serial.println("Key ints: ");
-    for (int idx = 0; idx < 32; idx++) {
-        Serial.print((int)(ciphertext6.charAt(idx)));
-        Serial.print(" ");
-    }
-    Serial.println("");
-    
-    aes256.setKey(key, 32);
-    
-    
-    byte iv[16];
-    memset(iv, '\0', 16);
-    String nonce(NET_NONCE);
-    Serial.print("NONCE: ");
-    Serial.println(nonce);
-    nonce.getBytes(iv, 16);
-    
-    String cpystr5((char *)iv);
-    String ciphertext5 = cpystr5;
-    Serial.print("IV: ");
-    Serial.println(ciphertext5);
-    
-    Serial.println("IV ints: ");
-    for (int idx = 0; idx < 16; idx++) {
-        Serial.print((int)(ciphertext5.charAt(idx)));
-        Serial.print(" ");
-    }
-    Serial.println("");
-    
-    aes256.setIV(iv, 16);
-    
-    byte ptxt[16];
-    memset(ptxt, '\0', 16);
-    plaintext.getBytes(ptxt, 16);
-  
-    String cpystr2((char *)ptxt);
-    String ciphertext2 = cpystr2;
-    Serial.print("Plaintext: ");
-    Serial.println(ciphertext2);
-    
-    aes256.encrypt(buffer, ptxt, 16);
-  
-    String cpystr((char *)buffer);
-    String ciphertext = cpystr;
-    Serial.print("Ciphertext: ");
-    Serial.println(ciphertext);
-    Serial.println("Ciphertext ints: ");
-    for (int idx = 0; idx < ciphertext.length(); idx++) {
-        Serial.print((int)(ciphertext.charAt(idx)));
-        Serial.print(" ");
-    }
-    Serial.println("");
-
-    return ciphertext;
-//    return base64_encode(ciphertext, ciphertext.length());
-}
-
-String decrypt(String ciphertext){
-//    ciphertext = base64_decode(ciphertext);
-    Serial.print("Ciphertext decoded: ");
-    Serial.println(ciphertext);
-    CTR<AES256> aes256;
-  
-    byte key[32];
-    memset(key, '\0', 32);
-    NET_KEY.getBytes(key, 32);
-    aes256.setKey(key, 32);
-    
-    
-    byte iv[16];
-    memset(iv, '\0', 16);
-    String nonce(NET_NONCE);
-    Serial.print("NONCE: ");
-    Serial.println(nonce);
-    nonce.getBytes(iv, 16);
-    
-    String cpystr5((char *)iv);
-    String ciphertext5 = cpystr5;
-    Serial.print("IV: ");
-    Serial.println(ciphertext5);
-    
-    aes256.setIV(iv, 16);
-  
-    byte ctxt[16];
-    memset(ctxt, '\0', 16);
-    ciphertext.getBytes(ctxt, 16);
-  
-    // Decrypt
-    byte buffer2[16];
-    aes256.setKey(key, 32);
-    aes256.setIV(iv, 16);
-    aes256.decrypt(buffer2, ctxt, 16);
-
-    
-    String cpystr((char *)buffer2);
-    String plain = cpystr;
-    Serial.print("Plaintext: ");
-    Serial.println(plain);
-    return plain;
-}
 
 byte ctxt[128];
-
-
 // print out bytes
 void aes256_enc(byte * key, byte * mssg, byte * iv) {
+
+    String cpystr1((char *)key);
+    String plain1 = cpystr1;
+    Serial.print("Key: ");
+    Serial.println(plain1);
+    Serial.println("Key ints: ");
+    for (int idx = 0; idx < 32; idx++) {
+        Serial.print((int)(plain1.charAt(idx)));
+        Serial.print(" ");
+        Serial.print((int)(key[idx]));
+        Serial.print(" ");
+    }
+    Serial.println("");
+
+    String cpystr2((char *)mssg);
+    String plain2 = cpystr2;
+    Serial.print("Message: ");
+    Serial.println(plain2);
+    Serial.println("Message ints: ");
+    for (int idx = 0; idx < 16; idx++) {
+        Serial.print((int)(plain2.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+
+    String cpystr3((char *)iv);
+    String plain3 = cpystr3;
+    Serial.print("IV: ");
+    Serial.println(plain3);
+    Serial.println("IV ints: ");
+    for (int idx = 0; idx < 16; idx++) {
+        Serial.print((int)(plain3.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+
+
+
+
+  
     CTR<AES256> aes_ctr_256;
     memset(ctxt, 0x00, sizeof(ctxt));
 
@@ -409,12 +448,12 @@ void aes256_enc(byte * key, byte * mssg, byte * iv) {
 
     
     
-    Serial.println("CTXT ints: ");
-    for (int idx = 0; idx < plain.length(); idx++) {
-        Serial.print((int)(plain.charAt(idx)));
-        Serial.print(" ");
-    }
-    Serial.println("");
+//    Serial.println("CTXT ints: ");
+//    for (int idx = 0; idx < plain.length(); idx++) {
+//        Serial.print((int)(plain.charAt(idx)));
+//        Serial.print(" ");
+//    }
+//    Serial.println("");
 }
 
 void aes256_dec(byte * key, byte * iv, byte * buffer) {
@@ -425,7 +464,7 @@ void aes256_dec(byte * key, byte * iv, byte * buffer) {
     aes_ctr_256.setKey(key, 32);
     aes_ctr_256.setIV(iv, 16);
     aes_ctr_256.setCounterSize(4);
-    aes_ctr_256.decrypt(buffer, ctxt, 4);
+    aes_ctr_256.decrypt(buffer, ctxt, strlen((const char *)ctxt));
     
     String cpystr((char *)buffer);
     String plain = cpystr;
@@ -451,11 +490,15 @@ void loop() {
 //    String dec = decrypt(ctxt);
 //    Serial.print("Ciphertext Decrypted: ");
 //    Serial.println(dec);
-    byte mssg[] = "3018";
-//    byte key256[] = "01234567890123456789012345678901";
-    byte key256[32];
-    memset(key256, '\0', 32);
-    NET_KEY.getBytes(key256, 32);
+    String message = "301812345";
+//    byte mssg[] = "3018";
+    byte mssg[16];
+    memset(mssg, '\0', 16);
+    message.getBytes(mssg, 16);
+//    byte key256[] = "01234567890123456789012345678901" + '\0';
+    byte key256[33];
+    memset(key256, '\0', 33);
+    NET_KEY.getBytes(key256, 33);
     
 //    byte iv[] = "998";
     byte iv[16];
