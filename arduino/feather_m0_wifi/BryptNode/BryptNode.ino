@@ -36,110 +36,233 @@ CurrentState state = DETERMINE_NETWORK;
 int contacted = 0;
 
 // CONFIG IP address of server to connect to
-IPAddress remote_server(192,168,137,186);
+IPAddress remote_server(192,168,137,135);
 int remote_port = 3001;
-String device_id = "01-01-00-00-00";
+String device_id = "1998";
 
 WiFiClient server_connection;
 
 
 
 
-///* **************************************************************************
-//** Function: base64_encode
-//** Description: Encode a std::string to a Base64 message
-//** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
-//** *************************************************************************/
-//String base64_encode(String message, unsigned int in_len) {
-//  String encoded;
-//  int idx = 0, jdx = 0;
-//  unsigned char char_array_3[3], char_array_4[4];
-//  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
+/* **************************************************************************
+** Function: base64_encode
+** Description: Encode a std::string to a Base64 message
+** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
+** *************************************************************************/
+String base64_encode(String message, unsigned int in_len) {
+  String encoded;
+  int idx = 0, jdx = 0;
+  unsigned char char_array_3[3], char_array_4[4];
+  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
+
+  while (in_len--) {
+    char_array_3[idx++] = *(bytes_to_encode++);
+
+    if(idx == 3) {
+      char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
+      char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+      char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+      char_array_4[3] = char_array_3[2] & 0x3f;
+
+      for (idx = 0; idx < 4; idx++) {
+        encoded += base64_chars[char_array_4[idx]];
+      }
+
+      idx = 0;
+    }
+  }
+
+  if (idx) {
+    for (jdx = idx; jdx < 3; jdx++) {
+      char_array_3[jdx] = '\0';
+    }
+     
+    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
+    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
+    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
+
+    for (jdx = 0; jdx < idx + 1; jdx++) {
+      encoded += base64_chars[char_array_4[jdx]];
+    }
+
+    while (idx++ < 3) {
+      encoded += '=';
+    }
+  }
+
+  return encoded;
+}
+
+/* **************************************************************************
+** Function: base64_decode
+** Description: Decode a Base64 message to a std::string
+** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
+** *************************************************************************/
+String base64_decode(String const& message) {
+  String decoded;
+  int in_len = message.length();
+  int idx = 0, jdx = 0, in_ = 0;
+  unsigned char char_array_3[3], char_array_4[4];
+
+  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
+    char_array_4[idx++] = message[in_]; in_++;
+    
+    if (idx == 4 ) {
+      for (idx = 0; idx < 4; idx++) {
+        char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
+      }
+
+      char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
+      char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+      char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+
+      for (idx = 0; idx < 3; idx++) {
+        decoded += (char)char_array_3[idx];
+      }
+
+      idx = 0;
+    }
+  }
+
+  if (idx) {
+    for (jdx = 0; jdx < idx; jdx++) {
+      char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
+    }
+
+    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
+    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+
+    for (jdx = 0; jdx < idx - 1; jdx++) {
+      decoded += (char)char_array_3[jdx];
+    }
+  }
+
+  return decoded;
+}
+
+
+#include <Hash.h>
+//#include <SHA256.h>
+#include <BLAKE2s.h>
+#include <AES.h>
+#include <CTR.h>
+#include <Crypto.h>
+
+
+//String hmac(String mssg){
+//  Serial.print("Hash size: ");
+//  Serial.println(HASH_SIZE);
+//  unsigned char result[HASH_SIZE];
+//  unsigned char tmpres[HASH_SIZE];
+//  int mlen = mssg.length();
+//  char * mssgptr;
+//  char noncebuf[12];
+//  mssg.toCharArray(mssgptr, mlen);
+//  itoa(NET_NONCE, noncebuf, 10);
+//  byte tmpkey[32];
+//  memset(result, 0x00, sizeof(result));
+//  BLAKE2s *h;
+//  //long keynum = this->key.toInt();
+//  //keynum = keynum+nonce;
+//  //String(keynum).getBytes(tmpkey, 32);
 //
-//  while (in_len--) {
-//    char_array_3[idx++] = *(bytes_to_encode++);
+//  char key_chars[NET_KEY.length()];
+//  NET_KEY.toCharArray(key_chars, sizeof(key_chars));
 //
-//    if(idx == 3) {
-//      char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-//      char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-//      char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
-//      char_array_4[3] = char_array_3[2] & 0x3f;
 //
-//      for (idx = 0; idx < 4; idx++) {
-//        encoded += base64_chars[char_array_4[idx]];
-//      }
-//
-//      idx = 0;
+//  
+//  byte key_bytes[33];
+//  memset(key_bytes, '\0', 33);
+//  NET_KEY.getBytes(key_bytes, 33);
+//  
+//    String cpystr1((char *)key_bytes);
+//    String str1 = cpystr1;
+//    Serial.print("Key bytes: ");
+//    Serial.println(str1);
+//    Serial.println("Key bytes ints: ");
+//    for (int idx = 0; idx < 32; idx++) {
+//        Serial.print((int)(str1.charAt(idx)));
+//        Serial.print(" ");
 //    }
-//  }
+//    Serial.println("");
+//  Serial.println("RESET HMAC");
+//  h->resetHMAC((void *)key_bytes, sizeof(key_bytes));
+////  h->resetHMAC((void *)key_chars, 32);
+//  Serial.println("UPDATE HMAC");
+//  h->update(noncebuf, 12);
+//  Serial.println("FINALIZE HMAC");
+//  h->finalizeHMAC((const void *)key_chars, (size_t)12, (void *)tmpkey, (size_t)HASH_SIZE);
 //
-//  if (idx) {
-//    for (jdx = idx; jdx < 3; jdx++) {
-//      char_array_3[jdx] = '\0';
-//    }
-//     
-//    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
-//    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-//    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
-//
-//    for (jdx = 0; jdx < idx + 1; jdx++) {
-//      encoded += base64_chars[char_array_4[jdx]];
-//    }
-//
-//    while (idx++ < 3) {
-//      encoded += '=';
-//    }
-//  }
-//
-//  return encoded;
+//  Serial.println("RESET HMAC");
+//  h->resetHMAC(tmpkey, 32);
+//  Serial.println("UPDATE HMAC");
+//  h->update((const void *)mssgptr, (size_t)mlen);
+//  Serial.println("FINALIZE HMAC");
+//  h->finalizeHMAC((const void *)tmpkey, (size_t)mlen, (void *)result, (size_t)HASH_SIZE);
+//  Serial.println(result[0]);
+//  String trueres;
+//  trueres = String((char *)result);
+//  Serial.print("HMAC: ");
+//  Serial.println(trueres);
+//  return trueres;
 //}
-//
-///* **************************************************************************
-//** Function: base64_decode
-//** Description: Decode a Base64 message to a std::string
-//** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
-//** *************************************************************************/
-//String base64_decode(String const& message) {
-//  String decoded;
-//  int in_len = message.length();
-//  int idx = 0, jdx = 0, in_ = 0;
-//  unsigned char char_array_3[3], char_array_4[4];
-//
-//  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
-//    char_array_4[idx++] = message[in_]; in_++;
-//    
-//    if (idx == 4 ) {
-//      for (idx = 0; idx < 4; idx++) {
-//        char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
-//      }
-//
-//      char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-//      char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-//      char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
-//
-//      for (idx = 0; idx < 3; idx++) {
-//        decoded += (char)char_array_3[idx];
-//      }
-//
-//      idx = 0;
-//    }
-//  }
-//
-//  if (idx) {
-//    for (jdx = 0; jdx < idx; jdx++) {
-//      char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
-//    }
-//
-//    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
-//    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-//
-//    for (jdx = 0; jdx < idx - 1; jdx++) {
-//      decoded += (char)char_array_3[jdx];
-//    }
-//  }
-//
-//  return decoded;
-//}
+
+void hmac(Hash * h, byte * key, byte * result, byte * mssg) {
+    h->resetHMAC(key, strlen((char *)key));
+    h->update(mssg, strlen((char *)mssg));
+    h->finalizeHMAC(key, strlen((char *)key), result, HASH_SIZE);
+}
+
+void hash(Hash * h, uint8_t * value, byte * mssg) {
+    size_t inc = 1;
+    size_t size = strlen((char *)mssg);
+    size_t posn, len;
+
+    h->reset();
+    for (posn = 0; posn < size; posn += inc) {
+        len = size - posn;
+        if (len > inc) {
+            len = inc;
+        }
+        h->update(mssg + posn, len);
+    }
+    h->finalize(value, HASH_SIZE);
+}
+
+void blake2s_test(byte * key, byte * mssg) {
+    BLAKE2s blake2s;
+    byte buffer[128];
+    byte result[HASH_SIZE];
+
+    memset(buffer, 0x00, sizeof(buffer));
+    memset(result, 0x00, sizeof(result));
+
+    hash(&blake2s, buffer, mssg);
+    String cpystr1((char *)buffer);
+    String str1 = cpystr1;
+    Serial.print("Key bytes: ");
+    Serial.println(str1);
+    Serial.println("Key bytes ints: ");
+    for (int idx = 0; idx < 32; idx++) {
+        Serial.print((int)(str1.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+
+    // This one matches what is on the other devices
+    hmac(&blake2s, key, result, mssg);
+    String cpystr2((char *)result);
+    String str2 = cpystr2;
+    Serial.print("Key bytes: ");
+    Serial.println(str2);
+    Serial.println("Key bytes ints: ");
+    for (int idx = 0; idx < 32; idx++) {
+        Serial.print((int)(str2.charAt(idx)));
+        Serial.print(" ");
+    }
+    Serial.println("");
+}
 
 
 
@@ -151,9 +274,9 @@ void setup() {
 
     //Initialize serial and wait for port to open:
     Serial.begin(9600);
-//    while (!Serial) {
-//        ; // wait for serial port to connect. Needed for native USB port only
-//    }
+    while (!Serial) {
+        ; // wait for serial port to connect. Needed for native USB port only
+    }
 
     // Turn the LED on in order to indicate that the upload is complete
     pinMode(builtin_led, OUTPUT);
@@ -162,7 +285,9 @@ void setup() {
     if (WiFi.status() == WL_NO_SHIELD) {
         Serial.println("No WiFi shield");
         // Block forever
-        while (true);
+        while (true) {
+          delay(1000);
+        }
     }
 
 
@@ -177,23 +302,17 @@ void setup() {
     state = AP_DETERMINED;
 }
 
-#include <Hash.h>
-//#include <SHA256.h>
-#include <BLAKE2s.h>
-#include <AES.h>
-#include <CTR.h>
-#include <Crypto.h>
 
 
-//void encode_and_decode(String str) {
-//  String str_encoded = base64_encode(str, str.length());
-//  Serial.print("Encoded: ");
-//  Serial.println(str_encoded);
-//
-//  String str_decoded = base64_decode(str_encoded);
-//  Serial.print("Decoded: ");
-//  Serial.println(str_decoded);
-//}
+void encode_and_decode(String str) {
+  String str_encoded = base64_encode(str, str.length());
+  Serial.print("Encoded: ");
+  Serial.println(str_encoded);
+
+  String str_decoded = base64_decode(str_encoded);
+  Serial.print("Decoded: ");
+  Serial.println(str_decoded);
+}
 
 
 
@@ -474,42 +593,58 @@ void aes256_dec(byte * key, byte * iv, byte * buffer) {
 
 
 void loop() {
-//    Serial.println("\nEncrypt and decrypt 1");
-//    encrypt_and_decrypt("asdf");
+////    Serial.println("\nEncrypt and decrypt 1");
+////    encrypt_and_decrypt("asdf");
 //    Serial.println("\nBase64 encode and decode");
 //    encode_and_decode("asdf");
-    Serial.println("\nEncrypt then decrypt");
-//    String ctxt = "";
-//    ctxt += (char)134;
-//    ctxt += (char)145;
-//    ctxt += (char)185;
-//    ctxt += (char)9;
-//    String ctxt = encrypt("3018");
-//    Serial.print("Ciphertext encoded: ");
-//    Serial.println(ctxt);
-//    String dec = decrypt(ctxt);
-//    Serial.print("Ciphertext Decrypted: ");
-//    Serial.println(dec);
-    String message = "301812345";
-//    byte mssg[] = "3018";
-    byte mssg[16];
-    memset(mssg, '\0', 16);
-    message.getBytes(mssg, 16);
-//    byte key256[] = "01234567890123456789012345678901" + '\0';
-    byte key256[33];
-    memset(key256, '\0', 33);
-    NET_KEY.getBytes(key256, 33);
-    
-//    byte iv[] = "998";
-    byte iv[16];
-    memset(iv, '\0', 16);
-    String nonce(NET_NONCE);
-    nonce.getBytes(iv, 16);
-
-    aes256_enc(key256, mssg, iv);
-    byte buffer[128];
-    aes256_dec(key256, iv, buffer);
-    while (true);
+//    Serial.println("\nEncrypt then decrypt");
+////    String ctxt = "";
+////    ctxt += (char)134;
+////    ctxt += (char)145;
+////    ctxt += (char)185;
+////    ctxt += (char)9;
+////    String ctxt = encrypt("3018");
+////    Serial.print("Ciphertext encoded: ");
+////    Serial.println(ctxt);
+////    String dec = decrypt(ctxt);
+////    Serial.print("Ciphertext Decrypted: ");
+////    Serial.println(dec);
+//    String message = "301812345";
+////    byte mssg[] = "3018";
+//    byte mssg[16];
+//    memset(mssg, '\0', 16);
+//    message.getBytes(mssg, 16);
+////    byte key256[] = "01234567890123456789012345678901" + '\0';
+//    byte key256[33];
+//    memset(key256, '\0', 33);
+//    NET_KEY.getBytes(key256, 33);
+//    
+////    byte iv[] = "998";
+//    byte iv[16];
+//    memset(iv, '\0', 16);
+//    String nonce(NET_NONCE);
+//    nonce.getBytes(iv, 16);
+//
+//    aes256_enc(key256, mssg, iv);
+//    byte buffer[128];
+//    aes256_dec(key256, iv, buffer);
+//
+//
+//
+//
+//    // BLAKE2S
+//    byte hmac_mssg[1024];
+//    String hmac_mssg_str = "hmac this";
+//    memset(hmac_mssg, '\0', 1024);
+//    hmac_mssg_str.getBytes(hmac_mssg, 1024);
+//    
+//    byte key256_2[33];
+//    memset(key256_2, '\0', 33);
+//    NET_KEY.getBytes(key256_2, 33);
+//    Serial.println("Blake2s test");
+//    blake2s_test(key256_2, hmac_mssg);
+//    
+////    while (true);
     
     if (state == DETERMINE_NETWORK) {
         wifi_status = check_wifi_status(wifi_status);
@@ -681,10 +816,13 @@ void loop() {
         Serial.println(req_port);
 
         Serial.println("Making info message");
-        Message info_message(device_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, 0);
+        Serial.print("Port message nonce: ");
+        Serial.println(port_message.get_nonce());
+        Message info_message(device_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, port_message.get_nonce());//use the nonce from the stored message
         delay(100);
 
-        Serial.println("Sending info message");
+        Serial.print("Sending info message: ");
+        Serial.println(info_message.get_pack());
         server_connection.print(info_message.get_pack());
         server_connection.flush();
         delay(500);
@@ -735,11 +873,13 @@ void cont_recv() {
     while (server_connection.available()) {
         char c = '\0';
         c = server_connection.read();
-//        Serial.write(c);
+        Serial.write(c);
         message = message + c;
         // We have read the whole message
-        if (c == (char)4) {
+        if (c == (char)4 || c == '=') {
+            Serial.println("Found the end of the message");
             if (message.length() > 1) {
+                message = message.substring(0, message.length()-1);
                 handle_messaging(message);
                 message = "";
                 return;
