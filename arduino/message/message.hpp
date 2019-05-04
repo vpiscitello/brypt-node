@@ -111,7 +111,7 @@ class Message {
 			this->auth_token = "";
 			this->nonce = nonce;
 			this->set_timestamp();
-			this->encrypt(this->data);
+			this->data = this->encrypt(this->data);
 		}
 
 		// Getter Functions
@@ -185,10 +185,14 @@ class Message {
 		 ** sent pack the data first.
 		 ** *************************************************************************/
 		String get_pack() {
+			Serial.println("Get pack called");
 			if ( this->raw == "" ) {
+				Serial.println("Calling pack");
 				this->pack();
 			}
+			Serial.println("Appending auth token");
 			String raw_pack = this->raw + this->auth_token;
+			Serial.println("Calling base64 encode");
 			return this->base64_encode( raw_pack, raw_pack.length() );
 		}
 		/* **************************************************************************
@@ -318,6 +322,7 @@ class Message {
 		 ** *************************************************************************/
 		void pack() {
 			String packed;
+			Serial.println("Pack called");
 
 			packed = packed + (char)1;
 
@@ -331,7 +336,9 @@ class Message {
 
 			packed = packed + (char)4;
 
-			this->auth_token = this->hmac( packed );
+			Serial.println("Calling hmac on the packed message");
+			this->auth_token = this->hmac_blake2s( packed );
+			Serial.println("After hmac, setting raw to packed");
 			this->raw = packed;
 		}
 		
@@ -421,15 +428,8 @@ class Message {
 		 ** Function: hmac
 		 ** Description: HMAC a provided message and return the authentication token.
 		 ** *************************************************************************/
-	    /*String hmac(String message) {
-			int key = 3005;
-			String in_key, out_key, inner, token;
-			token = "12345";
-			
-			return token;
-		}*/
 		
-		String hmac(String mssg){
+		/*String hmac(String mssg){
 			unsigned char result[HASH_SIZE];
 			unsigned char tmpres[HASH_SIZE];
 			int mlen = mssg.length();
@@ -457,7 +457,7 @@ class Message {
 			String trueres;
 			trueres = String((char *)result);
 			return trueres;
-		}
+		}*/
 		
 		/*
 		String hash(Hash *h, uint8_t *value, byte *mssg){
@@ -478,6 +478,45 @@ class Message {
 			h->finalize(value, HASH_SIZE);
 		}
 		*/
+		
+		
+		void hmac(Hash * h, byte * key, byte * result, byte * mssg) {
+			h->resetHMAC(key, strlen((char *)key));
+			h->update(mssg, strlen((char *)mssg));
+			h->finalizeHMAC(key, strlen((char *)key), result, HASH_SIZE);
+		}
+		
+		String hmac_blake2s(String message) {
+			byte hmac_mssg[1024];
+			memset(hmac_mssg, '\0', 1024);
+			message.getBytes(hmac_mssg, 1024);
+			
+			byte key256[33];
+			memset(key256, '\0', 33);
+			NET_KEY.getBytes(key256, 33);
+			
+			BLAKE2s blake2s;
+			byte buffer[128];
+			byte result[HASH_SIZE];
+
+			memset(buffer, 0x00, sizeof(buffer));
+			memset(result, 0x00, sizeof(result));
+
+			// This one matches what is on the other devices
+			this->hmac(&blake2s, key256, result, hmac_mssg);
+			String cpystr2((char *)result);
+			String str2 = cpystr2;
+			Serial.print("Key bytes: ");
+			Serial.println(str2);
+			Serial.println("Key bytes ints: ");
+			for (int idx = 0; idx < 32; idx++) {
+				Serial.print((int)(str2.charAt(idx)));
+				Serial.print(" ");
+			}
+			Serial.println("");
+			
+			return str2;
+		}
 		
 		String encrypt(String plaintext){
 			Serial.println("ENCRYPT");
@@ -508,6 +547,13 @@ class Message {
 			String ciphertext = cpystr;
 			Serial.print("Ciphertext: ");
 			Serial.println(ciphertext);
+			
+			Serial.print("Encrypted bytes: ");
+			for (int idx = 0; idx < ciphertext.length(); idx++) {
+				Serial.print((int)(ciphertext.charAt(idx)));
+				Serial.print(" ");
+			}
+			Serial.println("");
 			
 			return ciphertext;
 		}
@@ -544,6 +590,16 @@ class Message {
 			Serial.print("Plaintext: ");
 			Serial.println(plain);
 			
+			
+			Serial.print("Decrypted bytes: ");
+			for (int idx = 0; idx < plain.length(); idx++) {
+				Serial.print((int)(plain.charAt(idx)));
+				Serial.print(" ");
+			}
+			Serial.println("");
+			
+			this->data = plain;
+			
 			return plain;
 		}
 		
@@ -556,7 +612,7 @@ class Message {
 			String check_token = "";
 
 			if (this->raw != "" || this->auth_token != "") {
-				check_token = this->hmac( this->raw );
+				check_token = this->hmac_blake2s( this->raw );
 				if (this->auth_token == check_token) {
 					verified = true;
 				}
@@ -571,6 +627,11 @@ class Message {
 		** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
 		** *************************************************************************/
 		String base64_encode(String message, unsigned int in_len) {
+		  Serial.println("Going to encode");
+		  Serial.print("Message to encode: ");
+		  Serial.println(message);
+		  Serial.print("Message length: ");
+		  Serial.println(in_len);
 		  String encoded;
 		  int idx = 0, jdx = 0;
 		  unsigned char char_array_3[3], char_array_4[4];
@@ -610,6 +671,8 @@ class Message {
 			  encoded += '=';
 			}
 		  }
+		  Serial.print("Going to return encoded string: ");
+		  Serial.println(encoded);
 
 		  return encoded;
 		}

@@ -6,6 +6,7 @@
 
 const int NETWORK_LIST_SIZE = 20;
 const int AP_NAME_LEN = 40;
+const TechnologyType PREFERRED_TECHNOLOGY_TYPE = TCP_TYPE;
 
 // Enum to keep track of current state
 enum CurrentState { DETERMINE_NETWORK, AP_DETERMINED, AP_CONNECTED, SERVER_CONNECTED };
@@ -36,114 +37,11 @@ CurrentState state = DETERMINE_NETWORK;
 int contacted = 0;
 
 // CONFIG IP address of server to connect to
-IPAddress remote_server(192,168,137,186);
+IPAddress remote_server(192, 168, 137, 135);
 int remote_port = 3001;
-String device_id = "01-01-00-00-00";
+String device_id = "4";
 
 WiFiClient server_connection;
-
-
-
-
-///* **************************************************************************
-//** Function: base64_encode
-//** Description: Encode a std::string to a Base64 message
-//** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
-//** *************************************************************************/
-//String base64_encode(String message, unsigned int in_len) {
-//  String encoded;
-//  int idx = 0, jdx = 0;
-//  unsigned char char_array_3[3], char_array_4[4];
-//  unsigned char const * bytes_to_encode = reinterpret_cast<const unsigned char *>( message.c_str() );
-//
-//  while (in_len--) {
-//    char_array_3[idx++] = *(bytes_to_encode++);
-//
-//    if(idx == 3) {
-//      char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-//      char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-//      char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
-//      char_array_4[3] = char_array_3[2] & 0x3f;
-//
-//      for (idx = 0; idx < 4; idx++) {
-//        encoded += base64_chars[char_array_4[idx]];
-//      }
-//
-//      idx = 0;
-//    }
-//  }
-//
-//  if (idx) {
-//    for (jdx = idx; jdx < 3; jdx++) {
-//      char_array_3[jdx] = '\0';
-//    }
-//     
-//    char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;  
-//    char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-//    char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );      
-//
-//    for (jdx = 0; jdx < idx + 1; jdx++) {
-//      encoded += base64_chars[char_array_4[jdx]];
-//    }
-//
-//    while (idx++ < 3) {
-//      encoded += '=';
-//    }
-//  }
-//
-//  return encoded;
-//}
-//
-///* **************************************************************************
-//** Function: base64_decode
-//** Description: Decode a Base64 message to a std::string
-//** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
-//** *************************************************************************/
-//String base64_decode(String const& message) {
-//  String decoded;
-//  int in_len = message.length();
-//  int idx = 0, jdx = 0, in_ = 0;
-//  unsigned char char_array_3[3], char_array_4[4];
-//
-//  while ( in_len-- && ( message[in_] != '=' ) && is_base64( message[in_] ) ) {
-//    char_array_4[idx++] = message[in_]; in_++;
-//    
-//    if (idx == 4 ) {
-//      for (idx = 0; idx < 4; idx++) {
-//        char_array_4[idx] = base64_chars.indexOf( char_array_4[idx] );
-//      }
-//
-//      char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-//      char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-//      char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
-//
-//      for (idx = 0; idx < 3; idx++) {
-//        decoded += (char)char_array_3[idx];
-//      }
-//
-//      idx = 0;
-//    }
-//  }
-//
-//  if (idx) {
-//    for (jdx = 0; jdx < idx; jdx++) {
-//      char_array_4[jdx] = base64_chars.indexOf( char_array_4[jdx] );
-//    }
-//
-//    char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 ); 
-//    char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-//
-//    for (jdx = 0; jdx < idx - 1; jdx++) {
-//      decoded += (char)char_array_3[jdx];
-//    }
-//  }
-//
-//  return decoded;
-//}
-
-
-
-
 
 void setup() {
     // Configure pins for Adafruit ATWINC1500 Feather
@@ -151,9 +49,9 @@ void setup() {
 
     //Initialize serial and wait for port to open:
     Serial.begin(9600);
-//    while (!Serial) {
-//        ; // wait for serial port to connect. Needed for native USB port only
-//    }
+    while (!Serial) {
+        ; // wait for serial port to connect. Needed for native USB port only
+    }
 
     // Turn the LED on in order to indicate that the upload is complete
     pinMode(builtin_led, OUTPUT);
@@ -162,7 +60,9 @@ void setup() {
     if (WiFi.status() == WL_NO_SHIELD) {
         Serial.println("No WiFi shield");
         // Block forever
-        while (true);
+        while (true) {
+          delay(1000);
+        }
     }
 
 
@@ -177,340 +77,7 @@ void setup() {
     state = AP_DETERMINED;
 }
 
-#include <Hash.h>
-//#include <SHA256.h>
-#include <BLAKE2s.h>
-#include <AES.h>
-#include <CTR.h>
-#include <Crypto.h>
-
-
-//void encode_and_decode(String str) {
-//  String str_encoded = base64_encode(str, str.length());
-//  Serial.print("Encoded: ");
-//  Serial.println(str_encoded);
-//
-//  String str_decoded = base64_decode(str_encoded);
-//  Serial.print("Decoded: ");
-//  Serial.println(str_decoded);
-//}
-
-
-
-//void encrypt_and_decrypt(String plaintext) {
-//    byte buffer[16];
-//    CTR<AES256> aes256;
-//  
-//    byte key[32];
-//    NET_KEY.getBytes(key, 32);
-//    aes256.setKey(key, 32);
-//    
-//    byte iv[16];
-//    memset(iv, '\0', 16);
-//    String nonce(NET_NONCE);
-//    Serial.print("NONCE: ");
-//    Serial.println(nonce);
-//    nonce.getBytes(iv, 16);
-//    
-//    String cpystr5((char *)iv);
-//    String ciphertext5 = cpystr5;
-//    Serial.print("IV: ");
-//    Serial.println(ciphertext5);
-//    
-//    aes256.setIV(iv, 16);
-//  
-//    byte ptxt[16];
-//    plaintext.getBytes(ptxt, 16);
-//  
-//    String cpystr2((char *)ptxt);
-//    String ciphertext2 = cpystr2;
-//    Serial.print("Plaintext: ");
-//    Serial.println(ciphertext2);
-//    
-//    aes256.encrypt(buffer, ptxt, 16);
-//  
-//    String cpystr((char *)buffer);
-//    String ciphertext = cpystr;
-//    Serial.print("Ciphertext: ");
-//    Serial.println(ciphertext);
-//  
-//    // Decrypt
-//    byte buffer2[16];
-//    aes256.setKey(key, 32);
-//    aes256.setIV(iv, 16);
-//    aes256.decrypt(buffer2, buffer, 16);
-//  
-//    
-//    if (memcmp(ptxt, buffer2, 16) == 0) {
-//        Serial.println("Matches");
-//    } else {
-//        Serial.println("Doesnt match");
-//    }
-//}
-
-//void encrypt(String plaintext){
-//    CTR<AES256> aes_ctr_256;
-//    int ptxtlen = plaintext.length();
-//    unsigned char ptxtptr[ptxtlen+1];
-//    unsigned char iv[16];
-//    itoa(this->nonce, (char *)iv, 10);
-//    int ivlen = strlen((char *)iv);
-//    plaintext.toCharArray((char *)ptxtptr, ptxtlen);
-//    aes_ctr_256.setKey(key, 32);
-//    aes_ctr_256.setIV(iv, ivlen);
-//    aes_ctr_256.setCounterSize(4);
-//    byte buffer[ptxtlen+1];//SEGFAULT? might need whole block of leeway. same w/ decrypt
-//    aes_ctr_256.encrypt(buffer, ptxtptr, ptxtlen);
-//
-//    String cpystr((char *)buffer);
-//    this->data = cpystr;
-//    Serial.println(cpystr);
-//    
-//}
-
-
-
-//String encrypt(String plaintext){
-//    byte buffer[16];
-//    CTR<AES256> aes256;
-//
-//    Serial.print("Aes key size: ");
-//    Serial.println(aes256.keySize());
-//    Serial.print("Aes IV size: ");
-//    Serial.println(aes256.ivSize());
-//  
-//    byte key[32];
-//    memset(key, '\0', 32);
-//    NET_KEY.getBytes(key, 32);
-//
-//    String cpystr6((char *)key);
-//    String ciphertext6 = cpystr6;
-//    Serial.print("key: ");
-//    Serial.println(ciphertext6);
-//    Serial.println("Key ints: ");
-//    for (int idx = 0; idx < 32; idx++) {
-//        Serial.print((int)(ciphertext6.charAt(idx)));
-//        Serial.print(" ");
-//    }
-//    Serial.println("");
-//    
-//    aes256.setKey(key, 32);
-//    
-//    
-//    byte iv[16];
-//    memset(iv, '\0', 16);
-//    String nonce(NET_NONCE);
-//    Serial.print("NONCE: ");
-//    Serial.println(nonce);
-//    nonce.getBytes(iv, 16);
-//    
-//    String cpystr5((char *)iv);
-//    String ciphertext5 = cpystr5;
-//    Serial.print("IV: ");
-//    Serial.println(ciphertext5);
-//    
-//    Serial.println("IV ints: ");
-//    for (int idx = 0; idx < 16; idx++) {
-//        Serial.print((int)(ciphertext5.charAt(idx)));
-//        Serial.print(" ");
-//    }
-//    Serial.println("");
-//    
-//    aes256.setIV(iv, 16);
-//    
-//    byte ptxt[16];
-//    memset(ptxt, '\0', 16);
-//    plaintext.getBytes(ptxt, 16);
-//  
-//    String cpystr2((char *)ptxt);
-//    String ciphertext2 = cpystr2;
-//    Serial.print("Plaintext: ");
-//    Serial.println(ciphertext2);
-//    
-//    aes256.encrypt(buffer, ptxt, 16);
-//  
-//    String cpystr((char *)buffer);
-//    String ciphertext = cpystr;
-//    Serial.print("Ciphertext: ");
-//    Serial.println(ciphertext);
-//    Serial.println("Ciphertext ints: ");
-//    for (int idx = 0; idx < ciphertext.length(); idx++) {
-//        Serial.print((int)(ciphertext.charAt(idx)));
-//        Serial.print(" ");
-//    }
-//    Serial.println("");
-//
-//    return ciphertext;
-////    return base64_encode(ciphertext, ciphertext.length());
-//}
-//
-//String decrypt(String ciphertext){
-////    ciphertext = base64_decode(ciphertext);
-//    Serial.print("Ciphertext decoded: ");
-//    Serial.println(ciphertext);
-//    CTR<AES256> aes256;
-//  
-//    byte key[32];
-//    memset(key, '\0', 32);
-//    NET_KEY.getBytes(key, 32);
-//    aes256.setKey(key, 32);
-//    
-//    
-//    byte iv[16];
-//    memset(iv, '\0', 16);
-//    String nonce(NET_NONCE);
-//    Serial.print("NONCE: ");
-//    Serial.println(nonce);
-//    nonce.getBytes(iv, 16);
-//    
-//    String cpystr5((char *)iv);
-//    String ciphertext5 = cpystr5;
-//    Serial.print("IV: ");
-//    Serial.println(ciphertext5);
-//    
-//    aes256.setIV(iv, 16);
-//  
-//    byte ctxt[16];
-//    memset(ctxt, '\0', 16);
-//    ciphertext.getBytes(ctxt, 16);
-//  
-//    // Decrypt
-//    byte buffer2[16];
-//    aes256.setKey(key, 32);
-//    aes256.setIV(iv, 16);
-//    aes256.decrypt(buffer2, ctxt, 16);
-//
-//    
-//    String cpystr((char *)buffer2);
-//    String plain = cpystr;
-//    Serial.print("Plaintext: ");
-//    Serial.println(plain);
-//    return plain;
-//}
-
-
-byte ctxt[128];
-// print out bytes
-void aes256_enc(byte * key, byte * mssg, byte * iv) {
-
-    String cpystr1((char *)key);
-    String plain1 = cpystr1;
-    Serial.print("Key: ");
-    Serial.println(plain1);
-    Serial.println("Key ints: ");
-    for (int idx = 0; idx < 32; idx++) {
-        Serial.print((int)(plain1.charAt(idx)));
-        Serial.print(" ");
-        Serial.print((int)(key[idx]));
-        Serial.print(" ");
-    }
-    Serial.println("");
-
-    String cpystr2((char *)mssg);
-    String plain2 = cpystr2;
-    Serial.print("Message: ");
-    Serial.println(plain2);
-    Serial.println("Message ints: ");
-    for (int idx = 0; idx < 16; idx++) {
-        Serial.print((int)(plain2.charAt(idx)));
-        Serial.print(" ");
-    }
-    Serial.println("");
-
-    String cpystr3((char *)iv);
-    String plain3 = cpystr3;
-    Serial.print("IV: ");
-    Serial.println(plain3);
-    Serial.println("IV ints: ");
-    for (int idx = 0; idx < 16; idx++) {
-        Serial.print((int)(plain3.charAt(idx)));
-        Serial.print(" ");
-    }
-    Serial.println("");
-
-
-
-
-  
-    CTR<AES256> aes_ctr_256;
-    memset(ctxt, 0x00, sizeof(ctxt));
-
-    crypto_feed_watchdog();
-    aes_ctr_256.setKey(key, 32);
-    aes_ctr_256.setIV(iv, 16);
-    aes_ctr_256.setCounterSize(4);
-    aes_ctr_256.encrypt(ctxt, mssg, strlen((const char *)mssg));
-    
-    String cpystr((char *)ctxt);
-    String plain = cpystr;
-    Serial.print("Ciphertext: ");
-    Serial.println(plain);
-
-    
-    
-//    Serial.println("CTXT ints: ");
-//    for (int idx = 0; idx < plain.length(); idx++) {
-//        Serial.print((int)(plain.charAt(idx)));
-//        Serial.print(" ");
-//    }
-//    Serial.println("");
-}
-
-void aes256_dec(byte * key, byte * iv, byte * buffer) {
-    CTR<AES256> aes_ctr_256;
-    memset(buffer, 0x00, sizeof(ctxt));
-
-    crypto_feed_watchdog();
-    aes_ctr_256.setKey(key, 32);
-    aes_ctr_256.setIV(iv, 16);
-    aes_ctr_256.setCounterSize(4);
-    aes_ctr_256.decrypt(buffer, ctxt, strlen((const char *)ctxt));
-    
-    String cpystr((char *)buffer);
-    String plain = cpystr;
-    Serial.print("Plaintext: ");
-    Serial.println(plain);
-}
-
-
 void loop() {
-//    Serial.println("\nEncrypt and decrypt 1");
-//    encrypt_and_decrypt("asdf");
-//    Serial.println("\nBase64 encode and decode");
-//    encode_and_decode("asdf");
-    Serial.println("\nEncrypt then decrypt");
-//    String ctxt = "";
-//    ctxt += (char)134;
-//    ctxt += (char)145;
-//    ctxt += (char)185;
-//    ctxt += (char)9;
-//    String ctxt = encrypt("3018");
-//    Serial.print("Ciphertext encoded: ");
-//    Serial.println(ctxt);
-//    String dec = decrypt(ctxt);
-//    Serial.print("Ciphertext Decrypted: ");
-//    Serial.println(dec);
-    String message = "301812345";
-//    byte mssg[] = "3018";
-    byte mssg[16];
-    memset(mssg, '\0', 16);
-    message.getBytes(mssg, 16);
-//    byte key256[] = "01234567890123456789012345678901" + '\0';
-    byte key256[33];
-    memset(key256, '\0', 33);
-    NET_KEY.getBytes(key256, 33);
-    
-//    byte iv[] = "998";
-    byte iv[16];
-    memset(iv, '\0', 16);
-    String nonce(NET_NONCE);
-    nonce.getBytes(iv, 16);
-
-    aes256_enc(key256, mssg, iv);
-    byte buffer[128];
-    aes256_dec(key256, iv, buffer);
-    while (true);
-    
     if (state == DETERMINE_NETWORK) {
         wifi_status = check_wifi_status(wifi_status);
       
@@ -548,53 +115,29 @@ void loop() {
                   int action_page = currentLine.indexOf("action_page");
                   if (action_page > 0) {
                         currentLine = currentLine.substring(action_page);
-                        Serial.print("Currentline outside: ");
-                        Serial.println(currentLine);
-                        if (currentLine.indexOf("ap_name=") > 0) {
-                            int ap_num = currentLine.indexOf("ap_name=");
-//                            currentLine = currentLine.substring(ap_num);
-                            int ampersand_index = currentLine.indexOf("&host_ip");
-                            String ap_num_str = currentLine.substring(ap_num+8, ampersand_index);
-                            Serial.print("ap_num value is ");
-                            Serial.print(ap_num_str);
-                            Serial.println("");
-                            access_point = AP_names[ap_num_str.toInt()];
-                            Serial.print("Access point: ");
-                            Serial.println(access_point);
-                        }
-                        Serial.print("Currentline outside2: ");
-                        Serial.println(currentLine);
-                        if (currentLine.indexOf("host_ip=") > 0) {
-                            int host_ip = currentLine.indexOf("host_ip=");
-//                            currentLine = currentLine.substring(host_ip);
-                            int ampersand_index = currentLine.indexOf("&host_port");
-                            String host_ip_str = currentLine.substring(host_ip+8, ampersand_index);
-                            Serial.print("Host IP value is ");
-                            Serial.println(host_ip_str);
-//                            remote_server = host_ip_str;
-                        }
-                        Serial.print("Currentline outside3: ");
-                        Serial.println(currentLine);
-                        if (currentLine.indexOf("host_port=") > 0) {
-                            int host_port = currentLine.indexOf("host_port=");
-//                            currentLine = currentLine.substring(host_port);
-                            int space_index = currentLine.indexOf("&device_id");
-                            String host_port_str = currentLine.substring(host_port+10, space_index);
-                            Serial.print("Host Port is ");
-                            Serial.println(host_port_str);
-                            remote_port = host_port_str.toInt();
-                        }
-                        Serial.print("Currentline outside4: ");
-                        Serial.println(currentLine);
-                        if (currentLine.indexOf("device_id=") > 0) {
-                            int host_port = currentLine.indexOf("device_id=");
-//                            currentLine = currentLine.substring(host_port);
-                            int space_index = currentLine.indexOf(" HTTP");
-                            String device_id_str = currentLine.substring(host_port+10, space_index);
-                            Serial.print("Device ID is ");
-                            Serial.println(device_id_str);
-                            device_id = device_id_str;
-                        }
+
+			// Get the access point they want to connect to
+			String access_point_index = parse_php_req(currentLine, "ap_name=", "&host_ip");
+			access_point = AP_names[access_point_index.toInt()];
+			Serial.print("Access point: ");
+			Serial.println(access_point);
+
+			// Get the host IP address the device should connect to
+			String host_ip_str = parse_php_req(currentLine, "host_ip=", "&host_port");
+			// TODO Parse host_ip_str into IP_address data type
+			remote_server = convert_str_to_ip(host_ip_str);
+
+			// Get the host port that the device should connect on
+			String host_port_str = parse_php_req(currentLine, "host_port=", "&device_id");
+			remote_port = host_port_str.toInt();
+
+			// Get the device id of the current device
+			String device_id_str = parse_php_req(currentLine, "device_id=", " HTTP");
+			if (device_id_str != "") {
+			    device_id = device_id_str;
+			}
+
+			// Close down the client and the access point
                         client.stop();
                         WiFi.end();
                         state = AP_DETERMINED;
@@ -607,105 +150,12 @@ void loop() {
           Serial.println("client disconnected");
         }
     } else if (state == AP_DETERMINED) {
-        // We have discovered an AP name so we want to connect to the WiFi network
-        while (wifi_status != WL_CONNECTED) {
-            Serial.print("Attempting to connect to WPA SSID: ");
-            Serial.println(access_point);
-            // Connect to WPA/WPA2 network:
-              wifi_status = WiFi.begin("brypt1", "asdfasdf");
-//            wifi_status = WiFi.begin(access_point);
-        
-            delay(1000);
-        }
-  
-        // Print out information about the network
-        Serial.print("Successfully connected to the network");
-        printWiFiStatus();
-  
-        // Get the current time now that we (maybe) have internet
-        Serial.print("Wifi Time: ");
-        Serial.println(WiFi.getTime());
-        state = AP_CONNECTED;
+	connect_to_network(access_point);
     } else if (state == AP_CONNECTED) {
-        Serial.println("\nStarting connection to server...");
-        // Try to connect to the TCP or StreamBridge socket
-        if (server_connection.connect(remote_server, remote_port)) {
-            Serial.println("Connected to server");
-            state = SERVER_CONNECTED;
-        } else {
-//            delay(1000);
-        }
+	connect_to_server(remote_server, remote_port);
+        
     } else if (state == SERVER_CONNECTED && !contacted) {
-        // As soon as we have connected to the socket, conduct initial_contact
-        Serial.println("Setting up initial contact with coordinator");
-        Serial.print("Connecting on port: ");
-        Serial.println(remote_port);
-        delay(100);
-
-        String resp = "";
-
-        while (resp.length() < 1  || (int)resp.charAt(0) != 6) {
-            // Send ack
-            String ack_msg = "\x06";
-            Serial.println("Sending ACK");
-            server_connection.print(ack_msg);
-            server_connection.flush();
-            delay(500);
-    
-            // Should get an ACK back
-            resp = recv();
-            Serial.print("Received: ");
-            Serial.println((int)resp.charAt(0));
-        }
-
-        
-        TechnologyType t = TCP_TYPE;
-        String preferred_comm_tech = String((int)t);
-        Serial.print("Going to send comm tech: ");
-        Serial.println(preferred_comm_tech);
-        delay(100);
-        server_connection.print(preferred_comm_tech);
-        server_connection.flush();
-        delay(500);
-        
-        resp = recv();
-        Serial.println("");
-        Serial.print("Received: ");
-        Serial.println(resp);
-        Message port_message(resp);
-        String coord_id = port_message.get_source_id();
-        String req_port = port_message.get_data();
-        Serial.print("Coord id: ");
-        Serial.println(coord_id);
-        Serial.print("Req port: ");
-        Serial.println(req_port);
-
-        Serial.println("Making info message");
-        Message info_message(device_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, 0);
-        delay(100);
-
-        Serial.println("Sending info message");
-        server_connection.print(info_message.get_pack());
-        server_connection.flush();
-        delay(500);
-        
-        resp = recv();
-        Serial.print("Received: ");
-        Serial.println((int)resp.charAt(0));
-
-        // Should shut down connection now
-        server_connection.stop();
-
-        // Connect to the new port
-        Serial.print("Trying to connect to port: ");
-        Serial.println(req_port.toInt());
-        while (!server_connection.connect(remote_server, req_port.toInt())) {
-            Serial.print("Trying to connect to port: ");
-            Serial.println(req_port.toInt());
-            delay(1000);
-        }
-        Serial.println("Connected to secondary port");
-        contacted = 1;
+	initial_contact();
     } else if (state == SERVER_CONNECTED && contacted) {
         String message = "";
         while (true) {
@@ -713,6 +163,167 @@ void loop() {
             delay(500);
         }
     }
+}
+
+void initial_contact() {
+    // As soon as we have connected to the socket, conduct initial_contact
+    Serial.println("Setting up initial contact with coordinator");
+    delay(100);
+
+    String resp = "";
+
+    while (resp.length() < 1  || (int)resp.charAt(0) != 6) {
+	// Send ack
+	String ack_msg = "\x06";
+	Serial.println("Sending ACK");
+	server_connection.print(ack_msg);
+	server_connection.flush();
+	delay(500);
+
+	// Should get an ACK back
+	resp = recv();
+	Serial.print("Received: ");
+	Serial.println((int)resp.charAt(0));
+
+	// TODO validate the ACK back and abort if necessary
+    }
+
+    
+    String preferred_comm_tech = String((int)PREFERRED_TECHNOLOGY_TYPE);
+    Serial.print("Going to send comm tech: ");
+    Serial.println(preferred_comm_tech);
+    delay(100);
+    server_connection.print(preferred_comm_tech);
+    server_connection.flush();
+    delay(500);
+    
+    resp = recv();
+    Serial.println("");
+    Serial.print("Received: ");
+    Serial.println(resp);
+    Message port_message(resp);
+    String coord_id = port_message.get_source_id();
+    String new_port = port_message.get_data();
+    Serial.print("Coord id: ");
+    Serial.println(coord_id);
+    Serial.print("Req port: ");
+    Serial.println(new_port);
+
+    Serial.println("Making info message");
+    Serial.print("Port message nonce: ");
+    Serial.println(port_message.get_nonce());
+    Message info_message(device_id, coord_id, CONNECT_TYPE, 1, preferred_comm_tech, port_message.get_nonce());
+    delay(100);
+
+    Serial.print("Sending info message: ");
+    Serial.println(info_message.get_pack());
+    server_connection.print(info_message.get_pack());
+    server_connection.flush();
+    delay(500);
+    
+    resp = recv();
+    Serial.print("Received: ");
+    Serial.println((int)resp.charAt(0));
+
+    // Should shut down connection now
+    server_connection.stop();
+
+    // Connect to the new port
+    connect_to_server(remote_server, new_port.toInt());
+
+    Serial.println("Connected to secondary port");
+    contacted = 1;
+}
+
+void connect_to_server(IPAddress server, int port) {
+    Serial.print("\nStarting connection to server (");
+    Serial.print(server);
+    Serial.print(") on port (");
+    Serial.print(port);
+    Serial.println(")...");
+    // Try to connect to the TCP or StreamBridge socket
+    if (server_connection.connect(server, port)) {
+	Serial.println("Connected to server");
+	state = SERVER_CONNECTED;
+    } else {
+	//delay(10);
+    }
+}
+
+void connect_to_network(String connection_ap) {
+    // We have discovered an AP name so we want to connect to the WiFi network
+    while (wifi_status != WL_CONNECTED) {
+	Serial.print("Attempting to connect to WPA SSID: ");
+	Serial.println(connection_ap);
+	wifi_status = WiFi.begin("brypt1", "asdfasdf");
+	// Connect to WPA/WPA2 network:
+	//wifi_status = WiFi.begin(connection_ap);
+    
+	delay(1000);
+    }
+
+    // Print out information about the network
+    Serial.print("Successfully connected to the network");
+    printWiFiStatus();
+
+    // Get the current time now that we (maybe) have internet
+    Serial.print("Wifi Time: ");
+    Serial.println(WiFi.getTime());
+    state = AP_CONNECTED;
+}
+
+// Parse the information given back from the PHP request
+// Used to parse out the access point name, host IP addr, host port,
+// and this device's ID
+String parse_php_req(String current_line, String from, String to) {
+    if (current_line.indexOf(from) > 0) {
+	int from_index = current_line.indexOf(from);
+	int to_index = current_line.indexOf(to);
+	String req_str = current_line.substring(from_index+from.length(), to_index);
+	//Serial.print("req_string value is ");
+	//Serial.println(req_str);
+	return req_str;
+    }
+}
+
+// Split this 192.168.137.22 to an IPAddress class
+IPAddress convert_str_to_ip(String ip_addr_str) {
+    int ip_addr[4];
+
+    ip_addr_str += '.';
+
+    int nxt_index = ip_addr_str.indexOf('.');
+    String split_str = ip_addr_str.substring(0, nxt_index);
+    ip_addr_str = ip_addr_str.substring(nxt_index + 1);
+    int idx = 0;
+
+    while (nxt_index != -1) {
+	Serial.print("SPLIT STR: ");
+	Serial.println(split_str);
+	ip_addr[idx] = split_str.toInt();
+
+	nxt_index = ip_addr_str.indexOf('.');
+	Serial.print("NEXT INDEX: ");
+	Serial.println(nxt_index);
+	split_str = ip_addr_str.substring(0, nxt_index);
+	ip_addr_str = ip_addr_str.substring(nxt_index + 1);
+	Serial.print("NEXT SPLIT: ");
+	Serial.println(split_str);
+	delay(1000);
+	idx++;
+    }
+
+    Serial.print("ip: ");
+    Serial.print(ip_addr[0]);
+    Serial.print(".");
+    Serial.print(ip_addr[1]);
+    Serial.print(".");
+    Serial.print(ip_addr[2]);
+    Serial.print(".");
+    Serial.println(ip_addr[3]);
+
+    IPAddress coord_server(ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]);
+    return coord_server;
 }
 
 String recv() {
@@ -735,11 +346,13 @@ void cont_recv() {
     while (server_connection.available()) {
         char c = '\0';
         c = server_connection.read();
-//        Serial.write(c);
+        Serial.write(c);
         message = message + c;
         // We have read the whole message
-        if (c == (char)4) {
+        if (c == (char)4 || c == '=') {
+            Serial.println("Found the end of the message");
             if (message.length() > 1) {
+                message = message.substring(0, message.length()-1);
                 handle_messaging(message);
                 message = "";
                 return;
