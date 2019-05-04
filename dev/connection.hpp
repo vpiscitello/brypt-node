@@ -551,16 +551,36 @@ class StreamBridge : public Connection {
 
 	void send(class Message * msg) {
 	    std::cout << "[StreamBridge] Sending..." << '\n';
+	    int flag = 0;
+	    std::string to_cat = "";
 	    std::string msg_pack = msg->get_pack();
 	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
+	    if ((msg_pack.c_str())[strlen(msg_pack.c_str())] != ((char)4)) {
+		    std::cout << "1Putting a char4 on the end\n";
+		    flag = 1;
+		    to_cat = (char)4 + "";
+	    }
 	    zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
+	    if (flag) {
+		    zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
+	    }
 	    std::cout << "[StreamBridge] Sent: (" << strlen(msg_pack.c_str()) << ") " << msg_pack << '\n';
 	}
 
 	void send(const char * message) {
 	    std::cout << "[StreamBridge] Sending..." << '\n';
+	    int flag = 0;
+	    std::string to_cat = "";
+	    if ((message)[strlen(message)] != ((char)4)) {
+		    std::cout << "2Putting a char4 on the end\n";
+		    flag = 1;
+		    to_cat = (char)4 + "";
+	    }
 	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
 	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
+	    if (flag) {
+		    zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
+	    }
 	    std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
 	}
 
@@ -599,6 +619,7 @@ class TCP : public Connection {
 	    std::cout << "[TCP] Creating TCP instance.\n";
 
 	    this->port = options->port;
+            this->peer_name = options->peer_name;
 	    this->peer_addr = options->peer_addr;
 	    this->peer_port = options->peer_port;
 	    this->control = options->is_control;
