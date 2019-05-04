@@ -42,11 +42,11 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
     for (conn_it; conn_it != connections->end(); conn_it++) {
 
         std::stringstream epoch_ss;
-        std::chrono::seconds seconds;
+        std::chrono::milliseconds milliseconds;
 
-        seconds = std::chrono::duration_cast<std::chrono::seconds>( (*conn_it)->get_update_clock().time_since_epoch() );
+        milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>( (*conn_it)->get_update_clock().time_since_epoch() );
         epoch_ss.clear();
-        epoch_ss << seconds.count();
+        epoch_ss << milliseconds.count();
 
         nodes_info.emplace_back(
             json11::Json::object {

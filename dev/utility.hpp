@@ -83,12 +83,12 @@ inline SystemClock get_system_clock() {
 
 inline std::string get_system_timestamp() {
     std::stringstream epoch_ss;
-    std::chrono::seconds seconds;
+    std::chrono::milliseconds milliseconds;
     SystemClock current_time;
     current_time = std::chrono::system_clock::now();
-    seconds = std::chrono::duration_cast<std::chrono::seconds>( current_time.time_since_epoch() );
+    milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>( current_time.time_since_epoch() );
     epoch_ss.clear();
-    epoch_ss << seconds.count();
+    epoch_ss << milliseconds.count();
     return epoch_ss.str();
 }
 
