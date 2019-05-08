@@ -446,7 +446,7 @@ void Node::handle_notification(std::string message) {
         std::size_t filter_found = message.find(":");
         if (filter_found != std::string::npos && filter_found < 16) {
             notice_filter = message.substr(0, filter_found);
-            raw_notification = message.substr(filter_found);
+            raw_notification = message.substr(filter_found+1);
         }
 
         Message notification(raw_notification);
@@ -528,6 +528,7 @@ void Node::listen(){
 	}
 
         notification = this->notifier->recv();
+	//std::cout << "[listen] Received notification " << notification << "\n";
         this->handle_notification(notification);
 
         this->message_queue.check_pipes();

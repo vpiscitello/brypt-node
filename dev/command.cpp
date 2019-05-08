@@ -228,6 +228,8 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
     unsigned int nonce = 0;
     std::string reading_data = generate_reading();
 
+    std::cout << "coord DATA READING: " << reading_data << "\n";
+
     Message self_reading(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, reading_data, nonce);
 
     this->node_instance->get_awaiting()->push_response(await_key, self_reading);
@@ -256,6 +258,8 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
     unsigned int nonce = message->get_nonce() + 1;
     std::string data = generate_reading();
 
+    std::cout << "respond DATA READING: " << data << "\n";
+
     Message request(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, data, nonce);
 
     // TODO: Add method to defer if node_instance is a coordinator
@@ -264,6 +268,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
     // Recieve Response from the server
     Message response = connection->recv();
     std::cout << "== [Node] Recieved: " << response.get_pack() << '\n';
+    std::cout << "^^ [Query] [Respond Handler] Recieved: " << response.get_pack() << '\n';
 }
 
 /* **************************************************************************
@@ -272,6 +277,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 ** *************************************************************************/
 void Query::aggregate_handler(Self * self, Message * message, MessageQueue * message_queue) {
     std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
+    std::cout << "^^ [Query] [Aggregate Handler] Recieved1: " << message->get_data() << '\n';
 
     this->node_instance->get_awaiting()->push_response(*message);
     // If ready or if string filled from push response send off to client?
@@ -281,6 +287,7 @@ void Query::aggregate_handler(Self * self, Message * message, MessageQueue * mes
     std::string destination_id = message->get_source_id();
     unsigned int nonce = message->get_nonce() + 1;
     Message response(source_id , destination_id, QUERY_TYPE, CLOSE_PHASE, "Message Response", nonce);
+    std::cout << "^^ [Query] [Aggregate Handler] Recieved2: " << response.get_pack() << '\n';
 
     message_queue->add_message(message->get_source_id(), response);
     message_queue->push_pipes();

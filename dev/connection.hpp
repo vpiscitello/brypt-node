@@ -294,6 +294,7 @@ class Direct : public Connection {
                 std::string request = "";
                 // Receive message
                 request = this->recv(0);
+		std::cout << "Received request: " << request << "\n";
                 this->write_to_pipe(request);
 
                 // std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -383,221 +384,229 @@ class Direct : public Connection {
 };
 
 class StreamBridge : public Connection {
-    private:
-	bool control;
+	private:
+		bool control;
 
-	std::string port;
-	std::string peer_addr;
-	std::string peer_port;
+		std::string port;
+		std::string peer_addr;
+		std::string peer_port;
 
-	int init_msg = 1;
+		int init_msg = 1;
 
-	void *context;
-	void *socket;
+		void *context;
+		void *socket;
 
-	uint8_t id[256];
-	size_t id_size = 256;
+		uint8_t id[256];
+		size_t id_size = 256;
 
-    public:
-	StreamBridge() {}
-	StreamBridge(struct Options *options) {
-	    std::cout << "Creating StreamBridge instance.\n";
+	public:
+		StreamBridge() {}
+		StreamBridge(struct Options *options) {
+			std::cout << "Creating StreamBridge instance.\n";
 
-	    this->port = options->port;
-	    this->peer_addr = options->peer_addr;
-	    this->peer_port = options->peer_port;
-	    this->control = options->is_control;
-	    this->operation = options->operation;
+			this->port = options->port;
+			this->peer_name = options->peer_name;
+			this->peer_addr = options->peer_addr;
+			this->peer_port = options->peer_port;
+			this->control = options->is_control;
+			this->operation = options->operation;
 
-	    // this->worker_active = false;
+			// this->worker_active = false;
+			this->update_clock = get_system_clock();
 
-	    if (options->is_control) {
-		std::cout << "== [StreamBridge] creating control socket\n";
+			if (options->is_control) {
+				std::cout << "== [StreamBridge] creating control socket\n";
 
-		this->context = zmq_ctx_new();// add 1 or no
+				this->context = zmq_ctx_new();// add 1 or no
 
-		switch (options->operation) {
-		    case ROOT: {
-				    std::cout << "== [StreamBridge] setting up stream socket on port " << options->port << "\n";
-				    this->socket = zmq_socket(this->context, ZMQ_STREAM);
-				    this->init_msg = 1;
-				    setup_streambridge_socket(options->port);
-				    break;
-			       }
-		    case BRANCH: {
-				     break;
-				 }
-		    case LEAF: {
-				    //std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
-				    //this->socket = zmq_socket(this->context, ZMQ_STREAM);
-				    //setup_streambridge_socket(options->port);
-				    //break;
-			       }
-                   case NO_OPER: {
-                       std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
-                       exit(0);
-                       break;
-                   }
+				switch (options->operation) {
+					case ROOT: {
+							   std::cout << "== [StreamBridge] setting up stream socket on port " << options->port << "\n";
+							   this->socket = zmq_socket(this->context, ZMQ_STREAM);
+							   this->init_msg = 1;
+							   setup_streambridge_socket(options->port);
+							   break;
+						   }
+					case BRANCH: {
+							     break;
+						     }
+					case LEAF: {
+							   //std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+							   //this->socket = zmq_socket(this->context, ZMQ_STREAM);
+							   //setup_streambridge_socket(options->port);
+							   //break;
+						   }
+					case NO_OPER: {
+							      std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+							      exit(0);
+							      break;
+						      }
+				}
+				return;
+			}
+
+			this->spawn();
+
+			std::unique_lock<std::mutex> thread_lock(worker_mutex);
+			this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+			thread_lock.unlock();
 		}
-		return;
-	    }
 
-	    this->spawn();
+		void whatami() {
+			std::cout << "I am a StreamBridge implementation." << '\n';
+		}
 
-	    std::unique_lock<std::mutex> thread_lock(worker_mutex);
-	    this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
-	    thread_lock.unlock();
-	}
+		void spawn() {
+			std::cout << "== [StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread\n";
+			this->worker_thread = std::thread(&StreamBridge::worker, this);
+		}
 
-	void whatami() {
-	    std::cout << "I am a StreamBridge implementation." << '\n';
-	}
+		std::string get_protocol_type() {
+			return "WiFi";
+		}
 
-	void spawn() {
-	    std::cout << "== [StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread\n";
-	    this->worker_thread = std::thread(&StreamBridge::worker, this);
-	}
+		std::string get_internal_type() {
+			return "StreamBridge";
+		}
 
-	std::string get_protocol_type() {
-	    return "WiFi";
-	}
+		void worker() {
+			this->worker_active = true;
+			this->create_pipe();
 
-	std::string get_internal_type() {
-	    return "StreamBridge";
-	}
+			this->context = zmq_ctx_new();// add 1 or no
 
-	void worker() {
-	    this->worker_active = true;
-	    this->create_pipe();
+			switch (this->operation) {
+				case ROOT: {
+						   std::cout << "== [StreamBridge] setting up stream socket on port " << this->port << "\n";
+						   this->socket = zmq_socket(this->context, ZMQ_STREAM);
+						   this->init_msg = 1;
+						   setup_streambridge_socket(this->port);
+						   break;
+					   }
+				case BRANCH: {
+						     break;
+					     }
+				case LEAF: {
+						   //std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
+						   //this->socket = zmq_socket(this->context, ZMQ_STREAM);
+						   //setup_streambridge_socket(options->port);
+						   //break;
+					   }
+				case NO_OPER: {
+						      std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
+						      exit(0);
+						      break;
+					      }
+			}
 
-	    this->context = zmq_ctx_new();// add 1 or no
+			this->worker_active = true;
 
-	    switch (this->operation) {
-		case ROOT: {
-				std::cout << "== [StreamBridge] setting up stream socket on port " << this->port << "\n";
-				this->socket = zmq_socket(this->context, ZMQ_STREAM);
-				this->init_msg = 1;
-				setup_streambridge_socket(this->port);
-				break;
-			   }
-		case BRANCH: {
-				 break;
-			     }
-		case LEAF: {
-				//std::cout << "== [StreamBridge] connecting stream socket to " << options->peer_addr << ":" << options->peer_port << "\n";
-				//this->socket = zmq_socket(this->context, ZMQ_STREAM);
-				//setup_streambridge_socket(options->port);
-				//break;
-			   }
-               case NO_OPER: {
-                   std::cout << "ERROR DEVICE OPERATION NEEDED" << "\n";
-                   exit(0);
-                   break;
-               }
-	    }
+			// Notify the calling thread that the connection worker is ready
+			std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+			worker_conditional.notify_one();
+			thread_lock.unlock();
 
-	    this->worker_active = true;
+			unsigned int run = 0;
 
-	    // Notify the calling thread that the connection worker is ready
-	    std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
-	    worker_conditional.notify_one();
-	    thread_lock.unlock();
+			do {
+				std::string request = "";
+				// Receive message
+				request = this->recv(0);
+				this->write_to_pipe(request);
 
-	    unsigned int run = 0;
+				//std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-	    do {
-		std::string request = "";
-		// Receive message
-		request = this->recv(0);
-		this->write_to_pipe(request);
+				this->response_needed = true;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				// Wait for message from pipe then send
+				std::unique_lock<std::mutex> thread_lock(worker_mutex);
+				this->worker_conditional.wait(thread_lock, [this]{return !this->response_needed;});
+				thread_lock.unlock();
 
-		// Wait for message from pipe then send
+				std::string response = this->read_from_pipe();
+				this->send(response.c_str());
 
-		run++;
-		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-	    } while(true);
-	}
 
-	void setup_streambridge_socket(std::string port) {
-	    std::cout << "[Control] Setting up streambridge socket on port " << port << "... PID: " << getpid() << "\n\n";
-	    this->instantiate_connection = true;
-	    std::string conn_data = "tcp://*:" + port;
-	    zmq_bind(this->socket, conn_data.c_str());
-	}
+				run++;
+				std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+			} while(true);
+		}
 
-	std::string recv(int flag){
-        if (flag) {}
-	    char buffer[512];
-	    memset(buffer, '\0', 512);
+		void setup_streambridge_socket(std::string port) {
+			std::cout << "[Control] Setting up streambridge socket on port " << port << "... PID: " << getpid() << "\n\n";
+			this->instantiate_connection = true;
+			std::string conn_data = "tcp://*:" + port;
+			zmq_bind(this->socket, conn_data.c_str());
+		}
 
-	    // Receive 4 times, first is ID, second is nothing, third is message
-	    this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-	    std::cout << "[StreamBridge] Received ID: " << this->id << "\n";
-	    std::cout << "THE ID SIZE IS: " << this->id_size << "\n";
-	    size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
-	    std::cout << "[StreamBridge] Received: " << buffer << "\n";
-	    memset(buffer, '\0', 512);
-	    msg_size = zmq_recv(this->socket, buffer, 512, 0);
-	    std::cout << "[StreamBridge] Received: " << buffer << "\n";
-	    memset(buffer, '\0', 512);
-	    msg_size = zmq_recv(this->socket, buffer, 512, 0);
-	    std::cout << "[StreamBridge] Received: " << buffer << "\n";
-	    this->init_msg = 0;
+		std::string recv(int flag){
+			if (flag) {}
+			char buffer[512];
+			memset(buffer, '\0', 512);
 
-	    return buffer;
-	}
+			// Receive 4 times, first is ID, second is nothing, third is message
+			this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+			std::cout << "[StreamBridge] Received ID: " << this->id << "\n";
+			//std::cout << "THE ID SIZE IS: " << this->id_size << "\n";
+			size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
+			//std::cout << "[StreamBridge] Received: " << buffer << "\n";
+			memset(buffer, '\0', 512);
+			msg_size = zmq_recv(this->socket, buffer, 512, 0);
+			//std::cout << "[StreamBridge] Received: " << buffer << "\n";
+			memset(buffer, '\0', 512);
+			msg_size = zmq_recv(this->socket, buffer, 512, 0);
+			std::cout << "[StreamBridge] Received: " << buffer << "\n";
+			this->init_msg = 0;
 
-	void send(class Message * msg) {
-	    std::cout << "[StreamBridge] Sending..." << '\n';
-	    int flag = 0;
-	    std::string to_cat = "";
-	    std::string msg_pack = msg->get_pack();
-	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
-	    if ((msg_pack.c_str())[strlen(msg_pack.c_str())] != ((char)4)) {
-		    std::cout << "1Putting a char4 on the end\n";
-		    flag = 1;
-		    to_cat = (char)4 + "";
-	    }
-	    zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
-	    if (flag) {
-		    zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
-	    }
-	    std::cout << "[StreamBridge] Sent: (" << strlen(msg_pack.c_str()) << ") " << msg_pack << '\n';
-	}
+			return buffer;
+		}
 
-	void send(const char * message) {
-	    std::cout << "[StreamBridge] Sending..." << '\n';
-	    int flag = 0;
-	    std::string to_cat = "";
-	    if ((message)[strlen(message)] != ((char)4)) {
-		    std::cout << "2Putting a char4 on the end\n";
-		    flag = 1;
-		    to_cat = (char)4 + "";
-	    }
-	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
-	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
-	    if (flag) {
-		    zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
-	    }
-	    std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
-	}
+		void send(class Message * msg) {
+			std::cout << "[StreamBridge] Sending..." << '\n';
+			int flag = 0;
+			std::string to_cat = "";
+			std::string msg_pack = msg->get_pack();
+			zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
+			if ((msg_pack.c_str())[strlen(msg_pack.c_str())] != ((char)4)) {
+				std::cout << "1Putting a char4 on the end\n";
+				flag = 1;
+				to_cat = (char)4 + "";
+			}
+			zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
+			if (flag) {
+				zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
+			}
+			std::cout << "[StreamBridge] Sent: (" << strlen(msg_pack.c_str()) << ") " << msg_pack << '\n';
+		}
 
-	void prepare_for_next() {
+		void send(const char * message) {
+			std::cout << "[StreamBridge] Sending..." << '\n';
+			int flag = 0;
+			std::string to_cat = "";
+			if ((message)[strlen(message)] != ((char)4)) {
+				std::cout << "2Putting a char4 on the end\n";
+				flag = 1;
+				to_cat = (char)4 + "";
+			}
+			zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
+			zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
+			if (flag) {
+				zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
+			}
+			std::cout << "[StreamBridge] Sent: (" << strlen(message) << ") " << message << '\n';
+		}
 
-	}
+		void prepare_for_next() {
 
-	void shutdown() {
-	    // possibly do the send 0 length message thing
-	    this->init_msg = 1;
-	    std::cout << "Shutting down socket and context\n";
-	    zmq_close(this->socket);
-	    zmq_ctx_destroy(this->context);
-	}
+		}
+
+		void shutdown() {
+			std::cout << "Shutting down socket and context\n";
+			zmq_close(this->socket);
+			zmq_ctx_destroy(this->context);
+		}
 
 };
-
 
 class TCP : public Connection {
     private:
