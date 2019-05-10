@@ -77,6 +77,7 @@ void Notifier::send(std::string message, NotificationType type) {
 	std::string internal_conn_type = this->node_instance->get_connection(idx)->get_internal_type();
 	if (internal_conn_type == "StreamBridge" || internal_conn_type == "TCP" || internal_conn_type == "BLE" || internal_conn_type == "LoRa") {
 	    // Instead send just a normal message
+	    std::cout << "Sending notification manually to " << internal_conn_type << " connection\n";
 	    this->node_instance->get_connection(idx)->send(message.c_str());
 	}
     }
