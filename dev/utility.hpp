@@ -18,6 +18,7 @@ enum DeviceSocketCapability { MASTER, SLAVE };
 enum TechnologyType { DIRECT_TYPE, BLE_TYPE, LORA_TYPE, TCP_TYPE, STREAMBRIDGE_TYPE, NO_TECH };
 enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, CONNECT_TYPE, NO_CMD };
 enum NotificationType { NETWORK_NOTICE, CLUSTER_NOTICE, NODE_NOTICE, NO_NOTICE };
+enum PrintType { AWAIT_P, COMMAND_P, CONNECTION_P, CONTROL_P, MESSAGE_P, MQUEUE_P, NODE_P, NOTIFIER_P, WATCHER_P, ERROR_P };
 
 // Super Secure NET_KEY
 const std::string NET_KEY = "01234567890123456789012345678901";
@@ -90,6 +91,54 @@ inline std::string get_system_timestamp() {
     epoch_ss.clear();
     epoch_ss << seconds.count();
     return epoch_ss.str();
+}
+
+inline std::string get_print_escape(PrintType component) {
+    std::string escape = "";
+    switch (component) {
+        case AWAIT_P: {
+            escape = "\e[30;48;5;93m[ AWAIT ]\e[0m ";
+            break;
+        }
+        case COMMAND_P: {
+            escape = "\e[30;48;5;220m[ COMMAND ]\e[0m ";
+            break;
+        }
+        case CONNECTION_P: {
+            escape = "\e[30;48;5;6m[ CONNECTION ]\e[0m ";
+            break;
+        }
+        case CONTROL_P: {
+            escape = "\e[30;48;5;4m[ CONTROL ]\e[0m ";
+            break;
+        }
+        case MESSAGE_P: {
+            escape = "\e[30;48;5;135m[ MESSAGE ]\e[0m ";
+            break;
+        }
+        case MQUEUE_P: {
+            escape = "\e[30;48;5;129m[ MESSAGE_QUEUE ]\e[0m ";
+            break;
+        }
+        case NODE_P: {
+            escape = "\e[30;48;5;42m[ NODE ]\e[0m ";
+            break;
+        }
+        case NOTIFIER_P: {
+            escape = "\e[30;48;5;12m[ NOTIFIER ]\e[0m ";
+            break;
+        }
+        case WATCHER_P: {
+            escape = "\e[30;48;5;203m[ PEER_WATCHER ]\e[0m ";
+            break;
+        }
+    }
+    return escape;
+}
+
+inline void printo(std::string message, PrintType component) {
+	std::string escape = get_print_escape(component);
+	std::cout << "== " << escape << message << std::endl;
 }
 
 #endif

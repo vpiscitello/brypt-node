@@ -101,8 +101,7 @@ Message Information::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
-    std::cout << "== [Command] Sending notification for Information request" << '\n';
-
+    printo("Building response for Information request", COMMAND_P);
     // Push message into AwaitContainer
     std::string await_key = this->node_instance->get_awaiting()->push_request(*message, 1);
 
@@ -179,7 +178,7 @@ Message Query::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
-    std::cout << "== [Command] Sending notification for Query request" << '\n';
+    printo("Sending notification for Query request", COMMAND_P);
 
     // Push message into AwaitContainer
     unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
@@ -189,8 +188,6 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
     std::string destination_id = message->get_source_id();
     unsigned int nonce = 0;
     std::string reading_data = generate_reading();
-
-    std::cout << "coord DATA READING: " << reading_data << "\n";
 
     Message self_reading(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, reading_data, nonce);
 
@@ -208,8 +205,7 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
 ** Description:
 ** *************************************************************************/
 void Query::respond_handler(Self * self, Message * message, Connection * connection) {
-    std::cout << "== [Node] Recieved " << this->message->get_data() << " from " << this->message->get_source_id() << '\n';
-
+    printo("Building response for Query request", COMMAND_P);
     // Send Request to the server
     std::string source_id = (*self).id;
     std::string destination_id = message->get_source_id();
@@ -220,8 +216,6 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
     unsigned int nonce = message->get_nonce() + 1;
     std::string data = generate_reading();
 
-    std::cout << "respond DATA READING: " << data << "\n";
-
     Message request(source_id, destination_id, QUERY_TYPE, AGGREGATE_PHASE, data, nonce);
 
     // TODO: Add method to defer if node_instance is a coordinator
@@ -229,8 +223,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 
     // Recieve Response from the server
     Message response = connection->recv();
-    std::cout << "== [Node] Recieved: " << response.get_pack() << '\n';
-    std::cout << "^^ [Query] [Respond Handler] Recieved: " << response.get_pack() << '\n';
+    printo("Recieved: " + response.get_pack(), COMMAND_P);
 }
 
 /* **************************************************************************
@@ -238,9 +231,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 ** Description:
 ** *************************************************************************/
 void Query::aggregate_handler(Self * self, Message * message, MessageQueue * message_queue) {
-    std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
-    std::cout << "^^ [Query] [Aggregate Handler] Recieved1: " << message->get_data() << '\n';
-
+    printo("Pushing response to AwaitObject", COMMAND_P);
     this->node_instance->get_awaiting()->push_response(*message);
     // If ready or if string filled from push response send off to client?
 
@@ -249,7 +240,6 @@ void Query::aggregate_handler(Self * self, Message * message, MessageQueue * mes
     std::string destination_id = message->get_source_id();
     unsigned int nonce = message->get_nonce() + 1;
     Message response(source_id , destination_id, QUERY_TYPE, CLOSE_PHASE, "Message Response", nonce);
-    std::cout << "^^ [Query] [Aggregate Handler] Recieved2: " << response.get_pack() << '\n';
 
     message_queue->add_message(message->get_source_id(), response);
     message_queue->push_pipes();
@@ -479,7 +469,7 @@ void Connect::contact_handler() {
 ** Description:
 ** *************************************************************************/
 void Connect::join_handler(Self * self, Network * network, Message * message, Control * control) {
-    std::cout << "== [Command] Setting up full connection\n";
+    printo("Setting up full connection", COMMAND_P);
     std::string full_port = std::to_string(self->next_full_port);
 
     TechnologyType comm_tech = (TechnologyType)(std::stoi(message->get_data()));
@@ -491,10 +481,10 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
     this->node_instance->get_connections()->push_back(full);
 
     if (full->get_worker_status()) {
-        std::cout << "== [Command] Connection worker thread is ready" << '\n';
+	printo("Connection worker thread is ready", COMMAND_P);
     }
 
-    std::cout << "== [Command] New connection pushed back\n";
+    printo("New connection pushed back", COMMAND_P);
     control->send("\x04");
 
     (*network).known_nodes++;
