@@ -83,11 +83,11 @@ class Message {
 		 ** Description: Takes raw string input and unpacks it into the class variables.
 		 ** *************************************************************************/
 		Message(String raw){
-			Serial.print("Raw: ");
-			Serial.println(raw);
+			//Serial.print("Raw: ");
+			//Serial.println(raw);
 			this->raw = this->base64_decode(raw);
-			Serial.print("Raw Decoded: ");
-			Serial.println(this->raw);
+			//Serial.print("Raw Decoded: ");
+			//Serial.println(this->raw);
 			
 			this->key = NET_KEY;
 			
@@ -185,14 +185,14 @@ class Message {
 		 ** sent pack the data first.
 		 ** *************************************************************************/
 		String get_pack() {
-			Serial.println("Get pack called");
+			//Serial.println("Get pack called");
 			if ( this->raw == "" ) {
-				Serial.println("Calling pack");
+				//Serial.println("Calling pack");
 				this->pack();
 			}
-			Serial.println("Appending auth token");
+			//Serial.println("Appending auth token");
 			String raw_pack = this->raw + this->auth_token;
-			Serial.println("Calling base64 encode");
+			//Serial.println("Calling base64 encode");
 			return this->base64_encode( raw_pack, raw_pack.length() );
 		}
 		/* **************************************************************************
@@ -322,7 +322,7 @@ class Message {
 		 ** *************************************************************************/
 		void pack() {
 			String packed;
-			Serial.println("Pack called");
+			//Serial.println("Pack called");
 
 			packed = packed + (char)1;
 
@@ -336,9 +336,9 @@ class Message {
 
 			packed = packed + (char)4;
 
-			Serial.println("Calling hmac on the packed message");
+			//Serial.println("Calling hmac on the packed message");
 			this->auth_token = this->hmac_blake2s( packed );
-			Serial.println("After hmac, setting raw to packed");
+			//Serial.println("After hmac, setting raw to packed");
 			this->raw = packed;
 		}
 		
@@ -506,20 +506,20 @@ class Message {
 			this->hmac(&blake2s, key256, result, hmac_mssg);
 			String cpystr2((char *)result);
 			String str2 = cpystr2;
-			Serial.print("Key bytes: ");
-			Serial.println(str2);
-			Serial.println("Key bytes ints: ");
-			for (int idx = 0; idx < 32; idx++) {
-				Serial.print((int)(str2.charAt(idx)));
-				Serial.print(" ");
-			}
-			Serial.println("");
+			//Serial.print("Key bytes: ");
+			//Serial.println(str2);
+			//Serial.println("Key bytes ints: ");
+			//for (int idx = 0; idx < 32; idx++) {
+			//	Serial.print((int)(str2.charAt(idx)));
+			//	Serial.print(" ");
+			//}
+			//Serial.println("");
 			
 			return str2;
 		}
 		
 		String encrypt(String plaintext){
-			Serial.println("ENCRYPT");
+			//Serial.println("ENCRYPT");
 			CTR<AES256> aes_ctr_256;
 			byte ctxt[1024];
 			memset(ctxt, 0x00, sizeof(ctxt));
@@ -545,15 +545,15 @@ class Message {
 			
 			String cpystr((char *)ctxt);
 			String ciphertext = cpystr;
-			Serial.print("Ciphertext: ");
-			Serial.println(ciphertext);
+			//Serial.print("Ciphertext: ");
+			//Serial.println(ciphertext);
 			
-			Serial.print("Encrypted bytes: ");
-			for (int idx = 0; idx < ciphertext.length(); idx++) {
-				Serial.print((int)(ciphertext.charAt(idx)));
-				Serial.print(" ");
-			}
-			Serial.println("");
+			//Serial.print("Encrypted bytes: ");
+			//for (int idx = 0; idx < ciphertext.length(); idx++) {
+			//	Serial.print((int)(ciphertext.charAt(idx)));
+			//	Serial.print(" ");
+			//}
+			//Serial.println("");
 			
 			return ciphertext;
 		}
@@ -564,7 +564,7 @@ class Message {
 			memset(ctxt, '\0', 1024);
 			ciphertext.getBytes(ctxt, 1024);
 			
-			Serial.println("DECRYPT");
+			//Serial.println("DECRYPT");
 			byte buffer[1024];
 			CTR<AES256> aes_ctr_256;
 			memset(buffer, 0x00, sizeof(ctxt));
@@ -587,16 +587,16 @@ class Message {
 			
 			String cpystr((char *)buffer);
 			String plain = cpystr;
-			Serial.print("Plaintext: ");
-			Serial.println(plain);
+			//Serial.print("Plaintext: ");
+			//Serial.println(plain);
 			
 			
-			Serial.print("Decrypted bytes: ");
-			for (int idx = 0; idx < plain.length(); idx++) {
-				Serial.print((int)(plain.charAt(idx)));
-				Serial.print(" ");
-			}
-			Serial.println("");
+			//Serial.print("Decrypted bytes: ");
+			//for (int idx = 0; idx < plain.length(); idx++) {
+			//	Serial.print((int)(plain.charAt(idx)));
+			//	Serial.print(" ");
+			//}
+			//Serial.println("");
 			
 			this->data = plain;
 			
@@ -627,11 +627,11 @@ class Message {
 		** Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
 		** *************************************************************************/
 		String base64_encode(String message, unsigned int in_len) {
-		  Serial.println("Going to encode");
-		  Serial.print("Message to encode: ");
-		  Serial.println(message);
-		  Serial.print("Message length: ");
-		  Serial.println(in_len);
+		  //Serial.println("Going to encode");
+		  //Serial.print("Message to encode: ");
+		  //Serial.println(message);
+		  //Serial.print("Message length: ");
+		  //Serial.println(in_len);
 		  String encoded;
 		  int idx = 0, jdx = 0;
 		  unsigned char char_array_3[3], char_array_4[4];
@@ -671,8 +671,8 @@ class Message {
 			  encoded += '=';
 			}
 		  }
-		  Serial.print("Going to return encoded string: ");
-		  Serial.println(encoded);
+		  //Serial.print("Going to return encoded string: ");
+		  //Serial.println(encoded);
 
 		  return encoded;
 		}
