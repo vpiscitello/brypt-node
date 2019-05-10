@@ -63,45 +63,6 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
 
     json11::Json nodes_json = json11::Json::array({nodes_info});
 
-    // json11::Json nodes_json = json11::Json::array {
-    //     json11::Json::object {
-    //         { "uid", "1" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 1 },
-    //         { "neighbor_count", 4 },
-    //         { "designation", "root" },
-    //         { "comm_techs", json11::Json::array { "WiFi" } },
-    //         { "update_timestamp", epoch_str }
-    //     },
-    //     json11::Json::object {
-    //         { "uid", "2" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 1 },
-    //         { "neighbor_count", 4 },
-    //         { "designation", "node" },
-    //         { "comm_techs", json11::Json::array { "WiFi" } },
-    //         { "update_timestamp", epoch_str }
-    //     },
-    //     json11::Json::object {
-    //         { "uid", "3" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 1 },
-    //         { "neighbor_count", 6 },
-    //         { "designation", "coordinator" },
-    //         { "comm_techs", json11::Json::array { "WiFi", "LoRa" } },
-    //         { "update_timestamp", epoch_str }
-    //     },
-    //     json11::Json::object {
-    //         { "uid", "6" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 0 },
-    //         { "neighbor_count", 4 },
-    //         { "designation", "node" },
-    //         { "comm_techs", json11::Json::array { "WiFi" } },
-    //         { "update_timestamp", epoch_str }
-    //     }
-    // };
-
     return nodes_json[0].dump();
 }
 
@@ -143,7 +104,6 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
     std::cout << "== [Command] Sending notification for Information request" << '\n';
 
     // Push message into AwaitContainer
-    // unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
     std::string await_key = this->node_instance->get_awaiting()->push_request(*message, 1);
 
     std::string source_id = (*self).id;
@@ -151,15 +111,17 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
     unsigned int nonce = 0;
     std::string network_data = generate_node_info(this->node_instance, this->state);
 
-    Message self_info(source_id, destination_id, INFORMATION_TYPE, RESPOND_PHASE, network_data, nonce);
+    Message self_info(
+        source_id, 
+	destination_id, 
+	INFORMATION_TYPE, 
+	RESPOND_PHASE, 
+	network_data, 
+	nonce
+    );
 
     this->node_instance->get_awaiting()->push_response(await_key, self_info);
 
-    // source_id += ";" + await_key;
-    // destination_id = "ALL";
-    // Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
-    //
-    // notifier->send(&notice, NETWORK_NOTICE);
 }
 
 /* **************************************************************************

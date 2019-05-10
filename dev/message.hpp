@@ -409,8 +409,8 @@ class Message {
 			int length = 0;
 			int data_len = 0;
 
-			unsigned char ciphertext[1024];
-			memset(ciphertext, '\0', 1024);
+			unsigned char ciphertext[msg_len + 1];
+			memset(ciphertext, '\0', msg_len + 1);
 
 			unsigned char * plaintext = (unsigned char *) message.c_str();
 
@@ -452,8 +452,8 @@ class Message {
 			int length = 0;
 			int data_len = 0;
 
-			unsigned char plaintext[1024];
-			memset( plaintext, '\0', 1024);
+			unsigned char plaintext[msg_len + 1];
+			memset( plaintext, '\0', msg_len + 1);
 
 			unsigned char * ciphertext = (unsigned char *) message.c_str();
 
