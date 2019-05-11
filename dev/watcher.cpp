@@ -10,7 +10,7 @@ void PeerWatcher::populate() {
 }
 
 void PeerWatcher::spawn() {
-    std::cout << "== [PeerWatcher] Spawning PeerWatcher thread\n";
+    printo("Spawning PeerWatcher thread", CONTROL_P);
     this->worker_thread = std::thread(&PeerWatcher::worker, this);
 }
 
@@ -28,12 +28,11 @@ void PeerWatcher::worker() {
             // If the connection update clock hasn't been updated before an update is required
             // std::cout << conn_last_update.time_since_epoch().count() - this->update_required_by.time_since_epoch().count() << '\n';
             if (conn_last_update < this->update_required_by) {
-                std::cout << "== [PeerWatcher] Peer " << (*conn_iter)->get_peer_name() << " needs to be checked with a heartbeat\n";
+	       	printo("Peer " + (*conn_iter)->get_peer_name() + " needs to be checked with a heartbeat", CONTROL_P);
                 // Schedule a heartbeat message
             }
             // If Update is missed the last cycle and this one
             if (conn_last_update + UPDATE_TIMEOUT < this->update_required_by) {
-                std::cout << "== [PeerWatcher] Peer " << (*conn_iter)->get_peer_name() << " has timed out\n";
                 // Clean up the Connection and MessageQueue pipe
             }
         }

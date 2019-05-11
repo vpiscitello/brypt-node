@@ -97,39 +97,39 @@ inline std::string get_print_escape(PrintType component) {
     std::string escape = "";
     switch (component) {
         case AWAIT_P: {
-            escape = "\e[30;48;5;93m[ AWAIT ]\e[0m ";
+            escape = "\e[30;48;5;93m[    Await    ]\e[0m ";
             break;
         }
         case COMMAND_P: {
-            escape = "\e[30;48;5;220m[ COMMAND ]\e[0m ";
+            escape = "\e[30;48;5;220m[   Command   ]\e[0m ";
             break;
         }
         case CONNECTION_P: {
-            escape = "\e[30;48;5;6m[ CONNECTION ]\e[0m ";
+            escape = "\e[30;48;5;6m[  Connection ]\e[0m ";
             break;
         }
         case CONTROL_P: {
-            escape = "\e[30;48;5;4m[ CONTROL ]\e[0m ";
+            escape = "\e[97;48;5;4m[   Control   ]\e[0m ";
             break;
         }
         case MESSAGE_P: {
-            escape = "\e[30;48;5;135m[ MESSAGE ]\e[0m ";
+            escape = "\e[30;48;5;135m[   Message   ]\e[0m ";
             break;
         }
         case MQUEUE_P: {
-            escape = "\e[30;48;5;129m[ MESSAGE_QUEUE ]\e[0m ";
+            escape = "\e[30;48;5;129m[ MessageQueue ]\e[0m ";
             break;
         }
         case NODE_P: {
-            escape = "\e[30;48;5;42m[ NODE ]\e[0m ";
+            escape = "\e[30;48;5;42m[     Node    ]\e[0m ";
             break;
         }
         case NOTIFIER_P: {
-            escape = "\e[30;48;5;12m[ NOTIFIER ]\e[0m ";
+            escape = "\e[30;48;5;12m[   Notifier  ]\e[0m ";
             break;
         }
         case WATCHER_P: {
-            escape = "\e[30;48;5;203m[ PEER_WATCHER ]\e[0m ";
+            escape = "\e[30;48;5;203m[ PeerWatcher ]\e[0m ";
             break;
         }
     }

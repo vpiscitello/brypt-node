@@ -383,10 +383,6 @@ class Message {
 				this->destination_id = this->destination_id.substr(0, id_sep_found);
 			}
 
-			std::cout << "== [Message] Source: " << this->source_id << '\n';
-			std::cout << "== [Message] Destination: " << this->destination_id << '\n';
-			std::cout << "== [Message] Await: " << this->await_id << '\n';
-
 		}
 
 		/* **************************************************************************
