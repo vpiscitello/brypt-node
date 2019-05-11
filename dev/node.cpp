@@ -211,6 +211,7 @@ void Node::setup(Options options){
     this->state.coordinator.technology = options.technology;
     this->state.self.port = options.port;
     this->state.self.next_full_port = port_num + PORT_GAP;
+    this->state.network.peer_names.push_back(this->state.self.id);
     this->notifier = new Notifier(&this->state, (class Node *)this, std::to_string(port_num + 1));
     this->watcher = new PeerWatcher(this, &this->state);
 

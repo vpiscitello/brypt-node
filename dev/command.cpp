@@ -103,7 +103,7 @@ Message Information::handle_message(Message * message) {
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
     printo("Building response for Information request", COMMAND_P);
     // Push message into AwaitContainer
-    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, NULL, 1);
+    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, &(*self).id, 1);
 
     std::string source_id = (*self).id;
     std::string destination_id = message->get_source_id();
