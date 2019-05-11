@@ -275,6 +275,9 @@ void Node::setup(Options options){
 ** *************************************************************************/
 Connection * Node::setup_full_connection(std::string peer_id, std::string port, TechnologyType comm_tech) {
     Options opts;
+    if (comm_tech != DIRECT_TYPE) {
+	comm_tech = TCP_TYPE;
+    }
     opts.technology = comm_tech;
     opts.operation = ROOT;
     opts.port = port;
