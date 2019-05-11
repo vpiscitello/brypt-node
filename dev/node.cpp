@@ -551,7 +551,7 @@ void Node::listen(){
         } */
 
         run++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(500));
     } while (true);
 }
 
@@ -575,7 +575,7 @@ void Node::connect(){
         this->handle_notification(notification);
 
         run++;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(500));
     } while (true);
 }
 
