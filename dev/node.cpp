@@ -450,9 +450,6 @@ void Node::handle_notification(std::string message) {
             raw_notification = message.substr(filter_found + 1);
         }
 
-
-	//std::cout << "\n\n WHAT!?" << raw_notification << "\n\n";
-
         Message notification(raw_notification);
 
         this->commands[notification.get_command()]->handle_message(&notification);
@@ -496,7 +493,7 @@ void Node::handle_fulfilled() {
     printo("Fulfulled requests:", NODE_P);
     std::vector<class Message> responses = this->awaiting.get_fulfilled();
 
-    /*
+    // /*
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->message_queue.add_message((*it).get_destination_id(), *it);
     }
@@ -506,7 +503,7 @@ void Node::handle_fulfilled() {
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->notify_connection((*it).get_destination_id());
     }
-    */
+    // */
 }
 
 
@@ -543,7 +540,7 @@ void Node::listen(){
         std::cout << '\n';
 
         // SIMULATE CLIENT REQUEST
-        ///*
+        /*
         if (run % 10 == 0) {
             std::cout << "== [Node] Simulating client sensor Information request" << '\n';
             Message message("0xFFFFFFFF", this->state.self.id, INFORMATION_TYPE, 0, "Request for Network Information.", run);
@@ -555,7 +552,7 @@ void Node::listen(){
             Message message("0xFFFFFFFF", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
             this->commands[message.get_command()]->handle_message(&message);
         }
-        //*/
+        */
 
         run++;
         std::this_thread::sleep_for(std::chrono::nanoseconds(500));
