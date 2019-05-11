@@ -167,9 +167,9 @@ TechnologyType Node::determine_best_connection_type(){
 ** *************************************************************************/
 bool Node::has_communication_type(TechnologyType t){
     for (int i = 0; i < (int) this->state.self.available_technologies.size(); i++) {
-	if (this->state.self.available_technologies[i] == t) {
-	    return true;
-	}
+    	if (this->state.self.available_technologies[i] == t) {
+    	    return true;
+    	}
     }
     return false;
 }
@@ -495,7 +495,7 @@ void Node::handle_fulfilled() {
     printo("Fulfulled requests:", NODE_P);
     std::vector<class Message> responses = this->awaiting.get_fulfilled();
 
-
+    /*
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->message_queue.add_message((*it).get_destination_id(), *it);
     }
@@ -505,7 +505,7 @@ void Node::handle_fulfilled() {
     for (auto it = responses.begin(); it != responses.end(); it++) {
         this->notify_connection((*it).get_destination_id());
     }
-
+    */
 }
 
 
@@ -542,7 +542,8 @@ void Node::listen(){
         std::cout << '\n';
 
         // SIMULATE CLIENT REQUEST
-        /* if (run % 10 == 0) {
+        ///*
+        if (run % 10 == 0) {
             std::cout << "== [Node] Simulating client sensor Information request" << '\n';
             Message message("0xFFFFFFFF", this->state.self.id, INFORMATION_TYPE, 0, "Request for Network Information.", run);
             this->commands[message.get_command()]->handle_message(&message);
@@ -552,7 +553,8 @@ void Node::listen(){
             std::cout << "== [Node] Simulating client sensor Query request" << '\n';
             Message message("0xFFFFFFFF", this->state.self.id, QUERY_TYPE, 0, "Request for Sensor Readings.", run);
             this->commands[message.get_command()]->handle_message(&message);
-        } */
+        }
+        //*/
 
         run++;
         std::this_thread::sleep_for(std::chrono::nanoseconds(500));

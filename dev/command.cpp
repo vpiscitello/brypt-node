@@ -103,7 +103,7 @@ Message Information::handle_message(Message * message) {
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
     printo("Building response for Information request", COMMAND_P);
     // Push message into AwaitContainer
-    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, 1);
+    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, NULL, 1);
 
     std::string source_id = (*self).id;
     std::string destination_id = message->get_source_id();
@@ -153,7 +153,7 @@ Message Query::handle_message(Message * message) {
 
     switch ( message->get_phase() ) {
         case FLOOD_PHASE: {
-            this->flood_handler(&(*this->state).self, message, this->node_instance->get_notifier());
+            this->flood_handler(&(*this->state).self, &(*this->state).network, message, this->node_instance->get_notifier());
             break;
         }
         case RESPOND_PHASE: {
@@ -177,12 +177,12 @@ Message Query::handle_message(Message * message) {
 ** Function:
 ** Description:
 ** *************************************************************************/
-void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
+void Query::flood_handler(Self * self, Network * network, Message * message, Notifier * notifier) {
     printo("Sending notification for Query request", COMMAND_P);
 
     // Push message into AwaitContainer
     unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
-    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, expected_responses);
+    std::string await_key = this->node_instance->get_awaiting()->push_request(*message, &(*network).peer_names, expected_responses);
 
     std::string source_id = (*self).id;
     std::string destination_id = message->get_source_id();
@@ -478,6 +478,7 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
     }
     Connection * full = this->node_instance->setup_full_connection(message->get_source_id(), full_port, comm_tech);
 
+    (*network).peer_names.push_back(message->get_source_id());
     this->node_instance->get_connections()->push_back(full);
 
     if (full->get_worker_status()) {

@@ -42,7 +42,7 @@ class Information : public Command {
             this->state = state;
         }
         void whatami() {
-	    printo("Handling response to Information request", COMMAND_P);
+            printo("Handling response to Information request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
@@ -67,7 +67,7 @@ class Query : public Command {
 
         Message handle_message(class Message * message);
 
-        void flood_handler(Self * self, Message * message, class Notifier * notifier) ;
+        void flood_handler(Self * self, Network * network, Message * message, class Notifier * notifier) ;
         void respond_handler(Self * self, Message * message, Connection * connection);
         void aggregate_handler(Self * self, Message * message, MessageQueue * message_queue);
         void close_handler();

@@ -23,12 +23,22 @@ class AwaitObject {
         SystemClock expire;
 
     public:
-        AwaitObject(class Message request, unsigned int expected_responses) {
+        AwaitObject(class Message request, std::vector<std::string> * peer_names, unsigned int expected_responses) {
             this->fulfilled = false;
             this->received_responses = 0;
             this->expected_responses = expected_responses;
             this->request = request;
             this->expire = get_system_clock() + AWAIT_TIMEOUT;
+            if (peer_names != NULL) {
+                this->instantiate_response_object(peer_names);
+            }
+        }
+
+        void instantiate_response_object(std::vector<std::string> * peer_names) {
+            std::vector<std::string>::iterator name_it = peer_names->begin();
+            for (name_it; name_it != peer_names->end(); name_it++) {
+                this->aggregate_object[(*name_it)] = "Unfulfilled";
+            }
         }
 
         bool ready() {
@@ -64,6 +74,11 @@ class AwaitObject {
         }
 
         bool update_response(class Message response) {
+            // if (this->aggregate_object[response.get_source_id()] != "Unfulfilled") {
+            //     printo("Unexpected node response", AWAIT_P);
+            //     return this->fulfilled;
+            // }
+
             this->aggregate_object[response.get_source_id()] = response.get_pack();
 
             this->received_responses++;
@@ -98,12 +113,12 @@ class AwaitContainer {
         }
 
     public:
-        std::string push_request(class Message message, unsigned int expected_responses) {
+        std::string push_request(class Message message, std::vector<std::string> * peer_names, unsigned int expected_responses) {
             std::string key = "";
 
             key = this->key_generator(message.get_pack());
             printo("Pushing AwaitObject with key:" + key, AWAIT_P);
-            this->awaiting.emplace(key, AwaitObject(message, expected_responses));
+            this->awaiting.emplace(key, AwaitObject(message, peer_names, expected_responses));
 
             return key;
         }

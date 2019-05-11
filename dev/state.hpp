@@ -31,6 +31,7 @@ struct Authority {
 };
 
 struct Network {
+    std::vector<std::string> peer_names;
     unsigned int known_nodes = 0;   // The number of nodes the node has been in contact with
     std::time_t uptime; // The amount of time the node has been live
     std::time_t registered; // The timestamp the node was added to the network

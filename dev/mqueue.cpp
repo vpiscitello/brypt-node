@@ -23,13 +23,13 @@ void MessageQueue::push_pipe(std::string filename){
 		if (*it != filename) {
 			continue;
 		}
-		printo("Pipe already being watched", CONTROL_P);
+		printo("Pipe already being watched", MQUEUE_P);
 		return;
 	}
 
 	std::ifstream push_file(filename);
 
-	printo("Pushing " + filename, CONTROL_P);
+	printo("Pushing " + filename, MQUEUE_P);
 
 	if( push_file.fail() ){
 		std::ofstream outfile(filename);
@@ -40,7 +40,7 @@ void MessageQueue::push_pipe(std::string filename){
 
 	this->pipes.push_back(filename);
 
-	printo("Pipes being watched: " + this->pipes.size(), CONTROL_P);
+	printo("Pipes being watched: " + this->pipes.size(), MQUEUE_P);
 }
 
 void MessageQueue::remove_pipe(std::string filename){
@@ -60,7 +60,7 @@ void MessageQueue::remove_pipe(std::string filename){
 void MessageQueue::add_message(std::string destination_id, Message message){
 	std::string pipe_name = "./tmp/" + destination_id + ".pipe";
 
-	printo("MessageQueued for " + pipe_name, CONTROL_P);
+	printo("MessageQueued for " + pipe_name, MQUEUE_P);
 
 	// Create new pipe if the pipe name is not found in the managed pipes
 	if ( std::find( pipes.begin(), pipes.end(), pipe_name ) == pipes.end() ){
@@ -87,7 +87,7 @@ int MessageQueue::push_pipes(){//finds *inbound* msgs
 		packet = tmp_msg.get_pack();
 		out_queue.pop();
 
-		printo("Pushing message for " + pipe_name, CONTROL_P);
+		printo("Pushing message for " + pipe_name, MQUEUE_P);
 
 		std::fstream push_file(pipe_name, std::ios::out | std::ios::binary);
 
@@ -107,8 +107,8 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 	for(int idx = 0; idx < (int)pipes.size(); idx++) {
 
 		std::string pipe_name = pipes[idx];
-		printo("Checking " + pipe_name, CONTROL_P);
-		
+		printo("Checking " + pipe_name, MQUEUE_P);
+
 		std::ifstream check_file(pipe_name);
 
 		if( check_file.good() ) {
@@ -122,7 +122,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 
 
 			if (line.size() < 1) {
-				printo("No message in checked pipe", CONTROL_P);
+				printo("No message in checked pipe", MQUEUE_P);
 				continue;
 			}
 
@@ -135,7 +135,7 @@ int MessageQueue::check_pipes(){//finds *outbound* msgs
 				std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
 				clear_file.close();
 			} catch(...) {
-				printo("Message in queue not formatted properly", CONTROL_P);
+				printo("Message in queue not formatted properly", MQUEUE_P);
 			}
 
 		}
@@ -160,7 +160,7 @@ Message MessageQueue::pop_next_message(){
 		Message message = this->in_queue.front();
 		this->in_queue.pop();
 
-		printo(std::to_string(in_queue.size()) + " left in incoming queue", CONTROL_P);
+		printo(std::to_string(in_queue.size()) + " left in incoming queue", MQUEUE_P);
 
 		return message;
 
