@@ -37,8 +37,8 @@ CurrentState state = DETERMINE_NETWORK;
 int contacted = 0;
 
 // CONFIG IP address of server to connect to
-IPAddress remote_server(192, 168, 137, 135);
-int remote_port = 3001;
+IPAddress remote_server(192, 168, 30, 1);
+int remote_port = 3005;
 String device_id = "4";
 
 WiFiClient server_connection;
@@ -49,9 +49,9 @@ void setup() {
 
     //Initialize serial and wait for port to open:
     Serial.begin(9600);
-    while (!Serial) {
-        ; // wait for serial port to connect. Needed for native USB port only
-    }
+//    while (!Serial) {
+//        ; // wait for serial port to connect. Needed for native USB port only
+//    }
 
     // Turn the LED on in order to indicate that the upload is complete
     pinMode(builtin_led, OUTPUT);
@@ -255,9 +255,10 @@ void connect_to_network(String connection_ap) {
     while (wifi_status != WL_CONNECTED) {
 	Serial.print("Attempting to connect to WPA SSID: ");
 	Serial.println(connection_ap);
-	wifi_status = WiFi.begin("brypt1", "asdfasdf");
+//	wifi_status = WiFi.begin("brypt1", "asdfasdf");
 	// Connect to WPA/WPA2 network:
-	//wifi_status = WiFi.begin(connection_ap);
+//	wifi_status = WiFi.begin(connection_ap);
+  wifi_status = WiFi.begin("brypt-net-68b32");
     
 	delay(1000);
     }
@@ -346,7 +347,7 @@ void cont_recv() {
     while (server_connection.available()) {
         char c = '\0';
         c = server_connection.read();
-        Serial.write(c);
+//        Serial.write(c);
         message = message + c;
         // We have read the whole message
         if (c == (char)4 || c == '=') {
@@ -387,34 +388,42 @@ void handle_messaging(String message) {
             switch(recvd_msg.get_phase()) {
                 // Case 0 is the flood phase: Not handled by feathers because it has nothing to forward it on to
                 case 1: {// Respond phase
+                    Serial.println("Received query phase 1");
                     // Check to see if the ID matches mine?
 //                    String source_id = recvd_msg.get_destination_id();
                     String destination_id = recvd_msg.get_source_id();
                     String await_id = recvd_msg.get_await_id();
-                    int phase = recvd_msg.get_phase();
+                    int phase = recvd_msg.get_phase()+1;
+                    Serial.println(await_id);
                     if (await_id != "") {
                         destination_id = destination_id + ";" + await_id;
                     }
                     CommandType command = QUERY_TYPE;
-                    unsigned int nonce = recvd_msg.get_nonce() + 1;
-                    String data = "23.1"; // Bogus data
+                    unsigned int nonce = recvd_msg.get_nonce();
+                    String timestamp = recvd_msg.get_timestamp() + 2;
+                    String data = "{ \"reading\": 23.1, \"timestamp\": \"" + timestamp + "\" }"; // Bogus data
 
                     Message message(device_id, destination_id, command, phase, data, nonce);
 
                     String response = message.get_pack();
-                    Serial.println("");
-                    Serial.print("Responding with: ");
+//                    Serial.println("");
+//                    Serial.print("Responding with: ");
+//                    Serial.println(response);
+//                    Serial.print("Source ID: ");
+//                    Serial.println(recvd_msg.get_source_id());
+//                    Serial.print("Dest ID: ");
+//                    Serial.println(recvd_msg.get_destination_id());
+//                    Serial.print("Command: ");
+//                    Serial.println(recvd_msg.get_command());
+//                    Serial.print("Phase: ");
+//                    Serial.println(recvd_msg.get_phase());
+//                    Serial.print("Data: ");
+//                    Serial.println(recvd_msg.get_data());
+                    Serial.print("Sending message: ");
                     Serial.println(response);
-                    Serial.print("Source ID: ");
-                    Serial.println(recvd_msg.get_source_id());
-                    Serial.print("Dest ID: ");
-                    Serial.println(recvd_msg.get_destination_id());
-                    Serial.print("Command: ");
-                    Serial.println(recvd_msg.get_command());
-                    Serial.print("Phase: ");
-                    Serial.println(recvd_msg.get_phase());
-                    Serial.print("Data: ");
-                    Serial.println(recvd_msg.get_data());
+                    Serial.print("Message data: ");
+                    Serial.println(message.get_data());
+                    Serial.println("");
                     server_connection.print(response);
                     server_connection.flush();
                     delay(100);
