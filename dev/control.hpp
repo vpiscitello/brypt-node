@@ -53,13 +53,13 @@ class Control {
                     return "";
                 }
                 case 1: {
-                    std::cout << "== [Control] Recieved connection byte\n";
+		    printo("Recieved connection byte", CONTROL_P);
 
                     if (request == "\x06") {
-                        std::cout << "== [Control] Device connection acknowledgement\n";
+			printo("Device connection acknowledgement", CONTROL_P);
 
                         this->conn->send("\x06");
-                        std::cout << "== [Control] Device was sent acknowledgement\n";
+			printo("Device was sent acknowledgement", CONTROL_P);
 
                         request = this->conn->recv(0);
 
@@ -67,7 +67,7 @@ class Control {
 
 			int comm_requested = (int)request[0] - 48;
 			if (comm_requested >= 0 && comm_requested <= 6) {
-			    std::cout << "Communication type requested: " << comm_requested << "\n";
+			    printo("Communication type requested: " + std::to_string(comm_requested), CONTROL_P);
 			    TechnologyType server_comm_type;
 			    if ((TechnologyType)comm_requested == TCP_TYPE) {
 				server_comm_type = STREAMBRIDGE_TYPE;
@@ -78,7 +78,7 @@ class Control {
 
 			    return device_info;
 			} else {
-			    std::cout << "\n== [Control] Somethings not right" << '\n';
+			    printo("Somethings not right", CONTROL_P);
 			    try {
 				this->conn->send("\x15");
 			    } catch(...) {
@@ -101,7 +101,7 @@ class Control {
         ** Description:
         ** *************************************************************************/
         std::string handle_contact(TechnologyType technology) {
-            std::cout << "== [Node] Handling request from control socket\n";
+	    printo("Handling request from control socket", CONTROL_P);
 
             switch (technology) {
 		case TCP_TYPE:
@@ -113,12 +113,12 @@ class Control {
                     (*this->self).next_full_port++;
                     full_port = std::to_string((*this->self).next_full_port);
 
-                    std::cout << "== [Control] Sending port: " << full_port << "\n";
+		    printo("Sending port: " + full_port, CONTROL_P);
                     Message port_message((*this->self).id, "We'll Cross that Brypt When We Come to It.", CONNECT_TYPE, 0, full_port, 0);
                     this->conn->send(&port_message);
 
                     device_info = this->conn->recv(0);
-                    std::cout << "== [Control] Received: " << device_info << "\n";
+		    printo("Received: " + device_info, CONTROL_P);
 
                     return device_info;
                 }

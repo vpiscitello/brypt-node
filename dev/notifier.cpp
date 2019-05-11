@@ -4,7 +4,7 @@ Notifier::Notifier(struct State * state, class Node * node_instance, std::string
     this->node_state = state;
     this->node_instance = node_instance;
 
-    std::cout << "== [Notifier] Setting up publisher socket on port " + port + "\n";
+    printo("Setting up publisher socket on port " + port, CONTROL_P);
     publisher.bind("tcp://*:" + port);
 }
 
@@ -30,7 +30,7 @@ std::string Notifier::get_prefix(NotificationType type) {
 }
 
 void Notifier::connect(std::string ip, std::string port) {
-    std::cout << "== [Notifier] Subscribing to peer at " + ip + ":" + port + "\n";
+    printo("Subscribing to peer at " + ip + ":" + port, CONTROL_P);
     this->subscriber.connect("tcp://" + ip + ":" + port);
 
     this->cluster_prefix = "cluster." + (*this->node_state).coordinator.id + ":";
@@ -77,7 +77,7 @@ void Notifier::send(std::string message, NotificationType type) {
 	std::string internal_conn_type = this->node_instance->get_connection(idx)->get_internal_type();
 	if (internal_conn_type == "StreamBridge" || internal_conn_type == "TCP" || internal_conn_type == "BLE" || internal_conn_type == "LoRa") {
 	    // Instead send just a normal message
-	    std::cout << "Sending notification manually to " << internal_conn_type << " connection\n";
+	    printo("Contacting unsubcribed connections", CONTROL_P);
 	    this->node_instance->get_connection(idx)->send(message.c_str());
 	}
     }
@@ -101,7 +101,7 @@ std::string Notifier::recv() {
     }
 
     notification = std::string(static_cast<char *>(message.data()), message.size());
-    std::cout << "== [Notifier] Recieved: " << notification << "\n";
+    printo("Recieved: " + notification, CONTROL_P);
 
     return notification;
 }
