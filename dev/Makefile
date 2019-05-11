@@ -46,5 +46,15 @@ leaf_two:
 leaf_three:
 	./$(TARGET) --leaf -id 3 -type DIRECT -port 5005 -peer 192.168.30.1 -pp 3005
 
+leaf_four:
+	./$(TARGET) --leaf -id 4 -type DIRECT -port 6005 -peer 192.168.30.1 -pp 3005
+
+leaf_five:
+	./$(TARGET) --leaf -id 5 -type DIRECT -port 7005 -peer 192.168.30.1 -pp 3005
+
+leaf_six:
+	./$(TARGET) --leaf -id 6 -type DIRECT -port 8005 -peer 192.168.30.1 -pp 3005
+
+
 clean:
 	rm -f *.out *.o $(TARGET)
