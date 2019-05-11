@@ -218,23 +218,23 @@ void Node::setup(Options options){
 
     switch (options.operation) {
         case ROOT: {
-	    // Currently a ROOT node only has one control socket so there is only one communication type for it. In the future, coordinators may have control sockets on both communication types and thus this functionality will change.
-	    TechnologyType technology = NO_TECH;
-	    this->state.self.available_technologies.push_back(options.technology);// TEMPORARY
-	    if (has_communication_type(BLE_TYPE)) {
-		technology = BLE_TYPE;
-	    } else if (has_communication_type(LORA_TYPE)) {
-		technology = LORA_TYPE;
-	    } else if (has_communication_type(DIRECT_TYPE) || has_communication_type(STREAMBRIDGE_TYPE) || has_communication_type(TCP_TYPE)){
-		technology = TCP_TYPE;
-	    }
+    	    // Currently a ROOT node only has one control socket so there is only one communication type for it. In the future, coordinators may have control sockets on both communication types and thus this functionality will change.
+    	    TechnologyType technology = NO_TECH;
+    	    this->state.self.available_technologies.push_back(options.technology);// TEMPORARY
+    	    if (has_communication_type(BLE_TYPE)) {
+                technology = BLE_TYPE;
+    	    } else if (has_communication_type(LORA_TYPE)) {
+                technology = LORA_TYPE;
+    	    } else if (has_communication_type(DIRECT_TYPE) || has_communication_type(STREAMBRIDGE_TYPE) || has_communication_type(TCP_TYPE)){
+                technology = TCP_TYPE;
+    	    }
 
             if (technology == NO_TECH) {
-		printo("No technology types oopsies", NODE_P);
+                printo("No technology types oopsies", NODE_P);
                 exit(1);
             }
 
-	    //technology = STREAMBRIDGE_TYPE; // Temporary
+    	    //technology = STREAMBRIDGE_TYPE; // Temporary
 
             this->control = new Control(technology, &this->state.self);
 
@@ -245,24 +245,22 @@ void Node::setup(Options options){
             break;
         }
         case LEAF: {
-	    this->state.self.available_technologies.push_back(options.technology);// TEMPORARY
+            this->state.self.available_technologies.push_back(options.technology);// TEMPORARY
             TechnologyType technology = determine_best_connection_type();
 
             if (technology == NO_TECH) {
-		printo("No technology types oopsies", NODE_P);
+                printo("No technology types oopsies", NODE_P);
                 exit(1);
             }
 
             this->state.coordinator.addr = options.peer_addr;
             this->state.coordinator.publisher_port = std::to_string(std::stoi(options.peer_port) + 1);
             initial_contact(&options);  // Contact coordinator peer to get connection port
-
             break;
         }
         case NO_OPER: {
-	    printo("ERROR DEVICE OPERATION NEEDED", NODE_P);
+            printo("ERROR DEVICE OPERATION NEEDED", NODE_P);
             exit(0);
-
             break;
         }
     }
@@ -276,7 +274,7 @@ void Node::setup(Options options){
 Connection * Node::setup_full_connection(std::string peer_id, std::string port, TechnologyType comm_tech) {
     Options opts;
     if (comm_tech != DIRECT_TYPE) {
-	comm_tech = TCP_TYPE;
+        comm_tech = TCP_TYPE;
     }
     opts.technology = comm_tech;
     opts.operation = ROOT;
@@ -301,13 +299,13 @@ void Node::initial_contact(Options * opts) {
     TechnologyType initial_contact_technology;
 
     if (opts->technology == LORA_TYPE) {
-	initial_contact_technology = LORA_TYPE;
+        initial_contact_technology = LORA_TYPE;
     } else if (opts->technology == BLE_TYPE) {
-	initial_contact_technology = BLE_TYPE;
+        initial_contact_technology = BLE_TYPE;
     } else {
-	initial_contact_technology = TCP_TYPE;
+        initial_contact_technology = TCP_TYPE;
     }
- 
+
     printo("Setting up initial contact with coordinator", NODE_P);
     printo("Connecting with initial contact technology: " + std::to_string((int)initial_contact_technology) +  " and on addr:port: " +  opts->peer_addr + ":" + opts->peer_port, NODE_P);
 
@@ -424,7 +422,7 @@ void Node::handle_control_request(std::string message) {
         this->commands[request.get_command()]->handle_message(&request);
 
     } catch (...) {
-	printo("Control message failed to unpack", NODE_P);
+        printo("Control message failed to unpack", NODE_P);
         return;
     }
 
@@ -613,7 +611,7 @@ void Node::startup() {
             break;
         }
         case NO_OPER: {
-	    printo("ERROR DEVICE OPERATION NEEDED", NODE_P);
+            printo("ERROR DEVICE OPERATION NEEDED", NODE_P);
             exit(0);
             break;
         }

@@ -64,12 +64,12 @@ class Connection {
     	virtual void whatami() = 0;
     	virtual void spawn() = 0;
     	virtual void worker() = 0;
-	virtual std::string get_protocol_type() = 0;
-	virtual std::string get_internal_type() = 0;
+        virtual std::string get_protocol_type() = 0;
+        virtual std::string get_internal_type() = 0;
     	virtual std::string recv(int flag = 0) = 0;
     	virtual void send(Message *) = 0;
     	virtual void send(const char * message) = 0;
-	virtual void prepare_for_next() = 0;
+        virtual void prepare_for_next() = 0;
     	virtual void shutdown() = 0;
 
     	bool get_status() {
@@ -94,7 +94,7 @@ class Connection {
 
     	bool create_pipe() {
     	    if (this->peer_name == "") {
-    		return false;
+                return false;
     	    }
 
     	    std::string filename = "./tmp/" + this->peer_name + ".pipe";
@@ -103,8 +103,8 @@ class Connection {
     	    this->pipe.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
 
     	    if( this->pipe.fail() ){
-    		this->pipe.close();
-    		return false;
+        		this->pipe.close();
+        		return false;
     	    }
 
     	    return true;
@@ -112,10 +112,10 @@ class Connection {
 
     	bool write_to_pipe(std::string message) {
     	    if ( !this->pipe.good() ) {
-    		return false;
+                return false;
     	    }
 
-	    printo("Writing \"" + message + "\" to pipe", CONNECTION_P);
+            printo("Writing \"" + message + "\" to pipe", CONNECTION_P);
     	    this->pipe.clear();
     	    this->pipe.seekp(0);
     	    this->pipe << message << std::endl;
@@ -127,21 +127,21 @@ class Connection {
     	    std::string raw_message = "";
 
             if ( !this->pipe.good() ) {
-		printo("Pipe file is not good", CONNECTION_P);
+                printo("Pipe file is not good", CONNECTION_P);
                 return raw_message;
             }
     	    this->pipe.clear();
     	    this->pipe.seekg(0);
 
             if (this->pipe.eof()) {
-		printo("Pipe file is at the EOF", CONNECTION_P);
+                printo("Pipe file is at the EOF", CONNECTION_P);
                 return raw_message;
             }
 
             std::getline( this->pipe, raw_message );
             this->pipe.clear();
 
-	    printo("Sending " + raw_message, CONNECTION_P);
+            printo("Sending " + raw_message, CONNECTION_P);
 
             std::ofstream clear_file(pipe_name, std::ios::out | std::ios::trunc);
             clear_file.close();
@@ -151,7 +151,7 @@ class Connection {
 
         void response_ready(std::string id) {
             if (this->peer_name != id) {
-		printo("Response was not for this peer", CONNECTION_P);
+                printo("Response was not for this peer", CONNECTION_P);
                 return;
             }
 
@@ -162,7 +162,7 @@ class Connection {
         }
 
         void unspecial() {
-	    printo("I am calling an unspecialized function", CONNECTION_P);
+            printo("I am calling an unspecialized function", CONNECTION_P);
         }
 
 };
@@ -234,11 +234,11 @@ class Direct : public Connection {
         }
 
         void whatami() {
-	    printo("[Direct] I am a Direct implementation", CONNECTION_P);
+            printo("[Direct] I am a Direct implementation", CONNECTION_P);
         }
 
         void spawn() {
-	    printo("[Direct] Spawning DIRECT_TYPE connection thread", CONNECTION_P);
+            printo("[Direct] Spawning DIRECT_TYPE connection thread", CONNECTION_P);
             this->worker_thread = std::thread(&Direct::worker, this);
         }
 
@@ -259,7 +259,7 @@ class Direct : public Connection {
 
             switch (this->operation) {
                 case ROOT: {
-		    printo("[Direct] Setting up REP socket on port " + this->port, CONNECTION_P);
+                    printo("[Direct] Setting up REP socket on port " + this->port, CONNECTION_P);
                     this->setup_rep_socket(this->port);
                     // handle_messaging();
                     break;
@@ -268,13 +268,13 @@ class Direct : public Connection {
                     break;
                 }
                 case LEAF: {
-		    printo("[Direct] Connecting REQ socket to " + this->peer_addr + ":" + this->peer_port, CONNECTION_P);
+                    printo("[Direct] Connecting REQ socket to " + this->peer_addr + ":" + this->peer_port, CONNECTION_P);
                     this->setup_req_socket(this->peer_addr, this->peer_port);
 
                     break;
                 }
                 case NO_OPER: {
-		    printo("Error: Device operation needed", ERROR_P);
+                    printo("Error: Device operation needed", ERROR_P);
                     exit(0);
                     break;
                 }
@@ -293,7 +293,7 @@ class Direct : public Connection {
                 std::string request = "";
                 // Receive message
                 request = this->recv(0);
-		printo("[Direct] Received request: " + request, CONNECTION_P);
+                printo("[Direct] Received request: " + request, CONNECTION_P);
                 this->write_to_pipe(request);
 
                 // std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -338,48 +338,48 @@ class Direct : public Connection {
     	    zmq::message_t request(msg_pack.size());
     	    memcpy(request.data(), msg_pack.c_str(), msg_pack.size());
 
-	    this->socket->send(request);
+            this->socket->send(request);
             this->message_sequence++;
 
-	    printo("[Direct] Sent: (" + std::to_string(strlen(msg_pack.c_str())) + ") " + msg_pack, CONNECTION_P);
-	}
-
-	void send(const char * message) {
-	    zmq::message_t request(strlen(message));
-	    memcpy(request.data(), message, strlen(message));
-	    this->socket->send(request);
-            this->message_sequence++;
-
-	    printo("[Direct] Sent: (" + std::to_string(strlen(message)) + ") " + message, CONNECTION_P);
-	}
-
-	std::string recv(int flag){
-	    zmq::message_t message;
-	    this->socket->recv(&message, flag);
-	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
-
-	    if (request != "") {
-		this->update_clock = get_system_clock();
-                this->message_sequence++;
+            printo("[Direct] Sent: (" + std::to_string(strlen(msg_pack.c_str())) + ") " + msg_pack, CONNECTION_P);
 	    }
 
-	    printo("[Direct] Received: " + request, CONNECTION_P);
-	    return request;
-	}
+    	void send(const char * message) {
+    	    zmq::message_t request(strlen(message));
+    	    memcpy(request.data(), message, strlen(message));
+    	    this->socket->send(request);
+                this->message_sequence++;
 
-	void prepare_for_next() {
+    	    printo("[Direct] Sent: (" + std::to_string(strlen(message)) + ") " + message, CONNECTION_P);
+    	}
 
-	}
+    	std::string recv(int flag){
+    	    zmq::message_t message;
+    	    this->socket->recv(&message, flag);
+    	    std::string request = std::string(static_cast<char *>(message.data()), message.size());
 
-	void shutdown() {
-	    printo("[Direct] Shutting down socket and context", CONNECTION_P);
-	    zmq_close(this->socket);
-	    zmq_ctx_destroy(this->context);
-	}
+    	    if (request != "") {
+                this->update_clock = get_system_clock();
+                this->message_sequence++;
+    	    }
 
-	void handle_messaging() {
+    	    printo("[Direct] Received: " + request, CONNECTION_P);
+    	    return request;
+    	}
 
-	}
+    	void prepare_for_next() {
+
+    	}
+
+    	void shutdown() {
+    	    printo("[Direct] Shutting down socket and context", CONNECTION_P);
+    	    zmq_close(this->socket);
+    	    zmq_ctx_destroy(this->context);
+    	}
+
+    	void handle_messaging() {
+
+    	}
 };
 
 class StreamBridge : public Connection {

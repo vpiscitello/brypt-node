@@ -74,12 +74,12 @@ void Notifier::send(std::string message, NotificationType type) {
 
     // Check the type and send via a standard message if it is not something that supports a pub/sub socket
     for (int idx = 0; idx < (int)(this->node_instance->get_connections()->size()); idx++) {
-	std::string internal_conn_type = this->node_instance->get_connection(idx)->get_internal_type();
-	if (internal_conn_type == "StreamBridge" || internal_conn_type == "TCP" || internal_conn_type == "BLE" || internal_conn_type == "LoRa") {
-	    // Instead send just a normal message
-	    printo("Contacting unsubcribed connections", CONTROL_P);
-	    this->node_instance->get_connection(idx)->send(message.c_str());
-	}
+    	std::string internal_conn_type = this->node_instance->get_connection(idx)->get_internal_type();
+    	if (internal_conn_type == "StreamBridge" || internal_conn_type == "TCP" || internal_conn_type == "BLE" || internal_conn_type == "LoRa") {
+    	    // Instead send just a normal message
+    	    printo("Contacting unsubcribed connections", CONTROL_P);
+    	    this->node_instance->get_connection(idx)->send(message.c_str());
+    	}
     }
 
     this->publisher.send(zmq_notification);

@@ -62,7 +62,7 @@ class Query : public Command {
             this->state = state;
         }
         void whatami() {
-	    printo("Handling response to Query request", COMMAND_P);
+            printo("Handling response to Query request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
@@ -83,7 +83,7 @@ class Election : public Command {
             this->state = state;
         }
         void whatami() {
-	    printo("Handling response to Election request", COMMAND_P);
+            printo("Handling response to Election request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
@@ -106,7 +106,7 @@ class Transform : public Command {
             this->state = state;
         }
         void whatami() {
-	    printo("Handling response to Transform request", COMMAND_P);
+            printo("Handling response to Transform request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
@@ -127,7 +127,7 @@ class Connect : public Command {
             this->state = state;
         }
         void whatami() {
-	    printo("Handling response to Connect request", COMMAND_P);
+            printo("Handling response to Connect request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);

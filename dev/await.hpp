@@ -51,8 +51,6 @@ class AwaitObject {
                 data = aggregate_json.dump();
             }
 
-	    std::cout << data << std::endl;
-
             class Message response(
                 this->request.get_destination_id(),
                 this->request.get_source_id(),
@@ -104,7 +102,7 @@ class AwaitContainer {
             std::string key = "";
 
             key = this->key_generator(message.get_pack());
-	    printo("Pushing AwaitObject with key:" + key, AWAIT_P);
+            printo("Pushing AwaitObject with key:" + key, AWAIT_P);
             this->awaiting.emplace(key, AwaitObject(message, expected_responses));
 
             return key;
@@ -113,10 +111,10 @@ class AwaitContainer {
         bool push_response(std::string key, class Message message) {
             bool success = true;
 
-	    printo("Pushing response to AwaitObject " + key, AWAIT_P);
+	        printo("Pushing response to AwaitObject " + key, AWAIT_P);
             bool fulfilled = this->awaiting.at(key).update_response(message);
             if (fulfilled) {
-		    printo("AwaitObject has been fulfilled, Waiting to transmit", AWAIT_P);
+                printo("AwaitObject has been fulfilled, Waiting to transmit", AWAIT_P);
             }
 
             return success;
@@ -126,10 +124,10 @@ class AwaitContainer {
             bool success = true;
 
             std::string key = message.get_await_id();
-	    printo("Pushing response to AwaitObject " + key, AWAIT_P);
-	    bool fulfilled = this->awaiting.at(key).update_response(message);
+            printo("Pushing response to AwaitObject " + key, AWAIT_P);
+            bool fulfilled = this->awaiting.at(key).update_response(message);
             if (fulfilled) {
-		    printo("AwaitObject has been fulfilled, Waiting to transmit", AWAIT_P);
+                printo("AwaitObject has been fulfilled, Waiting to transmit", AWAIT_P);
             }
 
             return success;
@@ -140,7 +138,7 @@ class AwaitContainer {
             fulfilled.reserve(this->awaiting.size());
 
             for ( auto it = this->awaiting.begin(); it != this->awaiting.end(); ) {
-    		printo("Checking AwaitObject " + it->first, AWAIT_P);
+                printo("Checking AwaitObject " + it->first, AWAIT_P);
                 if (it->second.ready()) {
                     class Message response = it->second.get_response();
                     std::cout << response.get_data() << '\n';

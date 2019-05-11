@@ -111,12 +111,12 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
     std::string network_data = generate_node_info(this->node_instance, this->state);
 
     Message self_info(
-        source_id, 
-	destination_id, 
-	INFORMATION_TYPE, 
-	RESPOND_PHASE, 
-	network_data, 
-	nonce
+        source_id,
+        destination_id,
+        INFORMATION_TYPE,
+        RESPOND_PHASE,
+        network_data,
+        nonce
     );
 
     this->node_instance->get_awaiting()->push_response(await_key, self_info);
@@ -474,14 +474,14 @@ void Connect::join_handler(Self * self, Network * network, Message * message, Co
 
     TechnologyType comm_tech = (TechnologyType)(std::stoi(message->get_data()));
     if (comm_tech == TCP_TYPE) {
-	comm_tech = STREAMBRIDGE_TYPE;
+        comm_tech = STREAMBRIDGE_TYPE;
     }
     Connection * full = this->node_instance->setup_full_connection(message->get_source_id(), full_port, comm_tech);
 
     this->node_instance->get_connections()->push_back(full);
 
     if (full->get_worker_status()) {
-	printo("Connection worker thread is ready", COMMAND_P);
+        printo("Connection worker thread is ready", COMMAND_P);
     }
 
     printo("New connection pushed back", COMMAND_P);
