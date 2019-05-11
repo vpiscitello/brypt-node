@@ -5,6 +5,7 @@
 #include "node.hpp"
 #include "state.hpp"
 #include "message.hpp"
+#include "notifier.hpp"
 
 std::string generate_reading();
 std::string generate_node_info(class Node * node, struct State * state);
@@ -41,12 +42,12 @@ class Information : public Command {
             this->state = state;
         }
         void whatami() {
-            std::cout << "== [Command] Handling response to Information request" << '\n';
+	    printo("Handling response to Information request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
 
-        void flood_handler(Self * self, Message * message, Notifier * notifier);
+        void flood_handler(Self * self, Message * message, class Notifier * notifier);
         void respond_handler();
         void close_handler();
 };
@@ -61,12 +62,12 @@ class Query : public Command {
             this->state = state;
         }
         void whatami() {
-            std::cout << "== [Command] Handling response to Query request" << '\n';
+	    printo("Handling response to Query request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
 
-        void flood_handler(Self * self, Message * message, Notifier * notifier) ;
+        void flood_handler(Self * self, Message * message, class Notifier * notifier) ;
         void respond_handler(Self * self, Message * message, Connection * connection);
         void aggregate_handler(Self * self, Message * message, MessageQueue * message_queue);
         void close_handler();
@@ -82,7 +83,7 @@ class Election : public Command {
             this->state = state;
         }
         void whatami() {
-            std::cout << "== [Command] Handling response to Election request" << '\n';
+	    printo("Handling response to Election request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
@@ -105,7 +106,7 @@ class Transform : public Command {
             this->state = state;
         }
         void whatami() {
-            std::cout << "== [Command] Handling response to Transform request" << '\n';
+	    printo("Handling response to Transform request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);
@@ -126,7 +127,7 @@ class Connect : public Command {
             this->state = state;
         }
         void whatami() {
-            std::cout << "== [Command] Handling response to Connect request" << '\n';
+	    printo("Handling response to Connect request", COMMAND_P);
         }
 
         Message handle_message(class Message * message);

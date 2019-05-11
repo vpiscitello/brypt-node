@@ -11,7 +11,6 @@
 #include "json11.hpp"
 
 typedef std::unordered_map<std::string, class AwaitObject> AwaitMap;
-// const std::chrono::milliseconds AWAIT_TIMEOUT = std::chrono::milliseconds(500);
 const std::chrono::milliseconds AWAIT_TIMEOUT = std::chrono::milliseconds(1500);
 
 class AwaitObject {
@@ -33,7 +32,6 @@ class AwaitObject {
         }
 
         bool ready() {
-
             if (this->expected_responses == this->received_responses) {
                 this->fulfilled = true;
             } else {
@@ -53,6 +51,8 @@ class AwaitObject {
                 data = aggregate_json.dump();
             }
 
+	    std::cout << data << std::endl;
+
             class Message response(
                 this->request.get_destination_id(),
                 this->request.get_source_id(),
@@ -60,16 +60,16 @@ class AwaitObject {
                 this->request.get_phase() + 1,
                 data,
                 this->request.get_nonce() + 1
-            );
+             );
 
-            return response;
+             return response;
         }
 
         bool update_response(class Message response) {
             this->aggregate_object[response.get_source_id()] = response.get_pack();
 
             this->received_responses++;
-            if (this->received_responses == this->expected_responses) {
+            if (this->received_responses >= this->expected_responses) {
                 this->fulfilled = true;
             }
 
@@ -104,7 +104,7 @@ class AwaitContainer {
             std::string key = "";
 
             key = this->key_generator(message.get_pack());
-            std::cout << "== [Await] Pushing AwaitObject with key: " << key << '\n';
+	    printo("Pushing AwaitObject with key:" + key, AWAIT_P);
             this->awaiting.emplace(key, AwaitObject(message, expected_responses));
 
             return key;
@@ -113,10 +113,10 @@ class AwaitContainer {
         bool push_response(std::string key, class Message message) {
             bool success = true;
 
-            std::cout << "== [Await] Pushing response to AwaitObject " << key << '\n';
+	    printo("Pushing response to AwaitObject " + key, AWAIT_P);
             bool fulfilled = this->awaiting.at(key).update_response(message);
             if (fulfilled) {
-                std::cout << "== [Await] AwaitObject has been fulfilled, Waiting to transmit" << '\n';
+		    printo("AwaitObject has been fulfilled, Waiting to transmit", AWAIT_P);
             }
 
             return success;
@@ -126,10 +126,10 @@ class AwaitContainer {
             bool success = true;
 
             std::string key = message.get_await_id();
-            std::cout << "== [Await] Pushing response to AwaitObject " << key << '\n';
-            bool fulfilled = this->awaiting.at(key).update_response(message);
+	    printo("Pushing response to AwaitObject " + key, AWAIT_P);
+	    bool fulfilled = this->awaiting.at(key).update_response(message);
             if (fulfilled) {
-                std::cout << "== [Await] AwaitObject has been fulfilled, Waiting to transmit" << '\n';
+		    printo("AwaitObject has been fulfilled, Waiting to transmit", AWAIT_P);
             }
 
             return success;
@@ -140,7 +140,7 @@ class AwaitContainer {
             fulfilled.reserve(this->awaiting.size());
 
             for ( auto it = this->awaiting.begin(); it != this->awaiting.end(); ) {
-                std::cout << "== [Await] Checking AwaitObject " << it->first << '\n';
+    		printo("Checking AwaitObject " + it->first, AWAIT_P);
                 if (it->second.ready()) {
                     class Message response = it->second.get_response();
                     std::cout << response.get_data() << '\n';

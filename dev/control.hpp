@@ -2,6 +2,8 @@
 #define CONTROL_HPP
 
 #include "connection.hpp"
+#include "utility.hpp"
+
 #include <sys/socket.h>
 
 class Control {
@@ -44,38 +46,45 @@ class Control {
         // Receive for requests, if a request is received recv it and then return the message string
         std::string recv() {
             std::string request = this->conn->recv(ZMQ_NOBLOCK);
+            //std::string request = this->conn->recv(0);//blocking mode
 
             switch (request.size()) {
                 case 0: {
                     return "";
                 }
                 case 1: {
-                    std::cout << "== [Control] Recieved connection byte\n";
+		    printo("Recieved connection byte", CONTROL_P);
 
                     if (request == "\x06") {
-                        std::cout << "== [Control] Device connection acknowledgement\n";
+			printo("Device connection acknowledgement", CONTROL_P);
 
                         this->conn->send("\x06");
-                        std::cout << "== [Control] Device was sent acknowledgement\n";
+			printo("Device was sent acknowledgement", CONTROL_P);
 
-                        request = this->conn->recv();
+                        request = this->conn->recv(0);
 
-                        if (request.compare(0, 1, "\x16") == 0) {
-                            std::cout << "== [Control] Device waiting for connection port\n";
-                            // TODO: Add connection type byte
+			std::cout << "Request was " << request << "\n";
 
-                            std::string device_info = this->handle_contact(DIRECT_TYPE);
+			int comm_requested = (int)request[0] - 48;
+			if (comm_requested >= 0 && comm_requested <= 6) {
+			    printo("Communication type requested: " + std::to_string(comm_requested), CONTROL_P);
+			    TechnologyType server_comm_type;
+			    if ((TechnologyType)comm_requested == TCP_TYPE) {
+				server_comm_type = STREAMBRIDGE_TYPE;
+			    } else {
+				server_comm_type = (TechnologyType)comm_requested;
+			    }
+			    std::string device_info = this->handle_contact(server_comm_type);
 
-                            return device_info;
-                        } else {
-                            std::cout << "\n== [Control] Somethings not right" << '\n';
-                            try {
-                                this->conn->send("\x15");
-                            } catch(...) {
+			    return device_info;
+			} else {
+			    printo("Somethings not right", CONTROL_P);
+			    try {
+				this->conn->send("\x15");
+			    } catch(...) {
 
-                            }
-                        }
-
+			    }
+			}
                     }
                 }
                 default: {
@@ -92,9 +101,11 @@ class Control {
         ** Description:
         ** *************************************************************************/
         std::string handle_contact(TechnologyType technology) {
-            std::cout << "== [Node] Handling request from control socket\n";
+	    printo("Handling request from control socket", CONTROL_P);
 
             switch (technology) {
+		case TCP_TYPE:
+		case STREAMBRIDGE_TYPE:
                 case DIRECT_TYPE: {
                     std::string full_port = "";
                     std::string device_info = "";
@@ -102,12 +113,12 @@ class Control {
                     (*this->self).next_full_port++;
                     full_port = std::to_string((*this->self).next_full_port);
 
-                    std::cout << "== [Control] Sending port: " << full_port << "\n";
+		    printo("Sending port: " + full_port, CONTROL_P);
                     Message port_message((*this->self).id, "We'll Cross that Brypt When We Come to It.", CONNECT_TYPE, 0, full_port, 0);
                     this->conn->send(&port_message);
 
-                    device_info = this->conn->recv();
-                    std::cout << "== [Control] Received: " << device_info << "\n";
+                    device_info = this->conn->recv(0);
+		    printo("Received: " + device_info, CONTROL_P);
 
                     return device_info;
                 }
@@ -119,6 +130,12 @@ class Control {
             return "";
 
         }
+
+	void close_current_connection() {
+	    if (this->conn->get_internal_type() == "TCP") {
+		this->conn->prepare_for_next();
+	    }
+	}
 
 };
 

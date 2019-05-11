@@ -17,6 +17,10 @@ enum CommandType { INFORMATION_TYPE, QUERY_TYPE, ELECTION_TYPE, TRANSFORM_TYPE, 
 
 enum DeviceSocketCapability { MASTER, SLAVE };
 
+// Super Secure NET_KEY
+const String NET_KEY = "01234567890123456789012345678901";
+const unsigned int NET_NONCE = 998;
+
 // Central Authority Connection Constants
 const String CA_DOMAIN = "brypt.com";
 const String CA_SUBDOMAIN = "bridge";

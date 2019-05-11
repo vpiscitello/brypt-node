@@ -55,52 +55,13 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
                 { "coordinator", (*state).self.id },
                 { "neighbor_count", 0 },
                 { "designation", "node" },
-                { "comm_techs", json11::Json::array { (*conn_it)->get_type() } },
+                { "comm_techs", json11::Json::array { (*conn_it)->get_protocol_type() } },
                 { "update_timestamp", epoch_ss.str() }
             }
         );
     }
 
     json11::Json nodes_json = json11::Json::array({nodes_info});
-
-    // json11::Json nodes_json = json11::Json::array {
-    //     json11::Json::object {
-    //         { "uid", "1" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 1 },
-    //         { "neighbor_count", 4 },
-    //         { "designation", "root" },
-    //         { "comm_techs", json11::Json::array { "WiFi" } },
-    //         { "update_timestamp", epoch_str }
-    //     },
-    //     json11::Json::object {
-    //         { "uid", "2" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 1 },
-    //         { "neighbor_count", 4 },
-    //         { "designation", "node" },
-    //         { "comm_techs", json11::Json::array { "WiFi" } },
-    //         { "update_timestamp", epoch_str }
-    //     },
-    //     json11::Json::object {
-    //         { "uid", "3" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 1 },
-    //         { "neighbor_count", 6 },
-    //         { "designation", "coordinator" },
-    //         { "comm_techs", json11::Json::array { "WiFi", "LoRa" } },
-    //         { "update_timestamp", epoch_str }
-    //     },
-    //     json11::Json::object {
-    //         { "uid", "6" },
-    //         { "cluster", 0 },
-    //         { "coordinator", 0 },
-    //         { "neighbor_count", 4 },
-    //         { "designation", "node" },
-    //         { "comm_techs", json11::Json::array { "WiFi" } },
-    //         { "update_timestamp", epoch_str }
-    //     }
-    // };
 
     return nodes_json[0].dump();
 }
@@ -140,10 +101,8 @@ Message Information::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
-    std::cout << "== [Command] Sending notification for Information request" << '\n';
-
+    printo("Building response for Information request", COMMAND_P);
     // Push message into AwaitContainer
-    // unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
     std::string await_key = this->node_instance->get_awaiting()->push_request(*message, 1);
 
     std::string source_id = (*self).id;
@@ -151,15 +110,17 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
     unsigned int nonce = 0;
     std::string network_data = generate_node_info(this->node_instance, this->state);
 
-    Message self_info(source_id, destination_id, INFORMATION_TYPE, RESPOND_PHASE, network_data, nonce);
+    Message self_info(
+        source_id, 
+	destination_id, 
+	INFORMATION_TYPE, 
+	RESPOND_PHASE, 
+	network_data, 
+	nonce
+    );
 
     this->node_instance->get_awaiting()->push_response(await_key, self_info);
 
-    // source_id += ";" + await_key;
-    // destination_id = "ALL";
-    // Message notice(source_id, destination_id, QUERY_TYPE, RESPOND_PHASE, "Request for Sensor Readings.", nonce);
-    //
-    // notifier->send(&notice, NETWORK_NOTICE);
 }
 
 /* **************************************************************************
@@ -217,7 +178,7 @@ Message Query::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
-    std::cout << "== [Command] Sending notification for Query request" << '\n';
+    printo("Sending notification for Query request", COMMAND_P);
 
     // Push message into AwaitContainer
     unsigned int expected_responses = (unsigned int)this->node_instance->get_connections()->size() + 1;
@@ -244,8 +205,7 @@ void Query::flood_handler(Self * self, Message * message, Notifier * notifier) {
 ** Description:
 ** *************************************************************************/
 void Query::respond_handler(Self * self, Message * message, Connection * connection) {
-    std::cout << "== [Node] Recieved " << this->message->get_data() << " from " << this->message->get_source_id() << '\n';
-
+    printo("Building response for Query request", COMMAND_P);
     // Send Request to the server
     std::string source_id = (*self).id;
     std::string destination_id = message->get_source_id();
@@ -263,7 +223,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 
     // Recieve Response from the server
     Message response = connection->recv();
-    std::cout << "== [Node] Recieved: " << response.get_pack() << '\n';
+    printo("Recieved: " + response.get_pack(), COMMAND_P);
 }
 
 /* **************************************************************************
@@ -271,8 +231,7 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 ** Description:
 ** *************************************************************************/
 void Query::aggregate_handler(Self * self, Message * message, MessageQueue * message_queue) {
-    std::cout << "== [Node] Recieved " << message->get_data() << " from " << message->get_source_id() << " thread" << '\n';
-
+    printo("Pushing response to AwaitObject", COMMAND_P);
     this->node_instance->get_awaiting()->push_response(*message);
     // If ready or if string filled from push response send off to client?
 
@@ -510,16 +469,22 @@ void Connect::contact_handler() {
 ** Description:
 ** *************************************************************************/
 void Connect::join_handler(Self * self, Network * network, Message * message, Control * control) {
-    std::cout << "== [Command] Setting up full connection\n";
+    printo("Setting up full connection", COMMAND_P);
     std::string full_port = std::to_string(self->next_full_port);
 
-    Connection *full = this->node_instance->setup_wifi_connection(message->get_source_id(), full_port);
+    TechnologyType comm_tech = (TechnologyType)(std::stoi(message->get_data()));
+    if (comm_tech == TCP_TYPE) {
+	comm_tech = STREAMBRIDGE_TYPE;
+    }
+    Connection * full = this->node_instance->setup_full_connection(message->get_source_id(), full_port, comm_tech);
+
     this->node_instance->get_connections()->push_back(full);
+
     if (full->get_worker_status()) {
-        std::cout << "== [Command] Connection worker thread is ready" << '\n';
+	printo("Connection worker thread is ready", COMMAND_P);
     }
 
-    std::cout << "== [Command] New connection pushed back\n";
+    printo("New connection pushed back", COMMAND_P);
     control->send("\x04");
 
     (*network).known_nodes++;

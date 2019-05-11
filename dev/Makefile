@@ -10,8 +10,8 @@ LCRYPTO = -lcrypto
 CXXLIBS = $(LZMQ) $(LPTHREAD) $(LOPENSSL_LIB) $(LOPENSSL_INCLUDE) $(LCRYPTO)
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++11
 
-$(TARGET): test.o json11.o mqueue.o node.o command.o watcher.o
-	$(CXX) test.o json11.o mqueue.o node.o command.o watcher.o  -o $(TARGET) $(CXXFLAGS) $(CXXLIBS)
+$(TARGET): test.o json11.o mqueue.o node.o command.o watcher.o notifier.o
+	$(CXX) test.o json11.o mqueue.o node.o command.o watcher.o notifier.o  -o $(TARGET) $(CXXFLAGS) $(CXXLIBS)
 
 test.o: test.cpp
 	$(CXX) -c test.cpp $(CXXFLAGS)
@@ -31,6 +31,9 @@ command.o: command.cpp
 watcher.o: watcher.cpp
 	$(CXX) -c watcher.cpp $(CXXFLAGS)
 
+notifier.o: notifier.cpp
+	$(CXX) -c notifier.cpp $(CXXFLAGS)
+
 run:
 	./$(TARGET)
 
@@ -42,6 +45,16 @@ leaf_two:
 
 leaf_three:
 	./$(TARGET) --leaf -id 3 -type DIRECT -port 5005 -peer 192.168.30.1 -pp 3005
+
+leaf_four:
+	./$(TARGET) --leaf -id 4 -type DIRECT -port 6005 -peer 192.168.30.1 -pp 3005
+
+leaf_five:
+	./$(TARGET) --leaf -id 5 -type DIRECT -port 7005 -peer 192.168.30.1 -pp 3005
+
+leaf_six:
+	./$(TARGET) --leaf -id 6 -type DIRECT -port 8005 -peer 192.168.30.1 -pp 3005
+
 
 clean:
 	rm -f *.out *.o $(TARGET)
