@@ -18,6 +18,7 @@ class AwaitObject {
         bool fulfilled;
         unsigned int expected_responses;
         unsigned int received_responses;
+        std::string source_id;
         class Message request;
         json11::Json::object aggregate_object;
         SystemClock expire;
@@ -28,6 +29,7 @@ class AwaitObject {
             this->received_responses = 0;
             this->expected_responses = expected_responses;
             this->request = request;
+            this->source_id = this->request.get_source_id();
             this->expire = get_system_clock() + AWAIT_TIMEOUT;
             if (peer_names != NULL) {
                 this->instantiate_response_object(peer_names);
@@ -46,6 +48,9 @@ class AwaitObject {
         void instantiate_response_object(std::vector<std::string> * peer_names) {
             std::vector<std::string>::iterator name_it = peer_names->begin();
             for (name_it; name_it != peer_names->end(); name_it++) {
+                if ((*name_it) == this->source_id) {
+                    continue;
+                }
                 this->aggregate_object[(*name_it)] = "Unfulfilled";
             }
         }

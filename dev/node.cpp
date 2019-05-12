@@ -522,10 +522,10 @@ void Node::listen(){
         Message queue_request;
 
         control_request = this->control->recv();
-	if (control_request != "") {
-	    this->handle_control_request(control_request);
-	    this->control->close_current_connection();
-	}
+    	if (control_request != "") {
+    	    this->handle_control_request(control_request);
+    	    this->control->close_current_connection();
+    	}
 
         notification = this->notifier->recv();
         this->handle_notification(notification);
@@ -555,7 +555,7 @@ void Node::listen(){
         */
 
         run++;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(500));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(1500));
     } while (true);
 }
 
@@ -579,7 +579,7 @@ void Node::connect(){
         this->handle_notification(notification);
 
         run++;
-        std::this_thread::sleep_for(std::chrono::nanoseconds(500));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     } while (true);
 }
 
