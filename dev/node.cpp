@@ -578,6 +578,8 @@ void Node::connect(){
         // Send information to coordinator based on notification
         this->handle_notification(notification);
 
+        std::cout << '\n';
+
         run++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     } while (true);
