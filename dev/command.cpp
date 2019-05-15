@@ -39,7 +39,7 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
 
     std::vector<class Connection *>::iterator conn_it = connections->begin();
 
-    for (conn_it; conn_it != connections->end(); conn_it++) {
+    for (; conn_it != connections->end(); conn_it++) {
 
         std::stringstream epoch_ss;
         std::chrono::milliseconds milliseconds;
@@ -101,6 +101,7 @@ Message Information::handle_message(Message * message) {
 ** Description:
 ** *************************************************************************/
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
+    notifier = notifier; // Placeholder for warning
     printo("Building response for Information request", COMMAND_P);
     // Push message into AwaitContainer
     std::string await_key = this->node_instance->get_awaiting()->push_request(*message, &(*self).id, 1);

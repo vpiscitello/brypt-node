@@ -47,7 +47,7 @@ class AwaitObject {
 
         void instantiate_response_object(std::vector<std::string> * peer_names) {
             std::vector<std::string>::iterator name_it = peer_names->begin();
-            for (name_it; name_it != peer_names->end(); name_it++) {
+            for (; name_it != peer_names->end(); name_it++) {
                 if ((*name_it) == this->source_id) {
                     continue;
                 }

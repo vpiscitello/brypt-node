@@ -141,25 +141,32 @@ class Connect : public Command {
 
 inline Command* CommandFactory(CommandType command, class Node * instance, struct State * state) {
     switch (command) {
-        case INFORMATION_TYPE:
+	case INFORMATION_TYPE: {
             return new Information(instance, state);
             break;
-        case QUERY_TYPE:
+	}
+	case QUERY_TYPE: {
             return new Query(instance, state);
             break;
-        case ELECTION_TYPE:
+	}
+	case ELECTION_TYPE: {
             return new Election(instance, state);
             break;
-        case TRANSFORM_TYPE:
+	}
+	case TRANSFORM_TYPE: {
             return new Transform(instance, state);
             break;
-        case CONNECT_TYPE:
+	}
+	case CONNECT_TYPE: {
             return new Connect(instance, state);
             break;
-        case NO_CMD:
+	}
+	case NO_CMD: {
             return NULL;
             break;
+	}
     }
+    return NULL;
 }
 
 #endif

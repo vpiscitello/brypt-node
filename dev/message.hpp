@@ -96,6 +96,7 @@ class Message {
 			this->timestamp = "";
 			this->response = NULL;
 			this->auth_token = "";
+			nonce = nonce; // Placeholder for warning
 			this->nonce = NET_NONCE;
 			this->set_timestamp();
 			this->key = NET_KEY;  // In utility

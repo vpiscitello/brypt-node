@@ -97,41 +97,45 @@ inline std::string get_print_escape(PrintType component) {
     std::string escape = "";
     switch (component) {
         case AWAIT_P: {
-            escape = "\e[1;30;48;5;93m[    Await    ]\e[0m ";
+            escape = "\x1b[1;30;48;5;93m[    Await    ]\x1b[0m ";
             break;
         }
         case COMMAND_P: {
-            escape = "\e[1;30;48;5;220m[   Command   ]\e[0m ";
+            escape = "\x1b[1;30;48;5;220m[   Command   ]\x1b[0m ";
             break;
         }
         case CONNECTION_P: {
-            escape = "\e[1;30;48;5;6m[  Connection ]\e[0m ";
+            escape = "\x1b[1;30;48;5;6m[  Connection ]\x1b[0m ";
             break;
         }
         case CONTROL_P: {
-            escape = "\e[1;97;48;5;4m[   Control   ]\e[0m ";
+            escape = "\x1b[1;97;48;5;4m[   Control   ]\x1b[0m ";
             break;
         }
         case MESSAGE_P: {
-            escape = "\e[1;30;48;5;135m[   Message   ]\e[0m ";
+            escape = "\x1b[1;30;48;5;135m[   Message   ]\x1b[0m ";
             break;
         }
         case MQUEUE_P: {
-            escape = "\e[1;30;48;5;129m[ MessageQueue ]\e[0m ";
+            escape = "\x1b[1;30;48;5;129m[ MessageQueue ]\x1b[0m ";
             break;
         }
         case NODE_P: {
-            escape = "\e[1;30;48;5;42m[     Node    ]\e[0m ";
+            escape = "\x1b[1;30;48;5;42m[     Node    ]\x1b[0m ";
             break;
         }
         case NOTIFIER_P: {
-            escape = "\e[1;30;48;5;12m[   Notifier  ]\e[0m ";
+            escape = "\x1b[1;30;48;5;12m[   Notifier  ]\x1b[0m ";
             break;
         }
         case WATCHER_P: {
-            escape = "\e[1;30;48;5;203m[ PeerWatcher ]\e[0m ";
+            escape = "\x1b[1;30;48;5;203m[ PeerWatcher ]\x1b[0m ";
             break;
         }
+        case ERROR_P: {
+	    // TODO add error colors
+            break;
+	}
     }
     return escape;
 }

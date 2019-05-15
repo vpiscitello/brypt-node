@@ -319,7 +319,7 @@ void create_streambridge_socket() {
     streambridge_setup.technology = STREAMBRIDGE_TYPE;
     streambridge_setup.port = "3001";
     streambridge_setup.operation = ROOT;
-    Connection * conn = ConnectionFactory(streambridge_setup.technology, &streambridge_setup);
+    ConnectionFactory(streambridge_setup.technology, &streambridge_setup);
 }
 
 void create_streambridge_send_query() {

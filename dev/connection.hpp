@@ -546,11 +546,11 @@ class StreamBridge : public Connection {
 			// Receive 4 times, first is ID, second is nothing, third is message
 			this->id_size = zmq_recv(this->socket, this->id, 256, 0);
 		        //printo("[StreamBridge] Received ID: " + this->id, CONNECTION_P);
-			size_t msg_size = zmq_recv(this->socket, buffer, 512, 0);
+			zmq_recv(this->socket, buffer, 512, 0);
 			memset(buffer, '\0', 512);
-			msg_size = zmq_recv(this->socket, buffer, 512, 0);
+			zmq_recv(this->socket, buffer, 512, 0);
 			memset(buffer, '\0', 512);
-			msg_size = zmq_recv(this->socket, buffer, 512, 0);
+			zmq_recv(this->socket, buffer, 512, 0);
 		        printo("[StreamBridge] Received: " + std::string(buffer), CONNECTION_P);
 			this->init_msg = 0;
 
@@ -564,7 +564,7 @@ class StreamBridge : public Connection {
 			zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
 			if ((msg_pack.c_str())[strlen(msg_pack.c_str())] != ((char)4)) {
 				flag = 1;
-				to_cat = (char)4 + "";
+				to_cat = std::to_string((char)4);
 			}
 			zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
 			if (flag) {
@@ -578,7 +578,7 @@ class StreamBridge : public Connection {
 			std::string to_cat = "";
 			if ((message)[strlen(message)] != ((char)4)) {
 				flag = 1;
-				to_cat = (char)4 + "";
+				to_cat = std::to_string((char)4);
 			}
 			zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
 			zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);

@@ -8,7 +8,7 @@ LOPENSSL_INCLUDE = -L/usr/local/opt/openssl/include/openssl
 LCRYPTO = -lcrypto
 
 CXXLIBS = $(LZMQ) $(LPTHREAD) $(LOPENSSL_LIB) $(LOPENSSL_INCLUDE) $(LCRYPTO)
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++11
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++11 -Wno-vla
 
 $(TARGET): test.o json11.o mqueue.o node.o command.o watcher.o notifier.o
 	$(CXX) test.o json11.o mqueue.o node.o command.o watcher.o notifier.o  -o $(TARGET) $(CXXFLAGS) $(CXXLIBS)
