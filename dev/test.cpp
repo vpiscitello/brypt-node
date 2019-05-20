@@ -1,3 +1,8 @@
+/*
+ *** TEST ***
+ *
+ */
+
 #include "utility.hpp"
 #include "node.hpp"
 #include "mqueue.hpp"
@@ -23,7 +28,6 @@ void connection_factory_test() {
     // Check the connection type and run a shared function
     for (int idx = 0; idx < (int)connections.size(); idx++) {
         connections.at(idx)->whatami();
-        connections.at(idx)->unspecial();
         std::cout << '\n';
     }
 }

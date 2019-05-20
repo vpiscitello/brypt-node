@@ -32,9 +32,6 @@ class Command {
         // Method method;
         virtual void whatami() = 0;
         virtual Message handle_message(class Message * message) = 0;
-        void unspecial() {
-            std::cout << "I am calling an unspecialized function." << '\n';
-        }
 };
 
 // Handle Requests regarding Node information
