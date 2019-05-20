@@ -1,6 +1,11 @@
 #ifndef CONNECTION_HPP
 #define CONNECTION_HPP
 
+/*
+ *** CONNECTION ***
+ * Defines a set of communication methods for use on varying types of communication technologies. Currently supports ZMQ D, ZMQ StreamBridge, and TCP sockets.
+ */
+
 #include <unistd.h>
 #include <vector>
 #include <fstream>
@@ -23,24 +28,41 @@
 // * Drop connections if the connected node does not match the intended device
 // * Maintain key and nonce state for connections
 
+/* **************************************************************************
+** Function: 
+** Description: 
+** *************************************************************************/
 class direct_monitor_t : public zmq::monitor_t {
     public:
         bool connected = false;
         bool disconnected = false;
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void on_event_connected(const zmq_event_t &, const char *) ZMQ_OVERRIDE {
             this->connected = true;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void on_event_closed(const zmq_event_t &, const char *) ZMQ_OVERRIDE {
             this->disconnected = true;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void on_event_disconnected(const zmq_event_t &, const char *) ZMQ_OVERRIDE {
             this->disconnected = true;
         }
 };
 
+// Parent class definition, defines uniform and virtual functions
 class Connection {
     protected:
     	bool active;
@@ -72,26 +94,56 @@ class Connection {
         virtual void prepare_for_next() = 0;
     	virtual void shutdown() = 0;
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
     	bool get_status() {
     	    return this->active;
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
     	bool get_worker_status() {
     	    return this->worker_active;
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
         std::string get_peer_name() {
             return this->peer_name;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
         std::string get_pipe_name() {
             return this->pipe_name;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
         SystemClock get_update_clock() {
             return this->update_clock;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
     	bool create_pipe() {
     	    if (this->peer_name == "") {
                 return false;
@@ -110,6 +162,11 @@ class Connection {
     	    return true;
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
     	bool write_to_pipe(std::string message) {
     	    if ( !this->pipe.good() ) {
                 return false;
@@ -123,6 +180,11 @@ class Connection {
     	    return true;
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
     	std::string read_from_pipe() {
     	    std::string raw_message = "";
 
@@ -149,6 +211,10 @@ class Connection {
             return raw_message;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void response_ready(std::string id) {
             if (this->peer_name != id) {
                 printo("Response was not for this peer", CONNECTION_P);
@@ -161,12 +227,9 @@ class Connection {
             thread_lock.unlock();
         }
 
-        void unspecial() {
-            printo("I am calling an unspecialized function", CONNECTION_P);
-        }
-
 };
 
+// ZMQ Direct socket implementation
 class Direct : public Connection {
     private:
     	bool control;
@@ -233,23 +296,45 @@ class Direct : public Connection {
 
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void whatami() {
             printo("[Direct] I am a Direct implementation", CONNECTION_P);
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void spawn() {
             printo("[Direct] Spawning DIRECT_TYPE connection thread", CONNECTION_P);
             this->worker_thread = std::thread(&Direct::worker, this);
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_protocol_type() {
 	    return "WiFi";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_internal_type() {
 	    return "Direct";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void worker() {
             this->worker_active = true;
             this->create_pipe();
@@ -317,6 +402,10 @@ class Direct : public Connection {
 
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void setup_rep_socket(std::string port) {
             this->socket = new zmq::socket_t(*this->context, ZMQ_REP);
             this->item.socket = *this->socket;
@@ -325,6 +414,10 @@ class Direct : public Connection {
             this->socket->bind("tcp://*:" + port);
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
         void setup_req_socket(std::string addr, std::string port) {
             this->socket = new zmq::socket_t(*this->context, ZMQ_REQ);
             this->item.socket = *this->socket;
@@ -333,6 +426,10 @@ class Direct : public Connection {
             this->instantiate_connection = false;
         }
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
     	void send(class Message * message) {
     	    std::string msg_pack = message->get_pack();
     	    zmq::message_t request(msg_pack.size());
@@ -342,8 +439,12 @@ class Direct : public Connection {
             this->message_sequence++;
 
             printo("[Direct] Sent: (" + std::to_string(strlen(msg_pack.c_str())) + ") " + msg_pack, CONNECTION_P);
-	    }
+	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
     	void send(const char * message) {
     	    zmq::message_t request(strlen(message));
     	    memcpy(request.data(), message, strlen(message));
@@ -353,6 +454,11 @@ class Direct : public Connection {
     	    printo("[Direct] Sent: (" + std::to_string(strlen(message)) + ") " + message, CONNECTION_P);
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
     	std::string recv(int flag){
     	    zmq::message_t message;
     	    this->socket->recv(&message, flag);
@@ -367,239 +473,300 @@ class Direct : public Connection {
     	    return request;
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
     	void prepare_for_next() {
 
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
     	void shutdown() {
     	    printo("[Direct] Shutting down socket and context", CONNECTION_P);
     	    zmq_close(this->socket);
     	    zmq_ctx_destroy(this->context);
     	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
     	void handle_messaging() {
 
     	}
 };
 
+// ZMQ StreamBridge socket implementation
 class StreamBridge : public Connection {
-	private:
-		bool control;
+    private:
+	bool control;
 
-		std::string port;
-		std::string peer_addr;
-		std::string peer_port;
+	std::string port;
+	std::string peer_addr;
+	std::string peer_port;
 
-		int init_msg = 1;
+	int init_msg = 1;
 
-		void *context;
-		void *socket;
+	void *context;
+	void *socket;
 
-		uint8_t id[256];
-		size_t id_size = 256;
+	uint8_t id[256];
+	size_t id_size = 256;
 
-	public:
-		StreamBridge() {}
-		StreamBridge(struct Options *options) {
-			printo("Creating StreamBridge instance", CONNECTION_P);
+    public:
+	StreamBridge() {}
+	StreamBridge(struct Options *options) {
+	    printo("Creating StreamBridge instance", CONNECTION_P);
 
-			this->port = options->port;
-			this->peer_name = options->peer_name;
-			this->peer_addr = options->peer_addr;
-			this->peer_port = options->peer_port;
-			this->control = options->is_control;
-			this->operation = options->operation;
+	    this->port = options->port;
+	    this->peer_name = options->peer_name;
+	    this->peer_addr = options->peer_addr;
+	    this->peer_port = options->peer_port;
+	    this->control = options->is_control;
+	    this->operation = options->operation;
 
-			// this->worker_active = false;
-			this->update_clock = get_system_clock();
+	    // this->worker_active = false;
+	    this->update_clock = get_system_clock();
 
-			if (options->is_control) {
-				printo("[StreamBridge] creating control socket", CONNECTION_P);
+	    if (options->is_control) {
+		printo("[StreamBridge] creating control socket", CONNECTION_P);
 
-				this->context = zmq_ctx_new();// add 1 or no
+		this->context = zmq_ctx_new();// add 1 or no
 
-				switch (options->operation) {
-					case ROOT: {
-							   printo("[StreamBridge] Setting up StreamBridge socket on port " + options->port, CONNECTION_P);
-							   this->socket = zmq_socket(this->context, ZMQ_STREAM);
-							   this->init_msg = 1;
-							   setup_streambridge_socket(options->port);
-							   break;
-						   }
-					case BRANCH: {
-							     break;
-						     }
-					case LEAF: {
-							   //printo("[StreamBridge] connecting to StreamBridge socket " + options->peer_addr + ":" + options->peer_port, CONNECTION_P);
-							   //this->socket = zmq_socket(this->context, ZMQ_STREAM);
-							   //setup_streambridge_socket(options->port);
-							   //break;
-						   }
-					case NO_OPER: {
-							      printo("Error: Device operation needed", ERROR_P);
-							      exit(0);
-							      break;
-						      }
-				}
-				return;
-			}
-
-			this->spawn();
-
-			std::unique_lock<std::mutex> thread_lock(worker_mutex);
-			this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
-			thread_lock.unlock();
+		switch (options->operation) {
+		    case ROOT: {
+				   printo("[StreamBridge] Setting up StreamBridge socket on port " + options->port, CONNECTION_P);
+				   this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				   this->init_msg = 1;
+				   setup_streambridge_socket(options->port);
+				   break;
+			       }
+		    case BRANCH: {
+				     break;
+				 }
+		    case LEAF: {
+				   //printo("[StreamBridge] connecting to StreamBridge socket " + options->peer_addr + ":" + options->peer_port, CONNECTION_P);
+				   //this->socket = zmq_socket(this->context, ZMQ_STREAM);
+				   //setup_streambridge_socket(options->port);
+				   //break;
+			       }
+		    case NO_OPER: {
+				      printo("Error: Device operation needed", ERROR_P);
+				      exit(0);
+				      break;
+				  }
 		}
+		return;
+	    }
 
-		void whatami() {
-		        printo("[StreamBridge] I am a StreamBridge implementation", CONNECTION_P);
-		}
+	    this->spawn();
 
-		void spawn() {
-		        printo("[StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread", CONNECTION_P);
-			this->worker_thread = std::thread(&StreamBridge::worker, this);
-		}
+	    std::unique_lock<std::mutex> thread_lock(worker_mutex);
+	    this->worker_conditional.wait(thread_lock, [this]{return this->worker_active;});
+	    thread_lock.unlock();
+	}
 
-		std::string get_protocol_type() {
-			return "WiFi";
-		}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void whatami() {
+	    printo("[StreamBridge] I am a StreamBridge implementation", CONNECTION_P);
+	}
 
-		std::string get_internal_type() {
-			return "StreamBridge";
-		}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void spawn() {
+	    printo("[StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread", CONNECTION_P);
+	    this->worker_thread = std::thread(&StreamBridge::worker, this);
+	}
 
-		void worker() {
-			this->worker_active = true;
-			this->create_pipe();
+	/* **************************************************************************
+	 ** Function: 
+	 ** Description: 
+	 ** Returns: 
+	 ** *************************************************************************/
+	std::string get_protocol_type() {
+	    return "WiFi";
+	}
 
-			this->context = zmq_ctx_new();// add 1 or no
+	/* **************************************************************************
+	 ** Function: 
+	 ** Description: 
+	 ** Returns: 
+	 ** *************************************************************************/
+	std::string get_internal_type() {
+	    return "StreamBridge";
+	}
 
-			switch (this->operation) {
-				case ROOT: {
-						   printo("[StreamBridge] Setting up StreamBridge socket on port " + this->port, CONNECTION_P);
-						   this->socket = zmq_socket(this->context, ZMQ_STREAM);
-						   this->init_msg = 1;
-						   setup_streambridge_socket(this->port);
-						   break;
-					   }
-				case BRANCH: {
-						     break;
-					     }
-				case LEAF: {
-						   //printo("[StreamBridge] Connecting StreamBridge socket to " + this->peer_addr + ":" + this->peer_port, CONNECTION_P);
-						   //this->socket = zmq_socket(this->context, ZMQ_STREAM);
-						   //setup_streambridge_socket(options->port);
-						   //break;
-					   }
-				case NO_OPER: {
-						      printo("Error: Device operation needed", ERROR_P);
-						      exit(0);
-						      break;
-					      }
-			}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void worker() {
+	    this->worker_active = true;
+	    this->create_pipe();
 
-			this->worker_active = true;
+	    this->context = zmq_ctx_new();// add 1 or no
 
-			// Notify the calling thread that the connection worker is ready
-			std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
-			worker_conditional.notify_one();
-			thread_lock.unlock();
+	    switch (this->operation) {
+		case ROOT: {
+			       printo("[StreamBridge] Setting up StreamBridge socket on port " + this->port, CONNECTION_P);
+			       this->socket = zmq_socket(this->context, ZMQ_STREAM);
+			       this->init_msg = 1;
+			       setup_streambridge_socket(this->port);
+			       break;
+			   }
+		case BRANCH: {
+				 break;
+			     }
+		case LEAF: {
+			       //printo("[StreamBridge] Connecting StreamBridge socket to " + this->peer_addr + ":" + this->peer_port, CONNECTION_P);
+			       //this->socket = zmq_socket(this->context, ZMQ_STREAM);
+			       //setup_streambridge_socket(options->port);
+			       //break;
+			   }
+		case NO_OPER: {
+				  printo("Error: Device operation needed", ERROR_P);
+				  exit(0);
+				  break;
+			      }
+	    }
 
-			unsigned int run = 0;
+	    this->worker_active = true;
 
-			do {
-				std::string request = "";
-				// Receive message
-				request = this->recv(0);
-				this->write_to_pipe(request);
+	    // Notify the calling thread that the connection worker is ready
+	    std::unique_lock<std::mutex> thread_lock(this->worker_mutex);
+	    worker_conditional.notify_one();
+	    thread_lock.unlock();
 
-				//std::this_thread::sleep_for(std::chrono::milliseconds(500));
+	    unsigned int run = 0;
 
-				this->response_needed = true;
+	    do {
+		std::string request = "";
+		// Receive message
+		request = this->recv(0);
+		this->write_to_pipe(request);
 
-				// Wait for message from pipe then send
-				std::unique_lock<std::mutex> thread_lock(worker_mutex);
-				this->worker_conditional.wait(thread_lock, [this]{return !this->response_needed;});
-				thread_lock.unlock();
+		//std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-				std::string response = this->read_from_pipe();
-				this->send(response.c_str());
+		this->response_needed = true;
+
+		// Wait for message from pipe then send
+		std::unique_lock<std::mutex> thread_lock(worker_mutex);
+		this->worker_conditional.wait(thread_lock, [this]{return !this->response_needed;});
+		thread_lock.unlock();
+
+		std::string response = this->read_from_pipe();
+		this->send(response.c_str());
 
 
-				run++;
-				std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
-			} while(true);
-		}
+		run++;
+		std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+	    } while(true);
+	}
 
-		void setup_streambridge_socket(std::string port) {
-		        printo("[StreamBridge] Setting up StreamBridge socket on port " + port, CONNECTION_P);
-			this->instantiate_connection = true;
-			std::string conn_data = "tcp://*:" + port;
-			zmq_bind(this->socket, conn_data.c_str());
-		}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void setup_streambridge_socket(std::string port) {
+	    printo("[StreamBridge] Setting up StreamBridge socket on port " + port, CONNECTION_P);
+	    this->instantiate_connection = true;
+	    std::string conn_data = "tcp://*:" + port;
+	    zmq_bind(this->socket, conn_data.c_str());
+	}
 
-		std::string recv(int flag){
-			if (flag) {}
-			char buffer[512];
-			memset(buffer, '\0', 512);
+	/* **************************************************************************
+	 ** Function: 
+	 ** Description: 
+	 ** Returns: 
+	 ** *************************************************************************/
+	std::string recv(int flag){
+	    if (flag) {}
+	    char buffer[512];
+	    memset(buffer, '\0', 512);
 
-			// Receive 4 times, first is ID, second is nothing, third is message
-			this->id_size = zmq_recv(this->socket, this->id, 256, 0);
-		        //printo("[StreamBridge] Received ID: " + this->id, CONNECTION_P);
-			zmq_recv(this->socket, buffer, 512, 0);
-			memset(buffer, '\0', 512);
-			zmq_recv(this->socket, buffer, 512, 0);
-			memset(buffer, '\0', 512);
-			zmq_recv(this->socket, buffer, 512, 0);
-		        printo("[StreamBridge] Received: " + std::string(buffer), CONNECTION_P);
-			this->init_msg = 0;
+	    // Receive 4 times, first is ID, second is nothing, third is message
+	    this->id_size = zmq_recv(this->socket, this->id, 256, 0);
+	    //printo("[StreamBridge] Received ID: " + this->id, CONNECTION_P);
+	    zmq_recv(this->socket, buffer, 512, 0);
+	    memset(buffer, '\0', 512);
+	    zmq_recv(this->socket, buffer, 512, 0);
+	    memset(buffer, '\0', 512);
+	    zmq_recv(this->socket, buffer, 512, 0);
+	    printo("[StreamBridge] Received: " + std::string(buffer), CONNECTION_P);
+	    this->init_msg = 0;
 
-			return buffer;
-		}
+	    return buffer;
+	}
 
-		void send(class Message * msg) {
-			int flag = 0;
-			std::string to_cat = "";
-			std::string msg_pack = msg->get_pack();
-			zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
-			if ((msg_pack.c_str())[strlen(msg_pack.c_str())] != ((char)4)) {
-				flag = 1;
-				to_cat = std::to_string((char)4);
-			}
-			zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
-			if (flag) {
-				zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
-			}
-		        printo("[StreamBridge] Sent: (" + std::to_string(strlen(msg_pack.c_str())) + ") " + msg_pack, CONNECTION_P);
-		}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void send(class Message * msg) {
+	    int flag = 0;
+	    std::string to_cat = "";
+	    std::string msg_pack = msg->get_pack();
+	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
+	    if ((msg_pack.c_str())[strlen(msg_pack.c_str())] != ((char)4)) {
+		flag = 1;
+		to_cat = std::to_string((char)4);
+	    }
+	    zmq_send(this->socket, msg_pack.c_str(), strlen(msg_pack.c_str()), ZMQ_SNDMORE);
+	    if (flag) {
+		zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
+	    }
+	    printo("[StreamBridge] Sent: (" + std::to_string(strlen(msg_pack.c_str())) + ") " + msg_pack, CONNECTION_P);
+	}
 
-		void send(const char * message) {
-			int flag = 0;
-			std::string to_cat = "";
-			if ((message)[strlen(message)] != ((char)4)) {
-				flag = 1;
-				to_cat = std::to_string((char)4);
-			}
-			zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
-			zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
-			if (flag) {
-				zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
-			}
-			printo("[StreamBridge] Sent: (" + std::to_string(strlen(message)) + ") " + message, CONNECTION_P);
-		}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void send(const char * message) {
+	    int flag = 0;
+	    std::string to_cat = "";
+	    if ((message)[strlen(message)] != ((char)4)) {
+		flag = 1;
+		to_cat = std::to_string((char)4);
+	    }
+	    zmq_send(this->socket, this->id, this->id_size, ZMQ_SNDMORE);
+	    zmq_send(this->socket, message, strlen(message), ZMQ_SNDMORE);
+	    if (flag) {
+		zmq_send(this->socket, to_cat.c_str(), strlen(to_cat.c_str()), ZMQ_SNDMORE);
+	    }
+	    printo("[StreamBridge] Sent: (" + std::to_string(strlen(message)) + ") " + message, CONNECTION_P);
+	}
 
-		void prepare_for_next() {
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void prepare_for_next() {
 
-		}
+	}
 
-		void shutdown() {
-			printo("[StreamBridge] Shutting down socket and context", CONNECTION_P);
-			zmq_close(this->socket);
-			zmq_ctx_destroy(this->context);
-		}
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
+	void shutdown() {
+	    printo("[StreamBridge] Shutting down socket and context", CONNECTION_P);
+	    zmq_close(this->socket);
+	    zmq_ctx_destroy(this->context);
+	}
 
 };
 
+// TCP socket implementation
 class TCP : public Connection {
     private:
 	bool control;
@@ -659,23 +826,45 @@ class TCP : public Connection {
 	    thread_lock.unlock();
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void whatami() {
 	    printo("[TCP] I am a TCP implementation", CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void spawn() {
 	    printo("[TCP] Spawning TCP_TYPE connection thread", CONNECTION_P);
 	    this->worker_thread = std::thread(&TCP::worker, this);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_protocol_type() {
 	    return "WiFi";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_internal_type() {
 	    return "TCP";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void worker() {
 	    this->worker_active = true;
 	    this->create_pipe();
@@ -727,6 +916,10 @@ class TCP : public Connection {
 	    } while(true);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void setup_tcp_socket(std::string port) {
 	    // Creating socket file descriptor
 	    if ((this->socket = ::socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -757,6 +950,10 @@ class TCP : public Connection {
 	    }
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void setup_tcp_connection(std::string peer_addr, std::string peer_port) {
 	    if ((this->connection = ::socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		return;
@@ -778,6 +975,11 @@ class TCP : public Connection {
 	    }
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string recv(int flag){
 	    if (this->connection == -1) {
 		if (flag != ZMQ_NOBLOCK) {
@@ -807,6 +1009,11 @@ class TCP : public Connection {
 	    return std::string(buffer, strlen(buffer));
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string internal_recv() {
 	    char buffer[1024];
 	    memset(buffer, '\0', 1024);
@@ -816,22 +1023,38 @@ class TCP : public Connection {
 	    return std::string(buffer, strlen(buffer));
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void send(Message * msg) {
 	    std::string msg_pack = msg->get_pack();
 	    ssize_t bytes = ::send(this->connection, msg_pack.c_str(), strlen(msg_pack.c_str()), 0);
 	    printo("[TCP] Sent: (" + std::to_string((int)bytes) + ") " + msg_pack, CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void send(const char * message) {
 	    ssize_t bytes = ::send(this->connection, message, strlen(message), 0);
 	    printo("[TCP] Sent: (" + std::to_string((int)bytes) + ") " + std::string(message), CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void prepare_for_next() {
 	    close(this->connection);
 	    this->connection = -1;
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void shutdown() {
 	    close(this->connection);
 	    close(this->socket);
@@ -840,51 +1063,96 @@ class TCP : public Connection {
 };
 
 
+// Bluetooth implementation
 class Bluetooth : public Connection {
     public:
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void whatami() {
 	    printo("[BLE] I am a BLE implementation", CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void spawn() {
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_protocol_type() {
 	    return "BLE";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_internal_type() {
 	    return "BLE";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void worker() {
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void send(class Message * msg) {
 	    msg->get_pack();
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void send(const char * message) {
 	    printo("[BLE] Sent: " + std::string(message), CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string recv(int flag){
         if (flag) {}
 
 	    return "Message";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void prepare_for_next() {
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void shutdown() {
 
 	}
 };
 
+// LoRa implementation
 class LoRa : public Connection {
     public:
 	LoRa() {}
@@ -906,49 +1174,94 @@ class LoRa : public Connection {
 	    }
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void whatami() {
 	    printo("[LoRa] I am a LoRa implementation", CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void spawn() {
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_protocol_type() {
 	    return "LoRa";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string get_internal_type() {
 	    return "LoRa";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void worker() {
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void send(class Message * msg) {
 	    msg->get_pack();
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void send(const char * message) {
 	    printo("[LoRa] Sent: " + std::string(message), CONNECTION_P);
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** Returns: 
+	** *************************************************************************/
 	std::string recv(int flag){
         if (flag) {}
 
 	    return "Message";
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void prepare_for_next() {
 
 	}
 
+	/* **************************************************************************
+	** Function: 
+	** Description: 
+	** *************************************************************************/
 	void shutdown() {
 
 	}
 };
+
+
 
 inline Connection* ConnectionFactory(TechnologyType technology) {
     switch (technology) {
