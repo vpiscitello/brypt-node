@@ -1,6 +1,11 @@
 #ifndef COMMAND_HPP
 #define COMMAND_HPP
 
+/*
+ *** COMMAND ***
+ * Defines a set of command types for messages and the appropriate responses based on the phase that the communication is currently in.
+ */
+
 #include "utility.hpp"
 #include "node.hpp"
 #include "state.hpp"

@@ -1,8 +1,14 @@
 #include "command.hpp"
 
+/*
+ *** COMMAND ***
+ * Defines a set of command types for messages and the appropriate responses based on the phase that the communication is currently in.
+ */
+
 /* **************************************************************************
-** Function:
-** Description:
+** Function: generate_reading
+** Description: Generate a pseudo-random value for the temperature reading and pack it into JSON
+** Returns: The JSON structure as a string
 ** *************************************************************************/
 std::string generate_reading() {
     int reading = rand() % ( 74 - 68 ) + 68;
@@ -18,8 +24,9 @@ std::string generate_reading() {
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: generate_node_info
+** Description: This constructs a JSON object for each of the messages from each of the connections.
+** Returns: The JSON structure as a string.
 ** *************************************************************************/
 std::string generate_node_info(class Node * node_instance, struct State * state) {
     std::vector<class Connection *> * connections = node_instance->get_connections();
@@ -67,8 +74,9 @@ std::string generate_node_info(class Node * node_instance, struct State * state)
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Information::handle_message
+** Description: Information message handler, drives each of the message responses based on the phase
+** Returns: The message response (currently unused).
 ** *************************************************************************/
 Message Information::handle_message(Message * message) {
     Message response;
@@ -97,8 +105,8 @@ Message Information::handle_message(Message * message) {
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Information::flood_handler
+** Description: Handles the flood phase for the Information type command
 ** *************************************************************************/
 void Information::flood_handler(Self * self, Message * message, Notifier * notifier) {
     notifier = notifier; // Placeholder for warning
@@ -125,16 +133,16 @@ void Information::flood_handler(Self * self, Message * message, Notifier * notif
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Information::respond_handler
+** Description: Handles the respond phase for the Information type command
 ** *************************************************************************/
 void Information::respond_handler() {
 
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Information::close_handler
+** Description: Handles the close phase for the Information type command
 ** *************************************************************************/
 void Information::close_handler() {
 
@@ -143,8 +151,9 @@ void Information::close_handler() {
 
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Query::handle_message
+** Description: Information message handler, drives each of the message responses based on the phase
+** Returns: The message response (currently unused).
 ** *************************************************************************/
 Message Query::handle_message(Message * message) {
     Message response;
@@ -175,8 +184,8 @@ Message Query::handle_message(Message * message) {
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Query::flood_handler
+** Description: Handles the flood phase for the Query type command
 ** *************************************************************************/
 void Query::flood_handler(Self * self, Network * network, Message * message, Notifier * notifier) {
     printo("Sending notification for Query request", COMMAND_P);
@@ -202,8 +211,8 @@ void Query::flood_handler(Self * self, Network * network, Message * message, Not
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Query::respond_handler
+** Description: Handles the respond phase for the Query type command
 ** *************************************************************************/
 void Query::respond_handler(Self * self, Message * message, Connection * connection) {
     printo("Building response for Query request", COMMAND_P);
@@ -228,8 +237,8 @@ void Query::respond_handler(Self * self, Message * message, Connection * connect
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Query::aggregate_handler
+** Description: Handles the aggregate phase for the Query type command
 ** *************************************************************************/
 void Query::aggregate_handler(Self * self, Message * message, MessageQueue * message_queue) {
     printo("Pushing response to AwaitObject", COMMAND_P);
@@ -249,8 +258,8 @@ void Query::aggregate_handler(Self * self, Message * message, MessageQueue * mes
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Query::close_handler
+** Description: Handles the close phase for the Query type command
 ** *************************************************************************/
 void Query::close_handler() {
 
@@ -259,8 +268,9 @@ void Query::close_handler() {
 
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Election::handle_message
+** Description: Election message handler, drives each of the message responses based on the phase
+** Returns: The message response (currently unused).
 ** *************************************************************************/
 Message Election::handle_message(Message * message) {
     Message response;
@@ -354,8 +364,9 @@ void Election::close_handler() {
 
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Transform::handle_message
+** Description: Transform message handler, drives each of the message responses based on the phase
+** Returns: The message response (currently unused).
 ** *************************************************************************/
 Message Transform::handle_message(Message * message) {
     Message response;
@@ -425,8 +436,9 @@ void Transform::close_handler() {
 
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Connect::handle_message
+** Description: Connect message handler, drives each of the message responses based on the phase
+** Returns: The message response (currently unused).
 ** *************************************************************************/
 Message Connect::handle_message(Message * message) {
     Message response;
@@ -466,8 +478,8 @@ void Connect::contact_handler() {
 }
 
 /* **************************************************************************
-** Function:
-** Description:
+** Function: Connect::join_handler
+** Description: Handles the join phase for the Connect type command
 ** *************************************************************************/
 void Connect::join_handler(Self * self, Network * network, Message * message, Control * control) {
     printo("Setting up full connection", COMMAND_P);
