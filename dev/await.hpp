@@ -1,6 +1,12 @@
 #ifndef AWAIT_HPP
 #define AWAIT_HPP
 
+/*
+ *** AWAIT ***
+ * Await is a container for waiting for message responses.
+ *
+ */
+
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -24,6 +30,10 @@ class AwaitObject {
         SystemClock expire;
 
     public:
+        /* **************************************************************************
+        ** Function: AwaitObject Constructor
+        ** Description: Intended for multiple peers with responses from each
+        ** *************************************************************************/
         AwaitObject(class Message request, std::vector<std::string> * peer_names, unsigned int expected_responses) {
             this->fulfilled = false;
             this->received_responses = 0;
@@ -36,6 +46,10 @@ class AwaitObject {
             }
         }
 
+        /* **************************************************************************
+        ** Function: AwaitObject Constructor
+        ** Description: Intended for a single peer
+        ** *************************************************************************/
         AwaitObject(class Message request, std::string * peer_name, unsigned int expected_responses) {
             this->fulfilled = false;
             this->received_responses = 0;
@@ -45,6 +59,10 @@ class AwaitObject {
             this->aggregate_object[(*peer_name)] = "Unfulfilled";
         }
 
+        /* **************************************************************************
+        ** Function: instantiate_response_object
+        ** Description: Iterates over the set of peers and creates a response object for each
+        ** *************************************************************************/
         void instantiate_response_object(std::vector<std::string> * peer_names) {
             std::vector<std::string>::iterator name_it = peer_names->begin();
             for (; name_it != peer_names->end(); name_it++) {
@@ -55,6 +73,11 @@ class AwaitObject {
             }
         }
 
+        /* **************************************************************************
+        ** Function: ready
+        ** Description: Determines whether or not the await object is ready. It is ready if it has received all responses requested, or it has timed-out.
+        ** Returns: true if the object is ready and false otherwise.
+        ** *************************************************************************/
         bool ready() {
             if (this->expected_responses == this->received_responses) {
                 this->fulfilled = true;
@@ -67,6 +90,11 @@ class AwaitObject {
             return this->fulfilled;
         }
 
+        /* **************************************************************************
+        ** Function: get_response
+        ** Description: Gathers information from the aggregate object and packages it into a new message.
+        ** Returns: The aggregate message.
+        ** *************************************************************************/
         class Message get_response() {
             std::string data = "";
 
@@ -87,6 +115,11 @@ class AwaitObject {
              return response;
         }
 
+        /* **************************************************************************
+        ** Function: update_response
+        ** Description: This places a response message into the aggregate object for this await object.
+        ** Returns: true if the await object is fulfulled, false otherwise.
+        ** *************************************************************************/
         bool update_response(class Message response) {
             if (this->aggregate_object[response.get_source_id()].dump() != "\"Unfulfilled\"") {
                 printo("Unexpected node response", AWAIT_P);
@@ -102,7 +135,6 @@ class AwaitObject {
 
             return this->fulfilled;
         }
-
 
 };
 
@@ -127,6 +159,11 @@ class AwaitContainer {
         }
 
     public:
+        /* **************************************************************************
+        ** Function: push_request
+        ** Description: Creates an await key for a message. Registers the key and the newly created AwaitObject (Multiple peers) into the AwaitMap for this container
+        ** Returns: the key for the AwaitMap
+        ** *************************************************************************/
         std::string push_request(class Message message, std::vector<std::string> * peer_names, unsigned int expected_responses) {
             std::string key = "";
 
@@ -137,6 +174,11 @@ class AwaitContainer {
             return key;
         }
 
+        /* **************************************************************************
+        ** Function: push_request
+        ** Description: Creates an await key for a message. Registers the key and the newly created AwaitObject (Single peer) into the AwaitMap for this container
+        ** Returns: the key for the AwaitMap
+        ** *************************************************************************/
         std::string push_request(class Message message, std::string * peer_name, unsigned int expected_responses) {
             std::string key = "";
 
@@ -147,6 +189,11 @@ class AwaitContainer {
             return key;
         }
 
+        /* **************************************************************************
+        ** Function: push_response
+        ** Description: Pushes a response message onto the await object for the given key (in the AwaitMap)
+        ** Returns: boolean indicating success or not
+        ** *************************************************************************/
         bool push_response(std::string key, class Message message) {
             bool success = true;
 
@@ -159,6 +206,11 @@ class AwaitContainer {
             return success;
         }
 
+        /* **************************************************************************
+        ** Function: push_response
+        ** Description: Pushes a response message onto the await object, finds the key from the message await ID
+        ** Returns: boolean indicating success or not
+        ** *************************************************************************/
         bool push_response(class Message message) {
             bool success = true;
 
@@ -172,6 +224,11 @@ class AwaitContainer {
             return success;
         }
 
+        /* **************************************************************************
+        ** Function: get_fulfilled
+        ** Description: Iterates over the await objects within the AwaitMap and pushes ready responses onto a local fulfilled vector of messages.
+        ** Returns: the vector of messages that have been fulfilled.
+        ** *************************************************************************/
         std::vector<class Message> get_fulfilled() {
             std::vector<class Message> fulfilled;
             fulfilled.reserve(this->awaiting.size());
@@ -191,6 +248,10 @@ class AwaitContainer {
             return fulfilled;
         }
 
+        /* **************************************************************************
+        ** Function: empty
+        ** Description: 
+        ** *************************************************************************/
         bool empty() {
             return this->awaiting.empty();
         }
