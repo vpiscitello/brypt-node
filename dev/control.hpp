@@ -1,6 +1,11 @@
 #ifndef CONTROL_HPP
 #define CONTROL_HPP
 
+/*
+ *** CONTROL ***
+ * Defines operations for the control thread. Currently only handles requests for new connections
+ */
+
 #include "connection.hpp"
 #include "utility.hpp"
 
@@ -13,6 +18,11 @@ class Control {
 
     public:
         //Control() {}
+
+        /* **************************************************************************
+        ** Function: Control Constructor
+        ** Description: 
+        ** *************************************************************************/
         Control(TechnologyType technology, Self * self) {
             this->self = self;
 
@@ -29,24 +39,37 @@ class Control {
             this->conn = ConnectionFactory(technology, &control_setup);
         }
 
+        /* **************************************************************************
+        ** Function: restart
+        ** Description: 
+        ** *************************************************************************/
         void restart() {
 
         };
 
-        // Passthrough for send function of the connection type
+        /* **************************************************************************
+        ** Function: send
+        ** Description: Passthrough for the send function for the particular communication type used.
+        ** *************************************************************************/
         void send(Message * message) {
             this->conn->send(message);
         }
 
-        // Passthrough for send function of the connection type
+        /* **************************************************************************
+        ** Function: send
+        ** Description: Passthrough for the send function for the particular communication type used.
+        ** *************************************************************************/
         void send(const char * message) {
             this->conn->send(message);
         }
 
-        // Receive for requests, if a request is received recv it and then return the message string
-        std::string recv() {
+        /* **************************************************************************
+        ** Function: handle_new_request
+        ** Description: Handles new requests. Operates in nonblocking mode: if there is a request present, enters blocking mode and handles the request.
+        ** Returns: A passthrough of a string from handle_contact (message received from requesting client)
+        ** *************************************************************************/
+        std::string handle_new_request() {
             std::string request = this->conn->recv(ZMQ_NOBLOCK);
-            //std::string request = this->conn->recv(0);//blocking mode
 
             switch (request.size()) {
                 case 0: {
@@ -70,9 +93,9 @@ class Control {
 			    printo("Communication type requested: " + std::to_string(comm_requested), CONTROL_P);
 			    TechnologyType server_comm_type;
 			    if ((TechnologyType)comm_requested == TCP_TYPE) {
-                    server_comm_type = STREAMBRIDGE_TYPE;
+				server_comm_type = STREAMBRIDGE_TYPE;
 			    } else {
-                    server_comm_type = (TechnologyType)comm_requested;
+				server_comm_type = (TechnologyType)comm_requested;
 			    }
 			    std::string device_info = this->handle_contact(server_comm_type);
 
@@ -80,7 +103,7 @@ class Control {
 			} else {
 			    printo("Somethings not right", CONTROL_P);
 			    try {
-                    this->conn->send("\x15");
+				this->conn->send("\x15");
 			    } catch(...) {
 
 			    }
@@ -94,18 +117,19 @@ class Control {
             }
 
             return "";
-        };
+        }
 
         /* **************************************************************************
-        ** Function:
-        ** Description:
+        ** Function: handle_contact
+        ** Description: This handles the finishing of a request for a new connection type
+        ** Returns: Returns a message (string) that is a request for a connection type
         ** *************************************************************************/
         std::string handle_contact(TechnologyType technology) {
             printo("Handling request from control socket", CONTROL_P);
 
             switch (technology) {
-        		case TCP_TYPE:
-        		case STREAMBRIDGE_TYPE:
+		case TCP_TYPE:
+		case STREAMBRIDGE_TYPE:
                 case DIRECT_TYPE: {
                     std::string full_port = "";
                     std::string device_info = "";
@@ -128,12 +152,15 @@ class Control {
             }
 
             return "";
-
         }
 
+        /* **************************************************************************
+        ** Function: close_current_connection
+        ** Description: Special for the TCP connection type, it calls the connection's internal prepare_for_next function which cleans up the current socket and prepares for a new connection.
+        ** *************************************************************************/
 	void close_current_connection() {
 	    if (this->conn->get_internal_type() == "TCP") {
-            this->conn->prepare_for_next();
+		this->conn->prepare_for_next();
 	    }
 	}
 

@@ -521,7 +521,7 @@ void Node::listen(){
         std::string notification = "";
         Message queue_request;
 
-        control_request = this->control->recv();
+        control_request = this->control->handle_new_request();
     	if (control_request != "") {
     	    this->handle_control_request(control_request);
     	    this->control->close_current_connection();
