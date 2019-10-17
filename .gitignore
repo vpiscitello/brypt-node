@@ -6,6 +6,7 @@
 *.test
 *.pem
 *.pipe
+.vscode
 
 /tmp
 /build
