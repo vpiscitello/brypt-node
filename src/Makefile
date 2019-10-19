@@ -7,9 +7,15 @@ TARGET = $(BINARYDIR)/$(BINARYNAME)
 OPENSSL_LIB = -L/usr/local/opt/openssl/lib
 OPENSSL_INCLUDE = -I/usr/local/opt/openssl/include/openssl
 
+mode = release
+ifeq ($(mode),debug)
+CXXFLAGS = -g3 -ggdb -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
+else
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
+endif
+
 CXXINCLUDES = $(OPENSSL_INCLUDE)
 CXXLIBS = -lzmq $(OPENSSL_LIB) -pthread -lcrypto -ldl
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
 
 SRCDIR = .
 
