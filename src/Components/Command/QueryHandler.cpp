@@ -163,9 +163,14 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
     if (auto const optConnection = m_instance.GetConnection(destinationId)) {
         auto const connection = optConnection->lock();
         connection->Send(request);
-        std::optional<CMessage> optResponse = connection->Receive();
+        std::optional<std::string> optResponse = connection->Receive();
         if (optResponse) {
-            printo("Received: " + optResponse->GetPack(), NodeUtils::PrintType::COMMAND);
+            try {
+                CMessage response(*optResponse);
+                NodeUtils::printo("Received: " + message.GetPack(), NodeUtils::PrintType::COMMAND);
+            } catch (...) {
+                NodeUtils::printo("Query response could not be unpacked!", NodeUtils::PrintType::COMMAND);
+            }
         }
     }
 

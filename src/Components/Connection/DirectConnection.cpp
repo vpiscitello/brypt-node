@@ -168,7 +168,7 @@ void Connection::CDirect::SetupResponseSocket(NodeUtils::PortNumber const& port)
     if(!m_context) {
         std::runtime_error("ZMQ Context has not been initialized!");
     }
-    m_socket = std::make_unique<zmq::socket_t>(m_context.get(), ZMQ_REP);
+    m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_REP);
     m_pollItem.socket = m_socket.get();
     m_pollItem.events = ZMQ_POLLIN;
     m_instantiate = true;
@@ -185,7 +185,7 @@ void Connection::CDirect::SetupRequestSocket(NodeUtils::IPv4Address const& addre
     if (!m_context) {
         std::runtime_error("ZMQ Context has not been initialized!");
     } 
-    m_socket = std::make_unique<zmq::socket_t>(m_context.get(), ZMQ_REQ);
+    m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_REQ);
     m_pollItem.socket = m_socket.get();
     m_pollItem.events = ZMQ_POLLIN;
     m_socket->connect("tcp://" + address + ":" + port);
@@ -206,7 +206,7 @@ void Connection::CDirect::Send(CMessage const& message)
     zmq::message_t request(pack.size());
     memcpy(&request, pack.c_str(), pack.size());
 
-    m_socket->send(request);
+    m_socket->send(request, zmq::send_flags::none);
     printo("[Direct] Sent: (" + std::to_string(strlen(pack.c_str())) + ") " + pack, NodeUtils::PrintType::CONNECTION);
 
     ++m_sequenceNumber;
@@ -225,7 +225,7 @@ void Connection::CDirect::Send(char const* const message)
     zmq::message_t request(strlen(message));
     memcpy(&request, message, strlen(message));
 
-    m_socket->send(request);
+    m_socket->send(request, zmq::send_flags::none);
     printo("[Direct] Sent: (" + std::to_string(strlen(message)) + ") " + message, NodeUtils::PrintType::CONNECTION);
 
     ++m_sequenceNumber;
@@ -240,9 +240,10 @@ std::optional<std::string> Connection::CDirect::Receive(std::int32_t flag)
 {
     if (!m_context) {
         std::runtime_error("ZMQ Context has not been initialized!");
-    } 
+    }
+    zmq::recv_flags zmqFlag = static_cast<zmq::recv_flags>(flag);
     zmq::message_t message;
-    m_socket->recv(&message, flag);
+    m_socket->recv(message, zmqFlag);
     std::string request = std::string(static_cast<char*>(message.data()), message.size());
 
     if (request.empty()) {

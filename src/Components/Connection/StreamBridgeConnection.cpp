@@ -46,7 +46,7 @@ Connection::CStreamBridge::CStreamBridge(NodeUtils::TOptions const& options)
         switch (m_operation) {
             case NodeUtils::DeviceOperation::ROOT: {
                printo("[StreamBridge] Setting up StreamBridge socket on port " + options.m_port, NodeUtils::PrintType::CONNECTION);
-               m_socket = std::make_unique<zmq::socket_t>(m_context.get(), ZMQ_STREAM);
+               m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_STREAM);
                m_initializationMessage = 1;
                SetupStreamBridgeSocket(options.m_port);
             } break;
@@ -120,7 +120,7 @@ void Connection::CStreamBridge::Worker()
     switch (m_operation) {
         case NodeUtils::DeviceOperation::ROOT: {
             printo("[StreamBridge] Setting up StreamBridge socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
-            m_socket = std::make_unique<zmq::socket_t>(m_context.get(), ZMQ_STREAM);
+            m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_STREAM);
             m_initializationMessage = 1;
             SetupStreamBridgeSocket(m_port);
         } break;

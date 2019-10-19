@@ -68,7 +68,7 @@ bool CNotifier::Send(
     {
         zmq::message_t zmqMessage(notification.size());
         memcpy(zmqMessage.data(), notification.c_str(), notification.size());
-        m_publisher.send(zmqMessage);
+        m_publisher.send(zmqMessage, zmq::send_flags::none);
     }
 
     // Non-ZMQ Publishing Scope
@@ -82,6 +82,8 @@ bool CNotifier::Send(
             }
         }
     }
+
+    return true;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -93,13 +95,13 @@ std::optional<std::string> CNotifier::Receive()
     }
 
     zmq::message_t message;
-    std::int32_t const receivedBytes = m_subscriber.recv(&message, ZMQ_DONTWAIT);
-    if (receivedBytes < 1) {
+    auto const result = m_subscriber.recv(message, zmq::recv_flags::dontwait);
+    if (!result) {
         return {};
     }
 
     std::string const notification = std::string(static_cast<char *>(message.data()), message.size());
-    printo("Received: " + notification, NodeUtils::PrintType::NOTIFIER);
+    printo("Received: " + notification, NodeUtils::PrintType::NOTIFIER) ;
 
     return notification;
 }

@@ -39,11 +39,6 @@ if [[ $cont =~ ^([yY][eE][sS]|[yY])$ ]]; then
     echo "================================================================="
     echo "============= Downloading and Compiling Node Code ==============="
     echo "================================================================="
-    #	cd /home/pi
-    #	git clone https://github.com/Stygain/brypt-node.git
-    #	cd /home/pi/brypt-node
-    #	git fetch origin rthowerton
-    #	git checkout -t origin/rthowerton
     cd /home/pi/brypt-node/dev
     chmod +x /home/pi/brypt-node/dev/config/AP/startup_ap.sh
     g++ node.cpp "test.cpp" -o device -O2 -Wall -lzmq

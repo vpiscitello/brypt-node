@@ -472,32 +472,32 @@ public:
         m_network->PushPeerName(options.m_peerName);
     };
 
-    std::weak_ptr<State::CAuthority> const& GetAuthorityState() const
+    std::weak_ptr<State::CAuthority> GetAuthorityState() const
     {
         return m_authority;
     };
 
-    std::weak_ptr<State::CCoordinator> const& GetCoordinatorState() const
+    std::weak_ptr<State::CCoordinator> GetCoordinatorState() const
     {
         return m_coordinator;
     };
 
-    std::weak_ptr<State::CNetwork> const& GetNetworkState() const
+    std::weak_ptr<State::CNetwork> GetNetworkState() const
     {
         return m_network;
     };
 
-    std::weak_ptr<State::CSecurity> const& GetSecurityState() const
+    std::weak_ptr<State::CSecurity> GetSecurityState() const
     {
         return m_security;
     };
 
-    std::weak_ptr<State::CSelf> const& GetSelfState() const
+    std::weak_ptr<State::CSelf> GetSelfState() const
     {
         return m_self;
     };
 
-    std::weak_ptr<State::CSensor> const& GetSensorState() const
+    std::weak_ptr<State::CSensor> GetSensorState() const
     {
         return m_sensor;
     };

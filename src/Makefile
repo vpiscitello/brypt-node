@@ -1,54 +1,63 @@
 CXX = g++
-TARGET = BryptNode
-BLD = build
+BUILDDIR = build
+BINARYDIR = bin
+BINARYNAME = BryptNode
+TARGET = $(BINARYDIR)/$(BINARYNAME)
 
-LZMQ = -lzmq
-LPTHREAD = -lpthread
-LOPENSSL_LIB = -L/usr/local/opt/openssl/lib
-LOPENSSL_INCLUDE = -L/usr/local/opt/openssl/include/openssl
-LCRYPTO = -lcrypto
+OPENSSL_LIB = -L/usr/local/opt/openssl/lib
+OPENSSL_INCLUDE = -I/usr/local/opt/openssl/include/openssl
 
-CXXLIBS = $(LZMQ) $(LPTHREAD) $(LOPENSSL_LIB) $(LOPENSSL_INCLUDE) $(LCRYPTO)
+CXXINCLUDES = $(OPENSSL_INCLUDE)
+CXXLIBS = -lzmq $(OPENSSL_LIB) -pthread -lcrypto -ldl
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
+
+SRCDIR = .
 
 AWAITDIR = Components/Await
 COMMANDDIR = Components/Command
-CONNECTIONDIR = wildcard Components/Connection
+CONNECTIONDIR = Components/Connection
 CONTROLDIR = Components/Control
 MESSAGEQUEUEDIR = Components/MessageQueue
 PEERWATCHERDIR = Components/PeerWatcher
-NOTIFIERDIR = Components/PeerWatcher
+NOTIFIERDIR = Components/Notifier
 
 JSON11DIR = Libraries/Json11
 
-MODULES = $(AWAITDIR) $(COMMANDDIR) $(CONNECTIONDIR) $(CONTROLDIR) $(MESSAGEQUEUEDIR) $(PEERWATCHERDIR) $(NOTIFIERDIR) $(JSON11DIR)
-BUILDDIR = $(addpredix build/,$(MODULES))
+MODULES = $(SRCDIR) $(AWAITDIR) $(COMMANDDIR) $(CONNECTIONDIR) $(CONTROLDIR) $(MESSAGEQUEUEDIR) $(PEERWATCHERDIR) $(NOTIFIERDIR) $(JSON11DIR)
 
 SRC = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
-OBJ = $(patsubst %.cpp,build/%.o,$(SRC))
-INCLUDES = $(addpredix -I,$(MODULES))
+OBJ = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRC)))
+
+RMBUILDDIR = rm -r $(BUILDDIR)
+RMBINARYDIR = rm -r $(BINARYDIR)
 
 vpath %.cpp $(MODULES)
 
 define cxx-command
 $1/%.o: %.cpp
-	$(CXX) $(INCLUDES) -c $$< -o $$@
+	$(CXX) -c $$< -o $$@ $(CXXFLAGS)
 endef
 
-.PHONY: all checkdirs clean
+.PHONY: all introduction clean clean-build-dir clean-binary-dir
 
-all: checkdirs build/$(TARGET)
+all: introduction $(TARGET)
 
-build/$(TARGET): $(OBJ)
-	$(CXX) $^ -o $@
+$(TARGET): $(OBJ)
+	@mkdir -p $(BINARYDIR)
+	$(CXX) $^ -o $@ $(CXXINCLUDES) $(CXXFLAGS) $(CXXLIBS)
+	-$(RMBUILDDIR)
 
-checkdirs: $(BUILDDIR)
+introduction: $(BUILDDIR)
+	@echo "Building $(BINARYNAME) to ./$(BINARYDIR)"
+	@echo "Source Directories Found:"
+	@$(foreach module, $(MODULES), echo "\t-- $(module)";)
 
 $(BUILDDIR):
-	mkdir -p $@
+	@mkdir -p $@
 
 $(foreach bdir, $(BUILDDIR),$(eval $(call cxx-command,$(bdir))))
 
 clean:
-	rm -f *.out *.o *.d $(TARGET)
-	rm -r build
+	rm -f *.out *.o *.d
+	-$(RMBUILDDIR)
+	-$(RMBINARYDIR)

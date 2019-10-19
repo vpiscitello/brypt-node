@@ -20,6 +20,7 @@ std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TechnologyType const
     	case NodeUtils::TechnologyType::TCP: return std::make_shared<CTcp>();
     	case NodeUtils::TechnologyType::NONE: return nullptr;
     }
+    return nullptr;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -32,6 +33,7 @@ std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TOptions const& opti
         case NodeUtils::TechnologyType::TCP: return std::make_shared<CTcp>(options);
         case NodeUtils::TechnologyType::NONE: return nullptr;
     }
+    return nullptr;
 }
 
 //------------------------------------------------------------------------------------------------

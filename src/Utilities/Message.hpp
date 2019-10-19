@@ -93,6 +93,7 @@ public:
 	}
 
 	//------------------------------------------------------------------------------------------------
+
 	CMessage(CMessage&& other)
 		: m_raw(other.m_raw)
 		, m_sourceId(other.m_sourceId)
@@ -111,6 +112,27 @@ public:
 		if (other.m_response) {
 			m_response = std::move(other.m_response);
 		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+
+	CMessage& operator=(const CMessage& other)
+	{
+		m_raw = other.m_raw;
+		m_sourceId = other.m_sourceId;
+		m_destinationId = other.m_destinationId;
+		m_awaitId = other.m_awaitId;
+		m_command = other.m_command;
+		m_phase = other.m_phase;
+		m_data = other.m_data;
+		m_length = other.m_length;
+		m_timepoint = other.m_timepoint;
+		m_key = other.m_key;
+		m_nonce = other.m_nonce;
+		m_token = other.m_token;
+		m_response = std::make_unique<CMessage>(*other.m_response.get());
+
+		return *this;
 	}
 
 	//------------------------------------------------------------------------------------------------

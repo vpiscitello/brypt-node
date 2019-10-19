@@ -41,7 +41,7 @@ public:
     explicit CNode(NodeUtils::TOptions const& options);
     ~CNode() {};
 
-    bool Startup();
+    void Startup();
 
     std::shared_ptr<CConnection> SetupFullConnection(
         NodeUtils::NodeIdType const& peerId,
@@ -51,12 +51,12 @@ public:
     void NotifyConnection(NodeUtils::NodeIdType const& id);
 
     // Getter Functions
-    std::weak_ptr<CControl> const& GetControl() const;
-    std::weak_ptr<CNotifier> const& GetNotifier() const;
+    std::weak_ptr<CMessageQueue> GetMessageQueue() const;
+    std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
+    std::weak_ptr<NodeUtils::ConnectionMap> GetConnections() const;
     std::optional<std::weak_ptr<CConnection>> GetConnection(NodeUtils::NodeIdType const& id) const;
-    std::weak_ptr<NodeUtils::ConnectionMap> const& GetConnections() const;
-    std::weak_ptr<CMessageQueue> const& GetMessageQueue() const;
-    std::weak_ptr<Await::CObjectContainer> const& GetAwaiting() const;
+    std::weak_ptr<CControl> GetControl() const;
+    std::weak_ptr<CNotifier> GetNotifier() const;
 
 private:
     // Utility Functions
@@ -99,11 +99,11 @@ private:
     NodeUtils::CommandMap m_commands;
 
     // Connection of the node
+    std::shared_ptr<NodeUtils::ConnectionMap> m_connections;
     std::shared_ptr<CControl> m_control;
     std::shared_ptr<CNotifier> m_notifier;
     std::shared_ptr<CPeerWatcher> m_watcher;
-    std::shared_ptr<NodeUtils::ConnectionMap> m_connections;
-    
+
     bool m_initialized;
 };
 

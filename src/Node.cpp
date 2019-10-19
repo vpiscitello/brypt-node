@@ -43,13 +43,13 @@ void SimulateClient(
 CNode::CNode(NodeUtils::TOptions const& options)
     : m_state(std::make_shared<CState>(options))
     , m_capability(NodeUtils::DeviceSocketCapability::SLAVE)
-    , m_control(std::make_shared<CControl>(NodeUtils::TechnologyType::TCP, m_state->GetSelfState()))
-    , m_notifier(std::make_shared<CNotifier>(this, m_state))
-    , m_watcher(std::make_shared<CPeerWatcher>(this, m_state))
     , m_queue(std::make_shared<CMessageQueue>())
     , m_awaiting(std::make_shared<Await::CObjectContainer>())
     , m_commands()
     , m_connections()
+    , m_control(std::make_shared<CControl>(m_state, m_connections, NodeUtils::TechnologyType::TCP))
+    , m_notifier(std::make_shared<CNotifier>(m_state, m_connections))
+    , m_watcher(std::make_shared<CPeerWatcher>(m_state, m_connections))
     , m_initialized(false)
 {
     if (options.m_operation == NodeUtils::DeviceOperation::NONE) {
@@ -87,13 +87,13 @@ CNode::CNode(NodeUtils::TOptions const& options)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::Startup()
+void CNode::Startup()
 {
     if (m_initialized == false) {
         std::cout << "Node instance must be setup before starting!" << std::endl;
     }
 
-    NodeUtils::DeviceOperation operation;
+    NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::NONE;
     if (auto const selfState = m_state->GetSelfState().lock()) {
         operation = selfState->GetOperation();
     }
@@ -150,6 +150,7 @@ std::shared_ptr<CConnection> CNode::SetupFullConnection(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+
 void CNode::NotifyConnection(NodeUtils::NodeIdType const& id)
 {
     if (auto const itr = m_connections->find(id); itr != m_connections->end()) {
@@ -159,16 +160,23 @@ void CNode::NotifyConnection(NodeUtils::NodeIdType const& id)
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CControl> const& CNode::GetControl() const
+std::weak_ptr<CMessageQueue> CNode::GetMessageQueue() const
 {
-    return m_control;
+    return m_queue;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CNotifier> const& CNode::GetNotifier() const
+std::weak_ptr<Await::CObjectContainer> CNode::GetAwaiting() const
 {
-    return m_notifier;
+    return m_awaiting;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<NodeUtils::ConnectionMap> CNode::GetConnections() const
+{
+    return m_connections;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -183,23 +191,16 @@ std::optional<std::weak_ptr<CConnection>> CNode::GetConnection(NodeUtils::NodeId
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<NodeUtils::ConnectionMap> const& CNode::GetConnections() const
+std::weak_ptr<CControl> CNode::GetControl() const
 {
-    return m_connections;
+    return m_control;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CMessageQueue> const& CNode::GetMessageQueue() const
+std::weak_ptr<CNotifier> CNode::GetNotifier() const
 {
-    return m_queue;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::weak_ptr<Await::CObjectContainer> const& CNode::GetAwaiting() const
-{
-    return m_awaiting;
+    return m_notifier;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -244,6 +245,7 @@ NodeUtils::TechnologyType CNode::determineBestConnectionType()
             case NodeUtils::TechnologyType::NONE: return *itr;
         }
     }
+    return NodeUtils::TechnologyType::NONE;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -624,6 +626,7 @@ NodeUtils::TechnologyType local::InitialContactTechnology(NodeUtils::TechnologyT
         case NodeUtils::TechnologyType::STREAMBRIDGE:
             return NodeUtils::TechnologyType::TCP;
     }
+    return NodeUtils::TechnologyType::NONE;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -647,15 +650,15 @@ void test::SimulateClient(
     } else { return; }
 
     std::cout << "== [Node] Simulating client sensor Information request" << '\n';
-    CMessage message("0xFFFFFFFF", id, NodeUtils::CommandType::INFORMATION, 0, "Request for Network Information.", 0);
-    if (auto const itr = commands.find(message.GetCommand()); itr != commands.end()) {
-        itr->second->HandleMessage(message);
+    CMessage informationRequest("0xFFFFFFFF", id, NodeUtils::CommandType::INFORMATION, 0, "Request for Network Information.", 0);
+    if (auto const itr = commands.find(informationRequest.GetCommand()); itr != commands.end()) {
+        itr->second->HandleMessage(informationRequest);
     }
     
     std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-    CMessage message("0xFFFFFFFF",id, NodeUtils::CommandType::QUERY, 0, "Request for Sensor Readings.", 0);
-    if (auto const itr = commands.find(message.GetCommand()); itr != commands.end()) {
-        itr->second->HandleMessage(message);
+    CMessage queryRequest("0xFFFFFFFF",id, NodeUtils::CommandType::QUERY, 0, "Request for Sensor Readings.", 0);
+    if (auto const itr = commands.find(queryRequest.GetCommand()); itr != commands.end()) {
+        itr->second->HandleMessage(queryRequest);
     }
 }
 

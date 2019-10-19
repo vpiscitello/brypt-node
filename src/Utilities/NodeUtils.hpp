@@ -204,7 +204,7 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::IPv4Address NodeUtils::GetLocalAddress()
+inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress()
 {
     IPv4Address ip = std::string();
 

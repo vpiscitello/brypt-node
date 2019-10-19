@@ -117,6 +117,8 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
     if (auto const control = m_instance.GetControl().lock()) {
         control->Send("\x04");
     }
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------

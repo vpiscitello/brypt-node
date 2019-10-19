@@ -25,6 +25,7 @@ std::unique_ptr<Command::CHandler> Command::Factory(
     	case NodeUtils::CommandType::TRANSFORM: return std::make_unique<CTransform>(instance, state);
     	case NodeUtils::CommandType::NONE: return nullptr;
     }
+	return nullptr;
 }
 
 //------------------------------------------------------------------------------------------------

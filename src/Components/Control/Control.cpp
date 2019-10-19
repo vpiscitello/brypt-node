@@ -85,6 +85,7 @@ std::optional<std::string> CControl::HandleRequest()
                     m_control->Send("\x15");
                 }
             }
+            return {};
         }
         default: {
             CMessage const message(*optRequest);
