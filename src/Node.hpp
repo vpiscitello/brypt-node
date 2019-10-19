@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
-//#include <cmath>
+#include <cmath>
 #include <ctime>
 #include <iostream>
 #include <memory>
