@@ -42,15 +42,20 @@ endef
 
 all: introduction $(TARGET)
 
+rebuild: clean all
+
 $(TARGET): $(OBJ)
 	@mkdir -p $(BINARYDIR)
 	$(CXX) $^ -o $@ $(CXXINCLUDES) $(CXXFLAGS) $(CXXLIBS)
+ifdef cleanup
+	@echo "\nRemoving temporary build directory"
 	-$(RMBUILDDIR)
+endif
 
 introduction: $(BUILDDIR)
-	@echo "Building $(BINARYNAME) to ./$(BINARYDIR)"
+	@echo "Building $(BINARYNAME) to ./$(BINARYDIR)\n"
 	@echo "Source Directories Found:"
-	@$(foreach module, $(MODULES), echo "\t-- $(module)";)
+	@$(foreach module, $(MODULES), echo "\t-- $(module)";) echo
 
 $(BUILDDIR):
 	@mkdir -p $@
@@ -58,6 +63,7 @@ $(BUILDDIR):
 $(foreach bdir, $(BUILDDIR),$(eval $(call cxx-command,$(bdir))))
 
 clean:
+	@echo "Cleaning build components"
 	rm -f *.out *.o *.d
 	-$(RMBUILDDIR)
 	-$(RMBINARYDIR)
