@@ -157,6 +157,12 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
+	~CMessage()
+	{
+	}
+
+	//------------------------------------------------------------------------------------------------
+
 	CMessage(
 		NodeUtils::NodeIdType const& sourceId,
 		NodeUtils::NodeIdType const& destinationId,
@@ -478,7 +484,7 @@ public:
 		std::int32_t encrypted = 0;
 		ctx = EVP_CIPHER_CTX_new();
 		EVP_EncryptInit_ex(ctx, EVP_aes_256_ctr(), nullptr, key, iv);
-		EVP_EncryptUpdate(ctx, ciphertext, &encrypted, plaintext, encrypted);
+		EVP_EncryptUpdate(ctx, ciphertext, &encrypted, plaintext, length);
 		if (encrypted == 0) {
 			return {};
 		}
@@ -518,7 +524,7 @@ public:
 		std::int32_t decrypted = 0;
 		ctx = EVP_CIPHER_CTX_new();
 		EVP_DecryptInit_ex(ctx, EVP_aes_256_ctr(), nullptr, key, iv);
-		EVP_DecryptUpdate(ctx, plaintext, &decrypted, ciphertext, decrypted);
+		EVP_DecryptUpdate(ctx, plaintext, &decrypted, ciphertext, length);
 		if (decrypted == 0) {
 			return {};
 		}

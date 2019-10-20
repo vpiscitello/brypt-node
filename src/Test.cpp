@@ -163,6 +163,15 @@ void MessageTest() {
 //------------------------------------------------------------------------------------------------
 
 void RunTests() {
+    options.m_id = "0xFFFFFFFF";
+    options.m_interface = "en0";
+    options.m_port = "3005";
+    options.m_operation = NodeUtils::DeviceOperation::ROOT;
+    options.m_technology = NodeUtils::TechnologyType::DIRECT;
+    options.m_peerName = "0x00000000";
+    options.m_peerAddress = "127.0.0.1";
+    options.m_peerPort = "9999";
+
     ConnectionFactoryTest();
     CommandParseTest();
     MessageQueueTest();
@@ -381,7 +390,6 @@ void CreateStreamBridgeSendQuery() {
 //------------------------------------------------------------------------------------------------
 
 std::int32_t main(std::int32_t argc, char** argv) {
-
     ParseArguments(argc, argv);
 
     if (options.m_runTests == true) {

@@ -89,8 +89,6 @@ private:
     // Private Variables
     std::shared_ptr<CState> m_state;
 
-    NodeUtils::DeviceSocketCapability m_capability;
-
     // These classes should be implemented a threadsafe manner
     std::shared_ptr<CMessageQueue> m_queue;
     std::shared_ptr<Await::CObjectContainer> m_awaiting;

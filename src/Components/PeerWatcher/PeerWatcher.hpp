@@ -25,7 +25,11 @@ class CPeerWatcher {
             , m_workerMutex()
             , m_workerConditional()
         {
-        }
+        };
+
+        ~CPeerWatcher()
+        {
+        };
 
     private:
         void watch();

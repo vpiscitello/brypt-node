@@ -116,13 +116,16 @@ public:
     virtual ~CConnection() {};
 
 	virtual void whatami() = 0;
+    virtual NodeUtils::TechnologyType const& GetInternalType() const = 0;
+    virtual std::string const& GetProtocolType() const = 0;
+
 	virtual void Spawn() = 0;
 	virtual void Worker() = 0;
-    virtual std::string const& GetProtocolType() const = 0;
-    virtual NodeUtils::TechnologyType const& GetInternalType() const = 0;
-	virtual std::optional<std::string> Receive(std::int32_t flag = 0) = 0;
+
 	virtual void Send(CMessage const& message) = 0;
 	virtual void Send(char const* const message) = 0;
+	virtual std::optional<std::string> Receive(std::int32_t flag = 0) = 0;
+    
     virtual void PrepareForNext() = 0;
 	virtual void Shutdown() = 0;
 

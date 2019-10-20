@@ -74,17 +74,6 @@ void Connection::CDirect::whatami()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CDirect::Spawn()
-{
-    printo("[Direct] Spawning DIRECT_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
-    m_workerThread = std::thread(&CDirect::Worker, this);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 std::string const& Connection::CDirect::GetProtocolType() const
 {
     static std::string const protocol = "IEEE 802.11";  // Not true, it is possible to use ethernet for example
@@ -100,6 +89,17 @@ NodeUtils::TechnologyType const& Connection::CDirect::GetInternalType() const
 {
     static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::DIRECT;
     return internal;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CDirect::Spawn()
+{
+    printo("[Direct] Spawning DIRECT_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
+    m_workerThread = std::thread(&CDirect::Worker, this);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -276,15 +276,6 @@ void Connection::CDirect::Shutdown()
     printo("[Direct] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
     zmq_close(m_socket.release());
     zmq_ctx_destroy(m_context.release());
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Connection::CDirect::HandleMessaging() {
-
 }
 
 //------------------------------------------------------------------------------------------------

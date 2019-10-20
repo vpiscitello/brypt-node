@@ -4,8 +4,6 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageQueue.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Utilities/Message.hpp"
-//------------------------------------------------------------------------------------------------
 #include <algorithm>
 //------------------------------------------------------------------------------------------------
 
@@ -45,7 +43,7 @@ bool CMessageQueue::AddManagedPipe(NodeUtils::NodeIdType const& id)
 
 	m_pipes.emplace(id, filename);
 
-	NodeUtils::printo("Pipes being watched: " + m_pipes.size(), NodeUtils::PrintType::MQUEUE);
+	NodeUtils::printo("Pipes being watched: " + std::to_string(m_pipes.size()), NodeUtils::PrintType::MQUEUE);
 
 	return true;
 }

@@ -42,7 +42,6 @@ void SimulateClient(
 //------------------------------------------------------------------------------------------------
 CNode::CNode(NodeUtils::TOptions const& options)
     : m_state(std::make_shared<CState>(options))
-    , m_capability(NodeUtils::DeviceSocketCapability::SLAVE)
     , m_queue(std::make_shared<CMessageQueue>())
     , m_awaiting(std::make_shared<Await::CObjectContainer>())
     , m_commands()
