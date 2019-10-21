@@ -20,15 +20,26 @@ class CPeerWatcher {
             , m_watched(peers)
             , m_lastCheckTimePoint()
             , m_requiredUpdateTimePoint()
-            , m_worker(std::thread(&CPeerWatcher::watch, this))
+            , m_process(true)
             , m_active(false)
-            , m_workerMutex()
-            , m_workerConditional()
+            , m_worker(std::thread(&CPeerWatcher::watch, this))
+            , m_mutex()
+            , m_terminate()
         {
         };
 
         ~CPeerWatcher()
         {
+            // Stop the worker thread from processing the connections
+            {
+                std::unique_lock<std::mutex> lock(m_mutex);
+                m_process = false;
+            }
+            m_terminate.notify_all();
+            // NOTE: GDB in VSCode - WSL seems to be crashes when m_worker.join() is used. The thread will successfully 
+            // complete/return, however, GDB will hang in futex_wait. m_worker.join() does not fail in normal run.
+            // Occasionally m_worker.join() will work, but that is the exeception.
+            m_worker.join();
         };
 
     private:
@@ -41,10 +52,12 @@ class CPeerWatcher {
         NodeUtils::TimePoint m_lastCheckTimePoint;
         NodeUtils::TimePoint m_requiredUpdateTimePoint;
 
-        std::thread m_worker;
+        bool m_process;
+
         bool m_active;
-        std::mutex m_workerMutex;
-        std::condition_variable m_workerConditional;
+        std::thread m_worker;
+        std::mutex m_mutex;
+        std::condition_variable m_terminate;
 
 };
 

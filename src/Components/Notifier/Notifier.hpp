@@ -32,6 +32,13 @@ public:
         std::shared_ptr<CState> const& state,
         std::weak_ptr<NodeUtils::ConnectionMap> const& connections);
 
+    ~CNotifier()
+    {
+        m_publisher.close();
+        m_subscriber.close();
+        m_context.close();
+    };
+
     bool Connect(NodeUtils::IPv4Address const& ip, NodeUtils::IPv4Address const& port);
     // Passthrough for send function of the connection type
     // Update to target sub clusters and nodes in the prefix

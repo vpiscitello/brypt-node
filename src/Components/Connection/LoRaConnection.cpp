@@ -38,7 +38,7 @@ void Connection::CLoRa::whatami()
 void Connection::CLoRa::Spawn()
 {
     printo("[LoRa] Spawning LoRa connection thread", NodeUtils::PrintType::CONNECTION);
-    m_workerThread = std::thread(&CLoRa::Worker, this);
+    m_worker = std::thread(&CLoRa::Worker, this);
 }
 
 //------------------------------------------------------------------------------------------------

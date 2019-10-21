@@ -189,7 +189,7 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
         {PrintType::NODE, "\x1b[1;30;48;5;42m[     Node    ]\x1b[0m "},
         {PrintType::NOTIFIER, "\x1b[1;30;48;5;12m[   Notifier  ]\x1b[0m "},
         {PrintType::WATCHER, "\x1b[1;30;48;5;203m[ PeerWatcher ]\x1b[0m "},
-        {PrintType::ERROR, ""},
+        {PrintType::ERROR, "\x1b[1;30;48;5;196m[    ERORR    ]\x1b[0m "},
     };
 
     if(auto const itr = escapeMap.find(component); itr != escapeMap.end()) {

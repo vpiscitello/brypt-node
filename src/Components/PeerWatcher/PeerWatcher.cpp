@@ -14,7 +14,7 @@ namespace {
 //------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
-constexpr std::chrono::milliseconds timeout = std::chrono::seconds(10);
+constexpr std::chrono::seconds timeout = std::chrono::seconds(10);
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -38,8 +38,15 @@ void CPeerWatcher::watch()
 
         m_requiredUpdateTimePoint = NodeUtils::GetSystemTimePoint();
 
-        std::this_thread::sleep_for(local::timeout);
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            if (m_terminate.wait_for(lock, local::timeout, [&]{return !m_process;})) {
+                break;
+            }
+        }
     } while(true);
+
+    m_active = false;
 }
 
 void CPeerWatcher::heartbeat()

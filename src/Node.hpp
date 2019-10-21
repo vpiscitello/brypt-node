@@ -39,7 +39,15 @@ class CNode {
 public:
     // Constructors and Deconstructors
     explicit CNode(NodeUtils::TOptions const& options);
-    ~CNode() {};
+    ~CNode() {
+        m_control.reset();
+        m_notifier.reset();
+        m_watcher.reset();
+        m_connections.reset();
+        m_awaiting.reset();
+        m_queue.reset();
+        m_state.reset();
+    };
 
     void Startup();
 

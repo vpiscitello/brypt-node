@@ -99,7 +99,7 @@ NodeUtils::TechnologyType const& Connection::CDirect::GetInternalType() const
 void Connection::CDirect::Spawn()
 {
     printo("[Direct] Spawning DIRECT_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
-    m_workerThread = std::thread(&CDirect::Worker, this);
+    m_worker = std::thread(&CDirect::Worker, this);
 }
 
 //------------------------------------------------------------------------------------------------

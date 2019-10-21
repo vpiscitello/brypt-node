@@ -37,14 +37,20 @@ void ConnectionFactoryTest() {
     std::cout << "\n== Testing Connection Factory" << '\n';
     // Setup a vector of open connections
     std::vector<std::shared_ptr<CConnection>> connections;
+    auto const invalid = Connection::Factory(NodeUtils::TechnologyType::NONE);
+    if (!invalid) {
+        std::cout << "Building a connection with type none failed successfully" << std::endl;
+    }
+
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::DIRECT));
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::LORA));
+    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::STREAMBRIDGE));
+    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::TCP));
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::DIRECT));
-
+    
     // Check the connection type and run a shared function
     for (std::size_t idx = 0; idx < connections.size(); ++idx) {
         connections.at(idx)->whatami();
-        std::cout << '\n';
     }
 }
 
@@ -98,7 +104,7 @@ void MessageQueueTest() {
 	std::cout << packet <<"\n";
 
 	msgQueue.AddManagedPipe("1");
-	std::fstream file("1", std::ios::out | std::ios::binary);
+	std::fstream file("./tmp/1", std::ios::out | std::ios::binary);
 
 	for(std::size_t idx = 0; idx < packet.size(); ++idx){
 		file.put(packet.at(idx));
@@ -184,7 +190,10 @@ void ParseArguments(std::int32_t argc, char** argv) {
     std::vector<std::string> args;
     std::vector<std::string>::iterator itr;
 
-    if (argc <= 1) { return; }
+    if (argc <= 1) {
+        NodeUtils::printo("Arguements must be provided!", NodeUtils::PrintType::ERROR);
+        exit(1);
+    }
 
     for(std::int32_t idx = 0; idx < argc; ++idx) {
         args.push_back(std::string(argv[idx]));

@@ -75,7 +75,7 @@ void Connection::CTcp::whatami()
 void Connection::CTcp::Spawn()
 {
     printo("[TCP] Spawning TCP_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
-    m_workerThread = std::thread(&CTcp::Worker, this);
+    m_worker = std::thread(&CTcp::Worker, this);
 }
 
 //------------------------------------------------------------------------------------------------

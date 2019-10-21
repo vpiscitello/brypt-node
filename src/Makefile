@@ -9,7 +9,7 @@ OPENSSL_INCLUDE = -I/usr/local/opt/openssl/include/openssl
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
 else
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
 endif
@@ -31,8 +31,10 @@ JSON11DIR = Libraries/Json11
 
 MODULES = $(SRCDIR) $(AWAITDIR) $(COMMANDDIR) $(CONNECTIONDIR) $(CONTROLDIR) $(MESSAGEQUEUEDIR) $(PEERWATCHERDIR) $(NOTIFIERDIR) $(JSON11DIR)
 
-SRC = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
-OBJ = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRC)))
+SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
+OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRCS)))
+DEPS = $(OBJS:%.o=%.d)
+#-include $(DEPS)
 
 RMBUILDDIR = rm -r $(BUILDDIR)
 RMBINARYDIR = rm -r $(BINARYDIR)
@@ -41,7 +43,9 @@ vpath %.cpp $(MODULES)
 
 define cxx-command
 $1/%.o: %.cpp
+	@echo Compiling $$<...
 	$(CXX) -c $$< -o $$@ $(CXXFLAGS)
+	@echo
 endef
 
 .PHONY: all introduction clean clean-build-dir clean-binary-dir
@@ -50,17 +54,20 @@ all: introduction $(TARGET)
 
 rebuild: clean all
 
-$(TARGET): $(OBJ)
+$(TARGET): $(OBJS)
+	@echo Building $(BINARYNAME) binary...
 	@mkdir -p $(BINARYDIR)
 	$(CXX) $^ -o $@ $(CXXINCLUDES) $(CXXFLAGS) $(CXXLIBS)
+	@echo
 ifdef cleanup
-	@echo "\nRemoving temporary build directory"
+	@echo Removing temporary build directory...
 	-$(RMBUILDDIR)
+	@echo
 endif
 
 introduction: $(BUILDDIR)
-	@echo "Building $(BINARYNAME) to ./$(BINARYDIR)\n"
-	@echo "Source Directories Found:"
+	@echo Building $(BINARYNAME) to ./$(BINARYDIR)
+	@echo Source Directories Found:
 	@$(foreach module, $(MODULES), echo "\t-- $(module)";) echo
 
 $(BUILDDIR):
@@ -69,7 +76,8 @@ $(BUILDDIR):
 $(foreach bdir, $(BUILDDIR),$(eval $(call cxx-command,$(bdir))))
 
 clean:
-	@echo "Cleaning build components"
+	@echo Cleaning build components...
 	rm -f *.out *.o *.d
 	-$(RMBUILDDIR)
 	-$(RMBINARYDIR)
+	@echo

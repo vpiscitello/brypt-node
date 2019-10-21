@@ -80,7 +80,7 @@ void Connection::CStreamBridge::whatami()
 void Connection::CStreamBridge::Spawn()
 {
     printo("[StreamBridge] Spawning STREAMBRIDGE_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
-    m_workerThread = std::thread(&CStreamBridge::Worker, this);
+    m_worker = std::thread(&CStreamBridge::Worker, this);
 }
 
 //------------------------------------------------------------------------------------------------

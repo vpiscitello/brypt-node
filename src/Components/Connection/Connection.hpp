@@ -87,7 +87,7 @@ public:
         , m_updateClock()
         , m_workerActive(false)
         , m_responseNeeded(false)
-        , m_workerThread()
+        , m_worker()
         , m_workerMutex()
         , m_workerConditional()
     {
@@ -104,7 +104,7 @@ public:
         , m_updateClock(NodeUtils::GetSystemTimePoint())
         , m_workerActive(false)
         , m_responseNeeded(false)
-        , m_workerThread()
+        , m_worker()
         , m_workerMutex()
         , m_workerConditional()
     {
@@ -261,7 +261,7 @@ protected:
 
     bool m_workerActive;
     bool m_responseNeeded;
-    std::thread m_workerThread;
+    std::thread m_worker;
     std::mutex m_workerMutex;
     std::condition_variable m_workerConditional;
 
