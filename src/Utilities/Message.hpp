@@ -102,7 +102,7 @@ public:
 	//------------------------------------------------------------------------------------------------
 
 	explicit CMessage(std::string const& raw)
-		: m_raw(Base64Decode(raw))
+		: m_raw(std::string())
 		, m_sourceId(std::string())
 		, m_destinationId(std::string())
 		, m_awaitId({})
@@ -116,7 +116,7 @@ public:
 		, m_response(nullptr)
 		, m_token(std::string())
 	{
-		Unpack();
+		Unpack(Base64Decode(raw));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -403,7 +403,7 @@ public:
 	//------------------------------------------------------------------------------------------------
 	// Description: Unpack the raw message string into the Message class variables.
 	//------------------------------------------------------------------------------------------------
-	void Unpack()
+	void Unpack(std::string const& raw)
 	{
 		std::int32_t loops = 0;
 		MessageChunk chunk = MessageChunk::FIRST;
@@ -411,33 +411,33 @@ public:
 
 		// Iterate while there are message chunks to be parsed.
 		while (chunk <= MessageChunk::LAST) {
-			std::size_t end = m_raw.find(local::SeperatorByte, position);     // Find chunk seperator
+			std::size_t end = raw.find(local::SeperatorByte, position);     // Find chunk seperator
 
 			switch (chunk) {
 				case MessageChunk::SOURCEID: {
-					m_sourceId = m_raw.substr(position, (end - 1) - (position));
+					m_sourceId = raw.substr(position, (end - 1) - (position));
 				} break;
 				case MessageChunk::DESTINATIONID: {
-					m_destinationId = m_raw.substr(position, (end - 1) - (position));
+					m_destinationId = raw.substr(position, (end - 1) - (position));
 				} break;
 				case MessageChunk::COMMAND: {
-					m_command = static_cast<NodeUtils::CommandType>(std::stoi(m_raw.substr(position, (end - 1) - (position))));
+					m_command = static_cast<NodeUtils::CommandType>(std::stoi(raw.substr(position, (end - 1) - (position))));
 				} break;
 				case MessageChunk::PHASE: {
-					m_phase = std::stoi(m_raw.substr(position, (end - 1) - (position)));
+					m_phase = std::stoi(raw.substr(position, (end - 1) - (position)));
 				} break;
 				case MessageChunk::NONCE: {
-					m_nonce = std::stoi(m_raw.substr(position, (end - 1) - (position)));
+					m_nonce = std::stoi(raw.substr(position, (end - 1) - (position)));
 				} break;
 				case MessageChunk::DATASIZE: {
-					m_length = static_cast<std::int32_t>(std::stoi(m_raw.substr(position, (end - 1) - (position))));
+					m_length = static_cast<std::int32_t>(std::stoi(raw.substr(position, (end - 1) - (position))));
 				} break;
 				case MessageChunk::DATA: {
-					m_data = m_raw.substr(position, m_length );
+					m_data = raw.substr(position, m_length );
 					Decrypt(m_data, m_data.size());
 				} break;
 				case MessageChunk::TIMESTAMP: {
-					m_timepoint = NodeUtils::StringToTimePoint(m_raw.substr(position, (end - 1) - (position)));
+					m_timepoint = NodeUtils::StringToTimePoint(raw.substr(position, (end - 1) - (position)));
 				} break;
 				default: break;
 			}
@@ -446,8 +446,8 @@ public:
 			chunk = static_cast<MessageChunk>(++loops);
 		}
 
-		m_token = m_raw.substr(position);
-		m_raw = m_raw.substr(0, ( m_raw.size() - m_token.size()));
+		m_token = raw.substr(position);
+		m_raw = raw.substr(0, ( raw.size() - m_token.size()));
 
 		if (std::size_t const found = m_sourceId.find(NodeUtils::ID_SEPERATOR); found != std::string::npos) {
 			m_awaitId = m_sourceId.substr(found + 1);

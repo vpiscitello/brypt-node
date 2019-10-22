@@ -69,12 +69,10 @@ void CommandParseTest() {
     commands.push_back(Command::Factory(NodeUtils::CommandType::CONNECT, node, state));
 
     // Setup a new message to match to a command
-    NodeUtils::CommandType const command = NodeUtils::CommandType::ELECTION;
-    std::int32_t const phase = 0;
-    std::string const nodeId = "00-00-00-00-00";
-    std::string const data = "Hello World!";
-    std::uint32_t const nonce = 998;
-    CMessage const message(nodeId, "", command, phase, data, nonce);
+    CMessage const message(
+        "0xFFFFFFFF", "0x00000000",
+        NodeUtils::CommandType::ELECTION, 0,
+        "This is an election request message.", 9999);
 
     // Use the message command to handle the message logic
     commands.at(static_cast<std::int32_t>(message.GetCommand()))->HandleMessage(message);
@@ -93,29 +91,26 @@ void MessageQueueTest() {
 
 	CMessageQueue msgQueue;
 
-	std::int32_t const phase = 0;
-	std::string const plaintext("H\0el\0lo, Wo\0rld\0",16);
-	std::string const nodeId = "00-00-00-00-01";
-	NodeUtils::CommandType const command = NodeUtils::CommandType::ELECTION;
-	std::uint32_t const nonce = 998;
+	std::string const nodeId = "0xFFFFFFFF";
+    CMessage const message(
+        nodeId, "0x00000000",
+        NodeUtils::CommandType::ELECTION, 0,
+        std::string("H\0el\0lo, Wo\0rld\0",16), 9999);
 
-	CMessage const wrapper(nodeId, "", command, phase, plaintext, nonce);    // Create the message using known data
-	std::string const packet = wrapper.GetPack();
-	std::cout << packet <<"\n";
+	msgQueue.AddManagedPipe(nodeId);
 
-	msgQueue.AddManagedPipe("1");
-	std::fstream file("./tmp/1", std::ios::out | std::ios::binary);
-
+    std::string const packet = message.GetPack();
+	std::cout << packet << std::endl;
+	std::fstream file("./tmp/" + nodeId + ".pipe", std::ios::out | std::ios::binary);
 	for(std::size_t idx = 0; idx < packet.size(); ++idx){
-		file.put(packet.at(idx));
+		file.put(packet[idx]);
 	}
-
 	file.close();
 
 	msgQueue.CheckPipes();
-    std::optional<CMessage> tmpmsg = msgQueue.PopIncomingMessage();
-	if(tmpmsg && tmpmsg->GetPhase() != std::numeric_limits<std::uint32_t>::max()){
-		std::cout << "Pop msg \n" << tmpmsg->GetPack() << '\n';
+    std::optional<CMessage> optIncomingMessage = msgQueue.PopIncomingMessage();
+	if(optIncomingMessage && optIncomingMessage->GetPhase() != std::numeric_limits<std::uint32_t>::max()){
+		std::cout << "Pop msg \n" << optIncomingMessage->GetPack() << '\n';
 	}
 }
 
@@ -125,12 +120,10 @@ void MessageTest() {
     std::cout << "\n== Testing Messages" << '\n';
 
     // Setup a new message
-    NodeUtils::CommandType const command = NodeUtils::CommandType::ELECTION;    // Set the message command type
-    std::int32_t const phase = 0;                          // Set the message command phase
-    std::string const nodeId = "00-00-00-00-00"; // Set the message sender ID
-    std::string const data = "Hello World!";      // Set the message data
-    std::uint32_t const nonce = 998;               // Set the message key nonce
-    CMessage const message(nodeId, "", command, phase, data, nonce);    // Create the message using known data
+    CMessage const message(
+        "0xFFFFFFFF", "0x00000000",
+        NodeUtils::CommandType::ELECTION, 0,
+        "Hello World!", 9999);
 
     std::string const receiveRaw = message.GetPack();      // Get the message as a packed string
     std::cout << "Message Raw: " << receiveRaw << '\n';
@@ -147,9 +140,7 @@ void MessageTest() {
         std::cout << "Message Verification: Tampered!" << '\n';
     }
 
-    std::string const responseNodeId = "11-11-11-11-11";             // Set the message response sender ID
-    std::string const responseData = "Re: Hello World! - Hi.";        // Set the message response data
-    receiveMessage.SetResponse(responseNodeId, responseData);   // Set the message's response using the known data
+    receiveMessage.SetResponse("0x00000000", "Re: Hello World! - Hi.");   // Set the message's response using the known data
     std::cout << "Message Response: " << receiveMessage.GetResponse().value() << "\n\n";
 
     std::string tamperedRaw = receiveRaw;    // Get the raw message string to tamper

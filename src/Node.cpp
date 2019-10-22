@@ -77,8 +77,14 @@ CNode::CNode(NodeUtils::TOptions const& options)
     m_commands.emplace(
         NodeUtils::CommandType::CONNECT,
         Command::Factory(NodeUtils::CommandType::CONNECT, *this, m_state));
-    
+
     m_initialized = true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CNode::~CNode()
+{
 }
 
 //------------------------------------------------------------------------------------------------
@@ -120,6 +126,13 @@ void CNode::Startup()
         } break;
         case NodeUtils::DeviceOperation::NONE: break;
     }
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CNode::Shutdown()
+{
+    return m_watcher->Shutdown();
 }
 
 //------------------------------------------------------------------------------------------------

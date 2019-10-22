@@ -9,13 +9,13 @@ OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -MMD -MP
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE)
-CXXLIBS = -lzmq $(OPENSSL_LIB) -pthread -lcrypto -ldl
+CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 

@@ -24,7 +24,7 @@ CMessageQueue::~CMessageQueue()
 
 bool CMessageQueue::AddManagedPipe(NodeUtils::NodeIdType const& id)
 {
-	if (auto const itr = m_pipes.find(id); itr == m_pipes.end()) {
+	if (auto const itr = m_pipes.find(id); itr != m_pipes.end()) {
 		NodeUtils::printo("Pipe already being watched", NodeUtils::PrintType::MQUEUE);
 		return false;
 	}
