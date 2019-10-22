@@ -191,7 +191,7 @@ void ParseArguments(std::int32_t argc, char** argv) {
     std::vector<std::string>::iterator itr;
 
     if (argc <= 1) {
-        NodeUtils::printo("Arguements must be provided!", NodeUtils::PrintType::ERROR);
+        NodeUtils::printo("Arguments must be provided!", NodeUtils::PrintType::ERROR);
         exit(1);
     }
 

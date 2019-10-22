@@ -4,8 +4,8 @@ BINARYDIR = bin
 BINARYNAME = BryptNode
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
-OPENSSL_LIB = -L/usr/local/opt/openssl/lib
-OPENSSL_INCLUDE = -I/usr/local/opt/openssl/include/openssl
+OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
+OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
 
 mode = release
 ifeq ($(mode),debug)

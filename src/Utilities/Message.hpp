@@ -30,7 +30,7 @@ constexpr std::uint8_t BeginByte = 2;
 constexpr std::uint8_t EndByte = 4;
 constexpr std::uint8_t SeperatorByte = 29;
 
-constexpr char const* const HashMethod = "blake2s256";
+constexpr std::string_view HashMethod = "blake2s256";
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -68,6 +68,55 @@ public:
 		, m_response(nullptr)
 		, m_token(std::string())
 	{
+	}
+
+	//------------------------------------------------------------------------------------------------
+
+	CMessage(
+		NodeUtils::NodeIdType const& sourceId,
+		NodeUtils::NodeIdType const& destinationId,
+		NodeUtils::CommandType const& command,
+		std::int32_t phase,
+		std::string const& data,
+		std::uint32_t nonce)
+		: m_raw(std::string())
+		, m_sourceId(sourceId)
+		, m_destinationId(destinationId)
+		, m_awaitId(std::string())
+		, m_command(command)
+		, m_phase(phase)
+		, m_data(std::string())
+		, m_length(0)
+		, m_timepoint()
+		, m_key(NodeUtils::NETWORK_KEY)
+		, m_nonce(nonce)
+		, m_response(nullptr)
+		, m_token(std::string())
+	{
+		auto const optData = Encrypt(data, data.size());
+		if(optData) {
+			m_data = *optData;
+		}
+	}
+
+	//------------------------------------------------------------------------------------------------
+
+	explicit CMessage(std::string const& raw)
+		: m_raw(Base64Decode(raw))
+		, m_sourceId(std::string())
+		, m_destinationId(std::string())
+		, m_awaitId({})
+		, m_command(NodeUtils::CommandType::NONE)
+		, m_phase(std::numeric_limits<std::int32_t>::min())
+		, m_data(std::string())
+		, m_length(0)
+		, m_timepoint(NodeUtils::GetSystemTimePoint())
+		, m_key(NodeUtils::NETWORK_KEY)
+		, m_nonce(0)
+		, m_response(nullptr)
+		, m_token(std::string())
+	{
+		Unpack();
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -137,57 +186,8 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	explicit CMessage(std::string const& raw)
-		: m_raw(Base64Decode(raw))
-		, m_sourceId(std::string())
-		, m_destinationId(std::string())
-		, m_awaitId({})
-		, m_command(NodeUtils::CommandType::NONE)
-		, m_phase(std::numeric_limits<std::int32_t>::min())
-		, m_data(std::string())
-		, m_length(0)
-		, m_timepoint(NodeUtils::GetSystemTimePoint())
-		, m_key(NodeUtils::NETWORK_KEY)
-		, m_nonce(0)
-		, m_response(nullptr)
-		, m_token(std::string())
-	{
-		Unpack();
-	}
-
-	//------------------------------------------------------------------------------------------------
-
 	~CMessage()
 	{
-	}
-
-	//------------------------------------------------------------------------------------------------
-
-	CMessage(
-		NodeUtils::NodeIdType const& sourceId,
-		NodeUtils::NodeIdType const& destinationId,
-		NodeUtils::CommandType const& command,
-		std::int32_t phase,
-		std::string const& data,
-		std::uint32_t nonce)
-		: m_raw(std::string())
-		, m_sourceId(sourceId)
-		, m_destinationId(destinationId)
-		, m_awaitId(std::string())
-		, m_command(command)
-		, m_phase(phase)
-		, m_data(std::string())
-		, m_length(0)
-		, m_timepoint()
-		, m_key(NodeUtils::NETWORK_KEY)
-		, m_nonce(nonce)
-		, m_response(nullptr)
-		, m_token(std::string())
-	{
-		auto const optData = Encrypt(data, data.size());
-		if(optData) {
-			m_data = *optData;
-		}
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -253,8 +253,9 @@ public:
 		if (m_raw.empty()){
 			Pack();
 		}
-		std::string const signedPack = m_raw.append(m_token);
-		return Base64Encode(signedPack, signedPack.size());
+		std::string const signedPack = m_raw + m_token;
+		std::string const encodedPack = Base64Encode(signedPack, signedPack.size());
+		return encodedPack;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -544,7 +545,7 @@ public:
 	//------------------------------------------------------------------------------------------------
 	std::optional<std::string> Hmac(std::string const& message, std::int32_t length) const
 	{
-		EVP_MD const* md = EVP_get_digestbyname(local::HashMethod);
+		EVP_MD const* md = EVP_get_digestbyname(local::HashMethod.data());
 		auto data = reinterpret_cast<unsigned char const*>(message.c_str());
 		auto key = reinterpret_cast<unsigned char const*>(m_key.c_str());
 
@@ -562,7 +563,7 @@ public:
 	// Description: Encode a std::string to a Base64 message
 	// Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L45
 	//------------------------------------------------------------------------------------------------
-	std::string Base64Encode(std::string message, std::uint32_t length) const
+	std::string Base64Encode(std::string const& message, std::uint32_t length) const
 	{
 		std::string encoded;
 		std::int32_t idx = 0, jdx;

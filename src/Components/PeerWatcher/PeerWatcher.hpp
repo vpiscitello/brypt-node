@@ -38,8 +38,10 @@ class CPeerWatcher {
             m_terminate.notify_all();
             // NOTE: GDB in VSCode - WSL seems to be crashes when m_worker.join() is used. The thread will successfully 
             // complete/return, however, GDB will hang in futex_wait. m_worker.join() does not fail in normal run.
-            // Occasionally m_worker.join() will work, but that is the exeception.
-            m_worker.join();
+            // Occasionally m_worker.join() will work, but that is the exception.
+            if (m_worker.joinable()) {
+                m_worker.join();
+            }
         };
 
     private:
