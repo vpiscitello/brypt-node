@@ -116,7 +116,7 @@ public:
 		, m_response(nullptr)
 		, m_token(std::string())
 	{
-		Unpack(Base64Decode(raw));
+		Unpack(Base64Decode(raw, raw.size()));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -406,8 +406,8 @@ public:
 	void Unpack(std::string const& raw)
 	{
 		std::int32_t loops = 0;
+		std::size_t position = 1;
 		MessageChunk chunk = MessageChunk::FIRST;
-		std::size_t position = 0;
 
 		// Iterate while there are message chunks to be parsed.
 		while (chunk <= MessageChunk::LAST) {
@@ -415,29 +415,32 @@ public:
 
 			switch (chunk) {
 				case MessageChunk::SOURCEID: {
-					m_sourceId = raw.substr(position, (end - 1) - (position));
+					m_sourceId = raw.substr(position, end - position);
 				} break;
 				case MessageChunk::DESTINATIONID: {
-					m_destinationId = raw.substr(position, (end - 1) - (position));
+					m_destinationId = raw.substr(position, end - position);
 				} break;
 				case MessageChunk::COMMAND: {
-					m_command = static_cast<NodeUtils::CommandType>(std::stoi(raw.substr(position, (end - 1) - (position))));
+					m_command = static_cast<NodeUtils::CommandType>(std::stoi(raw.substr(position, end - position)));
 				} break;
 				case MessageChunk::PHASE: {
-					m_phase = std::stoi(raw.substr(position, (end - 1) - (position)));
+					m_phase = std::stoi(raw.substr(position, end - position));
 				} break;
 				case MessageChunk::NONCE: {
-					m_nonce = std::stoi(raw.substr(position, (end - 1) - (position)));
+					m_nonce = std::stoi(raw.substr(position, end - position));
 				} break;
 				case MessageChunk::DATASIZE: {
-					m_length = static_cast<std::int32_t>(std::stoi(raw.substr(position, (end - 1) - (position))));
+					m_length = static_cast<std::int32_t>(std::stoi(raw.substr(position, end - position)));
 				} break;
 				case MessageChunk::DATA: {
 					m_data = raw.substr(position, m_length );
-					Decrypt(m_data, m_data.size());
+					auto const optData = Decrypt(m_data, m_data.size());
+					if (optData) {
+						m_data = *optData;
+					}
 				} break;
 				case MessageChunk::TIMESTAMP: {
-					m_timepoint = NodeUtils::StringToTimePoint(raw.substr(position, (end - 1) - (position)));
+					m_timepoint = NodeUtils::StringToTimePoint(raw.substr(position, end - position));
 				} break;
 				default: break;
 			}
@@ -567,16 +570,16 @@ public:
 	{
 		std::string encoded;
 		std::int32_t idx = 0, jdx;
-		std::uint32_t char_array_3[3], char_array_4[4];
-		auto bytes_to_encode = reinterpret_cast<std::uint32_t const*>(message.c_str());
+		std::uint8_t char_array_3[3], char_array_4[4];
+		auto bytes_to_encode = reinterpret_cast<std::uint8_t const*>(message.c_str());
 
-		while (--length) {
-			char_array_3[++idx] = *(++bytes_to_encode);
+		while (length--) {
+			char_array_3[idx++] = *(bytes_to_encode++);
 
-			if(idx == 3) {
-				char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-				char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-				char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+			if (idx == 3) {
+				char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+				char_array_4[1] = ((char_array_3[0] & 0x03) << 4) + ((char_array_3[1] & 0xf0) >> 4);
+				char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
 				char_array_4[3] = char_array_3[2] & 0x3f;
 
 				for (idx = 0; idx < 4; ++idx) {
@@ -592,15 +595,15 @@ public:
 				char_array_3[jdx] = '\0';
 			}
 
-			char_array_4[0] = ( char_array_3[0] & 0xfc ) >> 2;
-			char_array_4[1] = ( (char_array_3[0] & 0x03) << 4 ) + ( (char_array_3[1] & 0xf0) >> 4 );
-			char_array_4[2] = ( (char_array_3[1] & 0x0f) << 2 ) + ( (char_array_3[2] & 0xc0) >> 6 );
+			char_array_4[0] = (char_array_3[0] & 0xfc) >> 2;
+			char_array_4[1] = ((char_array_3[0] & 0x03) << 4 ) + ((char_array_3[1] & 0xf0) >> 4);
+			char_array_4[2] = ((char_array_3[1] & 0x0f) << 2 ) + ((char_array_3[2] & 0xc0) >> 6);
 
 			for (jdx = 0; jdx < idx + 1; ++jdx) {
 				encoded += Base64::Characters[char_array_4[jdx]];
 			}
 
-			while (++idx < 3) {
+			while (idx++ < 3) {
 				encoded += '=';
 			}
 		}
@@ -614,26 +617,25 @@ public:
 	// Description: Decode a Base64 message to a std::string
 	// Source: https://github.com/ReneNyffenegger/cpp-base64/blob/master/base64.cpp#L87
 	//------------------------------------------------------------------------------------------------
-	std::string Base64Decode(std::string const& message) const
+	std::string Base64Decode(std::string const& message, std::uint32_t length) const
 	{
 		std::string decoded;
-		std::int32_t length = message.size();
-		std::int32_t idx = 0, in_ = 0, jdx;
-		unsigned char char_array_3[3], char_array_4[4];
+		std::int32_t idx = 0, in_ = 0, jdx; 
+		std::uint8_t char_array_3[3], char_array_4[4];
 
-		while (--length && ( message[in_] != '=' ) && Base64::IsValid(message[in_])) {
-			char_array_4[idx++] = message[in_]; in_++;
+		while (length-- && (message[in_] != '=') && Base64::IsValid(message[in_])) {
+			char_array_4[idx++] = message[in_++];
 
 			if (idx == 4 ) {
-				for (idx = 0; idx < 4; idx++) {
-					char_array_4[idx] = Base64::Characters.find( char_array_4[idx] );
+				for (idx = 0; idx < 4; ++idx) {
+					char_array_4[idx] = Base64::Characters.find(char_array_4[idx]);
 				}
 
-				char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-				char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
-				char_array_3[2] = ( (char_array_4[2] & 0x03) << 6 ) + char_array_4[3];
+				char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
+				char_array_3[1] = ((char_array_4[1] & 0x0f) << 4) + ((char_array_4[2] & 0x3c) >> 2);
+				char_array_3[2] = ((char_array_4[2] & 0x03) << 6) + char_array_4[3];
 
-				for (idx = 0; idx < 3; idx++) {
+				for (idx = 0; idx < 3; ++idx) {
 					decoded += char_array_3[idx];
 				}
 
@@ -642,14 +644,14 @@ public:
 		}
 
 		if (idx) {
-			for (jdx = 0; jdx < idx; jdx++) {
-				char_array_4[jdx] = Base64::Characters.find( char_array_4[jdx] );
+			for (jdx = 0; jdx < idx; ++jdx) {
+				char_array_4[jdx] = Base64::Characters.find(char_array_4[jdx]);
 			}
 
-			char_array_3[0] = ( char_array_4[0] << 2 ) + ( (char_array_4[1] & 0x30) >> 4 );
-			char_array_3[1] = ( (char_array_4[1] & 0x0f) << 4 ) + ( (char_array_4[2] & 0x3c) >> 2 );
+			char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
+			char_array_3[1] = ((char_array_4[1] & 0x0f) << 4) + ((char_array_4[2] & 0x3c) >> 2);
 
-			for (jdx = 0; jdx < idx - 1; jdx++) {
+			for (jdx = 0; jdx < idx - 1; ++jdx) {
 				decoded += char_array_3[jdx];
 			}
 		}
