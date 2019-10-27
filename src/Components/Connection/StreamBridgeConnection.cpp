@@ -99,7 +99,7 @@ std::string const& Connection::CStreamBridge::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
  // Description:
  //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType const& Connection::CStreamBridge::GetInternalType() const
+NodeUtils::TechnologyType Connection::CStreamBridge::GetInternalType() const
 {
     static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::STREAMBRIDGE;
     return internal;

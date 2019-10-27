@@ -21,7 +21,7 @@ namespace {
 //------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType InitialContactTechnology(NodeUtils::TechnologyType const& technology);
+NodeUtils::TechnologyType InitialContactTechnology(NodeUtils::TechnologyType technology);
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -143,7 +143,7 @@ bool CNode::Shutdown()
 std::shared_ptr<CConnection> CNode::SetupFullConnection(
     NodeUtils::NodeIdType const& peerId,
     std::string const& port,
-    NodeUtils::TechnologyType const technology)
+    NodeUtils::TechnologyType technology)
 {
     NodeUtils::TOptions options;
     options.m_technology = technology;
@@ -266,7 +266,7 @@ NodeUtils::TechnologyType CNode::determineBestConnectionType()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::hasTechnologyType(NodeUtils::TechnologyType const& technology)
+bool CNode::hasTechnologyType(NodeUtils::TechnologyType technology)
 {
     auto const selfState = m_state->GetSelfState().lock();
     if (selfState) {
@@ -486,7 +486,7 @@ void CNode::handleNotification(std::string const& message)
 void CNode::handleQueueRequest(CMessage const& message)
 {
     printo("Handling queue request from connection thread", NodeUtils::PrintType::NODE);
-    NodeUtils::CommandType const& command = message.GetCommand();
+    NodeUtils::CommandType const command = message.GetCommand();
 
     if (command == NodeUtils::CommandType::NONE) {
         printo("No command to handle", NodeUtils::PrintType::NODE);
@@ -627,7 +627,7 @@ void CNode::connect(){
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType local::InitialContactTechnology(NodeUtils::TechnologyType const& technology)
+NodeUtils::TechnologyType local::InitialContactTechnology(NodeUtils::TechnologyType technology)
 {
     switch (technology) {
         case NodeUtils::TechnologyType::LORA:

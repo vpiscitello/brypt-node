@@ -12,7 +12,7 @@
 #include "../../Utilities/Message.hpp"
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TechnologyType const& technology) {
+std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TechnologyType technology) {
     switch (technology) {
     	case NodeUtils::TechnologyType::DIRECT: return std::make_shared<CDirect>();
         case NodeUtils::TechnologyType::LORA: return std::make_shared<CLoRa>();

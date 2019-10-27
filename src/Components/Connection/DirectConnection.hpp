@@ -28,7 +28,7 @@ public:
 
     void whatami() override;
     std::string const& GetProtocolType() const override;
-    NodeUtils::TechnologyType const& GetInternalType() const override;
+    NodeUtils::TechnologyType GetInternalType() const override;
 
     void Spawn() override;
     void Worker() override;

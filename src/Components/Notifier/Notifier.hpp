@@ -44,15 +44,15 @@ public:
     // Update to target sub clusters and nodes in the prefix
     bool Send(
         CMessage const& message,
-        NodeUtils::NotificationType const& type,
-        std::optional<std::string> const& id = {});
+        NodeUtils::NotificationType type,
+        std::optional<NodeUtils::NodeIdType> const& id = {});
     // Receive for requests, if a request is received recv it and then return the message string
     std::optional<std::string> Receive();
 
 private:
     std::string getNotificationPrefix(
-        NodeUtils::NotificationType const& type,
-        std::optional<std::string> const& id);
+        NodeUtils::NotificationType type,
+        std::optional<NodeUtils::NodeIdType> const& id);
 
     std::shared_ptr<CState> m_state;
     std::weak_ptr<NodeUtils::ConnectionMap> m_connections;

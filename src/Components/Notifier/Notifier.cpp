@@ -58,8 +58,8 @@ bool CNotifier::Connect(NodeUtils::IPv4Address const& ip, NodeUtils::PortNumber 
 
 bool CNotifier::Send(
     CMessage const& message,
-    NodeUtils::NotificationType const& type,
-    std::optional<std::string> const& id)
+    NodeUtils::NotificationType type,
+    std::optional<NodeUtils::NodeIdType> const& id)
 {
     std::string const& messageBuffer = message.GetPack();
     std::string const notification = getNotificationPrefix(type, id) + messageBuffer;
@@ -109,8 +109,8 @@ std::optional<std::string> CNotifier::Receive()
 //-----------------------------------------------------------------------------------------------
 
 std::string CNotifier::getNotificationPrefix(
-    NodeUtils::NotificationType const& type,
-    std::optional<std::string> const& id)
+    NodeUtils::NotificationType type,
+    std::optional<NodeUtils::NodeIdType> const& id)
 {
     switch (type) {
         case NodeUtils::NotificationType::NETWORK: return m_networkPrefix;

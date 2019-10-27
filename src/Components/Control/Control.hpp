@@ -22,7 +22,7 @@ public:
     CControl(
         std::shared_ptr<CState> const& state,
         std::weak_ptr<NodeUtils::ConnectionMap> const& connections,
-        NodeUtils::TechnologyType const& technology);
+        NodeUtils::TechnologyType technology);
 
     void Send(CMessage const& message);
     void Send(char const* const message);

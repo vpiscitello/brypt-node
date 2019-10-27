@@ -30,7 +30,7 @@ class CLoRa;
 class CStreamBridge;
 class CTcp;
 
-std::shared_ptr<CConnection> Factory(NodeUtils::TechnologyType const& technology);
+std::shared_ptr<CConnection> Factory(NodeUtils::TechnologyType technology);
 std::shared_ptr<CConnection> Factory(NodeUtils::TOptions const& options);
 //------------------------------------------------------------------------------------------------
 } // Command namespace
@@ -116,7 +116,7 @@ public:
     virtual ~CConnection() {};
 
 	virtual void whatami() = 0;
-    virtual NodeUtils::TechnologyType const& GetInternalType() const = 0;
+    virtual NodeUtils::TechnologyType GetInternalType() const = 0;
     virtual std::string const& GetProtocolType() const = 0;
 
 	virtual void Spawn() = 0;

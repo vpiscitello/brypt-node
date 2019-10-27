@@ -96,7 +96,7 @@ std::string const& Connection::CTcp::GetProtocolType() const
 // Description:
 // Returns:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType const& Connection::CTcp::GetInternalType() const
+NodeUtils::TechnologyType Connection::CTcp::GetInternalType() const
 {
     static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::TCP;
     return internal;

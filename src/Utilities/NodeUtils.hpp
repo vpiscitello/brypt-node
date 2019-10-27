@@ -47,12 +47,12 @@ using ObjectIdType = std::string;
 
 //------------------------------------------------------------------------------------------------
 
-enum class DeviceOperation { ROOT, BRANCH, LEAF, NONE };
-enum class DeviceSocketCapability { MASTER, SLAVE };
-enum class TechnologyType { DIRECT, LORA, STREAMBRIDGE, TCP, NONE };
-enum class CommandType { INFORMATION, QUERY, ELECTION, TRANSFORM, CONNECT, NONE };
-enum class NotificationType { NETWORK, CLUSTER, NODE, NONE };
-enum class PrintType { AWAIT, COMMAND, CONNECTION, CONTROL, MESSAGE, MQUEUE, NODE, NOTIFIER, WATCHER, ERROR };
+enum class DeviceOperation : std::uint8_t { ROOT, BRANCH, LEAF, NONE };
+enum class DeviceSocketCapability : std::uint8_t { MASTER, SLAVE };
+enum class TechnologyType : std::uint8_t { DIRECT, LORA, STREAMBRIDGE, TCP, NONE };
+enum class CommandType : std::uint8_t { INFORMATION, QUERY, ELECTION, TRANSFORM, CONNECT, NONE };
+enum class NotificationType : std::uint8_t { NETWORK, CLUSTER, NODE, NONE };
+enum class PrintType : std::uint8_t { AWAIT, COMMAND, CONNECTION, CONTROL, MESSAGE, MQUEUE, NODE, NOTIFIER, WATCHER, ERROR };
 
 //------------------------------------------------------------------------------------------------
 
@@ -77,12 +77,13 @@ std::string GetDesignation(DeviceOperation const& operation);
 TimePoint GetSystemTimePoint();
 std::string GetSystemTimestamp();
 std::string TimePointToString(TimePoint const& time);
+NodeUtils::TimePeriod TimePointToTimePeriod(TimePoint const& time);
 TimePoint StringToTimePoint(std::string const& timestamp);
 std::string GetPrintEscape(PrintType const& component);
 
 IPv4Address GetLocalAddress();
 
-void printo(std::string const& message, PrintType const& component);
+void printo(std::string const& message, PrintType component);
 
 struct TOptions;
 //------------------------------------------------------------------------------------------------
@@ -158,12 +159,19 @@ inline std::string NodeUtils::GetSystemTimestamp()
 
 inline std::string NodeUtils::TimePointToString(TimePoint const& time)
 {
-    auto const milliseconds = std::chrono::duration_cast<TimePeriod>(time.time_since_epoch());
+    auto const milliseconds = TimePointToTimePeriod(time);
 
     std::stringstream epochStream;
     epochStream.clear();
     epochStream << milliseconds.count();
     return epochStream.str();
+}
+
+//------------------------------------------------------------------------------------------------
+
+inline NodeUtils::TimePeriod NodeUtils::TimePointToTimePeriod(TimePoint const& time)
+{
+    return std::chrono::duration_cast<TimePeriod>(time.time_since_epoch());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -239,7 +247,7 @@ inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress()
 
 //------------------------------------------------------------------------------------------------
 
-inline void NodeUtils::printo(std::string const& message, PrintType const& component)
+inline void NodeUtils::printo(std::string const& message, PrintType component)
 {
 	std::string const escape = GetPrintEscape(component);
 	std::cout << "== " << escape << message << std::endl;

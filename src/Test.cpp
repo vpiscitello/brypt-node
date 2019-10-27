@@ -370,7 +370,7 @@ void CreateStreamBridgeSendQuery() {
     std::unique_ptr<Command::CHandler> c = Command::Factory(NodeUtils::CommandType::QUERY, node, state);
 
     NodeUtils::CommandType const command = NodeUtils::CommandType::QUERY;
-    std::int32_t const phase = 0;
+    std::int8_t const phase = 0;
     std::string const nodeId = "00-00-00-00-00";
     std::string const data = "INITIAL COMMAND!";
     std::uint32_t const nonce = 998;

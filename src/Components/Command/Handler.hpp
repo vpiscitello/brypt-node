@@ -28,7 +28,7 @@ class CQuery;
 class CTransform;
 
 std::unique_ptr<CHandler> Factory(
-    NodeUtils::CommandType const& command,
+    NodeUtils::CommandType command,
     CNode& instance,
     std::weak_ptr<CState> const& state);
 //------------------------------------------------------------------------------------------------

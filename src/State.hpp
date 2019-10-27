@@ -89,7 +89,7 @@ public:
         NodeUtils::NodeIdType const& id,
         NodeUtils::IPv4Address const& address,
         NodeUtils::PortNumber const& port,
-        NodeUtils::TechnologyType const& technology)
+        NodeUtils::TechnologyType technology)
         : m_id(id)
         , m_address(address)
         , m_requestPort(port)
@@ -154,7 +154,7 @@ public:
         m_publisherPort = port;
     };
 
-    void SetTechnology(NodeUtils::TechnologyType const& technology)
+    void SetTechnology(NodeUtils::TechnologyType technology)
     {
         std::unique_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
         m_technology = technology;
@@ -307,7 +307,7 @@ public:
     CSelf(
         NodeUtils::NodeIdType const& id,
         NodeUtils::PortNumber const& port,
-        NodeUtils::DeviceOperation const& operation,
+        NodeUtils::DeviceOperation operation,
         std::set<NodeUtils::TechnologyType> const& technologies)
         : m_id(id)
         , m_serial(std::string())
@@ -394,7 +394,7 @@ public:
         m_cluster = cluster;
     }
 
-    void SetOperation(NodeUtils::DeviceOperation const& operation)
+    void SetOperation(NodeUtils::DeviceOperation operation)
     {
         std::unique_lock<std::shared_mutex> lock(m_selfStateMutex);
         m_operation = operation;

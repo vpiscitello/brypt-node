@@ -57,7 +57,7 @@ std::string const& Connection::CLoRa::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
  // Description:
  //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType const& Connection::CLoRa::GetInternalType() const
+NodeUtils::TechnologyType Connection::CLoRa::GetInternalType() const
 {
     static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::LORA;
     return internal;

@@ -13,7 +13,7 @@
 CControl::CControl(
     std::shared_ptr<CState> const& state,
     std::weak_ptr<NodeUtils::ConnectionMap> const& connections,
-    NodeUtils::TechnologyType const& technology)
+    NodeUtils::TechnologyType technology)
     : m_state(state)
     , m_connections(connections)
     , m_control()

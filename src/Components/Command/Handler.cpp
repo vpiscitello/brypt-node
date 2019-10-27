@@ -13,7 +13,7 @@
 // Description: Handle Requests regarding Connecting to a new network or peer
 //------------------------------------------------------------------------------------------------
 std::unique_ptr<Command::CHandler> Command::Factory(
-    NodeUtils::CommandType const& command,
+    NodeUtils::CommandType command,
     CNode& instance,
     std::weak_ptr<CState> const& state)
 {

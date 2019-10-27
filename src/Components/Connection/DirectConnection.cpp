@@ -85,7 +85,7 @@ std::string const& Connection::CDirect::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType const& Connection::CDirect::GetInternalType() const
+NodeUtils::TechnologyType Connection::CDirect::GetInternalType() const
 {
     static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::DIRECT;
     return internal;

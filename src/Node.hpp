@@ -47,7 +47,7 @@ public:
     std::shared_ptr<CConnection> SetupFullConnection(
         NodeUtils::NodeIdType const& peerId,
         NodeUtils::PortNumber const& port,
-        NodeUtils::TechnologyType const technology);
+        NodeUtils::TechnologyType technology);
 
     void NotifyConnection(NodeUtils::NodeIdType const& id);
 
@@ -64,7 +64,7 @@ private:
     std::float_t determineNodePower();  // Determine the node value to the network
     NodeUtils::TechnologyType determineConnectionType();   // Determine the connection method for a particular transmission
     NodeUtils::TechnologyType determineBestConnectionType();   // Determine the best connection type the node has
-    bool hasTechnologyType(NodeUtils::TechnologyType const& technology);
+    bool hasTechnologyType(NodeUtils::TechnologyType technology);
     bool addConnection(std::unique_ptr<CConnection> const& connection);
 
     // Communication Functions
