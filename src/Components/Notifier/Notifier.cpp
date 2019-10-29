@@ -5,7 +5,7 @@
 #include "Notifier.hpp"
 #include "../Connection/Connection.hpp"
 #include "../../State.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Utilities/ByteMessage.hpp"
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------
@@ -39,12 +39,12 @@ bool CNotifier::Connect(NodeUtils::IPv4Address const& ip, NodeUtils::PortNumber 
 
     m_clusterPrefix = std::string(Notifier::ClusterPrefix.data(), Notifier::ClusterPrefix.size());
     if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        m_clusterPrefix.append(coordinatorState->GetId() + ":");
+        m_clusterPrefix.append(std::to_string(coordinatorState->GetId()) + ":");
     }
 
     std::string nodePrefix(Notifier::NodePrefix.data(), Notifier::NodePrefix.size());
     if (auto const selfState = m_state->GetCoordinatorState().lock()) {
-        nodePrefix.append(selfState->GetId() + ":");
+        nodePrefix.append(std::to_string(selfState->GetId()) + ":");
     }
 
     m_subscriber.setsockopt(ZMQ_SUBSCRIBE, m_networkPrefix.c_str(), m_networkPrefix.size());
@@ -118,7 +118,7 @@ std::string CNotifier::getNotificationPrefix(
         case NodeUtils::NotificationType::NODE: {
             if (id) {
                 std::string nodePrefix(Notifier::NodePrefix.data(), Notifier::NodePrefix.size());
-                nodePrefix.append(*id + ":");
+                nodePrefix.append(std::to_string(*id) + ":");
                 return nodePrefix;
             } else {
                 return "";

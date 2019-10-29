@@ -29,7 +29,7 @@ bool CMessageQueue::AddManagedPipe(NodeUtils::NodeIdType const& id)
 		return false;
 	}
 
-	std::string const filename = "./tmp/" + id + ".pipe";
+	std::string const filename = "./tmp/" + std::to_string(id) + ".pipe";
 	std::ifstream file(filename);
 
 	NodeUtils::printo("Pushing " + filename, NodeUtils::PrintType::MQUEUE);
@@ -63,7 +63,7 @@ bool CMessageQueue::RemoveManagedPipe(NodeUtils::NodeIdType const& id)
 
 bool CMessageQueue::PushOutgoingMessage(NodeUtils::NodeIdType const& id, CMessage const& message)
 {
-	std::string filename = "./tmp/" + id + ".pipe";
+	std::string filename = "./tmp/" + std::to_string(id) + ".pipe";
 
 	NodeUtils::printo("MessageQueued for " + filename, NodeUtils::PrintType::MQUEUE);
 
@@ -86,7 +86,7 @@ bool CMessageQueue::PushOutgoingMessages()
 		CMessage message = m_outgoing.front();
 		m_outgoing.pop();
 
-		std::string const filename = "./tmp/" + message.GetDestinationId() + ".pipe";
+		std::string const filename = "./tmp/" + std::to_string(message.GetDestinationId()) + ".pipe";
 		packet = message.GetPack();
 		NodeUtils::printo("Pushing message for " + filename, NodeUtils::PrintType::MQUEUE);
 

@@ -7,6 +7,8 @@
 #include "MessageTypes.hpp"
 #include "NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cstring>
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -83,11 +85,12 @@ public:
 		NodeUtils::CommandType command,
 		std::int8_t phase,
 		std::string const& data,
-		NodeUtils::NetworkNonce nonce)
+		NodeUtils::NetworkNonce nonce,
+		std::optional<NodeUtils::ObjectIdType> const& awaitId = {})
 		: m_raw(std::string())
 		, m_sourceId(sourceId)
 		, m_destinationId(destinationId)
-		, m_awaitId({})
+		, m_awaitId(awaitId)
 		, m_command(command)
 		, m_phase(phase)
 		, m_data()
@@ -124,7 +127,8 @@ public:
 		, m_token()
         , m_updated(false)
 	{
-		Unpack(Base64Decode(raw, raw.size()));
+		Message::Buffer buffer = Base64Decode(raw, raw.size());
+		Unpack(buffer);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -270,7 +274,7 @@ public:
 	//------------------------------------------------------------------------------------------------
 
 	//------------------------------------------------------------------------------------------------
-	// Description: Wrap a string message chunk with seperators.
+	// Description: Insert a chunk of data into the message buffer
 	//------------------------------------------------------------------------------------------------
     template<typename ChunkType>
 	void PackChunk(Message::Buffer& buffer, ChunkType const& chunk) const
@@ -278,6 +282,15 @@ public:
 		auto const begin = reinterpret_cast<std::uint8_t const*>(&chunk);
         auto const end = begin + sizeof(chunk);
         buffer.insert(buffer.end(), begin, end);
+		buffer.emplace_back(local::SeperatorByte);	// Telemetry seperator
+	}
+
+	//------------------------------------------------------------------------------------------------
+
+    template<>
+	void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk) const
+	{
+        buffer.insert(buffer.end(), chunk.begin(), chunk.end());
 		buffer.emplace_back(local::SeperatorByte);	// Telemetry seperator
 	}
 
@@ -293,19 +306,25 @@ public:
 
 		buffer.emplace_back(local::BeginByte);	// Start of telemetry pack
 
-		PackChunk(buffer, m_sourceId);
-		PackChunk(buffer, m_destinationId);
+		// Temporary
+		NodeUtils::ObjectIdType awaitId = 0;
+
+		std::uint64_t source = static_cast<std::uint64_t>(m_sourceId) << 32 | awaitId;
+		std::uint64_t destination = static_cast<std::uint64_t>(m_destinationId) << 32 | awaitId;
+
+		PackChunk(buffer, source);
+		PackChunk(buffer, destination);
 		PackChunk(buffer, m_command);
 		PackChunk(buffer, m_phase);
 		PackChunk(buffer, m_nonce);
-		PackChunk(buffer, m_data.size());
+		PackChunk(buffer, static_cast<std::uint16_t>(m_data.size()));
 		PackChunk(buffer, m_data);
 		PackChunk(buffer, NodeUtils::TimePointToTimePeriod(m_timepoint));
 
 		buffer.emplace_back(local::EndByte);	// End of telemetry pack
 
         m_raw.clear();
-		auto const optSignature = Hmac(buffer , m_raw.size());
+		auto const optSignature = Hmac(buffer, buffer.size());
 		if (optSignature) {
 			Message::Buffer const& token = *optSignature;
             buffer.insert(buffer.end(), token.begin(), token.end());
@@ -314,69 +333,63 @@ public:
 	}
 
 	//------------------------------------------------------------------------------------------------
+	
+	template<typename ChunkType>
+	void UnpackChunk(Message::Buffer const& buffer, std::uint32_t& position, ChunkType& destination)
+	{
+		std::uint32_t size = sizeof(destination);
+		std::memcpy(&destination, buffer.data() + position, size);
+		position += size + 1;
+	}
+
+	//------------------------------------------------------------------------------------------------
+
+	void UnpackChunk(
+		Message::Buffer const& buffer,
+		std::uint32_t& position,
+		Message::Buffer& destination,
+		std::uint32_t const& size)
+	{
+		Message::Buffer::const_iterator begin = buffer.begin() + position;
+		Message::Buffer::const_iterator end = begin + size;
+		destination.insert(destination.begin(), begin, end);
+		position += size + 1;
+	}
+
+	//------------------------------------------------------------------------------------------------
 
 	//------------------------------------------------------------------------------------------------
 	// Description: Unpack the raw message string into the Message class variables.
 	//------------------------------------------------------------------------------------------------
-	void Unpack(std::string const& raw)
+	void Unpack(Message::Buffer const& buffer)
 	{
-		std::int32_t loops = 0;
-		std::size_t position = 1;
-		MessageChunk chunk = MessageChunk::FIRST;
-
-		// Iterate while there are message chunks to be parsed.
-		while (chunk <= MessageChunk::LAST) {
-			std::size_t end = raw.find(local::SeperatorByte, position);     // Find chunk seperator
-
-			switch (chunk) {
-				case MessageChunk::SOURCEID: {
-					m_sourceId = raw.substr(position, end - position);
-				} break;
-				case MessageChunk::DESTINATIONID: {
-					m_destinationId = raw.substr(position, end - position);
-				} break;
-				case MessageChunk::COMMAND: {
-					m_command = static_cast<NodeUtils::CommandType>(std::stoi(raw.substr(position, end - position)));
-				} break;
-				case MessageChunk::PHASE: {
-					m_phase = std::stoi(raw.substr(position, end - position));
-				} break;
-				case MessageChunk::NONCE: {
-					m_nonce = std::stoi(raw.substr(position, end - position));
-				} break;
-				case MessageChunk::DATASIZE: {
-					m_length = static_cast<std::int32_t>(std::stoi(raw.substr(position, end - position)));
-				} break;
-				case MessageChunk::DATA: {
-					m_data = raw.substr(position, m_length );
-					auto const optData = Decrypt(m_data, m_data.size());
-					if (optData) {
-						m_data = *optData;
-					}
-				} break;
-				case MessageChunk::TIMESTAMP: {
-					m_timepoint = NodeUtils::StringToTimePoint(raw.substr(position, end - position));
-				} break;
-				default: break;
-			}
-
-			position = end + 1;
-			chunk = static_cast<MessageChunk>(++loops);
+		std::uint64_t sourceBlock;
+		std::uint32_t position = 1;
+		UnpackChunk(buffer, position, sourceBlock);
+		m_sourceId = static_cast<NodeUtils::NodeIdType>(sourceBlock >> 16);
+		if (std::uint64_t id = sourceBlock & 0xFFFFFFFF00000000) {
+			m_awaitId = static_cast<NodeUtils::ObjectIdType>(id);
 		}
 
-		m_token = raw.substr(position);
-		m_raw = raw.substr(0, ( raw.size() - m_token.size()));
-
-		if (std::size_t const found = m_sourceId.find(NodeUtils::ID_SEPERATOR); found != std::string::npos) {
-			m_awaitId = m_sourceId.substr(found + 1);
-			m_sourceId = m_sourceId.substr(0, found);
+		std::uint64_t destinationBlock;
+		UnpackChunk(buffer, position, destinationBlock);
+		m_destinationId = static_cast<NodeUtils::NodeIdType>(destinationBlock >> 16);
+		if (std::uint64_t id = destinationBlock & 0xFFFFFFFF00000000; m_awaitId != 0) {
+			m_awaitId = static_cast<NodeUtils::ObjectIdType>(id);
 		}
 
-		if (std::size_t found = m_destinationId.find(NodeUtils::ID_SEPERATOR); found != std::string::npos) {
-			m_awaitId = m_destinationId.substr(found + 1);
-			m_destinationId = m_destinationId.substr(0, found);
-		}
+		UnpackChunk(buffer, position, m_command);
+		UnpackChunk(buffer, position, m_phase);
+		UnpackChunk(buffer, position, m_nonce);
+		UnpackChunk(buffer, position, m_length);
+		UnpackChunk(buffer, position, m_data, m_length);
 
+		std::uint64_t timestamp;
+		UnpackChunk(buffer, position, timestamp);
+		m_timepoint = NodeUtils::TimePoint(NodeUtils::TimePeriod(timestamp));
+		position += 1;
+
+		UnpackChunk(buffer, position, m_token, buffer.size() - position);
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -477,9 +490,19 @@ public:
 		if (hashed == 0) {
 			return {};
 		}
-        auto const begin = reinterpret_cast<std::uint8_t const*>(signature);
-        auto const end = begin + m_length;
-		return Message::Buffer(begin, end);
+
+		Message::Buffer buffer;
+		buffer.reserve(hashed);
+		for (std::uint32_t idx = 0; idx < hashed; ++idx) {
+			std::cout << (int) signature[idx] << " ";
+			buffer.emplace_back(signature[idx]);
+		}
+		std::cout << std::endl;
+        // auto const begin = reinterpret_cast<std::uint8_t const*>(signature);
+        // auto const end = begin + hashed;
+		// auto const begin = (int)signature[0];
+		// auto const end = (int)signature[hashed - 1];
+		return buffer;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -489,15 +512,17 @@ public:
 	//------------------------------------------------------------------------------------------------
 	bool Verify() const
 	{
-		if (!m_raw.empty() || !m_token.empty()) {
+		if (m_raw.empty() || m_token.empty()) {
 			return false;
 		}
 
         Message::Buffer buffer = Base64Decode(m_raw, m_raw.size());
-		auto const verificationToken = Hmac(buffer, buffer.size());
+		Message::Buffer base(buffer.begin(), buffer.end() - 32);
+		auto const verificationToken = Hmac(base, base.size());
 		if (!verificationToken) {
 			return false;
 		}
+		auto const token = *verificationToken;
 
 		if (m_token != *verificationToken) {
 			return false;
@@ -517,7 +542,7 @@ public:
         std::string encoded;
         std::int32_t idx = 0, jdx;
         std::uint8_t char_array_3[3], char_array_4[4];
-        auto bytes_to_encode = reinterpret_cast<std::uint8_t const*>(message.data());
+        auto bytes_to_encode = message.data();
 
         while (length--) {
             char_array_3[idx++] = *(bytes_to_encode++);
@@ -528,7 +553,7 @@ public:
                 char_array_4[2] = ((char_array_3[1] & 0x0f) << 2) + ((char_array_3[2] & 0xc0) >> 6);
                 char_array_4[3] = char_array_3[2] & 0x3f;
 
-                for (idx = 0; idx < 4; ++idx) {
+                for (idx = 0; idx < 4; idx++) {
                     encoded += Base64::Characters[char_array_4[idx]];
                 }
 
@@ -537,7 +562,7 @@ public:
         }
 
         if (idx) {
-            for (jdx = idx; jdx < 3; ++jdx) {
+            for (jdx = idx; jdx < 3; jdx++) {
                 char_array_3[jdx] = '\0';
             }
 
@@ -545,7 +570,7 @@ public:
             char_array_4[1] = ((char_array_3[0] & 0x03) << 4 ) + ((char_array_3[1] & 0xf0) >> 4);
             char_array_4[2] = ((char_array_3[1] & 0x0f) << 2 ) + ((char_array_3[2] & 0xc0) >> 6);
 
-            for (jdx = 0; jdx < idx + 1; ++jdx) {
+            for (jdx = 0; jdx < idx + 1; jdx++) {
                 encoded += Base64::Characters[char_array_4[jdx]];
             }
 
@@ -570,10 +595,10 @@ public:
         std::uint8_t char_array_3[3], char_array_4[4];
 
         while (length-- && (message[in_] != '=') && Base64::IsValid(message[in_])) {
-            char_array_4[idx++] = message[in_++];
+            char_array_4[idx++] = message[in_]; ++in_;
 
-            if (idx == 4 ) {
-                for (idx = 0; idx < 4; ++idx) {
+            if (idx == 4) {
+                for (idx = 0; idx < 4; idx++) {
                     char_array_4[idx] = Base64::Characters.find(char_array_4[idx]);
                 }
 
@@ -581,7 +606,7 @@ public:
                 char_array_3[1] = ((char_array_4[1] & 0x0f) << 4) + ((char_array_4[2] & 0x3c) >> 2);
                 char_array_3[2] = ((char_array_4[2] & 0x03) << 6) + char_array_4[3];
 
-                for (idx = 0; idx < 3; ++idx) {
+                for (idx = 0; idx < 3; idx++) {
                     decoded.emplace_back(char_array_3[idx]);
                 }
 
@@ -590,14 +615,14 @@ public:
         }
 
         if (idx) {
-            for (jdx = 0; jdx < idx; ++jdx) {
+            for (jdx = 0; jdx < idx; jdx++) {
                 char_array_4[jdx] = Base64::Characters.find(char_array_4[jdx]);
             }
 
             char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
             char_array_3[1] = ((char_array_4[1] & 0x0f) << 4) + ((char_array_4[2] & 0x3c) >> 2);
 
-            for (jdx = 0; jdx < idx - 1; ++jdx) {
+            for (jdx = 0; jdx < idx - 1; jdx++) {
 				decoded.emplace_back(char_array_3[idx]);
             }
         }
@@ -616,7 +641,7 @@ private:
 	std::optional<local::ObjectIdType> m_awaitId;	// ID of the awaiting request on a passdown message
 
 	NodeUtils::CommandType m_command;	// Command type to be run
-	std::uint32_t m_phase;	// Phase of the Command state
+	std::uint8_t m_phase;	// Phase of the Command state
 
 	Message::Buffer m_data;	// Encrypted data to be sent
 	std::uint16_t m_length;	 // Data length

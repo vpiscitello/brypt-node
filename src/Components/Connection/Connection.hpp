@@ -80,7 +80,7 @@ public:
         : m_active(false)
         , m_instantiate()
         , m_operation(NodeUtils::DeviceOperation::NONE)
-        , m_peerName(std::string())
+        , m_peerName(0)
         , m_pipeName(std::string())
         , m_pipe()
         , m_sequenceNumber(0)
@@ -145,7 +145,7 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    std::string const& GetPeerName() const
+    NodeUtils::NodeIdType const& GetPeerName() const
     {
         return m_peerName;
     }
@@ -168,11 +168,11 @@ public:
 
     bool CreatePipe()
     {
-        if (m_peerName.empty()) {
+        if (m_peerName == 0) {
             return false;
         }
 
-        std::string const filename = "./tmp/" + m_peerName + ".pipe";
+        std::string const filename = "./tmp/" + std::to_string(m_peerName) + ".pipe";
 
         m_pipeName = filename;
         m_pipe.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);

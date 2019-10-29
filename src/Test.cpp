@@ -7,6 +7,7 @@
 #include "Components/Command/Handler.hpp"
 #include "Components/Connection/Connection.hpp"
 #include "Components/MessageQueue/MessageQueue.hpp"
+#include "Utilities/ByteMessage.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <fcntl.h>
@@ -70,18 +71,12 @@ void CommandParseTest() {
 
     // Setup a new message to match to a command
     CMessage const message(
-        "0xFFFFFFFF", "0x00000000",
+        0xFFFFFFFF, 0x00000000,
         NodeUtils::CommandType::ELECTION, 0,
         "This is an election request message.", 9999);
 
     // Use the message command to handle the message logic
     commands.at(static_cast<std::int32_t>(message.GetCommand()))->HandleMessage(message);
-
-    if (!message.GetResponse()) {
-        std::cout << "Command has no Response." << '\n';
-    } else {
-        std::cout << "Command has no Response." << '\n';
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -91,9 +86,9 @@ void MessageQueueTest() {
 
 	CMessageQueue msgQueue;
 
-	std::string const nodeId = "0xFFFFFFFF";
+	std::uint32_t const nodeId = 0xFFFFFFFF;
     CMessage const message(
-        nodeId, "0x00000000",
+        nodeId, 0x00000000,
         NodeUtils::CommandType::ELECTION, 0,
         std::string("H\0el\0lo, Wo\0rld\0",16), 9999);
 
@@ -101,7 +96,7 @@ void MessageQueueTest() {
 
     std::string const packet = message.GetPack();
 	std::cout << packet << std::endl;
-	std::fstream file("./tmp/" + nodeId + ".pipe", std::ios::out | std::ios::binary);
+	std::fstream file("./tmp/" + std::to_string(nodeId) + ".pipe", std::ios::out | std::ios::binary);
 	for(std::size_t idx = 0; idx < packet.size(); ++idx){
 		file.put(packet[idx]);
 	}
@@ -121,7 +116,7 @@ void MessageTest() {
 
     // Setup a new message
     CMessage const message(
-        "0xFFFFFFFF", "0x00000000",
+        0xFFFFFFFF, 0x00000000,
         NodeUtils::CommandType::ELECTION, 0,
         "Hello World!", 9999);
 
@@ -130,7 +125,7 @@ void MessageTest() {
 
     CMessage receiveMessage(receiveRaw);       // Initialize a new message using a received raw string
     std::cout << "Message Sender: "  << receiveMessage.GetSourceId() << '\n';
-    std::cout << "Message Content: "  << receiveMessage.GetData() << '\n';
+    // std::cout << "Message Content: "  << receiveMessage.GetData() << '\n';
 
     // TODO: verify message
     bool const isVerified = receiveMessage.Verify();      // Verify the message by checking the HMAC
@@ -140,14 +135,14 @@ void MessageTest() {
         std::cout << "Message Verification: Tampered!" << '\n';
     }
 
-    receiveMessage.SetResponse("0x00000000", "Re: Hello World! - Hi.");   // Set the message's response using the known data
-    std::cout << "Message Response: " << receiveMessage.GetResponse().value() << "\n\n";
+    // receiveMessage.SetResponse("0x00000000", "Re: Hello World! - Hi.");   // Set the message's response using the known data
+    // std::cout << "Message Response: " << receiveMessage.GetResponse().value() << "\n\n";
 
     std::string tamperedRaw = receiveRaw;    // Get the raw message string to tamper
     tamperedRaw.at(49) = '?';            // Replace a character in the data
     std::cout << "Tampered Message: " << tamperedRaw << '\n';
     CMessage const tamperedMessage(tamperedRaw);       // Create a tampered message
-    std::cout << "Tampered Content: "  << tamperedMessage.GetData() << '\n';
+    // std::cout << "Tampered Content: " << tamperedMessage.GetData() << '\n';
 
     bool isTamperedVerified = tamperedMessage.Verify();     // Verify the tampered message by checking the HMAC
     if (isTamperedVerified) {
@@ -160,12 +155,12 @@ void MessageTest() {
 //------------------------------------------------------------------------------------------------
 
 void RunTests() {
-    options.m_id = "0xFFFFFFFF";
+    options.m_id = 0xFFFFFFFF;
     options.m_interface = "en0";
     options.m_port = "3005";
     options.m_operation = NodeUtils::DeviceOperation::ROOT;
     options.m_technology = NodeUtils::TechnologyType::DIRECT;
-    options.m_peerName = "0x00000000";
+    options.m_peerName = 0x00000000;
     options.m_peerAddress = "127.0.0.1";
     options.m_peerPort = "9999";
 
@@ -227,7 +222,7 @@ void ParseArguments(std::int32_t argc, char** argv) {
             std::cout << "== You must specify an ID." << '\n';
             exit(1);
         } else {
-            options.m_id = *itr;
+            options.m_id = std::stoi(*itr);
         }
     } else {
         std::cout << "== You must specify an ID." << '\n';
@@ -369,12 +364,12 @@ void CreateStreamBridgeSendQuery() {
     std::shared_ptr<CState> state = std::make_shared<CState>(streambridgeSetup);
     std::unique_ptr<Command::CHandler> c = Command::Factory(NodeUtils::CommandType::QUERY, node, state);
 
+    std::uint32_t const nodeId = 0xFFFFFFFF;
     NodeUtils::CommandType const command = NodeUtils::CommandType::QUERY;
     std::int8_t const phase = 0;
-    std::string const nodeId = "00-00-00-00-00";
     std::string const data = "INITIAL COMMAND!";
-    std::uint32_t const nonce = 998;
-    CMessage message(nodeId, "", command, phase, data, nonce);
+    std::uint32_t const nonce = 9999;
+    CMessage message(nodeId, 0x00000000, command, phase, data, nonce);
 
     conn->Send(message);
 
@@ -382,7 +377,7 @@ void CreateStreamBridgeSendQuery() {
     std::cout << "Received: " << resp.value() << "\n";
 
     CMessage const responseMessage(resp.value());
-    std::cout << "Message Content: " << responseMessage.GetData() << '\n';
+    // std::cout << "Message Content: " << responseMessage.GetData() << '\n';
 
     c->HandleMessage(responseMessage);
 }

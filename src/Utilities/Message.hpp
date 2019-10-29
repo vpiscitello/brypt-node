@@ -644,7 +644,7 @@ public:
 		}
 
 		if (idx) {
-			for (jdx = 0; jdx < idx; ++jdx) {
+			for (jdx = 0; jdx < idx; jdx++) {
 				char_array_4[jdx] = Base64::Characters.find(char_array_4[jdx]);
 			}
 
@@ -666,7 +666,7 @@ public:
 	//------------------------------------------------------------------------------------------------
 	bool Verify() const
 	{
-		if (!m_raw.empty() || !m_token.empty()) {
+		if (m_raw.empty() || m_token.empty()) {
 			return false;
 		}
 

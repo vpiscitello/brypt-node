@@ -88,7 +88,8 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
     }
 
     // Get the requested type of connection
-    auto technology = static_cast<NodeUtils::TechnologyType>(std::stoi(message.GetData()));
+    Message::Buffer const& buffer = message.GetData();
+    auto technology = static_cast<NodeUtils::TechnologyType const>(buffer.front());
     if (technology == NodeUtils::TechnologyType::TCP) {
         technology = NodeUtils::TechnologyType::STREAMBRIDGE;
     }

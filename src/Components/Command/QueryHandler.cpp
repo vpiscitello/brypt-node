@@ -83,7 +83,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
     printo("Sending notification for Query request", NodeUtils::PrintType::COMMAND);
 
     // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0;
     if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
     }
@@ -106,7 +106,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
         nonce);
     
     // Setup the awaiting message object and push this node's response
-    NodeUtils::ObjectIdType awaitKey = std::string();
+    NodeUtils::ObjectIdType awaitKey = 0;
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
         awaitKey = awaiting->PushRequest(message, peerNames, expected);
         awaiting->PushResponse(awaitKey, readingMessage);
@@ -114,12 +114,13 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
 
     // Create a notice message for the network
     CMessage const notice(
-        id + ";" + awaitKey,
-        "all",
+        id,
+        0xFFFFFFFF,
         NodeUtils::CommandType::QUERY,
         static_cast<std::uint32_t>(Phase::RESPOND),
         "Request for Sensor Readings.",
-        nonce);
+        nonce,
+        awaitKey);
 
     // Send the notice via the network notifier connection
     if (auto const notifier = m_instance.GetNotifier().lock()) {
@@ -138,7 +139,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
 bool Command::CQuery::RespondHandler(CMessage const& message)
 {
     printo("Building response for Query request", NodeUtils::PrintType::COMMAND);
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0;
     if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
     }
@@ -146,9 +147,6 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
     NodeUtils::NodeIdType destinationId = message.GetSourceId();
     // If there is an await id attached to the message append it to the destinationId
     std::optional<NodeUtils::ObjectIdType> const& optAwaitId = message.GetAwaitId();
-    if (optAwaitId) {
-        destinationId += ";" + *optAwaitId;
-    }
 
     NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
     CMessage const request(
@@ -157,7 +155,8 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
         NodeUtils::CommandType::QUERY,
         static_cast<std::uint32_t>(Phase::AGGREGATE),
         local::GenerateReading(),
-        nonce);
+        nonce,
+        optAwaitId);
 
     // TODO: Add method to defer if node instance is a coordinator
     if (auto const optConnection = m_instance.GetConnection(destinationId)) {
@@ -191,7 +190,7 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
     }
 
     // Need to track encryption keys and nonces
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0;
     if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
     }

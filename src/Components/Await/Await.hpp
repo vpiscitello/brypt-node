@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../Utilities/Message.hpp"
+#include "../../Utilities/ByteMessage.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/Json11/json11.hpp"
@@ -88,7 +88,7 @@ public:
     bool Empty() const;
 
 private:
-    std::string KeyGenerator(std::string const& pack) const;
+    NodeUtils::ObjectIdType KeyGenerator(std::string const& pack) const;
 
     MessageMap m_awaiting;
 };

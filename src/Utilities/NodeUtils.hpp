@@ -31,8 +31,8 @@ class CConnection;
 namespace NodeUtils {
 //------------------------------------------------------------------------------------------------
 
-using NodeIdType = std::string;
-using ClusterIdType = std::string;
+using NodeIdType = std::uint32_t;
+using ClusterIdType = std::uint32_t;
 using IPv4Address = std::string;
 using IPv6Address = std::string;
 using PortNumber = std::string;
@@ -43,7 +43,7 @@ using NetworkNonce = std::uint32_t;
 using TimePoint = std::chrono::system_clock::time_point;
 using TimePeriod = std::chrono::milliseconds;
 
-using ObjectIdType = std::string;
+using ObjectIdType = std::uint32_t;
 
 //------------------------------------------------------------------------------------------------
 
@@ -197,7 +197,7 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
         {PrintType::NODE, "\x1b[1;30;48;5;42m[     Node    ]\x1b[0m "},
         {PrintType::NOTIFIER, "\x1b[1;30;48;5;12m[   Notifier  ]\x1b[0m "},
         {PrintType::WATCHER, "\x1b[1;30;48;5;203m[ PeerWatcher ]\x1b[0m "},
-        {PrintType::ERROR, "\x1b[1;30;48;5;196m[    ERORR    ]\x1b[0m "},
+        {PrintType::ERROR, "\x1b[1;30;48;5;196m[    ERROR    ]\x1b[0m "},
     };
 
     if(auto const itr = escapeMap.find(component); itr != escapeMap.end()) {

@@ -12,7 +12,7 @@
 #include "Components/MessageQueue/MessageQueue.hpp"
 #include "Components/Notifier/Notifier.hpp"
 #include "Components/PeerWatcher/PeerWatcher.hpp"
-#include "Utilities/Message.hpp"
+#include "Utilities/ByteMessage.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -300,7 +300,7 @@ bool CNode::addConnection([[maybe_unused]] std::unique_ptr<CConnection> const& c
 //------------------------------------------------------------------------------------------------
 void CNode::initialContact()
 {
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0;
     NodeUtils::TOptions options;
     options.m_isControl = true;
     if (auto const selfState = m_state->GetSelfState().lock()) {
@@ -341,16 +341,17 @@ void CNode::initialContact()
 
     CMessage portMessage(*optResponse);
     optResponse.reset();
-    NodeUtils::NodeIdType coordinatorId = portMessage.GetData();
+    Message::Buffer const buffer = portMessage.GetData();
+    NodeUtils::PortNumber coordinatorPort(buffer.begin(), buffer.end());
     if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
         coordinatorState->SetId(portMessage.GetSourceId());
-        coordinatorState->SetRequestPort(coordinatorId); // Set the coordinator port to the dedicated port
-        printo("Port received: " + coordinatorId, NodeUtils::PrintType::NODE);
+        coordinatorState->SetRequestPort(coordinatorPort); // Set the coordinator port to the dedicated port
+        printo("Port received: " + coordinatorPort, NodeUtils::PrintType::NODE);
     } else { return; }
 
     printo("Sending node information", NodeUtils::PrintType::NODE);
     CMessage infoMessage(
-        id, coordinatorId,
+        id, portMessage.GetSourceId(),
         NodeUtils::CommandType::CONNECT, 1,
         technologyTypeStr, 0);
     connection->Send(infoMessage);    // Send node information to peer
@@ -656,19 +657,19 @@ void test::SimulateClient(
         return;
     }
 
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0;
     if (auto const selfState = state->GetSelfState().lock()) {
         id = selfState->GetId();
     } else { return; }
 
     std::cout << "== [Node] Simulating client sensor Information request" << '\n';
-    CMessage informationRequest("0xFFFFFFFF", id, NodeUtils::CommandType::INFORMATION, 0, "Request for Network Information.", 0);
+    CMessage informationRequest(0xFFFFFFFF, id, NodeUtils::CommandType::INFORMATION, 0, "Request for Network Information.", 0);
     if (auto const itr = commands.find(informationRequest.GetCommand()); itr != commands.end()) {
         itr->second->HandleMessage(informationRequest);
     }
     
     std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-    CMessage queryRequest("0xFFFFFFFF",id, NodeUtils::CommandType::QUERY, 0, "Request for Sensor Readings.", 0);
+    CMessage queryRequest(0xFFFFFFFF, id, NodeUtils::CommandType::QUERY, 0, "Request for Sensor Readings.", 0);
     if (auto const itr = commands.find(queryRequest.GetCommand()); itr != commands.end()) {
         itr->second->HandleMessage(queryRequest);
     }

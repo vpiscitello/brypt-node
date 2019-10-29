@@ -9,7 +9,7 @@
 #include "LoRaConnection.hpp"
 #include "StreamBridgeConnection.hpp"
 #include "TcpConnection.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Utilities/ByteMessage.hpp"
 //------------------------------------------------------------------------------------------------
 
 std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TechnologyType technology) {

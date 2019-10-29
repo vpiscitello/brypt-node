@@ -5,7 +5,7 @@
 #include "Control.hpp"
 #include "../Connection/Connection.hpp"
 #include "../../State.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Utilities/ByteMessage.hpp"
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ std::optional<std::string> CControl::HandleContact(NodeUtils::TechnologyType tec
             }
 
             NodeUtils::printo("Sending port: " + port, NodeUtils::PrintType::CONTROL);
-            CMessage message(id, "Return to Sender", NodeUtils::CommandType::CONNECT, 0, port, 0);
+            CMessage message(id, 0xFFFFFFFF, NodeUtils::CommandType::CONNECT, 0, port, 0);
             m_control->Send(message);
 
             std::optional<std::string> const optDeviceInfoMessage = m_control->Receive(0);

@@ -3,8 +3,9 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "Await.hpp"
-#include "../../Utilities/Message.hpp"
+//------------------------------------------------------------------------------------------------
 #include "../../Utilities/NodeUtils.hpp"
+#include <algorithm>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -40,7 +41,7 @@ Await::CMessageObject::CMessageObject(
     , m_aggregateObject()
     , m_expire(NodeUtils::GetSystemTimePoint() + Await::Timeout)
 {
-    m_aggregateObject[peerName] = "Unfulfilled";
+    m_aggregateObject[std::to_string(peerName)] = "Unfulfilled";
 }
 
 //------------------------------------------------------------------------------------------------
@@ -55,7 +56,7 @@ void Await::CMessageObject::BuildResponseObject(std::set<NodeUtils::NodeIdType> 
         if (*itr == reqSourceId) {
             continue;
         }
-        m_aggregateObject[*itr] = "Unfulfilled";
+        m_aggregateObject[std::to_string(*itr)] = "Unfulfilled";
     }
 }
 
@@ -111,19 +112,20 @@ CMessage Await::CMessageObject::GetResponse()
 //------------------------------------------------------------------------------------------------
 bool Await::CMessageObject::UpdateResponse(CMessage const& response)
 {
-    NodeUtils::NodeIdType const& repSourceId = response.GetSourceId();
-    auto const itr = m_aggregateObject.find(repSourceId);
+    NodeUtils::NodeIdType const& id = response.GetSourceId();
+    std::string const source = std::to_string(id);
+    auto const itr = m_aggregateObject.find(source);
 
     if(itr == m_aggregateObject.end()) {
         return false;
     }
 
-    if (m_aggregateObject[repSourceId].dump() != "\"Unfulfilled\"") {
+    if (m_aggregateObject[source].dump() != "\"Unfulfilled\"") {
         NodeUtils::printo("Unexpected node response", NodeUtils::PrintType::AWAIT);
         return m_fulfilled;
     }
 
-    m_aggregateObject[repSourceId] = response.GetPack();
+    m_aggregateObject[source] = response.GetPack();
 
     if (++m_received >= m_expected) {
         m_fulfilled = true;
@@ -145,7 +147,7 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
     std::uint32_t m_expected)
 {
     NodeUtils::ObjectIdType const key = KeyGenerator(message.GetPack());
-    NodeUtils::printo("Pushing AwaitObject with key: " + key, NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::AWAIT);
     m_awaiting.emplace(key, CMessageObject(message, peerNames, m_expected));
     return key;
 }
@@ -163,7 +165,7 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
     std::uint32_t m_expected)
 {
     NodeUtils::ObjectIdType const key = KeyGenerator(message.GetPack());
-    NodeUtils::printo("Pushing AwaitObject with key: " + key, NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::AWAIT);
     m_awaiting.emplace(key, CMessageObject(message, peerName, m_expected));
     return key;
 }
@@ -178,7 +180,7 @@ bool Await::CObjectContainer::PushResponse(NodeUtils::ObjectIdType const& key, C
 {
     bool success = true;
 
-    NodeUtils::printo("Pushing response to AwaitObject " + key, NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing response to AwaitObject " + std::to_string(key), NodeUtils::PrintType::AWAIT);
     bool const m_fulfilled = m_awaiting.at(key).UpdateResponse(message);
     if (m_fulfilled) {
         NodeUtils::printo("AwaitObject has been m_fulfilled, Waiting to transmit", NodeUtils::PrintType::AWAIT);
@@ -209,7 +211,7 @@ bool Await::CObjectContainer::PushResponse(CMessage const& message)
     }
 
     // Update the response to the waiting message with th new message
-    NodeUtils::printo("Pushing response to AwaitObject " + *optKey, NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing response to AwaitObject " + std::to_string(*optKey), NodeUtils::PrintType::AWAIT);
     bool const m_fulfilled = itr->second.UpdateResponse(message);
     if (m_fulfilled) {
         NodeUtils::printo("AwaitObject has been m_fulfilled, Waiting to transmit", NodeUtils::PrintType::AWAIT);
@@ -231,10 +233,9 @@ std::vector<CMessage> Await::CObjectContainer::GetFulfilled()
     m_fulfilled.reserve(m_awaiting.size());
 
     for (auto it = m_awaiting.begin(); it != m_awaiting.end();) {
-        NodeUtils::printo("Checking AwaitObject " + it->first, NodeUtils::PrintType::AWAIT);
+        NodeUtils::printo("Checking AwaitObject " + std::to_string(it->first), NodeUtils::PrintType::AWAIT);
         if (it->second.Ready()) {
             CMessage const& response = it->second.GetResponse();
-            std::cout << response.GetData() << '\n';
             m_fulfilled.push_back(response);
             it = m_awaiting.erase(it);
         } else {
@@ -260,21 +261,23 @@ bool Await::CObjectContainer::Empty() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-std::string Await::CObjectContainer::KeyGenerator(std::string const& pack) const
+NodeUtils::ObjectIdType Await::CObjectContainer::KeyGenerator(std::string const& pack) const
 {
     std::uint8_t digest[MD5_DIGEST_LENGTH];
 
     MD5_CTX ctx;
     MD5_Init(&ctx);
-    MD5_Update(&ctx, pack.c_str(), strlen(pack.c_str()));
+    MD5_Update(&ctx, pack.data(), pack.size());
     MD5_Final(digest, &ctx);
 
-    char hash_cstr[33];
+    NodeUtils::ObjectIdType key = 0;
+    std::copy(&digest[0], &digest[sizeof(key)], &key); // Truncate the 128 bit hash to 32 bits
+    return key;
+
+    /* char hash_cstr[33];
     for (int idx = 0; idx < MD5_DIGEST_LENGTH; ++idx) {
         sprintf(&hash_cstr[idx * 2], "%02x", static_cast<std::uint32_t>(digest[idx]));
-    }
-
-    return std::string(hash_cstr);
+    } */
 }
 
 //------------------------------------------------------------------------------------------------

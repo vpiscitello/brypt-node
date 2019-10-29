@@ -76,7 +76,7 @@ private:
 class State::CCoordinator {
 public:
     CCoordinator()
-        : m_id(std::string())
+        : m_id(0)
         , m_address(std::string())
         , m_requestPort(std::string())
         , m_publisherPort(std::string())
@@ -292,12 +292,12 @@ private:
 class State::CSelf {
 public:
     CSelf()
-        : m_id(std::string())
+        : m_id(0)
         , m_serial(std::string())
         , m_address(NodeUtils::GetLocalAddress())
         , m_port(std::string())
         , m_nextAvailablePort(0)
-        , m_cluster(std::string())
+        , m_cluster(0)
         , m_operation(NodeUtils::DeviceOperation::NONE)
         , m_technologies()
         , m_selfStateMutex()
@@ -315,7 +315,7 @@ public:
         , m_port(port)
         , m_publisherPort(std::to_string(std::stoi(port) + 1))
         , m_nextAvailablePort(std::stoi(port) + NodeUtils::PORT_GAP)
-        , m_cluster(std::string())
+        , m_cluster(0)
         , m_operation(operation)
         , m_technologies(technologies)
         , m_selfStateMutex()

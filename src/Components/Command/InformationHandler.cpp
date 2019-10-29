@@ -78,7 +78,7 @@ bool Command::CInformation::FloodHandler(CMessage const& message)
     printo("Building response for Information request", NodeUtils::PrintType::COMMAND);
     
     // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0; 
     if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
     }
@@ -136,7 +136,7 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
     std::vector<json11::Json::object> nodesInfo;
 
     // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = std::string();
+    NodeUtils::NodeIdType id = 0; 
     std::string cluster = std::string();
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::NONE;
     if (auto const selfState = state.lock()->GetSelfState().lock()) {
@@ -146,7 +146,7 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
     }
 
     // Get the information pertaining to the node's coordinator
-    NodeUtils::NodeIdType coordinatorId = std::string();
+    NodeUtils::NodeIdType coordinatorId = 0; 
     if (auto const coordinatorState = state.lock()->GetCoordinatorState().lock()) {
         coordinatorId = coordinatorState->GetId();
     }
@@ -159,9 +159,9 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
 
     nodesInfo.emplace_back(
         json11::Json::object {
-            {"uid", id},
+            {"uid", std::to_string(id)},
             {"cluster", cluster},
-            {"coordinator", coordinatorId},
+            {"coordinator", std::to_string(coordinatorId)},
             {"neighbor_count", static_cast<std::int32_t>(knownNodes)},
             {"designation", NodeUtils::GetDesignation(operation)},
             {"technologies", json11::Json::array{"IEEE 802.11"}},
@@ -174,9 +174,9 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
             std::string const timestamp = NodeUtils::TimePointToString(itr->second->GetUpdateClock());
             nodesInfo.emplace_back(
                 json11::Json::object {
-                    {"uid", itr->second->GetPeerName()},
+                    {"uid", std::to_string(itr->second->GetPeerName())},
                     {"cluster", cluster},
-                    {"coordinator", id},
+                    {"coordinator", std::to_string(id)},
                     {"neighbor_count", 0},
                     {"designation", "node"},
                     {"technologies", json11::Json::array{itr->second->GetProtocolType()}},

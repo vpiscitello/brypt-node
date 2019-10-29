@@ -8,7 +8,7 @@
 #include "../Notifier/Notifier.hpp"
 #include "../../Node.hpp"
 #include "../../State.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Utilities/ByteMessage.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
