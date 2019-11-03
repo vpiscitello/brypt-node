@@ -116,40 +116,33 @@ void MessageTest() {
 
     // Setup a new message
     CMessage const message(
-        0xFFFFFFFF, 0x00000000,
+        0xABCDEF01, 0xFF00AA99,
         NodeUtils::CommandType::ELECTION, 0,
         "Hello World!", 9999);
 
-    std::string const receiveRaw = message.GetPack();      // Get the message as a packed string
+    std::string receiveRaw = message.GetPack();      // Get the message as a packed string
     std::cout << "Message Raw: " << receiveRaw << '\n';
 
     CMessage receiveMessage(receiveRaw);       // Initialize a new message using a received raw string
-    std::cout << "Message Sender: "  << receiveMessage.GetSourceId() << '\n';
-    // std::cout << "Message Content: "  << receiveMessage.GetData() << '\n';
 
-    // TODO: verify message
-    bool const isVerified = receiveMessage.Verify();      // Verify the message by checking the HMAC
-    if (isVerified) {
-        std::cout << "Message Verification: Success!" << '\n';
+    Message::VerificationStatus const status = receiveMessage.Verify();      // Verify the message by checking the HMAC
+    if (status == Message::VerificationStatus::SUCCESS) {
+        std::cout << "Message Verification: Success." << '\n';
     } else {
-        std::cout << "Message Verification: Tampered!" << '\n';
+        std::cout << "Message Verification: Unauthorized!" << '\n';
     }
 
-    // receiveMessage.SetResponse("0x00000000", "Re: Hello World! - Hi.");   // Set the message's response using the known data
-    // std::cout << "Message Response: " << receiveMessage.GetResponse().value() << "\n\n";
+    std::replace(receiveRaw.begin(), receiveRaw.end(), receiveRaw.at(receiveRaw.size() / 2), '?');
+    std::cout << "Tampered Message: " << receiveRaw << '\n';
+    CMessage const tamperedMessage(receiveRaw);       // Create a tampered message
 
-    std::string tamperedRaw = receiveRaw;    // Get the raw message string to tamper
-    tamperedRaw.at(49) = '?';            // Replace a character in the data
-    std::cout << "Tampered Message: " << tamperedRaw << '\n';
-    CMessage const tamperedMessage(tamperedRaw);       // Create a tampered message
-    // std::cout << "Tampered Content: " << tamperedMessage.GetData() << '\n';
-
-    bool isTamperedVerified = tamperedMessage.Verify();     // Verify the tampered message by checking the HMAC
-    if (isTamperedVerified) {
-        std::cout << "Message Verification: Success!\n" << '\n';
+    Message::VerificationStatus tamperedStatus = tamperedMessage.Verify();     // Verify the tampered message by checking the HMAC
+    if (tamperedStatus == Message::VerificationStatus::SUCCESS) {
+        std::cout << "Message Verification: Success." << '\n';
     } else {
-        std::cout << "Message Verification: Tampered!\n" << '\n';
+        std::cout << "Message Verification: Unauthorized!" << '\n';
     }
+    std::cout << std::endl;
 }
 
 //------------------------------------------------------------------------------------------------

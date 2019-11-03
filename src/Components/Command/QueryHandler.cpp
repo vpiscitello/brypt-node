@@ -114,13 +114,11 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
 
     // Create a notice message for the network
     CMessage const notice(
-        id,
-        0xFFFFFFFF,
-        NodeUtils::CommandType::QUERY,
-        static_cast<std::uint32_t>(Phase::RESPOND),
-        "Request for Sensor Readings.",
-        nonce,
-        awaitKey);
+        id, 0xFFFFFFFF,
+        NodeUtils::CommandType::QUERY, static_cast<std::uint32_t>(Phase::RESPOND),
+        "Request for Sensor Readings.", nonce,
+        Message::BoundAwaitId(
+            {Message::AwaitBinding::SOURCE, awaitKey}));
 
     // Send the notice via the network notifier connection
     if (auto const notifier = m_instance.GetNotifier().lock()) {
@@ -156,7 +154,8 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
         static_cast<std::uint32_t>(Phase::AGGREGATE),
         local::GenerateReading(),
         nonce,
-        optAwaitId);
+        Message::BoundAwaitId(
+            {Message::AwaitBinding::DESTINATION, *optAwaitId}));
 
     // TODO: Add method to defer if node instance is a coordinator
     if (auto const optConnection = m_instance.GetConnection(destinationId)) {
