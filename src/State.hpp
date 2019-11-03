@@ -294,7 +294,7 @@ public:
     CSelf()
         : m_id(0)
         , m_serial(std::string())
-        , m_address(NodeUtils::GetLocalAddress())
+        , m_address(std::string())
         , m_port(std::string())
         , m_nextAvailablePort(0)
         , m_cluster(0)
@@ -306,12 +306,13 @@ public:
 
     CSelf(
         NodeUtils::NodeIdType const& id,
+        std::string const& interface,
         NodeUtils::PortNumber const& port,
         NodeUtils::DeviceOperation operation,
         std::set<NodeUtils::TechnologyType> const& technologies)
         : m_id(id)
         , m_serial(std::string())
-        , m_address(NodeUtils::GetLocalAddress())
+        , m_address(NodeUtils::GetLocalAddress(interface))
         , m_port(port)
         , m_publisherPort(std::to_string(std::stoi(port) + 1))
         , m_nextAvailablePort(std::stoi(port) + NodeUtils::PORT_GAP)
@@ -463,6 +464,7 @@ public:
         , m_security(std::make_shared<State::CSecurity>(std::string(NodeUtils::ENCRYPTION_PROTOCOL)))
         , m_self(std::make_shared<State::CSelf>(
             options.m_id,
+            options.m_interface,
             options.m_port,
             options.m_operation,
             std::set<NodeUtils::TechnologyType>{options.m_technology}

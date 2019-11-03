@@ -72,7 +72,6 @@ constexpr std::uint32_t PORT_GAP = 16;
 
 constexpr auto ID_SEPERATOR = ";";
 
-char* CastToCString(std::string const& str);
 std::string GetDesignation(DeviceOperation const& operation);
 TimePoint GetSystemTimePoint();
 std::string GetSystemTimestamp();
@@ -81,7 +80,7 @@ NodeUtils::TimePeriod TimePointToTimePeriod(TimePoint const& time);
 TimePoint StringToTimePoint(std::string const& timestamp);
 std::string GetPrintEscape(PrintType const& component);
 
-IPv4Address GetLocalAddress();
+IPv4Address GetLocalAddress(std::string const& interface);
 
 void printo(std::string const& message, PrintType component);
 
@@ -107,16 +106,6 @@ struct NodeUtils::TOptions
 
     bool m_isControl;
 };
-
-//------------------------------------------------------------------------------------------------
-
-inline char* NodeUtils::CastToCString(std::string const& str)
-{
-    char* cs = new char[str.size()];
-    memset(cs, '\0', str.size());
-    strcpy(cs, str.c_str());
-    return cs;
-}
 
 //------------------------------------------------------------------------------------------------
 
@@ -212,7 +201,7 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress()
+inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress(std::string const& interface)
 {
     IPv4Address ip = std::string();
 
@@ -231,7 +220,7 @@ inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress()
             tmpAddrPtr = &(reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr)->sin_addr);
             char addressBuffer[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            if (std::string(ifa->ifa_name).find("en0") == 0) {
+            if (std::string(ifa->ifa_name).find(interface) == 0) {
                 ip = std::string(addressBuffer);
                 break;
             }
