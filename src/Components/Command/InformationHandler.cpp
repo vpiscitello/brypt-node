@@ -7,6 +7,8 @@
 #include "../Await/Await.hpp"
 #include "../Connection/Connection.hpp"
 //------------------------------------------------------------------------------------------------
+#include "../../Libraries/metajson/metajson.hh"
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace {
@@ -16,10 +18,56 @@ namespace local {
 std::string GenerateNodeInfo(CNode const& node, std::weak_ptr<CState> const& state);
 //------------------------------------------------------------------------------------------------
 } // local namespace
+namespace Json {
+//------------------------------------------------------------------------------------------------
+struct TNodeInfo;
+//------------------------------------------------------------------------------------------------
+} // Json namespace
 //------------------------------------------------------------------------------------------------
 } // namespace
 //------------------------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------------------------
+// Description: Symbol loading for JSON encoding
+//------------------------------------------------------------------------------------------------
+IOD_SYMBOL(id);
+IOD_SYMBOL(cluster);
+IOD_SYMBOL(coordinator);
+IOD_SYMBOL(neighbor_count);
+IOD_SYMBOL(designation);
+IOD_SYMBOL(technologies);
+IOD_SYMBOL(update_timestamp);
+//------------------------------------------------------------------------------------------------
+
+struct Json::TNodeInfo
+{
+    TNodeInfo(
+        NodeUtils::NodeIdType id,
+        NodeUtils::ClusterIdType cluster,
+        NodeUtils::NodeIdType coordinator,
+        std::size_t neighbor_count,
+        std::string const& designation,
+        std::string const& technologies,
+        std::string const& update_timestamp)
+        : id(id)
+        , cluster(cluster)
+        , coordinator(coordinator)
+        , neighbor_count(neighbor_count)
+        , designation(designation)
+        , technologies(technologies)
+        , update_timestamp(update_timestamp)
+    {
+    }
+    NodeUtils::NodeIdType const id;
+    NodeUtils::ClusterIdType const cluster;
+    NodeUtils::NodeIdType const coordinator;
+    std::size_t const neighbor_count;
+    std::string const designation;
+    std::string const technologies;
+    std::string const update_timestamp;
+};
+
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description:
@@ -94,7 +142,7 @@ bool Command::CInformation::FloodHandler(CMessage const& message)
     );
 
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
-        auto const awaitKey = awaiting->PushRequest(message, id, 1);
+        auto const awaitKey = awaiting->PushRequest(message, id);
         awaiting->PushResponse(awaitKey, infoMessage);
     }
 
@@ -133,11 +181,11 @@ bool Command::CInformation::CloseHandler()
 //------------------------------------------------------------------------------------------------
 std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CState> const& state)
 {
-    std::vector<json11::Json::object> nodesInfo;
+    std::vector<Json::TNodeInfo> nodesInfo;
 
     // Get the information pertaining to the node itself
     NodeUtils::NodeIdType id = 0; 
-    std::string cluster = std::string();
+    NodeUtils::ClusterIdType cluster = 0;
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::NONE;
     if (auto const selfState = state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
@@ -158,37 +206,23 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
     }
 
     nodesInfo.emplace_back(
-        json11::Json::object {
-            {"uid", std::to_string(id)},
-            {"cluster", cluster},
-            {"coordinator", std::to_string(coordinatorId)},
-            {"neighbor_count", static_cast<std::int32_t>(knownNodes)},
-            {"designation", NodeUtils::GetDesignation(operation)},
-            {"technologies", json11::Json::array{"IEEE 802.11"}},
-            {"update_timestamp", NodeUtils::GetSystemTimestamp()}
-        }
-    );
+        id, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
+        "IEEE 802.11", NodeUtils::GetSystemTimestamp());
 
     if (auto const connections = m_instance.GetConnections().lock()) {
         for (auto itr = connections->begin(); itr != connections->end(); ++itr) {
             std::string const timestamp = NodeUtils::TimePointToString(itr->second->GetUpdateClock());
             nodesInfo.emplace_back(
-                json11::Json::object {
-                    {"uid", std::to_string(itr->second->GetPeerName())},
-                    {"cluster", cluster},
-                    {"coordinator", std::to_string(id)},
-                    {"neighbor_count", 0},
-                    {"designation", "node"},
-                    {"technologies", json11::Json::array{itr->second->GetProtocolType()}},
-                    {"update_timestamp", timestamp}
-                }
-            );
+                itr->second->GetPeerName(), cluster, id, 0, "node",
+                itr->second->GetProtocolType(), timestamp);
         }
     }
 
-    json11::Json nodesJson = json11::Json::array({nodesInfo});
+    std::string data = iod::json_vector(
+        s::id, s::cluster, s::coordinator, s::neighbor_count,
+        s::designation, s::technologies, s::update_timestamp).encode(nodesInfo);
 
-    return nodesJson[0].dump();
+    return data;
 }
 
 //------------------------------------------------------------------------------------------------

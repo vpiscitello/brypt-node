@@ -4,10 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../Utilities/ByteMessage.hpp"
+#include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/Json11/json11.hpp"
 #include <openssl/md5.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
@@ -23,6 +22,9 @@
 //------------------------------------------------------------------------------------------------
 namespace Await {
 //------------------------------------------------------------------------------------------------
+enum class Status : std::uint8_t { FULFILLED, UNFULFILLED };
+
+struct TResponseObject;
 class CMessageObject;
 class CObjectContainer;
 
@@ -37,29 +39,49 @@ constexpr TimePeriod Timeout = std::chrono::milliseconds(1500);
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+
+struct Await::TResponseObject
+{
+    TResponseObject(
+        NodeUtils::NodeIdType const id,
+        std::string const& pack)
+        : id(id)
+        , pack(pack)
+    {
+    }
+    NodeUtils::NodeIdType const id;
+    std::string const pack;
+};
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 class Await::CMessageObject
 {
 public:
     CMessageObject(
         CMessage const& request,
-        std::set<NodeUtils::NodeIdType> const& peerNames,
-        std::uint32_t const expected);
+        NodeUtils::NodeIdType const& peer);
 
-    CMessageObject(CMessage const& request, NodeUtils::NodeIdType const& peerName, std::uint32_t expected);
+    CMessageObject(
+        CMessage const& request,
+        std::set<NodeUtils::NodeIdType> const& peers);
 
-    void BuildResponseObject(std::set<NodeUtils::NodeIdType> const& peerNames);
-    bool Ready();
-    CMessage GetResponse();
-    bool UpdateResponse(CMessage const& response);
+    Await::Status Status();
+
+    std::optional<CMessage> GetResponse();
+    Await::Status UpdateResponse(CMessage const& response);
 
 private:
-    bool m_fulfilled;
+    Await::Status m_status;
     std::uint32_t m_expected;
     std::uint32_t m_received;
 
     CMessage const m_request;
 
-    json11::Json::object m_aggregateObject;
+    std::unordered_map<NodeUtils::NodeIdType, std::string> m_responses;
 
     NodeUtils::TimePoint const m_expire;
 };
@@ -74,13 +96,11 @@ class Await::CObjectContainer
 public:
     NodeUtils::ObjectIdType PushRequest(
         CMessage const& message,
-        std::set<NodeUtils::NodeIdType> const& peerNames,
-        std::uint32_t expected);
+        NodeUtils::NodeIdType const& peer);
 
     NodeUtils::ObjectIdType PushRequest(
         CMessage const& message,
-        NodeUtils::NodeIdType const& peerName,
-        std::uint32_t expected);
+        std::set<NodeUtils::NodeIdType> const& peers);
 
     bool PushResponse(NodeUtils::ObjectIdType const& key, CMessage const& message);
     bool PushResponse(CMessage const& message);

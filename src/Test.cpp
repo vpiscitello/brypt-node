@@ -4,10 +4,11 @@
 //------------------------------------------------------------------------------------------------
 #include "Node.hpp"
 #include "State.hpp"
+#include "Components/Await/Await.hpp"
 #include "Components/Command/Handler.hpp"
 #include "Components/Connection/Connection.hpp"
 #include "Components/MessageQueue/MessageQueue.hpp"
-#include "Utilities/ByteMessage.hpp"
+#include "Utilities/Message.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <fcntl.h>
@@ -147,6 +148,54 @@ void MessageTest() {
 
 //------------------------------------------------------------------------------------------------
 
+void AwaitContainerTest() {
+    std::cout << "\n== Testing Await Container" << '\n';
+    Await::CObjectContainer awaiting;
+    
+    CMessage const request(
+        0x01234567, 0xFFFFFFFF,
+        NodeUtils::CommandType::ELECTION, 0,
+        "Hello World!", 9999);
+    
+    auto const key = awaiting.PushRequest(request, {0xFFFFFFFF, 0xAAAAAAAA, 0xBBBBBBBB});
+
+    CMessage const response(
+        0xFFFFFFFF, 0x01234567,
+        NodeUtils::CommandType::ELECTION, 0,
+        "Hello World!", 9999,
+        Message::BoundAwaitId{
+            Message::AwaitBinding::DESTINATION, key});
+
+    CMessage const responseA(
+        0xAAAAAAAA, 0xFFFFFFFF,
+        NodeUtils::CommandType::ELECTION, 0,
+        "Hello World!", 9999,
+        Message::BoundAwaitId{
+            Message::AwaitBinding::DESTINATION, key});
+
+    CMessage const responseB(
+        0xBBBBBBBB, 0xFFFFFFFF,
+        NodeUtils::CommandType::ELECTION, 0,
+        "Hello World!", 9999,
+        Message::BoundAwaitId{
+            Message::AwaitBinding::DESTINATION, key});
+
+    awaiting.PushResponse(response);
+    awaiting.PushResponse(responseA);
+    awaiting.PushResponse(responseB);
+
+    auto const fulfilled = awaiting.GetFulfilled();
+
+    for (auto const& message: fulfilled) {
+        auto const decrypted = message.Decrypt(message.GetData(), message.GetData().size());
+        std::string const str(decrypted->begin(), decrypted->end());
+        std::cout << str << std::endl;
+    }
+
+}
+
+//------------------------------------------------------------------------------------------------
+
 void RunTests() {
     options.m_id = 0xFFFFFFFF;
     options.m_interface = "en0";
@@ -161,6 +210,7 @@ void RunTests() {
     CommandParseTest();
     MessageQueueTest();
     MessageTest();
+    AwaitContainerTest();
 }
 
 //------------------------------------------------------------------------------------------------

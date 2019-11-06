@@ -12,7 +12,7 @@
 #include "Components/MessageQueue/MessageQueue.hpp"
 #include "Components/Notifier/Notifier.hpp"
 #include "Components/PeerWatcher/PeerWatcher.hpp"
-#include "Utilities/ByteMessage.hpp"
+#include "Utilities/Message.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 

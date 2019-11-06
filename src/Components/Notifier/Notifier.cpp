@@ -5,7 +5,7 @@
 #include "Notifier.hpp"
 #include "../Connection/Connection.hpp"
 #include "../../State.hpp"
-#include "../../Utilities/ByteMessage.hpp"
+#include "../../Utilities/Message.hpp"
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------

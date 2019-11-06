@@ -8,6 +8,8 @@
 #include "../Connection/Connection.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
 #include "../Notifier/Notifier.hpp"
+//------------------------------------------------------------------------------------------------
+#include "../../Libraries/metajson/metajson.hh"
 #include <set>
 //------------------------------------------------------------------------------------------------
 
@@ -19,8 +21,35 @@ namespace local {
 std::string GenerateReading();
 //------------------------------------------------------------------------------------------------
 } // local namespace
+namespace Json {
+//------------------------------------------------------------------------------------------------
+struct TReading;
+//------------------------------------------------------------------------------------------------
+} // Json namespace
 //------------------------------------------------------------------------------------------------
 } // namespace
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description: Symbol loading for JSON encoding
+//------------------------------------------------------------------------------------------------
+IOD_SYMBOL(reading);
+IOD_SYMBOL(timestamp);
+//------------------------------------------------------------------------------------------------
+
+struct Json::TReading
+{
+    TReading(
+        std::uint32_t reading,
+        std::string const& timestamp)
+        : reading(reading)
+        , timestamp(timestamp)
+    {
+    }
+    std::uint32_t const reading;
+    std::string const timestamp;
+};
+
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -93,7 +122,6 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
     if (auto const networkState = m_state.lock()->GetNetworkState().lock()) {
         peerNames = networkState->GetPeerNames();
     }
-    std::uint32_t expected = static_cast<std::uint32_t>(peerNames.size()) + 1;
 
     // Create a reading message
     NodeUtils::NetworkNonce const nonce = 0;
@@ -108,7 +136,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
     // Setup the awaiting message object and push this node's response
     NodeUtils::ObjectIdType awaitKey = 0;
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
-        awaitKey = awaiting->PushRequest(message, peerNames, expected);
+        awaitKey = awaiting->PushRequest(message, peerNames);
         awaiting->PushResponse(awaitKey, readingMessage);
     }
 
@@ -231,12 +259,9 @@ bool Command::CQuery::CloseHandler()
 //------------------------------------------------------------------------------------------------
 std::string local::GenerateReading()
 {
-    std::int32_t const reading = rand() % ( 74 - 68 ) + 68;
-    json11::Json const readingJson = json11::Json::object({
-        { "reading", reading },
-        { "timestamp", NodeUtils::GetSystemTimestamp() }
-    });
-    return readingJson.dump();
+    std::int32_t const value = rand() % ( 74 - 68 ) + 68;
+    Json::TReading const reading(value, NodeUtils::GetSystemTimestamp());
+    return iod::json_object(s::reading, s::timestamp).encode(reading);
 }
 
 //------------------------------------------------------------------------------------------------
