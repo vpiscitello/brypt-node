@@ -85,11 +85,11 @@ public:
         , m_pipe()
         , m_sequenceNumber(0)
         , m_updateClock()
-        , m_workerActive(false)
+        , m_terminate(false)
         , m_responseNeeded(false)
         , m_worker()
-        , m_workerMutex()
-        , m_workerConditional()
+        , m_mutex()
+        , m_cv()
     {
     };
 
@@ -102,11 +102,10 @@ public:
         , m_pipe()
         , m_sequenceNumber(0)
         , m_updateClock(NodeUtils::GetSystemTimePoint())
-        , m_workerActive(false)
         , m_responseNeeded(false)
         , m_worker()
-        , m_workerMutex()
-        , m_workerConditional()
+        , m_mutex()
+        , m_cv()
     {
         if (m_operation == NodeUtils::DeviceOperation::NONE) {
             throw std::runtime_error("Direct connection must be provided and device operation type!");
@@ -127,20 +126,13 @@ public:
 	virtual std::optional<std::string> Receive(std::int32_t flag = 0) = 0;
     
     virtual void PrepareForNext() = 0;
-	virtual void Shutdown() = 0;
+	virtual bool Shutdown() = 0;
 
     //------------------------------------------------------------------------------------------------
 
     bool GetStatus() const
     {
         return m_active;
-    }
-
-    //------------------------------------------------------------------------------------------------
-
-    bool GetWorkerStatus() const
-    {
-        return m_workerActive;
     }
 
     //------------------------------------------------------------------------------------------------
@@ -239,9 +231,9 @@ public:
             return;
         }
 
-        m_workerActive = false;
-        std::unique_lock<std::mutex> threadLock(m_workerMutex);
-        m_workerConditional.notify_one();
+        m_active = false;
+        std::unique_lock<std::mutex> threadLock(m_mutex);
+        m_cv.notify_one();
         threadLock.unlock();
     }
 
@@ -259,11 +251,11 @@ protected:
 
     NodeUtils::TimePoint m_updateClock;
 
-    bool m_workerActive;
+    bool m_terminate;
     bool m_responseNeeded;
     std::thread m_worker;
-    std::mutex m_workerMutex;
-    std::condition_variable m_workerConditional;
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
 
 };
 

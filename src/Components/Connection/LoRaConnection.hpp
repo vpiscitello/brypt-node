@@ -23,7 +23,7 @@ class Connection::CLoRa : public CConnection {
 public:
     CLoRa();
     explicit CLoRa(NodeUtils::TOptions const& options);
-    ~CLoRa() override {};
+    ~CLoRa() override;
 
     void whatami() override;
     std::string const& GetProtocolType() const override;
@@ -37,7 +37,7 @@ public:
     std::optional<std::string> Receive(std::int32_t flag = 0) override;
 
     void PrepareForNext() override;
-    void Shutdown() override;
+    bool Shutdown() override;
 
 private:
 

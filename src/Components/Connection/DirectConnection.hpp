@@ -24,7 +24,7 @@ class Connection::CDirect : public CConnection {
 public:
     CDirect();
     explicit CDirect(NodeUtils::TOptions const& options);
-    ~CDirect() override {};
+    ~CDirect() override;
 
     void whatami() override;
     std::string const& GetProtocolType() const override;
@@ -40,11 +40,9 @@ public:
     std::optional<std::string> Receive(std::int32_t flag = 0) override;
 
     void PrepareForNext() override;
-    void Shutdown() override;
+    bool Shutdown() override;
 
 private:
-	bool m_control;
-
 	NodeUtils::PortNumber m_port;
 	NodeUtils::IPv4Address m_peerAddress;
 	NodeUtils::PortNumber m_peerPort;
@@ -52,6 +50,7 @@ private:
 	std::unique_ptr<zmq::context_t> m_context;
 	std::unique_ptr<zmq::socket_t> m_socket;
 	zmq::pollitem_t m_pollItem;
+    
 };
 
 //------------------------------------------------------------------------------------------------

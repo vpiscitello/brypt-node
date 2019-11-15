@@ -149,7 +149,6 @@ std::shared_ptr<CConnection> CNode::SetupFullConnection(
     options.m_technology = technology;
     options.m_operation = NodeUtils::DeviceOperation::ROOT;
     options.m_port = port;
-    options.m_isControl = false;
     options.m_peerName = peerId;
 
     m_queue->AddManagedPipe(options.m_peerName);
@@ -302,7 +301,6 @@ void CNode::initialContact()
 {
     NodeUtils::NodeIdType id = 0;
     NodeUtils::TOptions options;
-    options.m_isControl = true;
     if (auto const selfState = m_state->GetSelfState().lock()) {
         id = selfState->GetId();
         options.m_technology = local::InitialContactTechnology(*selfState->GetTechnologies().begin());;
@@ -376,7 +374,6 @@ void CNode::joinCoordinator()
 {
     NodeUtils::TOptions options;
     options.m_operation = NodeUtils::DeviceOperation::LEAF;
-    options.m_isControl = true;
     NodeUtils::PortNumber publisherPort  = std::string();
     if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
         options.m_peerName = coordinatorState->GetId();

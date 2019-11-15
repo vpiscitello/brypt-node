@@ -109,7 +109,7 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
     printo("New connection pushed back", NodeUtils::PrintType::COMMAND);
 
     // Wait for the connection to be fully setup
-    while (!connection->GetWorkerStatus()) {
+    while (!connection->GetStatus()) {
         std::this_thread::sleep_for(std::chrono::nanoseconds(100));
     }
     

@@ -21,7 +21,6 @@ CControl::CControl(
     NodeUtils::TOptions options;
     options.m_technology = technology;
     options.m_operation = NodeUtils::DeviceOperation::ROOT;
-    options.m_isControl = true;
     if (auto const selfState = m_state->GetSelfState().lock()) {
         options.m_port = selfState->GetPort();
     }

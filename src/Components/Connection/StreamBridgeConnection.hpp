@@ -28,7 +28,7 @@ class Connection::CStreamBridge : public CConnection {
 public:
     CStreamBridge();
     explicit CStreamBridge(NodeUtils::TOptions const& options);
-    ~CStreamBridge() override {};
+    ~CStreamBridge() override;
 
     void whatami() override;
     std::string const& GetProtocolType() const override;
@@ -43,11 +43,9 @@ public:
     std::optional<std::string> Receive(std::int32_t flag = 0) override;
 
     void PrepareForNext() override;
-    void Shutdown() override;
+    bool Shutdown() override;
 
 private:
-    bool m_control;
-
     std::uint8_t m_id[StreamBridge::ID_SIZE];
 
     NodeUtils::PortNumber m_port;
@@ -58,6 +56,7 @@ private:
 
     std::unique_ptr<zmq::context_t> m_context;
 	std::unique_ptr<zmq::socket_t> m_socket;
+    
 };
 
 //------------------------------------------------------------------------------------------------

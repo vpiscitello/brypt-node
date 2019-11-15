@@ -7,10 +7,21 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
+namespace {
+//------------------------------------------------------------------------------------------------
+namespace local {
+//------------------------------------------------------------------------------------------------
+constexpr std::chrono::nanoseconds timeout = std::chrono::nanoseconds(1000);
+//------------------------------------------------------------------------------------------------
+} // local namespace
+//------------------------------------------------------------------------------------------------
+} // namespace
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
 
 Connection::CDirect::CDirect()
     : CConnection()
-    , m_control(false)
     , m_port(std::string())
     , m_peerAddress(std::string())
     , m_peerPort(std::string())
@@ -24,7 +35,6 @@ Connection::CDirect::CDirect()
 
 Connection::CDirect::CDirect(NodeUtils::TOptions const& options)
     : CConnection(options)
-    , m_control(options.m_isControl)
     , m_port(options.m_port)
     , m_peerAddress(options.m_peerAddress)
     , m_peerPort(options.m_peerPort)
@@ -37,25 +47,19 @@ Connection::CDirect::CDirect(NodeUtils::TOptions const& options)
 
     m_context = std::make_unique<zmq::context_t>(1);
 
-    if (m_control) {
-        printo("[Direct] Creating control socket", NodeUtils::PrintType::CONNECTION);
-        switch (m_operation) {
-            case NodeUtils::DeviceOperation::ROOT: {
-                printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
-                SetupResponseSocket(options.m_port);
-            } break;
-            case NodeUtils::DeviceOperation::BRANCH: break;
-            case NodeUtils::DeviceOperation::LEAF: {
-                printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::CONNECTION);
-                SetupRequestSocket(m_peerAddress, m_peerPort);
-            } break;
-            case NodeUtils::DeviceOperation::NONE: break;
-        }
-    } else {
-        Spawn();
-        std::unique_lock<std::mutex> threadLock(m_workerMutex);
-        this->m_workerConditional.wait(threadLock, [this]{return m_workerActive;});
-        threadLock.unlock();
+    Spawn();
+    std::unique_lock<std::mutex> threadLock(m_mutex);
+    this->m_cv.wait(threadLock, [this]{return m_active;});
+    threadLock.unlock();
+}
+
+//------------------------------------------------------------------------------------------------
+
+Connection::CDirect::~CDirect()
+{
+    bool const success = Shutdown();
+    if (!success) {
+        m_worker.detach();
     }
 }
 
@@ -109,7 +113,7 @@ void Connection::CDirect::Spawn()
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Worker()
 {
-    m_workerActive = true;
+    m_active = true;
     CreatePipe();
 
     switch (m_operation) {
@@ -126,8 +130,8 @@ void Connection::CDirect::Worker()
     }
 
     // Notify the calling thread that the connection Worker is ready
-    std::unique_lock<std::mutex> threadLock(m_workerMutex);
-    m_workerConditional.notify_one();
+    std::unique_lock<std::mutex> threadLock(m_mutex);
+    m_cv.notify_one();
     threadLock.unlock();
 
     std::optional<std::string> optRequest;
@@ -144,7 +148,7 @@ void Connection::CDirect::Worker()
 
             // Wait for message from pipe then Send
             threadLock.lock();
-            this->m_workerConditional.wait(threadLock, [this]{return !m_responseNeeded;});
+            this->m_cv.wait(threadLock, [this]{return !m_responseNeeded;});
             threadLock.unlock();
 
             response = ReadFromPipe();
@@ -153,7 +157,16 @@ void Connection::CDirect::Worker()
             optRequest.reset();
             response.clear();
         }
-        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+        
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            auto const stop = std::chrono::system_clock::now() + local::timeout;
+            auto const terminate = m_cv.wait_until(lock, stop, [&]{ return m_terminate; });
+            // Terminate thread if the timeout was not reached
+            if (terminate) {
+                return;
+            }
+        }
         ++run;
     } while(true);
 }
@@ -271,11 +284,24 @@ void Connection::CDirect::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CDirect::Shutdown()
+bool Connection::CDirect::Shutdown()
 {
     printo("[Direct] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
-    zmq_close(m_socket.release());
-    zmq_ctx_destroy(m_context.release());
+    // Stop the worker thread from processing the connections
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        zmq_close(m_socket.release());
+        zmq_ctx_destroy(m_context.release());
+        m_terminate = true;
+    }
+
+    m_cv.notify_all();
+    
+    if (m_worker.joinable()) {
+        m_worker.join();
+    }
+    
+    return !m_worker.joinable();
 }
 
 //------------------------------------------------------------------------------------------------

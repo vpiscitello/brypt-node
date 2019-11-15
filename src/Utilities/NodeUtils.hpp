@@ -103,8 +103,6 @@ struct NodeUtils::TOptions
     NodeIdType m_peerName;
     IPv4Address m_peerAddress;
     PortNumber m_peerPort;
-
-    bool m_isControl;
 };
 
 //------------------------------------------------------------------------------------------------

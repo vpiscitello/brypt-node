@@ -3,13 +3,28 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "TcpConnection.hpp"
-//------------------------------------------------------------------------------------------------
 #include "../../Utilities/Message.hpp"
+//------------------------------------------------------------------------------------------------
+#include <cerrno>
+#include <chrono>
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+namespace {
+//------------------------------------------------------------------------------------------------
+namespace local {
+//------------------------------------------------------------------------------------------------
+constexpr std::chrono::nanoseconds timeout = std::chrono::nanoseconds(1000);
+//------------------------------------------------------------------------------------------------
+} // local namespace
+//------------------------------------------------------------------------------------------------
+} // namespace
+//------------------------------------------------------------------------------------------------
+
 //------------------------------------------------------------------------------------------------
 
 Connection::CTcp::CTcp()
     : CConnection()
-    , m_control(false)
     , m_port(std::string())
     , m_peerAddress(std::string())
     , m_peerPort(std::string())
@@ -24,7 +39,6 @@ Connection::CTcp::CTcp()
 
 Connection::CTcp::CTcp(NodeUtils::TOptions const& options)
     : CConnection(options)
-    , m_control(options.m_isControl)
     , m_port(options.m_port)
     , m_peerAddress(options.m_peerAddress)
     , m_peerPort(options.m_peerPort)
@@ -36,24 +50,19 @@ Connection::CTcp::CTcp(NodeUtils::TOptions const& options)
 
     memset(&m_address, 0, sizeof(m_address));
 
-    if (m_control) {
-        switch (m_operation) {
-            case NodeUtils::DeviceOperation::ROOT: {
-                printo("[TCP] Setting up TCP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
-                SetupTcpSocket(options.m_port);
-            } break;
-            case NodeUtils::DeviceOperation::BRANCH: break;
-            case NodeUtils::DeviceOperation::LEAF: {
-                printo("[TCP] Connecting TCP client socket to " + m_peerAddress + ":" + m_peerPort, NodeUtils::PrintType::CONNECTION);
-                SetupTcpConnection(m_peerAddress, m_peerPort);
-            } break;
-            case NodeUtils::DeviceOperation::NONE: break;
-        }
-    } else {
-        Spawn();
-        std::unique_lock<std::mutex> threadLock(m_workerMutex);
-        this->m_workerConditional.wait(threadLock, [this]{return m_workerActive;});
-        threadLock.unlock();
+    Spawn();
+    std::unique_lock<std::mutex> threadLock(m_mutex);
+    this->m_cv.wait(threadLock, [this]{return m_active;});
+    threadLock.unlock();
+}
+
+//------------------------------------------------------------------------------------------------
+
+Connection::CTcp::~CTcp()
+{
+    bool const success = Shutdown();
+    if (!success) {
+        m_worker.detach();
     }
 }
 
@@ -109,7 +118,7 @@ NodeUtils::TechnologyType Connection::CTcp::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 void Connection::CTcp::Worker()
 {
-    m_workerActive = true;
+    m_active = true;
     CreatePipe();
 
     switch (m_operation) {
@@ -126,8 +135,8 @@ void Connection::CTcp::Worker()
     }
 
     // Notify the calling thread that the connection Worker is ready
-    std::unique_lock<std::mutex> threadLock(m_workerMutex);
-    m_workerConditional.notify_one();
+    std::unique_lock<std::mutex> threadLock(m_mutex);
+    m_cv.notify_one();
     threadLock.unlock();
 
     std::uint32_t run = 0;
@@ -138,7 +147,16 @@ void Connection::CTcp::Worker()
             WriteToPipe(*optRequest);
             optRequest.reset();
         }
-        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            auto const stop = std::chrono::system_clock::now() + local::timeout;
+            auto const terminate = m_cv.wait_until(lock, stop, [&]{ return m_terminate; });
+            // Terminate thread if the timeout was not reached
+            if (terminate) {
+                return;
+            }
+        }
         ++run;
     } while(true);
 }
@@ -151,12 +169,15 @@ void Connection::CTcp::Worker()
 void Connection::CTcp::SetupTcpSocket(NodeUtils::PortNumber const& port)
 {
     // Creating socket file descriptor
-    if (m_socket = ::socket(AF_INET, SOCK_STREAM, 0); m_socket < 0) {
+    if (m_socket = socket(AF_INET, SOCK_STREAM, 0); m_socket < 0) {
         printo("[TCP] Socket failed", NodeUtils::PrintType::CONNECTION);
         return;
     }
 
-    if (setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &Connection::Tcp::OPT, sizeof(Connection::Tcp::OPT))) {
+    std::int32_t result = 0;
+    result += setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &Connection::Tcp::OPT, sizeof(Connection::Tcp::OPT));
+    result += setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &Connection::Tcp::OPT, sizeof(Connection::Tcp::OPT));
+    if (result) {
         printo("[TCP] SetSockOpt failed", NodeUtils::PrintType::CONNECTION);
         return;
     }
@@ -216,32 +237,21 @@ void Connection::CTcp::SetupTcpConnection(NodeUtils::IPv4Address const& address,
 //------------------------------------------------------------------------------------------------
 std::optional<std::string> Connection::CTcp::Receive(std::int32_t flag)
 {
-    if (m_connection == -1) {
-        if (flag != ZMQ_NOBLOCK) {
-            if (fcntl(m_socket, F_SETFL, fcntl(m_socket, F_GETFL) & (~O_NONBLOCK)) < 0) {
-            return "";
-            }
-        }
+    if (m_connection < 0) {
         m_connection = accept(m_socket, (struct sockaddr *)&m_address, (socklen_t*)&Connection::Tcp::ADDRESS_SIZE);
-        if (fcntl(m_socket, F_SETFL, fcntl(m_socket, F_GETFL) | O_NONBLOCK) < 0) {
-            return "";
+        if (fcntl(m_socket, F_SETFL, fcntl(m_socket, F_GETFL) | flag) < 0) {
+            return {};
         }
     }
 
-    if (flag == ZMQ_NOBLOCK) {
-        if (fcntl(m_connection, F_SETFL, fcntl(m_connection, F_GETFL) | O_NONBLOCK) < 0) {
-            return "";
-        }
-    } else {
-        if (fcntl(m_connection, F_SETFL, fcntl(m_connection, F_GETFL) & (~O_NONBLOCK)) < 0) {
-            return "";
-        }
+    if (fcntl(m_connection, F_SETFL, fcntl(m_connection, F_GETFL) | flag) < 0) {
+        return {};
     }
 
     char buffer[Connection::Tcp::BUFFER_SIZE];
     memset(buffer, 0, Connection::Tcp::BUFFER_SIZE);
     std::int32_t bytesRead = read(m_connection, buffer, Connection::Tcp::BUFFER_SIZE);
-    printo("[TCP] Received: (" + std::to_string(bytesRead) + ") " + std::string(buffer), NodeUtils::PrintType::CONNECTION);
+    printo("[TCP] Received: " + std::to_string(bytesRead) + " " + std::string(buffer), NodeUtils::PrintType::CONNECTION);
 
     return std::string(buffer, strlen(buffer));
 }
@@ -300,10 +310,24 @@ void Connection::CTcp::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CTcp::Shutdown()
+bool Connection::CTcp::Shutdown()
 {
-    close(m_connection);
-    close(m_socket);
+    printo("[TCP] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
+    // Stop the worker thread from processing the connections
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        close(m_connection);
+        close(m_socket);
+        m_terminate = true;
+    }
+
+    m_cv.notify_all();
+    
+    if (m_worker.joinable()) {
+        m_worker.join();
+    }
+    
+    return !m_worker.joinable();
 }
 
 //------------------------------------------------------------------------------------------------

@@ -33,7 +33,7 @@ class Connection::CTcp : public CConnection {
 public:
     CTcp();
     explicit CTcp(NodeUtils::TOptions const& options);
-    ~CTcp() override {};
+    ~CTcp() override;
 
     void whatami() override;
     std::string const& GetProtocolType() const override;
@@ -50,11 +50,9 @@ public:
     std::string InternalReceive();
 
     void PrepareForNext() override;
-    void Shutdown() override;
+    bool Shutdown() override;
 
 private:
-    bool m_control;
-
     NodeUtils::PortNumber m_port;
     std::string m_peerAddress;
     std::string m_peerPort;
@@ -62,6 +60,7 @@ private:
     std::int32_t m_socket;
     std::int32_t m_connection;
     struct sockaddr_in m_address;
+    
 };
 
 //------------------------------------------------------------------------------------------------

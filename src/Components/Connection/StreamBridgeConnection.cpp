@@ -7,10 +7,21 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
+namespace {
+//------------------------------------------------------------------------------------------------
+namespace local {
+//------------------------------------------------------------------------------------------------
+constexpr std::chrono::nanoseconds timeout = std::chrono::nanoseconds(1000);
+//------------------------------------------------------------------------------------------------
+} // local namespace
+//------------------------------------------------------------------------------------------------
+} // namespace
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
 
 Connection::CStreamBridge::CStreamBridge()
     : CConnection()
-    , m_control(false)
     , m_id()
     , m_port(std::string())
     , m_peerAddress(std::string())
@@ -25,7 +36,6 @@ Connection::CStreamBridge::CStreamBridge()
 
 Connection::CStreamBridge::CStreamBridge(NodeUtils::TOptions const& options)
     : CConnection(options)
-    , m_control(options.m_isControl)
     , m_id()
     , m_port(options.m_port)
     , m_peerAddress(options.m_peerAddress)
@@ -38,27 +48,19 @@ Connection::CStreamBridge::CStreamBridge(NodeUtils::TOptions const& options)
 
     m_updateClock = NodeUtils::GetSystemTimePoint();
 
-    if (m_control) {
-        printo("[StreamBridge] creating control socket", NodeUtils::PrintType::CONNECTION);
+    Spawn();
+    std::unique_lock<std::mutex> threadLock(m_mutex);
+    this->m_cv.wait(threadLock, [this]{return m_active;});
+    threadLock.unlock();
+}
 
-        m_context = std::make_unique<zmq::context_t>(1);
+//------------------------------------------------------------------------------------------------
 
-        switch (m_operation) {
-            case NodeUtils::DeviceOperation::ROOT: {
-               printo("[StreamBridge] Setting up StreamBridge socket on port " + options.m_port, NodeUtils::PrintType::CONNECTION);
-               m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_STREAM);
-               m_initializationMessage = 1;
-               SetupStreamBridgeSocket(options.m_port);
-            } break;
-            case NodeUtils::DeviceOperation::BRANCH:
-            case NodeUtils::DeviceOperation::LEAF:
-            case NodeUtils::DeviceOperation::NONE: break;
-        }
-    } else {
-        Spawn();
-        std::unique_lock<std::mutex> threadLock(m_workerMutex);
-        this->m_workerConditional.wait(threadLock, [this]{return m_workerActive;});
-        threadLock.unlock();
+Connection::CStreamBridge::~CStreamBridge()
+{
+    bool const success = Shutdown();
+    if (!success) {
+        m_worker.detach();
     }
 }
 
@@ -112,7 +114,7 @@ NodeUtils::TechnologyType Connection::CStreamBridge::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 void Connection::CStreamBridge::Worker()
 {
-    m_workerActive = true;
+    m_active = true;
     CreatePipe();
 
     m_context = std::make_unique<zmq::context_t>(1);
@@ -130,8 +132,8 @@ void Connection::CStreamBridge::Worker()
     }
 
     // Notify the calling thread that the connection Worker is ready
-    std::unique_lock<std::mutex> threadLock(m_workerMutex);
-    m_workerConditional.notify_one();
+    std::unique_lock<std::mutex> threadLock(m_mutex);
+    m_cv.notify_one();
     threadLock.unlock();
 
     std::optional<std::string> optRequest;
@@ -143,7 +145,7 @@ void Connection::CStreamBridge::Worker()
             WriteToPipe(*optRequest);
 
             threadLock.lock();
-            this->m_workerConditional.wait(threadLock, [this]{return !m_responseNeeded;});
+            this->m_cv.wait(threadLock, [this]{return !m_responseNeeded;});
             threadLock.unlock();
 
             response = ReadFromPipe();
@@ -151,8 +153,17 @@ void Connection::CStreamBridge::Worker()
 
             optRequest.reset();
             response.clear();
+        }
+
+        {
+            std::unique_lock<std::mutex> lock(m_mutex);
+            auto const stop = std::chrono::system_clock::now() + local::timeout;
+            auto const terminate = m_cv.wait_until(lock, stop, [&]{ return m_terminate; });
+            // Terminate thread if the timeout was not reached
+            if (terminate) {
+                return;
             }
-        std::this_thread::sleep_for(std::chrono::nanoseconds(1000));
+        }
         ++run;
     } while(true);
 }
@@ -256,11 +267,24 @@ void Connection::CStreamBridge::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CStreamBridge::Shutdown()
+bool Connection::CStreamBridge::Shutdown()
 {
     printo("[StreamBridge] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
-    zmq_close(m_socket.release());
-    zmq_ctx_destroy(m_context.release());
+    // Stop the worker thread from processing the connections
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        zmq_close(m_socket.release());
+        zmq_ctx_destroy(m_context.release());
+        m_terminate = true;
+    }
+
+    m_cv.notify_all();
+    
+    if (m_worker.joinable()) {
+        m_worker.join();
+    }
+    
+    return !m_worker.joinable();
 }
 
 
