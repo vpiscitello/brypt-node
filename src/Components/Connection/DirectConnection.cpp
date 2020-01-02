@@ -33,17 +33,21 @@ Connection::CDirect::CDirect()
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CDirect::CDirect(NodeUtils::TOptions const& options)
+Connection::CDirect::CDirect(Configuration::TConnectionOptions const& options)
     : CConnection(options)
-    , m_port(options.m_port)
-    , m_peerAddress(options.m_peerAddress)
-    , m_peerPort(options.m_peerPort)
+    , m_port(options.binding)
+    , m_peerAddress()
+    , m_peerPort()
     , m_context(nullptr)
     , m_socket(nullptr)
     , m_pollItem()
 
 {
     printo("[Direct] Creating direct instance", NodeUtils::PrintType::CONNECTION);
+
+    auto const networkComponents = options.GetBindingComponents();
+    m_peerAddress = networkComponents.first;
+    m_peerPort = networkComponents.second;
 
     m_context = std::make_unique<zmq::context_t>(1);
 
@@ -216,8 +220,7 @@ void Connection::CDirect::Send(CMessage const& message)
         std::runtime_error("ZMQ Context has not been initialized!");
     } 
     std::string const& pack = message.GetPack();
-    zmq::message_t request(pack.size());
-    memcpy(&request, pack.c_str(), pack.size());
+    zmq::message_t request(pack.data(), pack.size());
 
     m_socket->send(request, zmq::send_flags::none);
     printo("[Direct] Sent: (" + std::to_string(strlen(pack.c_str())) + ") " + pack, NodeUtils::PrintType::CONNECTION);
@@ -232,11 +235,15 @@ void Connection::CDirect::Send(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Send(char const* const message)
 {
+    if (!message) {
+        return;
+    }
+
     if (!m_context) {
         std::runtime_error("ZMQ Context has not been initialized!");
-    } 
-    zmq::message_t request(strlen(message));
-    memcpy(&request, message, strlen(message));
+    }
+
+    zmq::message_t request(message, strlen(message));
 
     m_socket->send(request, zmq::send_flags::none);
     printo("[Direct] Sent: (" + std::to_string(strlen(message)) + ") " + message, NodeUtils::PrintType::CONNECTION);
@@ -256,12 +263,12 @@ std::optional<std::string> Connection::CDirect::Receive(std::int32_t flag)
     }
     zmq::recv_flags zmqFlag = static_cast<zmq::recv_flags>(flag);
     zmq::message_t message;
-    m_socket->recv(message, zmqFlag);
-    std::string request = std::string(static_cast<char*>(message.data()), message.size());
-
-    if (request.empty()) {
+    auto const result = m_socket->recv(message, zmqFlag);
+    if (!result || *result == 0) {
         return {};
     }
+
+    std::string request = std::string(static_cast<char*>(message.data()), *result);
 
     m_updateClock = NodeUtils::GetSystemTimePoint();
     ++m_sequenceNumber;

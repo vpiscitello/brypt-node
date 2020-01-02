@@ -34,17 +34,21 @@ Connection::CStreamBridge::CStreamBridge()
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CStreamBridge::CStreamBridge(NodeUtils::TOptions const& options)
+Connection::CStreamBridge::CStreamBridge(Configuration::TConnectionOptions const& options)
     : CConnection(options)
     , m_id()
-    , m_port(options.m_port)
-    , m_peerAddress(options.m_peerAddress)
-    , m_peerPort(options.m_peerPort)
+    , m_port(options.binding)
+    , m_peerAddress()
+    , m_peerPort()
     , m_initializationMessage(1)
     , m_context(nullptr)
     , m_socket()
 {
     printo("Creating StreamBridge instance", NodeUtils::PrintType::CONNECTION);
+    
+    auto const networkComponents = options.GetBindingComponents();
+    m_peerAddress = networkComponents.first;
+    m_peerPort = networkComponents.second;
 
     m_updateClock = NodeUtils::GetSystemTimePoint();
 

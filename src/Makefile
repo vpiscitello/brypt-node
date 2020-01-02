@@ -1,4 +1,4 @@
-CXX = g++
+CXX = g++-9
 BUILDDIR = build
 BINARYDIR = bin
 BINARYNAME = BryptNode
@@ -22,14 +22,21 @@ SRCDIR = .
 AWAITDIR = Components/Await
 COMMANDDIR = Components/Command
 CONNECTIONDIR = Components/Connection
+CONFIGURATIONDIR = Configuration
 CONTROLDIR = Components/Control
 MESSAGEQUEUEDIR = Components/MessageQueue
 PEERWATCHERDIR = Components/PeerWatcher
 NOTIFIERDIR = Components/Notifier
 
-JSON11DIR = Libraries/Json11
-
-MODULES = $(SRCDIR) $(AWAITDIR) $(COMMANDDIR) $(CONNECTIONDIR) $(CONTROLDIR) $(MESSAGEQUEUEDIR) $(PEERWATCHERDIR) $(NOTIFIERDIR) $(JSON11DIR)
+MODULES = $(SRCDIR) \
+$(AWAITDIR) \
+$(COMMANDDIR) \
+$(CONNECTIONDIR) \
+$(CONFIGURATIONDIR) \
+$(CONTROLDIR) \
+$(MESSAGEQUEUEDIR) \
+$(PEERWATCHERDIR)\
+$(NOTIFIERDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRCS)))

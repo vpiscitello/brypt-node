@@ -33,17 +33,17 @@ class CSensor;
 
 class State::CAuthority {
 public:
-    CAuthority()
-        : m_address(NodeUtils::AUTHORITY_ADDRESS)
+    explicit CAuthority(std::string_view url)
+        : m_url(url)
         , m_token(std::string())
         , m_authorityStateMutex()
     {
     };
 
-    NodeUtils::IPv4Address GetAddress() const 
+    std::string GetUrl() const 
     {
         std::shared_lock<std::shared_mutex> lock(m_authorityStateMutex);
-        return m_address;
+        return m_url;
     };
 
     std::string GetToken() const
@@ -52,10 +52,10 @@ public:
         return m_token;
     };
 
-    void SetAddress(NodeUtils::IPv4Address const& address)
+    void SetAddress(std::string_view url)
     {
         std::unique_lock<std::shared_mutex> lock(m_authorityStateMutex);
-        m_address = address;
+        m_url = url;
     };
 
     void SetToken(std::string const& token)
@@ -65,7 +65,7 @@ public:
     };
 
 private:
-    NodeUtils::IPv4Address m_address;  // Networking address of the central authority for the Brypt ecosystem
+    std::string m_url;  // Networking url of the central authority for the Brypt ecosystem
     std::string m_token; // Access token for the Brypt network
 
     mutable std::shared_mutex m_authorityStateMutex;
@@ -86,14 +86,12 @@ public:
     };
 
     CCoordinator(
-        NodeUtils::NodeIdType const& id,
-        NodeUtils::IPv4Address const& address,
-        NodeUtils::PortNumber const& port,
-        NodeUtils::TechnologyType technology)
-        : m_id(id)
-        , m_address(address)
-        , m_requestPort(port)
-        , m_publisherPort(std::to_string(std::stoi(port) + 1))
+        NodeUtils::TechnologyType technology,
+        NodeUtils::AddressComponentPair entry)
+        : m_id(0)
+        , m_address(entry.first)
+        , m_requestPort(entry.second)
+        , m_publisherPort(std::to_string(std::stoi(entry.second) + 1))
         , m_technology(technology)
         , m_coordinatorStateMutex()
     {
@@ -258,13 +256,13 @@ private:
 class State::CSecurity {
 public:
     CSecurity()
-        : m_protocol(std::string())
+        : m_standard()
         , m_securityStateMutex()
     {
     };
 
-    explicit CSecurity(std::string const& protocol)
-        : m_protocol(protocol)
+    explicit CSecurity(std::string_view protocol)
+        : m_standard(protocol)
         , m_securityStateMutex()
     {
     };
@@ -272,17 +270,17 @@ public:
     std::string GetProtocol() const
     {
         std::shared_lock<std::shared_mutex> lock(m_securityStateMutex);
-        return m_protocol;
+        return m_standard;
     };
 
     void SetProtocol(std::string const& protocol)
     {
         std::unique_lock<std::shared_mutex> lock(m_securityStateMutex);
-        m_protocol = protocol;
+        m_standard = protocol;
     }
 
 private:
-    std::string m_protocol;
+    std::string m_standard;
 
     mutable std::shared_mutex m_securityStateMutex;
 };
@@ -305,17 +303,16 @@ public:
     };
 
     CSelf(
-        NodeUtils::NodeIdType const& id,
-        std::string const& interface,
-        NodeUtils::PortNumber const& port,
+        std::string_view interface,
+        NodeUtils::AddressComponentPair const& binding,
         NodeUtils::DeviceOperation operation,
         std::set<NodeUtils::TechnologyType> const& technologies)
-        : m_id(id)
+        : m_id(0) // TODO: Set Machine UUID for state
         , m_serial(std::string())
         , m_address(NodeUtils::GetLocalAddress(interface))
-        , m_port(port)
-        , m_publisherPort(std::to_string(std::stoi(port) + 1))
-        , m_nextAvailablePort(std::stoi(port) + NodeUtils::PORT_GAP)
+        , m_port(binding.second)
+        , m_publisherPort(std::to_string(std::stoi(binding.second) + 1))
+        , m_nextAvailablePort(std::stoi(binding.second) + NodeUtils::PORT_GAP)
         , m_cluster(0)
         , m_operation(operation)
         , m_technologies(technologies)
@@ -453,25 +450,21 @@ private:
 
 class CState {
 public:
-    explicit CState(NodeUtils::TOptions const& options)
-        : m_authority(std::make_shared<State::CAuthority>())
+    explicit CState(Configuration::TSettings const& settings)
+        : m_authority(std::make_shared<State::CAuthority>(settings.security.central_authority))
         , m_coordinator(std::make_shared<State::CCoordinator>(
-            options.m_peerName, 
-            options.m_peerAddress,
-            options.m_peerPort,
-            NodeUtils::TechnologyType::DIRECT))
+            settings.connections[0].technology,
+            settings.connections[0].GetEntryComponents()))
         , m_network(std::make_shared<State::CNetwork>())
-        , m_security(std::make_shared<State::CSecurity>(std::string(NodeUtils::ENCRYPTION_PROTOCOL)))
+        , m_security(std::make_shared<State::CSecurity>(settings.security.standard))
         , m_self(std::make_shared<State::CSelf>(
-            options.m_id,
-            options.m_interface,
-            options.m_port,
-            options.m_operation,
-            std::set<NodeUtils::TechnologyType>{options.m_technology}
+            settings.connections[0].interface,
+            settings.connections[0].GetBindingComponents(),
+            settings.connections[0].operation,
+            std::set<NodeUtils::TechnologyType>{settings.connections[0].technology}
         ))
         , m_sensor(std::make_shared<State::CSensor>())
     {
-        m_network->PushPeerName(options.m_peerName);
     };
 
     std::weak_ptr<State::CAuthority> GetAuthorityState() const

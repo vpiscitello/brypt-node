@@ -27,7 +27,7 @@ constexpr std::uint32_t BUFFER_SIZE = 512;
 class Connection::CStreamBridge : public CConnection {
 public:
     CStreamBridge();
-    explicit CStreamBridge(NodeUtils::TOptions const& options);
+    explicit CStreamBridge(Configuration::TConnectionOptions const& options);
     ~CStreamBridge() override;
 
     void whatami() override;

@@ -32,7 +32,7 @@ constexpr std::int32_t BUFFER_SIZE = 1024;
 class Connection::CTcp : public CConnection {
 public:
     CTcp();
-    explicit CTcp(NodeUtils::TOptions const& options);
+    explicit CTcp(Configuration::TConnectionOptions const& options);
     ~CTcp() override;
 
     void whatami() override;

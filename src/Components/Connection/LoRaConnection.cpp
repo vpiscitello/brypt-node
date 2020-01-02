@@ -27,7 +27,7 @@ Connection::CLoRa::CLoRa()
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CLoRa::CLoRa(NodeUtils::TOptions const& options)
+Connection::CLoRa::CLoRa(Configuration::TConnectionOptions const& options)
     : CConnection(options)
 {
 }

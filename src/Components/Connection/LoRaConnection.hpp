@@ -22,7 +22,7 @@ namespace LoRa {
 class Connection::CLoRa : public CConnection {
 public:
     CLoRa();
-    explicit CLoRa(NodeUtils::TOptions const& options);
+    explicit CLoRa(Configuration::TConnectionOptions const& options);
     ~CLoRa() override;
 
     void whatami() override;

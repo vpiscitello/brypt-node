@@ -45,21 +45,6 @@
 namespace iod
 {
 
-  namespace internal
-  {
-    struct {
-      template <typename A, typename... B>
-      constexpr auto operator()(A&& a, B&&... b)
-      {
-        auto result = a;
-        using expand_variadic_pack  = int[];
-        (void)expand_variadic_pack{0, ((result += b), 0)... };
-        return result;
-      }
-    } reduce_add;
-
-  }
-
   template <typename... T>
   struct typelist {};
   
@@ -120,13 +105,13 @@ namespace iod
   }
 
   template <typename K, typename M, typename O>
-  constexpr auto get_or(M&& map, K k, O default_)
+  constexpr auto get_or([[maybe_unused]] M&& map, [[maybe_unused]] K k, [[maybe_unused]] O default_)
   {
     if constexpr(has_key(map, k)) {
-        return map[k];
-      }
-    else
+      return map[k];
+    } else {
       return default_;
+    }
   }
   
 }
@@ -274,23 +259,23 @@ namespace iod
   operator OP (const A& b, const B& a)                                \
   { return NAME##_exp<std::decay_t<A>, std::decay_t<B>>{b, a}; }
 
-  iod_query_declare_binary_op(+, plus);
-  iod_query_declare_binary_op(-, minus);
-  iod_query_declare_binary_op(*, mult);
-  iod_query_declare_binary_op(/, div);
-  iod_query_declare_binary_op(<<, shiftl);
-  iod_query_declare_binary_op(>>, shiftr);
-  iod_query_declare_binary_op(<, inf);
-  iod_query_declare_binary_op(<=, inf_eq);
-  iod_query_declare_binary_op(>, sup);
-  iod_query_declare_binary_op(>=, sup_eq);
-  iod_query_declare_binary_op(==, eq);
-  iod_query_declare_binary_op(!=, neq);
-  iod_query_declare_binary_op(&, logical_and);
-  iod_query_declare_binary_op(^, logical_xor);
-  iod_query_declare_binary_op(|, logical_or);
-  iod_query_declare_binary_op(&&, and);
-  iod_query_declare_binary_op(||, or);
+  iod_query_declare_binary_op(+, plus)
+  iod_query_declare_binary_op(-, minus)
+  iod_query_declare_binary_op(*, mult)
+  iod_query_declare_binary_op(/, div)
+  iod_query_declare_binary_op(<<, shiftl)
+  iod_query_declare_binary_op(>>, shiftr)
+  iod_query_declare_binary_op(<, inf)
+  iod_query_declare_binary_op(<=, inf_eq)
+  iod_query_declare_binary_op(>, sup)
+  iod_query_declare_binary_op(>=, sup_eq)
+  iod_query_declare_binary_op(==, eq)
+  iod_query_declare_binary_op(!=, neq)
+  iod_query_declare_binary_op(&, logical_and)
+  iod_query_declare_binary_op(^, logical_xor)
+  iod_query_declare_binary_op(|, logical_or)
+  iod_query_declare_binary_op(&&, and)
+  iod_query_declare_binary_op(||, or)
 
 }
 
@@ -970,7 +955,7 @@ namespace iod
 namespace iod
 {
 
-  IOD_SYMBOL(append);
+  IOD_SYMBOL(append)
 
   template <typename O>
   inline decltype(auto) wrap_json_output_stream(O&& s)

@@ -23,7 +23,7 @@ namespace Direct {
 class Connection::CDirect : public CConnection {
 public:
     CDirect();
-    explicit CDirect(NodeUtils::TOptions const& options);
+    explicit CDirect(Configuration::TConnectionOptions const& options);
     ~CDirect() override;
 
     void whatami() override;

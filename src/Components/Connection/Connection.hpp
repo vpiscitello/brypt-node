@@ -5,6 +5,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../../Configuration/Configuration.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "zmq.hpp"
 //------------------------------------------------------------------------------------------------
@@ -31,7 +32,7 @@ class CStreamBridge;
 class CTcp;
 
 std::shared_ptr<CConnection> Factory(NodeUtils::TechnologyType technology);
-std::shared_ptr<CConnection> Factory(NodeUtils::TOptions const& options);
+std::shared_ptr<CConnection> Factory(Configuration::TConnectionOptions const& options);
 //------------------------------------------------------------------------------------------------
 } // Command namespace
 //------------------------------------------------------------------------------------------------
@@ -93,11 +94,11 @@ public:
     {
     };
 
-    explicit CConnection(NodeUtils::TOptions const& options)
+    explicit CConnection(Configuration::TConnectionOptions const& options)
         : m_active(false)
         , m_instantiate()
-        , m_operation(options.m_operation)
-        , m_peerName(options.m_peerName)
+        , m_operation(options.operation)
+        , m_peerName(0)
         , m_pipeName(std::string())
         , m_pipe()
         , m_sequenceNumber(0)

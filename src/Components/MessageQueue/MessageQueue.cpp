@@ -151,7 +151,7 @@ std::optional<CMessage> CMessageQueue::PopIncomingMessage()
 
 		NodeUtils::printo(std::to_string(m_incoming.size()) + " left in incoming queue", NodeUtils::PrintType::MQUEUE);
 
-		return std::move(message);
+		return message;
 	}
 
 	return {};

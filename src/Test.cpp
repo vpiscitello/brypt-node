@@ -8,6 +8,8 @@
 #include "Components/Command/Handler.hpp"
 #include "Components/Connection/Connection.hpp"
 #include "Components/MessageQueue/MessageQueue.hpp"
+#include "Configuration/Configuration.hpp"
+#include "Configuration/ConfigurationManager.hpp"
 #include "Utilities/Message.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -27,15 +29,28 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
+namespace {
+//------------------------------------------------------------------------------------------------
+namespace local {
+//------------------------------------------------------------------------------------------------
 
-NodeUtils::TOptions options;
+bool RunTests = false;
+
+//------------------------------------------------------------------------------------------------
+} // local namespace
+//------------------------------------------------------------------------------------------------
+} // namespace
+//------------------------------------------------------------------------------------------------
+
+Configuration::TConnectionOptions options;
 
 //------------------------------------------------------------------------------------------------
 
 // TODO: Move unit tests into specific unit testing folder
 // TODO: Add more unit tests
 
-void ConnectionFactoryTest() {
+void ConnectionFactoryTest()
+{
     std::cout << "\n== Testing Connection Factory" << '\n';
     // Setup a vector of open connections
     std::vector<std::shared_ptr<CConnection>> connections;
@@ -47,7 +62,11 @@ void ConnectionFactoryTest() {
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::DIRECT));
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::LORA));
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::STREAMBRIDGE));
-    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::TCP));
+
+    // TODO: Something in the TCP connection code is breaking std::cin and to some extent 
+    // std::cout after destruction figure out why
+    // connections.push_back(Connection::Factory(NodeUtils::TechnologyType::TCP));
+    
     connections.push_back(Connection::Factory(NodeUtils::TechnologyType::DIRECT));
     
     // Check the connection type and run a shared function
@@ -58,11 +77,15 @@ void ConnectionFactoryTest() {
 
 //------------------------------------------------------------------------------------------------
 
-void CommandParseTest() {
+void CommandParseTest()
+{
     std::cout << "\n== Testing Command Parsing" << '\n';
+    Configuration::TSettings settings;
+    settings.connections.emplace_back(options);
+    
     // Setup the vector of commands to be used
-    CNode node(options);
-    std::shared_ptr<CState> state = std::make_shared<CState>(options);
+    CNode node(settings);
+    std::shared_ptr<CState> state = std::make_shared<CState>(settings);
     std::vector<std::unique_ptr<Command::CHandler>> commands;
     commands.push_back(Command::Factory(NodeUtils::CommandType::INFORMATION, node, state));
     commands.push_back(Command::Factory(NodeUtils::CommandType::QUERY, node, state));
@@ -82,7 +105,8 @@ void CommandParseTest() {
 
 //------------------------------------------------------------------------------------------------
 
-void MessageQueueTest() {
+void MessageQueueTest()
+{
 	std::cout << "\n== Testing Message Queue" << '\n';
 
 	CMessageQueue msgQueue;
@@ -112,7 +136,8 @@ void MessageQueueTest() {
 
 //------------------------------------------------------------------------------------------------
 
-void MessageTest() {
+void MessageTest()
+{
     std::cout << "\n== Testing Messages" << '\n';
 
     // Setup a new message
@@ -148,8 +173,10 @@ void MessageTest() {
 
 //------------------------------------------------------------------------------------------------
 
-void AwaitContainerTest() {
+void AwaitContainerTest()
+{
     std::cout << "\n== Testing Await Container" << '\n';
+
     Await::CObjectContainer awaiting;
     
     CMessage const request(
@@ -196,21 +223,34 @@ void AwaitContainerTest() {
 
 //------------------------------------------------------------------------------------------------
 
+void ConfigurationManagerTest()
+{
+    std::cout << "\n== Testing Configuration Manager" << '\n';
+
+    Configuration::CManager manager;
+    std::optional<Configuration::TSettings> optSettings = manager.Parse();
+    if (optSettings) {
+        std::cout << "Configuration settings parsed successfully" << std::endl;
+    } else {
+        std::cout << "Failed to prase configuration settings" << std::endl;
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
 void RunTests() {
-    options.m_id = 0xFFFFFFFF;
-    options.m_interface = "en0";
-    options.m_port = "3005";
-    options.m_operation = NodeUtils::DeviceOperation::ROOT;
-    options.m_technology = NodeUtils::TechnologyType::DIRECT;
-    options.m_peerName = 0x00000000;
-    options.m_peerAddress = "127.0.0.1";
-    options.m_peerPort = "9999";
+    options.technology = NodeUtils::TechnologyType::DIRECT;
+    options.operation = NodeUtils::DeviceOperation::ROOT;
+    options.interface = "en0";
+    options.binding = "3005";
+    options.entry_address = "127.0.0.1:9999";
 
     ConnectionFactoryTest();
     CommandParseTest();
     MessageQueueTest();
     MessageTest();
     AwaitContainerTest();
+    ConfigurationManagerTest();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -231,133 +271,32 @@ void ParseArguments(std::int32_t argc, char** argv) {
     // Parse test options
     itr = find (args.begin(), args.end(), "--test");
     if (itr != args.end()) {
-        options.m_runTests = true;
+        local::RunTests = true;
         return;
-    } else {
-        options.m_runTests = false;
     }
 
-    // Parse node function. Server option.
-    itr = find (args.begin(), args.end(), "--root");
-    if (itr != args.end()) {
-        options.m_operation = NodeUtils::DeviceOperation::ROOT;
-    } else {
-        // Parse node function. Client option.
-        itr = find (args.begin(), args.end(), "--branch");
-        if (itr != args.end()) {
-            options.m_operation = NodeUtils::DeviceOperation::BRANCH;
-        } else {
-            itr = find (args.begin(), args.end(), "--leaf");
-            if (itr != args.end()) {
-                options.m_operation = NodeUtils::DeviceOperation::LEAF;
-            } else {
-                std::cout << "== You must specify node function." << '\n';
-                exit(1);
-            }
+    static std::unordered_map<std::string, NodeUtils::DeviceOperation> deviceOperationMap = 
+    {
+        {"--root", NodeUtils::DeviceOperation::ROOT},
+        {"--branch", NodeUtils::DeviceOperation::BRANCH},
+        {"--leaf", NodeUtils::DeviceOperation::LEAF}
+    };
+
+    for (auto const [key, value] : deviceOperationMap) {
+        if (itr = std::find(args.begin(), args.end(), key); itr != args.end()) {
+            options.operation = value;
+            break;
         }
     }
-
-    // Parse node's port to open
-    itr = find (args.begin(), args.end(), "-id");
-    if (itr != args.end()) {
-        ++itr;
-        if (*itr == "" || itr->find("-") != std::string::npos) {
-            std::cout << "== You must specify an ID." << '\n';
-            exit(1);
-        } else {
-            options.m_id = std::stoi(*itr);
-        }
-    } else {
-        std::cout << "== You must specify an ID." << '\n';
-        exit(1);
-    }
-
-    // Parse device's connection technology
-    itr = find (args.begin(), args.end(), "-type");
-    if (itr != args.end()) {
-        ++itr;
-        if (*itr == "" || itr->find("-") != std::string::npos) {
-            std::cout << "== You must specify a device type." << '\n';
-            exit(1);
-        } else {
-            std::string device_type = *itr;
-            if (device_type == "DIRECT") {
-                options.m_technology = NodeUtils::TechnologyType::DIRECT;
-            } else if (device_type == "LORA") {
-                options.m_technology = NodeUtils::TechnologyType::LORA;
-            } else if (device_type == "STREAMBRIDGE") {
-                options.m_technology = NodeUtils::TechnologyType::STREAMBRIDGE;
-            } else if (device_type == "TCP") {
-                options.m_technology = NodeUtils::TechnologyType::TCP;
-            } else {
-                std::cout << "== Invalid device type." << '\n';
-                exit(1);
-            }
-        }
-    } else {
-        std::cout << "== You must specify a device type." << '\n';
-        exit(1);
-    }
-
-    // Parse node's port to open
-    itr = find (args.begin(), args.end(), "-port");
-    if (itr != args.end()) {
-        ++itr;
-        if (*itr == "" || itr->find("-") != std::string::npos) {
-            std::cout << "== You must specify a port to open." << '\n';
-            exit(1);
-        } else {
-            options.m_port = *itr;
-        }
-    } else {
-        std::cout << "== You must specify a port to open." << '\n';
-        exit(1);
-    }
-
-    // Parse Client specific options
-    if (options.m_operation == NodeUtils::DeviceOperation::BRANCH || options.m_operation == NodeUtils::DeviceOperation::LEAF) {
-        // Parse server peer's address
-        itr = find (args.begin(), args.end(), "-peer");
-        if (itr != args.end()) {
-            ++itr;
-            if (*itr == "" || itr->find("-") != std::string::npos) {
-                std::cout << "== You must specify a peer address." << '\n';
-                exit(1);
-            } else {
-                options.m_peerAddress = *itr;
-            }
-        } else {
-            std::cout << "== You must specify a peer address." << '\n';
-            exit(1);
-        }
-
-        // Parse server peer's port
-        itr = find (args.begin(), args.end(), "-pp");
-        if (itr != args.end()) {
-            ++itr;
-            if (*itr == "" || itr->find("-") != std::string::npos) {
-                std::cout << "== You must specify the peer's port." << '\n';
-                exit(1);
-            } else {
-                options.m_peerPort = *itr;
-            }
-        }
-        else {
-            std::cout << "== You must specify the peer's port." << '\n';
-            exit(1);
-        }
-
-    }
-
 }
 
 //------------------------------------------------------------------------------------------------
 
 void CreateTcpSocket() {
-    NodeUtils::TOptions tcpSetup;
-    tcpSetup.m_technology = NodeUtils::TechnologyType::TCP;
-    tcpSetup.m_port = "3001";
-    tcpSetup.m_operation = NodeUtils::DeviceOperation::ROOT;
+    Configuration::TConnectionOptions tcpSetup;
+    tcpSetup.technology = NodeUtils::TechnologyType::TCP;
+    tcpSetup.binding = "3001";
+    tcpSetup.operation = NodeUtils::DeviceOperation::ROOT;
     std::shared_ptr<CConnection> const conn = Connection::Factory(tcpSetup);
     while (true) {
     	std::optional<std::string> const received = conn->Receive(1);
@@ -371,11 +310,10 @@ void CreateTcpSocket() {
 //------------------------------------------------------------------------------------------------
 
 void CreateTcpConnection() {
-    NodeUtils::TOptions tcpSetup;
-    tcpSetup.m_technology = NodeUtils::TechnologyType::TCP;
-    tcpSetup.m_peerAddress = "127.0.0.1";
-    tcpSetup.m_peerPort = "3001";
-    tcpSetup.m_operation = NodeUtils::DeviceOperation::LEAF;
+    Configuration::TConnectionOptions tcpSetup;
+    tcpSetup.technology = NodeUtils::TechnologyType::TCP;
+    tcpSetup.entry_address = "127.0.0.1:3001";
+    tcpSetup.operation = NodeUtils::DeviceOperation::LEAF;
     std::shared_ptr<CConnection> conn = Connection::Factory(tcpSetup);
     conn->Send("THIS IS A MESSAGE");
     conn->Receive(1);
@@ -384,27 +322,31 @@ void CreateTcpConnection() {
 //------------------------------------------------------------------------------------------------
 
 void CreateStreamBridgeSocket() {
-    NodeUtils::TOptions streambridgeSetup;
-    streambridgeSetup.m_technology = NodeUtils::TechnologyType::STREAMBRIDGE;
-    streambridgeSetup.m_port = "3001";
-    streambridgeSetup.m_operation = NodeUtils::DeviceOperation::ROOT;
+    Configuration::TConnectionOptions streambridgeSetup;
+    streambridgeSetup.technology = NodeUtils::TechnologyType::STREAMBRIDGE;
+    streambridgeSetup.binding = "3001";
+    streambridgeSetup.operation = NodeUtils::DeviceOperation::ROOT;
     Connection::Factory(streambridgeSetup);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void CreateStreamBridgeSendQuery() {
-    NodeUtils::TOptions streambridgeSetup;
-    streambridgeSetup.m_technology = NodeUtils::TechnologyType::STREAMBRIDGE;
-    //streambridgeSetup.m_technology = TechnologyType::TCP;
-    streambridgeSetup.m_port = "3001";
-    streambridgeSetup.m_operation = NodeUtils::DeviceOperation::ROOT;
+    Configuration::TSettings settings;
+
+    Configuration::TConnectionOptions streambridgeSetup;
+    streambridgeSetup.technology = NodeUtils::TechnologyType::STREAMBRIDGE;
+    //streambridgeSetup.technology = TechnologyType::TCP;
+    streambridgeSetup.binding = "3001";
+    streambridgeSetup.operation = NodeUtils::DeviceOperation::ROOT;
+    settings.connections.emplace_back(streambridgeSetup);
+
     std::shared_ptr<CConnection> conn = Connection::Factory(streambridgeSetup);
     std::optional<std::string> resp = conn->Receive(1);
     std::cout << "Received: " << resp.value() << "\n";
 
-    CNode node(streambridgeSetup);
-    std::shared_ptr<CState> state = std::make_shared<CState>(streambridgeSetup);
+    CNode node(settings);
+    std::shared_ptr<CState> state = std::make_shared<CState>(settings);
     std::unique_ptr<Command::CHandler> c = Command::Factory(NodeUtils::CommandType::QUERY, node, state);
 
     std::uint32_t const nodeId = 0xFFFFFFFF;
@@ -427,10 +369,11 @@ void CreateStreamBridgeSendQuery() {
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t main(std::int32_t argc, char** argv) {
+std::int32_t main(std::int32_t argc, char** argv)
+{
     ParseArguments(argc, argv);
 
-    if (options.m_runTests == true) {
+    if (local::RunTests == true) {
         RunTests();
         exit(0);
     }
@@ -438,8 +381,17 @@ std::int32_t main(std::int32_t argc, char** argv) {
     std::cout << "\n== Welcome to the Brypt Network\n";
     std::cout << "Main process PID: " << getpid() << "\n";
 
-    CNode alpha(options);
-    alpha.Startup();
+    Configuration::CManager configurationManager;
+    std::optional<Configuration::TSettings> optSettings = configurationManager.Parse();
+    if (optSettings) {
+        optSettings->connections[0].operation = options.operation;
+        
+        CNode alpha(*optSettings);
+        alpha.Startup();
+    } else {
+        std::cout << "Node configuration settings could not be parsed!" << std::endl;
+        exit(1);
+    }
 
     return 0;
 }

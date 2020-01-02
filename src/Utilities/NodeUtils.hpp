@@ -1,6 +1,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstring>
 #include <chrono>
@@ -38,6 +40,8 @@ using IPv6Address = std::string;
 using PortNumber = std::string;
 using SerialNumber = std::string;
 
+using AddressComponentPair = std::pair<std::string, std::string>;
+
 using NetworkKey = std::string;
 using NetworkNonce = std::uint32_t;
 using TimePoint = std::chrono::system_clock::time_point;
@@ -61,49 +65,85 @@ using ConnectionMap = std::unordered_map<NodeIdType, std::shared_ptr<CConnection
 
 //------------------------------------------------------------------------------------------------
 
-// Super Secure NET_KEY
-constexpr std::string_view ENCRYPTION_PROTOCOL = "AES-256-CTR";
+constexpr std::string_view NODE_VERSION = "0.0.0-alpha";
 constexpr std::string_view NETWORK_KEY = "01234567890123456789012345678901";
-constexpr NetworkNonce NETWORK_NONCE = 998;
 
-// Central Authority Connection Constants
-constexpr std::string_view AUTHORITY_ADDRESS = "https://bridge.brypt.com:8080";
 constexpr std::uint32_t PORT_GAP = 16;
 
-constexpr auto ID_SEPERATOR = ";";
+constexpr char const* ADDRESS_COMPONENT_SEPERATOR = ":";
+constexpr char const* ID_SEPERATOR = ":";
+
+NodeIdType GenerateNetworkId();
+
+TechnologyType ParseTechnologyType(std::string name);
+std::string TechnologyTypeToString(TechnologyType technology);
 
 std::string GetDesignation(DeviceOperation const& operation);
+
 TimePoint GetSystemTimePoint();
 std::string GetSystemTimestamp();
 std::string TimePointToString(TimePoint const& time);
 NodeUtils::TimePeriod TimePointToTimePeriod(TimePoint const& time);
 TimePoint StringToTimePoint(std::string const& timestamp);
+
 std::string GetPrintEscape(PrintType const& component);
 
-IPv4Address GetLocalAddress(std::string const& interface);
+AddressComponentPair SplitAddressString(std::string_view str);
+
+IPv4Address GetLocalAddress(std::string_view interface);
 
 void printo(std::string const& message, PrintType component);
 
-struct TOptions;
 //------------------------------------------------------------------------------------------------
 } // NodeUtils namespace
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 
-struct NodeUtils::TOptions
+inline NodeUtils::NodeIdType NodeUtils::GenerateNetworkId()
 {
-    bool m_runTests;
-    TechnologyType m_technology;
-    DeviceOperation m_operation;
-    NodeIdType m_id;
-    std::string m_interface;
-    PortNumber m_port;
+    return 0;
+}
 
-    NodeIdType m_peerName;
-    IPv4Address m_peerAddress;
-    PortNumber m_peerPort;
-};
+//------------------------------------------------------------------------------------------------
+
+inline NodeUtils::TechnologyType NodeUtils::ParseTechnologyType(std::string name)
+{
+    static std::unordered_map<std::string, TechnologyType> const technologyMap = {
+        {"direct", TechnologyType::DIRECT},
+        {"lora", TechnologyType::LORA},
+        {"streambridge", TechnologyType::STREAMBRIDGE},
+        {"tcp", TechnologyType::TCP},
+    };
+
+    // Adjust the provided technology name to lowercase
+    std::transform(name.begin(), name.end(), name.begin(),
+    [](unsigned char c){
+        return std::tolower(c);
+    });
+
+    if(auto const itr = technologyMap.find(name); itr != technologyMap.end()) {
+        return itr->second;
+    }
+    return TechnologyType::NONE;
+}
+
+//------------------------------------------------------------------------------------------------
+
+inline std::string NodeUtils::TechnologyTypeToString(TechnologyType technology)
+{
+    static std::unordered_map<TechnologyType, std::string> const technologyMap = {
+        {TechnologyType::DIRECT, "Direct"},
+        {TechnologyType::LORA, "LoRa"},
+        {TechnologyType::STREAMBRIDGE, "StreamBridge"},
+        {TechnologyType::TCP, "TCP"},
+    };
+
+    if(auto const itr = technologyMap.find(technology); itr != technologyMap.end()) {
+        return itr->second;
+    }
+    return {};
+}
 
 //------------------------------------------------------------------------------------------------
 
@@ -113,7 +153,6 @@ inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
         {DeviceOperation::ROOT, "root"},
         {DeviceOperation::BRANCH, "coordinator"},
         {DeviceOperation::LEAF, "node"},
-        {DeviceOperation::NONE, "NA"},
     };
 
     if(auto const itr = designationMap.find(operation); itr != designationMap.end()) {
@@ -199,7 +238,7 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress(std::string const& interface)
+inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress(std::string_view interface)
 {
     IPv4Address ip = std::string();
 
@@ -230,6 +269,25 @@ inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress(std::string const& inte
     }
 
     return ip;
+}
+
+//------------------------------------------------------------------------------------------------
+
+inline NodeUtils::AddressComponentPair NodeUtils::SplitAddressString(std::string_view str)
+{
+    if (str.empty()) {
+        return {};
+    }
+
+    std::pair<std::string, std::string> components;
+
+    auto const seperatorPosition = str.find_last_of(ADDRESS_COMPONENT_SEPERATOR);
+    // Get the primary connection component up until the seperator
+    components.first = str.substr(0, seperatorPosition);
+    // Get the secondary connection component skipping the seperator
+    components.second = str.substr(seperatorPosition + 1);
+
+    return components;
 }
 
 //------------------------------------------------------------------------------------------------

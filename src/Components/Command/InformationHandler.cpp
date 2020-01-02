@@ -15,12 +15,17 @@ namespace {
 //------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
+
 std::string GenerateNodeInfo(CNode const& node, std::weak_ptr<CState> const& state);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
+//------------------------------------------------------------------------------------------------
 namespace Json {
 //------------------------------------------------------------------------------------------------
+
 struct TNodeInfo;
+
 //------------------------------------------------------------------------------------------------
 } // Json namespace
 //------------------------------------------------------------------------------------------------
@@ -30,13 +35,13 @@ struct TNodeInfo;
 //------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding
 //------------------------------------------------------------------------------------------------
-IOD_SYMBOL(id);
-IOD_SYMBOL(cluster);
-IOD_SYMBOL(coordinator);
-IOD_SYMBOL(neighbor_count);
-IOD_SYMBOL(designation);
-IOD_SYMBOL(technologies);
-IOD_SYMBOL(update_timestamp);
+IOD_SYMBOL(id)
+IOD_SYMBOL(cluster)
+IOD_SYMBOL(coordinator)
+IOD_SYMBOL(neighbor_count)
+IOD_SYMBOL(designation)
+IOD_SYMBOL(technologies)
+IOD_SYMBOL(update_timestamp)
 //------------------------------------------------------------------------------------------------
 
 struct Json::TNodeInfo

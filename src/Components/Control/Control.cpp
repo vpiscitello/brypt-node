@@ -18,11 +18,11 @@ CControl::CControl(
     , m_connections(connections)
     , m_control()
 {
-    NodeUtils::TOptions options;
-    options.m_technology = technology;
-    options.m_operation = NodeUtils::DeviceOperation::ROOT;
+    Configuration::TConnectionOptions options;
+    options.technology = technology;
+    options.operation = NodeUtils::DeviceOperation::ROOT;
     if (auto const selfState = m_state->GetSelfState().lock()) {
-        options.m_port = selfState->GetPort();
+        options.binding = selfState->GetPort();
     }
 
     m_control = Connection::Factory(options);
@@ -108,7 +108,7 @@ std::optional<std::string> CControl::HandleContact(NodeUtils::TechnologyType tec
         case NodeUtils::TechnologyType::TCP:
         case NodeUtils::TechnologyType::STREAMBRIDGE:
         case NodeUtils::TechnologyType::DIRECT: {
-            NodeUtils::NodeIdType id;
+            NodeUtils::NodeIdType id = 0;
             NodeUtils::PortNumber port;
             if (auto const selfState = m_state->GetSelfState().lock()) {
                 id = selfState->GetId();

@@ -37,16 +37,20 @@ Connection::CTcp::CTcp()
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CTcp::CTcp(NodeUtils::TOptions const& options)
+Connection::CTcp::CTcp(Configuration::TConnectionOptions const& options)
     : CConnection(options)
-    , m_port(options.m_port)
-    , m_peerAddress(options.m_peerAddress)
-    , m_peerPort(options.m_peerPort)
+    , m_port(options.binding)
+    , m_peerAddress()
+    , m_peerPort()
     , m_socket(0)
     , m_connection(-1)
     , m_address()
 {
     printo("Creating TCP instance", NodeUtils::PrintType::CONNECTION);
+
+    auto const networkComponents = options.GetBindingComponents();
+    m_peerAddress = networkComponents.first;
+    m_peerPort = networkComponents.second;
 
     memset(&m_address, 0, sizeof(m_address));
 

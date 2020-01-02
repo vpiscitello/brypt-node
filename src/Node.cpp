@@ -40,8 +40,8 @@ void SimulateClient(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-CNode::CNode(NodeUtils::TOptions const& options)
-    : m_state(std::make_shared<CState>(options))
+CNode::CNode(Configuration::TSettings const& settings)
+    : m_state(std::make_shared<CState>(settings))
     , m_queue(std::make_shared<CMessageQueue>())
     , m_awaiting(std::make_shared<Await::CObjectContainer>())
     , m_commands()
@@ -51,7 +51,7 @@ CNode::CNode(NodeUtils::TOptions const& options)
     , m_watcher(std::make_shared<CPeerWatcher>(m_state, m_connections))
     , m_initialized(false)
 {
-    if (options.m_operation == NodeUtils::DeviceOperation::NONE) {
+    if (settings.connections[0].operation == NodeUtils::DeviceOperation::NONE) {
         std::cout << "Node Setup must be provided and device operation type!" << std::endl;
         exit(-1);
     }
@@ -95,7 +95,7 @@ CNode::~CNode()
 void CNode::Startup()
 {
     if (m_initialized == false) {
-        std::cout << "Node instance must be setup before starting!" << std::endl;
+        throw std::runtime_error("Node instance must be setup before starting!");
     }
 
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::NONE;
@@ -104,7 +104,7 @@ void CNode::Startup()
     }
 
     if (operation == NodeUtils::DeviceOperation::NONE) {
-        std::cout << "Node Setup must be provided and device operation type!" << std::endl;
+        throw std::runtime_error("Node Setup must be provided and device operation type!");
     }
 
     printo("Starting up Brypt Node", NodeUtils::PrintType::NODE);
@@ -145,13 +145,12 @@ std::shared_ptr<CConnection> CNode::SetupFullConnection(
     std::string const& port,
     NodeUtils::TechnologyType technology)
 {
-    NodeUtils::TOptions options;
-    options.m_technology = technology;
-    options.m_operation = NodeUtils::DeviceOperation::ROOT;
-    options.m_port = port;
-    options.m_peerName = peerId;
+    Configuration::TConnectionOptions options;
+    options.technology = technology;
+    options.operation = NodeUtils::DeviceOperation::ROOT;
+    options.binding = port;
 
-    m_queue->AddManagedPipe(options.m_peerName);
+    m_queue->AddManagedPipe(peerId);
 
     return Connection::Factory(options);;
 }
@@ -300,22 +299,21 @@ bool CNode::addConnection([[maybe_unused]] std::unique_ptr<CConnection> const& c
 void CNode::initialContact()
 {
     NodeUtils::NodeIdType id = 0;
-    NodeUtils::TOptions options;
+    Configuration::TConnectionOptions options;
     if (auto const selfState = m_state->GetSelfState().lock()) {
         id = selfState->GetId();
-        options.m_technology = local::InitialContactTechnology(*selfState->GetTechnologies().begin());;
+        options.technology = local::InitialContactTechnology(*selfState->GetTechnologies().begin());;
     } else { return; }
 
-    char const* const technologyTypeStr = std::to_string(static_cast<std::uint32_t>(options.m_technology)).c_str();
+    char const* const technologyTypeStr = std::to_string(static_cast<std::uint32_t>(options.technology)).c_str();
 
     if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        options.m_peerAddress = coordinatorState->GetAddress();
-        options.m_peerPort = coordinatorState->GetRequestPort();
+        options.entry_address = coordinatorState->GetAddress() + coordinatorState->GetRequestPort();
     } else { return; }
 
     printo("Connecting with initial contact technology: " +
-            std::to_string(static_cast<std::uint32_t>(options.m_technology)) +
-            " and on addr:port: " + options.m_peerAddress + ":" + options.m_peerPort,
+            std::to_string(static_cast<std::uint32_t>(options.technology)) +
+            " and on addr:port: " + options.entry_address,
             NodeUtils::PrintType::NODE);
 
     std::shared_ptr<CConnection> const connection = Connection::Factory(options);
@@ -372,24 +370,29 @@ void CNode::initialContact()
 //------------------------------------------------------------------------------------------------
 void CNode::joinCoordinator()
 {
-    NodeUtils::TOptions options;
-    options.m_operation = NodeUtils::DeviceOperation::LEAF;
+    Configuration::TConnectionOptions options;
+
+    options.operation = NodeUtils::DeviceOperation::LEAF;
+
+    NodeUtils::NodeIdType coordinatorId = 0;
+    NodeUtils::IPv4Address coordinatorAddress = std::string();
     NodeUtils::PortNumber publisherPort  = std::string();
     if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        options.m_peerName = coordinatorState->GetId();
-        options.m_peerAddress = coordinatorState->GetAddress();
-        options.m_peerPort = coordinatorState->GetRequestPort();
-        options.m_technology = coordinatorState->GetTechnology();
+        coordinatorId = coordinatorState->GetId();
+        coordinatorAddress = coordinatorState->GetAddress();
+        options.entry_address = coordinatorAddress + coordinatorState->GetRequestPort();
+        options.technology = coordinatorState->GetTechnology();
         publisherPort = coordinatorState->GetPublisherPort();
     } else { return; }
 
-    printo("Connecting to Coordinator with technology: " + options.m_peerAddress + ":" + options.m_peerPort,
+    printo("Connecting to Coordinator with technology: " +
+            std::to_string(static_cast<std::uint32_t>(options.technology)),
             NodeUtils::PrintType::NODE);
 
-    m_notifier->Connect(options.m_peerAddress, publisherPort);
-    m_connections->emplace(options.m_peerName, Connection::Factory(options));
+    m_notifier->Connect(coordinatorAddress, publisherPort);
+    m_connections->emplace(coordinatorId, Connection::Factory(options));
     if (auto const networkState = m_state->GetNetworkState().lock()) {
-        networkState->PushPeerName(options.m_peerName);
+        networkState->PushPeerName(coordinatorId);
     } else { return; }
 }
 

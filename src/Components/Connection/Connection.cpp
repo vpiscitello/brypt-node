@@ -25,8 +25,8 @@ std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TechnologyType techn
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CConnection> Connection::Factory(NodeUtils::TOptions const& options) {
-    switch (options.m_technology) {
+std::shared_ptr<CConnection> Connection::Factory(Configuration::TConnectionOptions const& options) {
+    switch (options.technology) {
         case NodeUtils::TechnologyType::DIRECT: return std::make_shared<CDirect>(options);
         case NodeUtils::TechnologyType::LORA: return std::make_shared<CLoRa>(options);
         case NodeUtils::TechnologyType::STREAMBRIDGE: return std::make_shared<CStreamBridge>(options);

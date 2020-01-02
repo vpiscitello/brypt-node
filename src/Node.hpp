@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "Configuration/Configuration.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
@@ -38,7 +39,7 @@ class CState;
 class CNode {
 public:
     // Constructors and Deconstructors
-    explicit CNode(NodeUtils::TOptions const& options);
+    explicit CNode(Configuration::TSettings const& settings);
     ~CNode();
 
     void Startup();
@@ -108,7 +109,7 @@ private:
 
 struct ThreadArgs {
     CNode* node;
-    NodeUtils::TOptions* opts;
+    Configuration::TConnectionOptions* opts;
 };
 
 void * ConnectionHandler(void *);
