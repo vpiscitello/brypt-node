@@ -5,6 +5,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../../Interfaces/MessageSink.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
@@ -21,11 +22,12 @@ class CControl {
 public:
     CControl(
         std::shared_ptr<CState> const& state,
+        IMessageSink* const messageSink,
         std::weak_ptr<NodeUtils::ConnectionMap> const& connections,
         NodeUtils::TechnologyType technology);
 
     void Send(CMessage const& message);
-    void Send(char const* const message);
+   void Send(std::string_view message);
     std::optional<std::string> HandleRequest();
     std::optional<std::string> HandleContact(NodeUtils::TechnologyType technology);
     void CloseCurrentConnection();

@@ -10,6 +10,7 @@
 #include "Components/MessageQueue/MessageQueue.hpp"
 #include "Configuration/Configuration.hpp"
 #include "Configuration/ConfigurationManager.hpp"
+#include "Libraries/spdlog/spdlog.h"
 #include "Utilities/Message.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -53,22 +54,43 @@ void ConnectionFactoryTest()
 {
     std::cout << "\n== Testing Connection Factory" << '\n';
     // Setup a vector of open connections
+    CMessageQueue queue;
     std::vector<std::shared_ptr<CConnection>> connections;
-    auto const invalid = Connection::Factory(NodeUtils::TechnologyType::NONE);
+    
+    Configuration::TConnectionOptions invalidConnectionOptions(
+        0xFF, NodeUtils::TechnologyType::NONE,
+        "lo", "0.0.0.0:0000", "0.0.0.0:0000");
+    auto const invalid = Connection::Factory(&queue, invalidConnectionOptions);
     if (!invalid) {
         std::cout << "Building a connection with type none failed successfully" << std::endl;
     }
 
-    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::DIRECT));
-    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::LORA));
-    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::STREAMBRIDGE));
+    Configuration::TConnectionOptions diretConnectionOptions(
+        0, NodeUtils::TechnologyType::DIRECT,
+        "lo", "*:3000", "127.0.0.1:4000");
+    diretConnectionOptions.operation = NodeUtils::ConnectionOperation::SERVER;
+    connections.push_back(Connection::Factory(&queue, diretConnectionOptions));
 
     // TODO: Something in the TCP connection code is breaking std::cin and to some extent 
     // std::cout after destruction figure out why
-    // connections.push_back(Connection::Factory(NodeUtils::TechnologyType::TCP));
-    
-    connections.push_back(Connection::Factory(NodeUtils::TechnologyType::DIRECT));
-    
+    Configuration::TConnectionOptions tcpConnectionOptions(
+        1, NodeUtils::TechnologyType::TCP,
+        "lo", "*:3001", "127.0.0.1:4001");
+    tcpConnectionOptions.operation = NodeUtils::ConnectionOperation::SERVER;
+    connections.push_back(Connection::Factory(&queue, tcpConnectionOptions));
+
+    Configuration::TConnectionOptions streamConnectionOptions(
+        2, NodeUtils::TechnologyType::STREAMBRIDGE,
+        "lo", "*:3002", "127.0.0.1:4002");
+    streamConnectionOptions.operation = NodeUtils::ConnectionOperation::SERVER;
+    connections.push_back(Connection::Factory(&queue, streamConnectionOptions));
+
+    Configuration::TConnectionOptions loraConnectionOptions(
+        3, NodeUtils::TechnologyType::LORA,
+        "lora", "861.1:1", "861.1:1");
+    loraConnectionOptions.operation = NodeUtils::ConnectionOperation::SERVER;
+    connections.push_back(Connection::Factory(&queue, loraConnectionOptions));
+
     // Check the connection type and run a shared function
     for (std::size_t idx = 0; idx < connections.size(); ++idx) {
         connections.at(idx)->whatami();
@@ -108,30 +130,42 @@ void CommandParseTest()
 void MessageQueueTest()
 {
 	std::cout << "\n== Testing Message Queue" << '\n';
+    CMessageQueue queue;
+    std::vector<std::shared_ptr<CConnection>> connections;
 
-	CMessageQueue msgQueue;
+    Configuration::TConnectionOptions serverOptions(
+        1, NodeUtils::TechnologyType::DIRECT,
+        "lo", "*:3001", "127.0.0.1:3000");
+    serverOptions.operation = NodeUtils::ConnectionOperation::SERVER;
+    connections.push_back(Connection::Factory(&queue, serverOptions));
 
-	std::uint32_t const nodeId = 0xFFFFFFFF;
+    Configuration::TConnectionOptions clientOptions(
+        0, NodeUtils::TechnologyType::DIRECT,
+        "lo", "*:3000", "127.0.0.1:3001");
+    clientOptions.operation = NodeUtils::ConnectionOperation::CLIENT;
+    connections.push_back(Connection::Factory(&queue, clientOptions));
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+
     CMessage const message(
-        nodeId, 0x00000000,
+        0x00000000, 0x00000001,
         NodeUtils::CommandType::ELECTION, 0,
-        std::string("H\0el\0lo, Wo\0rld\0",16), 9999);
+        "Hello World!", 0);
+    auto const sentPack = message.GetPack();
 
-	msgQueue.AddManagedPipe(nodeId);
+    queue.PushOutgoingMessage(0, sentPack);
 
-    std::string const packet = message.GetPack();
-	std::cout << packet << std::endl;
-	std::fstream file("./tmp/" + std::to_string(nodeId) + ".pipe", std::ios::out | std::ios::binary);
-	for(std::size_t idx = 0; idx < packet.size(); ++idx){
-		file.put(packet[idx]);
-	}
-	file.close();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-	msgQueue.CheckPipes();
-    std::optional<CMessage> optIncomingMessage = msgQueue.PopIncomingMessage();
-	if(optIncomingMessage && optIncomingMessage->GetPhase() != std::numeric_limits<std::uint32_t>::max()){
-		std::cout << "Pop msg \n" << optIncomingMessage->GetPack() << '\n';
-	}
+    auto const optReceived = queue.PopIncomingMessage();
+    if (optReceived) {
+        auto const receivedPack = optReceived->GetPack();
+        if (sentPack == receivedPack) {
+            std::cout << "Message successfully passed through Message Queue" << std::endl;
+        } else {
+            std::cout << "Message Queue was did not receive message." << std::endl;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -239,8 +273,9 @@ void ConfigurationManagerTest()
 //------------------------------------------------------------------------------------------------
 
 void RunTests() {
+    spdlog::info("Beginning Tests");
     options.technology = NodeUtils::TechnologyType::DIRECT;
-    options.operation = NodeUtils::DeviceOperation::ROOT;
+    options.operation = NodeUtils::ConnectionOperation::SERVER;
     options.interface = "en0";
     options.binding = "3005";
     options.entry_address = "127.0.0.1:9999";
@@ -255,7 +290,11 @@ void RunTests() {
 
 //------------------------------------------------------------------------------------------------
 
-void ParseArguments(std::int32_t argc, char** argv) {
+void ParseArguments(
+    std::int32_t argc,
+    char** argv,
+    Configuration::TSettings &settings)
+{
     std::vector<std::string> args;
     std::vector<std::string>::iterator itr;
 
@@ -284,7 +323,7 @@ void ParseArguments(std::int32_t argc, char** argv) {
 
     for (auto const [key, value] : deviceOperationMap) {
         if (itr = std::find(args.begin(), args.end(), key); itr != args.end()) {
-            options.operation = value;
+            settings.details.operation = value;
             break;
         }
     }
@@ -293,11 +332,13 @@ void ParseArguments(std::int32_t argc, char** argv) {
 //------------------------------------------------------------------------------------------------
 
 void CreateTcpSocket() {
+    CMessageQueue queue;
     Configuration::TConnectionOptions tcpSetup;
+
     tcpSetup.technology = NodeUtils::TechnologyType::TCP;
     tcpSetup.binding = "3001";
-    tcpSetup.operation = NodeUtils::DeviceOperation::ROOT;
-    std::shared_ptr<CConnection> const conn = Connection::Factory(tcpSetup);
+    tcpSetup.operation = NodeUtils::ConnectionOperation::SERVER;
+    std::shared_ptr<CConnection> const conn = Connection::Factory(&queue, tcpSetup);
     while (true) {
     	std::optional<std::string> const received = conn->Receive(1);
     	if (received->length() > 2) {
@@ -310,11 +351,13 @@ void CreateTcpSocket() {
 //------------------------------------------------------------------------------------------------
 
 void CreateTcpConnection() {
+    CMessageQueue queue;
     Configuration::TConnectionOptions tcpSetup;
+    
     tcpSetup.technology = NodeUtils::TechnologyType::TCP;
     tcpSetup.entry_address = "127.0.0.1:3001";
-    tcpSetup.operation = NodeUtils::DeviceOperation::LEAF;
-    std::shared_ptr<CConnection> conn = Connection::Factory(tcpSetup);
+    tcpSetup.operation = NodeUtils::ConnectionOperation::SERVER;
+    std::shared_ptr<CConnection> conn = Connection::Factory(&queue, tcpSetup);
     conn->Send("THIS IS A MESSAGE");
     conn->Receive(1);
 }
@@ -322,26 +365,29 @@ void CreateTcpConnection() {
 //------------------------------------------------------------------------------------------------
 
 void CreateStreamBridgeSocket() {
+    CMessageQueue queue;
     Configuration::TConnectionOptions streambridgeSetup;
+
     streambridgeSetup.technology = NodeUtils::TechnologyType::STREAMBRIDGE;
     streambridgeSetup.binding = "3001";
-    streambridgeSetup.operation = NodeUtils::DeviceOperation::ROOT;
-    Connection::Factory(streambridgeSetup);
+    streambridgeSetup.operation = NodeUtils::ConnectionOperation::SERVER;
+    Connection::Factory(&queue, streambridgeSetup);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void CreateStreamBridgeSendQuery() {
+    CMessageQueue queue;
     Configuration::TSettings settings;
 
     Configuration::TConnectionOptions streambridgeSetup;
     streambridgeSetup.technology = NodeUtils::TechnologyType::STREAMBRIDGE;
     //streambridgeSetup.technology = TechnologyType::TCP;
     streambridgeSetup.binding = "3001";
-    streambridgeSetup.operation = NodeUtils::DeviceOperation::ROOT;
+    streambridgeSetup.operation = NodeUtils::ConnectionOperation::SERVER;
     settings.connections.emplace_back(streambridgeSetup);
 
-    std::shared_ptr<CConnection> conn = Connection::Factory(streambridgeSetup);
+    std::shared_ptr<CConnection> conn = Connection::Factory(&queue, streambridgeSetup);
     std::optional<std::string> resp = conn->Receive(1);
     std::cout << "Received: " << resp.value() << "\n";
 
@@ -371,9 +417,7 @@ void CreateStreamBridgeSendQuery() {
 
 std::int32_t main(std::int32_t argc, char** argv)
 {
-    ParseArguments(argc, argv);
-
-    if (local::RunTests == true) {
+    if (local::RunTests == false) {
         RunTests();
         exit(0);
     }
@@ -384,6 +428,7 @@ std::int32_t main(std::int32_t argc, char** argv)
     Configuration::CManager configurationManager;
     std::optional<Configuration::TSettings> optSettings = configurationManager.Parse();
     if (optSettings) {
+        ParseArguments(argc, argv, *optSettings);
         optSettings->connections[0].operation = options.operation;
         
         CNode alpha(*optSettings);

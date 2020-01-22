@@ -6,6 +6,7 @@ TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
 OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
+EXTERNAL_LIBARIES_INCLUDE = -ILibraries
 
 mode = release
 ifeq ($(mode),debug)
@@ -14,7 +15,7 @@ else
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
 endif
 
-CXXINCLUDES = $(OPENSSL_INCLUDE)
+CXXINCLUDES = $(OPENSSL_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
 CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
@@ -51,7 +52,7 @@ vpath %.cpp $(MODULES)
 define cxx-command
 $1/%.o: %.cpp
 	@echo Compiling $$<...
-	$(CXX) -c $$< -o $$@ $(CXXFLAGS)
+	$(CXX) -c $$< -o $$@ $(CXXINCLUDES) $(CXXFLAGS)
 	@echo
 endef
 

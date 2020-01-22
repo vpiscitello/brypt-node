@@ -35,8 +35,7 @@ namespace NodeUtils {
 
 using NodeIdType = std::uint32_t;
 using ClusterIdType = std::uint32_t;
-using IPv4Address = std::string;
-using IPv6Address = std::string;
+using NetworkAddress = std::string;
 using PortNumber = std::string;
 using SerialNumber = std::string;
 
@@ -52,6 +51,7 @@ using ObjectIdType = std::uint32_t;
 //------------------------------------------------------------------------------------------------
 
 enum class DeviceOperation : std::uint8_t { ROOT, BRANCH, LEAF, NONE };
+enum class ConnectionOperation : std::uint8_t { SERVER, CLIENT, NONE };
 enum class DeviceSocketCapability : std::uint8_t { MASTER, SLAVE };
 enum class TechnologyType : std::uint8_t { DIRECT, LORA, STREAMBRIDGE, TCP, NONE };
 enum class CommandType : std::uint8_t { INFORMATION, QUERY, ELECTION, TRANSFORM, CONNECT, NONE };
@@ -90,9 +90,9 @@ std::string GetPrintEscape(PrintType const& component);
 
 AddressComponentPair SplitAddressString(std::string_view str);
 
-IPv4Address GetLocalAddress(std::string_view interface);
+NetworkAddress GetLocalAddress(std::string_view interface);
 
-void printo(std::string const& message, PrintType component);
+void printo(std::string_view message, PrintType component);
 
 //------------------------------------------------------------------------------------------------
 } // NodeUtils namespace
@@ -238,9 +238,9 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-inline NodeUtils::IPv4Address NodeUtils::GetLocalAddress(std::string_view interface)
+inline NodeUtils::NetworkAddress NodeUtils::GetLocalAddress(std::string_view interface)
 {
-    IPv4Address ip = std::string();
+    NetworkAddress ip = std::string();
 
     struct ifaddrs* ifAddrStruct = nullptr;
     struct ifaddrs* ifa = nullptr;
@@ -292,10 +292,10 @@ inline NodeUtils::AddressComponentPair NodeUtils::SplitAddressString(std::string
 
 //------------------------------------------------------------------------------------------------
 
-inline void NodeUtils::printo(std::string const& message, PrintType component)
+inline void NodeUtils::printo(std::string_view message, PrintType component)
 {
 	std::string const escape = GetPrintEscape(component);
-	std::cout << "== " << escape << message << std::endl;
+	std::cout << "== " << escape << message << std::endl << std::flush;
 }
 
 //------------------------------------------------------------------------------------------------

@@ -6,9 +6,11 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "../../Configuration/Configuration.hpp"
+#include "../../Interfaces/MessageSink.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "zmq.hpp"
 //------------------------------------------------------------------------------------------------
+#include <atomic>
 #include <cstdlib>
 #include <cstdio>
 #include <cstdlib>
@@ -31,8 +33,10 @@ class CLoRa;
 class CStreamBridge;
 class CTcp;
 
-std::shared_ptr<CConnection> Factory(NodeUtils::TechnologyType technology);
-std::shared_ptr<CConnection> Factory(Configuration::TConnectionOptions const& options);
+std::shared_ptr<CConnection> Factory(
+    IMessageSink* const messageSink,
+    Configuration::TConnectionOptions const& options);
+
 //------------------------------------------------------------------------------------------------
 } // Command namespace
 //------------------------------------------------------------------------------------------------
@@ -77,38 +81,21 @@ public:
 
 class CConnection {
 public:
-    CConnection()
+    CConnection(
+        IMessageSink* const messageSink,
+        Configuration::TConnectionOptions const& options)
         : m_active(false)
-        , m_instantiate()
-        , m_operation(NodeUtils::DeviceOperation::NONE)
-        , m_peerName(0)
-        , m_pipeName(std::string())
-        , m_pipe()
-        , m_sequenceNumber(0)
-        , m_updateClock()
-        , m_terminate(false)
-        , m_responseNeeded(false)
-        , m_worker()
-        , m_mutex()
-        , m_cv()
-    {
-    };
-
-    explicit CConnection(Configuration::TConnectionOptions const& options)
-        : m_active(false)
-        , m_instantiate()
         , m_operation(options.operation)
-        , m_peerName(0)
-        , m_pipeName(std::string())
-        , m_pipe()
+        , m_id(options.id)
+        , m_messageSink(messageSink)
         , m_sequenceNumber(0)
-        , m_updateClock(NodeUtils::GetSystemTimePoint())
-        , m_responseNeeded(false)
-        , m_worker()
+        , m_updateTimePoint(NodeUtils::GetSystemTimePoint())
+        , m_terminate(false)
         , m_mutex()
         , m_cv()
+        , m_worker()
     {
-        if (m_operation == NodeUtils::DeviceOperation::NONE) {
+        if (m_operation == NodeUtils::ConnectionOperation::NONE) {
             throw std::runtime_error("Direct connection must be provided and device operation type!");
         }
     };
@@ -122,8 +109,9 @@ public:
 	virtual void Spawn() = 0;
 	virtual void Worker() = 0;
 
+    virtual void HandleProcessedMessage(std::string_view message) = 0;
 	virtual void Send(CMessage const& message) = 0;
-	virtual void Send(char const* const message) = 0;
+	virtual void Send(std::string_view message) = 0;
 	virtual std::optional<std::string> Receive(std::int32_t flag = 0) = 0;
     
     virtual void PrepareForNext() = 0;
@@ -138,125 +126,58 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    NodeUtils::NodeIdType const& GetPeerName() const
+    NodeUtils::ConnectionOperation GetOperation() const
     {
-        return m_peerName;
+        std::scoped_lock lock(m_mutex);
+        return m_operation;
     }
 
     //------------------------------------------------------------------------------------------------
 
-    std::string const& GetPipeName() const
+    NodeUtils::NodeIdType const& GetPeerName() const
     {
-        return m_pipeName;
+        std::scoped_lock lock(m_mutex);
+        return m_id;
     }
 
     //------------------------------------------------------------------------------------------------
 
     NodeUtils::TimePoint GetUpdateClock() const
     {
-        return m_updateClock;
-    }
-
-    //------------------------------------------------------------------------------------------------
-
-    bool CreatePipe()
-    {
-        if (m_peerName == 0) {
-            return false;
-        }
-
-        std::string const filename = "./tmp/" + std::to_string(m_peerName) + ".pipe";
-
-        m_pipeName = filename;
-        m_pipe.open(filename, std::fstream::in | std::fstream::out | std::fstream::trunc);
-
-        if(m_pipe.fail()){
-    		m_pipe.close();
-    		return false;
-        }
-
-        return true;
-    }
-
-    //------------------------------------------------------------------------------------------------
-
-    bool WriteToPipe(std::string const& message)
-    {
-        if (!m_pipe.good()) {
-            return false;
-        }
-
-        printo("Writing \"" + message + "\" to pipe", NodeUtils::PrintType::CONNECTION);
-        m_pipe.clear();
-        m_pipe.seekp(0);
-        m_pipe << message << std::endl;
-        m_pipe.flush();
-        return true;
-    }
-
-    //------------------------------------------------------------------------------------------------
-
-    std::string ReadFromPipe()
-    {
-        std::string raw = std::string();
-
-        if (!m_pipe.good()) {
-            printo("Pipe file is not good", NodeUtils::PrintType::CONNECTION);
-            return raw;
-        }
-        m_pipe.clear();
-        m_pipe.seekg(0);
-
-        if (m_pipe.eof()) {
-            printo("Pipe file is at the EOF", NodeUtils::PrintType::CONNECTION);
-            return raw;
-        }
-
-        std::getline(m_pipe, raw);
-        m_pipe.clear();
-
-        printo("Sending " + raw, NodeUtils::PrintType::CONNECTION);
-
-        std::ofstream clear_file(m_pipeName, std::ios::out | std::ios::trunc);
-        clear_file.close();
-
-        return raw;
+        return m_updateTimePoint;
     }
 
     //------------------------------------------------------------------------------------------------
 
     void ResponseReady(NodeUtils::NodeIdType const& id)
     {
-        if (m_peerName != id) {
+        std::scoped_lock lock(m_mutex);
+        if (m_id != id) {
             printo("Response was not for this peer", NodeUtils::PrintType::CONNECTION);
             return;
         }
 
         m_active = false;
-        std::unique_lock<std::mutex> threadLock(m_mutex);
         m_cv.notify_one();
-        threadLock.unlock();
     }
 
     //------------------------------------------------------------------------------------------------
 
 protected:
-	bool m_active;
-	bool m_instantiate;
-	NodeUtils::DeviceOperation m_operation;
+	std::atomic_bool m_active;
+	NodeUtils::ConnectionOperation m_operation;
 
-	NodeUtils::NodeIdType m_peerName;
-	std::string m_pipeName;
-	std::fstream m_pipe;
-	std::uint32_t m_sequenceNumber;
+	NodeUtils::NodeIdType m_id;
 
-    NodeUtils::TimePoint m_updateClock;
+    IMessageSink* const m_messageSink;
 
-    bool m_terminate;
-    bool m_responseNeeded;
+	std::atomic_uint32_t m_sequenceNumber;
+    std::atomic<NodeUtils::TimePoint> m_updateTimePoint;
+
+    std::atomic_bool m_terminate;
+    mutable std::mutex m_mutex;
+    mutable std::condition_variable m_cv;
     std::thread m_worker;
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
 
 };
 

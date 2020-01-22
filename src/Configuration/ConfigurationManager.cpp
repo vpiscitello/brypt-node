@@ -451,8 +451,10 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
     std::vector<Configuration::TConnectionOptions> options;
 
     bool addConnectionOption = false;
+    NodeUtils::NodeIdType nodeId = 0;
     do {
         Configuration::TConnectionOptions connection(
+            ++nodeId,
             defaults::TechnologyName,
             defaults::NetworkInterface,
             defaults::TcpBindingAddress,
@@ -515,7 +517,6 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
         std::getline(std::cin, sContinueChoice);
         addConnectionOption = !sContinueChoice.empty();
         std::cout << "\n";
-
     } while(addConnectionOption);
 
     return options;

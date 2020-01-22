@@ -61,7 +61,7 @@ bool CPeerWatcher::Shutdown()
 {
     // Stop the worker thread from processing the connections
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         m_process = false;
     }
 
@@ -80,7 +80,7 @@ void CPeerWatcher::watch()
 {
     do {
         {
-            std::unique_lock<std::mutex> lock(m_mutex);
+            std::unique_lock lock(m_mutex);
             auto const stop = std::chrono::system_clock::now() + local::timeout;
             auto const terminate = m_cv.wait_until(lock, stop, [&]{ return !m_process; });
             // Terminate thread if the timeout was not reached

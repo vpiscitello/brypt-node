@@ -46,7 +46,7 @@ public:
     bool Shutdown();
 
     std::shared_ptr<CConnection> SetupFullConnection(
-        NodeUtils::NodeIdType const& peerId,
+        NodeUtils::NodeIdType id,
         NodeUtils::PortNumber const& port,
         NodeUtils::TechnologyType technology);
 

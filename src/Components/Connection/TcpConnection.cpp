@@ -23,23 +23,11 @@ constexpr std::chrono::nanoseconds timeout = std::chrono::nanoseconds(1000);
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CTcp::CTcp()
-    : CConnection()
-    , m_port(std::string())
-    , m_peerAddress(std::string())
-    , m_peerPort(std::string())
-    , m_socket(0)
-    , m_connection(-1)
-    , m_address()
-{
-    memset(&m_address, 0, sizeof(m_address));
-}
-
-//------------------------------------------------------------------------------------------------
-
-Connection::CTcp::CTcp(Configuration::TConnectionOptions const& options)
-    : CConnection(options)
-    , m_port(options.binding)
+Connection::CTcp::CTcp(
+    IMessageSink* const messageSink,
+    Configuration::TConnectionOptions const& options)
+    : CConnection(messageSink, options)
+    , m_port()
     , m_peerAddress()
     , m_peerPort()
     , m_socket(0)
@@ -48,16 +36,19 @@ Connection::CTcp::CTcp(Configuration::TConnectionOptions const& options)
 {
     printo("Creating TCP instance", NodeUtils::PrintType::CONNECTION);
 
-    auto const networkComponents = options.GetBindingComponents();
-    m_peerAddress = networkComponents.first;
-    m_peerPort = networkComponents.second;
+    auto const bindingComponents = options.GetBindingComponents();
+    auto const peerComponents = options.GetBindingComponents();
+
+    m_port = bindingComponents.second;
+    m_peerAddress = peerComponents.first;
+    m_peerPort = peerComponents.second;
 
     memset(&m_address, 0, sizeof(m_address));
 
     Spawn();
-    std::unique_lock<std::mutex> threadLock(m_mutex);
-    this->m_cv.wait(threadLock, [this]{return m_active;});
-    threadLock.unlock();
+    std::unique_lock lock(m_mutex);
+    this->m_cv.wait(lock, [this]{return m_active.load();});
+    lock.unlock();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -87,7 +78,7 @@ void Connection::CTcp::whatami()
 //------------------------------------------------------------------------------------------------
 void Connection::CTcp::Spawn()
 {
-    printo("[TCP] Spawning TCP_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
+    printo("[TCP] Spawning TCP connection thread", NodeUtils::PrintType::CONNECTION);
     m_worker = std::thread(&CTcp::Worker, this);
 }
 
@@ -123,42 +114,39 @@ NodeUtils::TechnologyType Connection::CTcp::GetInternalType() const
 void Connection::CTcp::Worker()
 {
     m_active = true;
-    CreatePipe();
 
     switch (m_operation) {
-        case NodeUtils::DeviceOperation::ROOT: {
+        case NodeUtils::ConnectionOperation::SERVER: {
             printo("[TCP] Setting up TCP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
             SetupTcpSocket(m_port);
         } break;
-        case NodeUtils::DeviceOperation::BRANCH: break;
-        case NodeUtils::DeviceOperation::LEAF: {
+        case NodeUtils::ConnectionOperation::CLIENT: {
             printo("[TCP] Connecting TCP client socket to " + m_peerAddress + ":" + m_peerPort, NodeUtils::PrintType::CONNECTION);
             SetupTcpConnection(m_peerAddress, m_peerPort);
         } break;
-        case NodeUtils::DeviceOperation::NONE: break;
+        default: break;
     }
 
     // Notify the calling thread that the connection Worker is ready
-    std::unique_lock<std::mutex> threadLock(m_mutex);
     m_cv.notify_one();
-    threadLock.unlock();
 
     std::uint32_t run = 0;
     std::optional<std::string> optRequest;
     do {
         optRequest = Receive(0);
         if (optRequest) {
-            WriteToPipe(*optRequest);
+            std::scoped_lock lock(m_mutex);
+            m_messageSink->ForwardMessage(m_id, *optRequest);
+
             optRequest.reset();
         }
 
         {
-            std::unique_lock<std::mutex> lock(m_mutex);
+            std::unique_lock lock(m_mutex);
             auto const stop = std::chrono::system_clock::now() + local::timeout;
-            auto const terminate = m_cv.wait_until(lock, stop, [&]{ return m_terminate; });
-            // Terminate thread if the timeout was not reached
+            auto const terminate = m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (terminate) {
-                return;
+                return; // Terminate thread if the timeout was not reached
             }
         }
         ++run;
@@ -212,7 +200,7 @@ void Connection::CTcp::SetupTcpSocket(NodeUtils::PortNumber const& port)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CTcp::SetupTcpConnection(NodeUtils::IPv4Address const& address, NodeUtils::PortNumber const& port)
+void Connection::CTcp::SetupTcpConnection(NodeUtils::NetworkAddress const& address, NodeUtils::PortNumber const& port)
 {
     if (m_connection = ::socket(AF_INET, SOCK_STREAM, 0); m_connection < 0) {
         return;
@@ -232,6 +220,39 @@ void Connection::CTcp::SetupTcpConnection(NodeUtils::IPv4Address const& address,
     if (connect(m_connection, reinterpret_cast<sockaddr *>(&m_address), sizeof(m_address)) < 0) {
         return;
     }
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CTcp::HandleProcessedMessage(std::string_view message)
+{
+
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CTcp::Send(CMessage const& message)
+{
+    std::string pack = message.GetPack();
+    std::int32_t bytesSent = ::send(m_connection, pack.c_str(), strlen(pack.c_str()), 0);
+    printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + pack, NodeUtils::PrintType::CONNECTION);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CTcp::Send(std::string_view message)
+{
+    std::int32_t bytesSent = ::send(m_connection, message.data(), message.size(), 0);
+    printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + message.data(),NodeUtils::PrintType::CONNECTION);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -280,29 +301,6 @@ std::string Connection::CTcp::InternalReceive()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CTcp::Send(CMessage const& message)
-{
-    std::string pack = message.GetPack();
-    std::int32_t bytesSent = ::send(m_connection, pack.c_str(), strlen(pack.c_str()), 0);
-    printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + pack, NodeUtils::PrintType::CONNECTION);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Connection::CTcp::Send(char const* const message)
-{
-    std::int32_t bytesSent = ::send(m_connection, message, strlen(message), 0);
-    printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + std::string(message),NodeUtils::PrintType::CONNECTION);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 void Connection::CTcp::PrepareForNext()
 {
     close(m_connection);
@@ -319,7 +317,7 @@ bool Connection::CTcp::Shutdown()
     printo("[TCP] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
     // Stop the worker thread from processing the connections
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::scoped_lock lock(m_mutex);
         close(m_connection);
         close(m_socket);
         m_terminate = true;

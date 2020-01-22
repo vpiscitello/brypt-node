@@ -21,16 +21,20 @@ namespace {
 //------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
+
 NodeUtils::TechnologyType InitialContactTechnology(NodeUtils::TechnologyType technology);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
 namespace test {
 //------------------------------------------------------------------------------------------------
+
 void SimulateClient(
     std::shared_ptr<CState> const& state,
     NodeUtils::CommandMap const& commands,
     bool activated);
+
 //------------------------------------------------------------------------------------------------
 } // test namespace
 //------------------------------------------------------------------------------------------------
@@ -46,12 +50,16 @@ CNode::CNode(Configuration::TSettings const& settings)
     , m_awaiting(std::make_shared<Await::CObjectContainer>())
     , m_commands()
     , m_connections()
-    , m_control(std::make_shared<CControl>(m_state, m_connections, NodeUtils::TechnologyType::TCP))
+    , m_control(std::make_shared<CControl>(
+        m_state,
+        m_queue.get(),
+        m_connections,
+        NodeUtils::TechnologyType::TCP))
     , m_notifier(std::make_shared<CNotifier>(m_state, m_connections))
     , m_watcher(std::make_shared<CPeerWatcher>(m_state, m_connections))
     , m_initialized(false)
 {
-    if (settings.connections[0].operation == NodeUtils::DeviceOperation::NONE) {
+    if (settings.connections[0].operation == NodeUtils::ConnectionOperation::NONE) {
         std::cout << "Node Setup must be provided and device operation type!" << std::endl;
         exit(-1);
     }
@@ -141,18 +149,17 @@ bool CNode::Shutdown()
 // Description:
 //------------------------------------------------------------------------------------------------
 std::shared_ptr<CConnection> CNode::SetupFullConnection(
-    NodeUtils::NodeIdType const& peerId,
+    NodeUtils::NodeIdType id,
     std::string const& port,
     NodeUtils::TechnologyType technology)
 {
     Configuration::TConnectionOptions options;
+    options.id = id;
     options.technology = technology;
-    options.operation = NodeUtils::DeviceOperation::ROOT;
+    options.operation = NodeUtils::ConnectionOperation::SERVER;
     options.binding = port;
 
-    m_queue->AddManagedPipe(peerId);
-
-    return Connection::Factory(options);;
+    return Connection::Factory(m_queue.get(), options);;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -316,7 +323,7 @@ void CNode::initialContact()
             " and on addr:port: " + options.entry_address,
             NodeUtils::PrintType::NODE);
 
-    std::shared_ptr<CConnection> const connection = Connection::Factory(options);
+    std::shared_ptr<CConnection> const connection = Connection::Factory(m_queue.get(), options);
 
     std::optional<std::string> optResponse;
     printo("Sending coordinator acknowledgement", NodeUtils::PrintType::NODE);
@@ -372,10 +379,10 @@ void CNode::joinCoordinator()
 {
     Configuration::TConnectionOptions options;
 
-    options.operation = NodeUtils::DeviceOperation::LEAF;
+    options.operation = NodeUtils::ConnectionOperation::CLIENT;
 
     NodeUtils::NodeIdType coordinatorId = 0;
-    NodeUtils::IPv4Address coordinatorAddress = std::string();
+    NodeUtils::NetworkAddress coordinatorAddress = std::string();
     NodeUtils::PortNumber publisherPort  = std::string();
     if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
         coordinatorId = coordinatorState->GetId();
@@ -390,7 +397,7 @@ void CNode::joinCoordinator()
             NodeUtils::PrintType::NODE);
 
     m_notifier->Connect(coordinatorAddress, publisherPort);
-    m_connections->emplace(coordinatorId, Connection::Factory(options));
+    m_connections->emplace(coordinatorId, Connection::Factory(m_queue.get(), options));
     if (auto const networkState = m_state->GetNetworkState().lock()) {
         networkState->PushPeerName(coordinatorId);
     } else { return; }
@@ -513,17 +520,12 @@ void CNode::processFulfilledMessages()
     }
 
     printo("Fulfilled requests:", NodeUtils::PrintType::NODE);
-    std::vector<CMessage> responses = m_awaiting->GetFulfilled();
+    std::vector<CMessage> const responses = m_awaiting->GetFulfilled();
 
     // /*
     for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
-        m_queue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
-    }
-
-    m_queue->PushOutgoingMessages();
-
-    for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
-        this->NotifyConnection(itr->GetDestinationId());
+        m_queue->PushOutgoingMessage(itr->GetDestinationId(), itr->GetPack());
+        // NotifyConnection(itr->GetDestinationId());
     }
     // */
 }
@@ -578,7 +580,6 @@ void CNode::listen()
             optNotification.reset();
         }
 
-        m_queue->CheckPipes();
         optQueueRequest = m_queue->PopIncomingMessage();
         if (optQueueRequest) {
             handleQueueRequest(*optQueueRequest);

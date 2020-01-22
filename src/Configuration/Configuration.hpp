@@ -32,6 +32,7 @@ struct Configuration::TDetailsOptions
         , name()
         , description()
         , location()
+        , operation(NodeUtils::DeviceOperation::NONE)
     {
     }
 
@@ -43,6 +44,7 @@ struct Configuration::TDetailsOptions
         , name(name)
         , description(description)
         , location(location)
+        , operation(NodeUtils::DeviceOperation::NONE)
     {
     }
 
@@ -50,6 +52,7 @@ struct Configuration::TDetailsOptions
     std::string name;
     std::string description;
     std::string location;
+    NodeUtils::DeviceOperation operation;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -57,9 +60,10 @@ struct Configuration::TDetailsOptions
 struct Configuration::TConnectionOptions
 {
     TConnectionOptions()
-        : technology(NodeUtils::TechnologyType::NONE)
+        : id(0)
+        , technology(NodeUtils::TechnologyType::NONE)
         , technology_name()
-        , operation(NodeUtils::DeviceOperation::NONE)
+        , operation(NodeUtils::ConnectionOperation::NONE)
         , interface()
         , binding()
         , entry_address()
@@ -67,13 +71,15 @@ struct Configuration::TConnectionOptions
     }
 
     TConnectionOptions(
+        NodeUtils::NodeIdType id,
         std::string_view technology_name,
         std::string_view interface,
         std::string_view binding,
-        std::string_view entryAddress)
-        : technology(NodeUtils::TechnologyType::NONE)
+        std::string_view entryAddress = std::string())
+        : id(id)
+        , technology(NodeUtils::TechnologyType::NONE)
         , technology_name(technology_name)
-        , operation(NodeUtils::DeviceOperation::NONE)
+        , operation(NodeUtils::ConnectionOperation::NONE)
         , interface(interface)
         , binding(binding)
         , entry_address(entryAddress)
@@ -82,13 +88,15 @@ struct Configuration::TConnectionOptions
     }
 
     TConnectionOptions(
+        NodeUtils::NodeIdType id,
         NodeUtils::TechnologyType technology,
         std::string_view interface,
         std::string_view binding,
-        std::string_view entryAddress)
-        : technology(technology)
+        std::string_view entryAddress = std::string())
+        : id(id)
+        , technology(technology)
         , technology_name()
-        , operation(NodeUtils::DeviceOperation::NONE)
+        , operation(NodeUtils::ConnectionOperation::NONE)
         , interface(interface)
         , binding(binding)
         , entry_address(entryAddress)
@@ -106,9 +114,10 @@ struct Configuration::TConnectionOptions
         return NodeUtils::SplitAddressString(entry_address);
     }
 
+    NodeUtils::NodeIdType id;
     NodeUtils::TechnologyType technology;
     std::string technology_name;
-    NodeUtils::DeviceOperation operation;
+    NodeUtils::ConnectionOperation operation;
     std::string interface;
     std::string binding;
     std::string entry_address;

@@ -36,31 +36,31 @@ public:
     explicit CAuthority(std::string_view url)
         : m_url(url)
         , m_token(std::string())
-        , m_authorityStateMutex()
+        , m_mutex()
     {
     };
 
     std::string GetUrl() const 
     {
-        std::shared_lock<std::shared_mutex> lock(m_authorityStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_url;
     };
 
     std::string GetToken() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_authorityStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_token;
     };
 
     void SetAddress(std::string_view url)
     {
-        std::unique_lock<std::shared_mutex> lock(m_authorityStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_url = url;
     };
 
     void SetToken(std::string const& token)
     {
-        std::unique_lock<std::shared_mutex> lock(m_authorityStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_token = token;
     };
 
@@ -68,7 +68,7 @@ private:
     std::string m_url;  // Networking url of the central authority for the Brypt ecosystem
     std::string m_token; // Access token for the Brypt network
 
-    mutable std::shared_mutex m_authorityStateMutex;
+    mutable std::shared_mutex m_mutex;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -81,91 +81,114 @@ public:
         , m_requestPort(std::string())
         , m_publisherPort(std::string())
         , m_technology(NodeUtils::TechnologyType::NONE)
-        , m_coordinatorStateMutex()
+        , m_mutex()
     {
     };
 
     CCoordinator(
         NodeUtils::TechnologyType technology,
-        NodeUtils::AddressComponentPair entry)
+        NodeUtils::AddressComponentPair entryComponents)
         : m_id(0)
-        , m_address(entry.first)
-        , m_requestPort(entry.second)
-        , m_publisherPort(std::to_string(std::stoi(entry.second) + 1))
+        , m_address(entryComponents.first)
+        , m_requestPort(entryComponents.second)
+        , m_publisherPort(std::string())
+        , m_requestEntry(std::string())
+        , m_publisherEntry(std::string())
         , m_technology(technology)
-        , m_coordinatorStateMutex()
+        , m_mutex()
     {
+        std::int32_t const portNumber = std::stoi(entryComponents.second);
+        m_publisherPort = std::to_string(portNumber + 1);
+
+        m_requestEntry = m_address + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_requestPort;
+        m_publisherEntry = m_address + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_publisherPort;
     };
     
     NodeUtils::NodeIdType GetId() const 
     {
-        std::shared_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_id;
     };
 
-    NodeUtils::IPv4Address GetAddress() const
+    NodeUtils::NetworkAddress GetAddress() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_address;
     };
 
+    std::string GetRequestEntry() const
+    {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
+        return m_requestEntry;
+    }
+
     NodeUtils::PortNumber GetRequestPort() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_requestPort;
     };
 
+    std::string GetPublisherEntry() const
+    {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
+        return m_publisherEntry;
+    }
+
     NodeUtils::PortNumber GetPublisherPort() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_publisherPort;
     };
 
     NodeUtils::TechnologyType GetTechnology() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_technology;
     };
 
-
     void SetId(NodeUtils::NodeIdType const& id)
     {
-        std::unique_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_id = id;
     };
 
-    void SetAddress(NodeUtils::IPv4Address const& address)
+    void SetAddress(NodeUtils::NetworkAddress const& address)
     {
-        std::unique_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_address = address;
     };
 
     void SetRequestPort(NodeUtils::PortNumber const& port)
     {
-        std::unique_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_requestPort = port;
     };
 
     void SetPublisherPort(NodeUtils::PortNumber const& port)
     {
-        std::unique_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_publisherPort = port;
     };
 
     void SetTechnology(NodeUtils::TechnologyType technology)
     {
-        std::unique_lock<std::shared_mutex> lock(m_coordinatorStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_technology = technology;
     };
 
 private:
     NodeUtils::NodeIdType m_id;    // Coordinator identification number of the node's coordinator
-    NodeUtils::IPv4Address m_address;
+    
+    NodeUtils::NetworkAddress m_address;
     NodeUtils::PortNumber m_requestPort;
     NodeUtils::PortNumber m_publisherPort;
+
+    std::string m_requestEntry; // The combination of the address and request port 
+    std::string m_publisherEntry; // The combination of the address and publisher port
+
     NodeUtils::TechnologyType m_technology;
 
-    mutable std::shared_mutex m_coordinatorStateMutex;
+    mutable std::shared_mutex m_mutex;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -177,43 +200,43 @@ public:
         , m_uptime()
         , m_registered()
         , m_updated()
-        , m_networkStateMutex()
+        , m_mutex()
     {
     };
 
     std::set<NodeUtils::NodeIdType> GetPeerNames() const 
     {
-        std::shared_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_peerNames;
     };
 
     std::size_t GetKnownNodes() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_peerNames.size();
     };
 
     NodeUtils::TimePeriod GetUptimeCount() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_uptime;
     };
 
     NodeUtils::TimePoint GetRegisteredTimePoint() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_registered;
     }
 
     NodeUtils::TimePoint GetUpdatedTimePoint() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_updated;
     }
 
     void PushPeerName(NodeUtils::NodeIdType const& peerName)
     {
-        std::unique_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         if (auto const itr = m_peerNames.find(peerName); itr != m_peerNames.end()) {
             m_peerNames.emplace(peerName);
             m_updated = NodeUtils::GetSystemTimePoint();
@@ -222,7 +245,7 @@ public:
 
     void RemovePeerName(NodeUtils::NodeIdType const& peerName)
     {
-        std::unique_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         if (auto const itr = m_peerNames.find(peerName); itr != m_peerNames.end()) {
             m_peerNames.erase(itr);
             m_updated = NodeUtils::GetSystemTimePoint();
@@ -231,13 +254,13 @@ public:
 
     void SetRegisteredTimePoint(NodeUtils::TimePoint const& timepoint)
     {
-        std::unique_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_registered = timepoint;
     };
 
     void Updated()
     {
-        std::unique_lock<std::shared_mutex> lock(m_networkStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_updated = NodeUtils::GetSystemTimePoint();
     };
 
@@ -248,7 +271,7 @@ private:
     NodeUtils::TimePoint m_registered; // The timestamp the node was added to the network
     NodeUtils::TimePoint m_updated;    // The timestamp the node was last updated
 
-    mutable std::shared_mutex m_networkStateMutex;
+    mutable std::shared_mutex m_mutex;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -257,32 +280,32 @@ class State::CSecurity {
 public:
     CSecurity()
         : m_standard()
-        , m_securityStateMutex()
+        , m_mutex()
     {
     };
 
     explicit CSecurity(std::string_view protocol)
         : m_standard(protocol)
-        , m_securityStateMutex()
+        , m_mutex()
     {
     };
 
     std::string GetProtocol() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_securityStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_standard;
     };
 
     void SetProtocol(std::string const& protocol)
     {
-        std::unique_lock<std::shared_mutex> lock(m_securityStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_standard = protocol;
     }
 
 private:
     std::string m_standard;
 
-    mutable std::shared_mutex m_securityStateMutex;
+    mutable std::shared_mutex m_mutex;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -294,128 +317,150 @@ public:
         , m_serial(std::string())
         , m_address(std::string())
         , m_port(std::string())
+        , m_binding(std::string())
         , m_nextAvailablePort(0)
         , m_cluster(0)
         , m_operation(NodeUtils::DeviceOperation::NONE)
         , m_technologies()
-        , m_selfStateMutex()
+        , m_mutex()
     {
     };
 
     CSelf(
         std::string_view interface,
-        NodeUtils::AddressComponentPair const& binding,
+        NodeUtils::AddressComponentPair const& bindingComponents,
         NodeUtils::DeviceOperation operation,
         std::set<NodeUtils::TechnologyType> const& technologies)
         : m_id(0) // TODO: Set Machine UUID for state
         , m_serial(std::string())
-        , m_address(NodeUtils::GetLocalAddress(interface))
-        , m_port(binding.second)
-        , m_publisherPort(std::to_string(std::stoi(binding.second) + 1))
-        , m_nextAvailablePort(std::stoi(binding.second) + NodeUtils::PORT_GAP)
+        , m_address(std::string())
+        , m_port(bindingComponents.second)
+        , m_binding(std::string())
+        , m_publisherPort(std::string())
+        , m_nextAvailablePort(0)
         , m_cluster(0)
         , m_operation(operation)
         , m_technologies(technologies)
-        , m_selfStateMutex()
+        , m_mutex()
     {
+        // Determine the actual IP address of the node based on the interface 
+        // provided. It is currently assumed, the address provided in the binding
+        // components is a wildcard character that needs expanding.
+        m_address = NodeUtils::GetLocalAddress(interface);
+
+        // Construct a full binding ip:port from the address 
+        m_binding = m_address + ":" + m_port;
+
+        std::int32_t const portNumber = std::stoi(bindingComponents.second);
+        m_publisherPort = std::to_string(portNumber + 1);
+        m_nextAvailablePort = portNumber + NodeUtils::PORT_GAP;
     };
 
     NodeUtils::NodeIdType GetId() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_id;
     };
 
     NodeUtils::SerialNumber GetSerial() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_serial;
     };
 
-    NodeUtils::IPv4Address GetAddress() const
+    std::string GetBinding() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
+        return m_binding;
+    };
+
+    NodeUtils::NetworkAddress GetAddress() const
+    {
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_address;
     };
 
     NodeUtils::PortNumber GetPort() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_port;
     };
 
     NodeUtils::PortNumber GetPublisherPort() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_publisherPort;
     };
 
     std::uint32_t GetNextPort()
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return ++m_nextAvailablePort; // TODO: Need smarter method of choosing the next port
     };
 
     NodeUtils::ClusterIdType GetCluster() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_cluster;
     };
 
     NodeUtils::DeviceOperation GetOperation() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_operation;
     };
 
     std::set<NodeUtils::TechnologyType> GetTechnologies() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_technologies;
     };
 
     void SetId(NodeUtils::NodeIdType const& id)
     {
-        std::unique_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_id = id;
     }
 
     void SetSerial(NodeUtils::SerialNumber const& serial)
     {
-        std::unique_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_serial = serial;
     }
 
     void SetCluster(NodeUtils::ClusterIdType const& cluster)
     {
-        std::unique_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_cluster = cluster;
     }
 
     void SetOperation(NodeUtils::DeviceOperation operation)
     {
-        std::unique_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_operation = operation;
     }
 
     void SetTechnologies(std::set<NodeUtils::TechnologyType> const& technologies)
     {
-        std::unique_lock<std::shared_mutex> lock(m_selfStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_technologies = technologies;
     }
 
 private:
     NodeUtils::NodeIdType m_id;// Network identification number of the node
     NodeUtils::SerialNumber m_serial; // Hardset identification number of the device
-    NodeUtils::IPv4Address m_address;  // IP address of the node
+
+    NodeUtils::NetworkAddress m_address;  // IP address of the node
     NodeUtils::PortNumber m_port;  // Main request port of the node
+    std::string m_binding; // The string combination of address and port
     NodeUtils::PortNumber m_publisherPort; // Port for the node publishing socket
     std::uint32_t m_nextAvailablePort;
+    
     NodeUtils::ClusterIdType m_cluster;   // Cluster identification number of the node's cluster
     NodeUtils::DeviceOperation m_operation;  // A boolean value of the node's root status
     std::set<NodeUtils::TechnologyType> m_technologies; // Communication technologies of the node
 
-    mutable std::shared_mutex m_selfStateMutex;
+    mutable std::shared_mutex m_mutex;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -424,26 +469,26 @@ class State::CSensor {
 public:
     CSensor()
         : m_pin()
-        , m_sensorStateMutex()
+        , m_mutex()
     {
     };
 
     std::uint8_t GetPin() const
     {
-        std::shared_lock<std::shared_mutex> lock(m_sensorStateMutex);
+        std::shared_lock<std::shared_mutex> lock(m_mutex);
         return m_pin;
     };
 
     void SetPin(std::uint8_t pin)
     {
-        std::unique_lock<std::shared_mutex> lock(m_sensorStateMutex);
+        std::unique_lock<std::shared_mutex> lock(m_mutex);
         m_pin = pin;
     }
 
 private:
     std::uint8_t m_pin;   // The GPIO pin the node will read from
 
-    mutable std::shared_mutex m_sensorStateMutex;
+    mutable std::shared_mutex m_mutex;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -460,7 +505,7 @@ public:
         , m_self(std::make_shared<State::CSelf>(
             settings.connections[0].interface,
             settings.connections[0].GetBindingComponents(),
-            settings.connections[0].operation,
+            settings.details.operation,
             std::set<NodeUtils::TechnologyType>{settings.connections[0].technology}
         ))
         , m_sensor(std::make_shared<State::CSensor>())

@@ -26,8 +26,9 @@ constexpr std::uint32_t BUFFER_SIZE = 512;
 // ZMQ StreamBridge socket implementation
 class Connection::CStreamBridge : public CConnection {
 public:
-    CStreamBridge();
-    explicit CStreamBridge(Configuration::TConnectionOptions const& options);
+    CStreamBridge(
+        IMessageSink* const messageSink,
+        Configuration::TConnectionOptions const& options);
     ~CStreamBridge() override;
 
     void whatami() override;
@@ -38,18 +39,19 @@ public:
     void Worker() override;
     void SetupStreamBridgeSocket(NodeUtils::PortNumber const& port);
 
+    void HandleProcessedMessage(std::string_view message) override;
     void Send(CMessage const& message) override;
-    void Send(char const* const message) override;
+    void Send(std::string_view message) override;
     std::optional<std::string> Receive(std::int32_t flag = 0) override;
 
     void PrepareForNext() override;
     bool Shutdown() override;
 
 private:
-    std::uint8_t m_id[StreamBridge::ID_SIZE];
+    std::uint8_t m_streamId[StreamBridge::ID_SIZE];
 
     NodeUtils::PortNumber m_port;
-    NodeUtils::IPv4Address m_peerAddress;
+    NodeUtils::NetworkAddress m_peerAddress;
     NodeUtils::PortNumber m_peerPort;
 
     std::int32_t m_initializationMessage;

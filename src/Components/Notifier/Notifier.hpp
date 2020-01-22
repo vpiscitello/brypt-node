@@ -17,9 +17,11 @@ class CConnection;
 //------------------------------------------------------------------------------------------------
 namespace Notifier {
 //------------------------------------------------------------------------------------------------
+
 constexpr std::string_view NetworkPrefix = "network.all";
 constexpr std::string_view ClusterPrefix = "cluster.";
-constexpr std::string_view NodePrefix = "node."; 
+constexpr std::string_view NodePrefix = "node.";
+
 //------------------------------------------------------------------------------------------------
 } // Notifier namespace
 //------------------------------------------------------------------------------------------------
@@ -39,7 +41,7 @@ public:
         m_context.close();
     };
 
-    bool Connect(NodeUtils::IPv4Address const& ip, NodeUtils::IPv4Address const& port);
+    bool Connect(NodeUtils::NetworkAddress const& ip, NodeUtils::PortNumber const& port);
     // Passthrough for send function of the connection type
     // Update to target sub clusters and nodes in the prefix
     bool Send(

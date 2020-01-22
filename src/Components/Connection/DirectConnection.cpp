@@ -20,50 +20,46 @@ constexpr std::chrono::nanoseconds timeout = std::chrono::nanoseconds(1000);
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CDirect::CDirect()
-    : CConnection()
-    , m_port(std::string())
-    , m_peerAddress(std::string())
-    , m_peerPort(std::string())
-    , m_context(nullptr)
-    , m_socket(nullptr)
-    , m_pollItem()
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-Connection::CDirect::CDirect(Configuration::TConnectionOptions const& options)
-    : CConnection(options)
-    , m_port(options.binding)
+Connection::CDirect::CDirect(
+    IMessageSink* const messageSink,
+    Configuration::TConnectionOptions const& options)
+    : CConnection(messageSink, options)
+    , m_port()
     , m_peerAddress()
     , m_peerPort()
     , m_context(nullptr)
     , m_socket(nullptr)
     , m_pollItem()
-
+    , m_bProcessReceived(false)
 {
     printo("[Direct] Creating direct instance", NodeUtils::PrintType::CONNECTION);
 
-    auto const networkComponents = options.GetBindingComponents();
-    m_peerAddress = networkComponents.first;
-    m_peerPort = networkComponents.second;
+    // Get the two networking components from the supplied options
+    auto const bindingComponents = options.GetBindingComponents();
+    auto const peerComponents = options.GetEntryComponents();
 
-    m_context = std::make_unique<zmq::context_t>(1);
+    {
+        std::scoped_lock lock(m_mutex);
 
-    Spawn();
-    std::unique_lock<std::mutex> threadLock(m_mutex);
-    this->m_cv.wait(threadLock, [this]{return m_active;});
-    threadLock.unlock();
+        m_port = bindingComponents.second; // The second binding component is the port we intend on binding on
+        m_peerAddress = peerComponents.first; // The first peer component is the IP address of the peer
+        m_peerPort = peerComponents.second; // The second peer component is the port on the peer
+        m_context = std::make_unique<zmq::context_t>(1); // Setup the ZMQ context we are operating on
+        
+        // Register this connections processed message handler with the message sink
+        m_messageSink->RegisterCallback(m_id, this, &CConnection::HandleProcessedMessage);
+    }
+
+    Spawn(); // Spawn a new worker thread that will handle message receiving
 }
 
 //------------------------------------------------------------------------------------------------
 
 Connection::CDirect::~CDirect()
 {
-    bool const success = Shutdown();
+    bool const success = Shutdown(); // Attempt to shutdown the worker thread
     if (!success) {
-        m_worker.detach();
+        m_worker.detach(); // If the thread could not be shutdown for some reason, stop managing it.
     }
 }
 
@@ -106,8 +102,29 @@ NodeUtils::TechnologyType Connection::CDirect::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Spawn()
 {
-    printo("[Direct] Spawning DIRECT_TYPE connection thread", NodeUtils::PrintType::CONNECTION);
-    m_worker = std::thread(&CDirect::Worker, this);
+    printo("[Direct] Spawning DIRECT connection thread", NodeUtils::PrintType::CONNECTION);
+    // Depending upon the intended operation of this connection we need to setup the ZMQ sockets
+    // in either Request or Reply modes. This changes the pattern of how the socket is intented
+    // to be used.
+    switch (m_operation) {
+        // If the intended operation is to act as a server connection, we expect requests to be 
+        // received first to which we process the message then reply.
+        case NodeUtils::ConnectionOperation::SERVER: {
+            printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
+            SetupServerWorker(m_port);
+        } break;
+        // If the intended operation is to act as client connection, we expect to send requests
+        // from which we will receive a reply.
+        case NodeUtils::ConnectionOperation::CLIENT: {
+            printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::CONNECTION);
+            SetupClientWorker(m_peerAddress, m_peerPort);
+        } break;
+        default: break;
+    }
+
+    // Wait for the spawned thread to signal it is ready to be used
+    std::unique_lock lock(m_mutex);
+    this->m_cv.wait(lock, [this]{ return m_active.load(); });
 }
 
 //------------------------------------------------------------------------------------------------
@@ -117,62 +134,7 @@ void Connection::CDirect::Spawn()
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Worker()
 {
-    m_active = true;
-    CreatePipe();
-
-    switch (m_operation) {
-        case NodeUtils::DeviceOperation::ROOT: {
-            printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
-            SetupResponseSocket(m_port);
-        } break;
-        case NodeUtils::DeviceOperation::BRANCH: break;
-        case NodeUtils::DeviceOperation::LEAF: {
-            printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::CONNECTION);
-            SetupRequestSocket(m_peerAddress, m_peerPort);
-        } break;
-        case NodeUtils::DeviceOperation::NONE: break;
-    }
-
-    // Notify the calling thread that the connection Worker is ready
-    std::unique_lock<std::mutex> threadLock(m_mutex);
-    m_cv.notify_one();
-    threadLock.unlock();
-
-    std::optional<std::string> optRequest;
-    std::string response;
-    std::uint64_t run = 0;
-
-    do {
-        // Receive message
-        optRequest = Receive(0);
-        if (optRequest) {
-            printo("[Direct] Received request: " + *optRequest, NodeUtils::PrintType::CONNECTION);
-            WriteToPipe(*optRequest);
-            m_responseNeeded = true;
-
-            // Wait for message from pipe then Send
-            threadLock.lock();
-            this->m_cv.wait(threadLock, [this]{return !m_responseNeeded;});
-            threadLock.unlock();
-
-            response = ReadFromPipe();
-            Send(response.c_str());
-
-            optRequest.reset();
-            response.clear();
-        }
-        
-        {
-            std::unique_lock<std::mutex> lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + local::timeout;
-            auto const terminate = m_cv.wait_until(lock, stop, [&]{ return m_terminate; });
-            // Terminate thread if the timeout was not reached
-            if (terminate) {
-                return;
-            }
-        }
-        ++run;
-    } while(true);
+ 
 }
 
 //------------------------------------------------------------------------------------------------
@@ -180,33 +142,10 @@ void Connection::CDirect::Worker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CDirect::SetupResponseSocket(NodeUtils::PortNumber const& port)
+void Connection::CDirect::HandleProcessedMessage(std::string_view message)
 {
-    if(!m_context) {
-        std::runtime_error("ZMQ Context has not been initialized!");
-    }
-    m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_REP);
-    m_pollItem.socket = m_socket.get();
-    m_pollItem.events = ZMQ_POLLIN;
-    m_instantiate = true;
-    m_socket->bind("tcp://*:" + port);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Connection::CDirect::SetupRequestSocket(NodeUtils::IPv4Address const& address, NodeUtils::PortNumber const& port)
-{
-    if (!m_context) {
-        std::runtime_error("ZMQ Context has not been initialized!");
-    } 
-    m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_REQ);
-    m_pollItem.socket = m_socket.get();
-    m_pollItem.events = ZMQ_POLLIN;
-    m_socket->connect("tcp://" + address + ":" + port);
-    m_instantiate = false;
+    Send(message); // Forward the received message to be sent on the socket
+    m_cv.notify_all(); // Notify that the message has been sent
 }
 
 //------------------------------------------------------------------------------------------------
@@ -216,16 +155,7 @@ void Connection::CDirect::SetupRequestSocket(NodeUtils::IPv4Address const& addre
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Send(CMessage const& message)
 {
-    if (!m_context) {
-        std::runtime_error("ZMQ Context has not been initialized!");
-    } 
-    std::string const& pack = message.GetPack();
-    zmq::message_t request(pack.data(), pack.size());
-
-    m_socket->send(request, zmq::send_flags::none);
-    printo("[Direct] Sent: (" + std::to_string(strlen(pack.c_str())) + ") " + pack, NodeUtils::PrintType::CONNECTION);
-
-    ++m_sequenceNumber;
+    Send(message.GetPack()); // Forward the message pack to be sent on the socket
 }
 
 //------------------------------------------------------------------------------------------------
@@ -233,22 +163,25 @@ void Connection::CDirect::Send(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CDirect::Send(char const* const message)
+void Connection::CDirect::Send(std::string_view message)
 {
-    if (!message) {
+    // If the message provided is empty, do not send anything
+    if (message.empty()) {
         return;
     }
 
-    if (!m_context) {
-        std::runtime_error("ZMQ Context has not been initialized!");
-    }
-
-    zmq::message_t request(message, strlen(message));
-
+    // Create a zmq message from the provided data and send it
+    zmq::message_t request(message.data(), message.size());
     m_socket->send(request, zmq::send_flags::none);
-    printo("[Direct] Sent: (" + std::to_string(strlen(message)) + ") " + message, NodeUtils::PrintType::CONNECTION);
+
+    printo(
+        "[Direct] Sent: (" + std::to_string(message.size()) + ") " 
+        + message.data(), NodeUtils::PrintType::CONNECTION);
 
     ++m_sequenceNumber;
+
+    m_bProcessReceived = !m_bProcessReceived;
+    m_cv.notify_all();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -258,23 +191,10 @@ void Connection::CDirect::Send(char const* const message)
 //------------------------------------------------------------------------------------------------
 std::optional<std::string> Connection::CDirect::Receive(std::int32_t flag)
 {
-    if (!m_context) {
-        std::runtime_error("ZMQ Context has not been initialized!");
-    }
+    // Interpret the provided flag as a zmq receive flag and then receive
     zmq::recv_flags zmqFlag = static_cast<zmq::recv_flags>(flag);
-    zmq::message_t message;
-    auto const result = m_socket->recv(message, zmqFlag);
-    if (!result || *result == 0) {
-        return {};
-    }
-
-    std::string request = std::string(static_cast<char*>(message.data()), *result);
-
-    m_updateClock = NodeUtils::GetSystemTimePoint();
-    ++m_sequenceNumber;
-
-    printo("[Direct] Received: " + request, NodeUtils::PrintType::CONNECTION);
-    return request;
+    return Receive(zmqFlag);
+;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -295,20 +215,179 @@ bool Connection::CDirect::Shutdown()
 {
     printo("[Direct] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
     // Stop the worker thread from processing the connections
-    {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        zmq_close(m_socket.release());
-        zmq_ctx_destroy(m_context.release());
-        m_terminate = true;
-    }
+    m_terminate = true;
 
-    m_cv.notify_all();
+    m_cv.notify_all(); // Notify the worker that exit conditions have been set
     
     if (m_worker.joinable()) {
         m_worker.join();
     }
+
+    {
+        std::scoped_lock lock(m_mutex);
+        if (m_socket->connected()) {
+            m_socket->close();
+        }
+        m_context->close();
+    }
     
     return !m_worker.joinable();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CDirect::SetupServerWorker(
+    NodeUtils::PortNumber const& port)
+{
+    std::scoped_lock lock(m_mutex);
+    if(!m_context) {
+        std::runtime_error("ZMQ Context has not been initialized!");
+    }
+    m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_REP);
+    m_pollItem.socket = m_socket.get();
+    m_pollItem.events = ZMQ_POLLIN;
+    m_socket->bind("tcp://*:" + port);
+    
+    m_worker = std::thread(&CDirect::ServerWorker, this); // Create the work thread 
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CDirect::SetupClientWorker(
+    NodeUtils::NetworkAddress const& address,
+    NodeUtils::PortNumber const& port)
+{
+    std::scoped_lock lock(m_mutex);
+    if (!m_context) {
+        std::runtime_error("ZMQ Context has not been initialized!");
+    } 
+    m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_REQ);
+    m_pollItem.socket = m_socket.get();
+    m_pollItem.events = ZMQ_POLLIN;
+    m_socket->connect("tcp://" + address + ":" + port);
+
+    m_worker = std::thread(&CDirect::ClientWorker, this); // Create the work thread 
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CDirect::ServerWorker()
+{
+    // Notify the calling thread that the connection worker is ready
+    m_active = true;
+    m_cv.notify_all();
+
+    do {
+        // Attempt to receive a request on our socket while not blocking.
+        auto const request = Receive(zmq::recv_flags::dontwait);
+
+        // If a request has been received, forward the message through the message sink and
+        // wait until the message has been processed before accepting another message
+        if (request) {
+            printo("[Direct] Received request: " + *request, NodeUtils::PrintType::CONNECTION);
+            std::unique_lock lock(m_mutex);
+            m_messageSink->ForwardMessage(m_id, *request);
+            m_bProcessReceived = !m_bProcessReceived;
+            m_cv.notify_all();
+
+            // Wait for message from pipe then Send
+            if (!m_bProcessReceived) {
+                this->m_cv.wait(lock, [this]{return m_bProcessReceived || m_terminate;});
+            }
+        }
+
+        if (m_terminate) {
+            return;
+        }
+        
+        // Gracefully handle thread termination by waiting a period of time for a terminate 
+        // signal before continuing normal operation. 
+        {
+            std::unique_lock lock(m_mutex);
+            auto const stop = std::chrono::system_clock::now() + local::timeout;
+            m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
+            if (m_terminate) {
+                return; // Terminate thread if the timeout was not reached
+            }
+        }
+    } while(true);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Connection::CDirect::ClientWorker()
+{
+    // Notify the calling thread that the connection worker is ready
+    m_active = true;
+    m_cv.notify_all();
+
+    do {
+        if (!m_bProcessReceived) {
+            std::unique_lock lock(m_mutex);
+            this->m_cv.wait(lock, [this]{return m_bProcessReceived || m_terminate;});
+        }
+
+        if (m_terminate) {
+            return;
+        }
+
+        // Attempt to receive a request on our socket while not blocking.
+        auto const request = Receive(zmq::recv_flags::dontwait);
+
+        // If a request has been received, forward the message through the message sink and
+        // wait until the message has been processed before accepting another message
+        if (request) {
+            printo("[Direct] Received request: " + *request, NodeUtils::PrintType::CONNECTION);
+            m_messageSink->ForwardMessage(m_id, *request);
+            m_bProcessReceived = !m_bProcessReceived;
+            m_cv.notify_all();
+        }
+        
+        // Gracefully handle thread termination by waiting a period of time for a terminate 
+        // signal before continuing normal operation. 
+        {
+            std::unique_lock lock(m_mutex);
+            auto const stop = std::chrono::system_clock::now() + local::timeout;
+            m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
+            if (m_terminate) {
+                return; // Terminate thread if the timeout was not reached
+            }
+        }
+    } while(true);
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<std::string> Connection::CDirect::Receive(zmq::recv_flags flag)
+{
+    zmq::message_t message;
+    auto const result = m_socket->recv(message, flag);
+    if (!result || *result == 0) {
+        return {};
+    }
+
+    std::string request = std::string(static_cast<char*>(message.data()), *result);
+    printo("[Direct] Received: " + request, NodeUtils::PrintType::CONNECTION);
+
+    m_updateTimePoint = NodeUtils::GetSystemTimePoint();
+    ++m_sequenceNumber;
+
+    m_bProcessReceived = !m_bProcessReceived;
+    m_cv.notify_all();
+
+    return request;
 }
 
 //------------------------------------------------------------------------------------------------

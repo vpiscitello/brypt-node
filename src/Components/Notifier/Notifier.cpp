@@ -30,7 +30,7 @@ CNotifier::CNotifier(
 
 //-----------------------------------------------------------------------------------------------
 
-bool CNotifier::Connect(NodeUtils::IPv4Address const& ip, NodeUtils::PortNumber const& port)
+bool CNotifier::Connect(NodeUtils::NetworkAddress const& ip, NodeUtils::PortNumber const& port)
 {
     printo("Subscribing to peer at " + ip + ":" + port, NodeUtils::PrintType::NOTIFIER);
     m_subscriber.connect("tcp://" + ip + ":" + port);

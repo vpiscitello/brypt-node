@@ -21,8 +21,9 @@ namespace LoRa {
 
 class Connection::CLoRa : public CConnection {
 public:
-    CLoRa();
-    explicit CLoRa(Configuration::TConnectionOptions const& options);
+    CLoRa(
+        IMessageSink* const messageSink,
+        Configuration::TConnectionOptions const& options);
     ~CLoRa() override;
 
     void whatami() override;
@@ -32,8 +33,9 @@ public:
     void Spawn() override;
     void Worker() override;
 
+    void HandleProcessedMessage(std::string_view message) override;
     void Send(CMessage const& message) override;
-    void Send(char const* const message) override;
+    void Send(std::string_view message) override;
     std::optional<std::string> Receive(std::int32_t flag = 0) override;
 
     void PrepareForNext() override;

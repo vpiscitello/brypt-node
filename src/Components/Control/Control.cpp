@@ -12,6 +12,7 @@
 
 CControl::CControl(
     std::shared_ptr<CState> const& state,
+    IMessageSink* const messageSink,
     std::weak_ptr<NodeUtils::ConnectionMap> const& connections,
     NodeUtils::TechnologyType technology)
     : m_state(state)
@@ -20,12 +21,12 @@ CControl::CControl(
 {
     Configuration::TConnectionOptions options;
     options.technology = technology;
-    options.operation = NodeUtils::DeviceOperation::ROOT;
+    options.operation = NodeUtils::ConnectionOperation::SERVER;
     if (auto const selfState = m_state->GetSelfState().lock()) {
-        options.binding = selfState->GetPort();
+        options.binding = selfState->GetBinding();
     }
 
-    m_control = Connection::Factory(options);
+    m_control = Connection::Factory(messageSink, options);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -41,7 +42,7 @@ void CControl::Send(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 // Description: Passthrough for the send function for the particular communication type used.
 //-----------------------------------------------------------------------------------------------
-void CControl::Send(char const* const message)
+void CControl::Send(std::string_view message)
 {
     m_control->Send(message);
 }
