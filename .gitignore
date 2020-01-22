@@ -12,8 +12,8 @@
 /build
 /bin
 
-/Libraries/googletest
-/Libraries/spdlog
+/Libraries/googletest/*
+/Libraries/spdlog/*
 
 BryptNode
 UT_Connections
