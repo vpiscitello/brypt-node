@@ -8,12 +8,12 @@
 *.pipe
 .vscode
 
-/tmp
-/build
-/bin
+src/tmp
+src/build
+src/bin
 
-/Libraries/googletest/*
-/Libraries/spdlog/*
+src/Libraries/googletest/*
+src/Libraries/spdlog/*
 
 BryptNode
 UT_Connections
