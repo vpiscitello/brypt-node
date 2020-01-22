@@ -8,12 +8,9 @@
 *.pipe
 .vscode
 
-src/tmp
-src/build
-src/bin
+src/tmp/*
+src/build/*
+src/bin/*
 
 src/Libraries/googletest/*
 src/Libraries/spdlog/*
-
-BryptNode
-UT_Connections
