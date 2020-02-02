@@ -78,18 +78,8 @@ struct Json::TNodeInfo
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CInformation::CInformation(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state)
+    : CHandler(instance, state, NodeUtils::CommandType::INFORMATION)
 {
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Command::CInformation::whatami()
-{
-    printo("Handling response to Information request", NodeUtils::PrintType::COMMAND);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -101,7 +91,6 @@ void Command::CInformation::whatami()
 bool Command::CInformation::HandleMessage(CMessage const& message)
 {
     bool status = false;
-    whatami();
 
     auto const phase = static_cast<CInformation::Phase>(message.GetPhase());
     switch (phase) {
@@ -137,18 +126,19 @@ bool Command::CInformation::FloodHandler(CMessage const& message)
     }
 
     NodeUtils::NetworkNonce const nonce = 0;
-    CMessage const infoMessage(
-        id,
-        message.GetSourceId(),
-        NodeUtils::CommandType::INFORMATION,
-        static_cast<std::uint32_t>(Phase::RESPOND),
-        local::GenerateNodeInfo(m_instance, m_state),
-        nonce
-    );
 
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
         auto const awaitKey = awaiting->PushRequest(message, id);
-        awaiting->PushResponse(awaitKey, infoMessage);
+
+        CMessage const infoMessage(
+            id, message.GetSourceId(),
+            NodeUtils::CommandType::INFORMATION,
+            static_cast<std::uint8_t>(Phase::RESPOND),
+            local::GenerateNodeInfo(m_instance, m_state), nonce,
+            Message::BoundAwaitId(
+                {Message::AwaitBinding::DESTINATION, awaitKey}));
+
+        awaiting->PushResponse(infoMessage);
     }
 
     // TODO: Add notification distribution, so branches can add their information

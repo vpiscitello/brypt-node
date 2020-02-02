@@ -22,6 +22,7 @@ Await::CMessageObject::CMessageObject(
     , m_expected(1)
     , m_received(0)
     , m_request(request)
+    , m_optAggregateResponse()
     , m_responses()
     , m_expire(NodeUtils::GetSystemTimePoint() + Await::Timeout)
 {
@@ -40,6 +41,7 @@ Await::CMessageObject::CMessageObject(
     , m_expected(peers.size())
     , m_received(0)
     , m_request(request)
+    , m_optAggregateResponse()
     , m_responses()
     , m_expire(NodeUtils::GetSystemTimePoint() + Await::Timeout)
 {
@@ -59,7 +61,7 @@ Await::CMessageObject::CMessageObject(
 // m_received all responses requested, or it has timed-out.
 // Returns: true if the object is ready and false otherwise.
 //------------------------------------------------------------------------------------------------
-Await::Status Await::CMessageObject::Status()
+Await::Status Await::CMessageObject::GetStatus()
 {
     if (m_expected == m_received || m_expire < NodeUtils::GetSystemTimePoint()) {
         m_status = Status::FULFILLED;
@@ -80,16 +82,28 @@ std::optional<CMessage> Await::CMessageObject::GetResponse()
         return {};
     }
 
+    if (m_optAggregateResponse) {
+        return m_optAggregateResponse;
+    }
+
     std::vector<TResponseObject> responsesVector;
     std::transform(m_responses.begin(), m_responses.end(), std::back_inserter(responsesVector), 
                    [](auto const& response) -> TResponseObject { 
                        return {response.first, response.second}; });
 
+
     std::string data = iod::json_vector(s::id, s::pack).encode(responsesVector);
-    return CMessage(
+
+    m_optAggregateResponse = CMessage(
         m_request.GetDestinationId(), m_request.GetSourceId(),
         m_request.GetCommand(), m_request.GetPhase() + 1,
         data, m_request.GetNonce() + 1 );
+
+    // After the aggregate response has been generated the tracked responses can be 
+    // cleared. Therby rejecting any new responses.
+    m_responses.clear();
+
+    return m_optAggregateResponse;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -151,27 +165,6 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Pushes a response message onto the await object for the given key (in the AwaitMap)
-// Returns: boolean indicating success or not
-//------------------------------------------------------------------------------------------------
-bool Await::CObjectContainer::PushResponse(NodeUtils::ObjectIdType const& key, CMessage const& message)
-{
-    NodeUtils::printo("Pushing response to AwaitObject " + std::to_string(key), NodeUtils::PrintType::AWAIT);
-    auto itr = m_awaiting.find(key);
-    if (itr == m_awaiting.end()) {
-        return false;
-    }
-
-    if (itr->second.UpdateResponse(message) == Status::FULFILLED) {
-        NodeUtils::printo("AwaitObject has been fulfilled, Waiting to transmit", NodeUtils::PrintType::AWAIT);
-    }
-
-    return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
 // Description: Pushes a response message onto the await object, finds the key from the message
 // await ID
 // Returns: boolean indicating success or not
@@ -214,7 +207,7 @@ std::vector<CMessage> Await::CObjectContainer::GetFulfilled()
 
     for (auto itr = m_awaiting.begin(); itr != m_awaiting.end();) {
         NodeUtils::printo("Checking AwaitObject " + std::to_string(itr->first), NodeUtils::PrintType::AWAIT);
-        if (itr->second.Status() == Status::FULFILLED) {
+        if (itr->second.GetStatus() == Status::FULFILLED) {
             std::optional<CMessage> const optResponse = itr->second.GetResponse();
             if (optResponse) {
                 fulfilled.push_back(*optResponse);

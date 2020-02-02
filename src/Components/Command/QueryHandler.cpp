@@ -61,18 +61,8 @@ struct Json::TReading
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CQuery::CQuery(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state)
+    : CHandler(instance, state, NodeUtils::CommandType::QUERY)
 {
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Command::CQuery::whatami()
-{
-    printo("Handling response to Query request", NodeUtils::PrintType::COMMAND);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -84,7 +74,6 @@ void Command::CQuery::whatami()
 bool Command::CQuery::HandleMessage(CMessage const& message)
 {
     bool status = false;
-    whatami();
 
     auto const phase = static_cast<CQuery::Phase>(message.GetPhase());
     switch (phase) {
@@ -127,28 +116,29 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
     if (auto const networkState = m_state.lock()->GetNetworkState().lock()) {
         peerNames = networkState->GetPeerNames();
     }
-
-    // Create a reading message
-    NodeUtils::NetworkNonce const nonce = 0;
-    CMessage readingMessage(
-        id,
-        message.GetSourceId(),
-        NodeUtils::CommandType::QUERY,
-        static_cast<std::uint32_t>(CQuery::Phase::AGGREGATE),
-        local::GenerateReading(),
-        nonce);
     
+    NodeUtils::NetworkNonce const nonce = 0;
+
     // Setup the awaiting message object and push this node's response
     NodeUtils::ObjectIdType awaitKey = 0;
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
         awaitKey = awaiting->PushRequest(message, peerNames);
-        awaiting->PushResponse(awaitKey, readingMessage);
+
+        // Create a reading message
+        CMessage const readingMessage(
+            id, message.GetSourceId(),
+            NodeUtils::CommandType::QUERY, static_cast<std::uint8_t>(CQuery::Phase::AGGREGATE),
+            local::GenerateReading(), nonce,
+            Message::BoundAwaitId(
+                {Message::AwaitBinding::DESTINATION, awaitKey}));
+
+        awaiting->PushResponse(readingMessage);
     }
 
     // Create a notice message for the network
     CMessage const notice(
         id, 0xFFFFFFFF,
-        NodeUtils::CommandType::QUERY, static_cast<std::uint32_t>(Phase::RESPOND),
+        NodeUtils::CommandType::QUERY, static_cast<std::uint8_t>(Phase::RESPOND),
         "Request for Sensor Readings.", nonce,
         Message::BoundAwaitId(
             {Message::AwaitBinding::SOURCE, awaitKey}));
@@ -184,7 +174,7 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
         id,
         destinationId,
         NodeUtils::CommandType::QUERY,
-        static_cast<std::uint32_t>(Phase::AGGREGATE),
+        static_cast<std::uint8_t>(Phase::AGGREGATE),
         local::GenerateReading(),
         nonce,
         Message::BoundAwaitId(
@@ -233,7 +223,7 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
         id,
         destinationId,
         NodeUtils::CommandType::QUERY,
-        static_cast<std::uint32_t>(Phase::CLOSE),
+        static_cast<std::uint8_t>(Phase::CLOSE),
         "Message Response",
         nonce);
 

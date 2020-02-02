@@ -42,18 +42,21 @@ class Command::CHandler {
 public:
     CHandler(
         CNode& instance,
-        std::weak_ptr<CState> const& state)
+        std::weak_ptr<CState> const& state,
+        NodeUtils::CommandType type)
         : m_instance(instance)
         , m_state(state)
+        , m_type(type)
     {
     };
     virtual ~CHandler() {};
-    virtual void whatami() = 0;
+    virtual NodeUtils::CommandType GetType() { return m_type; };
     virtual bool HandleMessage(CMessage const& CMessage) = 0;
 
 protected:
     CNode& m_instance;
     std::weak_ptr<CState> m_state;
+    NodeUtils::CommandType m_type;
 };
 
 //------------------------------------------------------------------------------------------------

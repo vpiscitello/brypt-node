@@ -15,8 +15,9 @@ public:
     CInformation(CNode& instance, std::weak_ptr<CState> const& state);
     ~CInformation() override {};
 
-    void whatami() override;
+    // CHandler{
     bool HandleMessage(CMessage const& message) override;
+    // }CHandler
 
     bool FloodHandler(CMessage const& message);
     bool RespondHandler();

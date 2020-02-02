@@ -22,6 +22,7 @@
 //------------------------------------------------------------------------------------------------
 namespace Await {
 //------------------------------------------------------------------------------------------------
+
 enum class Status : std::uint8_t { FULFILLED, UNFULFILLED };
 
 struct TResponseObject;
@@ -32,6 +33,7 @@ using TimePeriod = std::chrono::milliseconds;
 using MessageMap = std::unordered_map<NodeUtils::ObjectIdType, CMessageObject>;
 
 constexpr TimePeriod Timeout = std::chrono::milliseconds(1500);
+
 //------------------------------------------------------------------------------------------------
 } // Await namespace
 //------------------------------------------------------------------------------------------------
@@ -69,7 +71,7 @@ public:
         CMessage const& request,
         std::set<NodeUtils::NodeIdType> const& peers);
 
-    Await::Status Status();
+    Await::Status GetStatus();
 
     std::optional<CMessage> GetResponse();
     Await::Status UpdateResponse(CMessage const& response);
@@ -80,6 +82,7 @@ private:
     std::uint32_t m_received;
 
     CMessage const m_request;
+    std::optional<CMessage> m_optAggregateResponse;
 
     std::unordered_map<NodeUtils::NodeIdType, std::string> m_responses;
 
@@ -102,7 +105,6 @@ public:
         CMessage const& message,
         std::set<NodeUtils::NodeIdType> const& peers);
 
-    bool PushResponse(NodeUtils::ObjectIdType const& key, CMessage const& message);
     bool PushResponse(CMessage const& message);
     std::vector<CMessage> GetFulfilled();
     bool Empty() const;

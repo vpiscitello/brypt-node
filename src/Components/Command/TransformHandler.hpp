@@ -15,8 +15,9 @@ public:
     CTransform(CNode& instance, std::weak_ptr<CState> const& state);
     ~CTransform() override {};
 
-    void whatami() override;
+    // CHandler{
     bool HandleMessage(CMessage const& message) override;
+    // }CHandler
 
     bool InfoHandler();
     bool HostHandler();

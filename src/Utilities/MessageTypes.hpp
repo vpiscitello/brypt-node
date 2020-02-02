@@ -15,7 +15,7 @@
 namespace Message {
 //------------------------------------------------------------------------------------------------
 enum class VerificationStatus : std::uint8_t { SUCCESS, UNAUTHORIZED };
-enum class AwaitBinding : std::uint8_t { NONE, SOURCE, DESTINATION };
+enum class AwaitBinding : std::uint8_t { SOURCE, DESTINATION, NONE };
 
 using Buffer = std::vector<std::uint8_t>;
 using Token = std::vector<std::uint8_t>;

@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "Configuration/Configuration.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <ctime>
@@ -97,8 +98,15 @@ public:
         , m_technology(technology)
         , m_mutex()
     {
-        std::int32_t const portNumber = std::stoi(entryComponents.second);
-        m_publisherPort = std::to_string(portNumber + 1);
+        // If the address or port is not set on the entry components it implies 
+        // that a coordinator has not been set in the configuration and thus there
+        // is no initial state to parse. 
+        if (m_address.empty() || m_requestPort.empty()) {
+            return;
+        }
+
+        std::int32_t const port = std::stoi(m_requestPort);
+        m_publisherPort = std::to_string(port + 1);
 
         m_requestEntry = m_address + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_requestPort;
         m_publisherEntry = m_address + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_publisherPort;

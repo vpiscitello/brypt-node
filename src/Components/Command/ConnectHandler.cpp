@@ -14,18 +14,8 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CConnect::CConnect(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state)
+    : CHandler(instance, state, NodeUtils::CommandType::CONNECT)
 {
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Command::CConnect::whatami()
-{
-    printo("Handling response to Connect request", NodeUtils::PrintType::COMMAND);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -37,7 +27,6 @@ void Command::CConnect::whatami()
 bool Command::CConnect::HandleMessage(CMessage const& message)
 {
     bool status = false;
-    whatami();
 
     auto const phase = static_cast<CConnect::Phase>(message.GetPhase());
     switch (phase) {

@@ -15,8 +15,9 @@ public:
     CConnect(CNode& instance, std::weak_ptr<CState> const& state);
     ~CConnect() override {};
 
-    void whatami() override;
+    // CHandler{
     bool HandleMessage(CMessage const& message) override;
+    // }CHandler
 
     bool ContactHandler();
     bool JoinHandler(CMessage const& message);

@@ -10,19 +10,8 @@
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
 Command::CTransform::CTransform(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state)
+    : CHandler(instance, state, NodeUtils::CommandType::TRANSFORM)
 {
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-// Returns: Status of the message handling
-//------------------------------------------------------------------------------------------------
-void Command::CTransform::whatami()
-{
-    printo("Handling response to Transform request", NodeUtils::PrintType::COMMAND);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -34,7 +23,6 @@ void Command::CTransform::whatami()
 bool Command::CTransform::HandleMessage(CMessage const& message)
 {
     bool status = false;
-    whatami();
 
     auto const phase = static_cast<CTransform::Phase>(message.GetPhase());
     switch (phase) {

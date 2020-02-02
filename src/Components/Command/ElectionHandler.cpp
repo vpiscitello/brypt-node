@@ -9,18 +9,8 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CElection::CElection(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state)
+    : CHandler(instance, state, NodeUtils::CommandType::ELECTION)
 {
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Command::CElection::whatami()
-{
-    printo("Handling response to Election request", NodeUtils::PrintType::COMMAND);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -31,7 +21,6 @@ void Command::CElection::whatami()
 //------------------------------------------------------------------------------------------------
 bool Command::CElection::HandleMessage(CMessage const& message) {
     bool status = false;
-    whatami();
 
     auto const phase = static_cast<CElection::Phase>(message.GetPhase());
     switch (phase) {

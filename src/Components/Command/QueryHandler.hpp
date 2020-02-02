@@ -15,8 +15,9 @@ public:
     CQuery(CNode& instance, std::weak_ptr<CState> const& state);
     ~CQuery() override {};
 
-    void whatami() override;
+    // CHandler{
     bool HandleMessage(CMessage const& message) override;
+    // }CHandler
 
     bool FloodHandler(CMessage const& message);
     bool RespondHandler(CMessage const& message);

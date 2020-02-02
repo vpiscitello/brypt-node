@@ -15,8 +15,9 @@ public:
     CElection(CNode& instance, std::weak_ptr<CState> const& state);
     ~CElection() override {};
 
-    void whatami() override;
+    // CHandler{
     bool HandleMessage(CMessage const& message) override;
+    // }CHandler
 
     bool ProbeHandler();
     bool PrecommitHandler();

@@ -48,7 +48,7 @@ public:
 		NodeUtils::NodeIdType const& destinationId,
 		NodeUtils::CommandType command,
 		std::int8_t phase,
-		std::string const& data,
+		std::string_view data,
 		NodeUtils::NetworkNonce nonce,
 		std::optional<Message::BoundAwaitId> const& awaitId = {})
 		: m_raw(std::string())
@@ -73,7 +73,7 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	explicit CMessage(std::string const& raw)
+	explicit CMessage(std::string_view raw)
 		: m_raw(raw)
 		, m_sourceId(0)
 		, m_destinationId(0)
@@ -195,7 +195,7 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-    template<>
+    // template<>
 	void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk) const
 	{
         buffer.insert(buffer.end(), chunk.begin(), chunk.end());
@@ -217,8 +217,7 @@ public:
 			PackChunk(buffer, m_boundAwaitId->first);
 			PackChunk(buffer, m_boundAwaitId->second);
 		} else {
-			// Insert empty byte in place of a bound await ID
-			buffer.insert(buffer.end(), sizeof(m_boundAwaitId->first), 0);
+			PackChunk(buffer, Message::AwaitBinding::NONE);
 		}
 		PackChunk(buffer, m_command);
 		PackChunk(buffer, m_phase);
@@ -452,7 +451,7 @@ public:
     //------------------------------------------------------------------------------------------------
     // Description: Decode a Z85 message to a std::string
     //------------------------------------------------------------------------------------------------
-    inline Message::Buffer Z85Decode(std::string const& message) const
+    inline Message::Buffer Z85Decode(std::string_view message) const
     {
         Message::Buffer decoded;
 		// Resize the destination to be the estimated maximum size

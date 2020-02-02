@@ -38,8 +38,8 @@ struct Configuration::TDetailsOptions
 
     TDetailsOptions(
         std::string_view name,
-        std::string_view description,
-        std::string_view location)
+        std::string_view description = "",
+        std::string_view location = "")
         : version(NodeUtils::NODE_VERSION)
         , name(name)
         , description(description)
