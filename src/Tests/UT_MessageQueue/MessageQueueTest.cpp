@@ -45,31 +45,24 @@ constexpr std::string_view ClientEntry = "127.0.0.1:3001";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CDirectSuite, ServerLifecycle)
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageQueue, ConnectionTrackingTest)
 {
     CMessageQueue queue;
-    auto connection = local::MakeDirectServer(&queue);
-    EXPECT_EQ(connection->GetOperation(), NodeUtils::ConnectionOperation::SERVER);
-
-    bool const result = connection->Shutdown();
-    EXPECT_TRUE(result);
+    // The connection will register it's callback with the queue 
+    auto server = local::MakeDirectClient(&queue);
+    // We should expect the registered connection size to be one within the queue
+    EXPECT_EQ(queue.RegisteredConnections(), std::uint32_t(1));
+    // When the connection is destroyed we should expect the registered callbacks
+    // to go back to zero.
+    server.reset();
+    EXPECT_EQ(queue.RegisteredConnections(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CDirectSuite, ClientLifecycle)
-{
-    CMessageQueue queue;
-    auto connection = local::MakeDirectClient(&queue);
-    EXPECT_EQ(connection->GetOperation(), NodeUtils::ConnectionOperation::CLIENT);
-
-    bool const result = connection->Shutdown();
-    EXPECT_TRUE(result);
-}
-
-//------------------------------------------------------------------------------------------------
-
-TEST(CDirectSuite, ServerMessageForwarding)
+TEST(CMessageQueue, MessageForwardingTest)
 {
     CMessageQueue queue;
     auto server = local::MakeDirectServer(&queue);
@@ -81,15 +74,14 @@ TEST(CDirectSuite, ServerMessageForwarding)
         test::ClientId, test::ServerId,
         NodeUtils::CommandType::ELECTION, 0,
         "Hello World!", 0);
-    auto const requestPack = request.GetPack();
-    queue.PushOutgoingMessage(0, requestPack);
+    queue.PushOutgoingMessage(test::ServerId, request);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto const optReceived = queue.PopIncomingMessage();
     ASSERT_TRUE(optReceived);
 
-    EXPECT_EQ(optReceived->GetPack(), requestPack);
+    EXPECT_EQ(optReceived->GetPack(), request.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------

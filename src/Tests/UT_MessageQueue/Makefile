@@ -1,7 +1,7 @@
 CXX = g++-9
 BUILDDIR = ../../build
 BINARYDIR = ../../bin
-BINARYNAME = UT_Connections
+BINARYNAME = UT_MessageQueue
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
@@ -20,10 +20,12 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
+CONNECTIONSDIR = ../../Components/Connection
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
+$(CONNECTIONSDIR) \
 $(MESSAGEQUEUEDIR) \
 $(GTESTDIR)
 

@@ -45,7 +45,7 @@ constexpr std::string_view ClientEntry = "127.0.0.1:3001";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CDirectSuite, ServerLifecycle)
+TEST(CDirectSuite, ServerLifecycleTest)
 {
     CMessageQueue queue;
     auto connection = local::MakeDirectServer(&queue);
@@ -57,7 +57,7 @@ TEST(CDirectSuite, ServerLifecycle)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CDirectSuite, ClientLifecycle)
+TEST(CDirectSuite, ClientLifecycleTest)
 {
     CMessageQueue queue;
     auto connection = local::MakeDirectClient(&queue);
@@ -69,7 +69,7 @@ TEST(CDirectSuite, ClientLifecycle)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CDirectSuite, ServerMessageForwarding)
+TEST(CDirectSuite, ServerMessageForwardingTest)
 {
     CMessageQueue queue;
     auto server = local::MakeDirectServer(&queue);
@@ -82,15 +82,14 @@ TEST(CDirectSuite, ServerMessageForwarding)
         NodeUtils::CommandType::ELECTION, 0,
         "Hello World!", 0);
         
-    auto const requestPack = request.GetPack();
-    queue.PushOutgoingMessage(0, requestPack);
+    queue.PushOutgoingMessage(test::ServerId, request);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto const optReceived = queue.PopIncomingMessage();
     ASSERT_TRUE(optReceived);
 
-    EXPECT_EQ(optReceived->GetPack(), requestPack);
+    EXPECT_EQ(optReceived->GetPack(), request.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
