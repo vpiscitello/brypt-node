@@ -100,7 +100,10 @@ public:
         }
     };
 
-    virtual ~CConnection() {};
+    virtual ~CConnection()
+    {
+        m_messageSink->UnpublishCallback(m_id);
+    };
 
 	virtual void whatami() = 0;
     virtual NodeUtils::TechnologyType GetInternalType() const = 0;
@@ -109,7 +112,7 @@ public:
 	virtual void Spawn() = 0;
 	virtual void Worker() = 0;
 
-    virtual void HandleProcessedMessage(std::string_view message) = 0;
+    virtual void HandleProcessedMessage(CMessage const& message) = 0;
 	virtual void Send(CMessage const& message) = 0;
 	virtual void Send(std::string_view message) = 0;
 	virtual std::optional<std::string> Receive(std::int32_t flag = 0) = 0;

@@ -128,15 +128,19 @@ void Connection::CStreamBridge::Worker()
     // Notify the calling thread that the connection Worker is ready
     m_cv.notify_one();
 
-    std::optional<std::string> optRequest;
+    std::optional<std::string> optReceivedRaw;
     std::uint64_t run = 0;
     do {
-        optRequest = Receive(0);
-        if (optRequest) {
+        optReceivedRaw = Receive(0);
+        if (optReceivedRaw) {
             std::unique_lock lock(m_mutex);
-            m_messageSink->ForwardMessage(m_id, *optRequest);
-            
-            optRequest.reset();
+            try {
+                CMessage const request(*optReceivedRaw);
+                m_messageSink->ForwardMessage(m_id, request);
+            } catch (...) {
+                printo("[StreamBridge] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+            }
+            optReceivedRaw.reset();
         }
 
         {
@@ -168,7 +172,7 @@ void Connection::CStreamBridge::SetupStreamBridgeSocket(NodeUtils::PortNumber co
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CStreamBridge::HandleProcessedMessage(std::string_view message)
+void Connection::CStreamBridge::HandleProcessedMessage(CMessage const& message)
 {
     std::scoped_lock lock(m_mutex);
     Send(message);

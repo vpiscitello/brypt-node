@@ -8,9 +8,10 @@
 //------------------------------------------------------------------------------------------------
 
 CMessageQueue::CMessageQueue()
-	: m_incoming()
+	: m_incomingMutex()
+	, m_callbacksMutex()
+	, m_incoming()
 	, m_callbacks()
-	, m_mutex()
 {
 }
 
@@ -24,31 +25,50 @@ CMessageQueue::~CMessageQueue()
 
 bool CMessageQueue::PushOutgoingMessage(
 	NodeUtils::NodeIdType id,
-	std::string_view message)
+	CMessage const& message)
 {
 	NodeUtils::printo("Messages queued for " + std::to_string(id), NodeUtils::PrintType::MQUEUE);
 
+	std::scoped_lock lock(m_callbacksMutex);
 	// Attempt to find a mapped callback for the node in the known callbacks
 	// If it exists and has a context attached forward the message to the handler
 	if (auto const itr = m_callbacks.find(id); itr != m_callbacks.end()) {
 		auto const [context, callback] = itr->second;
 		if (context) {
 			callback(context, message);
+			return true;
 		}
 	}
 
-	return true;
+	return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t CMessageQueue::QueuedMessages()
+{
+	std::shared_lock lock(m_incomingMutex);
+	return m_incoming.size();
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t CMessageQueue::RegisteredConnections()
+{
+	std::shared_lock lock(m_callbacksMutex);
+	return m_callbacks.size();
 }
 
 //------------------------------------------------------------------------------------------------
 
 std::optional<CMessage> CMessageQueue::PopIncomingMessage()
 {
+	std::scoped_lock lock(m_incomingMutex);
 	if (m_incoming.empty()) {
 		return {};
 	}
 
-	CMessage message = m_incoming.front();
+	auto const message = m_incoming.front();
 	m_incoming.pop();
 
 	NodeUtils::printo(std::to_string(m_incoming.size()) + " left in incoming queue", NodeUtils::PrintType::MQUEUE);
@@ -59,11 +79,11 @@ std::optional<CMessage> CMessageQueue::PopIncomingMessage()
 //------------------------------------------------------------------------------------------------
 
 void CMessageQueue::ForwardMessage(
-	NodeUtils::NodeIdType id,
-	std::string_view message)
+	NodeUtils::NodeIdType /*id*/,
+	CMessage const& message)
 {
-	std::scoped_lock lock(m_mutex);
-	m_incoming.emplace(message.data());
+	std::scoped_lock lock(m_incomingMutex);
+	m_incoming.emplace(message);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -73,7 +93,7 @@ void CMessageQueue::RegisterCallback(
 	CConnection* context,
 	ProcessedMessageCallback callback)
 {
-	std::scoped_lock lock(m_mutex);
+	std::scoped_lock lock(m_callbacksMutex);
 
 	// If the current ID is already mapped, return as we do not want to 
 	// clobber the currently stored context and callback
@@ -82,6 +102,14 @@ void CMessageQueue::RegisterCallback(
 	}
 
 	m_callbacks[id] = {context, callback};
+}
+
+//------------------------------------------------------------------------------------------------
+
+void CMessageQueue::UnpublishCallback(NodeUtils::NodeIdType id)
+{
+	std::scoped_lock lock(m_callbacksMutex);
+	m_callbacks.erase(id);
 }
 
 //------------------------------------------------------------------------------------------------

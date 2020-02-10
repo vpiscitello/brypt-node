@@ -524,8 +524,7 @@ void CNode::processFulfilledMessages()
 
     // /*
     for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
-        m_queue->PushOutgoingMessage(itr->GetDestinationId(), itr->GetPack());
-        // NotifyConnection(itr->GetDestinationId());
+        m_queue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
     }
     // */
 }

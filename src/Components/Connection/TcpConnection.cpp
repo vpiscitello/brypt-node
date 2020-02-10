@@ -131,14 +131,20 @@ void Connection::CTcp::Worker()
     m_cv.notify_one();
 
     std::uint32_t run = 0;
-    std::optional<std::string> optRequest;
+    std::optional<std::string> optReceivedRaw;
     do {
-        optRequest = Receive(0);
-        if (optRequest) {
+        optReceivedRaw = Receive(0);
+        if (optReceivedRaw) {
             std::scoped_lock lock(m_mutex);
-            m_messageSink->ForwardMessage(m_id, *optRequest);
 
-            optRequest.reset();
+            try {
+                CMessage const request(*optReceivedRaw);
+                m_messageSink->ForwardMessage(m_id, request);
+            } catch (...) {
+                printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+            }
+
+            optReceivedRaw.reset();
         }
 
         {
@@ -200,7 +206,9 @@ void Connection::CTcp::SetupTcpSocket(NodeUtils::PortNumber const& port)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CTcp::SetupTcpConnection(NodeUtils::NetworkAddress const& address, NodeUtils::PortNumber const& port)
+void Connection::CTcp::SetupTcpConnection(
+    NodeUtils::NetworkAddress const& address,
+    NodeUtils::PortNumber const& port)
 {
     if (m_connection = ::socket(AF_INET, SOCK_STREAM, 0); m_connection < 0) {
         return;
@@ -227,9 +235,8 @@ void Connection::CTcp::SetupTcpConnection(NodeUtils::NetworkAddress const& addre
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CTcp::HandleProcessedMessage(std::string_view message)
+void Connection::CTcp::HandleProcessedMessage(CMessage const& /*message*/)
 {
-
 }
 
 //------------------------------------------------------------------------------------------------

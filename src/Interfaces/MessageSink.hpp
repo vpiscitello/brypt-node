@@ -13,10 +13,11 @@
 //------------------------------------------------------------------------------------------------
 
 class CConnection;
+class CMessage;
 
 //------------------------------------------------------------------------------------------------
 
-using ProcessedMessageCallback = std::function<void(CConnection*, std::string_view message)>;
+using ProcessedMessageCallback = std::function<void(CConnection*, CMessage const& message)>;
 using ConnectionContextPair = std::pair<CConnection*, ProcessedMessageCallback>;
 
 //------------------------------------------------------------------------------------------------
@@ -28,11 +29,12 @@ public:
 
     virtual void ForwardMessage(
         NodeUtils::NodeIdType id,
-        std::string_view message) = 0;
+        CMessage const& message) = 0;
     virtual void RegisterCallback(
         NodeUtils::NodeIdType id,
         CConnection* context,
         ProcessedMessageCallback) = 0;
+    virtual void UnpublishCallback(NodeUtils::NodeIdType id) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

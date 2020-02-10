@@ -142,7 +142,7 @@ void Connection::CDirect::Worker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CDirect::HandleProcessedMessage(std::string_view message)
+void Connection::CDirect::HandleProcessedMessage(CMessage const& message)
 {
     Send(message); // Forward the received message to be sent on the socket
     m_cv.notify_all(); // Notify that the message has been sent
@@ -288,14 +288,21 @@ void Connection::CDirect::ServerWorker()
 
     do {
         // Attempt to receive a request on our socket while not blocking.
-        auto const request = Receive(zmq::recv_flags::dontwait);
+        auto const optReceivedRaw = Receive(zmq::recv_flags::dontwait);
 
         // If a request has been received, forward the message through the message sink and
         // wait until the message has been processed before accepting another message
-        if (request) {
-            printo("[Direct] Received request: " + *request, NodeUtils::PrintType::CONNECTION);
+        if (optReceivedRaw) {
+            printo("[Direct] Received request: " + *optReceivedRaw, NodeUtils::PrintType::CONNECTION);
+
             std::unique_lock lock(m_mutex);
-            m_messageSink->ForwardMessage(m_id, *request);
+            try {
+                CMessage const request(*optReceivedRaw);
+                m_messageSink->ForwardMessage(m_id, request);
+            } catch (...) {
+                printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+            }
+
             m_bProcessReceived = !m_bProcessReceived;
             m_cv.notify_all();
 
@@ -344,13 +351,21 @@ void Connection::CDirect::ClientWorker()
         }
 
         // Attempt to receive a request on our socket while not blocking.
-        auto const request = Receive(zmq::recv_flags::dontwait);
+        auto const optReceivedRaw = Receive(zmq::recv_flags::dontwait);
 
         // If a request has been received, forward the message through the message sink and
         // wait until the message has been processed before accepting another message
-        if (request) {
-            printo("[Direct] Received request: " + *request, NodeUtils::PrintType::CONNECTION);
-            m_messageSink->ForwardMessage(m_id, *request);
+        if (optReceivedRaw) {
+            printo("[Direct] Received request: " + *optReceivedRaw, NodeUtils::PrintType::CONNECTION);
+
+            std::unique_lock lock(m_mutex);
+            try {
+                CMessage const request(*optReceivedRaw);
+                m_messageSink->ForwardMessage(m_id, request);
+            } catch (...) {
+                printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+            }
+
             m_bProcessReceived = !m_bProcessReceived;
             m_cv.notify_all();
         }

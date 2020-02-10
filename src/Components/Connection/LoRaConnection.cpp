@@ -96,7 +96,7 @@ void Connection::CLoRa::Worker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CLoRa::HandleProcessedMessage(std::string_view /*message*/)
+void Connection::CLoRa::HandleProcessedMessage(CMessage const& /*message*/)
 {
 }
 

@@ -228,8 +228,7 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
         nonce);
 
     if (auto const messageQueue = m_instance.GetMessageQueue().lock()) {
-        messageQueue->PushOutgoingMessage(destinationId, response.GetPack());
-        // m_instance.NotifyConnection(destinationId);
+        messageQueue->PushOutgoingMessage(destinationId, response);
     }
     return true;
 }

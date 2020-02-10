@@ -45,9 +45,11 @@ public:
     void Spawn() override;
     void Worker() override;
     void SetupTcpSocket(NodeUtils::PortNumber const& port);
-    void SetupTcpConnection(NodeUtils::NetworkAddress const& address, NodeUtils::PortNumber const& port);
+    void SetupTcpConnection(
+        NodeUtils::NetworkAddress const& address,
+        NodeUtils::PortNumber const& port);
 
-    void HandleProcessedMessage(std::string_view message) override;
+    void HandleProcessedMessage(CMessage const& message) override;
     void Send(CMessage const& message) override;
     void Send(std::string_view message) override;
     std::optional<std::string> Receive(std::int32_t flag = 0) override;
