@@ -3,7 +3,7 @@
 // Description:
 //-----------------------------------------------------------------------------------------------
 #include "Control.hpp"
-#include "../Connection/Connection.hpp"
+#include "../Connection/TcpConnection.hpp"
 #include "../../State.hpp"
 #include "../../Utilities/Message.hpp"
 //-----------------------------------------------------------------------------------------------
@@ -13,20 +13,19 @@
 CControl::CControl(
     std::shared_ptr<CState> const& state,
     IMessageSink* const messageSink,
-    std::weak_ptr<NodeUtils::ConnectionMap> const& connections,
-    NodeUtils::TechnologyType technology)
+    std::weak_ptr<NodeUtils::ConnectionMap> const& connections)
     : m_state(state)
     , m_connections(connections)
     , m_control()
 {
     Configuration::TConnectionOptions options;
-    options.technology = technology;
+    options.technology = NodeUtils::TechnologyType::TCP;
     options.operation = NodeUtils::ConnectionOperation::Server;
     if (auto const selfState = m_state->GetSelfState().lock()) {
         options.binding = selfState->GetBinding();
     }
 
-    m_control = Connection::Factory(messageSink, options);
+    m_control = std::make_shared<Connection::CTcp>(messageSink, options);
 }
 
 //------------------------------------------------------------------------------------------------

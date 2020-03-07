@@ -53,8 +53,7 @@ CNode::CNode(Configuration::TSettings const& settings)
     , m_control(std::make_shared<CControl>(
         m_state,
         m_queue.get(),
-        m_connections,
-        NodeUtils::TechnologyType::TCP))
+        m_connections))
     , m_notifier(std::make_shared<CNotifier>(m_state, m_connections))
     , m_watcher(std::make_shared<CPeerWatcher>(m_state, m_connections))
     , m_initialized(false)

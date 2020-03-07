@@ -12,10 +12,12 @@
 #include <optional>
 #include <sys/socket.h>
 //------------------------------------------------------------------------------------------------
-class CConnection;
 class CState;
-
 class CMessage;
+namespace Connection {
+    class CTcp;
+}
+
 //------------------------------------------------------------------------------------------------
 
 class CControl {
@@ -23,11 +25,10 @@ public:
     CControl(
         std::shared_ptr<CState> const& state,
         IMessageSink* const messageSink,
-        std::weak_ptr<NodeUtils::ConnectionMap> const& connections,
-        NodeUtils::TechnologyType technology);
+        std::weak_ptr<NodeUtils::ConnectionMap> const& connections);
 
     void Send(CMessage const& message);
-   void Send(std::string_view message);
+    void Send(std::string_view message);
     std::optional<std::string> HandleRequest();
     std::optional<std::string> HandleContact(NodeUtils::TechnologyType technology);
     void CloseCurrentConnection();
