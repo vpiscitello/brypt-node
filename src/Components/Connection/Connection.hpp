@@ -95,7 +95,7 @@ public:
         , m_cv()
         , m_worker()
     {
-        if (m_operation == NodeUtils::ConnectionOperation::NONE) {
+        if (m_operation == NodeUtils::ConnectionOperation::None) {
             throw std::runtime_error("Direct connection must be provided and device operation type!");
         }
     };
@@ -156,7 +156,7 @@ public:
     {
         std::scoped_lock lock(m_mutex);
         if (m_id != id) {
-            printo("Response was not for this peer", NodeUtils::PrintType::CONNECTION);
+            printo("Response was not for this peer", NodeUtils::PrintType::Connection);
             return;
         }
 

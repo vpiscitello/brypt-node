@@ -21,7 +21,7 @@ CControl::CControl(
 {
     Configuration::TConnectionOptions options;
     options.technology = technology;
-    options.operation = NodeUtils::ConnectionOperation::SERVER;
+    options.operation = NodeUtils::ConnectionOperation::Server;
     if (auto const selfState = m_state->GetSelfState().lock()) {
         options.binding = selfState->GetBinding();
     }
@@ -61,12 +61,12 @@ std::optional<std::string> CControl::HandleRequest()
     switch (optRequest->size()) {
         case 0: return {};
         case 1: {
-            NodeUtils::printo("Received connection byte", NodeUtils::PrintType::CONTROL);
+            NodeUtils::printo("Received connection byte", NodeUtils::PrintType::Control);
             if (*optRequest == "\x06") {
-                NodeUtils::printo("Device connection acknowledgement", NodeUtils::PrintType::CONTROL);
+                NodeUtils::printo("Device connection acknowledgement", NodeUtils::PrintType::Control);
 
                 m_control->Send("\x06");
-                NodeUtils::printo("Device was sent acknowledgement", NodeUtils::PrintType::CONTROL);
+                NodeUtils::printo("Device was sent acknowledgement", NodeUtils::PrintType::Control);
 
                 optRequest = m_control->Receive(0);
                 if (!optRequest) { return {}; }
@@ -74,14 +74,14 @@ std::optional<std::string> CControl::HandleRequest()
 
                 std::int8_t const technologyTypeByte = static_cast<std::int8_t>(optRequest->at(0) - 48);
                 if (technologyTypeByte > -1 && technologyTypeByte < 4) {
-                    NodeUtils::printo("Communication type requested: " + std::to_string(technologyTypeByte), NodeUtils::PrintType::CONTROL);
+                    NodeUtils::printo("Communication type requested: " + std::to_string(technologyTypeByte), NodeUtils::PrintType::Control);
                     NodeUtils::TechnologyType technology = static_cast<NodeUtils::TechnologyType>(technologyTypeByte);
                     if (technology == NodeUtils::TechnologyType::TCP) {
-                        technology = NodeUtils::TechnologyType::STREAMBRIDGE;
+                        technology = NodeUtils::TechnologyType::StreamBridge;
                     }
                     return HandleContact(technology);
                 } else {
-                    NodeUtils::printo("Somethings not right", NodeUtils::PrintType::CONTROL);
+                    NodeUtils::printo("Somethings not right", NodeUtils::PrintType::Control);
                     m_control->Send("\x15");
                 }
             }
@@ -103,12 +103,12 @@ std::optional<std::string> CControl::HandleRequest()
 //-----------------------------------------------------------------------------------------------
 std::optional<std::string> CControl::HandleContact(NodeUtils::TechnologyType technology)
 {
-    printo("Handling request from control socket", NodeUtils::PrintType::CONTROL);
+    printo("Handling request from control socket", NodeUtils::PrintType::Control);
 
     switch (technology) {
         case NodeUtils::TechnologyType::TCP:
-        case NodeUtils::TechnologyType::STREAMBRIDGE:
-        case NodeUtils::TechnologyType::DIRECT: {
+        case NodeUtils::TechnologyType::StreamBridge:
+        case NodeUtils::TechnologyType::Direct: {
             NodeUtils::NodeIdType id = 0;
             NodeUtils::PortNumber port;
             if (auto const selfState = m_state->GetSelfState().lock()) {
@@ -116,14 +116,14 @@ std::optional<std::string> CControl::HandleContact(NodeUtils::TechnologyType tec
                 port = std::to_string(selfState->GetNextPort());
             }
 
-            NodeUtils::printo("Sending port: " + port, NodeUtils::PrintType::CONTROL);
-            CMessage message(id, 0xFFFFFFFF, NodeUtils::CommandType::CONNECT, 0, port, 0);
+            NodeUtils::printo("Sending port: " + port, NodeUtils::PrintType::Control);
+            CMessage message(id, 0xFFFFFFFF, NodeUtils::CommandType::Connect, 0, port, 0);
             m_control->Send(message);
 
             std::optional<std::string> const optDeviceInfoMessage = m_control->Receive(0);
             if (!optDeviceInfoMessage) { return {}; }
 
-            NodeUtils::printo("Received: " + *optDeviceInfoMessage, NodeUtils::PrintType::CONTROL);
+            NodeUtils::printo("Received: " + *optDeviceInfoMessage, NodeUtils::PrintType::Control);
             return optDeviceInfoMessage;
         }
         default: {

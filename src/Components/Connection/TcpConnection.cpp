@@ -34,7 +34,7 @@ Connection::CTcp::CTcp(
     , m_connection(-1)
     , m_address()
 {
-    printo("Creating TCP instance", NodeUtils::PrintType::CONNECTION);
+    printo("[TCP] Creating TCP instance", NodeUtils::PrintType::Connection);
 
     auto const bindingComponents = options.GetBindingComponents();
     auto const peerComponents = options.GetBindingComponents();

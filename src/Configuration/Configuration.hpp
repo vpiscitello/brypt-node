@@ -28,11 +28,11 @@ struct TSecurityOptions;
 struct Configuration::TDetailsOptions
 {
     TDetailsOptions()
-        : version(NodeUtils::NODE_VERSION)
+        : version(NodeUtils::NodeVersion)
         , name()
         , description()
         , location()
-        , operation(NodeUtils::DeviceOperation::NONE)
+        , operation(NodeUtils::DeviceOperation::None)
     {
     }
 
@@ -40,11 +40,11 @@ struct Configuration::TDetailsOptions
         std::string_view name,
         std::string_view description = "",
         std::string_view location = "")
-        : version(NodeUtils::NODE_VERSION)
+        : version(NodeUtils::NodeVersion)
         , name(name)
         , description(description)
         , location(location)
-        , operation(NodeUtils::DeviceOperation::NONE)
+        , operation(NodeUtils::DeviceOperation::None)
     {
     }
 
@@ -61,9 +61,9 @@ struct Configuration::TConnectionOptions
 {
     TConnectionOptions()
         : id(0)
-        , technology(NodeUtils::TechnologyType::NONE)
+        , technology(NodeUtils::TechnologyType::None)
         , technology_name()
-        , operation(NodeUtils::ConnectionOperation::NONE)
+        , operation(NodeUtils::ConnectionOperation::None)
         , interface()
         , binding()
         , entry_address()
@@ -77,9 +77,9 @@ struct Configuration::TConnectionOptions
         std::string_view binding,
         std::string_view entryAddress = std::string())
         : id(id)
-        , technology(NodeUtils::TechnologyType::NONE)
+        , technology(NodeUtils::TechnologyType::None)
         , technology_name(technology_name)
-        , operation(NodeUtils::ConnectionOperation::NONE)
+        , operation(NodeUtils::ConnectionOperation::None)
         , interface(interface)
         , binding(binding)
         , entry_address(entryAddress)
@@ -96,7 +96,7 @@ struct Configuration::TConnectionOptions
         : id(id)
         , technology(technology)
         , technology_name()
-        , operation(NodeUtils::ConnectionOperation::NONE)
+        , operation(NodeUtils::ConnectionOperation::None)
         , interface(interface)
         , binding(binding)
         , entry_address(entryAddress)

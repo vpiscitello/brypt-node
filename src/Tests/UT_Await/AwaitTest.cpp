@@ -22,7 +22,7 @@ namespace test {
 
 constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
 constexpr NodeUtils::NodeIdType ServerId = 0xFFFFFFFF;
-constexpr NodeUtils::CommandType Command = NodeUtils::CommandType::ELECTION;
+constexpr NodeUtils::CommandType Command = NodeUtils::CommandType::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
@@ -45,7 +45,7 @@ TEST(AwaitSuite, AwaitObjectSingleResponseTest)
     Await::CMessageObject awaitObject(request, test::ServerId);
 
     auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(initialStatus, Await::Status::Unfulfilled);
 
     auto const initialResponse = awaitObject.GetResponse();
     EXPECT_FALSE(initialResponse);
@@ -56,7 +56,7 @@ TEST(AwaitSuite, AwaitObjectSingleResponseTest)
         test::Message, test::Nonce);
     
     auto const updateStatus = awaitObject.UpdateResponse(response);
-    EXPECT_EQ(updateStatus, Await::Status::FULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
 
     auto const updateResponse = awaitObject.GetResponse();
     ASSERT_TRUE(updateResponse);
@@ -83,7 +83,7 @@ TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
     Await::CMessageObject awaitObject(request, {test::ServerId, peerOneId, peerTwoId});
 
     auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(initialStatus, Await::Status::Unfulfilled);
 
     auto const initialResponse = awaitObject.GetResponse();
     EXPECT_FALSE(initialResponse);
@@ -104,13 +104,13 @@ TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
         test::Message, test::Nonce);
 
     auto updateStatus = awaitObject.UpdateResponse(serverResponse);
-    EXPECT_EQ(updateStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
 
     updateStatus = awaitObject.UpdateResponse(peerOneResponse);
-    EXPECT_EQ(updateStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
 
     updateStatus = awaitObject.UpdateResponse(peerTwoResponse);
-    EXPECT_EQ(updateStatus, Await::Status::FULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
 
     auto const updateResponse = awaitObject.GetResponse();
     ASSERT_TRUE(updateResponse);
@@ -137,7 +137,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectNoResponsesTest)
     std::this_thread::sleep_for(Await::Timeout);
 
     auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::FULFILLED);
+    EXPECT_EQ(initialStatus, Await::Status::Fulfilled);
 
     auto const response = awaitObject.GetResponse();
     ASSERT_TRUE(response);
@@ -165,7 +165,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
     Await::CMessageObject awaitObject(request, {test::ServerId, peerOneId, peerTwoId});
 
     auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(initialStatus, Await::Status::Unfulfilled);
 
     auto const initialResponse = awaitObject.GetResponse();
     EXPECT_FALSE(initialResponse);
@@ -181,15 +181,15 @@ TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
         test::Message, test::Nonce);
 
     auto updateStatus = awaitObject.UpdateResponse(serverResponse);
-    EXPECT_EQ(updateStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
 
     updateStatus = awaitObject.UpdateResponse(peerTwoResponse);
-    EXPECT_EQ(updateStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
 
     std::this_thread::sleep_for(Await::Timeout);
 
     updateStatus = awaitObject.GetStatus();
-    EXPECT_EQ(updateStatus, Await::Status::FULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
 
     auto const response = awaitObject.GetResponse();
     ASSERT_TRUE(response);
@@ -217,7 +217,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectLateResponsesTest)
     std::this_thread::sleep_for(Await::Timeout);
 
     auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::FULFILLED);
+    EXPECT_EQ(initialStatus, Await::Status::Fulfilled);
 
     auto const initialResponse = awaitObject.GetResponse();
     ASSERT_TRUE(initialResponse);
@@ -230,7 +230,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectLateResponsesTest)
         test::Message, test::Nonce);
     
     auto const updateStatus = awaitObject.UpdateResponse(latePeerResponse);
-    EXPECT_EQ(updateStatus, Await::Status::FULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
 
     auto const updateResponse = awaitObject.GetResponse();
     ASSERT_TRUE(updateResponse);
@@ -257,7 +257,7 @@ TEST(AwaitSuite, AwaitObjectUnexpectedResponsesTest)
         test::Message, test::Nonce);
     
     auto const updateStatus = awaitObject.UpdateResponse(unexpectedPeerResponse);
-    EXPECT_EQ(updateStatus, Await::Status::UNFULFILLED);
+    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
 
     auto const updateResponse = awaitObject.GetResponse();
     EXPECT_FALSE(updateResponse);
@@ -282,21 +282,21 @@ TEST(AwaitSuite, FulfilledAwaitTest)
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce,
         Message::BoundAwaitId{
-            Message::AwaitBinding::DESTINATION, key});
+            Message::AwaitBinding::Destination, key});
 
     CMessage const responseA(
         0xAAAAAAAA, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce,
         Message::BoundAwaitId{
-            Message::AwaitBinding::DESTINATION, key});
+            Message::AwaitBinding::Destination, key});
 
     CMessage const responseB(
         0xBBBBBBBB, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce,
         Message::BoundAwaitId{
-            Message::AwaitBinding::DESTINATION, key});
+            Message::AwaitBinding::Destination, key});
     
     bool result = false;
     result = awaiting.PushResponse(response);

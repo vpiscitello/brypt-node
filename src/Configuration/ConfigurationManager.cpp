@@ -114,16 +114,16 @@ std::optional<Configuration::TSettings> Configuration::CManager::Parse()
     if (std::filesystem::exists(m_filepath)) {
         NodeUtils::printo(
             "Reading configuration file at: " + m_filepath.string() + "\n",
-            NodeUtils::PrintType::NODE);
+            NodeUtils::PrintType::Node);
         status = DecodeConfigurationFile();
     } else {
         NodeUtils::printo(
             "No configuration file exists! Generating file at: " + m_filepath.string() + "\n",
-            NodeUtils::PrintType::NODE);
+            NodeUtils::PrintType::Node);
         status = GenerateConfigurationFile();
     }
 
-    if (status != StatusCode::SUCCESS) {
+    if (status != StatusCode::Success) {
         return {};
     }
 
@@ -137,16 +137,16 @@ std::optional<Configuration::TSettings> Configuration::CManager::Parse()
 Configuration::CManager::StatusCode Configuration::CManager::Save()
 {
     if (!m_validated) {
-        return StatusCode::INPUT_ERROR;
+        return StatusCode::InputError;
     }
 
     if (m_filepath.empty()) {
-        return StatusCode::FILE_ERROR;
+        return StatusCode::FileError;
     }
 
     std::ofstream out(m_filepath, std::ofstream::out);
     if (out.fail()) {
-        return StatusCode::FILE_ERROR;
+        return StatusCode::FileError;
     }
 
     out << "{\n";
@@ -159,7 +159,7 @@ Configuration::CManager::StatusCode Configuration::CManager::Save()
 
     out.close();
 
-    return StatusCode::SUCCESS;
+    return StatusCode::Success;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -169,15 +169,15 @@ Configuration::CManager::StatusCode Configuration::CManager::ValidateSettings()
     m_validated = false;
 
     if (m_settings.connections.empty()) {
-        return StatusCode::DECODE_ERROR;
+        return StatusCode::DecodeError;
     }
 
     if (m_settings.security.token.empty()) {
-        return StatusCode::DECODE_ERROR;
+        return StatusCode::DecodeError;
     }
 
     m_validated = true;
-    return StatusCode::SUCCESS;
+    return StatusCode::Success;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -189,13 +189,13 @@ Configuration::CManager::StatusCode Configuration::CManager::DecodeConfiguration
     std::error_code error;
     auto const size = std::filesystem::file_size(m_filepath, error);
     if (error || size == 0 || size > local::FileSizeLimit) {
-        return StatusCode::FILE_ERROR;
+        return StatusCode::FileError;
     }
 
     // Attempt to open the configuration file, if it fails return noopt
     std::ifstream file(m_filepath);
     if (file.fail()) {
-        return StatusCode::FILE_ERROR;
+        return StatusCode::FileError;
     }
 
     std::stringstream buffer;
@@ -243,10 +243,10 @@ Configuration::CManager::StatusCode Configuration::CManager::GenerateConfigurati
     ValidateSettings();
 
     StatusCode const status = Save();
-    if (status != StatusCode::SUCCESS) {
+    if (status != StatusCode::Success) {
         NodeUtils::printo(
             "Failed to save configuration settings to: " + m_filepath.string(),
-            NodeUtils::PrintType::NODE);
+            NodeUtils::PrintType::Node);
     }
 
     return status;
@@ -294,7 +294,7 @@ void Configuration::CManager::CreateConfigurationFilePath()
         if (!status) {
             NodeUtils::printo(
                 "There was an error creating the configuration path: " + base.string(),
-                NodeUtils::PrintType::NODE);
+                NodeUtils::PrintType::Node);
         }
         // Set the permissions on the brypt conffiguration folder such that only the 
         // user can read, write, and execute
@@ -484,7 +484,7 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
         std::string sBinding = "";
         std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
         bindingOutputMessage.append(defaults::TcpBindingAddress.data());
-        if (connection.technology == NodeUtils::TechnologyType::LORA) {
+        if (connection.technology == NodeUtils::TechnologyType::LoRa) {
             bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
             bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
             connection.binding = defaults::LoRaBindingAddress;
@@ -499,7 +499,7 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
 
         // If the technology type is LoRa, return because the cluster is assumed
         // to be on the same frequency and channel.
-        if (connection.technology != NodeUtils::TechnologyType::LORA) {
+        if (connection.technology != NodeUtils::TechnologyType::LoRa) {
             // Get the entry address of the network this may be the cluster
             // coordinator. In the future some sort of discovery.
             std::string sEntryAddress = "";

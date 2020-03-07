@@ -23,7 +23,7 @@ public:
     bool JoinHandler(CMessage const& message);
     bool CloseHandler();
 private:
-    enum class Phase { CONTACT, JOIN, CLOSE };
+    enum class Phase { Contact, Join, Close };
 };
 
 //------------------------------------------------------------------------------------------------

@@ -39,14 +39,13 @@ public:
         CConnection* context,
         ProcessedMessageCallback callback) override;
     virtual void UnpublishCallback(NodeUtils::NodeIdType id) override;
-    // } IMessage Sink
+    // }IMessageSink
 
 private:
     mutable std::shared_mutex m_incomingMutex;
     mutable std::shared_mutex m_callbacksMutex;
 
     std::queue<CMessage> m_incoming;
-
     std::unordered_map<NodeUtils::NodeIdType, ConnectionContextPair> m_callbacks;
 };
 

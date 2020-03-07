@@ -25,7 +25,7 @@ public:
     bool CloseHandler();
 
 private:
-    enum class Phase { INFO, HOST, CONNECT, CLOSE };
+    enum class Phase { Information, Host, Connect, Close };
 };
 
 //------------------------------------------------------------------------------------------------

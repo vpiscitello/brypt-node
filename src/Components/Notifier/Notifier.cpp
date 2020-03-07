@@ -23,7 +23,7 @@ CNotifier::CNotifier(
 {
     if (auto const selfState = m_state->GetSelfState().lock()) {
         NodeUtils::PortNumber const port = selfState->GetPublisherPort();
-        NodeUtils::printo("Setting up publisher socket on port " + port, NodeUtils::PrintType::NOTIFIER);
+        NodeUtils::printo("Setting up publisher socket on port " + port, NodeUtils::PrintType::Notifier);
         m_publisher.bind("tcp://*:" + port);
     }
 }
@@ -32,7 +32,7 @@ CNotifier::CNotifier(
 
 bool CNotifier::Connect(NodeUtils::NetworkAddress const& ip, NodeUtils::PortNumber const& port)
 {
-    printo("Subscribing to peer at " + ip + ":" + port, NodeUtils::PrintType::NOTIFIER);
+    printo("Subscribing to peer at " + ip + ":" + port, NodeUtils::PrintType::Notifier);
     m_subscriber.connect("tcp://" + ip + ":" + port);
 
     m_networkPrefix = std::string(Notifier::NetworkPrefix.data(), Notifier::NetworkPrefix.size());
@@ -77,7 +77,7 @@ bool CNotifier::Send(
         NodeUtils::TechnologyType currentConnectionType;
         for (auto itr = connections->begin(); itr != connections->end(); ++itr) {
             currentConnectionType = itr->second->GetInternalType();
-            if(currentConnectionType != NodeUtils::TechnologyType::DIRECT) {
+            if(currentConnectionType != NodeUtils::TechnologyType::Direct) {
                itr->second->Send(message); 
             }
         }
@@ -101,7 +101,7 @@ std::optional<std::string> CNotifier::Receive()
     }
 
     std::string const notification = std::string(static_cast<char *>(message.data()), message.size());
-    printo("Received: " + notification, NodeUtils::PrintType::NOTIFIER) ;
+    printo("Received: " + notification, NodeUtils::PrintType::Notifier) ;
 
     return notification;
 }
@@ -113,9 +113,9 @@ std::string CNotifier::getNotificationPrefix(
     std::optional<NodeUtils::NodeIdType> const& id)
 {
     switch (type) {
-        case NodeUtils::NotificationType::NETWORK: return m_networkPrefix;
-        case NodeUtils::NotificationType::CLUSTER: return m_clusterPrefix;
-        case NodeUtils::NotificationType::NODE: {
+        case NodeUtils::NotificationType::Network: return m_networkPrefix;
+        case NodeUtils::NotificationType::Cluster: return m_clusterPrefix;
+        case NodeUtils::NotificationType::Node: {
             if (id) {
                 std::string nodePrefix(Notifier::NodePrefix.data(), Notifier::NodePrefix.size());
                 nodePrefix.append(std::to_string(*id) + ":");

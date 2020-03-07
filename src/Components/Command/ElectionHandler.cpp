@@ -9,7 +9,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CElection::CElection(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::ELECTION)
+    : CHandler(instance, state, NodeUtils::CommandType::Election)
 {
 }
 
@@ -24,22 +24,22 @@ bool Command::CElection::HandleMessage(CMessage const& message) {
 
     auto const phase = static_cast<CElection::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::PROBE: {
+        case Phase::Probe: {
             status = ProbeHandler();
         } break;
-        case Phase::PRECOMMIT: {
+        case Phase::Precommit: {
             status = PrecommitHandler();
         } break;
-        case Phase::VOTE: {
+        case Phase::Vote: {
             status = VoteHandler();
         } break;
-        case Phase::ABORT: {
+        case Phase::Abort: {
             status = AbortHandler();
         } break;
-        case Phase::RESULTS: {
+        case Phase::Results: {
             status = ResultsHandler();
         } break;
-        case Phase::CLOSE: {
+        case Phase::Close: {
             status = CloseHandler();
         } break;
         default: break;

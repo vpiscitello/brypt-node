@@ -23,7 +23,7 @@
 namespace Await {
 //------------------------------------------------------------------------------------------------
 
-enum class Status : std::uint8_t { FULFILLED, UNFULFILLED };
+enum class Status : std::uint8_t { Fulfilled, Unfulfilled };
 
 struct TResponseObject;
 class CMessageObject;

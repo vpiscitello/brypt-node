@@ -18,7 +18,7 @@ IOD_SYMBOL(pack)
 Await::CMessageObject::CMessageObject(
     CMessage const& request,
     NodeUtils::NodeIdType const& peer)
-    : m_status(Status::UNFULFILLED)
+    : m_status(Status::Unfulfilled)
     , m_expected(1)
     , m_received(0)
     , m_request(request)
@@ -37,7 +37,7 @@ Await::CMessageObject::CMessageObject(
 Await::CMessageObject::CMessageObject(
     CMessage const& request,
     std::set<NodeUtils::NodeIdType> const& peers)
-    : m_status(Status::UNFULFILLED)
+    : m_status(Status::Unfulfilled)
     , m_expected(peers.size())
     , m_received(0)
     , m_request(request)
@@ -64,7 +64,7 @@ Await::CMessageObject::CMessageObject(
 Await::Status Await::CMessageObject::GetStatus()
 {
     if (m_expected == m_received || m_expire < NodeUtils::GetSystemTimePoint()) {
-        m_status = Status::FULFILLED;
+        m_status = Status::Fulfilled;
     } 
 
     return m_status;
@@ -78,7 +78,7 @@ Await::Status Await::CMessageObject::GetStatus()
 //------------------------------------------------------------------------------------------------
 std::optional<CMessage> Await::CMessageObject::GetResponse()
 {
-    if (m_status != Status::FULFILLED) {
+    if (m_status != Status::Fulfilled) {
         return {};
     }
 
@@ -116,13 +116,13 @@ Await::Status Await::CMessageObject::UpdateResponse(CMessage const& response)
 {
     auto const itr = m_responses.find(response.GetSourceId());
     if(itr == m_responses.end() || !itr->second.empty()) {
-        NodeUtils::printo("Unexpected node response", NodeUtils::PrintType::AWAIT);
+        NodeUtils::printo("Unexpected node response", NodeUtils::PrintType::Await);
         return m_status;
     }
 
     itr->second = response.GetPack();
     if (++m_received >= m_expected) {
-        m_status = Status::FULFILLED;
+        m_status = Status::Fulfilled;
     }
 
     return m_status;
@@ -140,7 +140,7 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
     NodeUtils::NodeIdType const& peer)
 {
     NodeUtils::ObjectIdType const key = KeyGenerator(message.GetPack());
-    NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::Await);
     m_awaiting.emplace(key, CMessageObject(message, peer));
     return key;
 }
@@ -157,7 +157,7 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
     std::set<NodeUtils::NodeIdType> const& peers)
 {
     NodeUtils::ObjectIdType const key = KeyGenerator(message.GetPack());
-    NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::Await);
     m_awaiting.emplace(key, CMessageObject(message, peers));
     return key;
 }
@@ -184,10 +184,10 @@ bool Await::CObjectContainer::PushResponse(CMessage const& message)
     }
 
     // Update the response to the waiting message with th new message
-    NodeUtils::printo("Pushing response to AwaitObject " + std::to_string(*optKey), NodeUtils::PrintType::AWAIT);
+    NodeUtils::printo("Pushing response to AwaitObject " + std::to_string(*optKey), NodeUtils::PrintType::Await);
     auto const status = itr->second.UpdateResponse(message);
-    if (status == Status::FULFILLED) {
-        NodeUtils::printo("AwaitObject has been fulfilled, Waiting to transmit", NodeUtils::PrintType::AWAIT);
+    if (status == Status::Fulfilled) {
+        NodeUtils::printo("AwaitObject has been fulfilled, Waiting to transmit", NodeUtils::PrintType::Await);
     }
 
     return true;
@@ -206,8 +206,8 @@ std::vector<CMessage> Await::CObjectContainer::GetFulfilled()
     fulfilled.reserve(m_awaiting.size());
 
     for (auto itr = m_awaiting.begin(); itr != m_awaiting.end();) {
-        NodeUtils::printo("Checking AwaitObject " + std::to_string(itr->first), NodeUtils::PrintType::AWAIT);
-        if (itr->second.GetStatus() == Status::FULFILLED) {
+        NodeUtils::printo("Checking AwaitObject " + std::to_string(itr->first), NodeUtils::PrintType::Await);
+        if (itr->second.GetStatus() == Status::Fulfilled) {
             std::optional<CMessage> const optResponse = itr->second.GetResponse();
             if (optResponse) {
                 fulfilled.push_back(*optResponse);

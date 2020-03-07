@@ -35,7 +35,7 @@ public:
 private:
     std::shared_ptr<CState> m_state;
     std::weak_ptr<NodeUtils::ConnectionMap> m_connections;
-    std::shared_ptr<CConnection> m_control;
+    std::shared_ptr<Connection::CTcp> m_control;
 };
 
 //------------------------------------------------------------------------------------------------

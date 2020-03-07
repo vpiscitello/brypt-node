@@ -93,7 +93,7 @@ void CPeerWatcher::watch()
             for (auto itr = spWatched->begin() ; itr != spWatched->end(); ++itr) {
                 NodeUtils::TimePoint updateTimePoint = itr->second->GetUpdateClock();
                 if (updateTimePoint < m_requiredUpdateTimePoint) {
-                    NodeUtils::printo("Peer " + std::to_string(itr->first) + " needs to be checked with a heartbeat", NodeUtils::PrintType::WATCHER);
+                    NodeUtils::printo("Peer " + std::to_string(itr->first) + " needs to be checked with a heartbeat", NodeUtils::PrintType::PeerWatcher);
                     // TODO: Mark a node for a heartbeat
                 }
             }

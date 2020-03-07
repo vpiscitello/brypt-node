@@ -81,7 +81,7 @@ public:
         , m_address(std::string())
         , m_requestPort(std::string())
         , m_publisherPort(std::string())
-        , m_technology(NodeUtils::TechnologyType::NONE)
+        , m_technology(NodeUtils::TechnologyType::None)
         , m_mutex()
     {
     };
@@ -328,7 +328,7 @@ public:
         , m_binding(std::string())
         , m_nextAvailablePort(0)
         , m_cluster(0)
-        , m_operation(NodeUtils::DeviceOperation::NONE)
+        , m_operation(NodeUtils::DeviceOperation::None)
         , m_technologies()
         , m_mutex()
     {

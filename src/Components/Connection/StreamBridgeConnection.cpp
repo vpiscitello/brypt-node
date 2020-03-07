@@ -34,8 +34,8 @@ Connection::CStreamBridge::CStreamBridge(
     , m_context(nullptr)
     , m_socket()
 {
-    printo("Creating StreamBridge instance", NodeUtils::PrintType::CONNECTION);
-    
+    printo("[StreamBridge] Creating StreamBridge instance", NodeUtils::PrintType::Connection);
+
     auto const bindingComponents = options.GetBindingComponents();
     auto const peerComponents = options.GetEntryComponents();
 
