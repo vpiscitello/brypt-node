@@ -70,7 +70,7 @@ Connection::CDirect::~CDirect()
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::whatami()
 {
-    printo("[Direct] I am a Direct implementation", NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] I am a Direct implementation", NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -102,21 +102,21 @@ NodeUtils::TechnologyType Connection::CDirect::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Spawn()
 {
-    printo("[Direct] Spawning DIRECT connection thread", NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] Spawning DIRECT connection thread", NodeUtils::PrintType::Connection);
     // Depending upon the intended operation of this connection we need to setup the ZMQ sockets
     // in either Request or Reply modes. This changes the pattern of how the socket is intented
     // to be used.
     switch (m_operation) {
         // If the intended operation is to act as a server connection, we expect requests to be 
         // received first to which we process the message then reply.
-        case NodeUtils::ConnectionOperation::SERVER: {
-            printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
+        case NodeUtils::ConnectionOperation::Server: {
+            printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::Connection);
             SetupServerWorker(m_port);
         } break;
         // If the intended operation is to act as client connection, we expect to send requests
         // from which we will receive a reply.
-        case NodeUtils::ConnectionOperation::CLIENT: {
-            printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::CONNECTION);
+        case NodeUtils::ConnectionOperation::Client: {
+            printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::Connection);
             SetupClientWorker(m_peerAddress, m_peerPort);
         } break;
         default: break;
