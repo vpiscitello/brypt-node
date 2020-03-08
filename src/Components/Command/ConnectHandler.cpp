@@ -78,7 +78,7 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
 
     // Get the requested type of connection
     Message::Buffer const& buffer = message.GetData();
-    auto const technology = static_cast<NodeUtils::TechnologyType const>(buffer.front());
+    auto technology = static_cast<NodeUtils::TechnologyType>(buffer.front());
     if (technology == NodeUtils::TechnologyType::TCP) {
         technology = NodeUtils::TechnologyType::STREAMBRIDGE;
     }
