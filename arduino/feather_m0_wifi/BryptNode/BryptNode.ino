@@ -398,7 +398,7 @@ void handle_messaging(String message) {
                     if (await_id != "") {
                         destination_id = destination_id + ";" + await_id;
                     }
-                    Command::Type command = QUERY_TYPE;
+                    CommandType command = QUERY_TYPE;
                     unsigned int nonce = recvd_msg.get_nonce();
                     String timestamp = recvd_msg.get_timestamp() + 2;
                     String data = "{ \"reading\": 23.1, \"timestamp\": \"" + timestamp + "\" }"; // Bogus data
