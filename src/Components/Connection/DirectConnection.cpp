@@ -32,7 +32,7 @@ Connection::CDirect::CDirect(
     , m_pollItem()
     , m_bProcessReceived(false)
 {
-    printo("[Direct] Creating direct instance", NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] Creating direct instance", NodeUtils::PrintType::Connection);
 
     // Get the two networking components from the supplied options
     auto const bindingComponents = options.GetBindingComponents();
@@ -70,7 +70,7 @@ Connection::CDirect::~CDirect()
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::whatami()
 {
-    printo("[Direct] I am a Direct implementation", NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] I am a Direct implementation", NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ std::string const& Connection::CDirect::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 NodeUtils::TechnologyType Connection::CDirect::GetInternalType() const
 {
-    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::DIRECT;
+    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::Direct;
     return internal;
 }
 
@@ -102,21 +102,21 @@ NodeUtils::TechnologyType Connection::CDirect::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 void Connection::CDirect::Spawn()
 {
-    printo("[Direct] Spawning DIRECT connection thread", NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] Spawning DIRECT connection thread", NodeUtils::PrintType::Connection);
     // Depending upon the intended operation of this connection we need to setup the ZMQ sockets
     // in either Request or Reply modes. This changes the pattern of how the socket is intented
     // to be used.
     switch (m_operation) {
         // If the intended operation is to act as a server connection, we expect requests to be 
         // received first to which we process the message then reply.
-        case NodeUtils::ConnectionOperation::SERVER: {
-            printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
+        case NodeUtils::ConnectionOperation::Server: {
+            printo("[Direct] Setting up REP socket on port " + m_port, NodeUtils::PrintType::Connection);
             SetupServerWorker(m_port);
         } break;
         // If the intended operation is to act as client connection, we expect to send requests
         // from which we will receive a reply.
-        case NodeUtils::ConnectionOperation::CLIENT: {
-            printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::CONNECTION);
+        case NodeUtils::ConnectionOperation::Client: {
+            printo("[Direct] Connecting REQ socket to " + m_peerAddress, NodeUtils::PrintType::Connection);
             SetupClientWorker(m_peerAddress, m_peerPort);
         } break;
         default: break;
@@ -174,9 +174,8 @@ void Connection::CDirect::Send(std::string_view message)
     zmq::message_t request(message.data(), message.size());
     m_socket->send(request, zmq::send_flags::none);
 
-    printo(
-        "[Direct] Sent: (" + std::to_string(message.size()) + ") " 
-        + message.data(), NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] Sent: (" + std::to_string(message.size()) + ") " 
+           + message.data(), NodeUtils::PrintType::Connection);
 
     ++m_sequenceNumber;
 
@@ -213,7 +212,7 @@ void Connection::CDirect::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 bool Connection::CDirect::Shutdown()
 {
-    printo("[Direct] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] Shutting down socket and context", NodeUtils::PrintType::Connection);
     // Stop the worker thread from processing the connections
     m_terminate = true;
 
@@ -293,20 +292,19 @@ void Connection::CDirect::ServerWorker()
         // If a request has been received, forward the message through the message sink and
         // wait until the message has been processed before accepting another message
         if (optReceivedRaw) {
-            printo("[Direct] Received request: " + *optReceivedRaw, NodeUtils::PrintType::CONNECTION);
+            printo("[Direct] Received request: " + *optReceivedRaw, NodeUtils::PrintType::Connection);
 
             std::unique_lock lock(m_mutex);
             try {
                 CMessage const request(*optReceivedRaw);
                 m_messageSink->ForwardMessage(m_id, request);
             } catch (...) {
-                printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+                printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::Connection);
             }
 
             m_bProcessReceived = !m_bProcessReceived;
             m_cv.notify_all();
 
-            // Wait for message from pipe then Send
             if (!m_bProcessReceived) {
                 this->m_cv.wait(lock, [this]{return m_bProcessReceived || m_terminate;});
             }
@@ -356,14 +354,14 @@ void Connection::CDirect::ClientWorker()
         // If a request has been received, forward the message through the message sink and
         // wait until the message has been processed before accepting another message
         if (optReceivedRaw) {
-            printo("[Direct] Received request: " + *optReceivedRaw, NodeUtils::PrintType::CONNECTION);
+            printo("[Direct] Received request: " + *optReceivedRaw, NodeUtils::PrintType::Connection);
 
             std::unique_lock lock(m_mutex);
             try {
                 CMessage const request(*optReceivedRaw);
                 m_messageSink->ForwardMessage(m_id, request);
             } catch (...) {
-                printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+                printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::Connection);
             }
 
             m_bProcessReceived = !m_bProcessReceived;
@@ -394,7 +392,7 @@ std::optional<std::string> Connection::CDirect::Receive(zmq::recv_flags flag)
     }
 
     std::string request = std::string(static_cast<char*>(message.data()), *result);
-    printo("[Direct] Received: " + request, NodeUtils::PrintType::CONNECTION);
+    printo("[Direct] Received: " + request, NodeUtils::PrintType::Connection);
 
     m_updateTimePoint = NodeUtils::GetSystemTimePoint();
     ++m_sequenceNumber;

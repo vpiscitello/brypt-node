@@ -33,7 +33,7 @@ namespace test {
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
 constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
 constexpr std::string_view TechnologyName = "Direct";
-constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::DIRECT;
+constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:3000";
 constexpr std::string_view ClientBinding = "*:3001";
@@ -72,7 +72,7 @@ TEST(CMessageQueue, MessageForwardingTest)
 
     CMessage const request(
         test::ClientId, test::ServerId,
-        NodeUtils::CommandType::ELECTION, 0,
+        NodeUtils::CommandType::Election, 0,
         "Hello World!", 0);
     queue.PushOutgoingMessage(test::ServerId, request);
 
@@ -95,7 +95,7 @@ std::unique_ptr<Connection::CDirect> local::MakeDirectServer(
         test::Interface,
         test::ServerBinding);
 
-    options.operation = NodeUtils::ConnectionOperation::SERVER;
+    options.operation = NodeUtils::ConnectionOperation::Server;
 
     return std::make_unique<Connection::CDirect>(sink, options);
 }
@@ -112,7 +112,7 @@ std::unique_ptr<Connection::CDirect> local::MakeDirectClient(
         test::ClientBinding,
         test::ServerEntry);
 
-    options.operation = NodeUtils::ConnectionOperation::CLIENT;
+    options.operation = NodeUtils::ConnectionOperation::Client;
 
     return std::make_unique<Connection::CDirect>(sink, options);
 }

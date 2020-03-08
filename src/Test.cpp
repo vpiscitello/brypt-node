@@ -50,7 +50,7 @@ void ParseArguments(
     std::vector<std::string>::iterator itr;
 
     if (argc <= 1) {
-        NodeUtils::printo("Arguments must be provided!", NodeUtils::PrintType::ERROR);
+        NodeUtils::printo("Arguments must be provided!", NodeUtils::PrintType::Error);
         exit(1);
     }
 
@@ -60,9 +60,9 @@ void ParseArguments(
 
     static std::unordered_map<std::string, NodeUtils::DeviceOperation> deviceOperationMap = 
     {
-        {"--root", NodeUtils::DeviceOperation::ROOT},
-        {"--branch", NodeUtils::DeviceOperation::BRANCH},
-        {"--leaf", NodeUtils::DeviceOperation::LEAF}
+        {"--root", NodeUtils::DeviceOperation::Root},
+        {"--branch", NodeUtils::DeviceOperation::Branch},
+        {"--leaf", NodeUtils::DeviceOperation::Lead}
     };
 
     for (auto const [key, value] : deviceOperationMap) {

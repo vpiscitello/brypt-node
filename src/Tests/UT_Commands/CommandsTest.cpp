@@ -35,7 +35,7 @@ Configuration::TSettings CreateConfigurationSettings();
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
 constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
 constexpr std::string_view TechnologyName = "Direct";
-constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::DIRECT;
+constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:3000";
 constexpr std::string_view ClientBinding = "*:3001";
@@ -67,58 +67,58 @@ TEST(CommandSuite, CommandMatchingTest)
 
     CMessage const connectRequest(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::CONNECT, test::BasePhase,
+        NodeUtils::CommandType::Connect, test::BasePhase,
         test::Message, test::Nonce);
     
     auto const connectCommandItr = commands.find(connectRequest.GetCommand());
     ASSERT_NE(connectCommandItr, commands.end());
 
     auto const connectCommandReturnType = connectCommandItr->second->GetType();
-    EXPECT_EQ(connectCommandReturnType, NodeUtils::CommandType::CONNECT);
+    EXPECT_EQ(connectCommandReturnType, NodeUtils::CommandType::Connect);
 
     CMessage const electionRequest(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::ELECTION, test::BasePhase,
+        NodeUtils::CommandType::Election, test::BasePhase,
         test::Message, test::Nonce);
     
     auto const electionCommandItr = commands.find(electionRequest.GetCommand());
     ASSERT_NE(electionCommandItr, commands.end());
 
     auto const electionCommandReturnType = electionCommandItr->second->GetType();
-    EXPECT_EQ(electionCommandReturnType, NodeUtils::CommandType::ELECTION);
+    EXPECT_EQ(electionCommandReturnType, NodeUtils::CommandType::Election);
 
     CMessage const informationRequest(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::INFORMATION, test::BasePhase,
+        NodeUtils::CommandType::Information, test::BasePhase,
         test::Message, test::Nonce);
     
     auto const informationCommandItr = commands.find(informationRequest.GetCommand());
     ASSERT_NE(informationCommandItr, commands.end());
 
     auto const informationCommandReturnType = informationCommandItr->second->GetType();
-    EXPECT_EQ(informationCommandReturnType, NodeUtils::CommandType::INFORMATION);
+    EXPECT_EQ(informationCommandReturnType, NodeUtils::CommandType::Information);
 
     CMessage const queryRequest(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::QUERY, test::BasePhase,
+        NodeUtils::CommandType::Query, test::BasePhase,
         test::Message, test::Nonce);
     
     auto const queryCommandItr = commands.find(queryRequest.GetCommand());
     ASSERT_NE(queryCommandItr, commands.end());
 
     auto const queryCommandReturnType = queryCommandItr->second->GetType();
-    EXPECT_EQ(queryCommandReturnType, NodeUtils::CommandType::QUERY);
+    EXPECT_EQ(queryCommandReturnType, NodeUtils::CommandType::Query);
 
     CMessage const transformRequest(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::TRANSFORM, test::BasePhase,
+        NodeUtils::CommandType::Transform, test::BasePhase,
         test::Message, test::Nonce);
     
     auto const transformCommandItr = commands.find(transformRequest.GetCommand());
     ASSERT_NE(transformCommandItr, commands.end());
 
     auto const transformCommandReturnType = transformCommandItr->second->GetType();
-    EXPECT_EQ(transformCommandReturnType, NodeUtils::CommandType::TRANSFORM);
+    EXPECT_EQ(transformCommandReturnType, NodeUtils::CommandType::Transform);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ Configuration::TConnectionOptions test::CreateConnectionOptions()
         test::Interface,
         test::ServerBinding);
 
-    options.operation = NodeUtils::ConnectionOperation::SERVER;
+    options.operation = NodeUtils::ConnectionOperation::Server;
     
     return options;
 }
@@ -156,24 +156,24 @@ void local::SetupCommandMap(
     NodeUtils::CommandMap& commands, CNode& node, std::weak_ptr<CState> state)
 {
     commands.emplace(
-        NodeUtils::CommandType::CONNECT,
-        Command::Factory(NodeUtils::CommandType::CONNECT, node, state));
+        NodeUtils::CommandType::Connect,
+        Command::Factory(NodeUtils::CommandType::Connect, node, state));
 
     commands.emplace(
-        NodeUtils::CommandType::ELECTION,
-        Command::Factory(NodeUtils::CommandType::ELECTION, node, state));
+        NodeUtils::CommandType::Election,
+        Command::Factory(NodeUtils::CommandType::Election, node, state));
 
     commands.emplace(
-        NodeUtils::CommandType::INFORMATION,
-        Command::Factory(NodeUtils::CommandType::INFORMATION, node, state));
+        NodeUtils::CommandType::Information,
+        Command::Factory(NodeUtils::CommandType::Information, node, state));
   
     commands.emplace(
-        NodeUtils::CommandType::QUERY,
-        Command::Factory(NodeUtils::CommandType::QUERY, node, state));
+        NodeUtils::CommandType::Query,
+        Command::Factory(NodeUtils::CommandType::Query, node, state));
 
     commands.emplace(
-        NodeUtils::CommandType::TRANSFORM,
-        Command::Factory(NodeUtils::CommandType::TRANSFORM, node, state));
+        NodeUtils::CommandType::Transform,
+        Command::Factory(NodeUtils::CommandType::Transform, node, state));
 }
 
 //------------------------------------------------------------------------------------------------

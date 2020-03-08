@@ -27,7 +27,7 @@ public:
     bool CloseHandler();
 
 private:
-    enum class Phase { PROBE, PRECOMMIT, VOTE, ABORT, RESULTS, CLOSE };
+    enum class Phase { Probe, Precommit, Vote, Abort, Results, Close };
 };
 
 //------------------------------------------------------------------------------------------------

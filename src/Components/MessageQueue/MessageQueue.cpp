@@ -27,7 +27,7 @@ bool CMessageQueue::PushOutgoingMessage(
 	NodeUtils::NodeIdType id,
 	CMessage const& message)
 {
-	NodeUtils::printo("Messages queued for " + std::to_string(id), NodeUtils::PrintType::MQUEUE);
+	NodeUtils::printo("Message queued for " + std::to_string(id), NodeUtils::PrintType::MessageQueue);
 
 	std::scoped_lock lock(m_callbacksMutex);
 	// Attempt to find a mapped callback for the node in the known callbacks
@@ -71,7 +71,7 @@ std::optional<CMessage> CMessageQueue::PopIncomingMessage()
 	auto const message = m_incoming.front();
 	m_incoming.pop();
 
-	NodeUtils::printo(std::to_string(m_incoming.size()) + " left in incoming queue", NodeUtils::PrintType::MQUEUE);
+	NodeUtils::printo(std::to_string(m_incoming.size()) + " left in incoming queue", NodeUtils::PrintType::MessageQueue);
 
 	return message;
 }

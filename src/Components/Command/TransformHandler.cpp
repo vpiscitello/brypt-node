@@ -10,7 +10,7 @@
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
 Command::CTransform::CTransform(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::TRANSFORM)
+    : CHandler(instance, state, NodeUtils::CommandType::Transform)
 {
 }
 
@@ -26,16 +26,16 @@ bool Command::CTransform::HandleMessage(CMessage const& message)
 
     auto const phase = static_cast<CTransform::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::INFO: {
+        case Phase::Information: {
             status = InfoHandler();
         } break;
-        case Phase::HOST: {
+        case Phase::Host: {
             status = HostHandler();
         } break;
-        case Phase::CONNECT: {
+        case Phase::Connect: {
             status = ConnectHandler();
         } break;
-        case Phase::CLOSE: {
+        case Phase::Close: {
             status = CloseHandler();
         } break;
         default: break;

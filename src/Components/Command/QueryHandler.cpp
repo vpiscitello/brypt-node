@@ -61,7 +61,7 @@ struct Json::TReading
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CQuery::CQuery(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::QUERY)
+    : CHandler(instance, state, NodeUtils::CommandType::Query)
 {
 }
 
@@ -77,16 +77,16 @@ bool Command::CQuery::HandleMessage(CMessage const& message)
 
     auto const phase = static_cast<CQuery::Phase>(message.GetPhase());
     switch (phase) {
-        case CQuery::Phase::FLOOD: {
+        case CQuery::Phase::Flood: {
             status = FloodHandler(message);
         } break;
-        case CQuery::Phase::RESPOND: {
+        case CQuery::Phase::Respond: {
             status = RespondHandler(message);
         } break;
-        case CQuery::Phase::AGGREGATE: {
+        case CQuery::Phase::Aggregate: {
             status = AggregateHandler(message);
         } break;
-        case CQuery::Phase::CLOSE: {
+        case CQuery::Phase::Close: {
             status = CloseHandler();
         } break;
         default: break;
@@ -103,7 +103,7 @@ bool Command::CQuery::HandleMessage(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 bool Command::CQuery::FloodHandler(CMessage const& message)
 {
-    printo("Sending notification for Query request", NodeUtils::PrintType::COMMAND);
+    printo("Sending notification for Query request", NodeUtils::PrintType::Command);
 
     // Get the information pertaining to the node itself
     NodeUtils::NodeIdType id = 0;
@@ -127,10 +127,10 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
         // Create a reading message
         CMessage const readingMessage(
             id, message.GetSourceId(),
-            NodeUtils::CommandType::QUERY, static_cast<std::uint8_t>(CQuery::Phase::AGGREGATE),
+            NodeUtils::CommandType::Query, static_cast<std::uint8_t>(CQuery::Phase::Aggregate),
             local::GenerateReading(), nonce,
             Message::BoundAwaitId(
-                {Message::AwaitBinding::DESTINATION, awaitKey}));
+                {Message::AwaitBinding::Destination, awaitKey}));
 
         awaiting->PushResponse(readingMessage);
     }
@@ -138,14 +138,14 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
     // Create a notice message for the network
     CMessage const notice(
         id, 0xFFFFFFFF,
-        NodeUtils::CommandType::QUERY, static_cast<std::uint8_t>(Phase::RESPOND),
+        NodeUtils::CommandType::Query, static_cast<std::uint8_t>(Phase::Respond),
         "Request for Sensor Readings.", nonce,
         Message::BoundAwaitId(
-            {Message::AwaitBinding::SOURCE, awaitKey}));
+            {Message::AwaitBinding::Source, awaitKey}));
 
     // Send the notice via the network notifier connection
     if (auto const notifier = m_instance.GetNotifier().lock()) {
-        notifier->Send(notice, NodeUtils::NotificationType::NETWORK);
+        notifier->Send(notice, NodeUtils::NotificationType::Network);
     }
 
     return true;
@@ -159,7 +159,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 bool Command::CQuery::RespondHandler(CMessage const& message)
 {
-    printo("Building response for Query request", NodeUtils::PrintType::COMMAND);
+    printo("Building response for Query request", NodeUtils::PrintType::Command);
     NodeUtils::NodeIdType id = 0;
     if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
@@ -173,12 +173,12 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
     CMessage const request(
         id,
         destinationId,
-        NodeUtils::CommandType::QUERY,
-        static_cast<std::uint8_t>(Phase::AGGREGATE),
+        NodeUtils::CommandType::Query,
+        static_cast<std::uint8_t>(Phase::Aggregate),
         local::GenerateReading(),
         nonce,
         Message::BoundAwaitId(
-            {Message::AwaitBinding::DESTINATION, *optAwaitId}));
+            {Message::AwaitBinding::Destination, *optAwaitId}));
 
     // TODO: Add method to defer if node instance is a coordinator
     if (auto const optConnection = m_instance.GetConnection(destinationId)) {
@@ -188,9 +188,9 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
         if (optResponse) {
             try {
                 CMessage response(*optResponse);
-                NodeUtils::printo("Received: " + message.GetPack(), NodeUtils::PrintType::COMMAND);
+                NodeUtils::printo("Received: " + message.GetPack(), NodeUtils::PrintType::Command);
             } catch (...) {
-                NodeUtils::printo("Query response could not be unpacked!", NodeUtils::PrintType::COMMAND);
+                NodeUtils::printo("Query response could not be unpacked!", NodeUtils::PrintType::Command);
             }
         }
     }
@@ -206,7 +206,7 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 bool Command::CQuery::AggregateHandler(CMessage const& message)
 {
-    printo("Pushing response to AwaitObject", NodeUtils::PrintType::COMMAND);
+    printo("Pushing response to AwaitObject", NodeUtils::PrintType::Command);
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
         awaiting->PushResponse(message);
     }
@@ -222,8 +222,8 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
     CMessage const response(
         id,
         destinationId,
-        NodeUtils::CommandType::QUERY,
-        static_cast<std::uint8_t>(Phase::CLOSE),
+        NodeUtils::CommandType::Query,
+        static_cast<std::uint8_t>(Phase::Close),
         "Message Response",
         nonce);
 

@@ -23,7 +23,7 @@ namespace test {
 
 constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
 constexpr NodeUtils::NodeIdType ServerId = 0xFFFFFFFF;
-constexpr NodeUtils::CommandType Command = NodeUtils::CommandType::ELECTION;
+constexpr NodeUtils::CommandType Command = NodeUtils::CommandType::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
@@ -69,7 +69,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::SOURCE, awaitKey));
+        Message::BoundAwaitId(Message::AwaitBinding::Source, awaitKey));
 
     EXPECT_EQ(sourceBoundMessage.GetSourceId(), test::ClientId);
     EXPECT_EQ(sourceBoundMessage.GetDestinationId(), test::ServerId);
@@ -94,7 +94,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::DESTINATION, awaitKey));
+        Message::BoundAwaitId(Message::AwaitBinding::Destination, awaitKey));
 
     EXPECT_EQ(destinationBoundMessage.GetSourceId(), test::ClientId);
     EXPECT_EQ(destinationBoundMessage.GetDestinationId(), test::ServerId);
@@ -156,7 +156,7 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::DESTINATION, awaitKey));
+        Message::BoundAwaitId(Message::AwaitBinding::Destination, awaitKey));
 
     auto const pack = boundMessage.GetPack();
     EXPECT_GT(pack.size(), std::size_t(0));
@@ -189,11 +189,11 @@ TEST(CMessageSuite, BaseMessageVerificationTest)
 
     auto const pack = baseMessage.GetPack();
     auto const baseStatus = baseMessage.Verify();
-    EXPECT_EQ(baseStatus, Message::VerificationStatus::SUCCESS);
+    EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
 
     CMessage packMessage(pack);
     auto const packStatus = packMessage.Verify();
-    EXPECT_EQ(packStatus, Message::VerificationStatus::SUCCESS);
+    EXPECT_EQ(packStatus, Message::VerificationStatus::Success);
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -206,15 +206,15 @@ TEST(CMessageSuite, BoundMessageVerificationTest)
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::SOURCE, awaitKey));
+        Message::BoundAwaitId(Message::AwaitBinding::Source, awaitKey));
 
     auto const pack = baseMessage.GetPack();
     auto const baseStatus = baseMessage.Verify();
-    EXPECT_EQ(baseStatus, Message::VerificationStatus::SUCCESS);
+    EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
 
     CMessage packMessage(pack);
     auto const packStatus = packMessage.Verify();
-    EXPECT_EQ(packStatus, Message::VerificationStatus::SUCCESS);
+    EXPECT_EQ(packStatus, Message::VerificationStatus::Success);
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -227,17 +227,17 @@ TEST(CMessageSuite, AlteredMessageVerificationTest)
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::SOURCE, awaitKey));
+        Message::BoundAwaitId(Message::AwaitBinding::Source, awaitKey));
 
     auto pack = baseMessage.GetPack();
     auto const baseStatus = baseMessage.Verify();
-    EXPECT_EQ(baseStatus, Message::VerificationStatus::SUCCESS);
+    EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
 
     std::replace(pack.begin(), pack.end(), pack.at(pack.size() / 2), '?');
 
     CMessage packMessage(pack);
     auto const packStatus = packMessage.Verify();
-    EXPECT_EQ(packStatus, Message::VerificationStatus::UNAUTHORIZED);
+    EXPECT_EQ(packStatus, Message::VerificationStatus::Unauthorized);
 }
 
 //-----------------------------------------------------------------------------------------------

@@ -58,7 +58,7 @@ public:
 		, m_command(command)
 		, m_phase(phase)
 		, m_data()
-		, m_key(NodeUtils::NETWORK_KEY)
+		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(nonce)
 		, m_timepoint(NodeUtils::GetSystemTimePoint())
 		, m_end(0)
@@ -78,10 +78,10 @@ public:
 		, m_sourceId(0)
 		, m_destinationId(0)
 		, m_boundAwaitId({})
-		, m_command(NodeUtils::CommandType::NONE)
+		, m_command(NodeUtils::CommandType::None)
 		, m_phase(0)
 		, m_data()
-		, m_key(NodeUtils::NETWORK_KEY)
+		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(0)
 		, m_timepoint(NodeUtils::GetSystemTimePoint())
 		, m_end(0)
@@ -217,7 +217,7 @@ public:
 			PackChunk(buffer, m_boundAwaitId->first);
 			PackChunk(buffer, m_boundAwaitId->second);
 		} else {
-			PackChunk(buffer, Message::AwaitBinding::NONE);
+			PackChunk(buffer, Message::AwaitBinding::None);
 		}
 		PackChunk(buffer, m_command);
 		PackChunk(buffer, m_phase);
@@ -272,9 +272,9 @@ public:
 		UnpackChunk(buffer, position, m_sourceId);
 		UnpackChunk(buffer, position, m_destinationId);
 
-		Message::AwaitBinding awaitBinding = Message::AwaitBinding::NONE;
+		Message::AwaitBinding awaitBinding = Message::AwaitBinding::None;
 		UnpackChunk(buffer, position, awaitBinding);
-		if (awaitBinding != Message::AwaitBinding::NONE) {
+		if (awaitBinding != Message::AwaitBinding::None) {
 			NodeUtils::ObjectIdType awaitId = 0;
 			UnpackChunk(buffer, position, awaitId);
 			m_boundAwaitId = Message::BoundAwaitId({awaitBinding, awaitId});
@@ -410,7 +410,7 @@ public:
 	Message::VerificationStatus Verify() const
 	{
 		if (m_raw.empty() || m_token.empty()) {
-			return Message::VerificationStatus::UNAUTHORIZED;
+			return Message::VerificationStatus::Unauthorized;
 		}
 
         Message::Buffer buffer = Z85Decode(m_raw);
@@ -418,10 +418,10 @@ public:
 
 		auto const token = Hmac(base, base.size());
 		if (!token || m_token != *token) {
-			return Message::VerificationStatus::UNAUTHORIZED;
+			return Message::VerificationStatus::Unauthorized;
 		}
 
-		return Message::VerificationStatus::SUCCESS;
+		return Message::VerificationStatus::Success;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -491,7 +491,7 @@ private:
 
 	Message::Buffer m_data;	// Primary message content
 
-	NodeUtils::NetworkKey m_key;	// Key used for encryption and authentication
+	std::string m_key;	// Key used for encryption and authentication
 	NodeUtils::NetworkNonce m_nonce;	// Current message nonce
 
 	NodeUtils::TimePoint m_timepoint;	// The timepoint that message was created

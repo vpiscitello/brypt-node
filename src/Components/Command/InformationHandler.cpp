@@ -78,7 +78,7 @@ struct Json::TNodeInfo
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CInformation::CInformation(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::INFORMATION)
+    : CHandler(instance, state, NodeUtils::CommandType::Information)
 {
 }
 
@@ -94,13 +94,13 @@ bool Command::CInformation::HandleMessage(CMessage const& message)
 
     auto const phase = static_cast<CInformation::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::FLOOD: {
+        case Phase::Flood: {
             status = FloodHandler(message);
         } break;
-        case Phase::RESPOND: {
+        case Phase::Respond: {
             status = RespondHandler();
         } break;
-        case Phase::CLOSE: {
+        case Phase::Close: {
             status = CloseHandler();
         } break;
         default: break;
@@ -117,7 +117,7 @@ bool Command::CInformation::HandleMessage(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 bool Command::CInformation::FloodHandler(CMessage const& message)
 {
-    printo("Building response for Information request", NodeUtils::PrintType::COMMAND);
+    printo("Building response for Information request", NodeUtils::PrintType::Command);
     
     // Get the information pertaining to the node itself
     NodeUtils::NodeIdType id = 0; 
@@ -132,11 +132,11 @@ bool Command::CInformation::FloodHandler(CMessage const& message)
 
         CMessage const infoMessage(
             id, message.GetSourceId(),
-            NodeUtils::CommandType::INFORMATION,
-            static_cast<std::uint8_t>(Phase::RESPOND),
+            NodeUtils::CommandType::Information,
+            static_cast<std::uint8_t>(Phase::Respond),
             local::GenerateNodeInfo(m_instance, m_state), nonce,
             Message::BoundAwaitId(
-                {Message::AwaitBinding::DESTINATION, awaitKey}));
+                {Message::AwaitBinding::Destination, awaitKey}));
 
         awaiting->PushResponse(infoMessage);
     }
@@ -181,7 +181,7 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
     // Get the information pertaining to the node itself
     NodeUtils::NodeIdType id = 0; 
     NodeUtils::ClusterIdType cluster = 0;
-    NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::NONE;
+    NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
     if (auto const selfState = state.lock()->GetSelfState().lock()) {
         id = selfState->GetId();
         cluster = selfState->GetCluster();

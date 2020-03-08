@@ -19,11 +19,11 @@ std::shared_ptr<CConnection> Connection::Factory(
     Configuration::TConnectionOptions const& options)
 {
     switch (options.technology) {
-        case NodeUtils::TechnologyType::DIRECT: return std::make_shared<CDirect>(messageSink, options);
-        case NodeUtils::TechnologyType::LORA: return std::make_shared<CLoRa>(messageSink, options);
-        case NodeUtils::TechnologyType::STREAMBRIDGE: return std::make_shared<CStreamBridge>(messageSink, options);
+        case NodeUtils::TechnologyType::Direct: return std::make_shared<CDirect>(messageSink, options);
+        case NodeUtils::TechnologyType::LoRa: return std::make_shared<CLoRa>(messageSink, options);
+        case NodeUtils::TechnologyType::StreamBridge: return std::make_shared<CStreamBridge>(messageSink, options);
         case NodeUtils::TechnologyType::TCP: return std::make_shared<CTcp>(messageSink, options);
-        case NodeUtils::TechnologyType::NONE: return nullptr;
+        case NodeUtils::TechnologyType::None: return nullptr;
     }
     return nullptr;
 }

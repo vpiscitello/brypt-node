@@ -31,7 +31,7 @@ public:
     CManager();
     explicit CManager(std::string const& filepath);
     
-    enum class StatusCode { SUCCESS, DECODE_ERROR, INPUT_ERROR, FILE_ERROR };
+    enum class StatusCode { Success, DecodeError, InputError, FileError };
 
     std::optional<Configuration::TSettings> Parse();
 

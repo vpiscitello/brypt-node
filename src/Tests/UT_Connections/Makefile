@@ -20,12 +20,12 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
-CONNECTIONDIR = ../../Components/Connection
+ConnectIONDIR = ../../Components/Connection
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
-$(CONNECTIONDIR) \
+$(ConnectIONDIR) \
 $(MESSAGEQUEUEDIR) \
 $(GTESTDIR)
 

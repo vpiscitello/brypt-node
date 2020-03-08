@@ -46,7 +46,7 @@ Connection::CLoRa::~CLoRa()
 //------------------------------------------------------------------------------------------------
 void Connection::CLoRa::whatami()
 {
-    printo("[LoRa] I am a LoRa implementation", NodeUtils::PrintType::CONNECTION);
+    printo("[LoRa] I am a LoRa implementation", NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -56,7 +56,7 @@ void Connection::CLoRa::whatami()
 //------------------------------------------------------------------------------------------------
 void Connection::CLoRa::Spawn()
 {
-    printo("[LoRa] Spawning LoRa connection thread", NodeUtils::PrintType::CONNECTION);
+    printo("[LoRa] Spawning LoRa connection thread", NodeUtils::PrintType::Connection);
     m_worker = std::thread(&CLoRa::Worker, this);
 }
 
@@ -78,7 +78,7 @@ std::string const& Connection::CLoRa::GetProtocolType() const
  //------------------------------------------------------------------------------------------------
 NodeUtils::TechnologyType Connection::CLoRa::GetInternalType() const
 {
-    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::LORA;
+    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::LoRa;
     return internal;
 }
 

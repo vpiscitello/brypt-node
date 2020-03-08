@@ -25,7 +25,7 @@ using ConnectionContextPair = std::pair<CConnection*, ProcessedMessageCallback>;
 class IMessageSink
 {
 public:
-    IMessageSink() {};
+    virtual ~IMessageSink() = default;
 
     virtual void ForwardMessage(
         NodeUtils::NodeIdType id,

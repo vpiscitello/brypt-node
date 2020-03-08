@@ -34,8 +34,8 @@ Connection::CStreamBridge::CStreamBridge(
     , m_context(nullptr)
     , m_socket()
 {
-    printo("Creating StreamBridge instance", NodeUtils::PrintType::CONNECTION);
-    
+    printo("[StreamBridge] Creating StreamBridge instance", NodeUtils::PrintType::Connection);
+
     auto const bindingComponents = options.GetBindingComponents();
     auto const peerComponents = options.GetEntryComponents();
 
@@ -68,7 +68,7 @@ Connection::CStreamBridge::~CStreamBridge()
 //------------------------------------------------------------------------------------------------
 void Connection::CStreamBridge::whatami()
 {
-    printo("[StreamBridge] I am a StreamBridge implementation", NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] I am a StreamBridge implementation", NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ void Connection::CStreamBridge::whatami()
 //------------------------------------------------------------------------------------------------
 void Connection::CStreamBridge::Spawn()
 {
-    printo("[StreamBridge] Spawning STREAMBRIDGE connection thread", NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] Spawning STREAMBRIDGE connection thread", NodeUtils::PrintType::Connection);
     m_worker = std::thread(&CStreamBridge::Worker, this);
 }
 
@@ -100,7 +100,7 @@ std::string const& Connection::CStreamBridge::GetProtocolType() const
  //------------------------------------------------------------------------------------------------
 NodeUtils::TechnologyType Connection::CStreamBridge::GetInternalType() const
 {
-    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::STREAMBRIDGE;
+    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::StreamBridge;
     return internal;
 }
 
@@ -116,8 +116,8 @@ void Connection::CStreamBridge::Worker()
     m_context = std::make_unique<zmq::context_t>(1);
 
     switch (m_operation) {
-        case NodeUtils::ConnectionOperation::SERVER: {
-            printo("[StreamBridge] Setting up StreamBridge socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
+        case NodeUtils::ConnectionOperation::Server: {
+            printo("[StreamBridge] Setting up StreamBridge socket on port " + m_port, NodeUtils::PrintType::Connection);
             m_socket = std::make_unique<zmq::socket_t>(*m_context.get(), ZMQ_STREAM);
             m_initializationMessage = 1;
             SetupStreamBridgeSocket(m_port);
@@ -138,7 +138,7 @@ void Connection::CStreamBridge::Worker()
                 CMessage const request(*optReceivedRaw);
                 m_messageSink->ForwardMessage(m_id, request);
             } catch (...) {
-                printo("[StreamBridge] Received message failed to unpack.", NodeUtils::PrintType::CONNECTION);
+                printo("[StreamBridge] Received message failed to unpack.", NodeUtils::PrintType::Connection);
             }
             optReceivedRaw.reset();
         }
@@ -162,7 +162,7 @@ void Connection::CStreamBridge::Worker()
 //------------------------------------------------------------------------------------------------
 void Connection::CStreamBridge::SetupStreamBridgeSocket(NodeUtils::PortNumber const& port)
 {
-    printo("[StreamBridge] Setting up StreamBridge socket on port " + m_port, NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] Setting up StreamBridge socket on port " + m_port, NodeUtils::PrintType::Connection);
     std::string connData = "tcp://*:" + port;
     zmq_bind(m_socket.get(), connData.c_str());
 }
@@ -197,7 +197,7 @@ void Connection::CStreamBridge::Send(CMessage const& message)
     if (flag) {
         zmq_send(m_socket.get(), toCat.c_str(), strlen(toCat.c_str()), ZMQ_SNDMORE);
     }
-    printo("[StreamBridge] Sent: (" + std::to_string(strlen(pack.c_str())) + ") " + pack, NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] Sent: (" + std::to_string(strlen(pack.c_str())) + ") " + pack, NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -218,7 +218,7 @@ void Connection::CStreamBridge::Send(std::string_view message)
     if (flag) {
         zmq_send(m_socket.get(), toCat.c_str(), strlen(toCat.c_str()), ZMQ_SNDMORE);
     }
-    printo("[StreamBridge] Sent: (" + std::to_string(message.size()) + ") " + message.data(), NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] Sent: (" + std::to_string(message.size()) + ") " + message.data(), NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -247,7 +247,7 @@ std::optional<std::string> Connection::CStreamBridge::Receive(std::int32_t flag)
     }
 
     zmq_recv(m_socket.get(), buffer, Connection::StreamBridge::BUFFER_SIZE, flag);
-    printo("[StreamBridge] Received: " + std::string(buffer), NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] Received: " + std::string(buffer), NodeUtils::PrintType::Connection);
     
     m_initializationMessage = 0;
 
@@ -270,7 +270,7 @@ void Connection::CStreamBridge::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 bool Connection::CStreamBridge::Shutdown()
 {
-    printo("[StreamBridge] Shutting down socket and context", NodeUtils::PrintType::CONNECTION);
+    printo("[StreamBridge] Shutting down socket and context", NodeUtils::PrintType::Connection);
     // Stop the worker thread from processing the connections
     {
         std::scoped_lock lock(m_mutex);

@@ -25,7 +25,7 @@ public:
     bool CloseHandler();
 
 private:
-    enum class Phase { FLOOD, RESPOND, AGGREGATE, CLOSE };
+    enum class Phase { Flood, Respond, Aggregate, Close };
 };
 
 //------------------------------------------------------------------------------------------------

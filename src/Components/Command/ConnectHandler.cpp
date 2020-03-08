@@ -14,7 +14,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 Command::CConnect::CConnect(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::CONNECT)
+    : CHandler(instance, state, NodeUtils::CommandType::Connect)
 {
 }
 
@@ -30,13 +30,13 @@ bool Command::CConnect::HandleMessage(CMessage const& message)
 
     auto const phase = static_cast<CConnect::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::CONTACT: {
+        case Phase::Contact: {
             status = ContactHandler();
         } break;
-        case Phase::JOIN: {
+        case Phase::Join: {
             status = JoinHandler(message);
         } break;
-        case Phase::CLOSE: {
+        case Phase::Close: {
             status = CloseHandler();
         } break;
         default: {
@@ -68,7 +68,7 @@ bool Command::CConnect::ContactHandler()
 //------------------------------------------------------------------------------------------------
 bool Command::CConnect::JoinHandler(CMessage const& message)
 {
-    printo("Setting up full connection", NodeUtils::PrintType::COMMAND);
+    printo("Setting up full connection", NodeUtils::PrintType::Command);
 
     // Get the new port to host the connection on
     NodeUtils::PortNumber port = std::string();
@@ -80,7 +80,7 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
     Message::Buffer const& buffer = message.GetData();
     auto technology = static_cast<NodeUtils::TechnologyType>(buffer.front());
     if (technology == NodeUtils::TechnologyType::TCP) {
-        technology = NodeUtils::TechnologyType::STREAMBRIDGE;
+        technology = NodeUtils::TechnologyType::StreamBridge;
     }
 
     // Setup the new connection for the node
@@ -95,7 +95,7 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
     // Push the new connection into the map of managed connections
     std::shared_ptr<NodeUtils::ConnectionMap> const& connections = m_instance.GetConnections().lock();
     connections->emplace(message.GetSourceId(), connection);
-    printo("New connection pushed back", NodeUtils::PrintType::COMMAND);
+    printo("New connection pushed back", NodeUtils::PrintType::Command);
 
     // Wait for the connection to be fully setup
     while (!connection->GetStatus()) {
@@ -103,7 +103,7 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
     }
     
     // Notify the node that the new managed connection is ready
-    printo("Connection worker thread is ready", NodeUtils::PrintType::COMMAND);
+    printo("Connection worker thread is ready", NodeUtils::PrintType::Command);
     if (auto const control = m_instance.GetControl().lock()) {
         control->Send("\x04");
     }
