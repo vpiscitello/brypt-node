@@ -3,13 +3,14 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "ElectionHandler.hpp"
+#include "../BryptNode/BryptNode.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Command::CElection::CElection(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::Election)
+Command::CElectionHandler::CElectionHandler(CBryptNode& instance)
+    : IHandler(Command::Type::Election, instance)
 {
 }
 
@@ -19,10 +20,10 @@ Command::CElection::CElection(CNode& instance, std::weak_ptr<CState> const& stat
 // Description: Election message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::HandleMessage(CMessage const& message) {
+bool Command::CElectionHandler::HandleMessage(CMessage const& message) {
     bool status = false;
 
-    auto const phase = static_cast<CElection::Phase>(message.GetPhase());
+    auto const phase = static_cast<CElectionHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Probe: {
             status = ProbeHandler();
@@ -54,7 +55,7 @@ bool Command::CElection::HandleMessage(CMessage const& message) {
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::ProbeHandler()
+bool Command::CElectionHandler::ProbeHandler()
 {
     return false;
 }
@@ -65,7 +66,7 @@ bool Command::CElection::ProbeHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::PrecommitHandler()
+bool Command::CElectionHandler::PrecommitHandler()
 {
     return false;
 }
@@ -76,7 +77,7 @@ bool Command::CElection::PrecommitHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::VoteHandler()
+bool Command::CElectionHandler::VoteHandler()
 {
     return false;
 }
@@ -87,7 +88,7 @@ bool Command::CElection::VoteHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::AbortHandler()
+bool Command::CElectionHandler::AbortHandler()
 {
     return false;
 }
@@ -98,7 +99,7 @@ bool Command::CElection::AbortHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::ResultsHandler()
+bool Command::CElectionHandler::ResultsHandler()
 {
     return false;
 }
@@ -109,7 +110,7 @@ bool Command::CElection::ResultsHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElection::CloseHandler()
+bool Command::CElectionHandler::CloseHandler()
 {
     return false;
 }

@@ -40,7 +40,7 @@ class Message {
 		String destination_id;     // ID of the receiving node
 		String await_id;           // ID of the awaiting request on a passdown message
 
-		CommandType command;            // Command type to be run
+		Command::Type command;            // Command type to be run
 		unsigned int phase;                      // Phase of the Command state
 
 		String data;               // Encrypted data to be sent
@@ -99,7 +99,7 @@ class Message {
 		 ** Function: Constructor for new Messages
 		 ** Description: Initializes new messages provided the intended values.
 		 ** *************************************************************************/
-		Message(String source_id, String destination_id, CommandType command, int phase, String data, unsigned int nonce) {
+		Message(String source_id, String destination_id, Command::Type command, int phase, String data, unsigned int nonce) {
 			this->raw = "";
 			this->source_id = source_id;
 			this->destination_id = destination_id;
@@ -143,7 +143,7 @@ class Message {
 		 ** Function: get_command
 		 ** Description: Return the designated command to handle the message.
 		 ** *************************************************************************/
-		CommandType get_command() {
+		Command::Type get_command() {
 			return this->command;
 		}
 		
@@ -235,7 +235,7 @@ class Message {
 		 ** Function: set_command
 		 ** Description: Set the command of the message.
 		 ** *************************************************************************/
-		void set_command(CommandType command, int phase) {
+		void set_command(Command::Type command, int phase) {
 			this->command = command;
 			this->phase = phase;
 		}
@@ -366,7 +366,7 @@ class Message {
 				break;
 				// Command Type
 			  case COMMAND_CHUNK:
-				this->command = ( CommandType ) (
+				this->command = ( Command::Type ) (
 					this->raw.substring( last_end + 2, ( chunk_end - 1 ) )
 					).toInt();
 				break;

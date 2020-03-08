@@ -4,8 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "Configuration/Configuration.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "../Configuration/Configuration.hpp"
+#include "../Utilities/NodeUtils.hpp"
+#include "../Components/Command/Handler.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
 #include <cstdlib>
@@ -33,14 +34,19 @@ class CMessageQueue;
 class CNotifier;
 class CPeerWatcher;
 
-class CState;
+class CNodeState;
+class CAuthorityState;
+class CCoordinatorState;
+class CNetworkState;
+class CSecurityState;
+class CSensorState;
 //------------------------------------------------------------------------------------------------
 
-class CNode {
+class CBryptNode {
 public:
     // Constructors and Deconstructors
-    explicit CNode(Configuration::TSettings const& settings);
-    ~CNode();
+    explicit CBryptNode(Configuration::TSettings const& settings);
+    ~CBryptNode();
 
     void Startup();
     bool Shutdown();
@@ -53,6 +59,12 @@ public:
     void NotifyConnection(NodeUtils::NodeIdType const& id);
 
     // Getter Functions
+    std::weak_ptr<CNodeState> GetNodeState() const;
+    std::weak_ptr<CAuthorityState> GetAuthorityState() const;
+    std::weak_ptr<CCoordinatorState> GetCoordinatorState() const;
+    std::weak_ptr<CNetworkState> GetNetworkState() const;
+    std::weak_ptr<CSecurityState> GetSecurityState() const;
+    std::weak_ptr<CSensorState> GetSensorState() const;
     std::weak_ptr<CMessageQueue> GetMessageQueue() const;
     std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
     std::weak_ptr<NodeUtils::ConnectionMap> GetConnections() const;
@@ -89,27 +101,27 @@ private:
     void connect();
 
     // Private Variables
-    std::shared_ptr<CState> m_state;
+    std::shared_ptr<CNodeState> m_spNodeState;
+    std::shared_ptr<CAuthorityState> m_spAuthorityState;
+    std::shared_ptr<CCoordinatorState> m_spCoordinatorState;
+    std::shared_ptr<CNetworkState> m_spNetworkState;
+    std::shared_ptr<CSecurityState> m_spSecurityState;
+    std::shared_ptr<CSensorState> m_spSensorState;
 
     // These classes should be implemented a threadsafe manner
-    std::shared_ptr<CMessageQueue> m_queue;
-    std::shared_ptr<Await::CObjectContainer> m_awaiting;
+    std::shared_ptr<CMessageQueue> m_spQueue;
+    std::shared_ptr<Await::CObjectContainer> m_spAwaiting;
 
     // Commands of the node
-    NodeUtils::CommandMap m_commands;
+    Command::HandlerMap m_commandHandlers;
 
     // Connection of the node
-    std::shared_ptr<NodeUtils::ConnectionMap> m_connections;
-    std::shared_ptr<CControl> m_control;
-    std::shared_ptr<CNotifier> m_notifier;
-    std::shared_ptr<CPeerWatcher> m_watcher;
+    std::shared_ptr<NodeUtils::ConnectionMap> m_spConnections;
+    std::shared_ptr<CControl> m_spControl;
+    std::shared_ptr<CNotifier> m_spNotifier;
+    std::shared_ptr<CPeerWatcher> m_spWatcher;
 
     bool m_initialized;
 };
 
-struct ThreadArgs {
-    CNode* node;
-    Configuration::TConnectionOptions* opts;
-};
-
-void * ConnectionHandler(void *);
+//------------------------------------------------------------------------------------------------

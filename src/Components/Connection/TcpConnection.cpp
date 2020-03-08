@@ -34,7 +34,7 @@ Connection::CTcp::CTcp(
     , m_connection(-1)
     , m_address()
 {
-    printo("[TCP] Creating TCP instance", NodeUtils::PrintType::Connection);
+    NodeUtils::printo("Creating TCP instance", NodeUtils::PrintType::Connection);
 
     auto const bindingComponents = options.GetBindingComponents();
     auto const peerComponents = options.GetBindingComponents();
@@ -68,7 +68,7 @@ Connection::CTcp::~CTcp()
 //------------------------------------------------------------------------------------------------
 void Connection::CTcp::whatami()
 {
-    printo("[TCP] I am a TCP implementation", NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] I am a TCP implementation", NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ void Connection::CTcp::whatami()
 //------------------------------------------------------------------------------------------------
 void Connection::CTcp::Spawn()
 {
-    printo("[TCP] Spawning TCP connection thread", NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] Spawning TCP connection thread", NodeUtils::PrintType::Connection);
     m_worker = std::thread(&CTcp::Worker, this);
 }
 
@@ -117,11 +117,11 @@ void Connection::CTcp::Worker()
 
     switch (m_operation) {
         case NodeUtils::ConnectionOperation::Server: {
-            printo("[TCP] Setting up TCP socket on port " + m_port, NodeUtils::PrintType::Connection);
+            NodeUtils::printo("[TCP] Setting up TCP socket on port " + m_port, NodeUtils::PrintType::Connection);
             SetupTcpSocket(m_port);
         } break;
         case NodeUtils::ConnectionOperation::Client: {
-            printo("[TCP] Connecting TCP client socket to " + m_peerAddress + ":" + m_peerPort, NodeUtils::PrintType::Connection);
+            NodeUtils::printo("[TCP] Connecting TCP client socket to " + m_peerAddress + ":" + m_peerPort, NodeUtils::PrintType::Connection);
             SetupTcpConnection(m_peerAddress, m_peerPort);
         } break;
         default: break;
@@ -141,7 +141,7 @@ void Connection::CTcp::Worker()
                 CMessage const request(*optReceivedRaw);
                 m_messageSink->ForwardMessage(m_id, request);
             } catch (...) {
-                printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::Connection);
+                NodeUtils::printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::Connection);
             }
 
             optReceivedRaw.reset();
@@ -168,7 +168,7 @@ void Connection::CTcp::SetupTcpSocket(NodeUtils::PortNumber const& port)
 {
     // Creating socket file descriptor
     if (m_socket = socket(AF_INET, SOCK_STREAM, 0); m_socket < 0) {
-        printo("[TCP] Socket failed", NodeUtils::PrintType::Connection);
+        NodeUtils::printo("[TCP] Socket failed", NodeUtils::PrintType::Connection);
         return;
     }
 
@@ -176,7 +176,7 @@ void Connection::CTcp::SetupTcpSocket(NodeUtils::PortNumber const& port)
     result += setsockopt(m_socket, SOL_SOCKET, SO_REUSEADDR, &Connection::Tcp::OPT, sizeof(Connection::Tcp::OPT));
     result += setsockopt(m_socket, SOL_SOCKET, SO_REUSEPORT, &Connection::Tcp::OPT, sizeof(Connection::Tcp::OPT));
     if (result) {
-        printo("[TCP] SetSockOpt failed", NodeUtils::PrintType::Connection);
+        NodeUtils::printo("[TCP] SetSockOpt failed", NodeUtils::PrintType::Connection);
         return;
     }
 
@@ -186,12 +186,12 @@ void Connection::CTcp::SetupTcpSocket(NodeUtils::PortNumber const& port)
     m_address.sin_port = htons(portValue);
 
     if (bind(m_socket, reinterpret_cast<sockaddr *>(&m_address), sizeof(m_address)) < 0) {
-        printo("[TCP] Bind failed", NodeUtils::PrintType::Connection);
+        NodeUtils::printo("[TCP] Bind failed", NodeUtils::PrintType::Connection);
         return;
     }
 
     if (listen(m_socket, 30) < 0) {
-        printo("[TCP] Listen failed", NodeUtils::PrintType::Connection);
+        NodeUtils::printo("[TCP] Listen failed", NodeUtils::PrintType::Connection);
         return;
     }
 
@@ -248,7 +248,7 @@ void Connection::CTcp::Send(CMessage const& message)
 {
     std::string pack = message.GetPack();
     std::int32_t bytesSent = ::send(m_connection, pack.c_str(), strlen(pack.c_str()), 0);
-    printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + pack, NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + pack, NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -259,7 +259,7 @@ void Connection::CTcp::Send(CMessage const& message)
 void Connection::CTcp::Send(std::string_view message)
 {
     std::int32_t bytesSent = ::send(m_connection, message.data(), message.size(), 0);
-    printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + message.data(),NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] Sent: (" + std::to_string(bytesSent) + ") " + message.data(),NodeUtils::PrintType::Connection);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -283,7 +283,7 @@ std::optional<std::string> Connection::CTcp::Receive(std::int32_t flag)
     char buffer[Connection::Tcp::BUFFER_SIZE];
     memset(buffer, 0, Connection::Tcp::BUFFER_SIZE);
     std::int32_t bytesRead = read(m_connection, buffer, Connection::Tcp::BUFFER_SIZE);
-    printo("[TCP] Received: " + std::to_string(bytesRead) + " " + std::string(buffer), NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] Received: " + std::to_string(bytesRead) + " " + std::string(buffer), NodeUtils::PrintType::Connection);
 
     return std::string(buffer, strlen(buffer));
 }
@@ -298,7 +298,7 @@ std::string Connection::CTcp::InternalReceive()
     char buffer[Connection::Tcp::BUFFER_SIZE];
     memset(buffer, 0, Connection::Tcp::BUFFER_SIZE);
     std::int32_t bytesRead = read(m_connection, buffer, Connection::Tcp::BUFFER_SIZE);
-    printo("[TCP] Received: (" + std::to_string(bytesRead) + ") " + std::string(buffer), NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] Received: (" + std::to_string(bytesRead) + ") " + std::string(buffer), NodeUtils::PrintType::Connection);
 
     return std::string(buffer, strlen(buffer));
 }
@@ -321,7 +321,7 @@ void Connection::CTcp::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 bool Connection::CTcp::Shutdown()
 {
-    printo("[TCP] Shutting down socket and context", NodeUtils::PrintType::Connection);
+    NodeUtils::printo("[TCP] Shutting down socket and context", NodeUtils::PrintType::Connection);
     // Stop the worker thread from processing the connections
     {
         std::scoped_lock lock(m_mutex);

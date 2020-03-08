@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageTypes.hpp"
 #include "NodeUtils.hpp"
+#include "../Components/Command/CommandDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <zmq.h>
 #include <cmath>
@@ -46,7 +47,7 @@ public:
 	CMessage(
 		NodeUtils::NodeIdType const& sourceId,
 		NodeUtils::NodeIdType const& destinationId,
-		NodeUtils::CommandType command,
+		Command::Type command,
 		std::int8_t phase,
 		std::string_view data,
 		NodeUtils::NetworkNonce nonce,
@@ -55,7 +56,7 @@ public:
 		, m_sourceId(sourceId)
 		, m_destinationId(destinationId)
 		, m_boundAwaitId(awaitId)
-		, m_command(command)
+		, m_commandType(command)
 		, m_phase(phase)
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
@@ -78,7 +79,7 @@ public:
 		, m_sourceId(0)
 		, m_destinationId(0)
 		, m_boundAwaitId({})
-		, m_command(NodeUtils::CommandType::None)
+		, m_commandType(Command::Type::Invalid)
 		, m_phase(0)
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
@@ -97,7 +98,7 @@ public:
 		, m_sourceId(other.m_sourceId)
 		, m_destinationId(other.m_destinationId)
 		, m_boundAwaitId(other.m_boundAwaitId)
-		, m_command(other.m_command)
+		, m_commandType(other.m_commandType)
 		, m_phase(other.m_phase)
 		, m_data(other.m_data)
 		, m_key(other.m_key)
@@ -138,9 +139,9 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	NodeUtils::CommandType GetCommand() const
+	Command::Type GetCommandType() const
 	{
-		return m_command;
+		return m_commandType;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -219,7 +220,7 @@ public:
 		} else {
 			PackChunk(buffer, Message::AwaitBinding::None);
 		}
-		PackChunk(buffer, m_command);
+		PackChunk(buffer, m_commandType);
 		PackChunk(buffer, m_phase);
 		PackChunk(buffer, m_nonce);
 		PackChunk(buffer, static_cast<std::uint16_t>(m_data.size()));
@@ -280,7 +281,7 @@ public:
 			m_boundAwaitId = Message::BoundAwaitId({awaitBinding, awaitId});
 		}
 		
-		UnpackChunk(buffer, position, m_command);
+		UnpackChunk(buffer, position, m_commandType);
 		UnpackChunk(buffer, position, m_phase);
 		UnpackChunk(buffer, position, m_nonce);
 
@@ -470,7 +471,7 @@ private:
 		size += sizeof(m_destinationId);
 		size += sizeof(m_boundAwaitId->first);
 		size += sizeof(m_boundAwaitId->second);
-		size += sizeof(m_command);
+		size += sizeof(m_commandType);
 		size += sizeof(m_phase);
 		size += sizeof(std::uint16_t);
 		size += sizeof(m_nonce);
@@ -486,7 +487,7 @@ private:
 	NodeUtils::NodeIdType m_destinationId;	// ID of the receiving node
 	std::optional<Message::BoundAwaitId> m_boundAwaitId;	// ID bound to the source or destination on a passdown message
 
-	NodeUtils::CommandType m_command;	// Command type to be run
+	Command::Type m_commandType;	// Command type to be run
 	std::uint8_t m_phase;	// Phase of the Command state
 
 	Message::Buffer m_data;	// Primary message content

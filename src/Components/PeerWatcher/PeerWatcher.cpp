@@ -5,7 +5,6 @@
 #include "PeerWatcher.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../Connection/Connection.hpp"
-#include "../../State.hpp"
 #include "../../Utilities/Message.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -22,10 +21,8 @@ constexpr std::chrono::seconds timeout = std::chrono::seconds(10);
 //------------------------------------------------------------------------------------------------
 
 CPeerWatcher::CPeerWatcher(
-    std::weak_ptr<CState> const& state,
-    std::weak_ptr<NodeUtils::ConnectionMap> const& peers)
-    : m_state(state)
-    , m_watched(peers)
+    std::weak_ptr<NodeUtils::ConnectionMap> const& wpPeers)
+    : m_wpWatched(wpPeers)
     , m_lastCheckTimePoint()
     , m_requiredUpdateTimePoint()
     , m_process(true)
@@ -89,7 +86,7 @@ void CPeerWatcher::watch()
             }
         }
 
-        if (auto const spWatched = m_watched.lock()) {
+        if (auto const spWatched = m_wpWatched.lock()) {
             for (auto itr = spWatched->begin() ; itr != spWatched->end(); ++itr) {
                 NodeUtils::TimePoint updateTimePoint = itr->second->GetUpdateClock();
                 if (updateTimePoint < m_requiredUpdateTimePoint) {

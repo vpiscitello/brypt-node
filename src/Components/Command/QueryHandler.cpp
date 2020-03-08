@@ -8,6 +8,9 @@
 #include "../Connection/Connection.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
 #include "../Notifier/Notifier.hpp"
+#include "../BryptNode/BryptNode.hpp"
+#include "../BryptNode/NodeState.hpp"
+#include "../BryptNode/NetworkState.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <set>
@@ -60,8 +63,8 @@ struct Json::TReading
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Command::CQuery::CQuery(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::Query)
+Command::CQueryHandler::CQueryHandler(CBryptNode& instance)
+    : IHandler(Command::Type::Query, instance)
 {
 }
 
@@ -71,22 +74,22 @@ Command::CQuery::CQuery(CNode& instance, std::weak_ptr<CState> const& state)
 // Description: Information message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQuery::HandleMessage(CMessage const& message)
+bool Command::CQueryHandler::HandleMessage(CMessage const& message)
 {
     bool status = false;
 
-    auto const phase = static_cast<CQuery::Phase>(message.GetPhase());
+    auto const phase = static_cast<CQueryHandler::Phase>(message.GetPhase());
     switch (phase) {
-        case CQuery::Phase::Flood: {
+        case CQueryHandler::Phase::Flood: {
             status = FloodHandler(message);
         } break;
-        case CQuery::Phase::Respond: {
+        case CQueryHandler::Phase::Respond: {
             status = RespondHandler(message);
         } break;
-        case CQuery::Phase::Aggregate: {
+        case CQueryHandler::Phase::Aggregate: {
             status = AggregateHandler(message);
         } break;
-        case CQuery::Phase::Close: {
+        case CQueryHandler::Phase::Close: {
             status = CloseHandler();
         } break;
         default: break;
@@ -101,20 +104,20 @@ bool Command::CQuery::HandleMessage(CMessage const& message)
 // Description: Handles the flood phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQuery::FloodHandler(CMessage const& message)
+bool Command::CQueryHandler::FloodHandler(CMessage const& message)
 {
     printo("Sending notification for Query request", NodeUtils::PrintType::Command);
 
     // Get the information pertaining to the node itself
     NodeUtils::NodeIdType id = 0;
-    if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
-        id = selfState->GetId();
+    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
+        id = spNodeState->GetId();
     }
 
     // Get the information pertaining to the node's network
     std::set<NodeUtils::NodeIdType> peerNames;
-    if (auto const networkState = m_state.lock()->GetNetworkState().lock()) {
-        peerNames = networkState->GetPeerNames();
+    if (auto const spNetworkState = m_instance.GetNetworkState().lock()) {
+        peerNames = spNetworkState->GetPeerNames();
     }
     
     NodeUtils::NetworkNonce const nonce = 0;
@@ -127,7 +130,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
         // Create a reading message
         CMessage const readingMessage(
             id, message.GetSourceId(),
-            NodeUtils::CommandType::Query, static_cast<std::uint8_t>(CQuery::Phase::Aggregate),
+            Command::Type::Query, static_cast<std::uint8_t>(CQueryHandler::Phase::Aggregate),
             local::GenerateReading(), nonce,
             Message::BoundAwaitId(
                 {Message::AwaitBinding::Destination, awaitKey}));
@@ -138,7 +141,7 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
     // Create a notice message for the network
     CMessage const notice(
         id, 0xFFFFFFFF,
-        NodeUtils::CommandType::Query, static_cast<std::uint8_t>(Phase::Respond),
+        Command::Type::Query, static_cast<std::uint8_t>(Phase::Respond),
         "Request for Sensor Readings.", nonce,
         Message::BoundAwaitId(
             {Message::AwaitBinding::Source, awaitKey}));
@@ -157,12 +160,12 @@ bool Command::CQuery::FloodHandler(CMessage const& message)
 // Description: Handles the respond phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQuery::RespondHandler(CMessage const& message)
+bool Command::CQueryHandler::RespondHandler(CMessage const& message)
 {
     printo("Building response for Query request", NodeUtils::PrintType::Command);
     NodeUtils::NodeIdType id = 0;
-    if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
-        id = selfState->GetId();
+    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
+        id = spNodeState->GetId();
     }
 
     NodeUtils::NodeIdType destinationId = message.GetSourceId();
@@ -173,7 +176,7 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
     CMessage const request(
         id,
         destinationId,
-        NodeUtils::CommandType::Query,
+        Command::Type::Query,
         static_cast<std::uint8_t>(Phase::Aggregate),
         local::GenerateReading(),
         nonce,
@@ -204,7 +207,7 @@ bool Command::CQuery::RespondHandler(CMessage const& message)
 // Description: Handles the aggregate phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQuery::AggregateHandler(CMessage const& message)
+bool Command::CQueryHandler::AggregateHandler(CMessage const& message)
 {
     printo("Pushing response to AwaitObject", NodeUtils::PrintType::Command);
     if (auto const awaiting = m_instance.GetAwaiting().lock()) {
@@ -213,8 +216,8 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
 
     // Need to track encryption keys and nonces
     NodeUtils::NodeIdType id = 0;
-    if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
-        id = selfState->GetId();
+    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
+        id = spNodeState->GetId();
     }
 
     NodeUtils::NodeIdType const& destinationId = message.GetSourceId();
@@ -222,7 +225,7 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
     CMessage const response(
         id,
         destinationId,
-        NodeUtils::CommandType::Query,
+        Command::Type::Query,
         static_cast<std::uint8_t>(Phase::Close),
         "Message Response",
         nonce);
@@ -239,7 +242,7 @@ bool Command::CQuery::AggregateHandler(CMessage const& message)
 // Description: Handles the close phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQuery::CloseHandler()
+bool Command::CQueryHandler::CloseHandler()
 {
     return false;
 }

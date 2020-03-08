@@ -9,23 +9,54 @@
 #include "InformationHandler.hpp"
 #include "QueryHandler.hpp"
 #include "TransformHandler.hpp"
+#include "../BryptNode/BryptNode.hpp"
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Connecting to a new network or peer
 //------------------------------------------------------------------------------------------------
-std::unique_ptr<Command::CHandler> Command::Factory(
-    NodeUtils::CommandType command,
-    CNode& instance,
-    std::weak_ptr<CState> const& state)
+
+std::unique_ptr<Command::IHandler> Command::Factory(
+    Command::Type commandType,
+    CBryptNode& instance)
 {
-    switch (command) {
-    	case NodeUtils::CommandType::Connect: return std::make_unique<CConnect>(instance, state);
-    	case NodeUtils::CommandType::Election: return std::make_unique<CElection>(instance, state);
-    	case NodeUtils::CommandType::Information: return std::make_unique<CInformation>(instance, state);
-    	case NodeUtils::CommandType::Query: return std::make_unique<CQuery>(instance, state);
-    	case NodeUtils::CommandType::Transform: return std::make_unique<CTransform>(instance, state);
-    	case NodeUtils::CommandType::None: return nullptr;
+    switch (commandType) {
+    	case Command::Type::Connect:
+			return std::make_unique<CConnectHandler>(instance);
+
+    	case Command::Type::Election:
+			return std::make_unique<CElectionHandler>(instance);
+
+    	case Command::Type::Information:
+			return std::make_unique<CInformationHandler>(instance);
+
+    	case Command::Type::Query:
+			return std::make_unique<CQueryHandler>(instance);
+
+    	case Command::Type::Transform:
+			return std::make_unique<CTransformHandler>(instance);
+
+    	case Command::Type::Invalid:
+		default:
+			return {};
     }
-	return nullptr;
+}
+
+//------------------------------------------------------------------------------------------------
+// IHandler implementation
+//------------------------------------------------------------------------------------------------
+
+Command::IHandler::IHandler(
+	Command::Type type,
+	CBryptNode& instance)
+	: m_type(type)
+	, m_instance(instance)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+Command::Type Command::IHandler::GetType() const
+{
+	return m_type;
 }
 
 //------------------------------------------------------------------------------------------------

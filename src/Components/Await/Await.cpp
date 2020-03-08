@@ -96,7 +96,7 @@ std::optional<CMessage> Await::CMessageObject::GetResponse()
 
     m_optAggregateResponse = CMessage(
         m_request.GetDestinationId(), m_request.GetSourceId(),
-        m_request.GetCommand(), m_request.GetPhase() + 1,
+        m_request.GetCommandType(), m_request.GetPhase() + 1,
         data, m_request.GetNonce() + 1 );
 
     // After the aggregate response has been generated the tracked responses can be 

@@ -20,6 +20,7 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
+BRYPTNODEDIR = BryptNode
 AWAITDIR = Components/Await
 COMMANDDIR = Components/Command
 CONNECTIONDIR = Components/Connection
@@ -29,14 +30,14 @@ MESSAGEQUEUEDIR = Components/MessageQueue
 PEERWATCHERDIR = Components/PeerWatcher
 NOTIFIERDIR = Components/Notifier
 
-MODULES = $(SRCDIR) \
+MODULES = $(BRYPTNODEDIR) \
 $(AWAITDIR) \
 $(COMMANDDIR) \
 $(CONNECTIONDIR) \
 $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
 $(MESSAGEQUEUEDIR) \
-$(PEERWATCHERDIR)\
+$(PEERWATCHERDIR) \
 $(NOTIFIERDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))

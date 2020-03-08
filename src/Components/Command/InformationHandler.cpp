@@ -6,6 +6,10 @@
 //------------------------------------------------------------------------------------------------
 #include "../Await/Await.hpp"
 #include "../Connection/Connection.hpp"
+#include "../BryptNode/BryptNode.hpp"
+#include "../BryptNode/NodeState.hpp"
+#include "../BryptNode/CoordinatorState.hpp"
+#include "../BryptNode/NetworkState.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------
@@ -16,7 +20,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-std::string GenerateNodeInfo(CNode const& node, std::weak_ptr<CState> const& state);
+std::string GenerateNodeInfo(CBryptNode const& node);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -77,8 +81,8 @@ struct Json::TNodeInfo
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Command::CInformation::CInformation(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::Information)
+Command::CInformationHandler::CInformationHandler(CBryptNode& instance)
+    : IHandler(Command::Type::Information, instance)
 {
 }
 
@@ -88,11 +92,11 @@ Command::CInformation::CInformation(CNode& instance, std::weak_ptr<CState> const
 // Description: Information message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformation::HandleMessage(CMessage const& message)
+bool Command::CInformationHandler::HandleMessage(CMessage const& message)
 {
     bool status = false;
 
-    auto const phase = static_cast<CInformation::Phase>(message.GetPhase());
+    auto const phase = static_cast<CInformationHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Flood: {
             status = FloodHandler(message);
@@ -115,14 +119,14 @@ bool Command::CInformation::HandleMessage(CMessage const& message)
 // Description: Handles the flood phase for the Information type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformation::FloodHandler(CMessage const& message)
+bool Command::CInformationHandler::FloodHandler(CMessage const& message)
 {
     printo("Building response for Information request", NodeUtils::PrintType::Command);
     
     // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = 0; 
-    if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
-        id = selfState->GetId();
+    NodeUtils::NodeIdType id = 0;
+    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
+        id = spNodeState->GetId();
     }
 
     NodeUtils::NetworkNonce const nonce = 0;
@@ -131,12 +135,13 @@ bool Command::CInformation::FloodHandler(CMessage const& message)
         auto const awaitKey = awaiting->PushRequest(message, id);
 
         CMessage const infoMessage(
-            id, message.GetSourceId(),
-            NodeUtils::CommandType::Information,
+            id,
+            message.GetSourceId(),
+            Command::Type::Information,
             static_cast<std::uint8_t>(Phase::Respond),
-            local::GenerateNodeInfo(m_instance, m_state), nonce,
-            Message::BoundAwaitId(
-                {Message::AwaitBinding::Destination, awaitKey}));
+            local::GenerateNodeInfo(m_instance),
+            nonce,
+            Message::BoundAwaitId({Message::AwaitBinding::Destination, awaitKey}));
 
         awaiting->PushResponse(infoMessage);
     }
@@ -152,7 +157,7 @@ bool Command::CInformation::FloodHandler(CMessage const& message)
 // Description: Handles the respond phase for the Information type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformation::RespondHandler()
+bool Command::CInformationHandler::RespondHandler()
 {
     return false;
 }
@@ -163,7 +168,7 @@ bool Command::CInformation::RespondHandler()
 // Description: Handles the close phase for the Information type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformation::CloseHandler()
+bool Command::CInformationHandler::CloseHandler()
 {
     return false;
 }
@@ -174,7 +179,7 @@ bool Command::CInformation::CloseHandler()
 // Description: This constructs a JSON object for each of the messages from each of the connections.
 // Returns: The JSON structure as a string.
 //------------------------------------------------------------------------------------------------
-std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CState> const& state)
+std::string local::GenerateNodeInfo(CBryptNode const& instance)
 {
     std::vector<Json::TNodeInfo> nodesInfo;
 
@@ -182,38 +187,44 @@ std::string local::GenerateNodeInfo(CNode const& m_instance, std::weak_ptr<CStat
     NodeUtils::NodeIdType id = 0; 
     NodeUtils::ClusterIdType cluster = 0;
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
-    if (auto const selfState = state.lock()->GetSelfState().lock()) {
-        id = selfState->GetId();
-        cluster = selfState->GetCluster();
-        operation = selfState->GetOperation();
+    if (auto const spNodeState = instance.GetNodeState().lock()) {
+        id = spNodeState->GetId();
+        cluster = spNodeState->GetCluster();
+        operation = spNodeState->GetOperation();
     }
 
     // Get the information pertaining to the node's coordinator
     NodeUtils::NodeIdType coordinatorId = 0; 
-    if (auto const coordinatorState = state.lock()->GetCoordinatorState().lock()) {
-        coordinatorId = coordinatorState->GetId();
+    if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
+        coordinatorId = spCoordinatorState->GetId();
     }
 
     // Get the information pertaining to the node's network
     std::size_t knownNodes = 0;
-    if (auto const networkState = state.lock()->GetNetworkState().lock()) {
-        knownNodes = networkState->GetKnownNodes();
+    if (auto const spNetworkState = instance.GetNetworkState().lock()) {
+        knownNodes = spNetworkState->GetKnownNodes();
     }
 
     nodesInfo.emplace_back(
         id, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
         "IEEE 802.11", NodeUtils::GetSystemTimestamp());
 
-    if (auto const connections = m_instance.GetConnections().lock()) {
-        for (auto itr = connections->begin(); itr != connections->end(); ++itr) {
-            std::string const timestamp = NodeUtils::TimePointToString(itr->second->GetUpdateClock());
+    if (auto const spConnections = instance.GetConnections().lock()) {
+        for (auto const& [id, spConnection] : *spConnections) {
+            assert(spConnection);
+            std::string const timestamp = NodeUtils::TimePointToString(spConnection->GetUpdateClock());
             nodesInfo.emplace_back(
-                itr->second->GetPeerName(), cluster, id, 0, "node",
-                itr->second->GetProtocolType(), timestamp);
+                spConnection->GetPeerName(),
+                cluster,
+                id,
+                0,
+                "node",
+                spConnection->GetProtocolType(),
+                timestamp);
         }
     }
 
-    std::string data = iod::json_vector(
+    std::string const data = iod::json_vector(
         s::id, s::cluster, s::coordinator, s::neighbor_count,
         s::designation, s::technologies, s::update_timestamp).encode(nodesInfo);
 

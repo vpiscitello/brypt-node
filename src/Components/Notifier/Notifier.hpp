@@ -11,7 +11,8 @@
 #include <string_view>
 #include <zmq.hpp>
 //------------------------------------------------------------------------------------------------
-class CState;
+class CNodeState;
+class CCoordinatorState;
 class CMessage;
 class CConnection;
 //------------------------------------------------------------------------------------------------
@@ -31,8 +32,9 @@ constexpr std::string_view NodePrefix = "node.";
 class CNotifier {
 public:
     CNotifier(
-        std::shared_ptr<CState> const& state,
-        std::weak_ptr<NodeUtils::ConnectionMap> const& connections);
+        NodeUtils::PortNumber port,
+        std::weak_ptr<CCoordinatorState> const& wpCoordinatorState,
+        std::weak_ptr<NodeUtils::ConnectionMap> const& wpConnections);
 
     ~CNotifier()
     {
@@ -56,8 +58,8 @@ private:
         NodeUtils::NotificationType type,
         std::optional<NodeUtils::NodeIdType> const& id);
 
-    std::shared_ptr<CState> m_state;
-    std::weak_ptr<NodeUtils::ConnectionMap> m_connections;
+    std::weak_ptr<CCoordinatorState> m_wpCoordinatorState;
+    std::weak_ptr<NodeUtils::ConnectionMap> m_wpConnections;
 
     zmq::context_t m_context;
     zmq::socket_t m_publisher;

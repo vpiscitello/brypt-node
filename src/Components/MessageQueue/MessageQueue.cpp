@@ -27,7 +27,7 @@ bool CMessageQueue::PushOutgoingMessage(
 	NodeUtils::NodeIdType id,
 	CMessage const& message)
 {
-	NodeUtils::printo("Message queued for " + std::to_string(id), NodeUtils::PrintType::MessageQueue);
+	NodeUtils::printo("Messages queued for " + std::to_string(id), NodeUtils::PrintType::MessageQueue);
 
 	std::scoped_lock lock(m_callbacksMutex);
 	// Attempt to find a mapped callback for the node in the known callbacks
