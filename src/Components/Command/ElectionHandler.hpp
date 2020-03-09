@@ -10,14 +10,13 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Elections
 //------------------------------------------------------------------------------------------------
-class Command::CElection : public Command::CHandler {
+class Command::CElectionHandler : public Command::IHandler {
 public:
-    CElection(CNode& instance, std::weak_ptr<CState> const& state);
-    ~CElection() override {};
+    explicit CElectionHandler(CBryptNode& instance);
 
-    // CHandler{
+    // IHandler{
     bool HandleMessage(CMessage const& message) override;
-    // }CHandler
+    // }IHandler
 
     bool ProbeHandler();
     bool PrecommitHandler();

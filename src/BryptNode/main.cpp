@@ -2,13 +2,13 @@
 // File: Test.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "Node.hpp"
-#include "Configuration/Configuration.hpp"
-#include "Configuration/ConfigurationManager.hpp"
-#include "Utilities/Message.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "BryptNode.hpp"
+#include "../Configuration/Configuration.hpp"
+#include "../Configuration/ConfigurationManager.hpp"
+#include "../Utilities/Message.hpp"
+#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#include "Libraries/spdlog/spdlog.h"
+#include "../Libraries/spdlog/spdlog.h"
 //------------------------------------------------------------------------------------------------
 #include <fcntl.h>
 #include <unistd.h>
@@ -54,7 +54,7 @@ void ParseArguments(
         exit(1);
     }
 
-    for(std::int32_t idx = 0; idx < argc; ++idx) {
+    for (std::int32_t idx = 0; idx < argc; ++idx) {
         args.push_back(std::string(argv[idx]));
     }
 
@@ -62,7 +62,7 @@ void ParseArguments(
     {
         {"--root", NodeUtils::DeviceOperation::Root},
         {"--branch", NodeUtils::DeviceOperation::Branch},
-        {"--leaf", NodeUtils::DeviceOperation::Lead}
+        {"--leaf", NodeUtils::DeviceOperation::Leaf}
     };
 
     for (auto const [key, value] : deviceOperationMap) {
@@ -82,11 +82,19 @@ std::int32_t main(std::int32_t argc, char** argv)
     Configuration::CManager configurationManager;
     std::optional<Configuration::TSettings> optSettings = configurationManager.Parse();
     if (optSettings) {
-        ParseArguments(argc, argv, *optSettings);
-        optSettings->connections[0].operation = options.operation;
-        
-        CNode alpha(*optSettings);
-        alpha.Startup();
+        Configuration::TSettings& settings = *optSettings;
+        ParseArguments(argc, argv, settings);
+        if (!settings.connections.empty()) {
+            if (options.operation != NodeUtils::ConnectionOperation::None) {
+                settings.connections[0].operation = options.operation;
+                
+                CBryptNode alpha(*optSettings);
+                alpha.Startup();
+            } else {
+                std::cout << "Node Setup must be provided and device operation type!" << std::endl;
+                exit(-1);
+            }
+        }
     } else {
         std::cout << "Node configuration settings could not be parsed!" << std::endl;
         exit(1);

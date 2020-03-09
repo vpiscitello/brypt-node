@@ -6,6 +6,9 @@
 //------------------------------------------------------------------------------------------------
 #include "../Control/Control.hpp"
 #include "../Connection/Connection.hpp"
+#include "../BryptNode/BryptNode.hpp"
+#include "../BryptNode/NetworkState.hpp"
+#include "../BryptNode/NodeState.hpp"
 #include <chrono>
 #include <thread>
 //------------------------------------------------------------------------------------------------
@@ -13,8 +16,8 @@
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Command::CConnect::CConnect(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::Connect)
+Command::CConnectHandler::CConnectHandler(CBryptNode& instance)
+    : IHandler(Command::Type::Connect, instance)
 {
 }
 
@@ -24,11 +27,11 @@ Command::CConnect::CConnect(CNode& instance, std::weak_ptr<CState> const& state)
 // Description: Connect message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnect::HandleMessage(CMessage const& message)
+bool Command::CConnectHandler::HandleMessage(CMessage const& message)
 {
     bool status = false;
 
-    auto const phase = static_cast<CConnect::Phase>(message.GetPhase());
+    auto const phase = static_cast<CConnectHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Contact: {
             status = ContactHandler();
@@ -55,7 +58,7 @@ bool Command::CConnect::HandleMessage(CMessage const& message)
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnect::ContactHandler()
+bool Command::CConnectHandler::ContactHandler()
 {
     return false;
 }
@@ -66,14 +69,14 @@ bool Command::CConnect::ContactHandler()
 // Description: Handles the join phase for the Connect type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnect::JoinHandler(CMessage const& message)
+bool Command::CConnectHandler::JoinHandler(CMessage const& message)
 {
     printo("Setting up full connection", NodeUtils::PrintType::Command);
 
     // Get the new port to host the connection on
     NodeUtils::PortNumber port = std::string();
-    if (auto const selfState = m_state.lock()->GetSelfState().lock()) {
-        port = std::to_string(selfState->GetNextPort());
+    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
+        port = std::to_string(spNodeState->GetNextPort());
     }
 
     // Get the requested type of connection
@@ -88,8 +91,8 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
         m_instance.SetupFullConnection(message.GetSourceId(), port, technology);
 
     // Push the node's id into the network peer names set
-    if (auto const networkState = m_state.lock()->GetNetworkState().lock()) {
-        networkState->PushPeerName(message.GetSourceId());
+    if (auto const spNetworkState = m_instance.GetNetworkState().lock()) {
+        spNetworkState->PushPeerName(message.GetSourceId());
     }
 
     // Push the new connection into the map of managed connections
@@ -117,7 +120,7 @@ bool Command::CConnect::JoinHandler(CMessage const& message)
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnect::CloseHandler()
+bool Command::CConnectHandler::CloseHandler()
 {
     return false;
 }

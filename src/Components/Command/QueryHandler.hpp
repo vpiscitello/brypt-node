@@ -10,14 +10,13 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Sensor readings
 //------------------------------------------------------------------------------------------------
-class Command::CQuery : public Command::CHandler {
+class Command::CQueryHandler : public Command::IHandler {
 public:
-    CQuery(CNode& instance, std::weak_ptr<CState> const& state);
-    ~CQuery() override {};
+    explicit CQueryHandler(CBryptNode& instance);
 
-    // CHandler{
+    // IHandler{
     bool HandleMessage(CMessage const& message) override;
-    // }CHandler
+    // }IHandler
 
     bool FloodHandler(CMessage const& message);
     bool RespondHandler(CMessage const& message);

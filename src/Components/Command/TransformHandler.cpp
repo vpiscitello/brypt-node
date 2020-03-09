@@ -3,14 +3,15 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "TransformHandler.hpp"
+#include "../BryptNode/BryptNode.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-Command::CTransform::CTransform(CNode& instance, std::weak_ptr<CState> const& state)
-    : CHandler(instance, state, NodeUtils::CommandType::Transform)
+Command::CTransformHandler::CTransformHandler(CBryptNode& instance)
+    : IHandler(Command::Type::Transform, instance)
 {
 }
 
@@ -20,11 +21,11 @@ Command::CTransform::CTransform(CNode& instance, std::weak_ptr<CState> const& st
 // Description: Transform message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CTransform::HandleMessage(CMessage const& message)
+bool Command::CTransformHandler::HandleMessage(CMessage const& message)
 {
     bool status = false;
 
-    auto const phase = static_cast<CTransform::Phase>(message.GetPhase());
+    auto const phase = static_cast<CTransformHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Information: {
             status = InfoHandler();
@@ -50,7 +51,7 @@ bool Command::CTransform::HandleMessage(CMessage const& message)
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CTransform::InfoHandler()
+bool Command::CTransformHandler::InfoHandler()
 {
     return false;
 }
@@ -61,7 +62,7 @@ bool Command::CTransform::InfoHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CTransform::HostHandler()
+bool Command::CTransformHandler::HostHandler()
 {
     return false;
 }
@@ -72,7 +73,7 @@ bool Command::CTransform::HostHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CTransform::ConnectHandler()
+bool Command::CTransformHandler::ConnectHandler()
 {
     return false;
 }
@@ -83,7 +84,7 @@ bool Command::CTransform::ConnectHandler()
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CTransform::CloseHandler()
+bool Command::CTransformHandler::CloseHandler()
 {
     return false;
 }

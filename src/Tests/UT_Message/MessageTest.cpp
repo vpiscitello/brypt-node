@@ -23,7 +23,7 @@ namespace test {
 
 constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
 constexpr NodeUtils::NodeIdType ServerId = 0xFFFFFFFF;
-constexpr NodeUtils::CommandType Command = NodeUtils::CommandType::Election;
+constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
@@ -44,7 +44,7 @@ TEST(CMessageSuite, BaseMessageParameterConstructorTest)
     EXPECT_EQ(message.GetSourceId(), test::ClientId);
     EXPECT_EQ(message.GetDestinationId(), test::ServerId);
     EXPECT_FALSE(message.GetAwaitId());
-    EXPECT_EQ(message.GetCommand(), test::Command);
+    EXPECT_EQ(message.GetCommandType(), test::Command);
     EXPECT_EQ(message.GetPhase(), test::RequestPhase);
     EXPECT_EQ(message.GetNonce(), test::Nonce);
     EXPECT_GT(message.GetSystemTimePoint(), NodeUtils::TimePoint());
@@ -74,7 +74,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_EQ(sourceBoundMessage.GetSourceId(), test::ClientId);
     EXPECT_EQ(sourceBoundMessage.GetDestinationId(), test::ServerId);
     EXPECT_EQ(sourceBoundMessage.GetAwaitId(), awaitKey);
-    EXPECT_EQ(sourceBoundMessage.GetCommand(), test::Command);
+    EXPECT_EQ(sourceBoundMessage.GetCommandType(), test::Command);
     EXPECT_EQ(sourceBoundMessage.GetPhase(), test::RequestPhase);
     EXPECT_EQ(sourceBoundMessage.GetNonce(), test::Nonce);
     EXPECT_GT(sourceBoundMessage.GetSystemTimePoint(), NodeUtils::TimePoint());
@@ -99,7 +99,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_EQ(destinationBoundMessage.GetSourceId(), test::ClientId);
     EXPECT_EQ(destinationBoundMessage.GetDestinationId(), test::ServerId);
     EXPECT_EQ(destinationBoundMessage.GetAwaitId(), awaitKey);
-    EXPECT_EQ(destinationBoundMessage.GetCommand(), test::Command);
+    EXPECT_EQ(destinationBoundMessage.GetCommandType(), test::Command);
     EXPECT_EQ(destinationBoundMessage.GetPhase(), test::RequestPhase);
     EXPECT_EQ(destinationBoundMessage.GetNonce(), test::Nonce);
     EXPECT_GT(destinationBoundMessage.GetSystemTimePoint(), NodeUtils::TimePoint());
@@ -134,7 +134,7 @@ TEST(CMessageSuite, BaseMessagePackConstructorTest)
     EXPECT_EQ(baseMessage.GetSourceId(), packMessage.GetSourceId());
     EXPECT_EQ(baseMessage.GetDestinationId(), packMessage.GetDestinationId());
     EXPECT_FALSE(baseMessage.GetAwaitId());
-    EXPECT_EQ(baseMessage.GetCommand(), packMessage.GetCommand());
+    EXPECT_EQ(baseMessage.GetCommandType(), packMessage.GetCommandType());
     EXPECT_EQ(baseMessage.GetPhase(), packMessage.GetPhase());
     EXPECT_EQ(baseMessage.GetNonce(), packMessage.GetNonce());
     EXPECT_GT(baseMessage.GetSystemTimePoint(), packMessage.GetSystemTimePoint());
@@ -166,7 +166,7 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
     EXPECT_EQ(boundMessage.GetSourceId(), packMessage.GetSourceId());
     EXPECT_EQ(boundMessage.GetDestinationId(), packMessage.GetDestinationId());
     EXPECT_EQ(boundMessage.GetAwaitId(), packMessage.GetAwaitId());
-    EXPECT_EQ(boundMessage.GetCommand(), packMessage.GetCommand());
+    EXPECT_EQ(boundMessage.GetCommandType(), packMessage.GetCommandType());
     EXPECT_EQ(boundMessage.GetPhase(), packMessage.GetPhase());
     EXPECT_EQ(boundMessage.GetNonce(), packMessage.GetNonce());
     EXPECT_GT(boundMessage.GetSystemTimePoint(), packMessage.GetSystemTimePoint());

@@ -10,14 +10,13 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Transforming Node type
 //------------------------------------------------------------------------------------------------
-class Command::CTransform : public Command::CHandler {
+class Command::CTransformHandler : public Command::IHandler {
 public:
-    CTransform(CNode& instance, std::weak_ptr<CState> const& state);
-    ~CTransform() override {};
+    explicit CTransformHandler(CBryptNode& instance);
 
-    // CHandler{
+    // IHandler{
     bool HandleMessage(CMessage const& message) override;
-    // }CHandler
+    // }IHandler
 
     bool InfoHandler();
     bool HostHandler();

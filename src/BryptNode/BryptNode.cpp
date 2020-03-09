@@ -1,19 +1,24 @@
 //------------------------------------------------------------------------------------------------
-// File: Node.hpp
+// File: BryptNode.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "Node.hpp"
+#include "BryptNode.hpp"
 //------------------------------------------------------------------------------------------------
-#include "State.hpp"
-#include "Components/Await/Await.hpp"
-#include "Components/Command/Handler.hpp"
-#include "Components/Connection/Connection.hpp"
-#include "Components/Control/Control.hpp"
-#include "Components/MessageQueue/MessageQueue.hpp"
-#include "Components/Notifier/Notifier.hpp"
-#include "Components/PeerWatcher/PeerWatcher.hpp"
-#include "Utilities/Message.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "AuthorityState.hpp"
+#include "CoordinatorState.hpp"
+#include "NetworkState.hpp"
+#include "NodeState.hpp"
+#include "SecurityState.hpp"
+#include "SensorState.hpp"
+#include "../Components/Await/Await.hpp"
+#include "../Components/Command/Handler.hpp"
+#include "../Components/Connection/Connection.hpp"
+#include "../Components/Control/Control.hpp"
+#include "../Components/MessageQueue/MessageQueue.hpp"
+#include "../Components/Notifier/Notifier.hpp"
+#include "../Components/PeerWatcher/PeerWatcher.hpp"
+#include "../Utilities/Message.hpp"
+#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -31,8 +36,8 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 void SimulateClient(
-    std::shared_ptr<CState> const& state,
-    NodeUtils::CommandMap const& commands,
+    NodeUtils::NodeIdType const& id,
+    Command::HandlerMap const& commandHandlers,
     bool activated);
 
 //------------------------------------------------------------------------------------------------
@@ -44,53 +49,77 @@ void SimulateClient(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-CNode::CNode(Configuration::TSettings const& settings)
-    : m_state(std::make_shared<CState>(settings))
-    , m_queue(std::make_shared<CMessageQueue>())
-    , m_awaiting(std::make_shared<Await::CObjectContainer>())
-    , m_commands()
-    , m_connections()
-    , m_control(std::make_shared<CControl>(
-        m_state,
-        m_queue.get(),
-        m_connections))
-    , m_notifier(std::make_shared<CNotifier>(m_state, m_connections))
-    , m_watcher(std::make_shared<CPeerWatcher>(m_state, m_connections))
+CBryptNode::CBryptNode(Configuration::TSettings const& settings)
+    : m_spNodeState()
+    , m_spAuthorityState()
+    , m_spCoordinatorState()
+    , m_spNetworkState()
+    , m_spSecurityState()
+    , m_spSensorState()
+    , m_spQueue(std::make_shared<CMessageQueue>())
+    , m_spAwaiting(std::make_shared<Await::CObjectContainer>())
+    , m_commandHandlers()
+    , m_spConnections()
+    , m_spControl()
+    , m_spNotifier()
+    , m_spWatcher()
     , m_initialized(false)
 {
-    if (settings.connections[0].operation == NodeUtils::ConnectionOperation::None) {
-        std::cout << "Node Setup must be provided and device operation type!" << std::endl;
-        exit(-1);
-    }
+    // Initialize state from settings.
+    m_spAuthorityState = std::make_shared<CAuthorityState>(settings.security.central_authority);
+    m_spCoordinatorState = std::make_shared<CCoordinatorState>(
+        settings.connections[0].technology,
+        settings.connections[0].GetEntryComponents());
+    m_spNetworkState = std::make_shared<CNetworkState>();
+    m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);
+    m_spNodeState = std::make_shared<CNodeState>(
+        settings.connections[0].interface,
+        settings.connections[0].GetBindingComponents(),
+        settings.details.operation,
+        std::set<NodeUtils::TechnologyType>{settings.connections[0].technology});
+    m_spSensorState = std::make_shared<CSensorState>();
+
+    // initialize control
+    m_spControl = std::make_shared<CControl>(
+        m_spNodeState,
+        m_spQueue.get(),
+        m_spConnections);
+
+    // initialize notifier
+    NodeUtils::PortNumber const port = m_spNodeState->GetPublisherPort();
+    m_spNotifier = std::make_shared<CNotifier>(port, m_spCoordinatorState, m_spConnections);
+
+    // initialize peer watcher
+    m_spWatcher = std::make_shared<CPeerWatcher>(m_spConnections);
 
     std::cout << "\n== Setting up Brypt Node\n";
 
-    m_commands.emplace(
-        NodeUtils::CommandType::Information,
-        Command::Factory(NodeUtils::CommandType::Information, *this, m_state));
+    m_commandHandlers.emplace(
+        Command::Type::Information,
+        Command::Factory(Command::Type::Information, *this));
 
-    m_commands.emplace(
-        NodeUtils::CommandType::Query,
-        Command::Factory(NodeUtils::CommandType::Query, *this, m_state));
+    m_commandHandlers.emplace(
+        Command::Type::Query,
+        Command::Factory(Command::Type::Query, *this));
 
-    m_commands.emplace(
-        NodeUtils::CommandType::Election,
-        Command::Factory(NodeUtils::CommandType::Election, *this, m_state));
+    m_commandHandlers.emplace(
+        Command::Type::Election,
+        Command::Factory(Command::Type::Election, *this));
 
-    m_commands.emplace(
-        NodeUtils::CommandType::Transform,
-        Command::Factory(NodeUtils::CommandType::Transform, *this, m_state));
+    m_commandHandlers.emplace(
+        Command::Type::Transform,
+        Command::Factory(Command::Type::Transform, *this));
 
-    m_commands.emplace(
-        NodeUtils::CommandType::Connect,
-        Command::Factory(NodeUtils::CommandType::Connect, *this, m_state));
+    m_commandHandlers.emplace(
+        Command::Type::Connect,
+        Command::Factory(Command::Type::Connect, *this));
 
     m_initialized = true;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNode::~CNode()
+CBryptNode::~CBryptNode()
 {
 }
 
@@ -99,17 +128,13 @@ CNode::~CNode()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::Startup()
+void CBryptNode::Startup()
 {
     if (m_initialized == false) {
         throw std::runtime_error("Node instance must be setup before starting!");
     }
 
-    NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
-    if (auto const selfState = m_state->GetSelfState().lock()) {
-        operation = selfState->GetOperation();
-    }
-
+    NodeUtils::DeviceOperation const operation = m_spNodeState->GetOperation();
     if (operation == NodeUtils::DeviceOperation::None) {
         throw std::runtime_error("Node Setup must be provided and device operation type!");
     }
@@ -127,7 +152,7 @@ void CNode::Startup()
         // Bridge threads to receive upstream notifications and then pass down to own leafs
         // + pass aggregated messages to connect thread to respond with
         case NodeUtils::DeviceOperation::Branch: break;
-        case NodeUtils::DeviceOperation::Lead: {
+        case NodeUtils::DeviceOperation::Leaf: {
             initialContact();  // Contact coordinator peer to get connection port
             connect(); // Make threaded operation?
         } break;
@@ -137,9 +162,9 @@ void CNode::Startup()
 
 //------------------------------------------------------------------------------------------------
 
-bool CNode::Shutdown()
+bool CBryptNode::Shutdown()
 {
-    return m_watcher->Shutdown();
+    return m_spWatcher->Shutdown();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -147,7 +172,7 @@ bool CNode::Shutdown()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-std::shared_ptr<CConnection> CNode::SetupFullConnection(
+std::shared_ptr<CConnection> CBryptNode::SetupFullConnection(
     NodeUtils::NodeIdType id,
     std::string const& port,
     NodeUtils::TechnologyType technology)
@@ -158,7 +183,7 @@ std::shared_ptr<CConnection> CNode::SetupFullConnection(
     options.operation = NodeUtils::ConnectionOperation::Server;
     options.binding = port;
 
-    return Connection::Factory(m_queue.get(), options);;
+    return Connection::Factory(m_spQueue.get(), options);;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -167,39 +192,81 @@ std::shared_ptr<CConnection> CNode::SetupFullConnection(
 // Description:
 //------------------------------------------------------------------------------------------------
 
-void CNode::NotifyConnection(NodeUtils::NodeIdType const& id)
+void CBryptNode::NotifyConnection(NodeUtils::NodeIdType const& id)
 {
-    if (auto const itr = m_connections->find(id); itr != m_connections->end()) {
+    if (auto const itr = m_spConnections->find(id); itr != m_spConnections->end()) {
         itr->second->ResponseReady(id);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CMessageQueue> CNode::GetMessageQueue() const
+std::weak_ptr<CNodeState> CBryptNode::GetNodeState() const
 {
-    return m_queue;
+    return m_spNodeState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Await::CObjectContainer> CNode::GetAwaiting() const
+std::weak_ptr<CAuthorityState> CBryptNode::GetAuthorityState() const
 {
-    return m_awaiting;
+    return m_spAuthorityState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<NodeUtils::ConnectionMap> CNode::GetConnections() const
+std::weak_ptr<CCoordinatorState> CBryptNode::GetCoordinatorState() const
 {
-    return m_connections;
+    return m_spCoordinatorState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<std::weak_ptr<CConnection>> CNode::GetConnection(NodeUtils::NodeIdType const& id) const
+std::weak_ptr<CNetworkState> CBryptNode::GetNetworkState() const
 {
-    if (auto const itr = m_connections->find(id); itr != m_connections->end()) {
+    return m_spNetworkState;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<CSecurityState> CBryptNode::GetSecurityState() const
+{
+    return m_spSecurityState;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<CSensorState> CBryptNode::GetSensorState() const
+{
+    return m_spSensorState;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<CMessageQueue> CBryptNode::GetMessageQueue() const
+{
+    return m_spQueue;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<Await::CObjectContainer> CBryptNode::GetAwaiting() const
+{
+    return m_spAwaiting;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<NodeUtils::ConnectionMap> CBryptNode::GetConnections() const
+{
+    return m_spConnections;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<std::weak_ptr<CConnection>> CBryptNode::GetConnection(NodeUtils::NodeIdType const& id) const
+{
+    if (auto const itr = m_spConnections->find(id); itr != m_spConnections->end()) {
         return itr->second;
     }
     return {};
@@ -207,16 +274,16 @@ std::optional<std::weak_ptr<CConnection>> CNode::GetConnection(NodeUtils::NodeId
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CControl> CNode::GetControl() const
+std::weak_ptr<CControl> CBryptNode::GetControl() const
 {
-    return m_control;
+    return m_spControl;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CNotifier> CNode::GetNotifier() const
+std::weak_ptr<CNotifier> CBryptNode::GetNotifier() const
 {
-    return m_notifier;
+    return m_spNotifier;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -224,7 +291,7 @@ std::weak_ptr<CNotifier> CNode::GetNotifier() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-std::float_t CNode::determineNodePower()
+std::float_t CBryptNode::determineNodePower()
 {
     return 0.0;
 }
@@ -234,7 +301,7 @@ std::float_t CNode::determineNodePower()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType CNode::determineConnectionType()
+NodeUtils::TechnologyType CBryptNode::determineConnectionType()
 {
     return NodeUtils::TechnologyType::None;
 }
@@ -244,21 +311,17 @@ NodeUtils::TechnologyType CNode::determineConnectionType()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType CNode::determineBestConnectionType()
+NodeUtils::TechnologyType CBryptNode::determineBestConnectionType()
 {
-    auto const selfState = m_state->GetSelfState().lock();
-    if (selfState) {
-        return NodeUtils::TechnologyType::None;
-    }
     // TODO: Actually determine the best technology type to use based on context
-    auto const technologies = selfState->GetTechnologies();
-    for (auto itr = technologies.begin(); itr != technologies.end(); ++itr) {
-        switch (*itr) {
+    auto const technologies = m_spNodeState->GetTechnologies();
+    for (NodeUtils::TechnologyType const technologyType : technologies) {
+        switch (technologyType) {
             case NodeUtils::TechnologyType::Direct:
             case NodeUtils::TechnologyType::StreamBridge:
-            case NodeUtils::TechnologyType::TCP: return *itr;
-            case NodeUtils::TechnologyType::LoRa: return *itr;
-            case NodeUtils::TechnologyType::None: return *itr;
+            case NodeUtils::TechnologyType::TCP: return technologyType;
+            case NodeUtils::TechnologyType::LoRa: return technologyType;
+            case NodeUtils::TechnologyType::None: return technologyType;
         }
     }
     return NodeUtils::TechnologyType::None;
@@ -270,18 +333,21 @@ NodeUtils::TechnologyType CNode::determineBestConnectionType()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::hasTechnologyType(NodeUtils::TechnologyType technology)
+bool CBryptNode::hasTechnologyType(NodeUtils::TechnologyType technology)
 {
-    auto const selfState = m_state->GetSelfState().lock();
-    if (selfState) {
-        return false;
-    }
+    auto const technologies = m_spNodeState->GetTechnologies();
+    auto const itr = technologies.find(technology);
+    return (itr != technologies.end());
+}
 
-    auto const technologies = selfState->GetTechnologies();
-    if (auto itr = technologies.find(technology); itr != technologies.end()) {
-        return true;
-    }
+//------------------------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------------------------
+// Function:
+// Description:
+//------------------------------------------------------------------------------------------------
+bool CBryptNode::addConnection([[maybe_unused]] std::unique_ptr<CConnection> const& connection)
+{
     return false;
 }
 
@@ -291,38 +357,28 @@ bool CNode::hasTechnologyType(NodeUtils::TechnologyType technology)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::addConnection([[maybe_unused]] std::unique_ptr<CConnection> const& connection)
+void CBryptNode::initialContact()
 {
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void CNode::initialContact()
-{
-    NodeUtils::NodeIdType id = 0;
+    NodeUtils::NodeIdType const id = m_spNodeState->GetId();
     Configuration::TConnectionOptions options;
-    if (auto const selfState = m_state->GetSelfState().lock()) {
-        id = selfState->GetId();
-        options.technology = local::InitialContactTechnology(*selfState->GetTechnologies().begin());;
-    } else { return; }
+    if (auto const technologies = m_spNodeState->GetTechnologies(); !technologies.empty()) {
+        NodeUtils::TechnologyType const firstTechnologyType = (*technologies.begin());
+        options.technology = local::InitialContactTechnology(firstTechnologyType);
+    } else {
+        // we don't support any technologies...
+        return;
+    }
 
-    char const* const technologyTypeStr = std::to_string(static_cast<std::uint32_t>(options.technology)).c_str();
+    std::string const technologyTypeStr = std::to_string(static_cast<std::uint32_t>(options.technology));
 
-    if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        options.entry_address = coordinatorState->GetAddress() + coordinatorState->GetRequestPort();
-    } else { return; }
+    options.entry_address = m_spCoordinatorState->GetAddress() + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_spCoordinatorState->GetRequestPort();
 
     printo("Connecting with initial contact technology: " +
             std::to_string(static_cast<std::uint32_t>(options.technology)) +
             " and on addr:port: " + options.entry_address,
             NodeUtils::PrintType::Node);
 
-    std::shared_ptr<CConnection> const connection = Connection::Factory(m_queue.get(), options);
+    std::shared_ptr<CConnection> const connection = Connection::Factory(m_spQueue.get(), options);
 
     std::optional<std::string> optResponse;
     printo("Sending coordinator acknowledgement", NodeUtils::PrintType::Node);
@@ -345,16 +401,15 @@ void CNode::initialContact()
     optResponse.reset();
     Message::Buffer const buffer = portMessage.GetData();
     NodeUtils::PortNumber coordinatorPort(buffer.begin(), buffer.end());
-    if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        coordinatorState->SetId(portMessage.GetSourceId());
-        coordinatorState->SetRequestPort(coordinatorPort); // Set the coordinator port to the dedicated port
-        printo("Port received: " + coordinatorPort, NodeUtils::PrintType::Node);
-    } else { return; }
+
+    m_spCoordinatorState->SetId(portMessage.GetSourceId());
+    m_spCoordinatorState->SetRequestPort(coordinatorPort); // Set the coordinator port to the dedicated port
+    printo("Port received: " + coordinatorPort, NodeUtils::PrintType::Node);
 
     printo("Sending node information", NodeUtils::PrintType::Node);
     CMessage infoMessage(
         id, portMessage.GetSourceId(),
-        NodeUtils::CommandType::Connect, 1,
+        Command::Type::Connect, 1,
         technologyTypeStr, 0);
     connection->Send(infoMessage);    // Send node information to peer
 
@@ -374,32 +429,25 @@ void CNode::initialContact()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::joinCoordinator()
+void CBryptNode::joinCoordinator()
 {
     Configuration::TConnectionOptions options;
 
     options.operation = NodeUtils::ConnectionOperation::Client;
 
-    NodeUtils::NodeIdType coordinatorId = 0;
-    NodeUtils::NetworkAddress coordinatorAddress = std::string();
-    NodeUtils::PortNumber publisherPort  = std::string();
-    if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        coordinatorId = coordinatorState->GetId();
-        coordinatorAddress = coordinatorState->GetAddress();
-        options.entry_address = coordinatorAddress + coordinatorState->GetRequestPort();
-        options.technology = coordinatorState->GetTechnology();
-        publisherPort = coordinatorState->GetPublisherPort();
-    } else { return; }
+    NodeUtils::NodeIdType coordinatorId = m_spCoordinatorState->GetId();
+    NodeUtils::NetworkAddress coordinatorAddress = m_spCoordinatorState->GetAddress();
+    NodeUtils::PortNumber publisherPort = m_spCoordinatorState->GetPublisherPort();
+    options.entry_address = coordinatorAddress + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_spCoordinatorState->GetRequestPort();
+    options.technology = m_spCoordinatorState->GetTechnology();
 
     printo("Connecting to Coordinator with technology: " +
             std::to_string(static_cast<std::uint32_t>(options.technology)),
             NodeUtils::PrintType::Node);
 
-    m_notifier->Connect(coordinatorAddress, publisherPort);
-    m_connections->emplace(coordinatorId, Connection::Factory(m_queue.get(), options));
-    if (auto const networkState = m_state->GetNetworkState().lock()) {
-        networkState->PushPeerName(coordinatorId);
-    } else { return; }
+    m_spNotifier->Connect(coordinatorAddress, publisherPort);
+    m_spConnections->emplace(coordinatorId, Connection::Factory(m_spQueue.get(), options));
+    m_spNetworkState->PushPeerName(coordinatorId);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -408,7 +456,7 @@ void CNode::joinCoordinator()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::contactAuthority()
+bool CBryptNode::contactAuthority()
 {
     return false;
 }
@@ -419,7 +467,7 @@ bool CNode::contactAuthority()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::notifyAddressChange()
+bool CBryptNode::notifyAddressChange()
 {
     return false;
 }
@@ -430,7 +478,7 @@ bool CNode::notifyAddressChange()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::handleControlRequest(std::string const& message)
+void CBryptNode::handleControlRequest(std::string const& message)
 {
     printo("Handling request from control socket", NodeUtils::PrintType::Node);
 
@@ -441,7 +489,7 @@ void CNode::handleControlRequest(std::string const& message)
 
     try {
         CMessage const request(message);
-        if (auto const itr = m_commands.find(request.GetCommand()); itr != m_commands.end()) {
+        if (auto const itr = m_commandHandlers.find(request.GetCommandType()); itr != m_commandHandlers.end()) {
             itr->second->HandleMessage(request);
         }
     } catch(...) {
@@ -456,7 +504,7 @@ void CNode::handleControlRequest(std::string const& message)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::handleNotification(std::string const& message)
+void CBryptNode::handleNotification(std::string const& message)
 {
     printo("Handling notification from coordinator", NodeUtils::PrintType::Node);
 
@@ -466,7 +514,7 @@ void CNode::handleNotification(std::string const& message)
     }
 
     std::size_t const filterPosition = message.find(":");
-    if(filterPosition == std::string::npos && filterPosition > 16) {
+    if (filterPosition == std::string::npos && filterPosition > 16) {
         return; // The notification is not properly formatted drop the message
     }
 
@@ -475,7 +523,7 @@ void CNode::handleNotification(std::string const& message)
     std::string const raw = message.substr(filterPosition + 1);
     try {
         CMessage const notification(raw);
-        if (auto const itr = m_commands.find(notification.GetCommand()); itr != m_commands.end()) {
+        if (auto const itr = m_commandHandlers.find(notification.GetCommandType()); itr != m_commandHandlers.end()) {
             itr->second->HandleMessage(notification);
         }
     } catch(...) {
@@ -490,17 +538,15 @@ void CNode::handleNotification(std::string const& message)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::handleQueueRequest(CMessage const& message)
+void CBryptNode::handleQueueRequest(CMessage const& message)
 {
     printo("Handling queue request from connection thread", NodeUtils::PrintType::Node);
-    NodeUtils::CommandType const command = message.GetCommand();
-
-    if (command == NodeUtils::CommandType::None) {
+ 
+    if (auto const itr = m_commandHandlers.find(message.GetCommandType()); itr != m_commandHandlers.end()) {
+        itr->second->HandleMessage(message);
+    } else {
         printo("No command to handle", NodeUtils::PrintType::Node);
-        return;
     }
-
-    m_commands[command]->HandleMessage(message);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -509,21 +555,21 @@ void CNode::handleQueueRequest(CMessage const& message)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::processFulfilledMessages()
+void CBryptNode::processFulfilledMessages()
 {
     printo("Sending off fulfilled requests", NodeUtils::PrintType::Node);
 
-    if (m_awaiting->Empty()) {
+    if (m_spAwaiting->Empty()) {
         printo("No awaiting requests", NodeUtils::PrintType::Node);
         return;
     }
 
     printo("Fulfilled requests:", NodeUtils::PrintType::Node);
-    std::vector<CMessage> const responses = m_awaiting->GetFulfilled();
+    std::vector<CMessage> const responses = m_spAwaiting->GetFulfilled();
 
     // /*
     for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
-        m_queue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
+        m_spQueue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
     }
     // */
 }
@@ -534,7 +580,7 @@ void CNode::processFulfilledMessages()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::election()
+bool CBryptNode::election()
 {
     return false;
 }
@@ -545,7 +591,7 @@ bool CNode::election()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CNode::transform()
+bool CBryptNode::transform()
 {
     return false;
 }
@@ -556,7 +602,7 @@ bool CNode::transform()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::listen()
+void CBryptNode::listen()
 {
     printo("Brypt Node is listening", NodeUtils::PrintType::Node);
     std::uint64_t run = 0;
@@ -565,20 +611,20 @@ void CNode::listen()
     std::optional<CMessage> optQueueRequest;
     // TODO: Implement stopping condition
     do {
-        optControlRequest = m_control->HandleRequest();
+        optControlRequest = m_spControl->HandleRequest();
     	if (optControlRequest) {
     	    handleControlRequest(*optControlRequest);
-    	    m_control->CloseCurrentConnection();
+    	    m_spControl->CloseCurrentConnection();
             optControlRequest.reset();
     	}
 
-        optNotification = m_notifier->Receive();
+        optNotification = m_spNotifier->Receive();
     	if (optNotification) {
             handleNotification(*optNotification);
             optNotification.reset();
         }
 
-        optQueueRequest = m_queue->PopIncomingMessage();
+        optQueueRequest = m_spQueue->PopIncomingMessage();
         if (optQueueRequest) {
             handleQueueRequest(*optQueueRequest);
             optQueueRequest.reset();
@@ -588,7 +634,7 @@ void CNode::listen()
         ++run;
 
         //----------------------------------------------------------------------------------------
-        test::SimulateClient(m_state, m_commands, (run % 10 == 0));
+        test::SimulateClient(m_spNodeState->GetId(), m_commandHandlers, (run % 10 == 0));
         //----------------------------------------------------------------------------------------
 
         std::this_thread::sleep_for(std::chrono::nanoseconds(1500));
@@ -601,7 +647,7 @@ void CNode::listen()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CNode::connect(){
+void CBryptNode::connect(){
     printo("Brypt Node is connecting", NodeUtils::PrintType::Node);
     joinCoordinator();
     printo("Joined coordinator", NodeUtils::PrintType::Node);
@@ -610,7 +656,7 @@ void CNode::connect(){
     std::uint64_t run = 0;
     std::optional<std::string> optNotification;
     do {
-        optNotification = m_notifier->Receive();
+        optNotification = m_spNotifier->Receive();
     	if (optNotification) {
             handleNotification(*optNotification);
             optNotification.reset();
@@ -648,28 +694,23 @@ NodeUtils::TechnologyType local::InitialContactTechnology(NodeUtils::TechnologyT
 // Description:
 //------------------------------------------------------------------------------------------------
 void test::SimulateClient(
-    std::shared_ptr<CState> const& state,
-    NodeUtils::CommandMap const& commands,
+    NodeUtils::NodeIdType const& id,
+    Command::HandlerMap const& commandHandlers,
     bool activated)
 {
     if(!activated) {
         return;
     }
 
-    NodeUtils::NodeIdType id = 0;
-    if (auto const selfState = state->GetSelfState().lock()) {
-        id = selfState->GetId();
-    } else { return; }
-
     std::cout << "== [Node] Simulating client sensor Information request" << '\n';
-    CMessage informationRequest(0xFFFFFFFF, id, NodeUtils::CommandType::Information, 0, "Request for Network Information.", 0);
-    if (auto const itr = commands.find(informationRequest.GetCommand()); itr != commands.end()) {
+    CMessage informationRequest(0xFFFFFFFF, id, Command::Type::Information, 0, "Request for Network Information.", 0);
+    if (auto const itr = commandHandlers.find(informationRequest.GetCommandType()); itr != commandHandlers.end()) {
         itr->second->HandleMessage(informationRequest);
     }
     
     std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-    CMessage queryRequest(0xFFFFFFFF, id, NodeUtils::CommandType::Query, 0, "Request for Sensor Readings.", 0);
-    if (auto const itr = commands.find(queryRequest.GetCommand()); itr != commands.end()) {
+    CMessage queryRequest(0xFFFFFFFF, id, Command::Type::Query, 0, "Request for Sensor Readings.", 0);
+    if (auto const itr = commandHandlers.find(queryRequest.GetCommandType()); itr != commandHandlers.end()) {
         itr->second->HandleMessage(queryRequest);
     }
 }

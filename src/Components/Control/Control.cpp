@@ -4,25 +4,25 @@
 //-----------------------------------------------------------------------------------------------
 #include "Control.hpp"
 #include "../Connection/TcpConnection.hpp"
-#include "../../State.hpp"
+#include "../../BryptNode/NodeState.hpp"
 #include "../../Utilities/Message.hpp"
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------
 
 CControl::CControl(
-    std::shared_ptr<CState> const& state,
+    std::weak_ptr<CNodeState> const& wpNodeState,
     IMessageSink* const messageSink,
     std::weak_ptr<NodeUtils::ConnectionMap> const& connections)
-    : m_state(state)
+    : m_wpNodeState(wpNodeState)
     , m_connections(connections)
     , m_control()
 {
     Configuration::TConnectionOptions options;
     options.technology = NodeUtils::TechnologyType::TCP;
     options.operation = NodeUtils::ConnectionOperation::Server;
-    if (auto const selfState = m_state->GetSelfState().lock()) {
-        options.binding = selfState->GetBinding();
+    if (auto const spNodeState = wpNodeState.lock()) {
+        options.binding = spNodeState->GetBinding();
     }
 
     m_control = std::make_shared<Connection::CTcp>(messageSink, options);
@@ -110,13 +110,13 @@ std::optional<std::string> CControl::HandleContact(NodeUtils::TechnologyType tec
         case NodeUtils::TechnologyType::Direct: {
             NodeUtils::NodeIdType id = 0;
             NodeUtils::PortNumber port;
-            if (auto const selfState = m_state->GetSelfState().lock()) {
-                id = selfState->GetId();
-                port = std::to_string(selfState->GetNextPort());
+            if (auto const spNodeState = m_wpNodeState.lock()) {
+                id = spNodeState->GetId();
+                port = std::to_string(spNodeState->GetNextPort());
             }
 
             NodeUtils::printo("Sending port: " + port, NodeUtils::PrintType::Control);
-            CMessage message(id, 0xFFFFFFFF, NodeUtils::CommandType::Connect, 0, port, 0);
+            CMessage message(id, 0xFFFFFFFF, Command::Type::Connect, 0, port, 0);
             m_control->Send(message);
 
             std::optional<std::string> const optDeviceInfoMessage = m_control->Receive(0);

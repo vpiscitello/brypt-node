@@ -12,7 +12,14 @@
 #include <optional>
 #include <sys/socket.h>
 //------------------------------------------------------------------------------------------------
-class CState;
+class CConnection;
+class CNodeState;
+
+class CMessage;
+namespace Connection {
+    class CTcp;
+}
+
 class CMessage;
 namespace Connection {
     class CTcp;
@@ -23,7 +30,7 @@ namespace Connection {
 class CControl {
 public:
     CControl(
-        std::shared_ptr<CState> const& state,
+        std::weak_ptr<CNodeState> const& wpNodeState,
         IMessageSink* const messageSink,
         std::weak_ptr<NodeUtils::ConnectionMap> const& connections);
 
@@ -34,7 +41,7 @@ public:
     void CloseCurrentConnection();
 
 private:
-    std::shared_ptr<CState> m_state;
+    std::weak_ptr<CNodeState> m_wpNodeState;
     std::weak_ptr<NodeUtils::ConnectionMap> m_connections;
     std::shared_ptr<Connection::CTcp> m_control;
 };

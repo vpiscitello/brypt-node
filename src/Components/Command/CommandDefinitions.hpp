@@ -1,29 +1,23 @@
 //------------------------------------------------------------------------------------------------
-// File: ConnectHandler.hpp
-// Description:
-//------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "Handler.hpp"
+#include <cstdint>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Connecting to a new network or peer
+namespace Command {
 //------------------------------------------------------------------------------------------------
-class Command::CConnectHandler : public Command::IHandler {
-public:
-    explicit CConnectHandler(CBryptNode& instance);
 
-    // IHandler{
-    bool HandleMessage(CMessage const& message) override;
-    // }IHandler
-
-    bool ContactHandler();
-    bool JoinHandler(CMessage const& message);
-    bool CloseHandler();
-
-private:
-    enum class Phase { Contact, Join, Close };
+enum class Type : std::uint8_t
+{
+    Invalid = 0,
+    Information,
+    Query,
+    Election,
+    Transform,
+    Connect
 };
 
+//------------------------------------------------------------------------------------------------
+} // namespace Command
 //------------------------------------------------------------------------------------------------

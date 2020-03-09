@@ -13,9 +13,7 @@ class CState;
 
 class CPeerWatcher {
 public:
-    CPeerWatcher(
-        std::weak_ptr<CState> const& state,
-        std::weak_ptr<NodeUtils::ConnectionMap> const& peers);
+    explicit CPeerWatcher(std::weak_ptr<NodeUtils::ConnectionMap> const& peers);
     ~CPeerWatcher();
 
     bool Startup();
@@ -25,8 +23,7 @@ private:
     void watch();
     void heartbeat();
 
-    std::weak_ptr<CState> m_state;
-    std::weak_ptr<NodeUtils::ConnectionMap> m_watched;
+    std::weak_ptr<NodeUtils::ConnectionMap> m_wpWatched;
 
     NodeUtils::TimePoint m_lastCheckTimePoint;
     NodeUtils::TimePoint m_requiredUpdateTimePoint;
@@ -35,8 +32,7 @@ private:
 
     std::mutex m_mutex;
     std::condition_variable m_cv;
-    std::thread m_worker;
-    
+    std::thread m_worker;  
 };
 
 //------------------------------------------------------------------------------------------------

@@ -4,28 +4,26 @@
 //-----------------------------------------------------------------------------------------------
 #include "Notifier.hpp"
 #include "../Connection/Connection.hpp"
-#include "../../State.hpp"
+#include "../../BryptNode/CoordinatorState.hpp"
 #include "../../Utilities/Message.hpp"
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------
 
 CNotifier::CNotifier(
-    std::shared_ptr<CState> const& state,
-    std::weak_ptr<NodeUtils::ConnectionMap> const& connections)
-    : m_state(state)
-    , m_connections(connections)
+    NodeUtils::PortNumber port,
+    std::weak_ptr<CCoordinatorState> const& wpCoordinatorState,
+    std::weak_ptr<NodeUtils::ConnectionMap> const& wpConnections)
+    : m_wpCoordinatorState(wpCoordinatorState)
+    , m_wpConnections(wpConnections)
     , m_context(1)
     , m_publisher(m_context, ZMQ_PUB)
     , m_subscriber(m_context, ZMQ_SUB)
     , m_networkPrefix(std::string())
     , m_clusterPrefix(std::string())
 {
-    if (auto const selfState = m_state->GetSelfState().lock()) {
-        NodeUtils::PortNumber const port = selfState->GetPublisherPort();
-        NodeUtils::printo("Setting up publisher socket on port " + port, NodeUtils::PrintType::Notifier);
-        m_publisher.bind("tcp://*:" + port);
-    }
+    NodeUtils::printo("Setting up publisher socket on port " + port, NodeUtils::PrintType::Notifier);
+    m_publisher.bind("tcp://*:" + port);
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -38,13 +36,13 @@ bool CNotifier::Connect(NodeUtils::NetworkAddress const& ip, NodeUtils::PortNumb
     m_networkPrefix = std::string(Notifier::NetworkPrefix.data(), Notifier::NetworkPrefix.size());
 
     m_clusterPrefix = std::string(Notifier::ClusterPrefix.data(), Notifier::ClusterPrefix.size());
-    if (auto const coordinatorState = m_state->GetCoordinatorState().lock()) {
-        m_clusterPrefix.append(std::to_string(coordinatorState->GetId()) + ":");
+    if (auto const spCoordinatorState = m_wpCoordinatorState.lock()) {
+        m_clusterPrefix.append(std::to_string(spCoordinatorState->GetId()) + ":");
     }
 
     std::string nodePrefix(Notifier::NodePrefix.data(), Notifier::NodePrefix.size());
-    if (auto const selfState = m_state->GetCoordinatorState().lock()) {
-        nodePrefix.append(std::to_string(selfState->GetId()) + ":");
+    if (auto const spCoordinatorState = m_wpCoordinatorState.lock()) {
+        nodePrefix.append(std::to_string(spCoordinatorState->GetId()) + ":");
     }
 
     m_subscriber.setsockopt(ZMQ_SUBSCRIBE, m_networkPrefix.c_str(), m_networkPrefix.size());
@@ -72,13 +70,12 @@ bool CNotifier::Send(
     }
 
     // Non-ZMQ Publishing Scope
-    {
-        auto const connections = m_connections.lock();
-        NodeUtils::TechnologyType currentConnectionType;
-        for (auto itr = connections->begin(); itr != connections->end(); ++itr) {
-            currentConnectionType = itr->second->GetInternalType();
-            if(currentConnectionType != NodeUtils::TechnologyType::Direct) {
-               itr->second->Send(message); 
+    if (auto const spConnections = m_wpConnections.lock()) {
+        for (auto const& [id, spConnection] : *spConnections) {
+            assert(spConnection);
+            NodeUtils::TechnologyType const technologyType = spConnection->GetInternalType();
+            if(technologyType != NodeUtils::TechnologyType::Direct) {
+                spConnection->Send(message); 
             }
         }
     }
@@ -101,7 +98,7 @@ std::optional<std::string> CNotifier::Receive()
     }
 
     std::string const notification = std::string(static_cast<char *>(message.data()), message.size());
-    printo("Received: " + notification, NodeUtils::PrintType::Notifier) ;
+    printo("Received: " + notification, NodeUtils::PrintType::Notifier);
 
     return notification;
 }

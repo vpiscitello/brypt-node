@@ -10,14 +10,13 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handles the flood phase for the Information type command
 //------------------------------------------------------------------------------------------------
-class Command::CInformation : public Command::CHandler {
+class Command::CInformationHandler : public Command::IHandler {
 public:
-    CInformation(CNode& instance, std::weak_ptr<CState> const& state);
-    ~CInformation() override {};
+    explicit CInformationHandler(CBryptNode& instance);
 
-    // CHandler{
+    // IHandler{
     bool HandleMessage(CMessage const& message) override;
-    // }CHandler
+    // }IHandler
 
     bool FloodHandler(CMessage const& message);
     bool RespondHandler();

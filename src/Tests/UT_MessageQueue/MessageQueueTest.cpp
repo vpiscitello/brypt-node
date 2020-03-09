@@ -72,7 +72,7 @@ TEST(CMessageQueue, MessageForwardingTest)
 
     CMessage const request(
         test::ClientId, test::ServerId,
-        NodeUtils::CommandType::Election, 0,
+        Command::Type::Election, 0,
         "Hello World!", 0);
     queue.PushOutgoingMessage(test::ServerId, request);
 

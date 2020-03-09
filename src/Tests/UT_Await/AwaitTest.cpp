@@ -22,7 +22,7 @@ namespace test {
 
 constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
 constexpr NodeUtils::NodeIdType ServerId = 0xFFFFFFFF;
-constexpr NodeUtils::CommandType Command = NodeUtils::CommandType::Election;
+constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
@@ -64,7 +64,7 @@ TEST(AwaitSuite, AwaitObjectSingleResponseTest)
     EXPECT_EQ(updateResponse->GetSourceId(), test::ServerId);
     EXPECT_EQ(updateResponse->GetDestinationId(), test::ClientId);
     EXPECT_FALSE(updateResponse->GetAwaitId());
-    EXPECT_EQ(updateResponse->GetCommand(), test::Command);
+    EXPECT_EQ(updateResponse->GetCommandType(), test::Command);
     EXPECT_EQ(updateResponse->GetPhase(), test::ResponsePhase);
     EXPECT_EQ(updateResponse->GetNonce(), test::Nonce + 1);
 }
@@ -118,7 +118,7 @@ TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
     EXPECT_EQ(updateResponse->GetSourceId(), test::ServerId);
     EXPECT_EQ(updateResponse->GetDestinationId(), test::ClientId);
     EXPECT_FALSE(updateResponse->GetAwaitId());
-    EXPECT_EQ(updateResponse->GetCommand(), test::Command);
+    EXPECT_EQ(updateResponse->GetCommandType(), test::Command);
     EXPECT_EQ(updateResponse->GetPhase(), test::ResponsePhase);
     EXPECT_EQ(updateResponse->GetNonce(), test::Nonce + 1);
 }
@@ -145,7 +145,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectNoResponsesTest)
     EXPECT_EQ(response->GetSourceId(), test::ServerId);
     EXPECT_EQ(response->GetDestinationId(), test::ClientId);
     EXPECT_FALSE(response->GetAwaitId());
-    EXPECT_EQ(response->GetCommand(), test::Command);
+    EXPECT_EQ(response->GetCommandType(), test::Command);
     EXPECT_EQ(response->GetPhase(), test::ResponsePhase);
     EXPECT_EQ(response->GetNonce(), test::Nonce + 1);
     EXPECT_GT(response->GetData().size(), std::uint32_t(0));
@@ -197,7 +197,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
     EXPECT_EQ(response->GetSourceId(), test::ServerId);
     EXPECT_EQ(response->GetDestinationId(), test::ClientId);
     EXPECT_FALSE(response->GetAwaitId());
-    EXPECT_EQ(response->GetCommand(), test::Command);
+    EXPECT_EQ(response->GetCommandType(), test::Command);
     EXPECT_EQ(response->GetPhase(), test::ResponsePhase);
     EXPECT_EQ(response->GetNonce(), test::Nonce + 1);
     EXPECT_GT(response->GetData().size(), std::uint32_t(0));

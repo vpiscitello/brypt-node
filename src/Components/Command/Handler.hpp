@@ -5,9 +5,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "CommandDefinitions.hpp"
 #include "../Notifier/Notifier.hpp"
-#include "../../Node.hpp"
-#include "../../State.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -16,21 +15,25 @@
 #include <string>
 //------------------------------------------------------------------------------------------------
 
+class CBryptNode;
+
 //------------------------------------------------------------------------------------------------
 namespace Command {
 //------------------------------------------------------------------------------------------------
-class CHandler;
+class IHandler;
 
-class CConnect;
-class CElection;
-class CInformation;
-class CQuery;
-class CTransform;
+class CConnectHandler;
+class CElectionHandler;
+class CInformationHandler;
+class CQueryHandler;
+class CTransformHandler;
 
-std::unique_ptr<CHandler> Factory(
-    NodeUtils::CommandType command,
-    CNode& instance,
-    std::weak_ptr<CState> const& state);
+std::unique_ptr<IHandler> Factory(
+    Command::Type commandType,
+    CBryptNode& instance);
+
+using HandlerMap = std::unordered_map<Command::Type, std::unique_ptr<IHandler>>;
+
 //------------------------------------------------------------------------------------------------
 } // Command namespace
 //------------------------------------------------------------------------------------------------
@@ -38,25 +41,21 @@ std::unique_ptr<CHandler> Factory(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class Command::CHandler {
+
+class Command::IHandler {
 public:
-    CHandler(
-        CNode& instance,
-        std::weak_ptr<CState> const& state,
-        NodeUtils::CommandType type)
-        : m_instance(instance)
-        , m_state(state)
-        , m_type(type)
-    {
-    };
-    virtual ~CHandler() {};
-    virtual NodeUtils::CommandType GetType() { return m_type; };
-    virtual bool HandleMessage(CMessage const& CMessage) = 0;
+    IHandler(
+        Command::Type type,
+        CBryptNode& instance);
+    virtual ~IHandler() = default;
+    
+    virtual Command::Type GetType() const final;
+
+    virtual bool HandleMessage(CMessage const& message) = 0;
 
 protected:
-    CNode& m_instance;
-    std::weak_ptr<CState> m_state;
-    NodeUtils::CommandType m_type;
+    Command::Type m_type;
+    CBryptNode& m_instance;
 };
 
 //------------------------------------------------------------------------------------------------
