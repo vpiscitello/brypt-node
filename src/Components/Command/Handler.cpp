@@ -19,24 +19,24 @@ std::unique_ptr<Command::IHandler> Command::Factory(
     CBryptNode& instance)
 {
     switch (commandType) {
-    	case Command::Type::Connect:
-			return std::make_unique<CConnectHandler>(instance);
+        case Command::Type::Connect:
+            return std::make_unique<CConnectHandler>(instance);
 
-    	case Command::Type::Election:
-			return std::make_unique<CElectionHandler>(instance);
+        case Command::Type::Election:
+            return std::make_unique<CElectionHandler>(instance);
 
-    	case Command::Type::Information:
-			return std::make_unique<CInformationHandler>(instance);
+        case Command::Type::Information:
+            return std::make_unique<CInformationHandler>(instance);
 
-    	case Command::Type::Query:
-			return std::make_unique<CQueryHandler>(instance);
+        case Command::Type::Query:
+            return std::make_unique<CQueryHandler>(instance);
 
-    	case Command::Type::Transform:
-			return std::make_unique<CTransformHandler>(instance);
+        case Command::Type::Transform:
+            return std::make_unique<CTransformHandler>(instance);
 
-    	case Command::Type::Invalid:
-		default:
-			return {};
+        case Command::Type::Invalid:
+        default:
+            return {};
     }
 }
 
@@ -45,10 +45,10 @@ std::unique_ptr<Command::IHandler> Command::Factory(
 //------------------------------------------------------------------------------------------------
 
 Command::IHandler::IHandler(
-	Command::Type type,
-	CBryptNode& instance)
-	: m_type(type)
-	, m_instance(instance)
+    Command::Type type,
+    CBryptNode& instance)
+    : m_type(type)
+    , m_instance(instance)
 {
 }
 
@@ -56,7 +56,7 @@ Command::IHandler::IHandler(
 
 Command::Type Command::IHandler::GetType() const
 {
-	return m_type;
+    return m_type;
 }
 
 //------------------------------------------------------------------------------------------------
