@@ -180,6 +180,41 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
 
 //-----------------------------------------------------------------------------------------------
 
+TEST(CMessageSuite, BoundMessageBufferConstructorTest)
+{
+    NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
+
+    CMessage const boundMessage(
+        test::ClientId, test::ServerId,
+        test::Command, test::RequestPhase,
+        test::Message, test::Nonce,
+        Message::BoundAwaitId(Message::AwaitBinding::Destination, awaitKey));
+
+    auto const pack = boundMessage.GetPack();
+    Message::Buffer buffer(pack.begin(), pack.end());
+
+    EXPECT_GT(buffer.size(), std::size_t(0));
+    EXPECT_EQ(buffer.size(), pack.size());
+
+    CMessage const packMessage(buffer);
+
+    EXPECT_EQ(boundMessage.GetSourceId(), packMessage.GetSourceId());
+    EXPECT_EQ(boundMessage.GetDestinationId(), packMessage.GetDestinationId());
+    EXPECT_EQ(boundMessage.GetAwaitId(), packMessage.GetAwaitId());
+    EXPECT_EQ(boundMessage.GetCommandType(), packMessage.GetCommandType());
+    EXPECT_EQ(boundMessage.GetPhase(), packMessage.GetPhase());
+    EXPECT_EQ(boundMessage.GetNonce(), packMessage.GetNonce());
+    EXPECT_GT(boundMessage.GetSystemTimepoint(), packMessage.GetSystemTimepoint());
+
+    auto const data = packMessage.GetData();
+    auto const decrypted = packMessage.Decrypt(data, data.size());
+    ASSERT_TRUE(decrypted);
+    std::string const str(decrypted->begin(), decrypted->end());
+    EXPECT_EQ(str, test::Message);
+}
+
+//-----------------------------------------------------------------------------------------------
+
 TEST(CMessageSuite, BaseMessageVerificationTest)
 {
     CMessage const baseMessage(

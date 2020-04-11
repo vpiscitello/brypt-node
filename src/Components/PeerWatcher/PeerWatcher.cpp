@@ -20,11 +20,10 @@ constexpr std::chrono::seconds timeout = std::chrono::seconds(10);
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CPeerWatcher::CPeerWatcher(
-    std::weak_ptr<NodeUtils::ConnectionMap> const& wpPeers)
+CPeerWatcher::CPeerWatcher(std::weak_ptr<NodeUtils::EndpointMap> const& wpPeers)
     : m_wpWatched(wpPeers)
-    , m_lastCheckTimePoint()
-    , m_requiredUpdateTimePoint()
+    , m_lastCheckTimepoint()
+    , m_requiredUpdateTimepoint()
     , m_process(true)
     , m_mutex()
     , m_cv()

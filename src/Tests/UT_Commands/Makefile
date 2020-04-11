@@ -21,7 +21,7 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
-MAINDIR = ../..
+MAINDIR = ../../BryptNode
 AWAITDIR = ../../Components/Await
 COMMANDDIR = ../../Components/Command
 ENDPOINTSDIR = ../../Components/Endpoints
@@ -44,7 +44,7 @@ $(PEERWATCHERDIR)\
 $(NOTIFIERDIR) \
 $(GTESTDIR)
 
-SRCS = $(foreach sdir,$(MODULES), $(filter-out $(sdir)/Test.cpp, $(wildcard $(sdir)/*.cpp)))
+SRCS = $(foreach sdir,$(MODULES), $(filter-out $(sdir)/main.cpp, $(wildcard $(sdir)/*.cpp)))
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRCS))) $(BUILDDIR)/gtest-all.o
 DEPS = $(OBJS:%.o=%.d) 
 

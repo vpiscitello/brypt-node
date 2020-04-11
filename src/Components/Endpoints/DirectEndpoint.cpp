@@ -4,8 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #include "DirectEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "EndpointConstants.hpp"
+#include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
+#include "../Command/CommandDefinitions.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
 //------------------------------------------------------------------------------------------------
@@ -373,7 +374,7 @@ void Endpoints::CDirectEndpoint::StartPeerAuthentication(
     // TODO: Implement better method of starting peer authentication
     CMessage message(
         m_id, 0x00000000,
-        NodeUtils::CommandType::Connect, 0,
+        Command::Type::Connect, 0,
         "", 0);
 
     // TODO: Timeout the start of peer authentication requests. ZMQ queues messages to the 

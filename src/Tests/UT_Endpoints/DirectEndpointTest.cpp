@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/DirectEndpoint.hpp"
 #include "../../Components/MessageQueue/MessageQueue.hpp"
@@ -64,7 +65,7 @@ TEST(CDirectSuite, ServerCommunicationTest)
 
     CMessage const connectResponse(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::Connect, 1,
+        Command::Type::Connect, 1,
         "Connection Approved", 1);
     queue.PushOutgoingMessage(test::ClientId, connectResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -86,7 +87,7 @@ TEST(CDirectSuite, ServerCommunicationTest)
 
     CMessage const electionResponse(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::Election, 1,
+        Command::Type::Election, 1,
         "Re: Hello World!", 0);
     queue.PushOutgoingMessage(test::ClientId, electionResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

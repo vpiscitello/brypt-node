@@ -5,7 +5,7 @@
 #include "InformationHandler.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../Await/Await.hpp"
-#include "../Connection/Connection.hpp"
+#include "../Endpoints/Endpoint.hpp"
 #include "../BryptNode/BryptNode.hpp"
 #include "../BryptNode/NodeState.hpp"
 #include "../BryptNode/CoordinatorState.hpp"

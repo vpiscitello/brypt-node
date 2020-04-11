@@ -37,7 +37,7 @@ namespace local {
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-Configuration::TConnectionOptions options;
+Configuration::TEndpointOptions options;
 
 //------------------------------------------------------------------------------------------------
 
@@ -84,9 +84,9 @@ std::int32_t main(std::int32_t argc, char** argv)
     if (optSettings) {
         Configuration::TSettings& settings = *optSettings;
         ParseArguments(argc, argv, settings);
-        if (!settings.connections.empty()) {
-            if (options.operation != NodeUtils::ConnectionOperation::None) {
-                settings.connections[0].operation = options.operation;
+        if (!settings.endpoints.empty()) {
+            if (options.operation != NodeUtils::EndpointOperation::None) {
+                settings.endpoints[0].operation = options.operation;
                 
                 CBryptNode alpha(*optSettings);
                 alpha.Startup();

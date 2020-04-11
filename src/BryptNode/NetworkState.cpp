@@ -37,7 +37,7 @@ NodeUtils::TimePeriod CNetworkState::GetUptimeCount() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::TimePoint CNetworkState::GetRegisteredTimePoint() const
+NodeUtils::Timepoint CNetworkState::GetRegisteredTimepoint() const
 {
     std::shared_lock lock(m_mutex);
     return m_registered;
@@ -45,7 +45,7 @@ NodeUtils::TimePoint CNetworkState::GetRegisteredTimePoint() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::TimePoint CNetworkState::GetUpdatedTimePoint() const
+NodeUtils::Timepoint CNetworkState::GetUpdatedTimepoint() const
 {
     std::shared_lock lock(m_mutex);
     return m_updated;
@@ -57,7 +57,7 @@ void CNetworkState::PushPeerName(NodeUtils::NodeIdType const& peerName)
 {
     std::unique_lock lock(m_mutex);
     m_peerNames.emplace(peerName);
-    m_updated = NodeUtils::GetSystemTimePoint();
+    m_updated = NodeUtils::GetSystemTimepoint();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -69,13 +69,13 @@ void CNetworkState::RemovePeerName(NodeUtils::NodeIdType const& peerName)
 
     // only update if we actually erased the peer.
     if (eraseCount > 0) {
-      m_updated = NodeUtils::GetSystemTimePoint();
+      m_updated = NodeUtils::GetSystemTimepoint();
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CNetworkState::SetRegisteredTimePoint(NodeUtils::TimePoint const& timepoint)
+void CNetworkState::SetRegisteredTimepoint(NodeUtils::Timepoint const& timepoint)
 {
     std::unique_lock lock(m_mutex);
     m_registered = timepoint;
@@ -86,7 +86,7 @@ void CNetworkState::SetRegisteredTimePoint(NodeUtils::TimePoint const& timepoint
 void CNetworkState::Updated()
 {
     std::unique_lock lock(m_mutex);
-    m_updated = NodeUtils::GetSystemTimePoint();
+    m_updated = NodeUtils::GetSystemTimepoint();
 }
 
 //------------------------------------------------------------------------------------------------

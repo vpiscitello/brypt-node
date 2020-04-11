@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
 #include "../../Components/Endpoints/Endpoint.hpp"
-#include "../../Components/Connection/DirectConnection.hpp"
+#include "../../Components/Endpoints/DirectEndpoint.hpp"
 #include "../../Components/MessageQueue/MessageQueue.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Utilities/Message.hpp"
@@ -19,9 +19,9 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Endpoints::CDirect> MakeDirectServer(
+std::unique_ptr<Endpoints::CDirectEndpoint> MakeDirectServer(
     IMessageSink* const sink);
-std::unique_ptr<Endpoints::CDirect> MakeDirectClient(
+std::unique_ptr<Endpoints::CDirectEndpoint> MakeDirectClient(
     IMessageSink* const sink);
 
 //------------------------------------------------------------------------------------------------
@@ -51,62 +51,51 @@ TEST(CMessageQueue, ConnectionTrackingTest)
 {
     CMessageQueue queue;
     // The connection will register it's callback with the queue 
-    auto server = local::MakeDirectClient(&queue);
+    auto upServer = local::MakeDirectServer(&queue);
+    upServer->Startup();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto upClient = local::MakeDirectClient(&queue);
+    upClient->Startup();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
     // We should expect the registered connection size to be one within the queue
-    EXPECT_EQ(queue.RegisteredConnections(), std::uint32_t(1));
+    EXPECT_EQ(queue.RegisteredPeers(), std::uint32_t(1));
+
     // When the connection is destroyed we should expect the registered callbacks
     // to go back to zero.
-    server.reset();
-    EXPECT_EQ(queue.RegisteredConnections(), std::uint32_t(0));
+    upServer.reset();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
+    EXPECT_EQ(queue.RegisteredPeers(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageQueue, MessageForwardingTest)
-{
-    CMessageQueue queue;
-    auto server = local::MakeDirectServer(&queue);
-    auto client = local::MakeDirectClient(&queue);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    CMessage const request(
-        test::ClientId, test::ServerId,
-        Command::Type::Election, 0,
-        "Hello World!", 0);
-    queue.PushOutgoingMessage(test::ServerId, request);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    auto const optReceived = queue.PopIncomingMessage();
-    ASSERT_TRUE(optReceived);
-
-    EXPECT_EQ(optReceived->GetPack(), request.GetPack());
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::unique_ptr<Endpoints::CDirect> local::MakeDirectServer(
+std::unique_ptr<Endpoints::CDirectEndpoint> local::MakeDirectServer(
     IMessageSink* const sink)
 {
     Configuration::TEndpointOptions options(
-        test::ClientId,
+        test::ServerId,
         test::TechnologyType,
         test::Interface,
         test::ServerBinding);
 
     options.operation = NodeUtils::EndpointOperation::Server;
 
-    return std::make_unique<Endpoints::CDirect>(sink, options);
+    return std::make_unique<Endpoints::CDirectEndpoint>(sink, options);
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Endpoints::CDirect> local::MakeDirectClient(
+std::unique_ptr<Endpoints::CDirectEndpoint> local::MakeDirectClient(
     IMessageSink* const sink)
 {
     Configuration::TEndpointOptions options(
-        test::ServerId,
+        test::ClientId,
         test::TechnologyType,
         test::Interface,
         test::ClientBinding,
@@ -114,7 +103,7 @@ std::unique_ptr<Endpoints::CDirect> local::MakeDirectClient(
 
     options.operation = NodeUtils::EndpointOperation::Client;
 
-    return std::make_unique<Endpoints::CDirect>(sink, options);
+    return std::make_unique<Endpoints::CDirectEndpoint>(sink, options);
 }
 
 //------------------------------------------------------------------------------------------------

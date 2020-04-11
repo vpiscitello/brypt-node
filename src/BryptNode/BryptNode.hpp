@@ -51,13 +51,6 @@ public:
     void Startup();
     bool Shutdown();
 
-    std::shared_ptr<CConnection> SetupFullConnection(
-        NodeUtils::NodeIdType id,
-        NodeUtils::PortNumber const& port,
-        NodeUtils::TechnologyType technology);
-
-    void NotifyConnection(NodeUtils::NodeIdType const& id);
-
     // Getter Functions
     std::weak_ptr<CNodeState> GetNodeState() const;
     std::weak_ptr<CAuthorityState> GetAuthorityState() const;
@@ -65,40 +58,35 @@ public:
     std::weak_ptr<CNetworkState> GetNetworkState() const;
     std::weak_ptr<CSecurityState> GetSecurityState() const;
     std::weak_ptr<CSensorState> GetSensorState() const;
+
     std::weak_ptr<CMessageQueue> GetMessageQueue() const;
     std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
-    std::weak_ptr<NodeUtils::ConnectionMap> GetConnections() const;
-    std::optional<std::weak_ptr<CConnection>> GetConnection(NodeUtils::NodeIdType const& id) const;
-    std::weak_ptr<CControl> GetControl() const;
+
+    std::weak_ptr<NodeUtils::EndpointMap> GetEndpoints() const;
     std::weak_ptr<CNotifier> GetNotifier() const;
 
 private:
     // Utility Functions
-    std::float_t determineNodePower();  // Determine the node value to the network
-    NodeUtils::TechnologyType determineConnectionType();   // Determine the connection method for a particular transmission
-    NodeUtils::TechnologyType determineBestConnectionType();   // Determine the best connection type the node has
-    bool hasTechnologyType(NodeUtils::TechnologyType technology);
-    bool addConnection(std::unique_ptr<CConnection> const& connection);
+    std::float_t DetermineNodePower();  // Determine the node value to the network
+    bool HasTechnologyType(NodeUtils::TechnologyType technology);
 
     // Communication Functions
-    void initialContact();
-    void joinCoordinator();
-    bool contactAuthority();    // Contact the central authority for some service
-    bool notifyAddressChange(); // Notify the cluster of some address change
+    void JoinCoordinator();
+    bool ContactAuthority();    // Contact the central authority for some service
+    bool NotifyAddressChange(); // Notify the cluster of some address change
 
     // Request Handlers
-    void handleControlRequest(std::string const& message);
-    void handleNotification(std::string const& message);
-    void handleQueueRequest(CMessage const& message);
-    void processFulfilledMessages();
+    void HandleNotification(std::string const& message);
+    void HandleQueueRequest(CMessage const& message);
+    void ProcessFulfilledMessages();
 
     // Election Functions
-    bool election();    // Call for an election for cluster leader
-    bool transform();   // Transform the node's function in the cluster/network
+    bool Election();    // Call for an election for cluster leader
+    bool Transform();   // Transform the node's function in the cluster/network
 
     // Run Functions
-    void listen();  // Open a socket to listening for network commands
-    void connect();
+    void Listen();  // Open a socket to listening for network commands
+    void Connect();
 
     // Private Variables
     std::shared_ptr<CNodeState> m_spNodeState;
@@ -116,8 +104,7 @@ private:
     Command::HandlerMap m_commandHandlers;
 
     // Connection of the node
-    std::shared_ptr<NodeUtils::ConnectionMap> m_spConnections;
-    std::shared_ptr<CControl> m_spControl;
+    std::shared_ptr<NodeUtils::EndpointMap> m_spEndpoints;
     std::shared_ptr<CNotifier> m_spNotifier;
     std::shared_ptr<CPeerWatcher> m_spWatcher;
 

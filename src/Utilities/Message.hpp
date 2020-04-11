@@ -98,7 +98,7 @@ public:
 		, m_sourceId(0)
 		, m_destinationId(0)
 		, m_boundAwaitId({})
-		, m_command(NodeUtils::CommandType::None)
+		, m_commandType(Command::Type::Invalid)
 		, m_phase(0)
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)

@@ -175,7 +175,7 @@ bool Command::CQueryHandler::RespondHandler(CMessage const& message)
     NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
     CMessage const request(
         id, destinationId,
-        NodeUtils::CommandType::Query, static_cast<std::uint8_t>(Phase::Aggregate),
+        Command::Type::Query, static_cast<std::uint8_t>(Phase::Aggregate),
         local::GenerateReading(), nonce,
         Message::BoundAwaitId(
             {Message::AwaitBinding::Destination, *optAwaitId}));

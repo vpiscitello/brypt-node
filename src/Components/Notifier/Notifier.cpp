@@ -13,9 +13,9 @@
 CNotifier::CNotifier(
     NodeUtils::PortNumber port,
     std::weak_ptr<CCoordinatorState> const& wpCoordinatorState,
-    std::weak_ptr<NodeUtils::EndpointMap> const& endpoints)
+    std::weak_ptr<NodeUtils::EndpointMap> const& wpEndpoints)
     : m_wpCoordinatorState(wpCoordinatorState)
-    , m_wpConnections(wpConnections)
+    , m_wpEndpoints(wpEndpoints)
     , m_context(1)
     , m_publisher(m_context, ZMQ_PUB)
     , m_subscriber(m_context, ZMQ_SUB)

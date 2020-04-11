@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/StreamBridgeEndpoint.hpp"
 #include "../../Components/Endpoints/TcpEndpoint.hpp"
@@ -68,7 +69,7 @@ TEST(CStreamBridgeSuite, ServerCommunicationTest)
 
     CMessage const connectResponse(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::Connect, 1,
+        Command::Type::Connect, 1,
         "Connection Approved", 1);
     queue.PushOutgoingMessage(test::ClientId, connectResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -79,7 +80,7 @@ TEST(CStreamBridgeSuite, ServerCommunicationTest)
 
     CMessage const electionRequest(
         test::ClientId, test::ServerId,
-        NodeUtils::CommandType::Election, 0,
+        Command::Type::Election, 0,
         "Hello World!", 0);
     queue.PushOutgoingMessage(test::ServerId, electionRequest);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -90,7 +91,7 @@ TEST(CStreamBridgeSuite, ServerCommunicationTest)
 
     CMessage const electionResponse(
         test::ServerId, test::ClientId,
-        NodeUtils::CommandType::Election, 1,
+        Command::Type::Election, 1,
         "Re: Hello World!", 0);
     queue.PushOutgoingMessage(test::ClientId, electionResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));

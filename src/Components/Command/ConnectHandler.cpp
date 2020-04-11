@@ -4,8 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "ConnectHandler.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Control/Control.hpp"
-#include "../Connection/Connection.hpp"
+#include "../Endpoints/Endpoint.hpp"
 #include "../BryptNode/BryptNode.hpp"
 #include "../BryptNode/NetworkState.hpp"
 #include "../BryptNode/NodeState.hpp"
@@ -66,7 +65,7 @@ bool Command::CConnectHandler::ContactHandler()
 // Description: Handles the join phase for the Connect type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnect::JoinHandler()
+bool Command::CConnectHandler::JoinHandler()
 {
     return true;
 }

@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "StreamBridgeEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "EndpointConstants.hpp"
+#include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
