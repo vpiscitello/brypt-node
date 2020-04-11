@@ -10,9 +10,9 @@ EXTERNAL_LIBARIES_INCLUDE = -ILibraries
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -DZMQ_BUILD_DRAFT_API -MMD -MP
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -DZMQ_BUILD_DRAFT_API -MMD -MP
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
@@ -23,9 +23,8 @@ SRCDIR = .
 BRYPTNODEDIR = BryptNode
 AWAITDIR = Components/Await
 COMMANDDIR = Components/Command
-CONNECTIONDIR = Components/Connection
+ENDPOINTSDIR = Components/Endpoints
 CONFIGURATIONDIR = Configuration
-CONTROLDIR = Components/Control
 MESSAGEQUEUEDIR = Components/MessageQueue
 PEERWATCHERDIR = Components/PeerWatcher
 NOTIFIERDIR = Components/Notifier
@@ -33,9 +32,8 @@ NOTIFIERDIR = Components/Notifier
 MODULES = $(BRYPTNODEDIR) \
 $(AWAITDIR) \
 $(COMMANDDIR) \
-$(CONNECTIONDIR) \
+$(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
-$(CONTROLDIR) \
 $(MESSAGEQUEUEDIR) \
 $(PEERWATCHERDIR) \
 $(NOTIFIERDIR)

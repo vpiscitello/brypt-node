@@ -14,7 +14,7 @@
 class CNodeState;
 class CCoordinatorState;
 class CMessage;
-class CConnection;
+class CEndpoint;
 //------------------------------------------------------------------------------------------------
 namespace Notifier {
 //------------------------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ public:
     CNotifier(
         NodeUtils::PortNumber port,
         std::weak_ptr<CCoordinatorState> const& wpCoordinatorState,
-        std::weak_ptr<NodeUtils::ConnectionMap> const& wpConnections);
+        std::weak_ptr<NodeUtils::EndpointMap> const& endpoints);
 
     ~CNotifier()
     {
@@ -44,7 +44,7 @@ public:
     };
 
     bool Connect(NodeUtils::NetworkAddress const& ip, NodeUtils::PortNumber const& port);
-    // Passthrough for send function of the connection type
+    // Passthrough for send function of the endpoint type
     // Update to target sub clusters and nodes in the prefix
     bool Send(
         CMessage const& message,
@@ -59,7 +59,7 @@ private:
         std::optional<NodeUtils::NodeIdType> const& id);
 
     std::weak_ptr<CCoordinatorState> m_wpCoordinatorState;
-    std::weak_ptr<NodeUtils::ConnectionMap> m_wpConnections;
+    std::weak_ptr<NodeUtils::EndpointMap> m_endpoints;
 
     zmq::context_t m_context;
     zmq::socket_t m_publisher;

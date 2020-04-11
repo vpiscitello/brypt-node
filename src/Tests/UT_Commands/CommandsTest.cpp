@@ -27,7 +27,7 @@ void SetupCommandHandlerMap(Command::HandlerMap& commands, CBryptNode& node);
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-Configuration::TConnectionOptions CreateConnectionOptions();
+Configuration::TEndpointOptions CreateEndpointOptions();
 Configuration::TSettings CreateConfigurationSettings();
 
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
@@ -120,15 +120,15 @@ TEST(CommandSuite, CommandMatchingTest)
 
 //------------------------------------------------------------------------------------------------
 
-Configuration::TConnectionOptions test::CreateConnectionOptions()
+Configuration::TEndpointOptions test::CreateEndpointOptions()
 {
-    Configuration::TConnectionOptions options(
+    Configuration::TEndpointOptions options(
         test::ClientId,
         test::TechnologyType,
         test::Interface,
         test::ServerBinding);
 
-    options.operation = NodeUtils::ConnectionOperation::Server;
+    options.operation = NodeUtils::EndpointOperation::Server;
     
     return options;
 }
@@ -137,10 +137,10 @@ Configuration::TConnectionOptions test::CreateConnectionOptions()
 
 Configuration::TSettings test::CreateConfigurationSettings()
 {
-    auto const connectionOptions = CreateConnectionOptions();
+    auto const endpointOptions = CreateEndpointOptions();
     Configuration::TSettings settings(
         Configuration::TDetailsOptions("test-node"),
-        {connectionOptions},
+        {endpointOptions},
         Configuration::TSecurityOptions()
     );
 

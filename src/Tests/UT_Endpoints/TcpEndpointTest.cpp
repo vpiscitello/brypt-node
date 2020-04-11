@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-#include "../../Components/Connection/Connection.hpp"
-#include "../../Components/Connection/DirectConnection.hpp"
+#include "../../Components/Endpoints/Endpoint.hpp"
+#include "../../Components/Endpoints/TcpEndpoint.hpp"
 #include "../../Components/MessageQueue/MessageQueue.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Utilities/Message.hpp"
@@ -19,9 +19,9 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Connection::CDirect> MakeDirectServer(
+std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpServer(
     IMessageSink* const sink);
-std::unique_ptr<Connection::CDirect> MakeDirectClient(
+std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpClient(
     IMessageSink* const sink);
 
 //------------------------------------------------------------------------------------------------
@@ -33,7 +33,7 @@ namespace test {
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
 constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
 constexpr std::string_view TechnologyName = "Direct";
-constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::Direct;
+constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:3000";
 constexpr std::string_view ClientBinding = "*:3001";
@@ -45,84 +45,89 @@ constexpr std::string_view ClientEntry = "127.0.0.1:3001";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CDirectSuite, ServerLifecycleTest)
+TEST(CTcpSuite, ServerMessageForwardingTest)
 {
     CMessageQueue queue;
-    auto connection = local::MakeDirectServer(&queue);
-    EXPECT_EQ(connection->GetOperation(), NodeUtils::ConnectionOperation::Server);
 
-    bool const result = connection->Shutdown();
-    EXPECT_TRUE(result);
-}
+    auto upServer = local::MakeTcpServer(&queue);
+    upServer->Startup();
 
-//------------------------------------------------------------------------------------------------
-
-TEST(CDirectSuite, ClientLifecycleTest)
-{
-    CMessageQueue queue;
-    auto connection = local::MakeDirectClient(&queue);
-    EXPECT_EQ(connection->GetOperation(), NodeUtils::ConnectionOperation::Client);
-
-    bool const result = connection->Shutdown();
-    EXPECT_TRUE(result);
-}
-
-//------------------------------------------------------------------------------------------------
-
-TEST(CDirectSuite, ServerMessageForwardingTest)
-{
-    CMessageQueue queue;
-    auto server = local::MakeDirectServer(&queue);
-    auto client = local::MakeDirectClient(&queue);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    
+    auto upClient = local::MakeTcpClient(&queue);
+    upClient->Startup();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    CMessage const request(
+    // We expect there to be a connect request in the incoming queue from the client
+    auto const optConnectionRequest = queue.PopIncomingMessage();
+    ASSERT_TRUE(optConnectionRequest);
+
+    CMessage const connectResponse(
+        test::ServerId, test::ClientId,
+        NodeUtils::CommandType::Connect, 1,
+        "Connection Approved", 1);
+    queue.PushOutgoingMessage(test::ClientId, connectResponse);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    
+    auto const optConnectResponse = queue.PopIncomingMessage();
+    ASSERT_TRUE(optConnectResponse);
+    EXPECT_EQ(optConnectResponse->GetPack(), connectResponse.GetPack());
+
+    CMessage const electionRequest(
         test::ClientId, test::ServerId,
-        Command::Type::Election, 0,
+        NodeUtils::CommandType::Election, 0,
         "Hello World!", 0);
-        
-    queue.PushOutgoingMessage(test::ServerId, request);
-
+    queue.PushOutgoingMessage(test::ServerId, electionRequest);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto const optReceived = queue.PopIncomingMessage();
-    ASSERT_TRUE(optReceived);
+    auto const optElectionRequest = queue.PopIncomingMessage();
+    ASSERT_TRUE(optElectionRequest);
+    EXPECT_EQ(optElectionRequest->GetPack(), electionRequest.GetPack());
 
-    EXPECT_EQ(optReceived->GetPack(), request.GetPack());
+    CMessage const electionResponse(
+        test::ServerId, test::ClientId,
+        NodeUtils::CommandType::Election, 1,
+        "Re: Hello World!", 0);
+    queue.PushOutgoingMessage(test::ClientId, electionResponse);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+    auto const optElectionResponse = queue.PopIncomingMessage();
+    ASSERT_TRUE(optElectionResponse);
+    EXPECT_EQ(optElectionResponse->GetPack(), electionResponse.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Connection::CDirect> local::MakeDirectServer(
+std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
     IMessageSink* const sink)
 {
-    Configuration::TConnectionOptions options(
-        test::ClientId,
+    Configuration::TEndpointOptions options(
+        test::ServerId,
         test::TechnologyType,
         test::Interface,
         test::ServerBinding);
 
-    options.operation = NodeUtils::ConnectionOperation::Server;
+    options.operation = NodeUtils::EndpointOperation::Server;
 
-    return std::make_unique<Connection::CDirect>(sink, options);
+    return std::make_unique<Endpoints::CTcpEndpoint>(sink, options);
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Connection::CDirect> local::MakeDirectClient(
+std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
     IMessageSink* const sink)
 {
-    Configuration::TConnectionOptions options(
-        test::ServerId,
+    Configuration::TEndpointOptions options(
+        test::ClientId,
         test::TechnologyType,
         test::Interface,
         test::ClientBinding,
         test::ServerEntry);
 
-    options.operation = NodeUtils::ConnectionOperation::Client;
+    options.operation = NodeUtils::EndpointOperation::Client;
 
-    return std::make_unique<Connection::CDirect>(sink, options);
+    return std::make_unique<Endpoints::CTcpEndpoint>(sink, options);
 }
 
 //------------------------------------------------------------------------------------------------

@@ -28,7 +28,7 @@ public:
     std::optional<CMessage> PopIncomingMessage();
     
     std::uint32_t QueuedMessages();
-    std::uint32_t RegisteredConnections();
+    std::uint32_t RegisteredPeers();
 
     // IMessageSink {
     virtual void ForwardMessage(
@@ -36,7 +36,7 @@ public:
         CMessage const& message) override;
     virtual void RegisterCallback(
         NodeUtils::NodeIdType id,
-        CConnection* context,
+        CEndpoint* context,
         ProcessedMessageCallback callback) override;
     virtual void UnpublishCallback(NodeUtils::NodeIdType id) override;
     // }IMessageSink
@@ -46,7 +46,7 @@ private:
     mutable std::shared_mutex m_callbacksMutex;
 
     std::queue<CMessage> m_incoming;
-    std::unordered_map<NodeUtils::NodeIdType, ConnectionContextPair> m_callbacks;
+    std::unordered_map<NodeUtils::NodeIdType, PeerContextPair> m_callbacks;
 };
 
 //------------------------------------------------------------------------------------------------

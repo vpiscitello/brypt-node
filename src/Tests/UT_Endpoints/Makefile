@@ -1,7 +1,7 @@
 CXX = g++-9
 BUILDDIR = ../../build
 BINARYDIR = ../../bin
-BINARYNAME = UT_Connections
+BINARYNAME = UT_Endpoints
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
@@ -10,9 +10,9 @@ GTEST_INCLUDE = -I../../Libraries/googletest/include
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -DZMQ_BUILD_DRAFT_API -pthread
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -DZMQ_BUILD_DRAFT_API -pthread
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(GTEST_INCLUDE)
@@ -20,12 +20,12 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
-ConnectIONDIR = ../../Components/Connection
+ENDPOINTSDIR = ../../Components/Endpoints
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
-$(ConnectIONDIR) \
+$(ENDPOINTSDIR) \
 $(MESSAGEQUEUEDIR) \
 $(GTESTDIR)
 

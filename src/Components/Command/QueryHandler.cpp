@@ -5,7 +5,7 @@
 #include "QueryHandler.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../Await/Await.hpp"
-#include "../Connection/Connection.hpp"
+#include "../Endpoints/Endpoint.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
 #include "../Notifier/Notifier.hpp"
 #include "../BryptNode/BryptNode.hpp"
@@ -174,28 +174,15 @@ bool Command::CQueryHandler::RespondHandler(CMessage const& message)
 
     NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
     CMessage const request(
-        id,
-        destinationId,
-        Command::Type::Query,
-        static_cast<std::uint8_t>(Phase::Aggregate),
-        local::GenerateReading(),
-        nonce,
+        id, destinationId,
+        NodeUtils::CommandType::Query, static_cast<std::uint8_t>(Phase::Aggregate),
+        local::GenerateReading(), nonce,
         Message::BoundAwaitId(
             {Message::AwaitBinding::Destination, *optAwaitId}));
 
-    // TODO: Add method to defer if node instance is a coordinator
-    if (auto const optConnection = m_instance.GetConnection(destinationId)) {
-        auto const connection = optConnection->lock();
-        connection->Send(request);
-        std::optional<std::string> optResponse = connection->Receive();
-        if (optResponse) {
-            try {
-                CMessage response(*optResponse);
-                NodeUtils::printo("Received: " + message.GetPack(), NodeUtils::PrintType::Command);
-            } catch (...) {
-                NodeUtils::printo("Query response could not be unpacked!", NodeUtils::PrintType::Command);
-            }
-        }
+    auto const wpMessageQueue = m_instance.GetMessageQueue();
+    if (auto const spMessageQueue = wpMessageQueue.lock()) {
+        spMessageQueue->PushOutgoingMessage(destinationId, request);
     }
 
     return false;

@@ -16,7 +16,7 @@ namespace Configuration {
 
 struct TSettings;
 struct TDetailsOptions;
-struct TConnectionOptions;
+struct TEndpointOptions;
 struct TSecurityOptions;
 
 //------------------------------------------------------------------------------------------------
@@ -57,20 +57,20 @@ struct Configuration::TDetailsOptions
 
 //------------------------------------------------------------------------------------------------
 
-struct Configuration::TConnectionOptions
+struct Configuration::TEndpointOptions
 {
-    TConnectionOptions()
+    TEndpointOptions()
         : id(0)
         , technology(NodeUtils::TechnologyType::None)
         , technology_name()
-        , operation(NodeUtils::ConnectionOperation::None)
+        , operation(NodeUtils::EndpointOperation::None)
         , interface()
         , binding()
         , entry_address()
     {
     }
 
-    TConnectionOptions(
+    TEndpointOptions(
         NodeUtils::NodeIdType id,
         std::string_view technology_name,
         std::string_view interface,
@@ -79,7 +79,7 @@ struct Configuration::TConnectionOptions
         : id(id)
         , technology(NodeUtils::TechnologyType::None)
         , technology_name(technology_name)
-        , operation(NodeUtils::ConnectionOperation::None)
+        , operation(NodeUtils::EndpointOperation::None)
         , interface(interface)
         , binding(binding)
         , entry_address(entryAddress)
@@ -87,7 +87,7 @@ struct Configuration::TConnectionOptions
         technology = NodeUtils::ParseTechnologyType(technology_name.data());
     }
 
-    TConnectionOptions(
+    TEndpointOptions(
         NodeUtils::NodeIdType id,
         NodeUtils::TechnologyType technology,
         std::string_view interface,
@@ -96,7 +96,7 @@ struct Configuration::TConnectionOptions
         : id(id)
         , technology(technology)
         , technology_name()
-        , operation(NodeUtils::ConnectionOperation::None)
+        , operation(NodeUtils::EndpointOperation::None)
         , interface(interface)
         , binding(binding)
         , entry_address(entryAddress)
@@ -117,7 +117,7 @@ struct Configuration::TConnectionOptions
     NodeUtils::NodeIdType id;
     NodeUtils::TechnologyType technology;
     std::string technology_name;
-    NodeUtils::ConnectionOperation operation;
+    NodeUtils::EndpointOperation operation;
     std::string interface;
     std::string binding;
     std::string entry_address;
@@ -155,24 +155,24 @@ struct Configuration::TSettings
 {
     TSettings()
         : details()
-        , connections()
+        , endpoints()
         , security()
     {
     }
 
     TSettings(
         TDetailsOptions const& detailsOptions,
-        std::vector<TConnectionOptions> const& connectionsOptions,
+        std::vector<TEndpointOptions> const& endpointsOptions,
         TSecurityOptions const& securityOptions)
         : details(detailsOptions)
-        , connections(connectionsOptions)
+        , endpoints(endpointsOptions)
         , security(securityOptions)
     {
     }
 
     TSettings(TSettings const& other)
         : details(other.details)
-        , connections(other.connections)
+        , endpoints(other.endpoints)
         , security(other.security)
     {
     }
@@ -180,13 +180,13 @@ struct Configuration::TSettings
     TSettings& operator=(TSettings const& other)
     {
         details = other.details;
-        connections = other.connections;
+        endpoints = other.endpoints;
         security = other.security;
         return *this;
     }
 
     TDetailsOptions details;
-    std::vector<TConnectionOptions> connections;
+    std::vector<TEndpointOptions> endpoints;
     TSecurityOptions security;
 };
 

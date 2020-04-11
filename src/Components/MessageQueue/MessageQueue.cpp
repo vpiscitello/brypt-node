@@ -27,7 +27,7 @@ bool CMessageQueue::PushOutgoingMessage(
 	NodeUtils::NodeIdType id,
 	CMessage const& message)
 {
-	NodeUtils::printo("Message queued for " + std::to_string(id), NodeUtils::PrintType::MessageQueue);
+	NodeUtils::printo("Message forwarded to endpoint for " + std::to_string(id), NodeUtils::PrintType::MessageQueue);
 
 	std::scoped_lock lock(m_callbacksMutex);
 	// Attempt to find a mapped callback for the node in the known callbacks
@@ -35,7 +35,7 @@ bool CMessageQueue::PushOutgoingMessage(
 	if (auto const itr = m_callbacks.find(id); itr != m_callbacks.end()) {
 		auto const [context, callback] = itr->second;
 		if (context) {
-			callback(context, message);
+			callback(context, id, message);
 			return true;
 		}
 	}
@@ -53,7 +53,7 @@ std::uint32_t CMessageQueue::QueuedMessages()
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageQueue::RegisteredConnections()
+std::uint32_t CMessageQueue::RegisteredPeers()
 {
 	std::shared_lock lock(m_callbacksMutex);
 	return m_callbacks.size();
@@ -90,7 +90,7 @@ void CMessageQueue::ForwardMessage(
 
 void CMessageQueue::RegisterCallback(
 	NodeUtils::NodeIdType id,
-	CConnection* context,
+	CEndpoint* context,
 	ProcessedMessageCallback callback)
 {
 	std::scoped_lock lock(m_callbacksMutex);

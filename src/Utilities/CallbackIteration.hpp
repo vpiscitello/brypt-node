@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: PeerInformationMap.hpp
+// File: CallbackIteration.hpp
 // Description: Enum class for stopping or continuing ForEach callbacks 
 //------------------------------------------------------------------------------------------------
 #pragma once

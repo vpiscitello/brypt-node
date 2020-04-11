@@ -61,7 +61,7 @@ public:
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(nonce)
-		, m_timepoint(NodeUtils::GetSystemTimePoint())
+		, m_timepoint(NodeUtils::GetSystemTimepoint())
 		, m_end(0)
 		, m_token()
 	{
@@ -84,11 +84,30 @@ public:
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(0)
-		, m_timepoint(NodeUtils::GetSystemTimePoint())
+		, m_timepoint(NodeUtils::GetSystemTimepoint())
 		, m_end(0)
 		, m_token()
 	{
-		Unpack(Z85Decode(raw));
+		Unpack(Z85Decode(m_raw));
+	}
+
+	//------------------------------------------------------------------------------------------------
+
+	explicit CMessage(Message::Buffer const& raw)
+		: m_raw(raw.begin(), raw.end())
+		, m_sourceId(0)
+		, m_destinationId(0)
+		, m_boundAwaitId({})
+		, m_command(NodeUtils::CommandType::None)
+		, m_phase(0)
+		, m_data()
+		, m_key(NodeUtils::NetworkKey)
+		, m_nonce(0)
+		, m_timepoint(NodeUtils::GetSystemTimepoint())
+		, m_end(0)
+		, m_token()
+	{
+		Unpack(Z85Decode(m_raw));
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -160,7 +179,7 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	NodeUtils::TimePoint const& GetSystemTimePoint() const
+	NodeUtils::Timepoint const& GetSystemTimepoint() const
 	{
 		return m_timepoint;
 	}
@@ -225,7 +244,7 @@ public:
 		PackChunk(buffer, m_nonce);
 		PackChunk(buffer, static_cast<std::uint16_t>(m_data.size()));
 		PackChunk(buffer, m_data);
-		PackChunk(buffer, NodeUtils::TimePointToTimePeriod(m_timepoint));
+		PackChunk(buffer, NodeUtils::TimepointToTimePeriod(m_timepoint));
 		m_end = buffer.size();
 
         m_raw.clear();
@@ -291,7 +310,7 @@ public:
 
 		std::uint64_t timestamp;
 		UnpackChunk(buffer, position, timestamp);
-		m_timepoint = NodeUtils::TimePoint(NodeUtils::TimePeriod(timestamp));
+		m_timepoint = NodeUtils::Timepoint(NodeUtils::TimePeriod(timestamp));
 		m_end = position;
 
 		UnpackChunk(buffer, position, m_token, local::TokenSize);
@@ -432,7 +451,7 @@ public:
 	// Warning: The source buffer may increase in size to be a multiple of 4. Z85 needs to be this 
 	// padding.
     //------------------------------------------------------------------------------------------------
-    inline std::string Z85Encode(Message::Buffer& message) const
+    std::string Z85Encode(Message::Buffer& message) const
     {
 		std::string encoded;
 		// Pad the buffer such that it's length is a multiple of 4 for z85 encoding
@@ -452,7 +471,8 @@ public:
     //------------------------------------------------------------------------------------------------
     // Description: Decode a Z85 message to a std::string
     //------------------------------------------------------------------------------------------------
-    inline Message::Buffer Z85Decode(std::string_view message) const
+	template <typename BufferType>
+    Message::Buffer Z85Decode(BufferType const& message) const
     {
         Message::Buffer decoded;
 		// Resize the destination to be the estimated maximum size
@@ -495,7 +515,7 @@ private:
 	std::string m_key;	// Key used for encryption and authentication
 	NodeUtils::NetworkNonce m_nonce;	// Current message nonce
 
-	NodeUtils::TimePoint m_timepoint;	// The timepoint that message was created
+	NodeUtils::Timepoint m_timepoint;	// The timepoint that message was created
 	mutable std::uint32_t m_end; // Ending position of the message payload when packed into a buffer
 
 	// Mutable to ensure the token is always reflective of the data contained

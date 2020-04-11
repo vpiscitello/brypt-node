@@ -28,15 +28,15 @@ bool IsNewlineOrTab(char c);
 void WriteNodeOptions(
     Configuration::TDetailsOptions const& options,
     std::ofstream& out);
-void WriteConnectionOptions(
-    std::vector<Configuration::TConnectionOptions> const& options,
+void WriteEndpointOptions(
+    std::vector<Configuration::TEndpointOptions> const& options,
     std::ofstream& out);
 void WriteSecurityOptions(
     Configuration::TSecurityOptions const& options,
     std::ofstream& out);
 
 Configuration::TDetailsOptions GetDetailsOptionsFromUser();
-std::vector<Configuration::TConnectionOptions> GetConnectionOptionsFromUser();
+std::vector<Configuration::TEndpointOptions> GetEndpointOptionsFromUser();
 Configuration::TSecurityOptions GetSecurityOptionsFromUser();
 
 //------------------------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ IOD_SYMBOL(name)
 IOD_SYMBOL(description)
 IOD_SYMBOL(location)
 
-IOD_SYMBOL(connections)
+IOD_SYMBOL(endpoints)
 IOD_SYMBOL(technology_name)
 IOD_SYMBOL(interface)
 IOD_SYMBOL(binding)
@@ -152,7 +152,7 @@ Configuration::CManager::StatusCode Configuration::CManager::Save()
     out << "{\n";
 
     local::WriteNodeOptions(m_settings.details, out);
-    local::WriteConnectionOptions(m_settings.connections, out);
+    local::WriteEndpointOptions(m_settings.endpoints, out);
     local::WriteSecurityOptions(m_settings.security, out);
 
     out << "}" << std::flush;
@@ -168,7 +168,7 @@ Configuration::CManager::StatusCode Configuration::CManager::ValidateSettings()
 {
     m_validated = false;
 
-    if (m_settings.connections.empty()) {
+    if (m_settings.endpoints.empty()) {
         return StatusCode::DecodeError;
     }
 
@@ -211,7 +211,7 @@ Configuration::CManager::StatusCode Configuration::CManager::DecodeConfiguration
             s::name,
             s::description,
             s::location),
-        s::connections = iod::json_vector(
+        s::endpoints = iod::json_vector(
             s::technology_name,
             s::interface,
             s::binding,
@@ -236,7 +236,7 @@ Configuration::CManager::StatusCode Configuration::CManager::GenerateConfigurati
 {
     // If the configuration has not been provided to the Configuration Manager
     // generate a configuration object from user input
-    if (m_settings.connections.empty()) {
+    if (m_settings.endpoints.empty()) {
         GetConfigurationOptionsFromUser();
     }
 
@@ -328,14 +328,14 @@ void Configuration::CManager::GetConfigurationOptionsFromUser()
     TDetailsOptions const detailsOptions = 
         local::GetDetailsOptionsFromUser();
 
-    std::vector<Configuration::TConnectionOptions> const connectionOptions = 
-        local::GetConnectionOptionsFromUser();
+    std::vector<Configuration::TEndpointOptions> const endpointOptions = 
+        local::GetEndpointOptionsFromUser();
 
     Configuration::TSecurityOptions const securityOptions = 
         local::GetSecurityOptionsFromUser();
 
     m_settings.details = detailsOptions;
-    m_settings.connections = connectionOptions;
+    m_settings.endpoints = endpointOptions;
     m_settings.security = securityOptions;
 }
 
@@ -343,9 +343,9 @@ void Configuration::CManager::GetConfigurationOptionsFromUser()
 
 void Configuration::CManager::InitializeSettings()
 {
-    std::for_each(m_settings.connections.begin(), m_settings.connections.end(),
-    [](auto& connection){
-        connection.technology = NodeUtils::ParseTechnologyType(connection.technology_name);
+    std::for_each(m_settings.endpoints.begin(), m_settings.endpoints.end(),
+    [](auto& endpoint){
+        endpoint.technology = NodeUtils::ParseTechnologyType(endpoint.technology_name);
     });
 }
 
@@ -378,19 +378,19 @@ void local::WriteNodeOptions(
 
 //-----------------------------------------------------------------------------------------------
 
-void local::WriteConnectionOptions(
-    std::vector<Configuration::TConnectionOptions> const& options,
+void local::WriteEndpointOptions(
+    std::vector<Configuration::TEndpointOptions> const& options,
     std::ofstream& out)
 {
-    out << "\t\"connections\": [\n";
-    for (auto const& connection: options) {
+    out << "\t\"endpoints\": [\n";
+    for (auto const& endpoint: options) {
         out << "\t\t{\n";
-        out << "\t\t\t\"technology_name\": \"" << NodeUtils::TechnologyTypeToString(connection.technology) << "\",\n";
-        out << "\t\t\t\"interface\": \"" << connection.interface << "\",\n";
-        out << "\t\t\t\"binding\": \"" << connection.binding << "\",\n";
-        out << "\t\t\t\"entry_address\": \"" << connection.entry_address << "\"\n";
+        out << "\t\t\t\"technology_name\": \"" << NodeUtils::TechnologyTypeToString(endpoint.technology) << "\",\n";
+        out << "\t\t\t\"interface\": \"" << endpoint.interface << "\",\n";
+        out << "\t\t\t\"binding\": \"" << endpoint.binding << "\",\n";
+        out << "\t\t\t\"entry_address\": \"" << endpoint.entry_address << "\"\n";
         out << "\t\t}";
-        if (&connection != &options.back()) {
+        if (&endpoint != &options.back()) {
             out << ",\n";
         }
     }
@@ -446,14 +446,14 @@ Configuration::TDetailsOptions local::GetDetailsOptionsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUser()
+std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
 {
-    std::vector<Configuration::TConnectionOptions> options;
+    std::vector<Configuration::TEndpointOptions> options;
 
-    bool addConnectionOption = false;
+    bool bAddEndpointOption = false;
     NodeUtils::NodeIdType nodeId = 0;
     do {
-        Configuration::TConnectionOptions connection(
+        Configuration::TEndpointOptions endpoint(
             ++nodeId,
             defaults::TechnologyName,
             defaults::NetworkInterface,
@@ -466,8 +466,8 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
         std::cout << "Communication Technology: (" << defaults::TechnologyName << ") " << std::flush;
         std::getline(std::cin, sTechnology);
         if (!sTechnology.empty()) {
-            connection.technology_name = sTechnology;
-            connection.technology = NodeUtils::ParseTechnologyType(sTechnology);
+            endpoint.technology_name = sTechnology;
+            endpoint.technology = NodeUtils::ParseTechnologyType(sTechnology);
         }
 
         // Get the network interface that the node will be bound too
@@ -475,7 +475,7 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
         std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
         std::getline(std::cin, sInterface);
         if (!sInterface.empty()) {
-            connection.interface = sInterface;
+            endpoint.interface = sInterface;
         }
 
         // Get the primary and secondary network address components
@@ -484,40 +484,40 @@ std::vector<Configuration::TConnectionOptions> local::GetConnectionOptionsFromUs
         std::string sBinding = "";
         std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
         bindingOutputMessage.append(defaults::TcpBindingAddress.data());
-        if (connection.technology == NodeUtils::TechnologyType::LoRa) {
+        if (endpoint.technology == NodeUtils::TechnologyType::LoRa) {
             bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
             bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
-            connection.binding = defaults::LoRaBindingAddress;
-            connection.entry_address = "";
+            endpoint.binding = defaults::LoRaBindingAddress;
+            endpoint.entry_address = "";
         }
         bindingOutputMessage.append(") ");
         std::cout << bindingOutputMessage << std::flush;
         std::getline(std::cin, sBinding);
         if (!sBinding.empty()) {
-            connection.binding = sBinding;
+            endpoint.binding = sBinding;
         }
 
         // If the technology type is LoRa, return because the cluster is assumed
         // to be on the same frequency and channel.
-        if (connection.technology != NodeUtils::TechnologyType::LoRa) {
+        if (endpoint.technology != NodeUtils::TechnologyType::LoRa) {
             // Get the entry address of the network this may be the cluster
             // coordinator. In the future some sort of discovery.
             std::string sEntryAddress = "";
             std::cout << "Entry Address: (" << defaults::EntryAddress << ") " << std::flush;
             std::getline(std::cin, sEntryAddress);
             if (!sEntryAddress.empty()) {
-                connection.entry_address = sEntryAddress;
+                endpoint.entry_address = sEntryAddress;
             }
         }
 
-        options.emplace_back(connection);
+        options.emplace_back(endpoint);
 
         std::string sContinueChoice;
         std::cout << "Enter any key to setup a key (Press enter to continue): " << std::flush;
         std::getline(std::cin, sContinueChoice);
-        addConnectionOption = !sContinueChoice.empty();
+        bAddEndpointOption = !sContinueChoice.empty();
         std::cout << "\n";
-    } while(addConnectionOption);
+    } while(bAddEndpointOption);
 
     return options;
 }

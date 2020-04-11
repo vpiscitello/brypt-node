@@ -3,8 +3,8 @@
 // Description:
 //-----------------------------------------------------------------------------------------------
 #include "Notifier.hpp"
-#include "../Connection/Connection.hpp"
 #include "../../BryptNode/CoordinatorState.hpp"
+#include "../Endpoints/Endpoint.hpp"
 #include "../../Utilities/Message.hpp"
 //-----------------------------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@
 CNotifier::CNotifier(
     NodeUtils::PortNumber port,
     std::weak_ptr<CCoordinatorState> const& wpCoordinatorState,
-    std::weak_ptr<NodeUtils::ConnectionMap> const& wpConnections)
+    std::weak_ptr<NodeUtils::EndpointMap> const& endpoints)
     : m_wpCoordinatorState(wpCoordinatorState)
     , m_wpConnections(wpConnections)
     , m_context(1)
@@ -69,16 +69,7 @@ bool CNotifier::Send(
         m_publisher.send(zmqMessage, zmq::send_flags::none);
     }
 
-    // Non-ZMQ Publishing Scope
-    if (auto const spConnections = m_wpConnections.lock()) {
-        for (auto const& [id, spConnection] : *spConnections) {
-            assert(spConnection);
-            NodeUtils::TechnologyType const technologyType = spConnection->GetInternalType();
-            if(technologyType != NodeUtils::TechnologyType::Direct) {
-                spConnection->Send(message); 
-            }
-        }
-    }
+    // TODO: notify peers that cannot connect to the ZMQ publisher
 
     return true;
 }

@@ -19,7 +19,7 @@ public:
     // }IHandler
 
     bool ContactHandler();
-    bool JoinHandler(CMessage const& message);
+    bool JoinHandler();
     bool CloseHandler();
 
 private:

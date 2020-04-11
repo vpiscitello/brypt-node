@@ -27,7 +27,7 @@ namespace Command {
     class IHandler;
 }
 
-class CConnection;
+class CEndpoint;
 
 //------------------------------------------------------------------------------------------------
 namespace NodeUtils {
@@ -42,7 +42,7 @@ using SerialNumber = std::string;
 using AddressComponentPair = std::pair<std::string, std::string>;
 
 using NetworkNonce = std::uint32_t;
-using TimePoint = std::chrono::system_clock::time_point;
+using Timepoint = std::chrono::system_clock::time_point;
 using TimePeriod = std::chrono::milliseconds;
 
 using ObjectIdType = std::uint32_t;
@@ -50,15 +50,14 @@ using ObjectIdType = std::uint32_t;
 //------------------------------------------------------------------------------------------------
 
 enum class DeviceOperation : std::uint8_t { Root, Branch, Leaf, None };
-enum class ConnectionOperation : std::uint8_t { Server, Client, None };
-enum class DeviceSocketCapability : std::uint8_t { Master, Slave };
+enum class EndpointOperation : std::uint8_t { Server, Client, None };
 enum class TechnologyType : std::uint8_t { Direct, LoRa, StreamBridge, TCP, None };
 enum class NotificationType : std::uint8_t { Network, Cluster, Node, None };
-enum class PrintType : std::uint8_t { Await, Command, Connection, Control, Message, MessageQueue, Node, Notifier, PeerWatcher, Error };
+enum class PrintType : std::uint8_t { Await, Command, Control, Endpoint, Message, MessageQueue, Node, Notifier, PeerWatcher, Error };
 
 //------------------------------------------------------------------------------------------------
 
-using ConnectionMap = std::unordered_map<NodeIdType, std::shared_ptr<CConnection>>;
+using EndpointMap = std::unordered_map<NodeIdType, std::shared_ptr<CEndpoint>>;
 
 //------------------------------------------------------------------------------------------------
 
@@ -77,11 +76,11 @@ std::string TechnologyTypeToString(TechnologyType technology);
 
 std::string GetDesignation(DeviceOperation const& operation);
 
-TimePoint GetSystemTimePoint();
+Timepoint GetSystemTimepoint();
 std::string GetSystemTimestamp();
-std::string TimePointToString(TimePoint const& time);
-NodeUtils::TimePeriod TimePointToTimePeriod(TimePoint const& time);
-TimePoint StringToTimePoint(std::string const& timestamp);
+std::string TimepointToString(Timepoint const& time);
+NodeUtils::TimePeriod TimepointToTimePeriod(Timepoint const& time);
+Timepoint StringToTimepoint(std::string const& timestamp);
 
 std::string GetPrintEscape(PrintType const& component);
 
@@ -160,7 +159,7 @@ inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
 
 //------------------------------------------------------------------------------------------------
 
-inline NodeUtils::TimePoint NodeUtils::GetSystemTimePoint()
+inline NodeUtils::Timepoint NodeUtils::GetSystemTimepoint()
 {
     return std::chrono::system_clock::now();
 }
@@ -169,7 +168,7 @@ inline NodeUtils::TimePoint NodeUtils::GetSystemTimePoint()
 
 inline std::string NodeUtils::GetSystemTimestamp()
 {
-    TimePoint const current = GetSystemTimePoint();
+    Timepoint const current = GetSystemTimepoint();
     auto const milliseconds = std::chrono::duration_cast<TimePeriod>(current.time_since_epoch());
 
     std::stringstream epochStream;
@@ -180,9 +179,9 @@ inline std::string NodeUtils::GetSystemTimestamp()
 
 //------------------------------------------------------------------------------------------------
 
-inline std::string NodeUtils::TimePointToString(TimePoint const& time)
+inline std::string NodeUtils::TimepointToString(Timepoint const& time)
 {
-    auto const milliseconds = TimePointToTimePeriod(time);
+    auto const milliseconds = TimepointToTimePeriod(time);
 
     std::stringstream epochStream;
     epochStream.clear();
@@ -192,14 +191,14 @@ inline std::string NodeUtils::TimePointToString(TimePoint const& time)
 
 //------------------------------------------------------------------------------------------------
 
-inline NodeUtils::TimePeriod NodeUtils::TimePointToTimePeriod(TimePoint const& time)
+inline NodeUtils::TimePeriod NodeUtils::TimepointToTimePeriod(Timepoint const& time)
 {
     return std::chrono::duration_cast<TimePeriod>(time.time_since_epoch());
 }
 
 //------------------------------------------------------------------------------------------------
 
-inline NodeUtils::TimePoint NodeUtils::StringToTimePoint(std::string const& timestamp)
+inline NodeUtils::Timepoint NodeUtils::StringToTimepoint(std::string const& timestamp)
 {
     std::int64_t const llMilliseconds = std::stoll(timestamp);
     TimePeriod const milliseconds(llMilliseconds);
@@ -213,8 +212,8 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
     static std::unordered_map<PrintType, std::string> const escapeMap = {
         {PrintType::Await, "\x1b[1;30;48;5;93m[    Await    ]\x1b[0m "},
         {PrintType::Command, "\x1b[1;30;48;5;220m[   Command   ]\x1b[0m "},
-        {PrintType::Connection, "\x1b[1;30;48;5;6m[  Connection ]\x1b[0m "},
         {PrintType::Control, "\x1b[1;97;48;5;4m[   Control   ]\x1b[0m "},
+        {PrintType::Endpoint, "\x1b[1;30;48;5;6m[   Endpoint  ]\x1b[0m "},
         {PrintType::Message, "\x1b[1;30;48;5;135m[   Message   ]\x1b[0m "},
         {PrintType::MessageQueue, "\x1b[1;30;48;5;129m[ MessageQueue ]\x1b[0m "},
         {PrintType::Node, "\x1b[1;30;48;5;42m[     Node    ]\x1b[0m "},
@@ -279,9 +278,9 @@ inline NodeUtils::AddressComponentPair NodeUtils::SplitAddressString(std::string
     std::pair<std::string, std::string> components;
 
     auto const seperatorPosition = str.find_last_of(ADDRESS_COMPONENT_SEPERATOR);
-    // Get the primary connection component up until the seperator
+    // Get the primary endpoint component up until the seperator
     components.first = str.substr(0, seperatorPosition);
-    // Get the secondary connection component skipping the seperator
+    // Get the secondary endpoint component skipping the seperator
     components.second = str.substr(seperatorPosition + 1);
 
     return components;

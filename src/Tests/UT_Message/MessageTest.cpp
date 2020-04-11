@@ -47,7 +47,7 @@ TEST(CMessageSuite, BaseMessageParameterConstructorTest)
     EXPECT_EQ(message.GetCommandType(), test::Command);
     EXPECT_EQ(message.GetPhase(), test::RequestPhase);
     EXPECT_EQ(message.GetNonce(), test::Nonce);
-    EXPECT_GT(message.GetSystemTimePoint(), NodeUtils::TimePoint());
+    EXPECT_GT(message.GetSystemTimepoint(), NodeUtils::Timepoint());
 
     auto const data = message.GetData();
     auto const decrypted = message.Decrypt(data, data.size());
@@ -77,7 +77,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_EQ(sourceBoundMessage.GetCommandType(), test::Command);
     EXPECT_EQ(sourceBoundMessage.GetPhase(), test::RequestPhase);
     EXPECT_EQ(sourceBoundMessage.GetNonce(), test::Nonce);
-    EXPECT_GT(sourceBoundMessage.GetSystemTimePoint(), NodeUtils::TimePoint());
+    EXPECT_GT(sourceBoundMessage.GetSystemTimepoint(), NodeUtils::Timepoint());
 
     auto const sourceBoundData = sourceBoundMessage.GetData();
     auto const sourceBoundDecrypted = 
@@ -102,7 +102,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_EQ(destinationBoundMessage.GetCommandType(), test::Command);
     EXPECT_EQ(destinationBoundMessage.GetPhase(), test::RequestPhase);
     EXPECT_EQ(destinationBoundMessage.GetNonce(), test::Nonce);
-    EXPECT_GT(destinationBoundMessage.GetSystemTimePoint(), NodeUtils::TimePoint());
+    EXPECT_GT(destinationBoundMessage.GetSystemTimepoint(), NodeUtils::Timepoint());
 
     auto const destinationBoundData = destinationBoundMessage.GetData();
     auto const destinationBoundDecrypted = 
@@ -137,7 +137,7 @@ TEST(CMessageSuite, BaseMessagePackConstructorTest)
     EXPECT_EQ(baseMessage.GetCommandType(), packMessage.GetCommandType());
     EXPECT_EQ(baseMessage.GetPhase(), packMessage.GetPhase());
     EXPECT_EQ(baseMessage.GetNonce(), packMessage.GetNonce());
-    EXPECT_GT(baseMessage.GetSystemTimePoint(), packMessage.GetSystemTimePoint());
+    EXPECT_GT(baseMessage.GetSystemTimepoint(), packMessage.GetSystemTimepoint());
 
     auto const data = packMessage.GetData();
     auto const decrypted = packMessage.Decrypt(data, data.size());
@@ -169,7 +169,7 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
     EXPECT_EQ(boundMessage.GetCommandType(), packMessage.GetCommandType());
     EXPECT_EQ(boundMessage.GetPhase(), packMessage.GetPhase());
     EXPECT_EQ(boundMessage.GetNonce(), packMessage.GetNonce());
-    EXPECT_GT(boundMessage.GetSystemTimePoint(), packMessage.GetSystemTimePoint());
+    EXPECT_GT(boundMessage.GetSystemTimepoint(), packMessage.GetSystemTimepoint());
 
     auto const data = packMessage.GetData();
     auto const decrypted = packMessage.Decrypt(data, data.size());

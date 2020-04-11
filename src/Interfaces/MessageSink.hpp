@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
 // File: MessageCollector.hpp
-// Description: Defines an interface that allows connection items to forward and receive 
+// Description: Defines an interface that allows endpoints to forward and receive 
 // messages from the central message queue.
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -12,13 +12,13 @@
 #include <utility>
 //------------------------------------------------------------------------------------------------
 
-class CConnection;
+class CEndpoint;
 class CMessage;
 
 //------------------------------------------------------------------------------------------------
 
-using ProcessedMessageCallback = std::function<void(CConnection*, CMessage const& message)>;
-using ConnectionContextPair = std::pair<CConnection*, ProcessedMessageCallback>;
+using ProcessedMessageCallback = std::function<void(CEndpoint*,NodeUtils::NodeIdType id, CMessage const& message)>;
+using PeerContextPair = std::pair<CEndpoint*, ProcessedMessageCallback>;
 
 //------------------------------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ public:
         CMessage const& message) = 0;
     virtual void RegisterCallback(
         NodeUtils::NodeIdType id,
-        CConnection* context,
+        CEndpoint* context,
         ProcessedMessageCallback) = 0;
     virtual void UnpublishCallback(NodeUtils::NodeIdType id) = 0;
 };

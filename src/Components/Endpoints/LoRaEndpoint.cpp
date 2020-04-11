@@ -1,8 +1,10 @@
 //------------------------------------------------------------------------------------------------
-// File: LoRaConnection.cpp
+// File: LoRaEndpoint.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "LoRaConnection.hpp"
+#include "LoRaEndpoint.hpp"
+//------------------------------------------------------------------------------------------------
+#include "EndpointConstants.hpp"
 #include "../../Utilities/Message.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -11,9 +13,6 @@ namespace {
 //------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
-
-// constexpr std::chrono::nanoseconds timeout = std::chrono::nanoseconds(1000);
-
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -22,16 +21,16 @@ namespace local {
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CLoRa::CLoRa(
+Endpoints::CLoRaEndpoint::CLoRaEndpoint(
     IMessageSink* const messageSink,
-    Configuration::TConnectionOptions const& options)
-    : CConnection(messageSink, options)
+    Configuration::TEndpointOptions const& options)
+    : CEndpoint(messageSink, options)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-Connection::CLoRa::~CLoRa()
+Endpoints::CLoRaEndpoint::~CLoRaEndpoint()
 {
     bool const success = Shutdown();
     if (!success) {
@@ -42,22 +41,11 @@ Connection::CLoRa::~CLoRa()
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Connection::CLoRa::whatami()
+ // Description:
+ //------------------------------------------------------------------------------------------------
+std::string Endpoints::CLoRaEndpoint::GetProtocolType() const
 {
-    NodeUtils::printo("[LoRa] I am a LoRa implementation", NodeUtils::PrintType::Connection);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Connection::CLoRa::Spawn()
-{
-    NodeUtils::printo("[LoRa] Spawning LoRa connection thread", NodeUtils::PrintType::Connection);
-    m_worker = std::thread(&CLoRa::Worker, this);
+    return ProtocolType.data();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -65,21 +53,9 @@ void Connection::CLoRa::Spawn()
 //------------------------------------------------------------------------------------------------
  // Description:
  //------------------------------------------------------------------------------------------------
-std::string const& Connection::CLoRa::GetProtocolType() const
+NodeUtils::TechnologyType Endpoints::CLoRaEndpoint::GetInternalType() const
 {
-    static std::string const protocol = "LoRa";
-    return protocol;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
- // Description:
- //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Connection::CLoRa::GetInternalType() const
-{
-    static NodeUtils::TechnologyType const internal = NodeUtils::TechnologyType::LoRa;
-    return internal;
+    return InternalType;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -87,8 +63,12 @@ NodeUtils::TechnologyType Connection::CLoRa::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CLoRa::Worker()
+void Endpoints::CLoRaEndpoint::Startup()
 {
+    if (m_active) {
+        return; 
+    }
+    Spawn();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -96,7 +76,8 @@ void Connection::CLoRa::Worker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CLoRa::HandleProcessedMessage(CMessage const& /*message*/)
+void Endpoints::CLoRaEndpoint::HandleProcessedMessage(
+    [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] CMessage const& message)
 {
 }
 
@@ -105,7 +86,8 @@ void Connection::CLoRa::HandleProcessedMessage(CMessage const& /*message*/)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CLoRa::Send(CMessage const& /*message*/)
+void Endpoints::CLoRaEndpoint::Send(
+    [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] CMessage const& message)
 {
 }
 
@@ -114,27 +96,8 @@ void Connection::CLoRa::Send(CMessage const& /*message*/)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Connection::CLoRa::Send(std::string_view /*message*/)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-// Returns:
-//------------------------------------------------------------------------------------------------
-std::optional<std::string> Connection::CLoRa::Receive([[maybe_unused]] std::int32_t flag)
-{
-    return {};
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Connection::CLoRa::PrepareForNext()
+void Endpoints::CLoRaEndpoint::Send(
+    [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] std::string_view message)
 {
 }
 
@@ -143,8 +106,8 @@ void Connection::CLoRa::PrepareForNext()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Connection::CLoRa::Shutdown()
-{    // Stop the worker thread from processing the connections
+bool Endpoints::CLoRaEndpoint::Shutdown()
+{
     {
         std::scoped_lock lock(m_mutex);
         m_terminate = true;
@@ -157,6 +120,16 @@ bool Connection::CLoRa::Shutdown()
     }
     
     return !m_worker.joinable();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CLoRaEndpoint::Spawn()
+{
+    printo("[LoRa] Spawning endpoint thread", NodeUtils::PrintType::Endpoint);
 }
 
 //------------------------------------------------------------------------------------------------

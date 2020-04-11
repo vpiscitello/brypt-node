@@ -24,7 +24,7 @@ Await::CMessageObject::CMessageObject(
     , m_request(request)
     , m_optAggregateResponse()
     , m_responses()
-    , m_expire(NodeUtils::GetSystemTimePoint() + Await::Timeout)
+    , m_expire(NodeUtils::GetSystemTimepoint() + Await::Timeout)
 {
     m_responses[peer] = std::string();
 }
@@ -43,7 +43,7 @@ Await::CMessageObject::CMessageObject(
     , m_request(request)
     , m_optAggregateResponse()
     , m_responses()
-    , m_expire(NodeUtils::GetSystemTimePoint() + Await::Timeout)
+    , m_expire(NodeUtils::GetSystemTimepoint() + Await::Timeout)
 {
     NodeUtils::NodeIdType const& source = m_request.GetSourceId();
     for (auto const& peer: peers) {
@@ -63,7 +63,7 @@ Await::CMessageObject::CMessageObject(
 //------------------------------------------------------------------------------------------------
 Await::Status Await::CMessageObject::GetStatus()
 {
-    if (m_expected == m_received || m_expire < NodeUtils::GetSystemTimePoint()) {
+    if (m_expected == m_received || m_expire < NodeUtils::GetSystemTimepoint()) {
         m_status = Status::Fulfilled;
     } 
 

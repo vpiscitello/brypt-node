@@ -24,7 +24,7 @@ SRCDIR = .
 MAINDIR = ../..
 AWAITDIR = ../../Components/Await
 COMMANDDIR = ../../Components/Command
-CONNECTIONDIR = ../../Components/Connection
+ENDPOINTSDIR = ../../Components/Endpoints
 CONFIGURATIONDIR = ../../Configuration
 CONTROLDIR = ../../Components/Control
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
@@ -36,7 +36,7 @@ MODULES = $(SRCDIR) \
 $(MAINDIR) \
 $(AWAITDIR) \
 $(COMMANDDIR) \
-$(CONNECTIONDIR) \
+$(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
 $(MESSAGEQUEUEDIR) \

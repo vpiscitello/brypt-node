@@ -86,7 +86,7 @@ private:
 
     std::unordered_map<NodeUtils::NodeIdType, std::string> m_responses;
 
-    NodeUtils::TimePoint const m_expire;
+    NodeUtils::Timepoint const m_expire;
 };
 
 //------------------------------------------------------------------------------------------------

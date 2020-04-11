@@ -6,7 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-class CConnection;
+class CEndpoint;
 class CMessage;
 class CState;
 //------------------------------------------------------------------------------------------------
@@ -25,8 +25,8 @@ private:
 
     std::weak_ptr<NodeUtils::ConnectionMap> m_wpWatched;
 
-    NodeUtils::TimePoint m_lastCheckTimePoint;
-    NodeUtils::TimePoint m_requiredUpdateTimePoint;
+    NodeUtils::Timepoint m_lastCheckTimepoint;
+    NodeUtils::Timepoint m_requiredUpdateTimepoint;
 
     bool m_process;
 

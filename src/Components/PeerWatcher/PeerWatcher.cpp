@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "PeerWatcher.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Connection/Connection.hpp"
+#include "../Endpoints/Endpoint.hpp"
 #include "../../Utilities/Message.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -56,7 +56,6 @@ bool CPeerWatcher::Startup()
 
 bool CPeerWatcher::Shutdown()
 {
-    // Stop the worker thread from processing the connections
     {
         std::scoped_lock lock(m_mutex);
         m_process = false;
@@ -86,17 +85,19 @@ void CPeerWatcher::watch()
             }
         }
 
-        if (auto const spWatched = m_wpWatched.lock()) {
+        /*
+        if (auto const spWatched = m_watched.lock()) {
             for (auto itr = spWatched->begin() ; itr != spWatched->end(); ++itr) {
-                NodeUtils::TimePoint updateTimePoint = itr->second->GetUpdateClock();
-                if (updateTimePoint < m_requiredUpdateTimePoint) {
+                NodeUtils::Timepoint updateTimepoint = itr->second->GetUpdateClock();
+                if (updateTimepoint < m_requiredUpdateTimepoint) {
                     NodeUtils::printo("Peer " + std::to_string(itr->first) + " needs to be checked with a heartbeat", NodeUtils::PrintType::PeerWatcher);
                     // TODO: Mark a node for a heartbeat
                 }
             }
         }
+        */
 
-        m_requiredUpdateTimePoint = NodeUtils::GetSystemTimePoint();
+        m_requiredUpdateTimepoint = NodeUtils::GetSystemTimepoint();
     } while(true);
 }
 

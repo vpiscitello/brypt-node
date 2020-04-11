@@ -1,47 +1,46 @@
 //------------------------------------------------------------------------------------------------
-// File: LoRaConnection.hpp
+// File: LoRaEndpoint.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "Connection.hpp"
+#pragma once
+//------------------------------------------------------------------------------------------------
+#include "Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-namespace Connection {
-//------------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------------
 namespace LoRa {
 //------------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------------
 } // CLoRa namespace
 //------------------------------------------------------------------------------------------------
-} // Connection namespace
-//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 
-class Connection::CLoRa : public CConnection {
+class Endpoints::CLoRaEndpoint : public CEndpoint {
 public:
-    CLoRa(
-        IMessageSink* const messageSink,
-        Configuration::TConnectionOptions const& options);
-    ~CLoRa() override;
+    constexpr static std::string_view ProtocolType = "LoRa";
+    constexpr static NodeUtils::TechnologyType InternalType = NodeUtils::TechnologyType::LoRa;
 
-    void whatami() override;
-    std::string const& GetProtocolType() const override;
+    CLoRaEndpoint(
+        IMessageSink* const messageSink,
+        Configuration::TEndpointOptions const& options);
+    ~CLoRaEndpoint() override;
+
+    // CEndpoint{
+    std::string GetProtocolType() const override;
     NodeUtils::TechnologyType GetInternalType() const override;
 
-    void Spawn() override;
-    void Worker() override;
+    void Startup() override;
 
-    void HandleProcessedMessage(CMessage const& message) override;
-    void Send(CMessage const& message) override;
-    void Send(std::string_view message) override;
-    std::optional<std::string> Receive(std::int32_t flag = 0) override;
+    void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
+    void Send(NodeUtils::NodeIdType id, CMessage const& message) override;
+    void Send(NodeUtils::NodeIdType id, std::string_view message) override;
 
-    void PrepareForNext() override;
     bool Shutdown() override;
+    // }CEndpoint
 
 private:
+    void Spawn();
 
 };
 

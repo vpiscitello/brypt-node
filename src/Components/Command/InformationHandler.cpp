@@ -10,6 +10,7 @@
 #include "../BryptNode/NodeState.hpp"
 #include "../BryptNode/CoordinatorState.hpp"
 #include "../BryptNode/NetworkState.hpp"
+#include "../Endpoints/Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------
@@ -176,7 +177,7 @@ bool Command::CInformationHandler::CloseHandler()
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: This constructs a JSON object for each of the messages from each of the connections.
+// Description: This constructs a JSON object for each of the messages from each of the endpoints.
 // Returns: The JSON structure as a string.
 //------------------------------------------------------------------------------------------------
 std::string local::GenerateNodeInfo(CBryptNode const& instance)
@@ -209,10 +210,12 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
         id, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
         "IEEE 802.11", NodeUtils::GetSystemTimestamp());
 
-    if (auto const spConnections = instance.GetConnections().lock()) {
-        for (auto const& [id, spConnection] : *spConnections) {
-            assert(spConnection);
-            std::string const timestamp = NodeUtils::TimePointToString(spConnection->GetUpdateClock());
+    // TODO: Endpoints represent a collection of peers, so the details of the peers must be 
+    /* if (auto const spEndpoints = m_instance.GetEndpoints().lock(); spEndpoints) {
+        for (auto const& endpoint : *spEndpoints) {
+            // obtained through some other means. 
+            
+            std::string const timestamp = NodeUtils::TimepointToString(endpoint.GetUpdateClock());
             nodesInfo.emplace_back(
                 spConnection->GetPeerName(),
                 cluster,
@@ -222,7 +225,7 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
                 spConnection->GetProtocolType(),
                 timestamp);
         }
-    }
+    } */
 
     std::string const data = iod::json_vector(
         s::id, s::cluster, s::coordinator, s::neighbor_count,
