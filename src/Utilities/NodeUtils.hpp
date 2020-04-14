@@ -5,14 +5,10 @@
 #include <cctype>
 #include <cstdint>
 #include <cstring>
-#include <chrono>
-#include <condition_variable>
 #include <iostream>
-#include <mutex>
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <thread>
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 #include <sys/types.h>
@@ -22,12 +18,6 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 //------------------------------------------------------------------------------------------------
-
-namespace Command {
-    class IHandler;
-}
-
-class CEndpoint;
 
 //------------------------------------------------------------------------------------------------
 namespace NodeUtils {
@@ -42,8 +32,6 @@ using SerialNumber = std::string;
 using AddressComponentPair = std::pair<std::string, std::string>;
 
 using NetworkNonce = std::uint32_t;
-using Timepoint = std::chrono::system_clock::time_point;
-using TimePeriod = std::chrono::milliseconds;
 
 using ObjectIdType = std::uint32_t;
 
@@ -57,11 +45,6 @@ enum class PrintType : std::uint8_t { Await, Command, Control, Endpoint, Message
 
 //------------------------------------------------------------------------------------------------
 
-using EndpointMap = std::unordered_map<NodeIdType, std::shared_ptr<CEndpoint>>;
-
-//------------------------------------------------------------------------------------------------
-
-constexpr std::string_view NodeVersion = "0.0.0-alpha";
 constexpr std::string_view NetworkKey = "01234567890123456789012345678901";
 
 constexpr std::uint32_t PORT_GAP = 16;
@@ -73,19 +56,11 @@ NodeIdType GenerateNetworkId();
 
 TechnologyType ParseTechnologyType(std::string name);
 std::string TechnologyTypeToString(TechnologyType technology);
-
 std::string GetDesignation(DeviceOperation const& operation);
-
-Timepoint GetSystemTimepoint();
-std::string GetSystemTimestamp();
-std::string TimepointToString(Timepoint const& time);
-NodeUtils::TimePeriod TimepointToTimePeriod(Timepoint const& time);
-Timepoint StringToTimepoint(std::string const& timestamp);
 
 std::string GetPrintEscape(PrintType const& component);
 
 AddressComponentPair SplitAddressString(std::string_view str);
-
 NetworkAddress GetLocalAddress(std::string_view interface);
 
 void printo(std::string_view message, PrintType component);
@@ -155,54 +130,6 @@ inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
         return itr->second;
     }
     return std::string();
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline NodeUtils::Timepoint NodeUtils::GetSystemTimepoint()
-{
-    return std::chrono::system_clock::now();
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline std::string NodeUtils::GetSystemTimestamp()
-{
-    Timepoint const current = GetSystemTimepoint();
-    auto const milliseconds = std::chrono::duration_cast<TimePeriod>(current.time_since_epoch());
-
-    std::stringstream epochStream;
-    epochStream.clear();
-    epochStream << milliseconds.count();
-    return epochStream.str();
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline std::string NodeUtils::TimepointToString(Timepoint const& time)
-{
-    auto const milliseconds = TimepointToTimePeriod(time);
-
-    std::stringstream epochStream;
-    epochStream.clear();
-    epochStream << milliseconds.count();
-    return epochStream.str();
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline NodeUtils::TimePeriod NodeUtils::TimepointToTimePeriod(Timepoint const& time)
-{
-    return std::chrono::duration_cast<TimePeriod>(time.time_since_epoch());
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline NodeUtils::Timepoint NodeUtils::StringToTimepoint(std::string const& timestamp)
-{
-    std::int64_t const llMilliseconds = std::stoll(timestamp);
-    TimePeriod const milliseconds(llMilliseconds);
-    return std::chrono::system_clock::time_point(milliseconds);
 }
 
 //------------------------------------------------------------------------------------------------

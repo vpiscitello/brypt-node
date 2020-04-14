@@ -7,6 +7,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 //------------------------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ public:
 
     CPeerDetailsBase(
         NodeUtils::NodeIdType id,
-        NodeUtils::Timepoint const& timepoint,
+        TimeUtils::Timepoint const& timepoint,
         std::uint32_t sequenceNumber,
         ConnectionState connectionState,
         MessagingPhase messagingPhase)
@@ -58,12 +59,12 @@ public:
     }
 
     NodeUtils::NodeIdType GetNodeId() const { return m_id; }
-    NodeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
+    TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
     MessagingPhase GetMessagingPhase() const { return m_messagingPhase; }
 
-    void Updated() { m_updateTimepoint = NodeUtils::GetSystemTimepoint(); };
+    void Updated() { m_updateTimepoint = TimeUtils::GetSystemTimepoint(); };
 
     void IncrementMessageSequence() {
         ++m_sequenceNumber;
@@ -84,7 +85,7 @@ protected:
     // Currently it is expected each connection type maintains information about the node's Brypt ID,
     // the timepoint the connection was last updated, and the message sequence number.
     NodeUtils::NodeIdType m_id;
-    NodeUtils::Timepoint m_updateTimepoint;
+    TimeUtils::Timepoint m_updateTimepoint;
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
     MessagingPhase m_messagingPhase;

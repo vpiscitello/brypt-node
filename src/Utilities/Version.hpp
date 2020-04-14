@@ -1,24 +1,24 @@
 //------------------------------------------------------------------------------------------------
-// File: EndpointConstants.hpp
-// Description:
+// File: Version.hpp
+// Description: Holds version information about the Brypt software
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
-#include <chrono>
+#include <cstring>
+#include <string_view>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-namespace Endpoint {
+namespace Brypt {
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t ConnectRetryThreshold = 3; // The number of connections attempts allowed
-constexpr std::uint32_t OutgoingMessageLimit = 10; // The number of outgoing messages to be sent in a cycle
-constexpr std::uint32_t MessageRetryLimit = 3; // The number of times a message may be attempted to be sent
-
-constexpr std::chrono::seconds ConnectRetryTimeout = std::chrono::seconds(5); // The peroid of time between connection attemps
-constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1000); // The minimum period before starting the next cycle
+constexpr std::uint8_t MajorVersion = 0;
+constexpr std::uint8_t MinorVersion = 0;
+constexpr std::uint8_t PatchVersion = 0;
+constexpr std::string_view VersionName = "Alpha";
+constexpr std::string_view Version = "0.0.0 Alpha";
 
 //------------------------------------------------------------------------------------------------
-} // Endpoint namespace
+} // Brypt namespace
 //------------------------------------------------------------------------------------------------

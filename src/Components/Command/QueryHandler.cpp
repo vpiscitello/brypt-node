@@ -8,9 +8,10 @@
 #include "../Endpoints/Endpoint.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
 #include "../Notifier/Notifier.hpp"
-#include "../BryptNode/BryptNode.hpp"
-#include "../BryptNode/NodeState.hpp"
-#include "../BryptNode/NetworkState.hpp"
+#include "../../BryptNode/BryptNode.hpp"
+#include "../../BryptNode/NodeState.hpp"
+#include "../../BryptNode/NetworkState.hpp"
+#include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <set>
@@ -243,7 +244,7 @@ bool Command::CQueryHandler::CloseHandler()
 std::string local::GenerateReading()
 {
     std::int32_t const value = rand() % ( 74 - 68 ) + 68;
-    Json::TReading const reading(value, NodeUtils::GetSystemTimestamp());
+    Json::TReading const reading(value, TimeUtils::GetSystemTimestamp());
     return iod::json_object(s::reading, s::timestamp).encode(reading);
 }
 

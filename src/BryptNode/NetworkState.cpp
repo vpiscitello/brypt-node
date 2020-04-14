@@ -29,7 +29,7 @@ std::size_t CNetworkState::GetKnownNodes() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::TimePeriod CNetworkState::GetUptimeCount() const
+TimeUtils::TimePeriod CNetworkState::GetUptimeCount() const
 {
     std::shared_lock lock(m_mutex);
     return m_uptime;
@@ -37,7 +37,7 @@ NodeUtils::TimePeriod CNetworkState::GetUptimeCount() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::Timepoint CNetworkState::GetRegisteredTimepoint() const
+TimeUtils::Timepoint CNetworkState::GetRegisteredTimepoint() const
 {
     std::shared_lock lock(m_mutex);
     return m_registered;
@@ -45,7 +45,7 @@ NodeUtils::Timepoint CNetworkState::GetRegisteredTimepoint() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::Timepoint CNetworkState::GetUpdatedTimepoint() const
+TimeUtils::Timepoint CNetworkState::GetUpdatedTimepoint() const
 {
     std::shared_lock lock(m_mutex);
     return m_updated;
@@ -57,7 +57,7 @@ void CNetworkState::PushPeerName(NodeUtils::NodeIdType const& peerName)
 {
     std::unique_lock lock(m_mutex);
     m_peerNames.emplace(peerName);
-    m_updated = NodeUtils::GetSystemTimepoint();
+    m_updated = TimeUtils::GetSystemTimepoint();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -69,13 +69,13 @@ void CNetworkState::RemovePeerName(NodeUtils::NodeIdType const& peerName)
 
     // only update if we actually erased the peer.
     if (eraseCount > 0) {
-      m_updated = NodeUtils::GetSystemTimepoint();
+      m_updated = TimeUtils::GetSystemTimepoint();
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CNetworkState::SetRegisteredTimepoint(NodeUtils::Timepoint const& timepoint)
+void CNetworkState::SetRegisteredTimepoint(TimeUtils::Timepoint const& timepoint)
 {
     std::unique_lock lock(m_mutex);
     m_registered = timepoint;
@@ -86,7 +86,7 @@ void CNetworkState::SetRegisteredTimepoint(NodeUtils::Timepoint const& timepoint
 void CNetworkState::Updated()
 {
     std::unique_lock lock(m_mutex);
-    m_updated = NodeUtils::GetSystemTimepoint();
+    m_updated = TimeUtils::GetSystemTimepoint();
 }
 
 //------------------------------------------------------------------------------------------------

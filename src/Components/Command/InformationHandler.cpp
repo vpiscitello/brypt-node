@@ -6,11 +6,10 @@
 //------------------------------------------------------------------------------------------------
 #include "../Await/Await.hpp"
 #include "../Endpoints/Endpoint.hpp"
-#include "../BryptNode/BryptNode.hpp"
-#include "../BryptNode/NodeState.hpp"
-#include "../BryptNode/CoordinatorState.hpp"
-#include "../BryptNode/NetworkState.hpp"
-#include "../Endpoints/Endpoint.hpp"
+#include "../../BryptNode/BryptNode.hpp"
+#include "../../BryptNode/NodeState.hpp"
+#include "../../BryptNode/CoordinatorState.hpp"
+#include "../../BryptNode/NetworkState.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------
@@ -208,14 +207,14 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
 
     nodesInfo.emplace_back(
         id, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
-        "IEEE 802.11", NodeUtils::GetSystemTimestamp());
+        "IEEE 802.11", TimeUtils::GetSystemTimestamp());
 
     // TODO: Endpoints represent a collection of peers, so the details of the peers must be 
     /* if (auto const spEndpoints = m_instance.GetEndpoints().lock(); spEndpoints) {
         for (auto const& endpoint : *spEndpoints) {
             // obtained through some other means. 
             
-            std::string const timestamp = NodeUtils::TimepointToString(endpoint.GetUpdateClock());
+            std::string const timestamp = TimeUtils::TimepointToString(endpoint.GetUpdateClock());
             nodesInfo.emplace_back(
                 spConnection->GetPeerName(),
                 cluster,

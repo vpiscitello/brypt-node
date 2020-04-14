@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -47,7 +48,7 @@ TEST(CMessageSuite, BaseMessageParameterConstructorTest)
     EXPECT_EQ(message.GetCommandType(), test::Command);
     EXPECT_EQ(message.GetPhase(), test::RequestPhase);
     EXPECT_EQ(message.GetNonce(), test::Nonce);
-    EXPECT_GT(message.GetSystemTimepoint(), NodeUtils::Timepoint());
+    EXPECT_GT(message.GetSystemTimepoint(), TimeUtils::Timepoint());
 
     auto const data = message.GetData();
     auto const decrypted = message.Decrypt(data, data.size());
@@ -77,7 +78,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_EQ(sourceBoundMessage.GetCommandType(), test::Command);
     EXPECT_EQ(sourceBoundMessage.GetPhase(), test::RequestPhase);
     EXPECT_EQ(sourceBoundMessage.GetNonce(), test::Nonce);
-    EXPECT_GT(sourceBoundMessage.GetSystemTimepoint(), NodeUtils::Timepoint());
+    EXPECT_GT(sourceBoundMessage.GetSystemTimepoint(), TimeUtils::Timepoint());
 
     auto const sourceBoundData = sourceBoundMessage.GetData();
     auto const sourceBoundDecrypted = 
@@ -102,7 +103,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_EQ(destinationBoundMessage.GetCommandType(), test::Command);
     EXPECT_EQ(destinationBoundMessage.GetPhase(), test::RequestPhase);
     EXPECT_EQ(destinationBoundMessage.GetNonce(), test::Nonce);
-    EXPECT_GT(destinationBoundMessage.GetSystemTimepoint(), NodeUtils::Timepoint());
+    EXPECT_GT(destinationBoundMessage.GetSystemTimepoint(), TimeUtils::Timepoint());
 
     auto const destinationBoundData = destinationBoundMessage.GetData();
     auto const destinationBoundDecrypted = 

@@ -20,7 +20,7 @@ constexpr std::chrono::seconds timeout = std::chrono::seconds(10);
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CPeerWatcher::CPeerWatcher(std::weak_ptr<NodeUtils::EndpointMap> const& wpPeers)
+CPeerWatcher::CPeerWatcher(std::weak_ptr<EndpointMap> const& wpPeers)
     : m_wpWatched(wpPeers)
     , m_lastCheckTimepoint()
     , m_requiredUpdateTimepoint()
@@ -87,7 +87,7 @@ void CPeerWatcher::watch()
         /*
         if (auto const spWatched = m_watched.lock()) {
             for (auto itr = spWatched->begin() ; itr != spWatched->end(); ++itr) {
-                NodeUtils::Timepoint updateTimepoint = itr->second->GetUpdateClock();
+                TimeUtils::Timepoint updateTimepoint = itr->second->GetUpdateClock();
                 if (updateTimepoint < m_requiredUpdateTimepoint) {
                     NodeUtils::printo("Peer " + std::to_string(itr->first) + " needs to be checked with a heartbeat", NodeUtils::PrintType::PeerWatcher);
                     // TODO: Mark a node for a heartbeat
@@ -96,7 +96,7 @@ void CPeerWatcher::watch()
         }
         */
 
-        m_requiredUpdateTimepoint = NodeUtils::GetSystemTimepoint();
+        m_requiredUpdateTimepoint = TimeUtils::GetSystemTimepoint();
     } while(true);
 }
 

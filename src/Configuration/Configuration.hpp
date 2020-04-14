@@ -2,6 +2,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "../Utilities/NodeUtils.hpp"
+#include "../Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <cstring>
@@ -28,7 +29,7 @@ struct TSecurityOptions;
 struct Configuration::TDetailsOptions
 {
     TDetailsOptions()
-        : version(NodeUtils::NodeVersion)
+        : version(Brypt::Version)
         , name()
         , description()
         , location()
@@ -40,7 +41,7 @@ struct Configuration::TDetailsOptions
         std::string_view name,
         std::string_view description = "",
         std::string_view location = "")
-        : version(NodeUtils::NodeVersion)
+        : version(Brypt::Version)
         , name(name)
         , description(description)
         , location(location)

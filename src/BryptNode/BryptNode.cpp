@@ -215,7 +215,7 @@ std::weak_ptr<Await::CObjectContainer> CBryptNode::GetAwaiting() const
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<NodeUtils::EndpointMap> CBryptNode::GetEndpoints() const
+std::weak_ptr<EndpointMap> CBryptNode::GetEndpoints() const
 {
     return m_spEndpoints;
 }

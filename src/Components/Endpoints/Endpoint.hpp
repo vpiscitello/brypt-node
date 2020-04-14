@@ -11,18 +11,18 @@
 #include "zmq.hpp"
 //------------------------------------------------------------------------------------------------
 #include <atomic>
-#include <cstdlib>
+#include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
-#include <optional>
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <string>
-#include <vector>
 //------------------------------------------------------------------------------------------------
 
-class CEndpoint;
 class CMessage;
+
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace Endpoints {

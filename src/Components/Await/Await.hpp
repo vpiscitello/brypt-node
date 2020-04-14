@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <openssl/md5.h>
 //------------------------------------------------------------------------------------------------
@@ -29,10 +30,9 @@ struct TResponseObject;
 class CMessageObject;
 class CObjectContainer;
 
-using TimePeriod = std::chrono::milliseconds;
 using MessageMap = std::unordered_map<NodeUtils::ObjectIdType, CMessageObject>;
 
-constexpr TimePeriod Timeout = std::chrono::milliseconds(1500);
+constexpr TimeUtils::TimePeriod Timeout = std::chrono::milliseconds(1500);
 
 //------------------------------------------------------------------------------------------------
 } // Await namespace
@@ -86,7 +86,7 @@ private:
 
     std::unordered_map<NodeUtils::NodeIdType, std::string> m_responses;
 
-    NodeUtils::Timepoint const m_expire;
+    TimeUtils::Timepoint const m_expire;
 };
 
 //------------------------------------------------------------------------------------------------

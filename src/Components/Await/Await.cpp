@@ -3,7 +3,6 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "Await.hpp"
-#include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <algorithm>
@@ -24,7 +23,7 @@ Await::CMessageObject::CMessageObject(
     , m_request(request)
     , m_optAggregateResponse()
     , m_responses()
-    , m_expire(NodeUtils::GetSystemTimepoint() + Await::Timeout)
+    , m_expire(TimeUtils::GetSystemTimepoint() + Await::Timeout)
 {
     m_responses[peer] = std::string();
 }
@@ -43,7 +42,7 @@ Await::CMessageObject::CMessageObject(
     , m_request(request)
     , m_optAggregateResponse()
     , m_responses()
-    , m_expire(NodeUtils::GetSystemTimepoint() + Await::Timeout)
+    , m_expire(TimeUtils::GetSystemTimepoint() + Await::Timeout)
 {
     NodeUtils::NodeIdType const& source = m_request.GetSourceId();
     for (auto const& peer: peers) {
@@ -63,7 +62,7 @@ Await::CMessageObject::CMessageObject(
 //------------------------------------------------------------------------------------------------
 Await::Status Await::CMessageObject::GetStatus()
 {
-    if (m_expected == m_received || m_expire < NodeUtils::GetSystemTimepoint()) {
+    if (m_expected == m_received || m_expire < TimeUtils::GetSystemTimepoint()) {
         m_status = Status::Fulfilled;
     } 
 

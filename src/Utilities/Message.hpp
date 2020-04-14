@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageTypes.hpp"
 #include "NodeUtils.hpp"
+#include "TimeUtils.hpp"
 #include "../Components/Command/CommandDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <zmq.h>
@@ -48,7 +49,7 @@ public:
 		NodeUtils::NodeIdType const& sourceId,
 		NodeUtils::NodeIdType const& destinationId,
 		Command::Type command,
-		std::int8_t phase,
+		std::uint8_t phase,
 		std::string_view data,
 		NodeUtils::NetworkNonce nonce,
 		std::optional<Message::BoundAwaitId> const& awaitId = {})
@@ -61,11 +62,11 @@ public:
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(nonce)
-		, m_timepoint(NodeUtils::GetSystemTimepoint())
+		, m_timepoint(TimeUtils::GetSystemTimepoint())
 		, m_end(0)
 		, m_token()
 	{
-        Message::Buffer buffer(data.begin(), data.end());
+		Message::Buffer buffer(data.begin(), data.end());
 		auto const optData = Encrypt(buffer, data.size());
 		if(optData) {
 			m_data = *optData;
@@ -84,7 +85,7 @@ public:
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(0)
-		, m_timepoint(NodeUtils::GetSystemTimepoint())
+		, m_timepoint(TimeUtils::GetSystemTimepoint())
 		, m_end(0)
 		, m_token()
 	{
@@ -103,7 +104,7 @@ public:
 		, m_data()
 		, m_key(NodeUtils::NetworkKey)
 		, m_nonce(0)
-		, m_timepoint(NodeUtils::GetSystemTimepoint())
+		, m_timepoint(TimeUtils::GetSystemTimepoint())
 		, m_end(0)
 		, m_token()
 	{
@@ -179,7 +180,7 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	NodeUtils::Timepoint const& GetSystemTimepoint() const
+	TimeUtils::Timepoint const& GetSystemTimepoint() const
 	{
 		return m_timepoint;
 	}
@@ -244,7 +245,7 @@ public:
 		PackChunk(buffer, m_nonce);
 		PackChunk(buffer, static_cast<std::uint16_t>(m_data.size()));
 		PackChunk(buffer, m_data);
-		PackChunk(buffer, NodeUtils::TimepointToTimePeriod(m_timepoint));
+		PackChunk(buffer, TimeUtils::TimepointToTimePeriod(m_timepoint));
 		m_end = buffer.size();
 
         m_raw.clear();
@@ -310,7 +311,7 @@ public:
 
 		std::uint64_t timestamp;
 		UnpackChunk(buffer, position, timestamp);
-		m_timepoint = NodeUtils::Timepoint(NodeUtils::TimePeriod(timestamp));
+		m_timepoint = TimeUtils::Timepoint(TimeUtils::TimePeriod(timestamp));
 		m_end = position;
 
 		UnpackChunk(buffer, position, m_token, local::TokenSize);
@@ -515,7 +516,7 @@ private:
 	std::string m_key;	// Key used for encryption and authentication
 	NodeUtils::NetworkNonce m_nonce;	// Current message nonce
 
-	NodeUtils::Timepoint m_timepoint;	// The timepoint that message was created
+	TimeUtils::Timepoint m_timepoint;	// The timepoint that message was created
 	mutable std::uint32_t m_end; // Ending position of the message payload when packed into a buffer
 
 	// Mutable to ensure the token is always reflective of the data contained

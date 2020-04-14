@@ -4,9 +4,10 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/Command/Handler.hpp"
+#include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Configuration/Configuration.hpp"
 #include "../Utilities/NodeUtils.hpp"
-#include "../Components/Command/Handler.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
 #include <cstdlib>
@@ -62,7 +63,7 @@ public:
     std::weak_ptr<CMessageQueue> GetMessageQueue() const;
     std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
 
-    std::weak_ptr<NodeUtils::EndpointMap> GetEndpoints() const;
+    std::weak_ptr<EndpointMap> GetEndpoints() const;
     std::weak_ptr<CNotifier> GetNotifier() const;
 
 private:
@@ -104,7 +105,7 @@ private:
     Command::HandlerMap m_commandHandlers;
 
     // Connection of the node
-    std::shared_ptr<NodeUtils::EndpointMap> m_spEndpoints;
+    std::shared_ptr<EndpointMap> m_spEndpoints;
     std::shared_ptr<CNotifier> m_spNotifier;
     std::shared_ptr<CPeerWatcher> m_spWatcher;
 

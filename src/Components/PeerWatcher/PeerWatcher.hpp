@@ -4,16 +4,24 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Endpoints/EndpointTypes.hpp"
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
+#include <condition_variable>
+#include <mutex>
+#include <thread>
+//------------------------------------------------------------------------------------------------
+
 class CEndpoint;
 class CMessage;
 class CState;
+
 //------------------------------------------------------------------------------------------------
 
 class CPeerWatcher {
 public:
-    explicit CPeerWatcher(std::weak_ptr<NodeUtils::EndpointMap> const& wpPeers);
+    explicit CPeerWatcher(std::weak_ptr<EndpointMap> const& wpPeers);
     ~CPeerWatcher();
 
     bool Startup();
@@ -23,10 +31,10 @@ private:
     void watch();
     void heartbeat();
 
-    std::weak_ptr<NodeUtils::EndpointMap> m_wpWatched;
+    std::weak_ptr<EndpointMap> m_wpWatched;
 
-    NodeUtils::Timepoint m_lastCheckTimepoint;
-    NodeUtils::Timepoint m_requiredUpdateTimepoint;
+    TimeUtils::Timepoint m_lastCheckTimepoint;
+    TimeUtils::Timepoint m_requiredUpdateTimepoint;
 
     bool m_process;
 

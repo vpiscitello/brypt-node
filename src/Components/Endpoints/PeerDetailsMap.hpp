@@ -14,6 +14,7 @@
 #include <array>
 #include <cassert>
 #include <functional>
+#include <mutex>
 #include <optional>
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
@@ -327,7 +328,7 @@ public:
     void UpdateEachPeer(
         UpdateMultipleFunction const& updateFunction,
         [[maybe_unused]] UpdateTimepointFilter filter,
-        FilterPredicate<NodeUtils::Timepoint> const& predicate)
+        FilterPredicate<TimeUtils::Timepoint> const& predicate)
     {
         std::scoped_lock lock(m_mutex);
         for (auto& [id, optDetails] : m_peers) {
@@ -447,7 +448,7 @@ public:
     void ReadEachPeer(
         ReadMultipleFunction const& readFunction,
         [[maybe_unused]] UpdateTimepointFilter filter,
-        FilterPredicate<NodeUtils::Timepoint> const& predicate)
+        FilterPredicate<TimeUtils::Timepoint> const& predicate)
     {
         std::scoped_lock lock(m_mutex);
         for (auto const& [id, optDetails] : m_peers) {

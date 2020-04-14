@@ -5,10 +5,10 @@
 #include "ConnectHandler.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../Endpoints/Endpoint.hpp"
-#include "../BryptNode/BryptNode.hpp"
-#include "../BryptNode/NetworkState.hpp"
-#include "../BryptNode/NodeState.hpp"
-#include "../Endpoints/Endpoint.hpp"
+#include "../../BryptNode/BryptNode.hpp"
+#include "../../BryptNode/NetworkState.hpp"
+#include "../../BryptNode/NodeState.hpp"
+//------------------------------------------------------------------------------------------------
 #include <chrono>
 #include <thread>
 //------------------------------------------------------------------------------------------------

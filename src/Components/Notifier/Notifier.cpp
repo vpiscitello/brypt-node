@@ -3,8 +3,9 @@
 // Description:
 //-----------------------------------------------------------------------------------------------
 #include "Notifier.hpp"
-#include "../../BryptNode/CoordinatorState.hpp"
 #include "../Endpoints/Endpoint.hpp"
+#include "../Endpoints/EndpointTypes.hpp"
+#include "../../BryptNode/CoordinatorState.hpp"
 #include "../../Utilities/Message.hpp"
 //-----------------------------------------------------------------------------------------------
 
@@ -13,7 +14,7 @@
 CNotifier::CNotifier(
     NodeUtils::PortNumber port,
     std::weak_ptr<CCoordinatorState> const& wpCoordinatorState,
-    std::weak_ptr<NodeUtils::EndpointMap> const& wpEndpoints)
+    std::weak_ptr<EndpointMap> const& wpEndpoints)
     : m_wpCoordinatorState(wpCoordinatorState)
     , m_wpEndpoints(wpEndpoints)
     , m_context(1)

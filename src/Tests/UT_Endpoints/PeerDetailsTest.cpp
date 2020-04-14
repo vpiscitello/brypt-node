@@ -1,5 +1,7 @@
 
 //------------------------------------------------------------------------------------------------
+#include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/TimeUtils.hpp"
 #include "../../Components/Endpoints/PeerDetailsMap.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -186,7 +188,7 @@ TEST(PeerDetailsSuite, PeerMapConnectionStateFilterTest)
     using namespace std::chrono_literals;
     CPeerInformationMap<std::string> peers;
 
-    NodeUtils::Timepoint timepoint = NodeUtils::GetSystemTimepoint();
+    TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
     NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
@@ -258,7 +260,7 @@ TEST(PeerDetailsSuite, PeerMapPromotionFilterTest)
     using namespace std::chrono_literals;
     CPeerInformationMap<std::string> peers;
 
-    NodeUtils::Timepoint timepoint = NodeUtils::GetSystemTimepoint();
+    TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
     NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
@@ -328,7 +330,7 @@ TEST(PeerDetailsSuite, PeerMapMessageSequenceFilterTest)
     using namespace std::chrono_literals;
     CPeerInformationMap<std::string> peers;
 
-    NodeUtils::Timepoint timepoint = NodeUtils::GetSystemTimepoint();
+    TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
     NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
@@ -408,7 +410,7 @@ TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
     using namespace std::chrono_literals;
     CPeerInformationMap<std::string> peers;
 
-    NodeUtils::Timepoint timepoint = NodeUtils::GetSystemTimepoint();
+    TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
     NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
@@ -452,7 +454,7 @@ TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
             return CallbackIteration::Continue;
         },
         UpdateTimepointFilter::MatchPredicate,
-        [&timepoint](NodeUtils::Timepoint const& updated) -> bool
+        [&timepoint](TimeUtils::Timepoint const& updated) -> bool
         {
             return (updated < timepoint);
         }
@@ -469,7 +471,7 @@ TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
             return CallbackIteration::Continue;
         },
         UpdateTimepointFilter::MatchPredicate,
-        [&timepoint](NodeUtils::Timepoint const& updated) -> bool
+        [&timepoint](TimeUtils::Timepoint const& updated) -> bool
         {
             return (updated == timepoint);
         }
