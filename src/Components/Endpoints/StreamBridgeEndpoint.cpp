@@ -26,10 +26,6 @@ void ShutdownSocket(zmq::socket_t& socket);
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-using namespace StreamBridge;
-
-//------------------------------------------------------------------------------------------------
-
 Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
     IMessageSink* const messageSink,
     Configuration::TEndpointOptions const& options)
@@ -37,17 +33,20 @@ Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
     , m_address()
     , m_port()
     , m_peers()
-    , m_outgoingMutex()
-    , m_outgoing()
+    , m_eventsMutex()
+    , m_events()
 {
     if (m_operation != NodeUtils::EndpointOperation::Server) {
         throw std::runtime_error("StreamBridge endpoint may only operate in server mode.");
     }
 
-    // Get the two networking components from the supplied options
-    auto const [boundAddress, boundPort] = options.GetBindingComponents();
-    m_address = boundAddress; // The first binding component is the address for the interface
-    m_port = boundPort; // The second binding component is the port
+    switch (m_operation) {
+        case NodeUtils::EndpointOperation::Server: {
+            auto const binding = options.GetBinding();
+            ScheduleBind(binding);
+        } break;
+        default: assert(false); break; // What is this?
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -65,6 +64,16 @@ Endpoints::CStreamBridgeEndpoint::~CStreamBridgeEndpoint()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+NodeUtils::TechnologyType Endpoints::CStreamBridgeEndpoint::GetInternalType() const
+{
+    return InternalType;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 std::string Endpoints::CStreamBridgeEndpoint::GetProtocolType() const
 {
     return ProtocolType.data();
@@ -74,10 +83,47 @@ std::string Endpoints::CStreamBridgeEndpoint::GetProtocolType() const
 
 //------------------------------------------------------------------------------------------------
 // Description:
+// Returns:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CStreamBridgeEndpoint::GetInternalType() const
+std::string Endpoints::CStreamBridgeEndpoint::GetEntry() const
 {
-    return InternalType;
+    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CStreamBridgeEndpoint::ScheduleBind(std::string_view binding)
+{
+    if (m_operation != NodeUtils::EndpointOperation::Server) {
+        throw std::runtime_error("Bind was called a non-listening Endpoint!");
+    }
+
+    auto [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    NetworkUtils::PortNumber port = std::stoul(sPort);
+
+    if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
+        address = NetworkUtils::GetInterfaceAddress(m_interface);
+    }
+
+    // Schedule the Bind network instruction event
+    {
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            StreamBridge::TNetworkInstructionEvent(NetworkInstruction::Bind, address, port));
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CStreamBridgeEndpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
+{
+    throw std::runtime_error("Connect was called a non-client Endpoint!");
 }
 
 //------------------------------------------------------------------------------------------------
@@ -101,7 +147,7 @@ void Endpoints::CStreamBridgeEndpoint::Startup()
 void Endpoints::CStreamBridgeEndpoint::HandleProcessedMessage(
     NodeUtils::NodeIdType id, CMessage const& message)
 {
-    Send(id, message); // Forward the message pack to be sent on the socket
+    ScheduleSend(id, message.GetPack()); // Forward the message pack to be sent on the socket
 }
 
 //------------------------------------------------------------------------------------------------
@@ -109,9 +155,9 @@ void Endpoints::CStreamBridgeEndpoint::HandleProcessedMessage(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CStreamBridgeEndpoint::Send(NodeUtils::NodeIdType id, CMessage const& message)
+void Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message)
 {
-    Send(id, message.GetPack()); // Forward the message pack to be sent on the socket
+    ScheduleSend(id, message.GetPack()); // Forward the message pack to be sent on the socket
 }
 
 //------------------------------------------------------------------------------------------------
@@ -119,7 +165,7 @@ void Endpoints::CStreamBridgeEndpoint::Send(NodeUtils::NodeIdType id, CMessage c
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CStreamBridgeEndpoint::Send(NodeUtils::NodeIdType id, std::string_view message)
+void Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
@@ -131,9 +177,11 @@ void Endpoints::CStreamBridgeEndpoint::Send(NodeUtils::NodeIdType id, std::strin
         return;
     }
 
+    // Schedule the outgoing message event
     {
-        std::scoped_lock lock(m_outgoingMutex);
-        m_outgoing.emplace_back(*optIdentity, message, 0);
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            StreamBridge::TOutgoingMessageEvent(*optIdentity, message, 0));
     }
 }
 
@@ -218,13 +266,13 @@ bool Endpoints::CStreamBridgeEndpoint::SetupServerWorker()
 //------------------------------------------------------------------------------------------------
 void Endpoints::CStreamBridgeEndpoint::ServerWorker()
 {
-    NodeUtils::printo("[StreamBridge] Setting up STREAM socket on port " + m_port, NodeUtils::PrintType::Endpoint);
-
     // Instanties a ZMQ_STREAM socket local to this thread. Per the ZMQ documentation, sockets are not 
     // thread safe. These sockets should only manipulated within the worker thread that creates it.
     std::shared_ptr<zmq::context_t> spContext = ZmqContextPool::Instance().GetContext();
     thread_local zmq::socket_t socket(*spContext, zmq::socket_type::stream);
-    Listen(socket, m_address, m_port);  // Start listening on the socket
+    // Set a socket option that indicates once the socket is destroyed it should not linger in the
+    // ZMQ background threads. 
+    socket.setsockopt(ZMQ_LINGER, 0);
 
     // Notify the calling thread that the endpoint worker is ready
     m_active = true;
@@ -232,6 +280,7 @@ void Endpoints::CStreamBridgeEndpoint::ServerWorker()
 
     // Start the endpoint's event loop
     while(m_active) {
+        ProcessNetworkInstructions(socket); // Process any endpoint instructions at the front if the event queue
         ProcessIncomingMessages(socket); // Process any messages on the socket to be handled this cycle 
         ProcessOutgoingMessages(socket); // Send messages from the outgoing message queue
         
@@ -255,16 +304,76 @@ void Endpoints::CStreamBridgeEndpoint::ServerWorker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CStreamBridgeEndpoint::Listen(
+bool Endpoints::CStreamBridgeEndpoint::Listen(
     zmq::socket_t& socket,
-    NodeUtils::NetworkAddress const& address,
-    NodeUtils::PortNumber const& port)
+    NetworkUtils::NetworkAddress const& address,
+    NetworkUtils::PortNumber port)
 {
-    // Set a socket option that indicates once the socket is destroyed it should not linger in the
-    // ZMQ background threads. 
-    socket.setsockopt(ZMQ_LINGER, 0);
-    // Bind the ZMQ_STREAM socket to the designated interface and port
-    socket.bind("tcp://" + address + ":" + port);
+    std::string sPort = std::to_string(port);
+    printo("[StreamBridge] Setting up ZMQ_STREAM socket on port " + sPort, NodeUtils::PrintType::Endpoint);
+
+    std::size_t size = 128; // Initalize a size of the buffer
+    std::vector<char> buffer(size, 0); // Initialize the receiving buffer
+
+    try {
+        socket.getsockopt(ZMQ_LAST_ENDPOINT, buffer.data(), &size); // Get the last endpoint the socket was bound too
+        // If the socket was previously bound, unbind the socket from the current interface
+        if (size > 1) {
+            m_address.clear(); // Clear the bound address of the endpoint
+            m_port = 0; // Clear the bound port of the endpoint
+
+            socket.unbind(buffer.data()); // Unbind the socket
+        }
+        
+        // Bind the ZMQ_ROUTER socket to the designated interface and port
+        socket.bind("tcp://" + address + ":" + sPort);
+    } catch (...) {
+        return false;
+    }
+
+    m_address = address; // Capture the address the endpoint bound too
+    m_port = port; // Capture the port the endpoint bound too
+
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CStreamBridgeEndpoint::ProcessNetworkInstructions(zmq::socket_t& socket)
+{
+    // Splice elements up to send cycle limit into a temporary queue to be sent.
+    NetworkInstructionDeque instructions;
+    {
+        std::scoped_lock lock(m_eventsMutex);
+
+        // Splice all network instruction events until the first non-instruction event
+        // TODO: Should looping be flagged here? The endpoint could in theory be DOS'd by maniuplating
+        // connect calls, how/why would this happen?
+        while (m_events.size() != 0 && 
+               m_events.front().type() == typeid(StreamBridge::TNetworkInstructionEvent)) {
+
+            instructions.emplace_back(
+                std::any_cast<StreamBridge::TNetworkInstructionEvent>(m_events.front()));
+
+            m_events.pop_front();
+        }
+    }
+
+    for (auto const& [type, address, port] : instructions) {
+        switch (type) {
+            case NetworkInstruction::Bind: {
+                bool const success = Listen(socket, address, port);  // Start listening on the socket
+                if (!success) {
+                    std::string const notification = "[StreamBridge] Binding to " + address + ":" + std::to_string(port) + " failed.";
+                    NodeUtils::printo(notification, NodeUtils::PrintType::Endpoint);   
+                }
+            } break;
+            default: assert(false); break; // What is this?
+        }
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -411,15 +520,24 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
     // Splice elements up to send cycle limit into a temporary queue to be sent.
     OutgoingMessageDeque outgoing;
     {
-        std::scoped_lock lock(m_outgoingMutex);
+        std::scoped_lock lock(m_eventsMutex);
         for (std::uint32_t idx = 0; idx < Endpoint::OutgoingMessageLimit; ++idx) {
             // If there are no messages left in the outgoing message queue, break from
             // copying the items into the temporary queue.
-            if (m_outgoing.size() == 0) {
+            if (m_events.size() == 0) {
                 break;
             }
-            outgoing.emplace_back(m_outgoing.front());
-            m_outgoing.pop_front();
+
+            // If we have reached an event that is not an outgoing message stop splicing
+            auto const& eventType = m_events.front().type();
+            if (eventType != typeid(StreamBridge::TOutgoingMessageEvent)) {
+                break;
+            }
+
+            outgoing.emplace_back(
+                std::any_cast<StreamBridge::TOutgoingMessageEvent>(m_events.front()));
+
+            m_events.pop_front();
         }
     }
 
@@ -459,8 +577,11 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
                 continue;
             }
             std::uint8_t const attempts = retries + 1;
-            std::scoped_lock lock(m_outgoingMutex);
-            m_outgoing.emplace_back(identity, message, attempts);
+            {
+                std::scoped_lock lock(m_eventsMutex);
+                m_events.emplace_back(
+                    StreamBridge::TOutgoingMessageEvent(identity, message, attempts));
+            }
         }
 
         std::this_thread::sleep_for(std::chrono::nanoseconds(100));
@@ -488,8 +609,7 @@ std::uint32_t Endpoints::CStreamBridgeEndpoint::Send(
         return 0;
     }
 
-    NodeUtils::printo("[StreamBridge] Sent: (" + std::to_string(*optResult) + ") " 
-           + message.data(), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[StreamBridge] Sent: " + std::string(message.data()), NodeUtils::PrintType::Endpoint);
 
     return *optResult;
 }
@@ -520,7 +640,7 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
                     m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
-                default: assert(true); break;
+                default: assert(false); break;
             }
         }
     );

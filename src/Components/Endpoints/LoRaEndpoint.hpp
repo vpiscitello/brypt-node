@@ -27,14 +27,17 @@ public:
     ~CLoRaEndpoint() override;
 
     // CEndpoint{
-    std::string GetProtocolType() const override;
     NodeUtils::TechnologyType GetInternalType() const override;
+    std::string GetProtocolType() const override;
+    std::string GetEntry() const override;
 
+    void ScheduleBind(std::string_view binding) override;
+    void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
     void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void Send(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void Send(NodeUtils::NodeIdType id, std::string_view message) override;
+    void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) override;
+    void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint

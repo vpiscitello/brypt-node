@@ -11,13 +11,7 @@
 #include <string_view>
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <ifaddrs.h>
-#include <net/if.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-//------------------------------------------------------------------------------------------------
+
 
 //------------------------------------------------------------------------------------------------
 namespace NodeUtils {
@@ -25,11 +19,7 @@ namespace NodeUtils {
 
 using NodeIdType = std::uint32_t;
 using ClusterIdType = std::uint32_t;
-using NetworkAddress = std::string;
-using PortNumber = std::string;
 using SerialNumber = std::string;
-
-using AddressComponentPair = std::pair<std::string, std::string>;
 
 using NetworkNonce = std::uint32_t;
 
@@ -47,21 +37,15 @@ enum class PrintType : std::uint8_t { Await, Command, Control, Endpoint, Message
 
 constexpr std::string_view NetworkKey = "01234567890123456789012345678901";
 
-constexpr std::uint32_t PORT_GAP = 16;
+constexpr char const* IDSeperator = ":";
 
-constexpr char const* ADDRESS_COMPONENT_SEPERATOR = ":";
-constexpr char const* ID_SEPERATOR = ":";
-
-NodeIdType GenerateNetworkId();
+NodeIdType GenerateNodeIdentifier();
 
 TechnologyType ParseTechnologyType(std::string name);
 std::string TechnologyTypeToString(TechnologyType technology);
 std::string GetDesignation(DeviceOperation const& operation);
 
 std::string GetPrintEscape(PrintType const& component);
-
-AddressComponentPair SplitAddressString(std::string_view str);
-NetworkAddress GetLocalAddress(std::string_view interface);
 
 void printo(std::string_view message, PrintType component);
 
@@ -71,7 +55,7 @@ void printo(std::string_view message, PrintType component);
 
 //------------------------------------------------------------------------------------------------
 
-inline NodeUtils::NodeIdType NodeUtils::GenerateNetworkId()
+inline NodeUtils::NodeIdType NodeUtils::GenerateNodeIdentifier()
 {
     return 0;
 }
@@ -153,64 +137,6 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
         return itr->second;
     }
     return std::string();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-inline NodeUtils::NetworkAddress NodeUtils::GetLocalAddress(std::string_view interface)
-{
-    NetworkAddress ip = std::string();
-
-    struct ifaddrs* ifAddrStruct = nullptr;
-    struct ifaddrs* ifa = nullptr;
-    void* tmpAddrPtr = nullptr;
-
-    getifaddrs(&ifAddrStruct);
-
-    for (ifa = ifAddrStruct; ifa != nullptr; ifa = ifa->ifa_next) {
-        if (!ifa->ifa_addr) {
-            continue;
-        }
-
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            tmpAddrPtr = &(reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr)->sin_addr);
-            char addressBuffer[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            if (std::string(ifa->ifa_name).find(interface) == 0) {
-                ip = std::string(addressBuffer);
-                break;
-            }
-        }
-    }
-
-    if (ifAddrStruct != nullptr) {
-        freeifaddrs(ifAddrStruct);
-    }
-
-    return ip;
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline NodeUtils::AddressComponentPair NodeUtils::SplitAddressString(std::string_view str)
-{
-    if (str.empty()) {
-        return {};
-    }
-
-    std::pair<std::string, std::string> components;
-
-    auto const seperatorPosition = str.find_last_of(ADDRESS_COMPONENT_SEPERATOR);
-    // Get the primary endpoint component up until the seperator
-    components.first = str.substr(0, seperatorPosition);
-    // Get the secondary endpoint component skipping the seperator
-    components.second = str.substr(seperatorPosition + 1);
-
-    return components;
 }
 
 //------------------------------------------------------------------------------------------------

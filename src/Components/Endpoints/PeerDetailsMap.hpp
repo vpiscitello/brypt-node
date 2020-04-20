@@ -314,7 +314,7 @@ public:
                         result = updateFunction(id, optDetails);
                     }
                 } break;
-                default: assert(true); break; // What is this?
+                default: assert(false); break; // What is this?
             }
             
             if (result == CallbackIteration::Stop) {
@@ -434,7 +434,7 @@ public:
                         result = readFunction(id, optDetails);
                     }
                 } break;
-                default: assert(true); break; // What is this?
+                default: assert(false); break; // What is this?
             }
             
             if (result == CallbackIteration::Stop) {

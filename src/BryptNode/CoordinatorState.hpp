@@ -1,7 +1,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Utilities/NetworkUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
+//------------------------------------------------------------------------------------------------
 #include <string>
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
@@ -11,34 +13,21 @@ public:
     CCoordinatorState();
     CCoordinatorState(
         NodeUtils::TechnologyType technology,
-        NodeUtils::AddressComponentPair entryComponents);
+        NetworkUtils::AddressComponentPair const& entryComponents);
     
     NodeUtils::NodeIdType GetId() const;
-    NodeUtils::NetworkAddress GetAddress() const;
-    std::string GetRequestEntry() const;
-    NodeUtils::PortNumber GetRequestPort() const;
-    std::string GetPublisherEntry() const;
-    NodeUtils::PortNumber GetPublisherPort() const;
+    std::string GetEntry() const;
     NodeUtils::TechnologyType GetTechnology() const;
 
     void SetId(NodeUtils::NodeIdType const& id);
-    void SetAddress(NodeUtils::NetworkAddress const& address);
-    void SetRequestPort(NodeUtils::PortNumber const& port);
-    void SetPublisherPort(NodeUtils::PortNumber const& port);
+    void SetEntry(NetworkUtils::AddressComponentPair const& id);
     void SetTechnology(NodeUtils::TechnologyType technology);
 
 private:
     mutable std::shared_mutex m_mutex;
 
     NodeUtils::NodeIdType m_id;    // Coordinator identification number of the node's coordinator
-    
-    NodeUtils::NetworkAddress m_address;
-    NodeUtils::PortNumber m_requestPort;
-    NodeUtils::PortNumber m_publisherPort;
-
-    std::string m_requestEntry; // The combination of the address and request port 
-    std::string m_publisherEntry; // The combination of the address and publisher port
-
+    std::string m_entry; // The combination of the two provided entry components 
     NodeUtils::TechnologyType m_technology;
 };
 

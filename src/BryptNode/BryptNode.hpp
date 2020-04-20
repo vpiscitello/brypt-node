@@ -7,6 +7,7 @@
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Configuration/Configuration.hpp"
+#include "../Utilities/NetworkUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
@@ -77,7 +78,6 @@ private:
     bool NotifyAddressChange(); // Notify the cluster of some address change
 
     // Request Handlers
-    void HandleNotification(std::string const& message);
     void HandleQueueRequest(CMessage const& message);
     void ProcessFulfilledMessages();
 

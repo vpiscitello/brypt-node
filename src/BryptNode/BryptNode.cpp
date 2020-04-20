@@ -68,15 +68,12 @@ CBryptNode::CBryptNode(Configuration::TSettings const& settings)
     m_spNetworkState = std::make_shared<CNetworkState>();
     m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);
     m_spNodeState = std::make_shared<CNodeState>(
-        settings.endpoints[0].interface,
-        settings.endpoints[0].GetBindingComponents(),
         settings.details.operation,
         std::set<NodeUtils::TechnologyType>{settings.endpoints[0].technology});
     m_spSensorState = std::make_shared<CSensorState>();
 
     // initialize notifier
-    NodeUtils::PortNumber const port = m_spNodeState->GetPublisherPort();
-    m_spNotifier = std::make_shared<CNotifier>(port, m_spCoordinatorState, m_spEndpoints);
+    m_spNotifier = std::make_shared<CNotifier>(m_spCoordinatorState, m_spEndpoints);
 
     // initialize peer watcher
     m_spWatcher = std::make_shared<CPeerWatcher>(m_spEndpoints);
@@ -259,20 +256,15 @@ bool CBryptNode::HasTechnologyType(NodeUtils::TechnologyType technology)
 void CBryptNode::JoinCoordinator()
 {
     Configuration::TEndpointOptions options;
-
-    options.operation = NodeUtils::EndpointOperation::Client;
-
     NodeUtils::NodeIdType coordinatorId = m_spCoordinatorState->GetId();
-    NodeUtils::NetworkAddress coordinatorAddress = m_spCoordinatorState->GetAddress();
-    NodeUtils::PortNumber publisherPort = m_spCoordinatorState->GetPublisherPort();
-    options.entry_address = coordinatorAddress + NodeUtils::ADDRESS_COMPONENT_SEPERATOR + m_spCoordinatorState->GetRequestPort();
+    options.entry = m_spCoordinatorState->GetEntry();
     options.technology = m_spCoordinatorState->GetTechnology();
+    options.operation = NodeUtils::EndpointOperation::Client;
 
     printo("Connecting to Coordinator with technology: " +
             std::to_string(static_cast<std::uint32_t>(options.technology)),
             NodeUtils::PrintType::Node);
 
-    m_spNotifier->Connect(coordinatorAddress, publisherPort);
     m_spEndpoints->emplace(coordinatorId, Endpoints::Factory(m_spQueue.get(), options));
     m_spNetworkState->PushPeerName(coordinatorId);
 }
@@ -297,40 +289,6 @@ bool CBryptNode::ContactAuthority()
 bool CBryptNode::NotifyAddressChange()
 {
     return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void CBryptNode::HandleNotification(std::string const& message)
-{
-    printo("Handling notification from coordinator", NodeUtils::PrintType::Node);
-
-    if (message.empty()) {
-        printo("No notification to handle", NodeUtils::PrintType::Node);
-        return;
-    }
-
-    std::size_t const filterPosition = message.find(":");
-    if (filterPosition == std::string::npos && filterPosition > 16) {
-        return; // The notification is not properly formatted drop the message
-    }
-
-    // TODO: Do something with the filter (i.e. flood differently);
-    std::string const filter = message.substr(0, filterPosition);
-    std::string const raw = message.substr(filterPosition + 1);
-    try {
-        CMessage const notification(raw);
-        if (auto const itr = m_commandHandlers.find(notification.GetCommandType()); itr != m_commandHandlers.end()) {
-            itr->second->HandleMessage(notification);
-        }
-    } catch(...) {
-        printo("Control message failed to unpack", NodeUtils::PrintType::Node);
-        return;
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -407,17 +365,9 @@ void CBryptNode::Listen()
 {
     printo("Brypt Node is listening", NodeUtils::PrintType::Node);
     std::uint64_t run = 0;
-    std::optional<std::string> optControlRequest;
-    std::optional<std::string> optNotification;
     std::optional<CMessage> optQueueRequest;
     // TODO: Implement stopping condition
     do {
-        optNotification = m_spNotifier->Receive();
-    	if (optNotification) {
-            HandleNotification(*optNotification);
-            optNotification.reset();
-        }
-
         optQueueRequest = m_spQueue->PopIncomingMessage();
         if (optQueueRequest) {
             HandleQueueRequest(*optQueueRequest);
@@ -441,19 +391,20 @@ void CBryptNode::Listen()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CBryptNode::Connect(){
+void CBryptNode::Connect()
+{
     printo("Brypt Node is connecting", NodeUtils::PrintType::Node);
     JoinCoordinator();
     printo("Joined coordinator", NodeUtils::PrintType::Node);
 
     // TODO: Implement stopping condition
     std::uint64_t run = 0;
-    std::optional<std::string> optNotification;
+    std::optional<CMessage> optQueueRequest;
     do {
-        optNotification = m_spNotifier->Receive();
-    	if (optNotification) {
-            HandleNotification(*optNotification);
-            optNotification.reset();
+        optQueueRequest = m_spQueue->PopIncomingMessage();
+        if (optQueueRequest) {
+            HandleQueueRequest(*optQueueRequest);
+            optQueueRequest.reset();
         }
 
         ++run;

@@ -9,13 +9,14 @@
 #include "PeerDetailsMap.hpp"
 #include "../../Utilities/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
+#include <any>
 #include <deque>
 #include <fcntl.h>
+#include <poll.h>
 #include <unistd.h>
 #include <variant>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <poll.h>
 #include <sys/socket.h>
 //------------------------------------------------------------------------------------------------
 
@@ -23,7 +24,8 @@
 namespace Tcp {
 //------------------------------------------------------------------------------------------------
 
-struct TOutgoingMessageInformation;
+struct TNetworkInstructionEvent;
+struct TOutgoingMessageEvent;
 
 constexpr std::int32_t InvalidDescriptor = -1;
 
@@ -31,10 +33,25 @@ constexpr std::int32_t InvalidDescriptor = -1;
 } // Tcp namespace
 //------------------------------------------------------------------------------------------------
 
+struct Tcp::TNetworkInstructionEvent {
+    TNetworkInstructionEvent(
+        CEndpoint::NetworkInstruction type,
+        std::string_view address,
+        NetworkUtils::PortNumber port)
+        : type(type)
+        , address(address)
+        , port(port)
+    {
+    };
+    CEndpoint::NetworkInstruction const type;
+    NetworkUtils::NetworkAddress const address;
+    NetworkUtils::PortNumber const port;
+};
+
 //------------------------------------------------------------------------------------------------
 
-struct Tcp::TOutgoingMessageInformation {
-    TOutgoingMessageInformation(
+struct Tcp::TOutgoingMessageEvent {
+    TOutgoingMessageEvent(
         std::int32_t descriptor,
         std::string_view message,
         std::uint8_t retries)
@@ -64,14 +81,17 @@ public:
     ~CTcpEndpoint() override;
 
     // CEndpoint{
-    std::string GetProtocolType() const override;
     NodeUtils::TechnologyType GetInternalType() const override;
+    std::string GetProtocolType() const override;
+    std::string GetEntry() const override;
 
+    void ScheduleBind(std::string_view binding) override;
+    void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
     void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void Send(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void Send(NodeUtils::NodeIdType id, std::string_view message) override;
+    void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) override;
+    void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint
@@ -79,7 +99,8 @@ public:
 private:
     enum class ConnectionStateChange : std::uint8_t { Connect, Disconnect };
 
-    using OutgoingMessageDeque = std::deque<Tcp::TOutgoingMessageInformation>;
+    using NetworkInstructionDeque = std::deque<Tcp::TNetworkInstructionEvent>;
+    using OutgoingMessageDeque = std::deque<Tcp::TOutgoingMessageEvent>;
 
     using ReceiveResult = std::variant<ConnectionStateChange, Message::Buffer>;
     using OptionalReceiveResult = std::optional<ReceiveResult>;
@@ -92,21 +113,24 @@ private:
 
     bool SetupServerWorker();
     void ServerWorker();
-    SocketDescriptor Listen(
-        NodeUtils::NetworkAddress const& address,
-        NodeUtils::PortNumber const& port,
+    bool Listen(
+        SocketDescriptor* descriptor,
+        NetworkUtils::NetworkAddress const& address,
+        NetworkUtils::PortNumber port,
         IPv4SocketAddress& socketAddress);
     void AcceptConnection(SocketDescriptor listenDescriptor);
 
     bool SetupClientWorker();
     void ClientWorker();
-    SocketDescriptor Connect(
-        NodeUtils::NetworkAddress const& address,
-        NodeUtils::PortNumber const& port,
+    bool Connect(
+        NetworkUtils::NetworkAddress const& address,
+        NetworkUtils::PortNumber port,
         IPv4SocketAddress& socketAddress);
     bool EstablishConnection(
         SocketDescriptor descriptor, IPv4SocketAddress address);
     void StartPeerAuthentication(SocketDescriptor descriptor);
+
+    void ProcessNetworkInstructions(SocketDescriptor* listener = nullptr);
 
     void ProcessIncomingMessages();
     OptionalReceiveResult Receive(SocketDescriptor descriptor);
@@ -117,16 +141,13 @@ private:
     
     void HandleConnectionStateChange(SocketDescriptor descriptor, ConnectionStateChange change);
 
-    NodeUtils::NetworkAddress m_address;
-    NodeUtils::PortNumber m_port;
-
-    std::string m_peerAddress;
-    std::string m_peerPort;
+    NetworkUtils::NetworkAddress m_address;
+    NetworkUtils::PortNumber m_port;
 
     CPeerInformationMap<SocketDescriptor> m_peers;
 
-    mutable std::mutex m_outgoingMutex;
-    OutgoingMessageDeque m_outgoing;
+    mutable std::mutex m_eventsMutex;
+    EventDeque m_events;
 };
 
 //------------------------------------------------------------------------------------------------

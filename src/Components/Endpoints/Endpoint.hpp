@@ -7,13 +7,16 @@
 //------------------------------------------------------------------------------------------------
 #include "../../Configuration/Configuration.hpp"
 #include "../../Interfaces/MessageSink.hpp"
+#include "../../Utilities/NetworkUtils.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "zmq.hpp"
 //------------------------------------------------------------------------------------------------
+#include <any>
 #include <atomic>
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -43,10 +46,13 @@ std::shared_ptr<CEndpoint> Factory(
 
 class CEndpoint {
 public:
+    enum class NetworkInstruction : std::uint8_t { Bind, Connect };
+
     CEndpoint(
         IMessageSink* const messageSink,
         Configuration::TEndpointOptions const& options)
         : m_mutex()
+        , m_interface(options.interface)
         , m_operation(options.operation)
         , m_id(options.id)
         , m_messageSink(messageSink)
@@ -64,12 +70,15 @@ public:
 
     virtual NodeUtils::TechnologyType GetInternalType() const = 0;
     virtual std::string GetProtocolType() const = 0;
+    virtual std::string GetEntry() const = 0;
 
+    virtual void ScheduleBind(std::string_view binding) = 0;
+    virtual void ScheduleConnect(std::string_view entry) = 0;
     virtual void Startup() = 0;
 
     virtual void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) = 0;
-	virtual void Send(NodeUtils::NodeIdType id, CMessage const& message) = 0;
-	virtual void Send(NodeUtils::NodeIdType id, std::string_view message) = 0;
+	virtual void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) = 0;
+	virtual void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
     
 	virtual bool Shutdown() = 0;
 
@@ -90,8 +99,11 @@ public:
     //------------------------------------------------------------------------------------------------
     
 protected:
+    using EventDeque = std::deque<std::any>;
+
     mutable std::mutex m_mutex;
 
+    std::string m_interface;
 	NodeUtils::EndpointOperation const m_operation;
 	NodeUtils::NodeIdType const m_id;
     IMessageSink* const m_messageSink;

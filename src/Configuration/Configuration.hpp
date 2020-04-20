@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Utilities/NetworkUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
 #include "../Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
@@ -67,7 +68,7 @@ struct Configuration::TEndpointOptions
         , operation(NodeUtils::EndpointOperation::None)
         , interface()
         , binding()
-        , entry_address()
+        , entry()
     {
     }
 
@@ -76,14 +77,14 @@ struct Configuration::TEndpointOptions
         std::string_view technology_name,
         std::string_view interface,
         std::string_view binding,
-        std::string_view entryAddress = std::string())
+        std::string_view entry = std::string())
         : id(id)
         , technology(NodeUtils::TechnologyType::None)
         , technology_name(technology_name)
         , operation(NodeUtils::EndpointOperation::None)
         , interface(interface)
         , binding(binding)
-        , entry_address(entryAddress)
+        , entry(entry)
     {
         technology = NodeUtils::ParseTechnologyType(technology_name.data());
     }
@@ -93,26 +94,41 @@ struct Configuration::TEndpointOptions
         NodeUtils::TechnologyType technology,
         std::string_view interface,
         std::string_view binding,
-        std::string_view entryAddress = std::string())
+        std::string_view entry = std::string())
         : id(id)
         , technology(technology)
         , technology_name()
         , operation(NodeUtils::EndpointOperation::None)
         , interface(interface)
         , binding(binding)
-        , entry_address(entryAddress)
+        , entry(entry)
     {
         technology_name = NodeUtils::TechnologyTypeToString(technology);
     }
 
-    NodeUtils::AddressComponentPair GetBindingComponents() const
+    std::string GetBinding() const { return binding; }
+    std::string GetEntry() const { return entry; }
+
+    NetworkUtils::AddressComponentPair GetBindingComponents() const
     {
-        return NodeUtils::SplitAddressString(binding);
+        auto components = NetworkUtils::SplitAddressString(binding);
+        switch (technology) {
+            case NodeUtils::TechnologyType::Direct:
+            case NodeUtils::TechnologyType::StreamBridge:
+            case NodeUtils::TechnologyType::TCP: {
+                if (auto const found = components.first.find(NetworkUtils::Wildcard); found != std::string::npos) {
+                    components.first = NetworkUtils::GetInterfaceAddress(interface);
+                }
+            } break;
+            default: break; // Do not do any additional processing on types that don't require it
+        }
+
+        return components;
     }
 
-    NodeUtils::AddressComponentPair GetEntryComponents() const
+    NetworkUtils::AddressComponentPair GetEntryComponents() const
     {
-        return NodeUtils::SplitAddressString(entry_address);
+        return NetworkUtils::SplitAddressString(entry);
     }
 
     NodeUtils::NodeIdType id;
@@ -121,7 +137,7 @@ struct Configuration::TEndpointOptions
     NodeUtils::EndpointOperation operation;
     std::string interface;
     std::string binding;
-    std::string entry_address;
+    std::string entry;
 };
 
 //------------------------------------------------------------------------------------------------

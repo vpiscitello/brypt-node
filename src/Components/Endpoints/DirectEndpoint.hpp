@@ -8,6 +8,7 @@
 #include "PeerDetails.hpp"
 #include "PeerDetailsMap.hpp"
 //------------------------------------------------------------------------------------------------
+#include <any>
 #include <deque>
 #include <variant>
 #include <zmq.hpp>
@@ -17,16 +18,32 @@
 namespace Direct {
 //------------------------------------------------------------------------------------------------
 
-struct TOutgoingMessageInformation;
+struct TNetworkInstructionEvent;
+struct TOutgoingMessageEvent;
 
 //------------------------------------------------------------------------------------------------
 } // Direct namespace
 //------------------------------------------------------------------------------------------------
 
+struct Direct::TNetworkInstructionEvent {
+    TNetworkInstructionEvent(
+        CEndpoint::NetworkInstruction type,
+        std::string_view address,
+        NetworkUtils::PortNumber port)
+        : type(type)
+        , address(address)
+        , port(port)
+    {
+    };
+    CEndpoint::NetworkInstruction const type;
+    NetworkUtils::NetworkAddress const address;
+    NetworkUtils::PortNumber const port;
+};
+
 //------------------------------------------------------------------------------------------------
 
-struct Direct::TOutgoingMessageInformation {
-    TOutgoingMessageInformation(
+struct Direct::TOutgoingMessageEvent {
+    TOutgoingMessageEvent(
         std::string_view identity,
         std::string_view message,
         std::uint8_t retries)
@@ -55,14 +72,17 @@ public:
     ~CDirectEndpoint() override;
 
     // CEndpoint{
-    std::string GetProtocolType() const override;
     NodeUtils::TechnologyType GetInternalType() const override;
+    std::string GetProtocolType() const override;
+    std::string GetEntry() const override;
 
+    void ScheduleBind(std::string_view binding) override;
+    void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
     void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void Send(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void Send(NodeUtils::NodeIdType id, std::string_view message) override;
+    void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) override;
+    void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint
@@ -70,7 +90,9 @@ public:
 private:
     enum class ConnectionStateChange : std::uint8_t { Update };
     
-    using OutgoingMessageDeque = std::deque<Direct::TOutgoingMessageInformation>;
+    using NetworkInstructionDeque = std::deque<Direct::TNetworkInstructionEvent>;
+    using OutgoingMessageDeque = std::deque<Direct::TOutgoingMessageEvent>;
+
     using ReceiveResult = std::variant<ConnectionStateChange, std::string>;
     using OptionalReceiveResult = std::optional<std::pair<ZeroMQIdentity, ReceiveResult>>;
 
@@ -78,18 +100,20 @@ private:
 
     bool SetupServerWorker();
     void ServerWorker();
-    void Listen(
+    bool Listen(
         zmq::socket_t& socket,
-        NodeUtils::NetworkAddress const& address,
-        NodeUtils::PortNumber const& port);
+        NetworkUtils::NetworkAddress const& address,
+        NetworkUtils::PortNumber port);
 
     bool SetupClientWorker();
     void ClientWorker();
-    void Connect(
+    bool Connect(
         zmq::socket_t& socket,
-        NodeUtils::NetworkAddress const& address,
-        NodeUtils::PortNumber const& port);
+        NetworkUtils::NetworkAddress const& address,
+        NetworkUtils::PortNumber port);
     void StartPeerAuthentication(zmq::socket_t& socket, ZeroMQIdentity const& identity);
+
+    void ProcessNetworkInstructions(zmq::socket_t& socket);
 
     void ProcessIncomingMessages(zmq::socket_t& socket);
     OptionalReceiveResult Receive(zmq::socket_t& socket);
@@ -104,16 +128,13 @@ private:
 
     void HandleConnectionStateChange(ZeroMQIdentity const& identity, ConnectionStateChange change);
 
-    NodeUtils::NetworkAddress m_address;
-	NodeUtils::PortNumber m_port;
-
-	NodeUtils::NetworkAddress m_peerAddress;
-	NodeUtils::PortNumber m_peerPort;
+    NetworkUtils::NetworkAddress m_address;
+	NetworkUtils::PortNumber m_port;
     
     CPeerInformationMap<ZeroMQIdentity> m_peers;
 
-    mutable std::mutex m_outgoingMutex;
-    OutgoingMessageDeque m_outgoing;
+    mutable std::mutex m_eventsMutex;
+    EventDeque m_events;
 };
 
 //------------------------------------------------------------------------------------------------

@@ -77,7 +77,7 @@ IOD_SYMBOL(endpoints)
 IOD_SYMBOL(technology_name)
 IOD_SYMBOL(interface)
 IOD_SYMBOL(binding)
-IOD_SYMBOL(entry_address)
+IOD_SYMBOL(entry)
 
 IOD_SYMBOL(security)
 IOD_SYMBOL(standard)
@@ -215,7 +215,7 @@ Configuration::CManager::StatusCode Configuration::CManager::DecodeConfiguration
             s::technology_name,
             s::interface,
             s::binding,
-            s::entry_address),
+            s::entry),
         s::security = iod::json_object(
             s::standard,
             s::token,
@@ -388,7 +388,7 @@ void local::WriteEndpointOptions(
         out << "\t\t\t\"technology_name\": \"" << NodeUtils::TechnologyTypeToString(endpoint.technology) << "\",\n";
         out << "\t\t\t\"interface\": \"" << endpoint.interface << "\",\n";
         out << "\t\t\t\"binding\": \"" << endpoint.binding << "\",\n";
-        out << "\t\t\t\"entry_address\": \"" << endpoint.entry_address << "\"\n";
+        out << "\t\t\t\"entry\": \"" << endpoint.entry << "\"\n";
         out << "\t\t}";
         if (&endpoint != &options.back()) {
             out << ",\n";
@@ -488,7 +488,7 @@ std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
             bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
             bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
             endpoint.binding = defaults::LoRaBindingAddress;
-            endpoint.entry_address = "";
+            endpoint.entry = "";
         }
         bindingOutputMessage.append(") ");
         std::cout << bindingOutputMessage << std::flush;
@@ -502,11 +502,11 @@ std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
         if (endpoint.technology != NodeUtils::TechnologyType::LoRa) {
             // Get the entry address of the network this may be the cluster
             // coordinator. In the future some sort of discovery.
-            std::string sEntryAddress = "";
+            std::string sEntry = "";
             std::cout << "Entry Address: (" << defaults::EntryAddress << ") " << std::flush;
-            std::getline(std::cin, sEntryAddress);
-            if (!sEntryAddress.empty()) {
-                endpoint.entry_address = sEntryAddress;
+            std::getline(std::cin, sEntry);
+            if (!sEntry.empty()) {
+                endpoint.entry = sEntry;
             }
         }
 

@@ -27,30 +27,28 @@ void ShutdownSocket(zmq::socket_t& socket);
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-
 Endpoints::CDirectEndpoint::CDirectEndpoint(
     IMessageSink* const messageSink,
     Configuration::TEndpointOptions const& options)
     : CEndpoint(messageSink, options)
     , m_address()
-    , m_port()
-    , m_peerAddress()
-    , m_peerPort()
+    , m_port(0)
     , m_peers()
-    , m_outgoingMutex()
-    , m_outgoing()
+    , m_eventsMutex()
+    , m_events()
 {
-    // Get the two networking components from the supplied options
-    auto const [boundAddress, boundPort] = options.GetBindingComponents();
-
-    m_address = boundAddress; // The first binding component is the address for the interface
-    m_port = boundPort; // The second binding component is the port
-    
-    if (options.operation == NodeUtils::EndpointOperation::Client) {
-        auto const [peerAddress, peerPort] = options.GetEntryComponents();
-        m_peerAddress = peerAddress; // The first peer component is the IP address of the peer
-        m_peerPort = peerPort; // The second peer component is the port on the peer
+    switch (m_operation) {
+        case NodeUtils::EndpointOperation::Server: {
+            auto const binding = options.GetBinding();
+            ScheduleBind(binding);
+        } break;
+        case NodeUtils::EndpointOperation::Client: {
+            auto const entry = options.GetEntry();
+            if (!entry.empty()) {
+                ScheduleConnect(entry);
+            }
+        } break;
+        default: assert(false); break; // What is this?
     }
 }
 
@@ -69,6 +67,16 @@ Endpoints::CDirectEndpoint::~CDirectEndpoint()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+NodeUtils::TechnologyType Endpoints::CDirectEndpoint::GetInternalType() const
+{
+    return InternalType;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 std::string Endpoints::CDirectEndpoint::GetProtocolType() const
 {
     return ProtocolType.data();
@@ -78,10 +86,59 @@ std::string Endpoints::CDirectEndpoint::GetProtocolType() const
 
 //------------------------------------------------------------------------------------------------
 // Description:
+// Returns:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CDirectEndpoint::GetInternalType() const
+std::string Endpoints::CDirectEndpoint::GetEntry() const
 {
-    return InternalType;
+    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CDirectEndpoint::ScheduleBind(std::string_view binding)
+{
+    if (m_operation != NodeUtils::EndpointOperation::Server) {
+        throw std::runtime_error("Bind was called a non-listening Endpoint!");
+    }
+
+    auto const [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    NetworkUtils::PortNumber port = std::stoul(sPort);
+
+    // Schedule the Bind network instruction event
+    {
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            Direct::TNetworkInstructionEvent(NetworkInstruction::Bind, address, port));
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CDirectEndpoint::ScheduleConnect(std::string_view entry)
+{
+    if (m_operation != NodeUtils::EndpointOperation::Client) {
+        throw std::runtime_error("Connect was called a non-client Endpoint!");
+    }
+    
+    auto [address, sPort] = NetworkUtils::SplitAddressString(entry);
+    NetworkUtils::PortNumber port = std::stoul(sPort);
+
+    if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
+        address = NetworkUtils::GetInterfaceAddress(m_interface);
+    }
+
+    // Schedule the Connect network instruction event
+    {
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            Direct::TNetworkInstructionEvent(NetworkInstruction::Connect, address, port));
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -105,7 +162,7 @@ void Endpoints::CDirectEndpoint::Startup()
 void Endpoints::CDirectEndpoint::HandleProcessedMessage(
     NodeUtils::NodeIdType id, CMessage const& message)
 {
-    Send(id, message); // Forward the received message to be sent on the socket
+    ScheduleSend(id, message.GetPack()); // Forward the received message to be sent on the socket
 }
 
 //------------------------------------------------------------------------------------------------
@@ -113,9 +170,9 @@ void Endpoints::CDirectEndpoint::HandleProcessedMessage(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::Send(NodeUtils::NodeIdType id, CMessage const& message)
+void Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message)
 {
-    Send(id, message.GetPack()); // Forward the message pack to be sent on the socket
+    ScheduleSend(id, message.GetPack()); // Forward the message pack to be sent on the socket
 }
 
 //------------------------------------------------------------------------------------------------
@@ -123,7 +180,7 @@ void Endpoints::CDirectEndpoint::Send(NodeUtils::NodeIdType id, CMessage const& 
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::Send(NodeUtils::NodeIdType id, std::string_view message)
+void Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
@@ -135,9 +192,11 @@ void Endpoints::CDirectEndpoint::Send(NodeUtils::NodeIdType id, std::string_view
         return;
     }
 
+    // Schedule the outgoing message event
     {
-        std::scoped_lock lock(m_outgoingMutex);
-        m_outgoing.emplace_back(*optIdentity, message, 0);
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            Direct::TOutgoingMessageEvent(*optIdentity, message, 0));
     }
 }
 
@@ -230,8 +289,6 @@ bool Endpoints::CDirectEndpoint::SetupServerWorker()
 //------------------------------------------------------------------------------------------------
 void Endpoints::CDirectEndpoint::ServerWorker()
 {
-    printo("[Direct] Setting up ZMQ_ROUTER socket on port " + m_port, NodeUtils::PrintType::Endpoint);
-
     // Instanties a ZMQ_ROUTER socket local to this thread. Per the ZMQ documentation, sockets are not 
     // thread safe. These sockets should only manipulated within the worker thread that creates it.
     std::shared_ptr<zmq::context_t> spContext = ZmqContextPool::Instance().GetContext();
@@ -241,14 +298,13 @@ void Endpoints::CDirectEndpoint::ServerWorker()
     socket.setsockopt(ZMQ_LINGER, 0);
     socket.setsockopt(ZMQ_ROUTER_NOTIFY, ZMQ_NOTIFY_CONNECT | ZMQ_NOTIFY_DISCONNECT);
 
-    Listen(socket, m_address, m_port);  // Start listening on the socket
-
     // Notify the calling thread that the endpoint worker is ready
     m_active = true;
     m_cv.notify_all();
 
     // Start the endpoint's event loop
     while(m_active) {
+        ProcessNetworkInstructions(socket); // Process any endpoint instructions at the front if the event queue
         ProcessIncomingMessages(socket); // Process any messages on the socket to be handled this cycle 
         ProcessOutgoingMessages(socket); // Send messages from the outgoing message queue
         
@@ -265,6 +321,44 @@ void Endpoints::CDirectEndpoint::ServerWorker()
     }
 
     local::ShutdownSocket(socket);  // Shutdown the ZMQ Socket
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+bool Endpoints::CDirectEndpoint::Listen(
+    zmq::socket_t& socket,
+    NetworkUtils::NetworkAddress const& address,
+    NetworkUtils::PortNumber port)
+{
+    std::string sPort = std::to_string(port);
+    printo("[Direct] Setting up ZMQ_ROUTER socket on port " + sPort, NodeUtils::PrintType::Endpoint);
+
+    std::size_t size = 128; // Initalize a size of the buffer
+    std::vector<char> buffer(size, 0); // Initialize the receiving buffer
+
+    try {
+        socket.getsockopt(ZMQ_LAST_ENDPOINT, buffer.data(), &size); // Get the last endpoint the socket was bound too
+        // If the socket was previously bound, unbind the socket from the current interface
+        if (size > 1) {
+            m_address.clear(); // Clear the bound address of the endpoint
+            m_port = 0; // Clear the bound port of the endpoint
+
+            socket.unbind(buffer.data()); // Unbind the socket
+        }
+
+        // Bind the ZMQ_ROUTER socket to the designated interface and port
+        socket.bind("tcp://" + address + ":" + sPort);
+    } catch (...) {
+        return false;
+    }
+
+    m_address = address; // Capture the address the endpoint bound too
+    m_port = port; // Capture the port the endpoint bound too
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -284,24 +378,8 @@ bool Endpoints::CDirectEndpoint::SetupClientWorker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::Listen(
-    zmq::socket_t& socket,
-    NodeUtils::NetworkAddress const& address,
-    NodeUtils::PortNumber const& port)
-{
-    // Bind the ZMQ_ROUTER socket to the designated interface and port
-    socket.bind("tcp://" + address + ":" + port);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 void Endpoints::CDirectEndpoint::ClientWorker()
 {
-    printo("[Direct] Connecting ZMQ_ROUTER socket to " + m_peerAddress + ":" + m_port, NodeUtils::PrintType::Endpoint);
-
     // Instanties a ZMQ_ROUTER socket local to this thread. Per the ZMQ documentation, sockets are not 
     // thread safe. These sockets should only manipulated within the worker thread that creates it.
     std::shared_ptr<zmq::context_t> spContext = ZmqContextPool::Instance().GetContext();
@@ -311,15 +389,13 @@ void Endpoints::CDirectEndpoint::ClientWorker()
     socket.setsockopt(ZMQ_LINGER, 0);
     socket.setsockopt(ZMQ_ROUTER_NOTIFY, ZMQ_NOTIFY_CONNECT | ZMQ_NOTIFY_DISCONNECT);
 
-    // TODO: Implement a method of calling connect for multiple peers, if possible
-    Connect(socket, m_peerAddress, m_peerPort); // Connect to the desginated peer
-
     // Notify the calling thread that the endpoint worker is ready
     m_active = true;
     m_cv.notify_all();
 
     // Start the endpoint's event loop
     while(m_active) {
+        ProcessNetworkInstructions(socket);
         ProcessIncomingMessages(socket); // Process any messages on the socket to be handled this cycle 
         ProcessOutgoingMessages(socket); // Send messages from the outgoing message queue
         
@@ -344,23 +420,31 @@ void Endpoints::CDirectEndpoint::ClientWorker()
 // Description:
 //------------------------------------------------------------------------------------------------
 
-void Endpoints::CDirectEndpoint::Connect(
+bool Endpoints::CDirectEndpoint::Connect(
     zmq::socket_t& socket,
-    NodeUtils::NetworkAddress const& address,
-    NodeUtils::PortNumber const& port)
+    NetworkUtils::NetworkAddress const& address,
+    NetworkUtils::PortNumber port)
 {
+    std::string sPort = std::to_string(port);
+    printo("[Direct] Connecting ZMQ_ROUTER socket to " + address + ":" + sPort, NodeUtils::PrintType::Endpoint);
+
     // TODO: Implement unique (per application session) token generator 
     static std::int8_t sequentialByte = 0x00;
     std::string identity = { 0x05, 0x00, 0x00, 0x00, ++sequentialByte };
 
-    socket.setsockopt(ZMQ_CONNECT_ROUTING_ID, identity.data(), identity.size());
+    try {
+        socket.setsockopt(ZMQ_CONNECT_ROUTING_ID, identity.data(), identity.size());
+        // Bind the ZMQ_ROUTER socket to the designated interface and port
+        socket.connect("tcp://" + address + ":" + sPort);
+    } catch (...) {
+        return false;
+    }
 
     m_peers.TrackConnection(identity);
 
-    // Bind the ZMQ_ROUTER socket to the designated interface and port
-    socket.connect("tcp://" + address + ":" + port);
-
     StartPeerAuthentication(socket, identity);
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -380,6 +464,52 @@ void Endpoints::CDirectEndpoint::StartPeerAuthentication(
     // TODO: Timeout the start of peer authentication requests. ZMQ queues messages to the 
     // intended peer and there is no direct way to detect if the peer is connected.
     Send(socket, identity, message.GetPack());
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CDirectEndpoint::ProcessNetworkInstructions(zmq::socket_t& socket)
+{
+    // Splice elements up to send cycle limit into a temporary queue to be sent.
+    NetworkInstructionDeque instructions;
+    {
+        std::scoped_lock lock(m_eventsMutex);
+
+        // Splice all network instruction events until the first non-instruction event
+        // TODO: Should looping be flagged here? The endpoint could in theory be DOS'd by maniuplating
+        // connect calls, how/why would this happen?
+        while (m_events.size() != 0 && 
+               m_events.front().type() == typeid(Direct::TNetworkInstructionEvent)) {
+
+            instructions.emplace_back(
+                std::any_cast<Direct::TNetworkInstructionEvent>(m_events.front()));
+
+            m_events.pop_front();
+        }
+    }
+
+    for (auto const& [type, address, port] : instructions) {
+        switch (type) {
+            case NetworkInstruction::Bind: {
+                bool const success = Listen(socket, address, port);  // Start listening on the socket
+                if (!success) {
+                    std::string const notification = "[Direct] Binding to " + address + ":" + std::to_string(port) + " failed.";
+                    NodeUtils::printo(notification, NodeUtils::PrintType::Endpoint);   
+                }
+            } break;
+            case NetworkInstruction::Connect: {
+                bool const success = Connect(socket, address, port); // Connect to the desginated peer
+                if (!success) {
+                    std::string const notification = "[Direct] Connection to " + address + ":" + std::to_string(port) + " failed.";
+                    NodeUtils::printo(notification, NodeUtils::PrintType::Endpoint);
+                }
+            } break;
+            default: assert(false); break; // What is this?
+        }
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -526,15 +656,24 @@ void Endpoints::CDirectEndpoint::ProcessOutgoingMessages(zmq::socket_t& socket)
     // Splice elements up to send cycle limit into a temporary queue to be sent.
     OutgoingMessageDeque outgoing;
     {
-        std::scoped_lock lock(m_outgoingMutex);
+        std::scoped_lock lock(m_eventsMutex);
         for (std::uint32_t idx = 0; idx < Endpoint::OutgoingMessageLimit; ++idx) {
             // If there are no messages left in the outgoing message queue, break from
             // copying the items into the temporary queue.
-            if (m_outgoing.size() == 0) {
+            if (m_events.size() == 0) {
                 break;
             }
-            outgoing.emplace_back(m_outgoing.front());
-            m_outgoing.pop_front();
+
+            // If we have reached an event that is not an outgoing message stop splicing
+            auto const& eventType = m_events.front().type();
+            if (eventType != typeid(Direct::TOutgoingMessageEvent)) {
+                break;
+            }
+
+            outgoing.emplace_back(
+                std::any_cast<Direct::TOutgoingMessageEvent>(m_events.front()));
+
+            m_events.pop_front();
         }
     }
 
@@ -573,8 +712,11 @@ void Endpoints::CDirectEndpoint::ProcessOutgoingMessages(zmq::socket_t& socket)
                 continue;
             }
             std::uint8_t const attempts = retries + 1;
-            std::scoped_lock lock(m_outgoingMutex);
-            m_outgoing.emplace_back(identity, message, attempts);
+            {
+                std::scoped_lock lock(m_eventsMutex);
+                m_events.emplace_back(
+                    Direct::TOutgoingMessageEvent(identity, message, attempts));
+            }
         }
 
         std::this_thread::sleep_for(std::chrono::nanoseconds(100));
@@ -597,8 +739,7 @@ std::uint32_t Endpoints::CDirectEndpoint::Send(zmq::socket_t& socket, std::strin
         return 0;
     }
 
-    NodeUtils::printo("[Direct] Sent: (" + std::to_string(*optResult) + ") " 
-           + message.data(), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[Direct] Sent: " + std::string(message.data()), NodeUtils::PrintType::Endpoint);
 
     return *optResult;
 }
@@ -624,8 +765,7 @@ std::uint32_t Endpoints::CDirectEndpoint::Send(
         return 0;
     }
 
-    NodeUtils::printo("[Direct] Sent: (" + std::to_string(*optResult) + ") " 
-           + message.data(), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[Direct] Sent: " + std::string(message.data()), NodeUtils::PrintType::Endpoint);
 
     return *optResult;
 }
@@ -656,7 +796,7 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
                     m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
-                default: assert(true); break;
+                default: assert(false); break;
             }
         }
     );
