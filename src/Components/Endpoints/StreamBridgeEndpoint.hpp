@@ -7,6 +7,7 @@
 #include "Endpoint.hpp"
 #include "PeerDetails.hpp"
 #include "PeerDetailsMap.hpp"
+#include "TechnologyType.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
 #include <deque>
@@ -64,15 +65,17 @@ public:
     using ZeroMQIdentity = std::string;
     
     constexpr static std::string_view ProtocolType = "TCP/IP";
-    constexpr static NodeUtils::TechnologyType InternalType = NodeUtils::TechnologyType::StreamBridge;
+    constexpr static TechnologyType InternalType = TechnologyType::StreamBridge;
 
     CStreamBridgeEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options);
+        NodeUtils::NodeIdType id,
+        std::string_view interface,
+        OperationType operation,
+        IMessageSink* const messageSink);
     ~CStreamBridgeEndpoint() override;
 
     // CEndpoint{
-    NodeUtils::TechnologyType GetInternalType() const override;
+    TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
 
@@ -121,7 +124,7 @@ private:
     NetworkUtils::NetworkAddress m_address;
     NetworkUtils::PortNumber m_port;
 
-    CPeerInformationMap<ZeroMQIdentity> m_peers;
+    CPeerDetailsMap<ZeroMQIdentity> m_peers;
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

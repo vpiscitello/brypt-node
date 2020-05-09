@@ -6,7 +6,6 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "CommandDefinitions.hpp"
-#include "../Notifier/Notifier.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------

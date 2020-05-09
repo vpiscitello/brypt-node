@@ -20,9 +20,11 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CLoRaEndpoint::CLoRaEndpoint(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options)
-    : CEndpoint(messageSink, options)
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    Endpoints::OperationType operation,
+    IMessageSink* const messageSink)
+    : CEndpoint(id, interface, operation, messageSink)
 {
 }
 
@@ -41,7 +43,7 @@ Endpoints::CLoRaEndpoint::~CLoRaEndpoint()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CLoRaEndpoint::GetInternalType() const
+Endpoints::TechnologyType Endpoints::CLoRaEndpoint::GetInternalType() const
 {
     return InternalType;
 }

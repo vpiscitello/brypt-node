@@ -5,6 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
+#include "TechnologyType.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -19,15 +20,17 @@ namespace LoRa {
 class Endpoints::CLoRaEndpoint : public CEndpoint {
 public:
     constexpr static std::string_view ProtocolType = "LoRa";
-    constexpr static NodeUtils::TechnologyType InternalType = NodeUtils::TechnologyType::LoRa;
+    constexpr static TechnologyType InternalType = TechnologyType::LoRa;
 
     CLoRaEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options);
+        NodeUtils::NodeIdType id,
+        std::string_view interface,
+        OperationType operation,
+        IMessageSink* const messageSink);
     ~CLoRaEndpoint() override;
 
     // CEndpoint{
-    NodeUtils::TechnologyType GetInternalType() const override;
+    TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
 

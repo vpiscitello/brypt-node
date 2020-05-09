@@ -3,8 +3,12 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
+#include "../Components/Endpoints/EndpointTypes.hpp"
+#include "../Components/Endpoints/EndpointManager.hpp"
+#include "../Components/MessageQueue/MessageQueue.hpp"
 #include "../Configuration/Configuration.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
+#include "../Configuration/PeerPersistor.hpp"
 #include "../Utilities/Message.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -27,13 +31,11 @@
 
 //------------------------------------------------------------------------------------------------
 namespace {
-//------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
-//------------------------------------------------------------------------------------------------
 } // namespace
 //------------------------------------------------------------------------------------------------
 
@@ -80,24 +82,35 @@ std::int32_t main(std::int32_t argc, char** argv)
     std::cout << "Main process PID: " << getpid() << "\n";
 
     Configuration::CManager configurationManager;
-    std::optional<Configuration::TSettings> optSettings = configurationManager.Parse();
-    if (optSettings) {
-        Configuration::TSettings& settings = *optSettings;
-        ParseArguments(argc, argv, settings);
-        if (!settings.endpoints.empty()) {
-            if (options.operation != NodeUtils::EndpointOperation::None) {
-                settings.endpoints[0].operation = options.operation;
-                
-                CBryptNode alpha(*optSettings);
-                alpha.Startup();
-            } else {
-                std::cout << "Node Setup must be provided and device operation type!" << std::endl;
-                exit(-1);
-            }
-        }
-    } else {
+    auto optSettings = configurationManager.FetchSettings();
+    if (!optSettings) {
         std::cout << "Node configuration settings could not be parsed!" << std::endl;
         exit(1);
+    }
+    
+    
+    Configuration::CPeerPersistor persistor;
+    auto optBootstraps = persistor.FetchPeers();
+    if (!optBootstraps) {
+        std::cout << "Node bootstraps could not be parsed!" << std::endl;
+        exit(1);
+    }
+
+    auto spMessageQueue = std::make_shared<CMessageQueue>();
+    auto spEndpointManager = std::make_shared<CEndpointManager>();
+    Configuration::EndpointConfigurations const& configurations = optSettings->endpoints;
+    spEndpointManager->Initialize(
+        0,   // TODO: Get Brypt Node ID and pass it in to the manager
+        spMessageQueue.get(),
+        configurations,
+        optBootstraps);
+
+    persistor.SetMediator(spEndpointManager.get());
+
+    ParseArguments(argc, argv, *optSettings);
+    if (!optSettings->endpoints.empty()) {
+        CBryptNode alpha(spEndpointManager, spMessageQueue, *optSettings);
+        alpha.Startup();
     }
 
     return 0;

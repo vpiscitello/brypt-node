@@ -27,25 +27,19 @@ void ShutdownSocket(zmq::socket_t& socket);
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options)
-    : CEndpoint(messageSink, options)
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    Endpoints::OperationType operation,
+    IMessageSink* const messageSink)
+    : CEndpoint(id, interface, operation, messageSink)
     , m_address()
     , m_port()
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
-    if (m_operation != NodeUtils::EndpointOperation::Server) {
+    if (m_operation != OperationType::Server) {
         throw std::runtime_error("StreamBridge endpoint may only operate in server mode.");
-    }
-
-    switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
-            auto const binding = options.GetBinding();
-            ScheduleBind(binding);
-        } break;
-        default: assert(false); break; // What is this?
     }
 }
 
@@ -64,7 +58,7 @@ Endpoints::CStreamBridgeEndpoint::~CStreamBridgeEndpoint()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CStreamBridgeEndpoint::GetInternalType() const
+Endpoints::TechnologyType Endpoints::CStreamBridgeEndpoint::GetInternalType() const
 {
     return InternalType;
 }
@@ -97,7 +91,7 @@ std::string Endpoints::CStreamBridgeEndpoint::GetEntry() const
 //------------------------------------------------------------------------------------------------
 void Endpoints::CStreamBridgeEndpoint::ScheduleBind(std::string_view binding)
 {
-    if (m_operation != NodeUtils::EndpointOperation::Server) {
+    if (m_operation != OperationType::Server) {
         throw std::runtime_error("Bind was called a non-listening Endpoint!");
     }
 
@@ -231,7 +225,7 @@ void Endpoints::CStreamBridgeEndpoint::Spawn()
     // Attempt to start an endpoint worker thread based on the designated endpoint operation.
     // Currently, StreamBridge endpoints may only operate as a server.
     switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
+        case OperationType::Server: {
             bWorkerStarted = SetupServerWorker();
         } break;
         default: return;
@@ -288,7 +282,7 @@ void Endpoints::CStreamBridgeEndpoint::ServerWorker()
         // signal before continuing normal operation. 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::CycleTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::CycleTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 m_active = false; // Terminate if the endpoint is shutting down
@@ -521,7 +515,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
     OutgoingMessageDeque outgoing;
     {
         std::scoped_lock lock(m_eventsMutex);
-        for (std::uint32_t idx = 0; idx < Endpoint::OutgoingMessageLimit; ++idx) {
+        for (std::uint32_t idx = 0; idx < Endpoints::OutgoingMessageLimit; ++idx) {
             // If there are no messages left in the outgoing message queue, break from
             // copying the items into the temporary queue.
             if (m_events.size() == 0) {
@@ -571,7 +565,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
             );
         } else {
             // If we have already attempted to send the message three times, drop the message.
-            if (retries == Endpoint::MessageRetryLimit) {
+            if (retries == Endpoints::MessageRetryLimit) {
                 // TODO: Logic is needed to properly handling this condition. Should the peer be flagged?
                 // Should the response required be flipped?
                 continue;

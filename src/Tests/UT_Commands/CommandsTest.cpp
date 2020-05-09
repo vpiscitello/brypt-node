@@ -1,6 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../Components/Command/Handler.hpp"
+#include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
@@ -33,12 +34,12 @@ Configuration::TSettings CreateConfigurationSettings();
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
 constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
 constexpr std::string_view TechnologyName = "Direct";
-constexpr NodeUtils::TechnologyType TechnologyType = NodeUtils::TechnologyType::Direct;
+constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:3000";
-constexpr std::string_view ClientBinding = "*:3001";
-constexpr std::string_view ServerEntry = "127.0.0.1:3000";
-constexpr std::string_view ClientEntry = "127.0.0.1:3001";
+constexpr std::string_view ServerBinding = "*:35216";
+constexpr std::string_view ClientBinding = "*:35217";
+constexpr std::string_view ServerEntry = "127.0.0.1:35216";
+constexpr std::string_view ClientEntry = "127.0.0.1:35217";
 
 constexpr std::uint8_t BasePhase = 0;
 constexpr std::string_view Message = "Hello World!";
@@ -58,7 +59,7 @@ TEST(CommandSuite, CommandMatchingTest)
     // The node itself will set up internal commands that can operate on it's
     // internal state, but in order to setup our own we need to provide the 
     // commands a node instance and a state.
-    CBryptNode node(settings);
+    CBryptNode node(nullptr, nullptr, settings);
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
@@ -123,13 +124,10 @@ TEST(CommandSuite, CommandMatchingTest)
 Configuration::TEndpointOptions test::CreateEndpointOptions()
 {
     Configuration::TEndpointOptions options(
-        test::ClientId,
         test::TechnologyType,
         test::Interface,
         test::ServerBinding);
 
-    options.operation = NodeUtils::EndpointOperation::Server;
-    
     return options;
 }
 

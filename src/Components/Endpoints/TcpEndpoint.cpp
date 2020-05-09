@@ -28,28 +28,17 @@ constexpr std::uint8_t DisabledOption = 0;
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CTcpEndpoint::CTcpEndpoint(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options)
-    : CEndpoint(messageSink, options)
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    OperationType operation,
+    IMessageSink* const messageSink)
+    : CEndpoint(id, interface, operation, messageSink)
     , m_address()
     , m_port(0)
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
-    switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
-            auto const binding = options.GetBinding();
-            ScheduleBind(binding);
-        } break;
-        case NodeUtils::EndpointOperation::Client: {
-            auto const entry = options.GetEntry();
-            if (!entry.empty()) {
-                ScheduleConnect(entry);
-            }
-        } break;
-        default: assert(false); break; // What is this?
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -68,7 +57,7 @@ Endpoints::CTcpEndpoint::~CTcpEndpoint()
 // Description:
 // Returns:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CTcpEndpoint::GetInternalType() const
+Endpoints::TechnologyType Endpoints::CTcpEndpoint::GetInternalType() const
 {
     return InternalType;
 }
@@ -102,7 +91,7 @@ std::string Endpoints::CTcpEndpoint::GetEntry() const
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
 {
-    if (m_operation != NodeUtils::EndpointOperation::Server) {
+    if (m_operation != OperationType::Server) {
         throw std::runtime_error("Bind was called a non-listening Endpoint!");
     }
 
@@ -128,7 +117,7 @@ void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ScheduleConnect(std::string_view entry)
 {
-    if (m_operation != NodeUtils::EndpointOperation::Client) {
+    if (m_operation != OperationType::Client) {
         throw std::runtime_error("Connect was called a non-client Endpoint!");
     }
     
@@ -248,10 +237,10 @@ void Endpoints::CTcpEndpoint::Spawn()
 
     // Attempt to start an endpoint worker thread based on the designated endpoint operation.
     switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
+        case OperationType::Server: {
             bWorkerStarted = SetupServerWorker(); 
         } break;
-        case NodeUtils::EndpointOperation::Client: {
+        case OperationType::Client: {
             bWorkerStarted = SetupClientWorker();
         } break;
         default: return;
@@ -303,7 +292,7 @@ void Endpoints::CTcpEndpoint::ServerWorker()
         // signal before continuing normal operation. 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::CycleTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::CycleTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 m_active = false; // Terminate if the endpoint is shutting down
@@ -456,7 +445,7 @@ void Endpoints::CTcpEndpoint::ClientWorker()
         // signal before continuing normal operation. 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::CycleTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::CycleTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 m_active = false; // Terminate if the endpoint is shutting down
@@ -517,13 +506,13 @@ bool Endpoints::CTcpEndpoint::EstablishConnection(
 
         NodeUtils::printo("[TCP] Connection to peer failed. Error: " + error, NodeUtils::PrintType::Endpoint);
 
-        if (++attempts > Endpoint::ConnectRetryThreshold) {
+        if (++attempts > Endpoints::ConnectRetryThreshold) {
             return false;
         }
 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::ConnectRetryTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::ConnectRetryTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 return false; // Terminate if the endpoint is shutting down
@@ -745,7 +734,7 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
     OutgoingMessageDeque outgoing;
     {
         std::scoped_lock lock(m_eventsMutex);
-        for (std::uint32_t idx = 0; idx < Endpoint::OutgoingMessageLimit; ++idx) {
+        for (std::uint32_t idx = 0; idx < Endpoints::OutgoingMessageLimit; ++idx) {
             // If there are no messages left in the outgoing message queue, break from
             // copying the items into the temporary queue.
             if (m_events.size() == 0) {
@@ -800,7 +789,7 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
                         );
                     } else {
                         // If we have already attempted to send the message three times, drop the message.
-                        if (retries == Endpoint::MessageRetryLimit) {
+                        if (retries == Endpoints::MessageRetryLimit) {
                             // TODO: Logic is needed to properly handling this condition. Should the peer be flagged?
                             // Should the response required be flipped?
                             return;

@@ -13,7 +13,7 @@
 #include <thread>
 //------------------------------------------------------------------------------------------------
 
-class CEndpoint;
+class CEndpointManager;
 class CMessage;
 class CState;
 
@@ -21,24 +21,24 @@ class CState;
 
 class CPeerWatcher {
 public:
-    explicit CPeerWatcher(std::weak_ptr<EndpointMap> const& wpPeers);
+    explicit CPeerWatcher(std::weak_ptr<CEndpointManager> const& wpEndpointManager);
     ~CPeerWatcher();
 
     bool Startup();
     bool Shutdown();
 
 private:
-    void watch();
-    void heartbeat();
+    void Watch();
+    void Heartbeat();
 
-    std::weak_ptr<EndpointMap> m_wpWatched;
+    std::weak_ptr<CEndpointManager> m_wpEndpointManager;
 
     TimeUtils::Timepoint m_lastCheckTimepoint;
     TimeUtils::Timepoint m_requiredUpdateTimepoint;
 
     bool m_process;
 
-    std::mutex m_mutex;
+    mutable std::mutex m_mutex;
     std::condition_variable m_cv;
     std::thread m_worker;  
 };

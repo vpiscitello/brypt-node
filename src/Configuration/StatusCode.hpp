@@ -1,24 +1,18 @@
 //------------------------------------------------------------------------------------------------
-// File: EndpointConstants.hpp
-// Description:
+// File: StatusCode.hpp
+// Description: Holds enumeration values for configuration parsing
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
-#include <chrono>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-namespace Endpoints {
+namespace Configuration {
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t ConnectRetryThreshold = 3; // The number of connections attempts allowed
-constexpr std::uint32_t OutgoingMessageLimit = 10; // The number of outgoing messages to be sent in a cycle
-constexpr std::uint32_t MessageRetryLimit = 3; // The number of times a message may be attempted to be sent
-
-constexpr std::chrono::seconds ConnectRetryTimeout = std::chrono::seconds(5); // The peroid of time between connection attemps
-constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1000); // The minimum period before starting the next cycle
+enum class StatusCode : std::uint8_t { Success, DecodeError, InputError, FileError };
 
 //------------------------------------------------------------------------------------------------
-} // Endpoint namespace
+} // Configuration namespace
 //------------------------------------------------------------------------------------------------

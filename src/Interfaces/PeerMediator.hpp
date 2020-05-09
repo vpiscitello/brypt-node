@@ -1,23 +1,27 @@
 //------------------------------------------------------------------------------------------------
-// File: EndpointTypes.hpp
-// Description: Defines types that users of the CEndpoint may use
+// File: PeerMediator.hpp
+// Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "TechnologyType.hpp"
-//------------------------------------------------------------------------------------------------
-#include <memory>
-#include <unordered_map>
+#include "../Components/Endpoints/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
 
-class CEndpoint;
+class CPeer;
+class IPeerObserver;
 
 //------------------------------------------------------------------------------------------------
-namespace Endpoints {
-//------------------------------------------------------------------------------------------------
 
-enum class OperationType : std::uint8_t { Server, Client, Invalid };
+class IPeerMediator
+{
+public:
+    virtual ~IPeerMediator() = default;
 
-//------------------------------------------------------------------------------------------------
-} // Endpoint namespace
+    virtual void RegisterObserver(IPeerObserver* const observer) = 0;
+    virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
+
+    virtual void ForwardPeerConnectionStateChange(
+        CPeer const& peer, ConnectionState change) = 0;
+};
+
 //------------------------------------------------------------------------------------------------

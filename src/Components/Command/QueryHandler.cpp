@@ -7,7 +7,6 @@
 #include "../Await/Await.hpp"
 #include "../Endpoints/Endpoint.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
-#include "../Notifier/Notifier.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
@@ -147,10 +146,7 @@ bool Command::CQueryHandler::FloodHandler(CMessage const& message)
         Message::BoundAwaitId(
             {Message::AwaitBinding::Source, awaitKey}));
 
-    // Send the notice via the network notifier connection
-    if (auto const notifier = m_instance.GetNotifier().lock()) {
-        notifier->Send(notice, NodeUtils::NotificationType::Network);
-    }
+    // TODO: Field the notice through the endpoint manager
 
     return true;
 }

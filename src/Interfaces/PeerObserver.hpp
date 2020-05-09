@@ -1,23 +1,24 @@
 //------------------------------------------------------------------------------------------------
-// File: EndpointTypes.hpp
-// Description: Defines types that users of the CEndpoint may use
+// File: PeerObserver.hpp
+// Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "TechnologyType.hpp"
-//------------------------------------------------------------------------------------------------
-#include <memory>
-#include <unordered_map>
+#include "../Components/Endpoints/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
 
-class CEndpoint;
+class CPeer;
 
 //------------------------------------------------------------------------------------------------
-namespace Endpoints {
-//------------------------------------------------------------------------------------------------
 
-enum class OperationType : std::uint8_t { Server, Client, Invalid };
+class IPeerObserver
+{
+public:
+    virtual ~IPeerObserver() = default;
 
-//------------------------------------------------------------------------------------------------
-} // Endpoint namespace
+    virtual void HandlePeerConnectionStateChange(
+        CPeer const& peer,
+        ConnectionState change) = 0;
+};
+
 //------------------------------------------------------------------------------------------------

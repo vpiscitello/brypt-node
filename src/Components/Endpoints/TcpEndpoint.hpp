@@ -7,6 +7,7 @@
 #include "Endpoint.hpp"
 #include "PeerDetails.hpp"
 #include "PeerDetailsMap.hpp"
+#include "TechnologyType.hpp"
 #include "../../Utilities/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
@@ -73,15 +74,17 @@ public:
     using IPv4SocketAddress = struct sockaddr_in;
     
     constexpr static std::string_view ProtocolType = "TCP/IP";
-    constexpr static NodeUtils::TechnologyType InternalType = NodeUtils::TechnologyType::TCP;
+    constexpr static TechnologyType InternalType = TechnologyType::TCP;
 
     CTcpEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options);
+        NodeUtils::NodeIdType id,
+        std::string_view interface,
+        OperationType operation,
+        IMessageSink* const messageSink);
     ~CTcpEndpoint() override;
 
     // CEndpoint{
-    NodeUtils::TechnologyType GetInternalType() const override;
+    TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
 
@@ -144,7 +147,7 @@ private:
     NetworkUtils::NetworkAddress m_address;
     NetworkUtils::PortNumber m_port;
 
-    CPeerInformationMap<SocketDescriptor> m_peers;
+    CPeerDetailsMap<SocketDescriptor> m_peers;
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

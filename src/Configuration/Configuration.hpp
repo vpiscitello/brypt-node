@@ -1,12 +1,17 @@
 //------------------------------------------------------------------------------------------------
+// File: Configuration.hpp
+// Description:
+//------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Utilities/NetworkUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
 #include "../Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -21,10 +26,18 @@ struct TDetailsOptions;
 struct TEndpointOptions;
 struct TSecurityOptions;
 
+using EndpointConfigurations = std::vector<TEndpointOptions>;
+
+std::filesystem::path const DefaultBryptFolder = "/brypt/";
+std::filesystem::path const DefaultConfigurationFilename = "config.json";
+std::filesystem::path const DefaultKnownPeersFilename = "peers.json";
+
+std::filesystem::path GetDefaultBryptFolder();
+std::filesystem::path GetDefaultConfigurationFilepath();
+std::filesystem::path GetDefaultPeersFilepath();
+
 //------------------------------------------------------------------------------------------------
 } // Configuration namespace
-//------------------------------------------------------------------------------------------------
-
 //------------------------------------------------------------------------------------------------
 
 struct Configuration::TDetailsOptions
@@ -62,60 +75,49 @@ struct Configuration::TDetailsOptions
 struct Configuration::TEndpointOptions
 {
     TEndpointOptions()
-        : id(0)
-        , technology(NodeUtils::TechnologyType::None)
+        : technology(Endpoints::TechnologyType::Invalid)
         , technology_name()
-        , operation(NodeUtils::EndpointOperation::None)
         , interface()
         , binding()
-        , entry()
     {
     }
 
     TEndpointOptions(
-        NodeUtils::NodeIdType id,
         std::string_view technology_name,
         std::string_view interface,
-        std::string_view binding,
-        std::string_view entry = std::string())
-        : id(id)
-        , technology(NodeUtils::TechnologyType::None)
+        std::string_view binding)
+        : technology(Endpoints::TechnologyType::Invalid)
         , technology_name(technology_name)
-        , operation(NodeUtils::EndpointOperation::None)
         , interface(interface)
         , binding(binding)
-        , entry(entry)
     {
-        technology = NodeUtils::ParseTechnologyType(technology_name.data());
+        technology = Endpoints::ParseTechnologyType(technology_name.data());
     }
 
     TEndpointOptions(
-        NodeUtils::NodeIdType id,
-        NodeUtils::TechnologyType technology,
+        Endpoints::TechnologyType technology,
         std::string_view interface,
-        std::string_view binding,
-        std::string_view entry = std::string())
-        : id(id)
-        , technology(technology)
+        std::string_view binding)
+        : technology(technology)
         , technology_name()
-        , operation(NodeUtils::EndpointOperation::None)
         , interface(interface)
         , binding(binding)
-        , entry(entry)
     {
-        technology_name = NodeUtils::TechnologyTypeToString(technology);
+        technology_name = Endpoints::TechnologyTypeToString(technology);
     }
 
+    Endpoints::TechnologyType GetTechnology() const { return technology; }
+    std::string GetTechnologyName() const { return technology_name; }
+    std::string GetInterface() const { return interface; }
     std::string GetBinding() const { return binding; }
-    std::string GetEntry() const { return entry; }
 
     NetworkUtils::AddressComponentPair GetBindingComponents() const
     {
         auto components = NetworkUtils::SplitAddressString(binding);
         switch (technology) {
-            case NodeUtils::TechnologyType::Direct:
-            case NodeUtils::TechnologyType::StreamBridge:
-            case NodeUtils::TechnologyType::TCP: {
+            case Endpoints::TechnologyType::Direct:
+            case Endpoints::TechnologyType::StreamBridge:
+            case Endpoints::TechnologyType::TCP: {
                 if (auto const found = components.first.find(NetworkUtils::Wildcard); found != std::string::npos) {
                     components.first = NetworkUtils::GetInterfaceAddress(interface);
                 }
@@ -126,18 +128,10 @@ struct Configuration::TEndpointOptions
         return components;
     }
 
-    NetworkUtils::AddressComponentPair GetEntryComponents() const
-    {
-        return NetworkUtils::SplitAddressString(entry);
-    }
-
-    NodeUtils::NodeIdType id;
-    NodeUtils::TechnologyType technology;
+    Endpoints::TechnologyType technology;
     std::string technology_name;
-    NodeUtils::EndpointOperation operation;
     std::string interface;
     std::string binding;
-    std::string entry;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -179,10 +173,10 @@ struct Configuration::TSettings
 
     TSettings(
         TDetailsOptions const& detailsOptions,
-        std::vector<TEndpointOptions> const& endpointsOptions,
+        EndpointConfigurations const& endpointsConfigurations,
         TSecurityOptions const& securityOptions)
         : details(detailsOptions)
-        , endpoints(endpointsOptions)
+        , endpoints(endpointsConfigurations)
         , security(securityOptions)
     {
     }
@@ -203,7 +197,7 @@ struct Configuration::TSettings
     }
 
     TDetailsOptions details;
-    std::vector<TEndpointOptions> endpoints;
+    EndpointConfigurations endpoints;
     TSecurityOptions security;
 };
 

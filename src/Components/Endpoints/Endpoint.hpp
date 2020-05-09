@@ -5,6 +5,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "EndpointTypes.hpp"
+#include "TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
@@ -21,6 +23,7 @@
 #include <mutex>
 #include <thread>
 #include <string>
+#include <string_view>
 //------------------------------------------------------------------------------------------------
 
 class CMessage;
@@ -36,12 +39,15 @@ class CLoRaEndpoint;
 class CStreamBridgeEndpoint;
 class CTcpEndpoint;
 
-std::shared_ptr<CEndpoint> Factory(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options);
+std::unique_ptr<CEndpoint> Factory(
+    TechnologyType technology,
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    Endpoints::OperationType operation,
+    IMessageSink* const messageSink);
 
 //------------------------------------------------------------------------------------------------
-} // Command namespace
+} // Endpoint namespace
 //------------------------------------------------------------------------------------------------
 
 class CEndpoint {
@@ -49,26 +55,28 @@ public:
     enum class NetworkInstruction : std::uint8_t { Bind, Connect };
 
     CEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options)
+        NodeUtils::NodeIdType id,
+        std::string_view interface,
+        Endpoints::OperationType operation,
+        IMessageSink* const messageSink)
         : m_mutex()
-        , m_interface(options.interface)
-        , m_operation(options.operation)
-        , m_id(options.id)
+        , m_id(id) 
+        , m_interface(interface)
+        , m_operation(operation)
         , m_messageSink(messageSink)
         , m_active(false)
         , m_terminate(false)
         , m_cv()
         , m_worker()
     {
-        if (m_operation == NodeUtils::EndpointOperation::None) {
+        if (m_operation == Endpoints::OperationType::Invalid) {
             throw std::runtime_error("Endpoint must be provided and endpoint operation type!");
         }
     };
 
     virtual ~CEndpoint() {}; 
 
-    virtual NodeUtils::TechnologyType GetInternalType() const = 0;
+    virtual Endpoints::TechnologyType GetInternalType() const = 0;
     virtual std::string GetProtocolType() const = 0;
     virtual std::string GetEntry() const = 0;
 
@@ -84,14 +92,14 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    bool GetStatus() const
+    bool IsActive() const
     {
         return m_active;
     }
 
     //------------------------------------------------------------------------------------------------
 
-    NodeUtils::EndpointOperation GetOperation() const
+    Endpoints::OperationType GetOperation() const
     {
         return m_operation;
     }
@@ -103,9 +111,9 @@ protected:
 
     mutable std::mutex m_mutex;
 
-    std::string m_interface;
-	NodeUtils::EndpointOperation const m_operation;
 	NodeUtils::NodeIdType const m_id;
+    std::string m_interface;
+	Endpoints::OperationType const m_operation;
     IMessageSink* const m_messageSink;
 
 	std::atomic_bool m_active;

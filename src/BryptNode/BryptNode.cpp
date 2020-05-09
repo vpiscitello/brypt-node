@@ -12,9 +12,9 @@
 #include "SensorState.hpp"
 #include "../Components/Await/Await.hpp"
 #include "../Components/Command/Handler.hpp"
-#include "../Components/Endpoints/Endpoint.hpp"
+#include "../Components/Endpoints/EndpointManager.hpp"
+#include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Components/MessageQueue/MessageQueue.hpp"
-#include "../Components/Notifier/Notifier.hpp"
 #include "../Components/PeerWatcher/PeerWatcher.hpp"
 #include "../Utilities/Message.hpp"
 #include "../Utilities/NodeUtils.hpp"
@@ -22,7 +22,6 @@
 
 //------------------------------------------------------------------------------------------------
 namespace {
-//------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
 //------------------------------------------------------------------------------------------------
@@ -38,47 +37,49 @@ void SimulateClient(
 
 //------------------------------------------------------------------------------------------------
 } // test namespace
-//------------------------------------------------------------------------------------------------
 } // namespace
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-CBryptNode::CBryptNode(Configuration::TSettings const& settings)
+CBryptNode::CBryptNode(
+    std::shared_ptr<CEndpointManager> const& spEndpointManager,
+    std::shared_ptr<CMessageQueue> const& spMessageQueue,
+    Configuration::TSettings const& settings)
     : m_spNodeState()
     , m_spAuthorityState()
     , m_spCoordinatorState()
     , m_spNetworkState()
     , m_spSecurityState()
     , m_spSensorState()
-    , m_spQueue(std::make_shared<CMessageQueue>())
+    , m_spEndpointManager(spEndpointManager)
+    , m_spMessageQueue(spMessageQueue)
     , m_spAwaiting(std::make_shared<Await::CObjectContainer>())
     , m_commandHandlers()
-    , m_spEndpoints()
-    , m_spNotifier()
     , m_spWatcher()
     , m_initialized(false)
 {
+    // An Endpoint Manager must be provided to the node in order to to operator 
+    if (!m_spEndpointManager) {
+        return;
+    }
+
     // Initialize state from settings.
     m_spAuthorityState = std::make_shared<CAuthorityState>(settings.security.central_authority);
-    m_spCoordinatorState = std::make_shared<CCoordinatorState>(
-        settings.endpoints[0].technology,
-        settings.endpoints[0].GetEntryComponents());
+    m_spCoordinatorState = std::make_shared<CCoordinatorState>();
     m_spNetworkState = std::make_shared<CNetworkState>();
     m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);
     m_spNodeState = std::make_shared<CNodeState>(
         settings.details.operation,
-        std::set<NodeUtils::TechnologyType>{settings.endpoints[0].technology});
+        m_spEndpointManager->GetEndpointTechnologies());
     m_spSensorState = std::make_shared<CSensorState>();
 
     // initialize notifier
-    m_spNotifier = std::make_shared<CNotifier>(m_spCoordinatorState, m_spEndpoints);
+    // m_spNotifier = std::make_shared<CNotifier>(m_spCoordinatorState, m_spEndpoints);
 
     // initialize peer watcher
-    m_spWatcher = std::make_shared<CPeerWatcher>(m_spEndpoints);
-
-    std::cout << "\n== Setting up Brypt Node\n";
+    // m_spWatcher = std::make_shared<CPeerWatcher>(m_spEndpoints);
 
     m_commandHandlers.emplace(
         Command::Type::Information,
@@ -105,12 +106,6 @@ CBryptNode::CBryptNode(Configuration::TSettings const& settings)
 
 //------------------------------------------------------------------------------------------------
 
-CBryptNode::~CBryptNode()
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
@@ -128,6 +123,8 @@ void CBryptNode::Startup()
     printo("Starting up Brypt Node", NodeUtils::PrintType::Node);
 
     srand(time(nullptr));
+
+    m_spEndpointManager->Startup();
 
     switch (operation) {
         case NodeUtils::DeviceOperation::Root: {
@@ -198,9 +195,16 @@ std::weak_ptr<CSensorState> CBryptNode::GetSensorState() const
 
 //------------------------------------------------------------------------------------------------
 
+std::weak_ptr<CEndpointManager> CBryptNode::GetEndpointManager() const
+{
+    return m_spEndpointManager;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::weak_ptr<CMessageQueue> CBryptNode::GetMessageQueue() const
 {
-    return m_spQueue;
+    return m_spMessageQueue;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -208,20 +212,6 @@ std::weak_ptr<CMessageQueue> CBryptNode::GetMessageQueue() const
 std::weak_ptr<Await::CObjectContainer> CBryptNode::GetAwaiting() const
 {
     return m_spAwaiting;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::weak_ptr<EndpointMap> CBryptNode::GetEndpoints() const
-{
-    return m_spEndpoints;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::weak_ptr<CNotifier> CBryptNode::GetNotifier() const
-{
-    return m_spNotifier;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -240,7 +230,7 @@ std::float_t CBryptNode::DetermineNodePower()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-bool CBryptNode::HasTechnologyType(NodeUtils::TechnologyType technology)
+bool CBryptNode::HasTechnologyType(Endpoints::TechnologyType technology)
 {
     auto const technologies = m_spNodeState->GetTechnologies();
     auto const itr = technologies.find(technology);
@@ -257,15 +247,14 @@ void CBryptNode::JoinCoordinator()
 {
     Configuration::TEndpointOptions options;
     NodeUtils::NodeIdType coordinatorId = m_spCoordinatorState->GetId();
-    options.entry = m_spCoordinatorState->GetEntry();
     options.technology = m_spCoordinatorState->GetTechnology();
-    options.operation = NodeUtils::EndpointOperation::Client;
 
     printo("Connecting to Coordinator with technology: " +
             std::to_string(static_cast<std::uint32_t>(options.technology)),
             NodeUtils::PrintType::Node);
 
-    m_spEndpoints->emplace(coordinatorId, Endpoints::Factory(m_spQueue.get(), options));
+    // TODO: Field connects to new peers through the EndpointManager
+
     m_spNetworkState->PushPeerName(coordinatorId);
 }
 
@@ -328,7 +317,7 @@ void CBryptNode::ProcessFulfilledMessages()
 
     // /*
     for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
-        m_spQueue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
+        m_spMessageQueue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
     }
     // */
 }
@@ -368,7 +357,7 @@ void CBryptNode::Listen()
     std::optional<CMessage> optQueueRequest;
     // TODO: Implement stopping condition
     do {
-        optQueueRequest = m_spQueue->PopIncomingMessage();
+        optQueueRequest = m_spMessageQueue->PopIncomingMessage();
         if (optQueueRequest) {
             HandleQueueRequest(*optQueueRequest);
             optQueueRequest.reset();
@@ -401,7 +390,7 @@ void CBryptNode::Connect()
     std::uint64_t run = 0;
     std::optional<CMessage> optQueueRequest;
     do {
-        optQueueRequest = m_spQueue->PopIncomingMessage();
+        optQueueRequest = m_spMessageQueue->PopIncomingMessage();
         if (optQueueRequest) {
             HandleQueueRequest(*optQueueRequest);
             optQueueRequest.reset();

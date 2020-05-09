@@ -98,10 +98,9 @@ inline ConnectionStateFilter ConnectionStateToFilter(ConnectionState state)
 //------------------------------------------------------------------------------------------------
 
 template <typename ConnectionIdType, typename ExtensionType = void>
-class CPeerInformationMap
+class CPeerDetailsMap
 {
 public:
-
     using ExtendedPeerDetails = CPeerDetails<ExtensionType>;
     using OptionalPeerDetails = std::optional<ExtendedPeerDetails>;
     
@@ -112,7 +111,7 @@ public:
     using ReadMultipleFunction = std::function<CallbackIteration(ConnectionIdType const&, OptionalPeerDetails const&)>;
     using UpdateMultipleFunction = std::function<CallbackIteration(ConnectionIdType const&, OptionalPeerDetails&)>;
 
-    CPeerInformationMap()
+    CPeerDetailsMap()
         : m_mutex()
         , m_peers()
         , m_nodeIdLookups()

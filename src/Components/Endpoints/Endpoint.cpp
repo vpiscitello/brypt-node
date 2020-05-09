@@ -14,24 +14,27 @@
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CEndpoint> Endpoints::Factory(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options)
+std::unique_ptr<CEndpoint> Endpoints::Factory(
+    TechnologyType technology,
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    Endpoints::OperationType operation,
+    IMessageSink* const messageSink)
 {
-    switch (options.technology) {
-        case NodeUtils::TechnologyType::Direct: {
-            return std::make_shared<CDirectEndpoint>(messageSink, options);
+    switch (technology) {
+        case TechnologyType::Direct: {
+            return std::make_unique<CDirectEndpoint>(id, interface, operation, messageSink);
         }
-        case NodeUtils::TechnologyType::LoRa: {
-            return std::make_shared<CLoRaEndpoint>(messageSink, options);
+        case TechnologyType::LoRa: {
+            return std::make_unique<CLoRaEndpoint>(id, interface, operation, messageSink);
         }
-        case NodeUtils::TechnologyType::StreamBridge: {
-            return std::make_shared<CStreamBridgeEndpoint>(messageSink, options);
+        case TechnologyType::StreamBridge: {
+            return std::make_unique<CStreamBridgeEndpoint>(id, interface, operation, messageSink);
         }
-        case NodeUtils::TechnologyType::TCP: {
-            return std::make_shared<CTcpEndpoint>(messageSink, options);
+        case TechnologyType::TCP: {
+            return std::make_unique<CTcpEndpoint>(id, interface, operation, messageSink);
         }
-        case NodeUtils::TechnologyType::None: return nullptr;
+        case TechnologyType::Invalid: return nullptr;
     }
     return nullptr;
 }

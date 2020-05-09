@@ -1,14 +1,14 @@
 //------------------------------------------------------------------------------------------------
-// File: Parser.hpp
+// File: ConfigurationManager.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "StatusCode.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <filesystem>
 #include <optional>
-#include <string>
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
@@ -16,37 +16,28 @@
 namespace Configuration {
 //------------------------------------------------------------------------------------------------
 
-std::filesystem::path const DefaultConfigFilename = "config.json";
-
 class CManager;
 
 //------------------------------------------------------------------------------------------------
 } // Configuration namespace
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-
-class Configuration::CManager {
+class Configuration::CManager  {
 public:
     CManager();
-    explicit CManager(std::string const& filepath);
-    
-    enum class StatusCode { Success, DecodeError, InputError, FileError };
+    explicit CManager(std::string_view filepath);
 
-    std::optional<Configuration::TSettings> Parse();
+    std::optional<Configuration::TSettings> FetchSettings();
 
-    StatusCode Save();
+    StatusCode Serialize();
     StatusCode ValidateSettings();
 
     StatusCode DecodeConfigurationFile();
     StatusCode GenerateConfigurationFile();
 
-    std::filesystem::path GetDefaultConfigurationPath() const;
-
-    std::optional<Configuration::TSettings> GetConfiguration() const;
+    std::optional<Configuration::TSettings> GetCachedConfiguration() const;
     
 private:
-    void CreateConfigurationFilePath();
     void GetConfigurationOptionsFromUser();
     void InitializeSettings();
 
