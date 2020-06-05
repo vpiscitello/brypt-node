@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "TcpEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "../Command/CommandDefinitions.hpp"
 #include "../../Utilities/Message.hpp"
@@ -520,25 +521,13 @@ bool Endpoints::CTcpEndpoint::EstablishConnection(
         }
     }
 
-    StartPeerAuthentication(descriptor);
+    auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
+    auto const result = PeerBootstrap::SendContactMessage(m_id, sender);
+    if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
+        return false;
+    }
 
     return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::StartPeerAuthentication(SocketDescriptor descriptor)
-{
-    // TODO: Implement better method of starting peer authentication
-    CMessage message(
-        m_id, 0x00000000,
-        Command::Type::Connect, 0,
-        "", 0);
-
-    Send(descriptor, message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -689,7 +678,7 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
 void Endpoints::CTcpEndpoint::HandleReceivedData(
     SocketDescriptor descriptor, Message::Buffer const& message)
 {
-    NodeUtils::printo("[TCP] Received request: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[TCP] Received message: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
     try {
         CMessage const request(message);
         auto const id = request.GetSourceId();

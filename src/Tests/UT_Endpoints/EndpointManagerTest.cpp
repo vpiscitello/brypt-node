@@ -204,12 +204,12 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
         test::ServerBinding);
     configurations.emplace_back(options);
     
-    Configuration::PeersMap peers;
-    peers.emplace(test::ClientId, CPeer(test::ClientId, Endpoints::TechnologyType::TCP, test::ClientEntry));
-    Configuration::EndpointPeersMap bootstraps;
-    bootstraps.emplace(Endpoints::TechnologyType::TCP, peers);
+    auto spPeers = std::make_shared<CPeerPersistor::PeersMap>();
+    spPeers->emplace(test::ClientId, CPeer(test::ClientId, Endpoints::TechnologyType::TCP, test::ClientEntry));
+    auto spBootstraps = std::make_shared<CPeerPersistor::EndpointPeersMap>();
+    spBootstraps->emplace(Endpoints::TechnologyType::TCP, spPeers);
 
-    upEndpointManager->Initialize(test::ServerId, nullptr, configurations, bootstraps);
+    upEndpointManager->Initialize(test::ServerId, nullptr, configurations, spBootstraps);
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();
     EXPECT_EQ(initialActiveEndpoints, std::uint32_t(0));

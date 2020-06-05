@@ -47,7 +47,6 @@ struct Configuration::TDetailsOptions
         , name()
         , description()
         , location()
-        , operation(NodeUtils::DeviceOperation::None)
     {
     }
 
@@ -59,7 +58,6 @@ struct Configuration::TDetailsOptions
         , name(name)
         , description(description)
         , location(location)
-        , operation(NodeUtils::DeviceOperation::None)
     {
     }
 
@@ -67,7 +65,6 @@ struct Configuration::TDetailsOptions
     std::string name;
     std::string description;
     std::string location;
-    NodeUtils::DeviceOperation operation;
 };
 
 //------------------------------------------------------------------------------------------------

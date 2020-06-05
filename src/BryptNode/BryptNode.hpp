@@ -34,7 +34,7 @@ class CControl;
 class CEndpointManager;
 class CMessage;
 class CMessageQueue;
-class CNotifier;
+class CPeerPersistor;
 class CPeerWatcher;
 
 class CNodeState;
@@ -51,6 +51,7 @@ public:
     explicit CBryptNode(
         std::shared_ptr<CEndpointManager> const& spEndpointManager,
         std::shared_ptr<CMessageQueue> const& spMessageQueue,
+        std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
         Configuration::TSettings const& settings);
 
     void Startup();
@@ -66,6 +67,7 @@ public:
 
     std::weak_ptr<CEndpointManager> GetEndpointManager() const;
     std::weak_ptr<CMessageQueue> GetMessageQueue() const;
+    std::weak_ptr<CPeerPersistor> GetPeerPersistor() const;
     std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
 
 private:
@@ -74,7 +76,6 @@ private:
     bool HasTechnologyType(Endpoints::TechnologyType technology);
 
     // Communication Functions
-    void JoinCoordinator();
     bool ContactAuthority();    // Contact the central authority for some service
     bool NotifyAddressChange(); // Notify the cluster of some address change
 
@@ -87,8 +88,7 @@ private:
     bool Transform();   // Transform the node's function in the cluster/network
 
     // Run Functions
-    void Listen();  // Open a socket to listening for network commands
-    void Connect();
+    void Listen();
 
     // Private Variables
     std::shared_ptr<CNodeState> m_spNodeState;
@@ -100,6 +100,7 @@ private:
 
     std::shared_ptr<CEndpointManager> m_spEndpointManager;
     std::shared_ptr<CMessageQueue> m_spMessageQueue;
+    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
     std::shared_ptr<Await::CObjectContainer> m_spAwaiting;
     Command::HandlerMap m_commandHandlers;
     std::shared_ptr<CPeerWatcher> m_spWatcher;

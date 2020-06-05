@@ -14,9 +14,7 @@ class CNodeState {
 public:
     CNodeState();
 
-    CNodeState(
-        NodeUtils::DeviceOperation operation,
-        Endpoints::TechnologySet const& technologies);
+    CNodeState(Endpoints::TechnologySet const& technologies);
 
     NodeUtils::NodeIdType GetId() const;
     NodeUtils::SerialNumber GetSerial() const;

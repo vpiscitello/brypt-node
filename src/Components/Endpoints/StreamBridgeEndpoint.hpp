@@ -116,7 +116,7 @@ private:
     void ProcessOutgoingMessages(zmq::socket_t& socket);
     std::uint32_t Send(
         zmq::socket_t& socket,
-        ZeroMQIdentity id,
+        ZeroMQIdentity const& identity,
         std::string_view message);
 
     void HandleConnectionStateChange(ZeroMQIdentity const& identity, ConnectionStateChange change);

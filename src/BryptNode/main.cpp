@@ -14,19 +14,9 @@
 //------------------------------------------------------------------------------------------------
 #include "../Libraries/spdlog/spdlog.h"
 //------------------------------------------------------------------------------------------------
-#include <fcntl.h>
-#include <unistd.h>
 #include <cstdint>
-#include <climits>
-#include <cstdint>
-#include <fstream>
-#include <chrono>
-#include <memory>
 #include <optional>
 #include <string>
-#include <thread>
-#include <sys/stat.h>
-#include <sys/types.h>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -34,46 +24,15 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+std::string ConfigurationFilename = "";
+void ParseArguments(std::int32_t argc, char** argv);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-Configuration::TEndpointOptions options;
 
-//------------------------------------------------------------------------------------------------
-
-void ParseArguments(
-    std::int32_t argc,
-    char** argv,
-    Configuration::TSettings &settings)
-{
-    std::vector<std::string> args;
-    std::vector<std::string>::iterator itr;
-
-    if (argc <= 1) {
-        NodeUtils::printo("Arguments must be provided!", NodeUtils::PrintType::Error);
-        exit(1);
-    }
-
-    for (std::int32_t idx = 0; idx < argc; ++idx) {
-        args.push_back(std::string(argv[idx]));
-    }
-
-    static std::unordered_map<std::string, NodeUtils::DeviceOperation> deviceOperationMap = 
-    {
-        {"--root", NodeUtils::DeviceOperation::Root},
-        {"--branch", NodeUtils::DeviceOperation::Branch},
-        {"--leaf", NodeUtils::DeviceOperation::Leaf}
-    };
-
-    for (auto const [key, value] : deviceOperationMap) {
-        if (itr = std::find(args.begin(), args.end(), key); itr != args.end()) {
-            settings.details.operation = value;
-            break;
-        }
-    }
-}
 //------------------------------------------------------------------------------------------------
 
 std::int32_t main(std::int32_t argc, char** argv)
@@ -81,17 +40,24 @@ std::int32_t main(std::int32_t argc, char** argv)
     std::cout << "\n== Welcome to the Brypt Network\n";
     std::cout << "Main process PID: " << getpid() << "\n";
 
-    Configuration::CManager configurationManager;
-    auto optSettings = configurationManager.FetchSettings();
+    local::ParseArguments(argc, argv);
+
+    std::unique_ptr<Configuration::CManager> upConfigurationManager;
+    if (local::ConfigurationFilename.empty()) {
+        upConfigurationManager = std::make_unique<Configuration::CManager>();
+    } else {
+        upConfigurationManager = std::make_unique<Configuration::CManager>(local::ConfigurationFilename);
+    }
+
+    auto optSettings = upConfigurationManager->FetchSettings();
     if (!optSettings) {
         std::cout << "Node configuration settings could not be parsed!" << std::endl;
         exit(1);
     }
     
-    
-    Configuration::CPeerPersistor persistor;
-    auto optBootstraps = persistor.FetchPeers();
-    if (!optBootstraps) {
+    auto spPersistor = std::make_shared<CPeerPersistor>();
+    auto spBootstraps = spPersistor->FetchPeers();
+    if (!spBootstraps) {
         std::cout << "Node bootstraps could not be parsed!" << std::endl;
         exit(1);
     }
@@ -103,17 +69,34 @@ std::int32_t main(std::int32_t argc, char** argv)
         0,   // TODO: Get Brypt Node ID and pass it in to the manager
         spMessageQueue.get(),
         configurations,
-        optBootstraps);
+        spBootstraps);
 
-    persistor.SetMediator(spEndpointManager.get());
+    spPersistor->SetMediator(spEndpointManager.get());
 
-    ParseArguments(argc, argv, *optSettings);
     if (!optSettings->endpoints.empty()) {
-        CBryptNode alpha(spEndpointManager, spMessageQueue, *optSettings);
+        CBryptNode alpha(spEndpointManager, spMessageQueue, spPersistor, *optSettings);
         alpha.Startup();
     }
 
     return 0;
 }
 
+//------------------------------------------------------------------------------------------------
+
+void local::ParseArguments(std::int32_t argc, char** argv)
+{
+    std::vector<std::string> arguments;
+    std::vector<std::string>::iterator itr;
+
+    for (std::int32_t idx = 0; idx < argc; ++idx) {
+        if (auto const& argument = argv[idx]; argument != nullptr) {
+        arguments.push_back(std::string(argument));
+        }
+    }
+
+    itr = find (arguments.begin(), arguments.end(), "--config");
+    if (itr != arguments.end()) {
+        local::ConfigurationFilename = *(++itr);
+    }
+}
 //------------------------------------------------------------------------------------------------

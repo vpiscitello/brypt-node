@@ -469,7 +469,7 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
     ZeroMQIdentity const& identity,
     std::string_view message)
 {
-    NodeUtils::printo("[StreamBridge] Received request: " + std::string(message), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[StreamBridge] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
     try {
         CMessage const request(message);
         auto const id = request.GetSourceId();
@@ -589,7 +589,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
 //------------------------------------------------------------------------------------------------
 std::uint32_t Endpoints::CStreamBridgeEndpoint::Send(
     zmq::socket_t& socket,
-    ZeroMQIdentity identity,
+    ZeroMQIdentity const& identity,
     std::string_view message)
 {
     // Create a zmq message from the provided data and send it

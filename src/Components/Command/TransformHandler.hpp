@@ -12,6 +12,8 @@
 //------------------------------------------------------------------------------------------------
 class Command::CTransformHandler : public Command::IHandler {
 public:
+    enum class Phase { Information, Host, Connect, Close };
+
     explicit CTransformHandler(CBryptNode& instance);
 
     // IHandler{
@@ -23,8 +25,6 @@ public:
     bool ConnectHandler();
     bool CloseHandler();
 
-private:
-    enum class Phase { Information, Host, Connect, Close };
 };
 
 //------------------------------------------------------------------------------------------------

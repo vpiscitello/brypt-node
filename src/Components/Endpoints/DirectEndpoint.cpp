@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "DirectEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
 #include "../Command/CommandDefinitions.hpp"
@@ -431,28 +432,13 @@ bool Endpoints::CDirectEndpoint::Connect(
 
     m_peers.TrackConnection(identity);
 
-    StartPeerAuthentication(socket, identity);
+    auto sender = std::bind(&CDirectEndpoint::Send, this, std::ref(socket), identity, std::placeholders::_1);
+    std::uint32_t sent = PeerBootstrap::SendContactMessage(m_id, sender);
+    if (sent <= 0) {
+        return false;
+    }
 
     return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::StartPeerAuthentication(
-    zmq::socket_t& socket, ZeroMQIdentity const& identity)
-{
-    // TODO: Implement better method of starting peer authentication
-    CMessage message(
-        m_id, 0x00000000,
-        Command::Type::Connect, 0,
-        "", 0);
-
-    // TODO: Timeout the start of peer authentication requests. ZMQ queues messages to the 
-    // intended peer and there is no direct way to detect if the peer is connected.
-    Send(socket, identity, message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -600,7 +586,7 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
     ZeroMQIdentity const& identity,
     std::string_view message)
 {
-    NodeUtils::printo("[Direct] Received request: " + std::string(message), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[Direct] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
     try {
         CMessage const request(message);
         auto const id = request.GetSourceId();
@@ -717,30 +703,9 @@ void Endpoints::CDirectEndpoint::ProcessOutgoingMessages(zmq::socket_t& socket)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-std::uint32_t Endpoints::CDirectEndpoint::Send(zmq::socket_t& socket, std::string_view message)
-{
-    // Create a zmq message from the provided data and send it
-    zmq::message_t requestMessage(message.data(), message.size());
-    
-    // First we shall send the identity to signal to ZMQ which peer we are sending to
-    auto const optResult = socket.send(requestMessage, zmq::send_flags::dontwait);
-    if (!optResult) {
-        return 0;
-    }
-
-    NodeUtils::printo("[Direct] Sent: " + std::string(message.data()), NodeUtils::PrintType::Endpoint);
-
-    return *optResult;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 std::uint32_t Endpoints::CDirectEndpoint::Send(
     zmq::socket_t& socket,
-    ZeroMQIdentity identity,
+    ZeroMQIdentity const& identity,
     std::string_view message)
 {
     // Create a zmq message from the provided data and send it

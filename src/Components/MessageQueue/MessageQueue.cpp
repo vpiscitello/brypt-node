@@ -71,8 +71,6 @@ std::optional<CMessage> CMessageQueue::PopIncomingMessage()
 	auto const message = m_incoming.front();
 	m_incoming.pop();
 
-	NodeUtils::printo(std::to_string(m_incoming.size()) + " left in incoming queue", NodeUtils::PrintType::MessageQueue);
-
 	return message;
 }
 

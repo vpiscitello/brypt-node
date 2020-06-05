@@ -24,6 +24,7 @@ class CEndpoint;
 class CEndpointManager : public IPeerMediator {
 public:
     using ObserverSet = std::set<IPeerObserver*>;
+    using SharedEndpoint = std::shared_ptr<CEndpoint>;
 
     CEndpointManager();
 
@@ -36,13 +37,14 @@ public:
         NodeUtils::NodeIdType id,
         IMessageSink* const messageSink,
         Configuration::EndpointConfigurations const& configurations,
-        Configuration::OptionalEndpointPeersMap const& optEndpointBootstraps);
+        CPeerPersistor::SharedEndpointPeersMap const& spEndpointBootstraps);
     void ConnectBootstraps(
         std::shared_ptr<CEndpoint> const& spEndpoint,
-        Configuration::PeersMap const& peers);
+        CPeerPersistor::PeersMap const& bootstraps);
     void Startup();
     void Shutdown();
 
+    SharedEndpoint GetEndpoint(Endpoints::TechnologyType technology) const;
     Endpoints::TechnologySet GetEndpointTechnologies() const;
     std::uint32_t ActiveEndpointCount() const;
     std::uint32_t ActiveTechnologyCount() const;
@@ -56,18 +58,18 @@ public:
     // } IPeerMediator
     
 private:
-    using EndpointsMultimap = std::unordered_multimap<Endpoints::TechnologyType, std::shared_ptr<CEndpoint>>;
+    using EndpointsMultimap = std::unordered_multimap<Endpoints::TechnologyType, SharedEndpoint>;
 
     void InitializeDirectEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const messageSink,
-        Configuration::OptionalPeersMap const& optBootstraps);
+        CPeerPersistor::SharedPeersMap const& spBootstraps);
     void InitializeTCPEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const messageSink,
-        Configuration::OptionalPeersMap const& optBootstraps);
+        CPeerPersistor::SharedPeersMap const& spBootstraps);
     void InitializeStreamBridgeEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,

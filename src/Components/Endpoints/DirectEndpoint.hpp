@@ -114,7 +114,6 @@ private:
         zmq::socket_t& socket,
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port);
-    void StartPeerAuthentication(zmq::socket_t& socket, ZeroMQIdentity const& identity);
 
     void ProcessNetworkInstructions(zmq::socket_t& socket);
 
@@ -123,10 +122,9 @@ private:
     void HandleReceivedData(ZeroMQIdentity const& identity, std::string_view message);
 
     void ProcessOutgoingMessages(zmq::socket_t& socket);
-    std::uint32_t Send(zmq::socket_t& socket, std::string_view message);
     std::uint32_t Send(
         zmq::socket_t& socket,
-        ZeroMQIdentity id,
+        ZeroMQIdentity const& identity,
         std::string_view message);
 
     void HandleConnectionStateChange(ZeroMQIdentity const& identity, ConnectionStateChange change);

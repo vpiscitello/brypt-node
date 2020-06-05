@@ -13,44 +13,34 @@
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <filesystem>
+#include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-namespace Configuration {
-//------------------------------------------------------------------------------------------------
-
-class CPeerPersistor;
-
-using PeersMap = std::unordered_map<NodeUtils::NodeIdType, CPeer>;
-using OptionalPeersMap = std::optional<PeersMap>;
-
-using EndpointPeersMap = std::unordered_map<Endpoints::TechnologyType, PeersMap>;
-using OptionalEndpointPeersMap = std::optional<EndpointPeersMap>;
-
-//------------------------------------------------------------------------------------------------
-} // Configuration namespace
-//------------------------------------------------------------------------------------------------
-
-class Configuration::CPeerPersistor : public IPeerObserver {
+class CPeerPersistor : public IPeerObserver {
 public:
+    using PeersMap = std::unordered_map<NodeUtils::NodeIdType, CPeer>;
+    using SharedPeersMap = std::shared_ptr<PeersMap>;
+
+    using EndpointPeersMap = std::unordered_map<Endpoints::TechnologyType, SharedPeersMap>;
+    using SharedEndpointPeersMap = std::shared_ptr<EndpointPeersMap>;
+
     CPeerPersistor();
     explicit CPeerPersistor(std::string_view filepath);
 
     void SetMediator(IPeerMediator* const mediator);
 
-    OptionalEndpointPeersMap FetchPeers();
+    SharedEndpointPeersMap FetchPeers();
 
-    StatusCode Serialize();
-    StatusCode DecodePeersFile();
-    StatusCode SerializeEndpointPeers();
+    Configuration::StatusCode Serialize();
+    Configuration::StatusCode DecodePeersFile();
+    Configuration::StatusCode SerializeEndpointPeers();
 
-    OptionalEndpointPeersMap GetCachedPeers() const;
-    OptionalPeersMap GetCachedPeers(Endpoints::TechnologyType technology) const;
+    SharedEndpointPeersMap GetCachedPeers() const;
+    SharedPeersMap GetCachedPeers(Endpoints::TechnologyType technology) const;
 
     // IPeerObserver {
     void HandlePeerConnectionStateChange(
@@ -63,7 +53,7 @@ private:
     std::filesystem::path m_filepath;
     std::mutex m_fileMutex;
     std::mutex m_endpointsMutex;
-    EndpointPeersMap m_endpoints;
+    SharedEndpointPeersMap m_spEndpoints;
 };
 
 //------------------------------------------------------------------------------------------------

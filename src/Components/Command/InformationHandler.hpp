@@ -12,6 +12,8 @@
 //------------------------------------------------------------------------------------------------
 class Command::CInformationHandler : public Command::IHandler {
 public:
+    enum class Phase { Flood, Respond, Close };
+
     explicit CInformationHandler(CBryptNode& instance);
 
     // IHandler{
@@ -22,8 +24,6 @@ public:
     bool RespondHandler();
     bool CloseHandler();
 
-private:
-    enum class Phase { Flood, Respond, Close };
 };
 
 //------------------------------------------------------------------------------------------------

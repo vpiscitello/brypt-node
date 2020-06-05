@@ -225,7 +225,7 @@ std::vector<CMessage> Await::CObjectContainer::GetFulfilled()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Await::CObjectContainer::Empty() const
+bool Await::CObjectContainer::IsEmpty() const
 {
     return m_awaiting.empty();
 }

@@ -131,7 +131,6 @@ private:
         IPv4SocketAddress& socketAddress);
     bool EstablishConnection(
         SocketDescriptor descriptor, IPv4SocketAddress address);
-    void StartPeerAuthentication(SocketDescriptor descriptor);
 
     void ProcessNetworkInstructions(SocketDescriptor* listener = nullptr);
 

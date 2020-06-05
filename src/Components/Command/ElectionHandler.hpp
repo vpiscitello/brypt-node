@@ -12,6 +12,8 @@
 //------------------------------------------------------------------------------------------------
 class Command::CElectionHandler : public Command::IHandler {
 public:
+    enum class Phase { Probe, Precommit, Vote, Abort, Results, Close };
+    
     explicit CElectionHandler(CBryptNode& instance);
 
     // IHandler{
@@ -25,8 +27,6 @@ public:
     bool ResultsHandler();
     bool CloseHandler();
 
-private:
-    enum class Phase { Probe, Precommit, Vote, Abort, Results, Close };
 };
 
 //------------------------------------------------------------------------------------------------

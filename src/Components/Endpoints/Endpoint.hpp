@@ -74,7 +74,7 @@ public:
         }
     };
 
-    virtual ~CEndpoint() {}; 
+    virtual ~CEndpoint() = default; 
 
     virtual Endpoints::TechnologyType GetInternalType() const = 0;
     virtual std::string GetProtocolType() const = 0;

@@ -15,8 +15,6 @@ namespace LoRa {
 } // CLoRa namespace
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-
 class Endpoints::CLoRaEndpoint : public CEndpoint {
 public:
     constexpr static std::string_view ProtocolType = "LoRa";

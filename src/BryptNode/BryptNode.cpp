@@ -16,6 +16,7 @@
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Components/MessageQueue/MessageQueue.hpp"
 #include "../Components/PeerWatcher/PeerWatcher.hpp"
+#include "../Configuration/PeerPersistor.hpp"
 #include "../Utilities/Message.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -24,6 +25,10 @@
 namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
+
+constexpr std::chrono::milliseconds CycleTimeout = std::chrono::milliseconds(1000);
+// constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1500);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -46,6 +51,7 @@ void SimulateClient(
 CBryptNode::CBryptNode(
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CMessageQueue> const& spMessageQueue,
+    std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     Configuration::TSettings const& settings)
     : m_spNodeState()
     , m_spAuthorityState()
@@ -55,6 +61,7 @@ CBryptNode::CBryptNode(
     , m_spSensorState()
     , m_spEndpointManager(spEndpointManager)
     , m_spMessageQueue(spMessageQueue)
+    , m_spPeerPersistor(spPeerPersistor)
     , m_spAwaiting(std::make_shared<Await::CObjectContainer>())
     , m_commandHandlers()
     , m_spWatcher()
@@ -71,12 +78,8 @@ CBryptNode::CBryptNode(
     m_spNetworkState = std::make_shared<CNetworkState>();
     m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);
     m_spNodeState = std::make_shared<CNodeState>(
-        settings.details.operation,
         m_spEndpointManager->GetEndpointTechnologies());
     m_spSensorState = std::make_shared<CSensorState>();
-
-    // initialize notifier
-    // m_spNotifier = std::make_shared<CNotifier>(m_spCoordinatorState, m_spEndpoints);
 
     // initialize peer watcher
     // m_spWatcher = std::make_shared<CPeerWatcher>(m_spEndpoints);
@@ -115,31 +118,12 @@ void CBryptNode::Startup()
         throw std::runtime_error("Node instance must be setup before starting!");
     }
 
-    NodeUtils::DeviceOperation const operation = m_spNodeState->GetOperation();
-    if (operation == NodeUtils::DeviceOperation::None) {
-        throw std::runtime_error("Node Setup must be provided and device operation type!");
-    }
-
     printo("Starting up Brypt Node", NodeUtils::PrintType::Node);
 
-    srand(time(nullptr));
-
     m_spEndpointManager->Startup();
+    std::this_thread::sleep_for(local::CycleTimeout);
 
-    switch (operation) {
-        case NodeUtils::DeviceOperation::Root: {
-            Listen(); // Make threaded operation?
-        } break;
-        // Listen in thread?
-        // Connect in another thread?
-        // Bridge threads to receive upstream notifications and then pass down to own leafs
-        // + pass aggregated messages to connect thread to respond with
-        case NodeUtils::DeviceOperation::Branch: break;
-        case NodeUtils::DeviceOperation::Leaf: {
-            Connect(); // Make threaded operation?
-        } break;
-        case NodeUtils::DeviceOperation::None: break;
-    }
+    Listen(); // Make threaded operation?
 }
 
 //------------------------------------------------------------------------------------------------
@@ -209,6 +193,13 @@ std::weak_ptr<CMessageQueue> CBryptNode::GetMessageQueue() const
 
 //------------------------------------------------------------------------------------------------
 
+std::weak_ptr<CPeerPersistor> CBryptNode::GetPeerPersistor() const
+{
+    return m_spPeerPersistor;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::weak_ptr<Await::CObjectContainer> CBryptNode::GetAwaiting() const
 {
     return m_spAwaiting;
@@ -243,27 +234,6 @@ bool CBryptNode::HasTechnologyType(Endpoints::TechnologyType technology)
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CBryptNode::JoinCoordinator()
-{
-    Configuration::TEndpointOptions options;
-    NodeUtils::NodeIdType coordinatorId = m_spCoordinatorState->GetId();
-    options.technology = m_spCoordinatorState->GetTechnology();
-
-    printo("Connecting to Coordinator with technology: " +
-            std::to_string(static_cast<std::uint32_t>(options.technology)),
-            NodeUtils::PrintType::Node);
-
-    // TODO: Field connects to new peers through the EndpointManager
-
-    m_spNetworkState->PushPeerName(coordinatorId);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
 bool CBryptNode::ContactAuthority()
 {
     return false;
@@ -287,13 +257,9 @@ bool CBryptNode::NotifyAddressChange()
 // Description:
 //------------------------------------------------------------------------------------------------
 void CBryptNode::HandleQueueRequest(CMessage const& message)
-{
-    printo("Handling queue request from connection thread", NodeUtils::PrintType::Node);
- 
+{ 
     if (auto const itr = m_commandHandlers.find(message.GetCommandType()); itr != m_commandHandlers.end()) {
         itr->second->HandleMessage(message);
-    } else {
-        printo("No command to handle", NodeUtils::PrintType::Node);
     }
 }
 
@@ -305,21 +271,14 @@ void CBryptNode::HandleQueueRequest(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 void CBryptNode::ProcessFulfilledMessages()
 {
-    printo("Sending off fulfilled requests", NodeUtils::PrintType::Node);
-
-    if (m_spAwaiting->Empty()) {
-        printo("No awaiting requests", NodeUtils::PrintType::Node);
+    if (m_spAwaiting->IsEmpty()) {
         return;
     }
 
-    printo("Fulfilled requests:", NodeUtils::PrintType::Node);
     std::vector<CMessage> const responses = m_spAwaiting->GetFulfilled();
-
-    // /*
     for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
         m_spMessageQueue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
     }
-    // */
 }
 
 //------------------------------------------------------------------------------------------------
@@ -370,34 +329,7 @@ void CBryptNode::Listen()
         test::SimulateClient(m_spNodeState->GetId(), m_commandHandlers, (run % 10 == 0));
         //----------------------------------------------------------------------------------------
 
-        std::this_thread::sleep_for(std::chrono::nanoseconds(1500));
-    } while (true);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void CBryptNode::Connect()
-{
-    printo("Brypt Node is connecting", NodeUtils::PrintType::Node);
-    JoinCoordinator();
-    printo("Joined coordinator", NodeUtils::PrintType::Node);
-
-    // TODO: Implement stopping condition
-    std::uint64_t run = 0;
-    std::optional<CMessage> optQueueRequest;
-    do {
-        optQueueRequest = m_spMessageQueue->PopIncomingMessage();
-        if (optQueueRequest) {
-            HandleQueueRequest(*optQueueRequest);
-            optQueueRequest.reset();
-        }
-
-        ++run;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        std::this_thread::sleep_for(local::CycleTimeout);
     } while (true);
 }
 

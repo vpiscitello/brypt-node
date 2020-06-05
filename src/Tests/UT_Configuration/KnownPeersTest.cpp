@@ -50,17 +50,17 @@ TEST(ConfigurationManagerSuite, GeneratePeersFilepathTest)
 TEST(PeerPersistorSuite, ParseGoodFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/good/peers.json";
-    Configuration::CPeerPersistor persistor(filepath.c_str());
-    auto const optEndpointPeers = persistor.FetchPeers();
-    ASSERT_TRUE(optEndpointPeers);
-    EXPECT_EQ(optEndpointPeers->size(), std::size_t(1));
+    CPeerPersistor persistor(filepath.c_str());
+    auto const spEndpointPeers = persistor.FetchPeers();
+    ASSERT_TRUE(spEndpointPeers);
+    EXPECT_EQ(spEndpointPeers->size(), std::size_t(1));
 
-    auto const optTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
-    ASSERT_TRUE(optTCPPeers);
-    EXPECT_EQ(optTCPPeers->size(), std::size_t(1));
+    auto const spTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
+    ASSERT_TRUE(spTCPPeers);
+    EXPECT_EQ(spTCPPeers->size(), std::size_t(1));
 
-    auto const itr = optTCPPeers->find(test::PeerId);
-    ASSERT_NE(itr, optTCPPeers->end());
+    auto const itr = spTCPPeers->find(test::PeerId);
+    ASSERT_NE(itr, spTCPPeers->end());
 
     auto const& [id, peer] = *itr;
     EXPECT_EQ(id, test::PeerId);
@@ -75,9 +75,9 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
 TEST(PeerPersistorSuite, ParseMalformedFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/malformed/peers.json";
-    Configuration::CPeerPersistor persistor(filepath.c_str());
-    auto const optEndpointPeers = persistor.FetchPeers();
-    EXPECT_FALSE(optEndpointPeers);
+    CPeerPersistor persistor(filepath.c_str());
+    auto const spEndpointPeers = persistor.FetchPeers();
+    EXPECT_FALSE(spEndpointPeers);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -85,13 +85,13 @@ TEST(PeerPersistorSuite, ParseMalformedFileTest)
 TEST(PeerPersistorSuite, ParseMissingPeersFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/missing/peers.json";
-    Configuration::CPeerPersistor persistor(filepath.c_str());
-    auto const optEndpointPeers = persistor.FetchPeers();
-    EXPECT_TRUE(optEndpointPeers);
+    CPeerPersistor persistor(filepath.c_str());
+    auto const spEndpointPeers = persistor.FetchPeers();
+    EXPECT_TRUE(spEndpointPeers);
 
-    auto const optTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
-    ASSERT_TRUE(optTCPPeers);
-    EXPECT_EQ(optTCPPeers->size(), std::size_t(0));
+    auto const spTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
+    ASSERT_TRUE(spTCPPeers);
+    EXPECT_EQ(spTCPPeers->size(), std::size_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
@@ -99,17 +99,17 @@ TEST(PeerPersistorSuite, ParseMissingPeersFileTest)
 TEST(PeerPersistorSuite, PeerStateChangeTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/good/peers.json";
-    Configuration::CPeerPersistor persistor(filepath.c_str());
-    auto const optEndpointPeers = persistor.FetchPeers();
-    ASSERT_TRUE(optEndpointPeers);
-    EXPECT_EQ(optEndpointPeers->size(), std::size_t(1));
+    CPeerPersistor persistor(filepath.c_str());
+    auto const spEndpointPeers = persistor.FetchPeers();
+    ASSERT_TRUE(spEndpointPeers);
+    EXPECT_EQ(spEndpointPeers->size(), std::size_t(1));
 
-    auto optTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
-    ASSERT_TRUE(optTCPPeers);
-    EXPECT_EQ(optTCPPeers->size(), std::size_t(1));
+    auto spTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
+    ASSERT_TRUE(spTCPPeers);
+    EXPECT_EQ(spTCPPeers->size(), std::size_t(1));
 
-    auto const existingItr = optTCPPeers->find(test::PeerId);
-    ASSERT_NE(existingItr, optTCPPeers->end());
+    auto const existingItr = spTCPPeers->find(test::PeerId);
+    ASSERT_NE(existingItr, spTCPPeers->end());
 
     auto const& [existingId, existingPeer] = *existingItr;
     EXPECT_EQ(existingId, test::PeerId);
@@ -118,8 +118,8 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     EXPECT_TRUE(existingPeer.GetLocation().empty());
     EXPECT_EQ(existingPeer.GetTechnologyType(), test::PeerTechnology);
 
-    auto const checkItr = optTCPPeers->find(test::NewPeerId);
-    EXPECT_EQ(checkItr, optTCPPeers->end());
+    auto const checkItr = spTCPPeers->find(test::NewPeerId);
+    EXPECT_EQ(checkItr, spTCPPeers->end());
 
     CPeer peer(
         test::NewPeerId,
@@ -128,19 +128,19 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     
     persistor.HandlePeerConnectionStateChange(peer, ConnectionState::Connected);
 
-    optTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
-    auto const connectedItr = optTCPPeers->find(test::NewPeerId);
-    ASSERT_NE(connectedItr, optTCPPeers->end());
+    spTCPPeers = persistor.GetCachedPeers(test::PeerTechnology);
+    auto const connectedItr = spTCPPeers->find(test::NewPeerId);
+    ASSERT_NE(connectedItr, spTCPPeers->end());
     auto const& [connectedId, connectedPeer] = *connectedItr;
 
-    auto checkPersistor = std::make_unique<Configuration::CPeerPersistor>(filepath.c_str());
+    auto checkPersistor = std::make_unique<CPeerPersistor>(filepath.c_str());
     checkPersistor->FetchPeers();
 
-    auto optCheckTCPPeers = checkPersistor->GetCachedPeers(test::PeerTechnology);
-    ASSERT_TRUE(optCheckTCPPeers);
+    auto spCheckTCPPeers = checkPersistor->GetCachedPeers(test::PeerTechnology);
+    ASSERT_TRUE(spCheckTCPPeers);
 
-    auto const checkConnectedItr = optCheckTCPPeers->find(connectedPeer.GetNodeId());
-    ASSERT_NE(checkConnectedItr, optCheckTCPPeers->end());
+    auto const checkConnectedItr = spCheckTCPPeers->find(connectedPeer.GetNodeId());
+    ASSERT_NE(checkConnectedItr, spCheckTCPPeers->end());
 
     auto const& [checkConnectedId, checkConnectedPeer] = *checkConnectedItr;
     EXPECT_EQ(checkConnectedId, connectedPeer.GetNodeId());
@@ -153,14 +153,14 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
 
     persistor.HandlePeerConnectionStateChange(peer, ConnectionState::Disconnected);
     
-    checkPersistor = std::make_unique<Configuration::CPeerPersistor>(filepath.c_str());
+    checkPersistor = std::make_unique<CPeerPersistor>(filepath.c_str());
     checkPersistor->FetchPeers();
 
-    optCheckTCPPeers = checkPersistor->GetCachedPeers(test::PeerTechnology);
-    ASSERT_TRUE(optCheckTCPPeers);
+    spCheckTCPPeers = checkPersistor->GetCachedPeers(test::PeerTechnology);
+    ASSERT_TRUE(spCheckTCPPeers);
 
-    auto const checkDisconnectedItr = optCheckTCPPeers->find(connectedPeer.GetNodeId());
-    ASSERT_EQ(checkDisconnectedItr, optCheckTCPPeers->end());
+    auto const checkDisconnectedItr = spCheckTCPPeers->find(connectedPeer.GetNodeId());
+    ASSERT_EQ(checkDisconnectedItr, spCheckTCPPeers->end());
 }
 
 //------------------------------------------------------------------------------------------------

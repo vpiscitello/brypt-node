@@ -14,14 +14,12 @@ CNodeState::CNodeState()
 
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState(
-    NodeUtils::DeviceOperation operation,
-    std::set<Endpoints::TechnologyType> const& technologies)
+CNodeState::CNodeState(Endpoints::TechnologySet const& technologies)
     : m_mutex()
     , m_id(0) // TODO: Set Machine UUID for state
     , m_serial()
     , m_cluster(0)
-    , m_operation(operation)
+    , m_operation(NodeUtils::DeviceOperation::None)
     , m_technologies(technologies)
 {
 }

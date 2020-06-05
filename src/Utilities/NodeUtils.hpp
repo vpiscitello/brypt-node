@@ -12,7 +12,6 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-
 //------------------------------------------------------------------------------------------------
 namespace NodeUtils {
 //------------------------------------------------------------------------------------------------
@@ -27,7 +26,7 @@ using ObjectIdType = std::uint32_t;
 
 //------------------------------------------------------------------------------------------------
 
-enum class DeviceOperation : std::uint8_t { Root, Branch, Leaf, None };
+enum class DeviceOperation : std::uint8_t { Branch, Leaf, None };
 enum class NotificationType : std::uint8_t { Network, Cluster, Node, None };
 enum class PrintType : std::uint8_t { Await, Command, Control, Endpoint, Message, MessageQueue, Node, Notifier, PeerWatcher, Error };
 
@@ -60,7 +59,6 @@ inline NodeUtils::NodeIdType NodeUtils::GenerateNodeIdentifier()
 inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
 {
     static std::unordered_map<DeviceOperation, std::string> const designationMap = {
-        {DeviceOperation::Root, "root"},
         {DeviceOperation::Branch, "coordinator"},
         {DeviceOperation::Leaf, "node"},
     };
@@ -68,7 +66,8 @@ inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
     if(auto const itr = designationMap.find(operation); itr != designationMap.end()) {
         return itr->second;
     }
-    return std::string();
+
+    return "";
 }
 
 //------------------------------------------------------------------------------------------------

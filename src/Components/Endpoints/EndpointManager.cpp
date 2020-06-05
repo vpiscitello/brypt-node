@@ -27,7 +27,7 @@ void CEndpointManager::Initialize(
     NodeUtils::NodeIdType id,
     IMessageSink* const messageSink,
     Configuration::EndpointConfigurations const& configurations,
-    Configuration::OptionalEndpointPeersMap const& optEndpointBootstraps)
+    CPeerPersistor::SharedEndpointPeersMap const& spEndpointBootstraps)
 {
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
     for (auto const& options: configurations) {
@@ -39,18 +39,18 @@ void CEndpointManager::Initialize(
         if (auto const [begin, end] = m_endpoints.equal_range(technology); begin == m_endpoints.end()) {
             // Attempt to find bootstrap peers in the provided endpoint bootstraps. If the technology
             // has bootstraps available forward it to the function during technology initialization.
-            Configuration::OptionalPeersMap optBootstraps = {};
-            if (optEndpointBootstraps) {
-                if (auto const itr = optEndpointBootstraps->find(technology); itr != optEndpointBootstraps->end()) {
-                    optBootstraps = itr->second;
+            CPeerPersistor::SharedPeersMap spBootstraps;
+            if (spEndpointBootstraps) {
+                if (auto const itr = spEndpointBootstraps->find(technology); itr != spEndpointBootstraps->end()) {
+                    spBootstraps = itr->second;
                 }
             }            
             switch (technology) {
                 case Endpoints::TechnologyType::Direct: {
-                    InitializeDirectEndpoints(id, options, messageSink, optBootstraps);
+                    InitializeDirectEndpoints(id, options, messageSink, spBootstraps);
                 } break;
                 case Endpoints::TechnologyType::TCP: {
-                    InitializeTCPEndpoints(id, options, messageSink, optBootstraps);
+                    InitializeTCPEndpoints(id, options, messageSink, spBootstraps);
                 } break;
                 case Endpoints::TechnologyType::StreamBridge: {
                     InitializeStreamBridgeEndpoints(id, options, messageSink);
@@ -65,7 +65,7 @@ void CEndpointManager::Initialize(
 
 void CEndpointManager::ConnectBootstraps(
     std::shared_ptr<CEndpoint> const& spEndpoint,
-    Configuration::PeersMap const& bootstraps)
+    CPeerPersistor::PeersMap const& bootstraps)
 {
     // If the given endpoint id not able to connect to peers, don't do anything.
     if (spEndpoint->GetOperation() != Endpoints::OperationType::Client) {
@@ -97,6 +97,16 @@ void CEndpointManager::Shutdown()
             [[maybe_unused]] bool const bStopped = endpoint->Shutdown();
         }
     }
+}
+
+//------------------------------------------------------------------------------------------------
+
+CEndpointManager::SharedEndpoint CEndpointManager::GetEndpoint(Endpoints::TechnologyType technology) const
+{
+    if (auto const itr = m_endpoints.find(technology); itr != m_endpoints.end()) {
+        return itr->second;
+    }
+    return nullptr;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -163,9 +173,9 @@ void CEndpointManager::InitializeDirectEndpoints(
     NodeUtils::NodeIdType id,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const messageSink,
-    Configuration::OptionalPeersMap const& optBootstraps)
+    CPeerPersistor::SharedPeersMap const& spBootstraps)
 {
-    auto const technology = Endpoints::TechnologyType::TCP;
+    auto const technology = Endpoints::TechnologyType::Direct;
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
@@ -179,8 +189,8 @@ void CEndpointManager::InitializeDirectEndpoints(
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, id, options.GetInterface(), Endpoints::OperationType::Client, messageSink);
 
-    if (optBootstraps) {
-        ConnectBootstraps(spClient, *optBootstraps);
+    if (spBootstraps) {
+        ConnectBootstraps(spClient, *spBootstraps);
     }
 
     m_endpoints.emplace(technology, spClient);
@@ -194,7 +204,7 @@ void CEndpointManager::InitializeTCPEndpoints(
     NodeUtils::NodeIdType id,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const messageSink,
-    Configuration::OptionalPeersMap const& optBootstraps)
+    CPeerPersistor::SharedPeersMap const& spBootstraps)
 {
     auto const technology = Endpoints::TechnologyType::TCP;
 
@@ -210,8 +220,8 @@ void CEndpointManager::InitializeTCPEndpoints(
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, id, options.GetInterface(), Endpoints::OperationType::Client, messageSink);
 
-    if (optBootstraps) {
-        ConnectBootstraps(spClient, *optBootstraps);
+    if (spBootstraps) {
+        ConnectBootstraps(spClient, *spBootstraps);
     }
 
     m_endpoints.emplace(technology, spClient);

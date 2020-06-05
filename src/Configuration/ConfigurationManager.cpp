@@ -44,7 +44,7 @@ constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the configuration files
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view NetworkInterface = "lo";
 constexpr std::string_view TcpBindingAddress = "*:35216";
-constexpr std::string_view LoRaBindingAddress = "861.1:0";
+constexpr std::string_view LoRaBindingAddress = "915:71";
 
 constexpr std::string_view EncryptionStandard = "AES-256-CTR";
 constexpr std::string_view NetworkToken = "01234567890123456789012345678901";
