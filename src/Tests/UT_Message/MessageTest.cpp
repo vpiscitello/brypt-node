@@ -38,6 +38,7 @@ constexpr std::uint32_t Nonce = 9999;
 TEST(CMessageSuite, BaseMessageParameterConstructorTest)
 {
     CMessage const message(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -67,6 +68,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
 
     CMessage const sourceBoundMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
@@ -92,6 +94,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_GT(sourceBoundData.size(), std::size_t(0));
 
     CMessage const destinationBoundMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
@@ -123,6 +126,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
 TEST(CMessageSuite, BaseMessagePackConstructorTest)
 {
     CMessage const baseMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -130,7 +134,7 @@ TEST(CMessageSuite, BaseMessagePackConstructorTest)
     auto const pack = baseMessage.GetPack();
     EXPECT_GT(pack.size(), std::size_t(0));
 
-    CMessage const packMessage(pack);
+    CMessage const packMessage({}, pack);
 
     EXPECT_EQ(baseMessage.GetSourceId(), packMessage.GetSourceId());
     EXPECT_EQ(baseMessage.GetDestinationId(), packMessage.GetDestinationId());
@@ -154,6 +158,7 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
     NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
 
     CMessage const boundMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
@@ -162,7 +167,7 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
     auto const pack = boundMessage.GetPack();
     EXPECT_GT(pack.size(), std::size_t(0));
 
-    CMessage const packMessage(pack);
+    CMessage const packMessage({}, pack);
 
     EXPECT_EQ(boundMessage.GetSourceId(), packMessage.GetSourceId());
     EXPECT_EQ(boundMessage.GetDestinationId(), packMessage.GetDestinationId());
@@ -186,6 +191,7 @@ TEST(CMessageSuite, BoundMessageBufferConstructorTest)
     NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
 
     CMessage const boundMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
@@ -197,7 +203,7 @@ TEST(CMessageSuite, BoundMessageBufferConstructorTest)
     EXPECT_GT(buffer.size(), std::size_t(0));
     EXPECT_EQ(buffer.size(), pack.size());
 
-    CMessage const packMessage(buffer);
+    CMessage const packMessage({}, buffer);
 
     EXPECT_EQ(boundMessage.GetSourceId(), packMessage.GetSourceId());
     EXPECT_EQ(boundMessage.GetDestinationId(), packMessage.GetDestinationId());
@@ -219,6 +225,7 @@ TEST(CMessageSuite, BoundMessageBufferConstructorTest)
 TEST(CMessageSuite, BaseMessageVerificationTest)
 {
     CMessage const baseMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -227,7 +234,7 @@ TEST(CMessageSuite, BaseMessageVerificationTest)
     auto const baseStatus = baseMessage.Verify();
     EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
 
-    CMessage packMessage(pack);
+    CMessage packMessage({}, pack);
     auto const packStatus = packMessage.Verify();
     EXPECT_EQ(packStatus, Message::VerificationStatus::Success);
 }
@@ -239,6 +246,7 @@ TEST(CMessageSuite, BoundMessageVerificationTest)
     NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
 
     CMessage const baseMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
@@ -248,7 +256,7 @@ TEST(CMessageSuite, BoundMessageVerificationTest)
     auto const baseStatus = baseMessage.Verify();
     EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
 
-    CMessage packMessage(pack);
+    CMessage packMessage({}, pack);
     auto const packStatus = packMessage.Verify();
     EXPECT_EQ(packStatus, Message::VerificationStatus::Success);
 }
@@ -260,6 +268,7 @@ TEST(CMessageSuite, AlteredMessageVerificationTest)
     NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
 
     CMessage const baseMessage(
+        {},
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce,
@@ -271,7 +280,7 @@ TEST(CMessageSuite, AlteredMessageVerificationTest)
 
     std::replace(pack.begin(), pack.end(), pack.at(pack.size() / 2), '?');
 
-    CMessage packMessage(pack);
+    CMessage packMessage({}, pack);
     auto const packStatus = packMessage.Verify();
     EXPECT_EQ(packStatus, Message::VerificationStatus::Unauthorized);
 }

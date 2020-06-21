@@ -135,12 +135,10 @@ bool Command::CInformationHandler::FloodHandler(CMessage const& message)
         auto const awaitKey = awaiting->PushRequest(message, id);
 
         CMessage const infoMessage(
-            id,
-            message.GetSourceId(),
-            Command::Type::Information,
-            static_cast<std::uint8_t>(Phase::Respond),
-            local::GenerateNodeInfo(m_instance),
-            nonce,
+            message.GetMessageContext(),
+            id, message.GetSourceId(),
+            Command::Type::Information, static_cast<std::uint8_t>(Phase::Respond),
+            local::GenerateNodeInfo(m_instance), nonce,
             Message::BoundAwaitId({Message::AwaitBinding::Destination, awaitKey}));
 
         awaiting->PushResponse(infoMessage);

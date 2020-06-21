@@ -511,6 +511,15 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
+    void Clear()
+    {
+        std::scoped_lock lock(m_mutex);
+        m_nodeIdLookups.clear();
+        m_peers.clear();
+    }
+
+    //------------------------------------------------------------------------------------------------
+
 private:
     using PeerDetailsMap = typename std::unordered_map<ConnectionIdType, OptionalPeerDetails, ConnectionIdHasher>;
     using PeerDetailsLookup = typename PeerDetailsMap::iterator;

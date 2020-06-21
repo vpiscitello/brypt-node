@@ -33,13 +33,17 @@ Endpoints::CDirectEndpoint::CDirectEndpoint(
     std::string_view interface,
     OperationType operation,
     IMessageSink* const messageSink)
-    : CEndpoint(id, interface, operation, messageSink)
+    : CEndpoint(id, interface, operation, messageSink, TechnologyType::Direct)
     , m_address()
     , m_port(0)
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
+    if (m_messageSink) {
+        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
+        m_messageSink->RegisterCallback(m_identifier, callback);
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -149,10 +153,10 @@ void Endpoints::CDirectEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::HandleProcessedMessage(
-    NodeUtils::NodeIdType id, CMessage const& message)
+bool Endpoints::CDirectEndpoint::ScheduleSend(CMessage const& message)
 {
-    ScheduleSend(id, message.GetPack()); // Forward the received message to be sent on the socket
+    // Forward the message pack to be sent on the socket
+    return ScheduleSend(message.GetDestinationId(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -160,26 +164,16 @@ void Endpoints::CDirectEndpoint::HandleProcessedMessage(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message)
-{
-    ScheduleSend(id, message.GetPack()); // Forward the message pack to be sent on the socket
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
-        return;
+        return false;
     }
 
     auto const optIdentity = m_peers.Translate(id);
     if (!optIdentity) {
-        return;
+        return false;
     }
 
     // Schedule the outgoing message event
@@ -188,6 +182,8 @@ void Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::str
         m_events.emplace_back(
             Direct::TOutgoingMessageEvent(*optIdentity, message, 0));
     }
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -202,6 +198,9 @@ bool Endpoints::CDirectEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[Direct] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+    if (m_messageSink) {
+        m_messageSink->UnpublishCallback(m_identifier);
+    }
     
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
@@ -210,16 +209,7 @@ bool Endpoints::CDirectEndpoint::Shutdown()
         m_worker.join();
     }
 
-    m_peers.ReadEachPeer(
-        [&]([[maybe_unused]] auto const& identity, auto const& optDetails) -> CallbackIteration
-        {
-            // If the connection has an attached node, unpublish the callback from Brypt Core
-            if (optDetails) {
-                m_messageSink->UnpublishCallback(optDetails->GetNodeId());
-            }
-            return CallbackIteration::Continue;
-        }
-    );
+    m_peers.Clear();
     
     return !m_worker.joinable();
 }
@@ -433,7 +423,11 @@ bool Endpoints::CDirectEndpoint::Connect(
     m_peers.TrackConnection(identity);
 
     auto sender = std::bind(&CDirectEndpoint::Send, this, std::ref(socket), identity, std::placeholders::_1);
-    std::uint32_t sent = PeerBootstrap::SendContactMessage(m_id, sender);
+    std::uint32_t sent = PeerBootstrap::SendContactMessage(
+        m_identifier,
+        m_technology,
+        m_nodeIdentifier,
+        sender);
     if (sent <= 0) {
         return false;
     }
@@ -588,8 +582,8 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
 {
     NodeUtils::printo("[Direct] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
     try {
-        CMessage const request(message);
-        auto const id = request.GetSourceId();
+        CMessageContext const context(m_identifier, m_technology);
+        CMessage const request(context, message);
 
         // Update the information about the node as it pertains to received data. The node may not be found 
         // if this is its first connection.
@@ -611,11 +605,15 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
             m_peers.PromoteConnection(identity, details);
 
             // Register this peer's message handler with the message sink
-            m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
+            if (m_messageSink) {
+                m_messageSink->PublishPeerConnection(m_identifier, request.GetSourceId());
+            }
         }
 
         // TODO: Only authenticated requests should be forwarded into BryptNode
-        m_messageSink->ForwardMessage(id, request);
+        if (m_messageSink) {
+            m_messageSink->ForwardMessage(request);
+        }
     } catch (...) {
         NodeUtils::printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
     }
@@ -736,18 +734,22 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
     bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
         [&] (auto& details)
         {
-            auto const id = details.GetNodeId();
+            auto const peerId = details.GetNodeId();
 
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);   
-                    m_messageSink->UnpublishCallback(id);
+                    if (m_messageSink) {
+                        m_messageSink->UnpublishPeerConnection(m_identifier, peerId);
+                    }
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
+                    if (m_messageSink) {
+                        m_messageSink->PublishPeerConnection(m_identifier, peerId);
+                    }
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;

@@ -68,7 +68,7 @@ public:
     constexpr static TechnologyType InternalType = TechnologyType::Direct;
 
     CDirectEndpoint(
-        NodeUtils::NodeIdType id,
+        NodeUtils::NodeIdType nodeIdentifier,
         std::string_view interface,
         OperationType operation,
         IMessageSink* const messageSink);
@@ -83,9 +83,8 @@ public:
     void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
-    void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
+    bool ScheduleSend(CMessage const& message) override;
+    bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint

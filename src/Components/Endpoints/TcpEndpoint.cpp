@@ -33,13 +33,17 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     std::string_view interface,
     OperationType operation,
     IMessageSink* const messageSink)
-    : CEndpoint(id, interface, operation, messageSink)
+    : CEndpoint(id, interface, operation, messageSink, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
+    if (m_messageSink) {
+        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
+        m_messageSink->RegisterCallback(m_identifier, callback);
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -151,9 +155,10 @@ void Endpoints::CTcpEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message)
+bool Endpoints::CTcpEndpoint::ScheduleSend(CMessage const& message)
 {
-    ScheduleSend(id, message.GetPack()); // Forward the received message to be sent on the socket
+    // Forward the received message to be sent on the socket
+    return ScheduleSend(message.GetDestinationId(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -161,27 +166,17 @@ void Endpoints::CTcpEndpoint::HandleProcessedMessage(NodeUtils::NodeIdType id, C
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message)
-{
-    ScheduleSend(id, message.GetPack()); // Forward the received message to be sent on the socket
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool  Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
-        return;
+        return false;
     }
 
     // Get the socket descriptor of the intended destination. If it is not found, drop the message.
     auto const optDescriptor = m_peers.Translate(id);
     if (!optDescriptor) {
-        return;
+        return false;
     }
 
     // Schedule the outgoing message event
@@ -190,6 +185,8 @@ void Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string
         m_events.emplace_back(
             Tcp::TOutgoingMessageEvent(*optDescriptor, message, 0));
     }
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -204,6 +201,9 @@ bool Endpoints::CTcpEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+    if (m_messageSink) {
+        m_messageSink->UnpublishCallback(m_identifier);
+    }
      
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
@@ -213,16 +213,14 @@ bool Endpoints::CTcpEndpoint::Shutdown()
     }
 
     m_peers.ReadEachPeer(
-        [&]([[maybe_unused]] auto const& descriptor, auto const& optDetails) -> CallbackIteration
+        [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
         {
-            // If the connection has an attached node, unpublish the callback from Brypt Core
-            if (optDetails) {
-                m_messageSink->UnpublishCallback(optDetails->GetNodeId());
-            }
             ::close(descriptor); // Close the connection descriptor
             return CallbackIteration::Continue;
         }
     );
+
+    m_peers.Clear();
     
     return !m_worker.joinable();
 }
@@ -522,7 +520,11 @@ bool Endpoints::CTcpEndpoint::EstablishConnection(
     }
 
     auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
-    auto const result = PeerBootstrap::SendContactMessage(m_id, sender);
+    auto const result = PeerBootstrap::SendContactMessage(
+        m_identifier,
+        m_technology,
+        m_nodeIdentifier,
+        sender);
     if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
         return false;
     }
@@ -680,8 +682,9 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
 {
     NodeUtils::printo("[TCP] Received message: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
     try {
-        CMessage const request(message);
-        auto const id = request.GetSourceId();
+        CMessageContext const context(m_identifier, m_technology);
+        CMessage const request(context, message);
+
         // Update the information about the node as it pertains to received data. The node may not be found 
         // if this is its first connection.
         bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
@@ -702,11 +705,15 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
             m_peers.PromoteConnection(descriptor, details);
 
             // Register this peer's message handler with the message sink
-            m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
+            if (m_messageSink) {
+                m_messageSink->PublishPeerConnection(m_identifier, request.GetSourceId());
+            }
         }
 
         // TODO: Only authenticated requests should be forwarded into BryptNode
-        m_messageSink->ForwardMessage(id, request);
+        if (m_messageSink) {
+            m_messageSink->ForwardMessage(request);
+        }
     } catch (...) {
         NodeUtils::printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
     }
@@ -840,12 +847,12 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
     [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
         [&] (auto& details)
         {
-            auto const id = details.GetNodeId();
-
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
-                    details.SetConnectionState(ConnectionState::Disconnected);   
-                    m_messageSink->UnpublishCallback(id);
+                    details.SetConnectionState(ConnectionState::Disconnected);
+                    if (m_messageSink) {
+                        m_messageSink->UnpublishPeerConnection(m_identifier, details.GetNodeId());
+                    }
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;

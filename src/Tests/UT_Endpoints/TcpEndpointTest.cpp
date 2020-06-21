@@ -59,7 +59,6 @@ TEST(CTcpSuite, ServerMessageForwardingTest)
     auto upClient = local::MakeTcpClient(&queue);
     upClient->ScheduleConnect(test::ServerEntry);
     upClient->Startup();
-
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     // We expect there to be a connect request in the incoming queue from the client
@@ -67,10 +66,11 @@ TEST(CTcpSuite, ServerMessageForwardingTest)
     ASSERT_TRUE(optConnectionRequest);
 
     CMessage const connectResponse(
+        optConnectionRequest->GetMessageContext(),
         test::ServerId, test::ClientId,
         Command::Type::Connect, 1,
         "Connection Approved", 1);
-    queue.PushOutgoingMessage(test::ClientId, connectResponse);
+    queue.PushOutgoingMessage(connectResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
     auto const optConnectResponse = queue.PopIncomingMessage();
@@ -78,10 +78,11 @@ TEST(CTcpSuite, ServerMessageForwardingTest)
     EXPECT_EQ(optConnectResponse->GetPack(), connectResponse.GetPack());
 
     CMessage const electionRequest(
+        optConnectResponse->GetMessageContext(),
         test::ClientId, test::ServerId,
         Command::Type::Election, 0,
         "Hello World!", 0);
-    queue.PushOutgoingMessage(test::ServerId, electionRequest);
+    queue.PushOutgoingMessage(electionRequest);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto const optElectionRequest = queue.PopIncomingMessage();
@@ -89,10 +90,11 @@ TEST(CTcpSuite, ServerMessageForwardingTest)
     EXPECT_EQ(optElectionRequest->GetPack(), electionRequest.GetPack());
 
     CMessage const electionResponse(
+        optElectionRequest->GetMessageContext(),
         test::ServerId, test::ClientId,
         Command::Type::Election, 1,
         "Re: Hello World!", 0);
-    queue.PushOutgoingMessage(test::ClientId, electionResponse);
+    queue.PushOutgoingMessage(electionResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto const optElectionResponse = queue.PopIncomingMessage();

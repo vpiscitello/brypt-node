@@ -1,5 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../Components/Await/Await.hpp"
+#include "../../Components/Endpoints/EndpointIdentifier.hpp"
+#include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -29,6 +31,10 @@ constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
 constexpr std::uint32_t Nonce = 9999;
 
+constexpr Endpoints::EndpointIdType const identifier = 1;
+constexpr Endpoints::TechnologyType const technology = Endpoints::TechnologyType::TCP;
+CMessageContext const context(identifier, technology);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -39,6 +45,7 @@ constexpr std::uint32_t Nonce = 9999;
 TEST(AwaitSuite, AwaitObjectSingleResponseTest)
 {
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -52,6 +59,7 @@ TEST(AwaitSuite, AwaitObjectSingleResponseTest)
     EXPECT_FALSE(initialResponse);
 
     CMessage const response(
+        test::context,
         test::ServerId, test::ClientId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
@@ -75,6 +83,7 @@ TEST(AwaitSuite, AwaitObjectSingleResponseTest)
 TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
 {
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -90,16 +99,19 @@ TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
     EXPECT_FALSE(initialResponse);
 
     CMessage const serverResponse(
+        test::context,
         test::ServerId, test::ClientId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
     
     CMessage const peerOneResponse(
+        test::context,
         peerOneId, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
 
     CMessage const peerTwoResponse(
+        test::context,
         peerTwoId, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
@@ -129,6 +141,7 @@ TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
 TEST(AwaitSuite, ExpiredAwaitObjectNoResponsesTest)
 {
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -157,6 +170,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectNoResponsesTest)
 TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
 {
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -172,11 +186,13 @@ TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
     EXPECT_FALSE(initialResponse);
 
     CMessage const serverResponse(
+        test::context,
         test::ServerId, test::ClientId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
     
     CMessage const peerTwoResponse(
+        test::context,
         peerTwoId, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
@@ -209,6 +225,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
 TEST(AwaitSuite, ExpiredAwaitObjectLateResponsesTest)
 {
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -226,6 +243,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectLateResponsesTest)
     std::uint32_t const initialResponseSize = initialResponse->GetData().size();
 
     CMessage const latePeerResponse(
+        test::context,
         test::ServerId, test::ClientId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
@@ -246,6 +264,7 @@ TEST(AwaitSuite, ExpiredAwaitObjectLateResponsesTest)
 TEST(AwaitSuite, AwaitObjectUnexpectedResponsesTest)
 {
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -253,6 +272,7 @@ TEST(AwaitSuite, AwaitObjectUnexpectedResponsesTest)
     Await::CMessageObject awaitObject(request, test::ServerId);
 
     CMessage const unexpectedPeerResponse(
+        test::context,
         0x12345678, test::ClientId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce);
@@ -271,6 +291,7 @@ TEST(AwaitSuite, FulfilledAwaitTest)
     Await::CObjectContainer awaiting;
 
     CMessage const request(
+        test::context,
         test::ClientId, test::ServerId,
         test::Command, test::RequestPhase,
         test::Message, test::Nonce);
@@ -279,6 +300,7 @@ TEST(AwaitSuite, FulfilledAwaitTest)
     ASSERT_GT(key, std::uint32_t(0));
 
     CMessage const response(
+        test::context,
         test::ServerId, 0x01234567,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce,
@@ -286,6 +308,7 @@ TEST(AwaitSuite, FulfilledAwaitTest)
             Message::AwaitBinding::Destination, key});
 
     CMessage const responseA(
+        test::context,
         0xAAAAAAAA, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce,
@@ -293,6 +316,7 @@ TEST(AwaitSuite, FulfilledAwaitTest)
             Message::AwaitBinding::Destination, key});
 
     CMessage const responseB(
+        test::context,
         0xBBBBBBBB, test::ServerId,
         test::Command, test::ResponsePhase,
         test::Message, test::Nonce,

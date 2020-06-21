@@ -185,6 +185,7 @@ bool Command::CConnectHandler::DiscoveryHandler(CMessage const& message)
 
     // Using the information from the node instance generate a discovery response message
     CMessage responseMessage(
+        message.GetMessageContext(),
         id, message.GetSourceId(),
         Command::Type::Connect, static_cast<std::uint8_t>(Phase::Join),
         encoded, 0);
@@ -192,10 +193,7 @@ bool Command::CConnectHandler::DiscoveryHandler(CMessage const& message)
     // Get the message queue from the node instance and forward the response
     auto const wpMessageQueue = m_instance.GetMessageQueue();
     if (auto const spMessageQueue = wpMessageQueue.lock(); spMessageQueue) {
-        spMessageQueue->PushOutgoingMessage(message.GetSourceId(), responseMessage);
-        spMessageQueue->PushOutgoingMessage(message.GetSourceId(), responseMessage);
-        spMessageQueue->PushOutgoingMessage(message.GetSourceId(), responseMessage);
-        spMessageQueue->PushOutgoingMessage(message.GetSourceId(), responseMessage);
+        spMessageQueue->PushOutgoingMessage(responseMessage);
     }
 
     return true;
@@ -234,7 +232,11 @@ bool Command::CConnectHandler::JoinHandler(CMessage const& message)
         // is dependent on the attached technology. 
         for (auto const& [name, encoded]: response.technologies) {
             Endpoints::TechnologyType technology = Endpoints::ParseTechnologyType(name);
-            auto spEndpoint = spEndpointManager->GetEndpoint(technology);
+            
+            auto spEndpoint = spEndpointManager->GetEndpoint(
+                message.GetMessageContext().GetEndpointTechnology(),
+                Endpoints::OperationType::Client);
+
             if (!spEndpoint) {
                 continue;
             }

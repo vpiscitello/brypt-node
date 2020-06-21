@@ -1,8 +1,11 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../Components/Command/Handler.hpp"
+#include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
+#include "../../Components/MessageQueue/MessageQueue.hpp"
 #include "../../Configuration/Configuration.hpp"
+#include "../../Configuration/PeerPersistor.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -45,6 +48,10 @@ constexpr std::uint8_t BasePhase = 0;
 constexpr std::string_view Message = "Hello World!";
 constexpr std::uint32_t Nonce = 9999;
 
+constexpr Endpoints::EndpointIdType const identifier = 1;
+constexpr Endpoints::TechnologyType const technology = Endpoints::TechnologyType::TCP;
+CMessageContext const context(identifier, technology);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -59,11 +66,12 @@ TEST(CommandSuite, CommandMatchingTest)
     // The node itself will set up internal commands that can operate on it's
     // internal state, but in order to setup our own we need to provide the 
     // commands a node instance and a state.
-    CBryptNode node(nullptr, nullptr, settings);
+    CBryptNode node(nullptr, nullptr, nullptr, settings);
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
     CMessage const connectRequest(
+        test::context,
         test::ServerId, test::ClientId,
         Command::Type::Connect, test::BasePhase,
         test::Message, test::Nonce);
@@ -75,6 +83,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(connectCommandReturnType, Command::Type::Connect);
 
     CMessage const electionRequest(
+        test::context,
         test::ServerId, test::ClientId,
         Command::Type::Election, test::BasePhase,
         test::Message, test::Nonce);
@@ -86,6 +95,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(electionCommandReturnType, Command::Type::Election);
 
     CMessage const informationRequest(
+        test::context,
         test::ServerId, test::ClientId,
         Command::Type::Information, test::BasePhase,
         test::Message, test::Nonce);
@@ -97,6 +107,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(informationCommandReturnType, Command::Type::Information);
 
     CMessage const queryRequest(
+        test::context,
         test::ServerId, test::ClientId,
         Command::Type::Query, test::BasePhase,
         test::Message, test::Nonce);
@@ -108,6 +119,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(queryCommandReturnType, Command::Type::Query);
 
     CMessage const transformRequest(
+        test::context,
         test::ServerId, test::ClientId,
         Command::Type::Transform, test::BasePhase,
         test::Message, test::Nonce);

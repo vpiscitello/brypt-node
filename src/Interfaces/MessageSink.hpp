@@ -5,6 +5,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
@@ -16,8 +17,7 @@ class CMessage;
 
 //------------------------------------------------------------------------------------------------
 
-using ProcessedMessageCallback = std::function<void(CEndpoint*,NodeUtils::NodeIdType id, CMessage const& message)>;
-using PeerContextPair = std::pair<CEndpoint*, ProcessedMessageCallback>;
+using ProcessedMessageCallback = std::function<bool(CMessage const& message)>;
 
 //------------------------------------------------------------------------------------------------
 
@@ -26,14 +26,22 @@ class IMessageSink
 public:
     virtual ~IMessageSink() = default;
 
-    virtual void ForwardMessage(
-        NodeUtils::NodeIdType id,
-        CMessage const& message) = 0;
-    virtual void RegisterCallback(
-        NodeUtils::NodeIdType id,
-        CEndpoint* context,
-        ProcessedMessageCallback) = 0;
-    virtual void UnpublishCallback(NodeUtils::NodeIdType id) = 0;
+    virtual void ForwardMessage(CMessage const& message) = 0;
+
+    // To receive messages from the application, an endpoint must register with its identifier and 
+    // a callback to field these messages.
+    virtual void RegisterCallback(Endpoints::EndpointIdType id, ProcessedMessageCallback callback) = 0;
+    virtual void UnpublishCallback(Endpoints::EndpointIdType id) = 0;
+
+    // To publish a valid connection that accepts message forwarding, the endpoint will notifiy
+    // the IMessageSink of its ID and the peer's ID. This context will be used to identify which
+    // endpoint the message for the node is commincated over.
+    virtual void PublishPeerConnection(
+        Endpoints::EndpointIdType endpointIdentifier,
+        NodeUtils::NodeIdType peerIdentifier) = 0;
+    virtual void UnpublishPeerConnection(
+        Endpoints::EndpointIdType endpointIdentifier,
+        NodeUtils::NodeIdType peerIdentifier) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

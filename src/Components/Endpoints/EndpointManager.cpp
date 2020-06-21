@@ -32,11 +32,10 @@ void CEndpointManager::Initialize(
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
     for (auto const& options: configurations) {
         auto const technology = options.GetTechnology();
-        // Get all of the endpoints that may already present for the current technology
         // If the technology has not already been configured then continue with the setup. 
         // This function should only be called once per application run, there shouldn't be a reason
         // to re-initilize a technology as the endpoints should exist until appliction termination.
-        if (auto const [begin, end] = m_endpoints.equal_range(technology); begin == m_endpoints.end()) {
+        if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {
             // Attempt to find bootstrap peers in the provided endpoint bootstraps. If the technology
             // has bootstraps available forward it to the function during technology initialization.
             CPeerPersistor::SharedPeersMap spBootstraps;
@@ -83,8 +82,8 @@ void CEndpointManager::ConnectBootstraps(
 
 void CEndpointManager::Startup()
 {
-    for (auto const& [technology, endpoint]: m_endpoints) {
-        endpoint->Startup();
+    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+        spEndpoint->Startup();
     }
 }
 
@@ -92,19 +91,33 @@ void CEndpointManager::Startup()
 
 void CEndpointManager::Shutdown()
 {
-    for (auto const& [technology, endpoint]: m_endpoints) {
-        if (endpoint) {
-            [[maybe_unused]] bool const bStopped = endpoint->Shutdown();
+    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+        if (spEndpoint) {
+            [[maybe_unused]] bool const bStopped = spEndpoint->Shutdown();
         }
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-CEndpointManager::SharedEndpoint CEndpointManager::GetEndpoint(Endpoints::TechnologyType technology) const
+CEndpointManager::SharedEndpoint CEndpointManager::GetEndpoint(Endpoints::EndpointIdType identifier) const
 {
-    if (auto const itr = m_endpoints.find(technology); itr != m_endpoints.end()) {
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
         return itr->second;
+    }
+    return nullptr;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CEndpointManager::SharedEndpoint CEndpointManager::GetEndpoint(
+    Endpoints::TechnologyType technology,
+    Endpoints::OperationType operation) const
+{
+    for (auto const [identifier, spEndpoint]: m_endpoints) {
+        if (technology == spEndpoint->GetInternalType() && operation == spEndpoint->GetOperation()) {
+            return spEndpoint;
+        }
     }
     return nullptr;
 }
@@ -121,8 +134,8 @@ Endpoints::TechnologySet CEndpointManager::GetEndpointTechnologies() const
 std::uint32_t CEndpointManager::ActiveEndpointCount() const
 {
     std::uint32_t count = 0;
-    for (auto const& [technology, endpoint] : m_endpoints) {
-        if (endpoint && endpoint->IsActive()) {
+    for (auto const& [identifier, spEndpoint] : m_endpoints) {
+        if (spEndpoint && spEndpoint->IsActive()) {
             ++count;
         }
     }
@@ -134,9 +147,9 @@ std::uint32_t CEndpointManager::ActiveEndpointCount() const
 std::uint32_t CEndpointManager::ActiveTechnologyCount() const
 {
     Endpoints::TechnologySet technologies;
-    for (auto const& [technology, endpoint] : m_endpoints) {
-        if (endpoint && endpoint->IsActive()) {
-            technologies.emplace(technology);
+    for (auto const& [identifier, spEndpoint] : m_endpoints) {
+        if (spEndpoint && spEndpoint->IsActive()) {
+            technologies.emplace(spEndpoint->GetInternalType());
         }
     }
     return technologies.size();
@@ -183,7 +196,7 @@ void CEndpointManager::InitializeDirectEndpoints(
 
     spServer->ScheduleBind(options.GetBinding());
 
-    m_endpoints.emplace(technology, spServer);
+    m_endpoints.emplace(spServer->GetIdentifier(), spServer);
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
@@ -193,7 +206,7 @@ void CEndpointManager::InitializeDirectEndpoints(
         ConnectBootstraps(spClient, *spBootstraps);
     }
 
-    m_endpoints.emplace(technology, spClient);
+    m_endpoints.emplace(spClient->GetIdentifier(), spClient);
 
     m_technologies.emplace(technology);
 }
@@ -214,7 +227,7 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     spServer->ScheduleBind(options.GetBinding());
 
-    m_endpoints.emplace(technology, spServer);
+    m_endpoints.emplace(spServer->GetIdentifier(), spServer);
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
@@ -224,7 +237,7 @@ void CEndpointManager::InitializeTCPEndpoints(
         ConnectBootstraps(spClient, *spBootstraps);
     }
 
-    m_endpoints.emplace(technology, spClient);
+    m_endpoints.emplace(spClient->GetIdentifier(), spClient);
 
     m_technologies.emplace(technology);
 }
@@ -243,7 +256,7 @@ void CEndpointManager::InitializeStreamBridgeEndpoints(
 
     spServer->ScheduleBind(options.GetBinding());
 
-    m_endpoints.emplace(technology, spServer);
+    m_endpoints.emplace(spServer->GetIdentifier(), spServer);
 
     m_technologies.emplace(technology);
 }

@@ -24,8 +24,12 @@ Endpoints::CLoRaEndpoint::CLoRaEndpoint(
     std::string_view interface,
     Endpoints::OperationType operation,
     IMessageSink* const messageSink)
-    : CEndpoint(id, interface, operation, messageSink)
+    : CEndpoint(id, interface, operation, messageSink, TechnologyType::LoRa)
 {
+    if (m_messageSink) {
+        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
+        m_messageSink->RegisterCallback(m_identifier, callback);
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -76,7 +80,6 @@ std::string Endpoints::CLoRaEndpoint::GetEntry() const
 //------------------------------------------------------------------------------------------------
 void Endpoints::CLoRaEndpoint::ScheduleBind([[maybe_unused]] std::string_view binding)
 {
-
 }
 
 //------------------------------------------------------------------------------------------------
@@ -86,7 +89,6 @@ void Endpoints::CLoRaEndpoint::ScheduleBind([[maybe_unused]] std::string_view bi
 //------------------------------------------------------------------------------------------------
 void Endpoints::CLoRaEndpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
 {
-
 }
 
 //------------------------------------------------------------------------------------------------
@@ -108,9 +110,10 @@ void Endpoints::CLoRaEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::HandleProcessedMessage(
-    [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] CMessage const& message)
+bool Endpoints::CLoRaEndpoint::ScheduleSend([[maybe_unused]] CMessage const& message)
 {
+    // Forward the message pack to be sent on the socket
+    return ScheduleSend(message.GetDestinationId(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -118,19 +121,10 @@ void Endpoints::CLoRaEndpoint::HandleProcessedMessage(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleSend(
-    [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] CMessage const& message)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleSend(
+bool Endpoints::CLoRaEndpoint::ScheduleSend(
     [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] std::string_view message)
 {
+    return false;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -140,12 +134,17 @@ void Endpoints::CLoRaEndpoint::ScheduleSend(
 //------------------------------------------------------------------------------------------------
 bool Endpoints::CLoRaEndpoint::Shutdown()
 {
-    {
-        std::scoped_lock lock(m_mutex);
-        m_terminate = true;
+    if (!m_active) {
+        return true;
     }
 
-    m_cv.notify_all();
+    NodeUtils::printo("[LoRa] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+    if (m_messageSink) {
+        m_messageSink->UnpublishCallback(m_identifier);
+    }
+
+    m_terminate = true; // Stop the worker thread from processing the connections
+    m_cv.notify_all(); // Notify the worker that exit conditions have been set
     
     if (m_worker.joinable()) {
         m_worker.join();

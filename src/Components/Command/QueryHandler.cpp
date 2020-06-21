@@ -10,6 +10,7 @@
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Utilities/ReservedIdentifiers.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
@@ -129,6 +130,7 @@ bool Command::CQueryHandler::FloodHandler(CMessage const& message)
 
         // Create a reading message
         CMessage const readingMessage(
+            message.GetMessageContext(),
             id, message.GetSourceId(),
             Command::Type::Query, static_cast<std::uint8_t>(CQueryHandler::Phase::Aggregate),
             local::GenerateReading(), nonce,
@@ -140,7 +142,8 @@ bool Command::CQueryHandler::FloodHandler(CMessage const& message)
 
     // Create a notice message for the network
     CMessage const notice(
-        id, 0xFFFFFFFF,
+        message.GetMessageContext(),
+        id, static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::ClusterRequest),
         Command::Type::Query, static_cast<std::uint8_t>(Phase::Respond),
         "Request for Sensor Readings.", nonce,
         Message::BoundAwaitId(
@@ -171,6 +174,7 @@ bool Command::CQueryHandler::RespondHandler(CMessage const& message)
 
     NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
     CMessage const request(
+        message.GetMessageContext(),
         id, destinationId,
         Command::Type::Query, static_cast<std::uint8_t>(Phase::Aggregate),
         local::GenerateReading(), nonce,
@@ -179,7 +183,7 @@ bool Command::CQueryHandler::RespondHandler(CMessage const& message)
 
     auto const wpMessageQueue = m_instance.GetMessageQueue();
     if (auto const spMessageQueue = wpMessageQueue.lock()) {
-        spMessageQueue->PushOutgoingMessage(destinationId, request);
+        spMessageQueue->PushOutgoingMessage(request);
     }
 
     return false;
@@ -207,15 +211,13 @@ bool Command::CQueryHandler::AggregateHandler(CMessage const& message)
     NodeUtils::NodeIdType const& destinationId = message.GetSourceId();
     NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
     CMessage const response(
-        id,
-        destinationId,
-        Command::Type::Query,
-        static_cast<std::uint8_t>(Phase::Close),
-        "Message Response",
-        nonce);
+        message.GetMessageContext(),
+        id, destinationId,
+        Command::Type::Query, static_cast<std::uint8_t>(Phase::Close),
+        "Message Response",nonce);
 
     if (auto const messageQueue = m_instance.GetMessageQueue().lock()) {
-        messageQueue->PushOutgoingMessage(destinationId, response);
+        messageQueue->PushOutgoingMessage(response);
     }
     return true;
 }

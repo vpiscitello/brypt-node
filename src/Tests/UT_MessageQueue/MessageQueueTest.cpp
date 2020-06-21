@@ -52,27 +52,44 @@ TEST(CMessageQueue, ConnectionTrackingTest)
     CMessageQueue queue;
     // The connection will register it's callback with the queue 
     auto upServer = local::MakeDirectServer(&queue);
+    auto const serverIdentifier = upServer->GetIdentifier();
     upServer->ScheduleBind(test::ServerBinding);
     upServer->Startup();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     auto upClient = local::MakeDirectClient(&queue);
+    auto const clientIdentifier = upClient->GetIdentifier();
     upClient->ScheduleConnect(test::ServerEntry);
     upClient->Startup();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    // We should expect the registered connection size to be one within the queue
-    EXPECT_EQ(queue.RegisteredPeers(), std::uint32_t(1));
+    EXPECT_EQ(queue.QueuedMessageCount(), std::uint32_t(1));
 
-    // When the connection is destroyed we should expect the registered callbacks
-    // to go back to zero.
+    EXPECT_EQ(queue.RegisteredEndpointCount(), std::uint32_t(2));
+
+    EXPECT_TRUE(queue.IsRegistered(serverIdentifier));
+    EXPECT_TRUE(queue.IsRegistered(clientIdentifier));
+
+    // We should expect the registered connection size to be one within the queue
+    EXPECT_EQ(queue.TrackedPeerCount(), std::uint32_t(1));
+    EXPECT_EQ(queue.TrackedPeerCount(serverIdentifier), std::uint32_t(1));
+    EXPECT_EQ(queue.TrackedPeerCount(clientIdentifier), std::uint32_t(0));
+
     upServer.reset();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    
-    EXPECT_EQ(queue.RegisteredPeers(), std::uint32_t(0));
+
+    // When the connection is destroyed we should expect the registered callbacks
+    // to only be one.
+    EXPECT_EQ(queue.RegisteredEndpointCount(), std::uint32_t(1));
+    EXPECT_FALSE(queue.IsRegistered(serverIdentifier));
+    EXPECT_TRUE(queue.IsRegistered(clientIdentifier));
+
+    EXPECT_EQ(queue.TrackedPeerCount(), std::uint32_t(0));
+    EXPECT_EQ(queue.TrackedPeerCount(serverIdentifier), std::uint32_t(0));
+    EXPECT_EQ(queue.TrackedPeerCount(clientIdentifier), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------

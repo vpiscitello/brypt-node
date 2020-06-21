@@ -15,6 +15,7 @@
 //------------------------------------------------------------------------------------------------
 #include <mutex>
 #include <set>
+#include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
 class CEndpoint;
@@ -44,7 +45,10 @@ public:
     void Startup();
     void Shutdown();
 
-    SharedEndpoint GetEndpoint(Endpoints::TechnologyType technology) const;
+    SharedEndpoint GetEndpoint(Endpoints::EndpointIdType identifier) const;
+    SharedEndpoint GetEndpoint(
+        Endpoints::TechnologyType technology,
+        Endpoints::OperationType operation) const;
     Endpoints::TechnologySet GetEndpointTechnologies() const;
     std::uint32_t ActiveEndpointCount() const;
     std::uint32_t ActiveTechnologyCount() const;
@@ -58,7 +62,7 @@ public:
     // } IPeerMediator
     
 private:
-    using EndpointsMultimap = std::unordered_multimap<Endpoints::TechnologyType, SharedEndpoint>;
+    using EndpointsMultimap = std::unordered_map<Endpoints::EndpointIdType, SharedEndpoint>;
 
     void InitializeDirectEndpoints(
         NodeUtils::NodeIdType id,

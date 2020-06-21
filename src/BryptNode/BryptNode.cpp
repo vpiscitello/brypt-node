@@ -277,7 +277,7 @@ void CBryptNode::ProcessFulfilledMessages()
 
     std::vector<CMessage> const responses = m_spAwaiting->GetFulfilled();
     for (auto itr = responses.begin(); itr != responses.end(); ++itr) {
-        m_spMessageQueue->PushOutgoingMessage(itr->GetDestinationId(), *itr);
+        m_spMessageQueue->PushOutgoingMessage(*itr);
     }
 }
 
@@ -349,13 +349,13 @@ void test::SimulateClient(
     }
 
     std::cout << "== [Node] Simulating client sensor Information request" << '\n';
-    CMessage informationRequest(0xFFFFFFFF, id, Command::Type::Information, 0, "Request for Network Information.", 0);
+    CMessage informationRequest({}, 0xFFFFFFFF, id, Command::Type::Information, 0, "Request for Network Information.", 0);
     if (auto const itr = commandHandlers.find(informationRequest.GetCommandType()); itr != commandHandlers.end()) {
         itr->second->HandleMessage(informationRequest);
     }
     
     std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-    CMessage queryRequest(0xFFFFFFFF, id, Command::Type::Query, 0, "Request for Sensor Readings.", 0);
+    CMessage queryRequest({}, 0xFFFFFFFF, id, Command::Type::Query, 0, "Request for Sensor Readings.", 0);
     if (auto const itr = commandHandlers.find(queryRequest.GetCommandType()); itr != commandHandlers.end()) {
         itr->second->HandleMessage(queryRequest);
     }

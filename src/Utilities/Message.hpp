@@ -8,6 +8,8 @@
 #include "NodeUtils.hpp"
 #include "TimeUtils.hpp"
 #include "../Components/Command/CommandDefinitions.hpp"
+#include "../Components/Endpoints/EndpointIdentifier.hpp"
+#include "../Components/Endpoints/TechnologyType.hpp"
 //------------------------------------------------------------------------------------------------
 #include <zmq.h>
 #include <cmath>
@@ -42,10 +44,48 @@ constexpr std::string_view HashMethod = "blake2s256";
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
+// Description: A class to describe various information about the message context local to the 
+// node itself. This information is not a part of the message, but determined by the endpoint
+// it was received or transmitted by. Currently, this is being used to identify which endpoint 
+// the a response should be forwarded to. This is needed because it is valid for a peer to be 
+// connected via multiple endpoints (e.g. connected as a server and a client).
+//------------------------------------------------------------------------------------------------
+class CMessageContext {
+public:
+	CMessageContext()
+		: m_endpointIdentifier(Endpoints::InvalidEndpointIdentifier)
+		, m_endpointTechnology(Endpoints::TechnologyType::Invalid)
+	{
+	}
+
+	CMessageContext(Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology)
+		: m_endpointIdentifier(identifier)
+		, m_endpointTechnology(technology)
+	{
+	}
+
+	Endpoints::EndpointIdType GetEndpointId() const
+	{
+		return m_endpointIdentifier;
+	}
+	
+	Endpoints::TechnologyType GetEndpointTechnology() const
+	{
+		return m_endpointTechnology;
+	}
+
+private:
+	Endpoints::EndpointIdType m_endpointIdentifier;
+	Endpoints::TechnologyType m_endpointTechnology;
+
+};
+
+//------------------------------------------------------------------------------------------------
 
 class CMessage {
 public:
 	CMessage(
+		CMessageContext const& context,
 		NodeUtils::NodeIdType const& sourceId,
 		NodeUtils::NodeIdType const& destinationId,
 		Command::Type command,
@@ -53,7 +93,8 @@ public:
 		std::string_view data,
 		NodeUtils::NetworkNonce nonce,
 		std::optional<Message::BoundAwaitId> const& awaitId = {})
-		: m_raw(std::string())
+		: m_context(context)
+		, m_raw(std::string())
 		, m_sourceId(sourceId)
 		, m_destinationId(destinationId)
 		, m_boundAwaitId(awaitId)
@@ -75,8 +116,9 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	explicit CMessage(std::string_view raw)
-		: m_raw(raw)
+	CMessage(CMessageContext const& context, std::string_view raw)
+		: m_context(context)
+		, m_raw(raw)
 		, m_sourceId(0)
 		, m_destinationId(0)
 		, m_boundAwaitId({})
@@ -94,8 +136,9 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-	explicit CMessage(Message::Buffer const& raw)
-		: m_raw(raw.begin(), raw.end())
+	CMessage(CMessageContext const& context, Message::Buffer const& raw)
+		: m_context(context)
+		, m_raw(raw.begin(), raw.end())
 		, m_sourceId(0)
 		, m_destinationId(0)
 		, m_boundAwaitId({})
@@ -114,7 +157,8 @@ public:
 	//------------------------------------------------------------------------------------------------
 
 	CMessage(CMessage const& other)
-		: m_raw(other.m_raw)
+		: m_context(other.m_context)
+		, m_raw(other.m_raw)
 		, m_sourceId(other.m_sourceId)
 		, m_destinationId(other.m_destinationId)
 		, m_boundAwaitId(other.m_boundAwaitId)
@@ -132,6 +176,13 @@ public:
 	//------------------------------------------------------------------------------------------------
 
 	~CMessage() = default;
+
+	//------------------------------------------------------------------------------------------------
+
+	CMessageContext GetMessageContext() const
+	{
+		return m_context;
+	}
 
 	//------------------------------------------------------------------------------------------------
 
@@ -202,7 +253,6 @@ public:
         return m_raw;
 	}
 
-
 	//------------------------------------------------------------------------------------------------
 	// Description: Insert a chunk of data into the message buffer
 	//------------------------------------------------------------------------------------------------
@@ -216,7 +266,6 @@ public:
 
 	//------------------------------------------------------------------------------------------------
 
-    // template<>
 	void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk) const
 	{
         buffer.insert(buffer.end(), chunk.begin(), chunk.end());
@@ -500,6 +549,8 @@ private:
 		size += local::TokenSize;
 		return size;
 	}
+
+	CMessageContext m_context;
 
 	// Mutable to ensure the raw is always reflective of the data contained
 	mutable std::string m_raw;	// Raw encoded payload of the message

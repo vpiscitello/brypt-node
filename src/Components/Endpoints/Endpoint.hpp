@@ -6,6 +6,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "EndpointTypes.hpp"
+#include "EndpointIdentifier.hpp"
 #include "TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Interfaces/MessageSink.hpp"
@@ -58,9 +59,12 @@ public:
         NodeUtils::NodeIdType id,
         std::string_view interface,
         Endpoints::OperationType operation,
-        IMessageSink* const messageSink)
+        IMessageSink* const messageSink,
+        Endpoints::TechnologyType technology = Endpoints::TechnologyType::Invalid)
         : m_mutex()
-        , m_id(id) 
+        , m_identifier(CEndpointIdentifierGenerator::Instance().GetIdentifier())
+        , m_technology(technology)
+        , m_nodeIdentifier(id) 
         , m_interface(interface)
         , m_operation(operation)
         , m_messageSink(messageSink)
@@ -84,9 +88,8 @@ public:
     virtual void ScheduleConnect(std::string_view entry) = 0;
     virtual void Startup() = 0;
 
-    virtual void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) = 0;
-	virtual void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) = 0;
-	virtual void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
+	virtual bool ScheduleSend(CMessage const& message) = 0;
+	virtual bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
     
 	virtual bool Shutdown() = 0;
 
@@ -95,6 +98,13 @@ public:
     bool IsActive() const
     {
         return m_active;
+    }
+
+    //------------------------------------------------------------------------------------------------
+
+    Endpoints::EndpointIdType GetIdentifier() const
+    {
+        return m_identifier;
     }
 
     //------------------------------------------------------------------------------------------------
@@ -111,7 +121,10 @@ protected:
 
     mutable std::mutex m_mutex;
 
-	NodeUtils::NodeIdType const m_id;
+    Endpoints::EndpointIdType const m_identifier;
+    Endpoints::TechnologyType const m_technology;
+
+	NodeUtils::NodeIdType const m_nodeIdentifier;
     std::string m_interface;
 	Endpoints::OperationType const m_operation;
     IMessageSink* const m_messageSink;

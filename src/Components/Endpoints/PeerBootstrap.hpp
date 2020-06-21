@@ -15,6 +15,8 @@
 #include <type_traits>
 #include <functional>
 //------------------------------------------------------------------------------------------------
+#include "EndpointIdentifier.hpp"
+#include "TechnologyType.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Command/ConnectHandler.hpp"
 #include "../../Utilities/Message.hpp"
@@ -40,10 +42,15 @@ constexpr std::string_view ConnectionRequestMessage = "Connection Request";
 //------------------------------------------------------------------------------------------------
 template<typename Functor, 
             typename Enabled = std::enable_if_t<std::is_bind_expression_v<Functor>>>
-auto SendContactMessage(NodeUtils::NodeIdType id, Functor const& callback) -> typename Functor::result_type
+auto SendContactMessage(
+    Endpoints::EndpointIdType identifier,
+    Endpoints::TechnologyType technology,
+    NodeUtils::NodeIdType sourceIdentifier,
+    Functor const& callback) -> typename Functor::result_type
 {
-    CMessage message(
-        id, static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
+    CMessage const message(
+        {identifier, technology},
+        sourceIdentifier, static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
         ConnectionRequestCommand, ConnectionRequestPhase,
         ConnectionRequestMessage, ConnectionRequestNonce);
 
