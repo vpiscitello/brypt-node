@@ -148,28 +148,34 @@ bool Command::CConnectHandler::DiscoveryHandler(CMessage const& message)
         response.cluster = spNodeState->GetCluster();
     }
 
+    using TechnologyEntriesMap = std::unordered_map<Endpoints::TechnologyType, std::vector<std::string>>;
+    TechnologyEntriesMap mappedTechnologyEntries;
     // Get the current known peers of this node. The known peers will be supplied to the requestor
     // such that they may attempt to connect to them.
     auto const wpPeerPersistor = m_instance.GetPeerPersistor();
     // If the CPeerPersistor can be acquired from the node instance iterate through the known 
     // peers to obtain the entry addresses for the associated technologies. 
     if (auto const spPeerPersistor = wpPeerPersistor.lock(); spPeerPersistor) {
-        auto const spEndpointPeers = spPeerPersistor->GetCachedPeers();
-        if (!spEndpointPeers) {
-            return false;
-        }
         // For each technology type stored in the cached peers emplace the entry into the asscoaited 
         // technology entries vector.
-        for (auto const& [technology, spPeers] : *spEndpointPeers) {
+        spPeerPersistor->ForEachCachedPeer(
+            // Get the entries for the requestor from the cached list of peers
+            [&response, &mappedTechnologyEntries, &message] (Endpoints::TechnologyType technology, CPeer const& peer) -> CallbackIteration
+            {
+                if (peer.GetNodeId() != message.GetSourceId()) {
+                    mappedTechnologyEntries[technology].emplace_back(peer.GetEntry());
+                }
+
+                return CallbackIteration::Continue;
+            },
+            // Unused cache error handling function
+            [] ([[maybe_unused]] Endpoints::TechnologyType technology) {}
+        );
+
+        // Encode the peers list for the response
+        for (auto const& [technology, entries]: mappedTechnologyEntries) {
             auto& technologyEntry = response.technologies.emplace_back();
             technologyEntry.name = Endpoints::TechnologyTypeToString(technology);
-
-            std::vector<std::string> entries;
-            for (auto const& [id, peer]: *spPeers) {
-                if (id != message.GetSourceId()) {
-                    entries.emplace_back(peer.GetEntry());
-                }
-            }
             // The metajson library can't encode nested vectors, so for now the entries are encoded 
             // before being placed in the data struct. 
             technologyEntry.entries = iod::json_encode(entries);
@@ -231,8 +237,6 @@ bool Command::CConnectHandler::JoinHandler(CMessage const& message)
         // schedule a connect event for each provided entry. The entry may or may not be address, it
         // is dependent on the attached technology. 
         for (auto const& [name, encoded]: response.technologies) {
-            Endpoints::TechnologyType technology = Endpoints::ParseTechnologyType(name);
-            
             auto spEndpoint = spEndpointManager->GetEndpoint(
                 message.GetMessageContext().GetEndpointTechnology(),
                 Endpoints::OperationType::Client);

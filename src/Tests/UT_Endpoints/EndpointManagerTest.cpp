@@ -6,6 +6,8 @@
 #include "../../Components/Endpoints/Peer.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
+#include "../../Configuration/PeerPersistor.hpp"
+#include "../../Interfaces/PeerCache.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../Interfaces/PeerObserver.hpp"
 #include "../../Utilities/NodeUtils.hpp"
@@ -25,6 +27,7 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 class CPeerObserverStub;
+class CPeerCacheStub;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -107,6 +110,68 @@ private:
     IPeerMediator* m_mediator;
     std::unique_ptr<CPeer> m_upPeer;
     ConnectionState m_state;
+};
+
+//------------------------------------------------------------------------------------------------
+
+class local::CPeerCacheStub : public IPeerCache
+{
+public:
+    CPeerCacheStub()
+        : m_endpoints()
+    {
+    }
+
+    void AddPeer(CPeer const& peer)
+    {
+        auto& spPeersMap = m_endpoints[peer.GetTechnologyType()]; 
+        if (!spPeersMap) {
+            spPeersMap = std::make_shared<CPeerPersistor::PeersMap>();
+        }
+        spPeersMap->emplace(peer.GetNodeId(), peer);
+    }
+
+    // IPeerCache {
+    bool ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const override
+    {
+        return false;  
+    }
+
+    bool ForEachCachedPeer(
+        AllEndpointPeersReadFunction const& readFunction,
+        AllEndpointPeersErrorFunction const& errorFunction) const override
+    {
+        return false;
+    }
+
+    bool ForEachCachedPeer(
+        Endpoints::TechnologyType technology,
+        OneEndpointPeersReadFunction const& readFunction) const override
+    {
+        auto const itr = m_endpoints.find(technology);
+        if (itr == m_endpoints.end()) {
+            return false;
+        }   
+
+        auto const& [key, spPeersMap] = *itr;
+        for (auto const& [id, peer]: *spPeersMap) {
+            auto const result = readFunction(peer);
+            if (result != CallbackIteration::Continue) {
+                break;
+            }
+        }
+
+        return true;
+    }
+
+    std::uint32_t CachedEndpointsCount() const override { return 0; }
+    std::uint32_t CachedPeersCount() const override { return 0; }
+    std::uint32_t CachedPeersCount(Endpoints::TechnologyType technology) const override { return 0; }
+    // } IPeerCache
+
+private:
+    CPeerPersistor::EndpointPeersMap m_endpoints;
+
 };
 
 //------------------------------------------------------------------------------------------------
@@ -204,12 +269,11 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
         test::ServerBinding);
     configurations.emplace_back(options);
     
-    auto spPeers = std::make_shared<CPeerPersistor::PeersMap>();
-    spPeers->emplace(test::ClientId, CPeer(test::ClientId, Endpoints::TechnologyType::TCP, test::ClientEntry));
-    auto spBootstraps = std::make_shared<CPeerPersistor::EndpointPeersMap>();
-    spBootstraps->emplace(Endpoints::TechnologyType::TCP, spPeers);
+    local::CPeerCacheStub cache;
+    CPeer const peer(test::ClientId, Endpoints::TechnologyType::TCP, test::ClientEntry);
+    cache.AddPeer(peer);
 
-    upEndpointManager->Initialize(test::ServerId, nullptr, configurations, spBootstraps);
+    upEndpointManager->Initialize(test::ServerId, nullptr, configurations, &cache);
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();
     EXPECT_EQ(initialActiveEndpoints, std::uint32_t(0));

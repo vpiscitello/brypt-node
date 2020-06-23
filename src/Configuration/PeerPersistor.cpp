@@ -209,7 +209,7 @@ void CPeerPersistor::SetMediator(IPeerMediator* const mediator)
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::SharedEndpointPeersMap CPeerPersistor::FetchPeers()
+bool CPeerPersistor::FetchPeers()
 {
     Configuration::StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
@@ -219,14 +219,14 @@ CPeerPersistor::SharedEndpointPeersMap CPeerPersistor::FetchPeers()
         status = DecodePeersFile();
     }
 
-    if (status != Configuration::StatusCode::Success) {
+    if (!m_spEndpoints || status != Configuration::StatusCode::Success) {
         NodeUtils::printo(
             "Failed to decode peers file at: " + m_filepath.string(),
             NodeUtils::PrintType::Node);
-        return {};
+        return false;
     }
 
-    return m_spEndpoints;
+    return true;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -297,11 +297,8 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
         ).decode(json, knownPeersEntry);
 
     auto& endpointEntries = knownPeersEntry.endpoints;
-
-    m_spEndpoints = std::make_shared<EndpointPeersMap>();
-    assert(m_spEndpoints);
-
-    m_spEndpoints->reserve(endpointEntries.size());
+    auto spEndpoints = std::make_shared<EndpointPeersMap>();
+    spEndpoints->reserve(endpointEntries.size());
 
     std::for_each(
         endpointEntries.begin(), endpointEntries.end(),
@@ -346,16 +343,15 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
                 }
             );
             
-            m_spEndpoints->emplace(technology, spPeers);
+            spEndpoints->emplace(technology, spPeers);
         }
     );
 
-    if (m_spEndpoints->empty()) {
-        m_spEndpoints.reset();
+    if (spEndpoints->empty()) {
         return Configuration::StatusCode::DecodeError;
     }
 
-    // Valdate the decoded settings. If the settings decoded are not valid return noopt.
+    m_spEndpoints = spEndpoints;
     return Configuration::StatusCode::Success;
 }
 
@@ -392,22 +388,128 @@ Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::SharedEndpointPeersMap CPeerPersistor::GetCachedPeers() const
+bool CPeerPersistor::ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const
 {
-    return m_spEndpoints;
+    std::scoped_lock lock(m_endpointsMutex);
+    if (!m_spEndpoints) {
+        return false;
+    }
+
+    for (auto const& [technology, spPeersMap]: *m_spEndpoints) {
+        if (readFunction(technology) != CallbackIteration::Continue) {
+            return false;
+        }
+    }
+
+    return true;  
 }
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::SharedPeersMap CPeerPersistor::GetCachedPeers(
-    Endpoints::TechnologyType technology) const
+bool CPeerPersistor::ForEachCachedPeer(
+    AllEndpointPeersReadFunction const& readFunction,
+    AllEndpointPeersErrorFunction const& errorFunction) const
 {
-    if (m_spEndpoints) {
-        if (auto const itr = m_spEndpoints->find(technology); itr != m_spEndpoints->end()) {
-            return itr->second;
+    std::scoped_lock lock(m_endpointsMutex);
+    if (!m_spEndpoints) {
+        return false;
+    }
+
+    for (auto const& [technology, spPeersMap]: *m_spEndpoints) {
+        if (!spPeersMap) {
+            // Notify the caller that there are no listed peers for an endpoint of a given technology
+            errorFunction(technology);
+            continue;
+        }
+
+        CallbackIteration result;
+        for (auto const& [id, peer]: *spPeersMap) {
+            result = readFunction(technology, peer);
+            if (result != CallbackIteration::Continue) {
+                break;
+            }
+        }
+        if (result != CallbackIteration::Continue) {
+            break;
         }
     }
-    return {};
+
+    return true;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+bool CPeerPersistor::ForEachCachedPeer(
+    Endpoints::TechnologyType technology,
+    OneEndpointPeersReadFunction const& readFunction) const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (!m_spEndpoints) {
+        return false;
+    }
+
+    auto const itr = m_spEndpoints->find(technology);
+    if (itr == m_spEndpoints->end()) {
+        return false;
+    }   
+
+    auto const& [key, spPeersMap] = *itr;
+    for (auto const& [id, peer]: *spPeersMap) {
+        auto const result = readFunction(peer);
+        if (result != CallbackIteration::Continue) {
+            break;
+        }
+    }
+
+    return true;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+std::uint32_t CPeerPersistor::CachedEndpointsCount() const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (m_spEndpoints) {
+        return m_spEndpoints->size();
+    }
+    return 0;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+std::uint32_t CPeerPersistor::CachedPeersCount() const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (!m_spEndpoints) {
+        return 0;
+    }
+
+    std::uint32_t count = 0;
+    for (auto const& [technology, spPeersMap]: *m_spEndpoints) {
+        if (spPeersMap) {
+            count += spPeersMap->size();
+        }
+    }
+
+    return count;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+std::uint32_t CPeerPersistor::CachedPeersCount(Endpoints::TechnologyType technology) const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (!m_spEndpoints) {
+        return 0;
+    }
+
+    if (auto const itr = m_spEndpoints->find(technology); itr != m_spEndpoints->end()) {
+        auto const& [technology, spPeersMap] = *itr;
+        if (spPeersMap) {
+            return spPeersMap->size();
+        }
+    }   
+    return 0;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -421,26 +523,27 @@ void CPeerPersistor::HandlePeerConnectionStateChange(
         return; 
     }
 
-    switch (change) {
-        case ConnectionState::Connected: {
-            std::scoped_lock lock(m_endpointsMutex);
-            // Since we always want ensure the peer can be tracked, we use emplace to either
-            // insert a new entry for the technolgoy type or get the existing entry.
-            auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
-            if (itr != m_spEndpoints->end()) {
-                // TODO: What should happen if the peer is already in the map?
-                itr->second->try_emplace(peer.GetNodeId(), peer);
-            } 
-        } break;
-        case ConnectionState::Disconnected:
-        case ConnectionState::Flagged: {
-            std::scoped_lock lock(m_endpointsMutex);
-            if (auto const itr = m_spEndpoints->find(peer.GetTechnologyType());
-                itr != m_spEndpoints->end()) {
-                itr->second->erase(peer.GetNodeId()); // Remove the provided peer
-            }
-        } break;
-        default: return; // Currently, we don't adjust the peers for any other changes.
+    {
+        std::scoped_lock lock(m_endpointsMutex);
+        switch (change) {
+            case ConnectionState::Connected: {
+                // Since we always want ensure the peer can be tracked, we use emplace to either
+                // insert a new entry for the technolgoy type or get the existing entry.
+                auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
+                if (itr != m_spEndpoints->end()) {
+                    // TODO: What should happen if the peer is already in the map?
+                    itr->second->try_emplace(peer.GetNodeId(), peer);
+                } 
+            } break;
+            case ConnectionState::Disconnected:
+            case ConnectionState::Flagged: {
+                if (auto const itr = m_spEndpoints->find(peer.GetTechnologyType());
+                    itr != m_spEndpoints->end()) {
+                    itr->second->erase(peer.GetNodeId()); // Remove the provided peer
+                }
+            } break;
+            default: return; // Currently, we don't adjust the peers for any other changes.
+        }
     }
 
     auto const status = Serialize(); // Write the updated peers to the file

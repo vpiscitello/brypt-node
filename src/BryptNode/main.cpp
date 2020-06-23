@@ -56,8 +56,7 @@ std::int32_t main(std::int32_t argc, char** argv)
     }
     
     auto spPersistor = std::make_shared<CPeerPersistor>();
-    auto spBootstraps = spPersistor->FetchPeers();
-    if (!spBootstraps) {
+    if (!spPersistor->FetchPeers()) {
         std::cout << "Node bootstraps could not be parsed!" << std::endl;
         exit(1);
     }
@@ -65,11 +64,15 @@ std::int32_t main(std::int32_t argc, char** argv)
     auto spMessageQueue = std::make_shared<CMessageQueue>();
     auto spEndpointManager = std::make_shared<CEndpointManager>();
     Configuration::EndpointConfigurations const& configurations = optSettings->endpoints;
+
+    assert(spEndpointManager);
+    assert(spMessageQueue);
+    assert(spPersistor);
     spEndpointManager->Initialize(
         0,   // TODO: Get Brypt Node ID and pass it in to the manager
         spMessageQueue.get(),
         configurations,
-        spBootstraps);
+        spPersistor.get());
 
     spPersistor->SetMediator(spEndpointManager.get());
 

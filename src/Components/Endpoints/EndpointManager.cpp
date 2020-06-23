@@ -6,6 +6,20 @@
 #include "Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
 
+//------------------------------------------------------------------------------------------------
+namespace {
+namespace local {
+//------------------------------------------------------------------------------------------------
+
+void ConnectBootstraps(
+    std::shared_ptr<CEndpoint> const& spEndpoint,
+    IPeerCache const* const pBootsrapCache);
+
+//------------------------------------------------------------------------------------------------
+} // local namespace
+} // namespace
+//------------------------------------------------------------------------------------------------
+
 CEndpointManager::CEndpointManager()
     : m_endpoints()
     , m_technologies()
@@ -27,7 +41,7 @@ void CEndpointManager::Initialize(
     NodeUtils::NodeIdType id,
     IMessageSink* const messageSink,
     Configuration::EndpointConfigurations const& configurations,
-    CPeerPersistor::SharedEndpointPeersMap const& spEndpointBootstraps)
+    IPeerCache const* const pBootstrapCache)
 {
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
     for (auto const& options: configurations) {
@@ -35,21 +49,13 @@ void CEndpointManager::Initialize(
         // If the technology has not already been configured then continue with the setup. 
         // This function should only be called once per application run, there shouldn't be a reason
         // to re-initilize a technology as the endpoints should exist until appliction termination.
-        if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {
-            // Attempt to find bootstrap peers in the provided endpoint bootstraps. If the technology
-            // has bootstraps available forward it to the function during technology initialization.
-            CPeerPersistor::SharedPeersMap spBootstraps;
-            if (spEndpointBootstraps) {
-                if (auto const itr = spEndpointBootstraps->find(technology); itr != spEndpointBootstraps->end()) {
-                    spBootstraps = itr->second;
-                }
-            }            
+        if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
             switch (technology) {
                 case Endpoints::TechnologyType::Direct: {
-                    InitializeDirectEndpoints(id, options, messageSink, spBootstraps);
+                    InitializeDirectEndpoints(id, options, messageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::TCP: {
-                    InitializeTCPEndpoints(id, options, messageSink, spBootstraps);
+                    InitializeTCPEndpoints(id, options, messageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::StreamBridge: {
                     InitializeStreamBridgeEndpoints(id, options, messageSink);
@@ -57,24 +63,6 @@ void CEndpointManager::Initialize(
                 default: break; // No other technologies have implemented endpoints
             }
         }
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
-void CEndpointManager::ConnectBootstraps(
-    std::shared_ptr<CEndpoint> const& spEndpoint,
-    CPeerPersistor::PeersMap const& bootstraps)
-{
-    // If the given endpoint id not able to connect to peers, don't do anything.
-    if (spEndpoint->GetOperation() != Endpoints::OperationType::Client) {
-        return;
-    }
-
-    // Iterate through the provided bootstraps for the endpoint and schedule a connect
-    // for each peer in the list.
-    for (auto const& [id, bootstrap]: bootstraps) {
-        spEndpoint->ScheduleConnect(bootstrap.GetEntry());
     }
 }
 
@@ -186,7 +174,7 @@ void CEndpointManager::InitializeDirectEndpoints(
     NodeUtils::NodeIdType id,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const messageSink,
-    CPeerPersistor::SharedPeersMap const& spBootstraps)
+    IPeerCache const* const pBootstrapCache)
 {
     auto const technology = Endpoints::TechnologyType::Direct;
 
@@ -202,8 +190,8 @@ void CEndpointManager::InitializeDirectEndpoints(
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, id, options.GetInterface(), Endpoints::OperationType::Client, messageSink);
 
-    if (spBootstraps) {
-        ConnectBootstraps(spClient, *spBootstraps);
+    if (pBootstrapCache) {
+        local::ConnectBootstraps(spClient, pBootstrapCache);
     }
 
     m_endpoints.emplace(spClient->GetIdentifier(), spClient);
@@ -217,7 +205,7 @@ void CEndpointManager::InitializeTCPEndpoints(
     NodeUtils::NodeIdType id,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const messageSink,
-    CPeerPersistor::SharedPeersMap const& spBootstraps)
+    IPeerCache const* const pBootstrapCache)
 {
     auto const technology = Endpoints::TechnologyType::TCP;
 
@@ -233,8 +221,8 @@ void CEndpointManager::InitializeTCPEndpoints(
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, id, options.GetInterface(), Endpoints::OperationType::Client, messageSink);
 
-    if (spBootstraps) {
-        ConnectBootstraps(spClient, *spBootstraps);
+    if (pBootstrapCache) {
+        local::ConnectBootstraps(spClient, pBootstrapCache);
     }
 
     m_endpoints.emplace(spClient->GetIdentifier(), spClient);
@@ -291,6 +279,31 @@ void CEndpointManager::NotifyObserversConst(FunctionType const& function, Args&&
         auto const binder = std::bind(function, observer, std::forward<Args>(args)...);
         binder();
     }
+}
+
+//------------------------------------------------------------------------------------------------
+
+void local::ConnectBootstraps(
+    std::shared_ptr<CEndpoint> const& spEndpoint,
+    IPeerCache const* const pBootstrapCache)
+{
+    // If the given endpoint id not able to connect to peers, don't do anything.
+    if (!spEndpoint || spEndpoint->GetOperation() != Endpoints::OperationType::Client) {
+        return;
+    }
+
+    if (!pBootstrapCache) {
+        return;
+    }
+
+    // Iterate through the provided bootstraps for the endpoint and schedule a connect
+    // for each peer in the list.
+    pBootstrapCache->ForEachCachedPeer(
+        spEndpoint->GetInternalType(), 
+        [&spEndpoint] (CPeer const& bootstrap) -> CallbackIteration {
+            spEndpoint->ScheduleConnect(bootstrap.GetEntry());
+            return CallbackIteration::Continue;
+        });
 }
 
 //------------------------------------------------------------------------------------------------

@@ -38,10 +38,7 @@ public:
         NodeUtils::NodeIdType id,
         IMessageSink* const messageSink,
         Configuration::EndpointConfigurations const& configurations,
-        CPeerPersistor::SharedEndpointPeersMap const& spEndpointBootstraps);
-    void ConnectBootstraps(
-        std::shared_ptr<CEndpoint> const& spEndpoint,
-        CPeerPersistor::PeersMap const& bootstraps);
+        IPeerCache const* const pBootsrapCache);
     void Startup();
     void Shutdown();
 
@@ -68,12 +65,12 @@ private:
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const messageSink,
-        CPeerPersistor::SharedPeersMap const& spBootstraps);
+        IPeerCache const* const pBootstrapCache);
     void InitializeTCPEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const messageSink,
-        CPeerPersistor::SharedPeersMap const& spBootstraps);
+        IPeerCache const* const pBootstrapCache);
     void InitializeStreamBridgeEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,

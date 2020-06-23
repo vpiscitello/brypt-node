@@ -6,13 +6,14 @@
 //------------------------------------------------------------------------------------------------
 #include "TechnologyType.hpp"
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 
 class CPeer
 {
 public:
     CPeer()
-        : m_id(0)
+        : m_id(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown))
         , m_technology(Endpoints::TechnologyType::Invalid)
         , m_entry()
         , m_location()
@@ -28,14 +29,6 @@ public:
         , m_technology(technology)
         , m_entry(entry)
         , m_location(location)
-    {
-    }
-
-    CPeer(CPeer const& other)
-        : m_id(other.m_id)
-        , m_technology(other.m_technology)
-        , m_entry(other.m_entry)
-        , m_location(other.m_location)
     {
     }
 
@@ -65,9 +58,9 @@ public:
     }
 
 private:
-    NodeUtils::NodeIdType const m_id;
-    Endpoints::TechnologyType const m_technology;
-    std::string const m_entry;
+    NodeUtils::NodeIdType m_id;
+    Endpoints::TechnologyType m_technology;
+    std::string m_entry;
     std::string m_location;
 
 };

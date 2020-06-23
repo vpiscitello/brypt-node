@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: MessageCollector.hpp
+// File: MessageSink.hpp
 // Description: Defines an interface that allows endpoints to forward and receive 
 // messages from the central message queue.
 //------------------------------------------------------------------------------------------------

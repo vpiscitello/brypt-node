@@ -8,9 +8,11 @@
 #include "../Components/Endpoints/ConnectionState.hpp"
 #include "../Components/Endpoints/Peer.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
+#include "../Interfaces/PeerCache.hpp"
 #include "../Interfaces/PeerMediator.hpp"
 #include "../Interfaces/PeerObserver.hpp"
 #include "../Utilities/NodeUtils.hpp"
+#include "../Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
 #include <filesystem>
 #include <memory>
@@ -20,7 +22,7 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CPeerPersistor : public IPeerObserver {
+class CPeerPersistor : public IPeerCache, public IPeerObserver {
 public:
     using PeersMap = std::unordered_map<NodeUtils::NodeIdType, CPeer>;
     using SharedPeersMap = std::shared_ptr<PeersMap>;
@@ -33,14 +35,24 @@ public:
 
     void SetMediator(IPeerMediator* const mediator);
 
-    SharedEndpointPeersMap FetchPeers();
-
+    bool FetchPeers();
     Configuration::StatusCode Serialize();
     Configuration::StatusCode DecodePeersFile();
     Configuration::StatusCode SerializeEndpointPeers();
 
-    SharedEndpointPeersMap GetCachedPeers() const;
-    SharedPeersMap GetCachedPeers(Endpoints::TechnologyType technology) const;
+    // IPeerCache {
+    bool ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const override;
+    bool ForEachCachedPeer(
+        AllEndpointPeersReadFunction const& readFunction,
+        AllEndpointPeersErrorFunction const& errorFunction) const override;
+    bool ForEachCachedPeer(
+        Endpoints::TechnologyType technology,
+        OneEndpointPeersReadFunction const& readFunction) const override;
+
+    std::uint32_t CachedEndpointsCount() const override;
+    std::uint32_t CachedPeersCount() const override;
+    std::uint32_t CachedPeersCount(Endpoints::TechnologyType technology) const override;
+    // } IPeerCache
 
     // IPeerObserver {
     void HandlePeerConnectionStateChange(
@@ -51,8 +63,8 @@ public:
 private:
     IPeerMediator* m_mediator;
     std::filesystem::path m_filepath;
-    std::mutex m_fileMutex;
-    std::mutex m_endpointsMutex;
+    mutable std::mutex m_fileMutex;
+    mutable std::mutex m_endpointsMutex;
     SharedEndpointPeersMap m_spEndpoints;
 };
 
