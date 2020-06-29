@@ -8,6 +8,7 @@
 #include "EndpointTypes.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
+#include "../../Interfaces/EndpointMediator.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../Interfaces/PeerObserver.hpp"
@@ -22,7 +23,7 @@ class CEndpoint;
 
 //------------------------------------------------------------------------------------------------
 
-class CEndpointManager : public IPeerMediator {
+class CEndpointManager : public IEndpointMediator, public IPeerMediator {
 public:
     using ObserverSet = std::set<IPeerObserver*>;
     using SharedEndpoint = std::shared_ptr<CEndpoint>;
@@ -36,7 +37,7 @@ public:
 
     void Initialize(
         NodeUtils::NodeIdType id,
-        IMessageSink* const messageSink,
+        IMessageSink* const pMessageSink,
         Configuration::EndpointConfigurations const& configurations,
         IPeerCache const* const pBootsrapCache);
     void Startup();
@@ -49,6 +50,10 @@ public:
     Endpoints::TechnologySet GetEndpointTechnologies() const;
     std::uint32_t ActiveEndpointCount() const;
     std::uint32_t ActiveTechnologyCount() const;
+
+    // IEndpointMediator {
+    virtual EndpointEntries GetEndpointEntries() const override;
+    // } IEndpointMediator
 
     // IPeerMediator {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
@@ -64,17 +69,17 @@ private:
     void InitializeDirectEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
-        IMessageSink* const messageSink,
+        IMessageSink* const pMessageSink,
         IPeerCache const* const pBootstrapCache);
     void InitializeTCPEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
-        IMessageSink* const messageSink,
+        IMessageSink* const pMessageSink,
         IPeerCache const* const pBootstrapCache);
     void InitializeStreamBridgeEndpoints(
         NodeUtils::NodeIdType id,
         Configuration::TEndpointOptions const& options,
-        IMessageSink* const messageSink);
+        IMessageSink* const pMessageSink);
 
     template<typename FunctionType, typename...Args>
     void NotifyObservers(FunctionType const& function, Args&&...args);

@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "TcpEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "Peer.hpp"
 #include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "../Command/CommandDefinitions.hpp"
@@ -32,17 +33,20 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     NodeUtils::NodeIdType id,
     std::string_view interface,
     OperationType operation,
-    IMessageSink* const messageSink)
-    : CEndpoint(id, interface, operation, messageSink, TechnologyType::TCP)
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink)
+    : CEndpoint(
+        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
-    if (m_messageSink) {
+    if (m_pMessageSink) {
         auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_messageSink->RegisterCallback(m_identifier, callback);
+        m_pMessageSink->RegisterCallback(m_identifier, callback);
     }
 }
 
@@ -201,8 +205,8 @@ bool Endpoints::CTcpEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_messageSink) {
-        m_messageSink->UnpublishCallback(m_identifier);
+    if (m_pMessageSink) {
+        m_pMessageSink->UnpublishCallback(m_identifier);
     }
      
     m_terminate = true; // Stop the worker thread from processing the connections
@@ -466,7 +470,7 @@ bool Endpoints::CTcpEndpoint::Connect(
     NodeUtils::printo("[TCP] Connecting TCP socket to " + address + ":" + std::to_string(port), NodeUtils::PrintType::Endpoint);
 
     socketAddress.sin_family = AF_INET;
-    socketAddress.sin_port = ::htons(port);
+    socketAddress.sin_port = htons(port);
     // Convert IPv4 and IPv6 addresses from text to binary form
     if (::inet_pton(AF_INET, address.c_str(), &socketAddress.sin_addr) <= 0) {
         return false;
@@ -521,10 +525,7 @@ bool Endpoints::CTcpEndpoint::EstablishConnection(
 
     auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
     auto const result = PeerBootstrap::SendContactMessage(
-        m_identifier,
-        m_technology,
-        m_nodeIdentifier,
-        sender);
+        m_pEndpointMediator, m_identifier, m_technology, m_nodeIdentifier, sender);
     if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
         return false;
     }
@@ -704,15 +705,12 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
             details.IncrementMessageSequence();
             m_peers.PromoteConnection(descriptor, details);
 
-            // Register this peer's message handler with the message sink
-            if (m_messageSink) {
-                m_messageSink->PublishPeerConnection(m_identifier, request.GetSourceId());
-            }
+            CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, ""});
         }
 
         // TODO: Only authenticated requests should be forwarded into BryptNode
-        if (m_messageSink) {
-            m_messageSink->ForwardMessage(request);
+        if (m_pMessageSink) {
+            m_pMessageSink->ForwardMessage(request);
         }
     } catch (...) {
         NodeUtils::printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
@@ -847,12 +845,11 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
     [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
         [&] (auto& details)
         {
+            CPeer const peer(details.GetNodeId(), InternalType, "");
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    if (m_messageSink) {
-                        m_messageSink->UnpublishPeerConnection(m_identifier, details.GetNodeId());
-                    }
+                    CEndpoint::UnpublishPeerConnection(peer);
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;

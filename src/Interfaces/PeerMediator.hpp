@@ -20,8 +20,7 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
-    virtual void ForwardPeerConnectionStateChange(
-        CPeer const& peer, ConnectionState change) = 0;
+    virtual void ForwardPeerConnectionStateChange(CPeer const& peer, ConnectionState change) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

@@ -211,7 +211,7 @@ void CPeerPersistor::SetMediator(IPeerMediator* const mediator)
 
 bool CPeerPersistor::FetchPeers()
 {
-    Configuration::StatusCode status;
+    Configuration::StatusCode status = Configuration::StatusCode::DecodeError;
     if (std::filesystem::exists(m_filepath)) {
         NodeUtils::printo(
             "Reading peers file at: " + m_filepath.string(),
@@ -379,11 +379,43 @@ Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
     Configuration::StatusCode const status = Serialize();
     if (status != Configuration::StatusCode::Success) {
         NodeUtils::printo(
-            "Failed to save configuration settings to: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+            "Warning: Filed to serialize peers!", NodeUtils::PrintType::Node);
     }
 
     return status;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void CPeerPersistor::AddPeerEntry(CPeer const& peer)
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    // Since we always want ensure the peer can be tracked, we use emplace to either
+    // insert a new entry for the technolgoy type or get the existing entry.
+    auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
+    if (itr != m_spEndpoints->end()) {
+        // TODO: What should happen if the peer is already in the map?
+        itr->second->try_emplace(peer.GetNodeId(), peer);
+    }
+    
+    // Write the updated peers to the file
+    [[maybe_unused]] auto const status = Serialize();
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void CPeerPersistor::DeletePeerEntry(CPeer const& peer)
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    // Since we always want ensure the peer can be tracked, we use emplace to either
+    // insert a new entry for the technolgoy type or get the existing entry.
+    auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
+    if (itr != m_spEndpoints->end()) {
+        itr->second->erase(peer.GetNodeId()); // Remove the provided peer
+    }
+
+    // Write the updated peers to the file
+    [[maybe_unused]] auto const status = Serialize();
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -523,35 +555,15 @@ void CPeerPersistor::HandlePeerConnectionStateChange(
         return; 
     }
 
-    {
-        std::scoped_lock lock(m_endpointsMutex);
-        switch (change) {
-            case ConnectionState::Connected: {
-                // Since we always want ensure the peer can be tracked, we use emplace to either
-                // insert a new entry for the technolgoy type or get the existing entry.
-                auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
-                if (itr != m_spEndpoints->end()) {
-                    // TODO: What should happen if the peer is already in the map?
-                    itr->second->try_emplace(peer.GetNodeId(), peer);
-                } 
-            } break;
-            case ConnectionState::Disconnected:
-            case ConnectionState::Flagged: {
-                if (auto const itr = m_spEndpoints->find(peer.GetTechnologyType());
-                    itr != m_spEndpoints->end()) {
-                    itr->second->erase(peer.GetNodeId()); // Remove the provided peer
-                }
-            } break;
-            default: return; // Currently, we don't adjust the peers for any other changes.
-        }
-    }
-
-    auto const status = Serialize(); // Write the updated peers to the file
-    if (status != Configuration::StatusCode::Success) {
-        auto const technology = Endpoints::TechnologyTypeToString(peer.GetTechnologyType());
-        NodeUtils::printo(
-            "Warning: Filed to serialize peers for " + technology + " endpoint!",
-            NodeUtils::PrintType::Node);
+    switch (change) {
+        case ConnectionState::Connected: {
+            AddPeerEntry(peer); 
+        } break;
+        case ConnectionState::Disconnected:
+        case ConnectionState::Flagged: {
+            DeletePeerEntry(peer);
+        } break;
+        default: return; // Currently, we don't adjust the peers for any other changes.
     }
 }
 

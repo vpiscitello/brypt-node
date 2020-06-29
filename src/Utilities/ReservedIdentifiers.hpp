@@ -3,6 +3,8 @@
 //------------------------------------------------------------------------------------------------
 #include "NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
+#include <limits>
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 enum class ReservedIdentifiers : NodeUtils::NodeIdType {
@@ -16,7 +18,9 @@ Unknown = 0x0,
 NetworkRequest = 0x1,
 // Indicates the message is a cluster-wise request and should be forwarded throughout the current
 // cluster. 
-ClusterRequest = 0x2
+ClusterRequest = 0x2,
+// Indicates an invalid node id that is not addressable/reachable
+Invalid = std::numeric_limits<NodeUtils::NodeIdType>::max()
 
 //------------------------------------------------------------------------------------------------
 }; // ReservedIdentifiers enum

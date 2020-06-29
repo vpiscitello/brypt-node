@@ -115,6 +115,8 @@ std::unique_ptr<Endpoints::CStreamBridgeEndpoint> local::MakeStreamBridgeServer(
         test::ServerId,
         test::Interface,
         Endpoints::OperationType::Server,
+        nullptr,
+        nullptr,
         sink);
 }
 
@@ -127,6 +129,8 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
         test::ClientId,
         test::Interface,
         Endpoints::OperationType::Client,
+        nullptr,
+        nullptr,
         sink);
 }
 

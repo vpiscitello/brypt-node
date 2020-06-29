@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "DirectEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "Peer.hpp"
 #include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
@@ -32,17 +33,20 @@ Endpoints::CDirectEndpoint::CDirectEndpoint(
     NodeUtils::NodeIdType id,
     std::string_view interface,
     OperationType operation,
-    IMessageSink* const messageSink)
-    : CEndpoint(id, interface, operation, messageSink, TechnologyType::Direct)
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink)
+    : CEndpoint(
+        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::Direct)
     , m_address()
     , m_port(0)
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
-    if (m_messageSink) {
+    if (m_pMessageSink) {
         auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_messageSink->RegisterCallback(m_identifier, callback);
+        m_pMessageSink->RegisterCallback(m_identifier, callback);
     }
 }
 
@@ -98,7 +102,12 @@ void Endpoints::CDirectEndpoint::ScheduleBind(std::string_view binding)
         throw std::runtime_error("Bind was called a non-listening Endpoint!");
     }
 
-    auto const [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    auto [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    
+    if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
+        address = NetworkUtils::GetInterfaceAddress(m_interface);
+    }
+
     NetworkUtils::PortNumber port = std::stoul(sPort);
 
     // Schedule the Bind network instruction event
@@ -120,12 +129,8 @@ void Endpoints::CDirectEndpoint::ScheduleConnect(std::string_view entry)
         throw std::runtime_error("Connect was called a non-client Endpoint!");
     }
     
-    auto [address, sPort] = NetworkUtils::SplitAddressString(entry);
+    auto const [address, sPort] = NetworkUtils::SplitAddressString(entry);
     NetworkUtils::PortNumber port = std::stoul(sPort);
-
-    if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
-        address = NetworkUtils::GetInterfaceAddress(m_interface);
-    }
 
     // Schedule the Connect network instruction event
     {
@@ -198,8 +203,8 @@ bool Endpoints::CDirectEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[Direct] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_messageSink) {
-        m_messageSink->UnpublishCallback(m_identifier);
+    if (m_pMessageSink) {
+        m_pMessageSink->UnpublishCallback(m_identifier);
     }
     
     m_terminate = true; // Stop the worker thread from processing the connections
@@ -424,10 +429,7 @@ bool Endpoints::CDirectEndpoint::Connect(
 
     auto sender = std::bind(&CDirectEndpoint::Send, this, std::ref(socket), identity, std::placeholders::_1);
     std::uint32_t sent = PeerBootstrap::SendContactMessage(
-        m_identifier,
-        m_technology,
-        m_nodeIdentifier,
-        sender);
+        m_pEndpointMediator, m_identifier, m_technology, m_nodeIdentifier, sender);
     if (sent <= 0) {
         return false;
     }
@@ -604,15 +606,12 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
             details.IncrementMessageSequence();
             m_peers.PromoteConnection(identity, details);
 
-            // Register this peer's message handler with the message sink
-            if (m_messageSink) {
-                m_messageSink->PublishPeerConnection(m_identifier, request.GetSourceId());
-            }
+            CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, ""});
         }
 
         // TODO: Only authenticated requests should be forwarded into BryptNode
-        if (m_messageSink) {
-            m_messageSink->ForwardMessage(request);
+        if (m_pMessageSink) {
+            m_pMessageSink->ForwardMessage(request);
         }
     } catch (...) {
         NodeUtils::printo("[Direct] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
@@ -734,22 +733,16 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
     bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
         [&] (auto& details)
         {
-            auto const peerId = details.GetNodeId();
-
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
-                    details.SetConnectionState(ConnectionState::Disconnected);   
-                    if (m_messageSink) {
-                        m_messageSink->UnpublishPeerConnection(m_identifier, peerId);
-                    }
+                    details.SetConnectionState(ConnectionState::Disconnected);
+                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, ""});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    if (m_messageSink) {
-                        m_messageSink->PublishPeerConnection(m_identifier, peerId);
-                    }
+                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, ""});
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;

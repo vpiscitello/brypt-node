@@ -71,7 +71,9 @@ public:
         NodeUtils::NodeIdType nodeIdentifier,
         std::string_view interface,
         OperationType operation,
-        IMessageSink* const messageSink);
+        IEndpointMediator const* const pEndpointMediator,
+        IPeerMediator* const pPeerMediator,
+        IMessageSink* const pMessageSink);
     ~CDirectEndpoint() override;
 
     // CEndpoint{

@@ -22,6 +22,10 @@
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
+#include "../../Libraries/metajson/metajson.hh"
+#include <string>
+#include <vector>
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace PeerBootstrap {
@@ -31,7 +35,80 @@ namespace PeerBootstrap {
 constexpr Command::Type ConnectionRequestCommand = Command::Type::Connect;
 constexpr std::uint8_t ConnectionRequestPhase = static_cast<std::uint8_t>(Command::CConnectHandler::Phase::Discovery);
 constexpr std::uint8_t ConnectionRequestNonce = 0;
-constexpr std::string_view ConnectionRequestMessage = "Connection Request";
+
+template<typename Functor, typename Enabled = std::enable_if_t<std::is_bind_expression_v<Functor>>>
+auto SendContactMessage(
+    IEndpointMediator const* const pEndpointMediator,
+    Endpoints::EndpointIdType identifier,
+    Endpoints::TechnologyType technology,
+    NodeUtils::NodeIdType sourceIdentifier,
+    Functor const& callback) -> typename Functor::result_type;
+
+//------------------------------------------------------------------------------------------------
+namespace Json {
+//------------------------------------------------------------------------------------------------
+
+struct TTechnologyEntry
+{
+    TTechnologyEntry()
+        : name()
+        , entry()
+    {
+    }
+
+    TTechnologyEntry(std::string_view name, std::string_view entry)
+        : name(name)
+        , entry(entry)
+    {
+    }
+
+    std::string name;
+    std::string entry;
+};
+using TechnologyEntries = std::vector<TTechnologyEntry>;
+
+struct TConnectRequest;
+
+//------------------------------------------------------------------------------------------------
+} // Json namespace
+//------------------------------------------------------------------------------------------------
+} // PeerBootstrap namespace
+//------------------------------------------------------------------------------------------------
+
+struct PeerBootstrap::Json::TConnectRequest
+{
+    TConnectRequest()
+        : entrypoints()
+    {
+    }
+
+    TConnectRequest(TechnologyEntries const& entrypoints)
+        : entrypoints(entrypoints)
+    {
+    }
+
+    TechnologyEntries entrypoints;
+};
+
+//------------------------------------------------------------------------------------------------
+// Description: Symbol loading for JSON encoding
+//------------------------------------------------------------------------------------------------
+
+// {
+//     "entrypoints": [
+//     {
+//         "name": String
+//         "entries": String,
+//     },
+//     ...
+//     ],
+// }
+
+IOD_SYMBOL(entrypoints)
+IOD_SYMBOL(name)
+IOD_SYMBOL(entry)
+
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description: Generate a connection request message and callback a function with the message 
@@ -40,23 +117,34 @@ constexpr std::string_view ConnectionRequestMessage = "Connection Request";
 // This is done because different technologyies/endpoints may require different internal 
 // information in their sending imeplementation.
 //------------------------------------------------------------------------------------------------
-template<typename Functor, 
-            typename Enabled = std::enable_if_t<std::is_bind_expression_v<Functor>>>
-auto SendContactMessage(
+template<typename Functor, typename Enabled = std::enable_if_t<std::is_bind_expression_v<Functor>>>
+auto PeerBootstrap::SendContactMessage(
+    IEndpointMediator const* const pEndpointMediator,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
     NodeUtils::NodeIdType sourceIdentifier,
     Functor const& callback) -> typename Functor::result_type
 {
+    Json::TConnectRequest request;
+    if (pEndpointMediator) {
+        auto const entries = pEndpointMediator->GetEndpointEntries();
+        for (auto const& [technology, entry]: entries) {
+            request.entrypoints.emplace_back(
+                Json::TTechnologyEntry(Endpoints::TechnologyTypeToString(technology), entry));
+        }
+    }
+
+    std::string const encoded = iod::json_object(
+        s::entrypoints = iod::json_vector(
+            s::name,
+            s::entry
+        )).encode(request);
+
     CMessage const message(
         {identifier, technology},
         sourceIdentifier, static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
         ConnectionRequestCommand, ConnectionRequestPhase,
-        ConnectionRequestMessage, ConnectionRequestNonce);
+        encoded, ConnectionRequestNonce);
 
     return callback(message.GetPack());
 }
-
-//------------------------------------------------------------------------------------------------
-} // PeerBootstrap namespace
-//------------------------------------------------------------------------------------------------

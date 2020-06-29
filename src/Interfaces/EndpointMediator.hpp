@@ -1,22 +1,22 @@
 //------------------------------------------------------------------------------------------------
-// File: PeerObserver.hpp
+// File: IEndpointMediator.hpp
 // Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Endpoints/ConnectionState.hpp"
+#include "../Components/Endpoints/TechnologyType.hpp"
+//------------------------------------------------------------------------------------------------
+#include <string>
+#include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CPeer;
-
-//------------------------------------------------------------------------------------------------
-
-class IPeerObserver
+class IEndpointMediator
 {
 public:
-    virtual ~IPeerObserver() = default;
+    using EndpointEntries = std::unordered_map<Endpoints::TechnologyType, std::string>;
 
-    virtual void HandlePeerConnectionStateChange(CPeer const& peer, ConnectionState change) = 0;
+    virtual ~IEndpointMediator() = default;
+    virtual EndpointEntries GetEndpointEntries() const = 0;
 };
 
 //------------------------------------------------------------------------------------------------

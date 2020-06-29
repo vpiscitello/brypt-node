@@ -132,14 +132,15 @@ public:
     }
 
     // IPeerCache {
-    bool ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const override
+    bool ForEachCachedEndpoint(
+        [[maybe_unused]] AllEndpointReadFunction const& readFunction) const override
     {
         return false;  
     }
 
     bool ForEachCachedPeer(
-        AllEndpointPeersReadFunction const& readFunction,
-        AllEndpointPeersErrorFunction const& errorFunction) const override
+        [[maybe_unused]] AllEndpointPeersReadFunction const& readFunction,
+        [[maybe_unused]] AllEndpointPeersErrorFunction const& errorFunction) const override
     {
         return false;
     }
@@ -164,9 +165,21 @@ public:
         return true;
     }
 
-    std::uint32_t CachedEndpointsCount() const override { return 0; }
-    std::uint32_t CachedPeersCount() const override { return 0; }
-    std::uint32_t CachedPeersCount(Endpoints::TechnologyType technology) const override { return 0; }
+    std::uint32_t CachedEndpointsCount() const override
+    {
+        return 0;
+    }
+
+    std::uint32_t CachedPeersCount() const override
+    {
+        return 0;
+    }
+
+    std::uint32_t CachedPeersCount(
+        [[maybe_unused]] Endpoints::TechnologyType technology) const override
+    {
+        return 0;
+    }
     // } IPeerCache
 
 private:

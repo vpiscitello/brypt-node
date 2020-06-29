@@ -9,7 +9,9 @@
 #include "EndpointIdentifier.hpp"
 #include "TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
+#include "../../Interfaces/EndpointMediator.hpp"
 #include "../../Interfaces/MessageSink.hpp"
+#include "../../Interfaces/PeerMediator.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "zmq.hpp"
@@ -45,7 +47,9 @@ std::unique_ptr<CEndpoint> Factory(
     NodeUtils::NodeIdType id,
     std::string_view interface,
     Endpoints::OperationType operation,
-    IMessageSink* const messageSink);
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink);
 
 //------------------------------------------------------------------------------------------------
 } // Endpoint namespace
@@ -59,7 +63,9 @@ public:
         NodeUtils::NodeIdType id,
         std::string_view interface,
         Endpoints::OperationType operation,
-        IMessageSink* const messageSink,
+        IEndpointMediator const* const pEndpointMediator,
+        IPeerMediator* const pPeerMediator,
+        IMessageSink* const pMessageSink,
         Endpoints::TechnologyType technology = Endpoints::TechnologyType::Invalid)
         : m_mutex()
         , m_identifier(CEndpointIdentifierGenerator::Instance().GetIdentifier())
@@ -67,7 +73,9 @@ public:
         , m_nodeIdentifier(id) 
         , m_interface(interface)
         , m_operation(operation)
-        , m_messageSink(messageSink)
+        , m_pEndpointMediator(pEndpointMediator)
+        , m_pPeerMediator(pPeerMediator)
+        , m_pMessageSink(pMessageSink)
         , m_active(false)
         , m_terminate(false)
         , m_cv()
@@ -93,30 +101,15 @@ public:
     
 	virtual bool Shutdown() = 0;
 
-    //------------------------------------------------------------------------------------------------
 
-    bool IsActive() const
-    {
-        return m_active;
-    }
+    bool IsActive() const;
+    Endpoints::EndpointIdType GetIdentifier() const;
+    Endpoints::OperationType GetOperation() const;
 
-    //------------------------------------------------------------------------------------------------
-
-    Endpoints::EndpointIdType GetIdentifier() const
-    {
-        return m_identifier;
-    }
-
-    //------------------------------------------------------------------------------------------------
-
-    Endpoints::OperationType GetOperation() const
-    {
-        return m_operation;
-    }
-
-    //------------------------------------------------------------------------------------------------
-    
 protected:
+    void PublishPeerConnection(CPeer const& peer);
+    void UnpublishPeerConnection(CPeer const& peer);
+
     using EventDeque = std::deque<std::any>;
 
     mutable std::mutex m_mutex;
@@ -127,13 +120,15 @@ protected:
 	NodeUtils::NodeIdType const m_nodeIdentifier;
     std::string m_interface;
 	Endpoints::OperationType const m_operation;
-    IMessageSink* const m_messageSink;
+
+    IEndpointMediator const* const m_pEndpointMediator;
+    IPeerMediator* const m_pPeerMediator;
+    IMessageSink* const m_pMessageSink;
 
 	std::atomic_bool m_active;
     std::atomic_bool m_terminate;
     mutable std::condition_variable m_cv;
     std::thread m_worker;
-
 };
 
 //------------------------------------------------------------------------------------------------

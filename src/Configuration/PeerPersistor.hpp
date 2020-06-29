@@ -40,6 +40,9 @@ public:
     Configuration::StatusCode DecodePeersFile();
     Configuration::StatusCode SerializeEndpointPeers();
 
+    void AddPeerEntry(CPeer const& peer);
+    void DeletePeerEntry(CPeer const& peer);
+
     // IPeerCache {
     bool ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const override;
     bool ForEachCachedPeer(

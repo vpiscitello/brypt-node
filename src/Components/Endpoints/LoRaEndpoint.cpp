@@ -23,12 +23,15 @@ Endpoints::CLoRaEndpoint::CLoRaEndpoint(
     NodeUtils::NodeIdType id,
     std::string_view interface,
     Endpoints::OperationType operation,
-    IMessageSink* const messageSink)
-    : CEndpoint(id, interface, operation, messageSink, TechnologyType::LoRa)
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink)
+    : CEndpoint(
+        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::LoRa)
 {
-    if (m_messageSink) {
+    if (m_pMessageSink) {
         auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_messageSink->RegisterCallback(m_identifier, callback);
+        m_pMessageSink->RegisterCallback(m_identifier, callback);
     }
 }
 
@@ -139,8 +142,8 @@ bool Endpoints::CLoRaEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[LoRa] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_messageSink) {
-        m_messageSink->UnpublishCallback(m_identifier);
+    if (m_pMessageSink) {
+        m_pMessageSink->UnpublishCallback(m_identifier);
     }
 
     m_terminate = true; // Stop the worker thread from processing the connections

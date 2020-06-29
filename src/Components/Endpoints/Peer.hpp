@@ -13,7 +13,7 @@ class CPeer
 {
 public:
     CPeer()
-        : m_id(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown))
+        : m_id(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid))
         , m_technology(Endpoints::TechnologyType::Invalid)
         , m_entry()
         , m_location()

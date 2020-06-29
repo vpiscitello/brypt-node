@@ -111,6 +111,8 @@ std::unique_ptr<Endpoints::CDirectEndpoint> local::MakeDirectServer(
         test::ServerId,
         test::Interface,
         Endpoints::OperationType::Server,
+        nullptr,
+        nullptr,
         sink);
 }
 
@@ -123,6 +125,8 @@ std::unique_ptr<Endpoints::CDirectEndpoint> local::MakeDirectClient(
         test::ClientId,
         test::Interface,
         Endpoints::OperationType::Client,
+        nullptr,
+        nullptr,
         sink);
 }
 

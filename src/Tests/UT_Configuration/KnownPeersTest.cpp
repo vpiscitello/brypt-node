@@ -61,7 +61,7 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
 
     std::uint32_t iterations = 0;
     CPeer foundPeer;
-    ASSERT_EQ(foundPeer.GetNodeId(), static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown));
+    ASSERT_EQ(foundPeer.GetNodeId(), static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid));
     persistor.ForEachCachedPeer(
         test::PeerTechnology,
         [&iterations, &foundPeer] (CPeer const& peer) -> CallbackIteration {
@@ -122,6 +122,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
                 initialPeer = peer;
                 return CallbackIteration::Stop;
             }
+            return CallbackIteration::Continue;
         }
     );
     ASSERT_EQ(initialPeer.GetNodeId(), test::PeerId);
