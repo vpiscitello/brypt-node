@@ -64,6 +64,7 @@ class Endpoints::CDirectEndpoint : public CEndpoint {
 public:
     using ZeroMQIdentity = std::string;
     
+    constexpr static std::string_view Scheme = "tcp://";
     constexpr static std::string_view ProtocolType = "TCP/IP";
     constexpr static TechnologyType InternalType = TechnologyType::Direct;
 
@@ -80,6 +81,7 @@ public:
     TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
+    std::string GetURI() const override;
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;
@@ -115,6 +117,7 @@ private:
         zmq::socket_t& socket,
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port);
+    bool IsURIAllowed(std::string_view uri);
 
     void ProcessNetworkInstructions(zmq::socket_t& socket);
 

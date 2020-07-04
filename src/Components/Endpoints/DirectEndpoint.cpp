@@ -88,7 +88,18 @@ std::string Endpoints::CDirectEndpoint::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 std::string Endpoints::CDirectEndpoint::GetEntry() const
 {
-    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+    return m_address + NetworkUtils::ComponentSeperator.data() + std::to_string(m_port);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+// Returns:
+//------------------------------------------------------------------------------------------------
+std::string Endpoints::CDirectEndpoint::GetURI() const
+{
+    return Scheme.data() + GetEntry();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -318,8 +329,13 @@ bool Endpoints::CDirectEndpoint::Listen(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port)
 {
-    std::string sPort = std::to_string(port);
-    printo("[Direct] Setting up ZMQ_ROUTER socket on port " + sPort, NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+
+    printo("[Direct] Setting up ZMQ_ROUTER socket on " + uri, NodeUtils::PrintType::Endpoint);
 
     std::size_t size = 128; // Initalize a size of the buffer
     std::vector<char> buffer(size, 0); // Initialize the receiving buffer
@@ -335,7 +351,7 @@ bool Endpoints::CDirectEndpoint::Listen(
         }
 
         // Bind the ZMQ_ROUTER socket to the designated interface and port
-        socket.bind("tcp://" + address + ":" + sPort);
+        socket.bind(uri);
     } catch (...) {
         return false;
     }
@@ -410,8 +426,16 @@ bool Endpoints::CDirectEndpoint::Connect(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port)
 {
-    std::string sPort = std::to_string(port);
-    printo("[Direct] Connecting ZMQ_ROUTER socket to " + address + ":" + sPort, NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+    if (!IsURIAllowed(uri)) {
+        return false;
+    }
+
+    printo("[Direct] Connecting ZMQ_ROUTER socket to " + uri, NodeUtils::PrintType::Endpoint);
 
     // TODO: Implement unique (per application session) token generator 
     static std::int8_t sequentialByte = 0x00;
@@ -420,17 +444,50 @@ bool Endpoints::CDirectEndpoint::Connect(
     try {
         socket.setsockopt(ZMQ_CONNECT_ROUTING_ID, identity.data(), identity.size());
         // Bind the ZMQ_ROUTER socket to the designated interface and port
-        socket.connect("tcp://" + address + ":" + sPort);
+        socket.connect(uri);
     } catch (...) {
         return false;
     }
 
-    m_peers.TrackConnection(identity);
+    m_peers.TrackConnection(identity, uri);
 
     auto sender = std::bind(&CDirectEndpoint::Send, this, std::ref(socket), identity, std::placeholders::_1);
     std::uint32_t sent = PeerBootstrap::SendContactMessage(
         m_pEndpointMediator, m_identifier, m_technology, m_nodeIdentifier, sender);
     if (sent <= 0) {
+        return false;
+    }
+
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+bool Endpoints::CDirectEndpoint::IsURIAllowed(std::string_view uri)
+{
+    // Determine if the provided URI matches any of the node's hosted entrypoints.
+    bool bUriMatchedEntry = false;
+    if (m_pEndpointMediator) {
+        auto const entries = m_pEndpointMediator->GetEndpointEntries();
+        for (auto const& [technology, entry]: entries) {
+            if (auto const pos = uri.find(entry); pos != std::string::npos) {
+                bUriMatchedEntry = true; 
+                break;
+            }
+        }
+    }
+    // If the URI matched an entrypoint, the connection should not be allowed as
+    // it would be a connection to oneself.
+    if (bUriMatchedEntry) {
+        return false;
+    }
+
+    // If the URI matches a currently connected or resolving peer. The connection
+    // should not be allowed as it break a valid connection. 
+    if (bool const bWouldBreakConnection = m_peers.IsURITracked(uri); bWouldBreakConnection) {
         return false;
     }
 
@@ -595,17 +652,15 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
             }
         );
 
-        // Ifd the node was not found then in the update then, we should start tracking the node.
+        // If the node was not found then in the update then, we should start tracking the node.
         if (!bPeerDetailsFound) {
             // TODO: Peer should be registered with an authentication and key manager.
-            CPeerDetails<> details(
-                request.GetSourceId(),
-                ConnectionState::Connected,
-                MessagingPhase::Response);
-            
+            CPeerDetails<> details(request.GetSourceId());
+            details.SetConnectionState(ConnectionState::Connected);
+            details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
+            
             m_peers.PromoteConnection(identity, details);
-
             CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, ""});
         }
 
@@ -736,14 +791,15 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, ""});
+                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, ""});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, ""});
+                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, ""});
                 } break;
+                case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;
             }

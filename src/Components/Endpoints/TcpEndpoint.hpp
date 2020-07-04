@@ -73,6 +73,7 @@ public:
     using SocketDescriptor = std::int32_t;
     using IPv4SocketAddress = struct sockaddr_in;
     
+    constexpr static std::string_view Scheme = "tcp://";
     constexpr static std::string_view ProtocolType = "TCP/IP";
     constexpr static TechnologyType InternalType = TechnologyType::TCP;
 
@@ -89,6 +90,7 @@ public:
     TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
+    std::string GetURI() const override;
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;
@@ -130,6 +132,7 @@ private:
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port,
         IPv4SocketAddress& socketAddress);
+    bool IsURIAllowed(std::string_view uri);
     bool EstablishConnection(
         SocketDescriptor descriptor, IPv4SocketAddress address);
 

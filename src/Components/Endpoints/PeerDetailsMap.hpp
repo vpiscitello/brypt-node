@@ -10,6 +10,7 @@
 #include "../../Utilities/CallbackIteration.hpp"
 #include "../../Utilities/EnumMaskUtils.hpp"
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
@@ -103,6 +104,7 @@ class CPeerDetailsMap
 public:
     using ExtendedPeerDetails = CPeerDetails<ExtensionType>;
     using OptionalPeerDetails = std::optional<ExtendedPeerDetails>;
+    using OptionalConnectionString = std::optional<std::string>;
     
     using ForEachFunction = std::function<CallbackIteration(ConnectionIdType const&)>;
 
@@ -113,48 +115,91 @@ public:
 
     CPeerDetailsMap()
         : m_mutex()
+        , m_resolving()
         , m_peers()
         , m_nodeIdLookups()
+        , m_uriLookups()
     {
     };
 
     //------------------------------------------------------------------------------------------------
 
-    void TrackConnection(
-        ConnectionIdType const& connectionId,
-        OptionalPeerDetails const& optDetails = {})
+    void TrackConnection(ConnectionIdType const& connectionId)
+    {
+        std::scoped_lock lock(m_mutex);
+        if (auto const itr = m_peers.find(connectionId); itr != m_peers.end()) {
+            return;
+        }
+
+        m_peers.emplace(connectionId, std::nullopt);
+    }
+
+    //------------------------------------------------------------------------------------------------
+
+    void TrackConnection(ConnectionIdType const& connectionId, ExtendedPeerDetails const& details)
     {
         std::scoped_lock lock(m_mutex);
         // Attempt to find a mapping for the connection ID, if it is found the node is 
         // already being tracked and we should return. The internal maps need to be kept in
         // sync for this container to operate as expected and therefor we only need to check
         // one map.
-        auto const foundIterator = m_peers.find(connectionId);
-        if (foundIterator != m_peers.end()) {
+        if (auto const itr = m_peers.find(connectionId); itr != m_peers.end()) {
             return;
         }
 
-        auto const [itr, result] = m_peers.emplace(connectionId, optDetails);
+        auto const [itr, emplaced] = m_peers.emplace(connectionId, details);
+        m_nodeIdLookups.emplace(details.GetNodeId(), itr);
 
-        if (result && optDetails) {
-            m_nodeIdLookups.emplace(optDetails->GetNodeId(), itr);
+        // If the provided peer details has a non-empty URI, add an entry in the uri lookups map
+        if (auto const uri = details.GetURI(); !uri.empty()) {
+            m_uriLookups.emplace(uri, itr);
         }
     }
 
     //------------------------------------------------------------------------------------------------
 
-    bool PromoteConnection(
-        ConnectionIdType const& connectionId,
-        ExtendedPeerDetails const& details)
+    void TrackConnection(ConnectionIdType const& connectionId, std::string_view uri)
+    {
+        // Return early if the provided URI is empty
+        if (uri.empty()) {
+            return;
+        }
+
+        {
+            std::scoped_lock lock(m_mutex);
+            if (auto const itr = m_peers.find(connectionId); itr != m_peers.end()) {
+                return;
+            }
+
+            m_resolving.emplace(connectionId, uri);
+
+            auto const [itr, emplaced] = m_peers.emplace(connectionId, std::nullopt);
+            m_uriLookups.emplace(uri, itr);
+        }
+    }
+
+    //------------------------------------------------------------------------------------------------
+
+    bool PromoteConnection(ConnectionIdType const& connectionId, ExtendedPeerDetails& details)
     {
         std::scoped_lock lock(m_mutex);
-        auto const itr = m_peers.find(connectionId);
-        if (itr == m_peers.end()) {
+        auto const peersIterator = m_peers.find(connectionId);
+        if (peersIterator == m_peers.end()) {
             return false;
         }
 
-        itr->second = std::move(details);
-        m_nodeIdLookups.emplace(details.GetNodeId(), itr);
+        // Determine if the connection was tracked alongside a connection URI
+        if (auto const resolvingIterator = m_resolving.find(connectionId);
+            resolvingIterator != m_resolving.end()) {
+            // If a URI was tracked set the URI on the peer details to persist it.
+            auto const& [key, uri] = *resolvingIterator;
+            details.SetURI(uri);
+            // Erase the connection and URI from the resolving map
+            m_resolving.erase(resolvingIterator);
+        }
+
+        peersIterator->second = std::move(details);
+        m_nodeIdLookups.emplace(details.GetNodeId(), peersIterator);
 
         return true;
     }
@@ -503,7 +548,27 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    std::uint32_t Size()
+    bool IsURITracked(std::string_view uri) const
+    {
+        std::scoped_lock lock(m_mutex);
+        // Check the peers map for the URI, if it exists return true.
+        if (auto const itr = m_uriLookups.find(uri.data()); itr != m_uriLookups.end()) {
+            return true;
+        }
+
+        // Check the resolving map for the URI, if it exists return true.
+        for (auto const& [key, checkURI]: m_resolving) {
+            if (checkURI == uri) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    //------------------------------------------------------------------------------------------------
+
+    std::uint32_t Size() const
     {
         std::scoped_lock lock(m_mutex);
         return m_peers.size();
@@ -521,13 +586,17 @@ public:
     //------------------------------------------------------------------------------------------------
 
 private:
+    using ResolvingPeersMap = typename std::unordered_map<ConnectionIdType, std::string>;
     using PeerDetailsMap = typename std::unordered_map<ConnectionIdType, OptionalPeerDetails, ConnectionIdHasher>;
     using PeerDetailsLookup = typename PeerDetailsMap::iterator;
     using NodeIdToPeerLookupMap = std::unordered_map<NodeUtils::NodeIdType, PeerDetailsLookup>;
+    using URIToPeerLookupMap = std::unordered_map<std::string, PeerDetailsLookup>;
 
     mutable std::recursive_mutex m_mutex;
+    ResolvingPeersMap m_resolving; // An unordered map of connections that are currently resolving to be full peers. 
     PeerDetailsMap m_peers; // An unordered map from connection IDs to connection details
     NodeIdToPeerLookupMap m_nodeIdLookups; // An unordered map from node ID to connection details lookup
+    URIToPeerLookupMap m_uriLookups;
 };
 
 //------------------------------------------------------------------------------------------------

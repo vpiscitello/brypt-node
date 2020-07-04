@@ -63,7 +63,8 @@ struct StreamBridge::TOutgoingMessageEvent {
 class Endpoints::CStreamBridgeEndpoint : public CEndpoint {
 public:
     using ZeroMQIdentity = std::string;
-    
+
+    constexpr static std::string_view Scheme = "tcp://";
     constexpr static std::string_view ProtocolType = "TCP/IP";
     constexpr static TechnologyType InternalType = TechnologyType::StreamBridge;
 
@@ -80,6 +81,7 @@ public:
     TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
+    std::string GetURI() const override;
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;

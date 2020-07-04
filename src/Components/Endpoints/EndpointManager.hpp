@@ -52,7 +52,8 @@ public:
     std::uint32_t ActiveTechnologyCount() const;
 
     // IEndpointMediator {
-    virtual EndpointEntries GetEndpointEntries() const override;
+    virtual EndpointEntryMap GetEndpointEntries() const override;
+    virtual EndpointURISet GetEndpointURIs() const override;
     // } IEndpointMediator
 
     // IPeerMediator {

@@ -91,6 +91,7 @@ public:
     virtual Endpoints::TechnologyType GetInternalType() const = 0;
     virtual std::string GetProtocolType() const = 0;
     virtual std::string GetEntry() const = 0;
+    virtual std::string GetURI() const = 0;
 
     virtual void ScheduleBind(std::string_view binding) = 0;
     virtual void ScheduleConnect(std::string_view entry) = 0;
@@ -100,7 +101,6 @@ public:
 	virtual bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
     
 	virtual bool Shutdown() = 0;
-
 
     bool IsActive() const;
     Endpoints::EndpointIdType GetIdentifier() const;

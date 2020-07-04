@@ -17,6 +17,7 @@ namespace LoRa {
 
 class Endpoints::CLoRaEndpoint : public CEndpoint {
 public:
+    constexpr static std::string_view Scheme = "lora://";
     constexpr static std::string_view ProtocolType = "LoRa";
     constexpr static TechnologyType InternalType = TechnologyType::LoRa;
 
@@ -33,6 +34,7 @@ public:
     TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
+    std::string GetURI() const override;
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;

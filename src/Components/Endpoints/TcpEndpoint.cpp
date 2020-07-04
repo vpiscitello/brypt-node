@@ -90,7 +90,18 @@ std::string Endpoints::CTcpEndpoint::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 std::string Endpoints::CTcpEndpoint::GetEntry() const
 {
-    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+    return m_address + NetworkUtils::ComponentSeperator.data() + std::to_string(m_port);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+// Returns:
+//------------------------------------------------------------------------------------------------
+std::string Endpoints::CTcpEndpoint::GetURI() const
+{
+    return Scheme.data() + GetEntry();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -317,7 +328,13 @@ bool Endpoints::CTcpEndpoint::Listen(
     NetworkUtils::PortNumber port,
     IPv4SocketAddress& socketAddress)
 {
-    NodeUtils::printo("[TCP] Setting up TCP socket on port " + std::to_string(port), NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+
+    NodeUtils::printo("[TCP] Setting up TCP socket on " + uri, NodeUtils::PrintType::Endpoint);
 
     // If a listener socket was not provided to perform the bind instruction, don't do anything.
     if (listener == nullptr) {
@@ -467,7 +484,16 @@ bool Endpoints::CTcpEndpoint::Connect(
     NetworkUtils::PortNumber port,
     IPv4SocketAddress& socketAddress)
 {
-    NodeUtils::printo("[TCP] Connecting TCP socket to " + address + ":" + std::to_string(port), NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+    if (!IsURIAllowed(uri)) {
+        return false;
+    }
+
+    NodeUtils::printo("[TCP] Connecting TCP socket to " + uri, NodeUtils::PrintType::Endpoint);
 
     socketAddress.sin_family = AF_INET;
     socketAddress.sin_port = htons(port);
@@ -485,7 +511,40 @@ bool Endpoints::CTcpEndpoint::Connect(
         return false;
     }
 
-    m_peers.TrackConnection(descriptor);  // Start tracking the descriptor for communication
+    m_peers.TrackConnection(descriptor, uri);  // Start tracking the descriptor for communication
+
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+bool Endpoints::CTcpEndpoint::IsURIAllowed(std::string_view uri)
+{
+    // Determine if the provided URI matches any of the node's hosted entrypoints.
+    bool bUriMatchedEntry = false;
+    if (m_pEndpointMediator) {
+        auto const entries = m_pEndpointMediator->GetEndpointEntries();
+        for (auto const& [technology, entry]: entries) {
+            if (auto const pos = uri.find(entry); pos != std::string::npos) {
+                bUriMatchedEntry = true; 
+                break;
+            }
+        }
+    }
+    // If the URI matched an entrypoint, the connection should not be allowed as
+    // it would be a connection to oneself.
+    if (bUriMatchedEntry) {
+        return false;
+    }
+
+    // If the URI matches a currently connected or resolving peer. The connection
+    // should not be allowed as it break a valid connection. 
+    if (bool const bWouldBreakConnection = m_peers.IsURITracked(uri); bWouldBreakConnection) {
+        return false;
+    }
 
     return true;
 }
@@ -694,17 +753,15 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
             }
         );
 
-        // Ifd the node was not found then in the update then, we should start tracking the node.
+        // If the node was not found then in the update then, we should start tracking the node.
         if (!bPeerDetailsFound) {
             // TODO: Peer should be registered with an authentication and key manager.
-            CPeerDetails<> details(
-                request.GetSourceId(),
-                ConnectionState::Connected,
-                MessagingPhase::Response);
-            
+            CPeerDetails<> details(request.GetSourceId());
+            details.SetConnectionState(ConnectionState::Connected);
+            details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
-            m_peers.PromoteConnection(descriptor, details);
 
+            m_peers.PromoteConnection(descriptor, details);
             CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, ""});
         }
 

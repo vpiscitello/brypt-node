@@ -90,7 +90,18 @@ std::string Endpoints::CStreamBridgeEndpoint::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 std::string Endpoints::CStreamBridgeEndpoint::GetEntry() const
 {
-    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+    return m_address + NetworkUtils::ComponentSeperator.data() + std::to_string(m_port);
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+// Returns:
+//------------------------------------------------------------------------------------------------
+std::string Endpoints::CStreamBridgeEndpoint::GetURI() const
+{
+    return Scheme.data() + GetEntry();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -296,8 +307,13 @@ bool Endpoints::CStreamBridgeEndpoint::Listen(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port)
 {
-    std::string sPort = std::to_string(port);
-    printo("[StreamBridge] Setting up ZMQ_STREAM socket on port " + sPort, NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+
+    printo("[StreamBridge] Setting up ZMQ_STREAM socket on " + uri, NodeUtils::PrintType::Endpoint);
 
     std::size_t size = 128; // Initalize a size of the buffer
     std::vector<char> buffer(size, 0); // Initialize the receiving buffer
@@ -313,7 +329,7 @@ bool Endpoints::CStreamBridgeEndpoint::Listen(
         }
         
         // Bind the ZMQ_ROUTER socket to the designated interface and port
-        socket.bind("tcp://" + address + ":" + sPort);
+        socket.bind(uri);
     } catch (...) {
         return false;
     }
@@ -475,17 +491,15 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
             }
         );
 
-        // Ifd the node was not found then in the update then, we should start tracking the node.
+        // If the node was not found then in the update then, we should start tracking the node.
         if (!bPeerDetailsFound) {
             // TODO: Peer should be registered with an authentication and key manager.
-            CPeerDetails<> details(
-                request.GetSourceId(),
-                ConnectionState::Connected,
-                MessagingPhase::Response);
-            
+            CPeerDetails<> details(request.GetSourceId());
+            details.SetConnectionState(ConnectionState::Connected);
+            details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
-            m_peers.PromoteConnection(identity, details);
 
+            m_peers.PromoteConnection(identity, details);
             CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, ""});
         }
 
@@ -617,14 +631,15 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, ""});
+                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, ""});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, ""});
+                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, ""});
                 } break;
+                case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;
             }
