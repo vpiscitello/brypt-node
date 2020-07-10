@@ -19,10 +19,10 @@ constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
 constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:3000";
-constexpr std::string_view ClientBinding = "*:3001";
-constexpr std::string_view ServerEntry = "127.0.0.1:3000";
-constexpr std::string_view ClientEntry = "127.0.0.1:3001";
+constexpr std::string_view ServerBinding = "*:35216";
+constexpr std::string_view ClientBinding = "*:35217";
+constexpr std::string_view ServerEntry = "127.0.0.1:35216";
+constexpr std::string_view ClientEntry = "127.0.0.1:35217";
 
 //------------------------------------------------------------------------------------------------
 } // test namespace
@@ -33,7 +33,7 @@ constexpr std::string_view ClientEntry = "127.0.0.1:3001";
 
 TEST(PeerDetailsSuite, PeerMapSingleNodeTest)
 {
-    CPeerInformationMap<std::string> peers;
+    CPeerDetailsMap<std::string> peers;
     
     std::string const clientConnectionId = "1";
     CPeerDetails<> const details(
@@ -87,7 +87,7 @@ TEST(PeerDetailsSuite, PeerMapSingleNodeTest)
 
 TEST(PeerDetailsSuite, PeerMapMultipleNodeTest)
 {
-    CPeerInformationMap<std::string> peers;
+    CPeerDetailsMap<std::string> peers;
     
     std::string const firstClientConnectionId = "1";
     NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
@@ -186,7 +186,7 @@ TEST(PeerDetailsSuite, PeerMapMultipleNodeTest)
 TEST(PeerDetailsSuite, PeerMapConnectionStateFilterTest)
 {
     using namespace std::chrono_literals;
-    CPeerInformationMap<std::string> peers;
+    CPeerDetailsMap<std::string> peers;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
@@ -258,7 +258,7 @@ TEST(PeerDetailsSuite, PeerMapConnectionStateFilterTest)
 TEST(PeerDetailsSuite, PeerMapPromotionFilterTest)
 {
     using namespace std::chrono_literals;
-    CPeerInformationMap<std::string> peers;
+    CPeerDetailsMap<std::string> peers;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
@@ -328,7 +328,7 @@ TEST(PeerDetailsSuite, PeerMapPromotionFilterTest)
 TEST(PeerDetailsSuite, PeerMapMessageSequenceFilterTest)
 {
     using namespace std::chrono_literals;
-    CPeerInformationMap<std::string> peers;
+    CPeerDetailsMap<std::string> peers;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
@@ -408,7 +408,7 @@ TEST(PeerDetailsSuite, PeerMapMessageSequenceFilterTest)
 TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
 {
     using namespace std::chrono_literals;
-    CPeerInformationMap<std::string> peers;
+    CPeerDetailsMap<std::string> peers;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     

@@ -26,6 +26,7 @@ using PortNumber = std::uint16_t;
 
 constexpr std::string_view Wildcard = "*"; 
 constexpr std::string_view ComponentSeperator = ":";
+constexpr std::string_view SchemeSeperator = "://";
 
 using AddressComponentPair = std::pair<std::string, std::string>;
 

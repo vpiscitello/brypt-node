@@ -7,6 +7,7 @@
 #include "Endpoint.hpp"
 #include "PeerDetails.hpp"
 #include "PeerDetailsMap.hpp"
+#include "TechnologyType.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
 #include <deque>
@@ -63,38 +64,46 @@ class Endpoints::CDirectEndpoint : public CEndpoint {
 public:
     using ZeroMQIdentity = std::string;
     
+    constexpr static std::string_view Scheme = "tcp://";
     constexpr static std::string_view ProtocolType = "TCP/IP";
-    constexpr static NodeUtils::TechnologyType InternalType = NodeUtils::TechnologyType::Direct;
+    constexpr static TechnologyType InternalType = TechnologyType::Direct;
 
     CDirectEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options);
+        NodeUtils::NodeIdType nodeIdentifier,
+        std::string_view interface,
+        OperationType operation,
+        IEndpointMediator const* const pEndpointMediator,
+        IPeerMediator* const pPeerMediator,
+        IMessageSink* const pMessageSink);
     ~CDirectEndpoint() override;
 
     // CEndpoint{
-    NodeUtils::TechnologyType GetInternalType() const override;
+    TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
+    std::string GetURI() const override;
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
-    void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
+    bool ScheduleSend(CMessage const& message) override;
+    bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint
 
 private:
     enum class ConnectionStateChange : std::uint8_t { Update };
+    enum class ConnectStatusCode : std::uint8_t { Success, GenericError, ReflectionError, DuplicateError };
     
     using NetworkInstructionDeque = std::deque<Direct::TNetworkInstructionEvent>;
     using OutgoingMessageDeque = std::deque<Direct::TOutgoingMessageEvent>;
 
     using ReceiveResult = std::variant<ConnectionStateChange, std::string>;
     using OptionalReceiveResult = std::optional<std::pair<ZeroMQIdentity, ReceiveResult>>;
+
+    using ExtendedPeerDetails = CPeerDetails<void>;
 
     void Spawn();
 
@@ -107,11 +116,11 @@ private:
 
     bool SetupClientWorker();
     void ClientWorker();
-    bool Connect(
+    ConnectStatusCode Connect(
         zmq::socket_t& socket,
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port);
-    void StartPeerAuthentication(zmq::socket_t& socket, ZeroMQIdentity const& identity);
+    ConnectStatusCode IsURIAllowed(std::string_view uri);
 
     void ProcessNetworkInstructions(zmq::socket_t& socket);
 
@@ -120,10 +129,9 @@ private:
     void HandleReceivedData(ZeroMQIdentity const& identity, std::string_view message);
 
     void ProcessOutgoingMessages(zmq::socket_t& socket);
-    std::uint32_t Send(zmq::socket_t& socket, std::string_view message);
     std::uint32_t Send(
         zmq::socket_t& socket,
-        ZeroMQIdentity id,
+        ZeroMQIdentity const& identity,
         std::string_view message);
 
     void HandleConnectionStateChange(ZeroMQIdentity const& identity, ConnectionStateChange change);
@@ -131,7 +139,7 @@ private:
     NetworkUtils::NetworkAddress m_address;
 	NetworkUtils::PortNumber m_port;
     
-    CPeerInformationMap<ZeroMQIdentity> m_peers;
+    CPeerDetailsMap<ZeroMQIdentity> m_peers;
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

@@ -12,18 +12,16 @@
 //------------------------------------------------------------------------------------------------
 class Command::CConnectHandler : public Command::IHandler {
 public:
+    enum class Phase : std::uint8_t { Discovery, Join, };
+
     explicit CConnectHandler(CBryptNode& instance);
 
     // IHandler{
     bool HandleMessage(CMessage const& message) override;
     // }IHandler
 
-    bool ContactHandler();
-    bool JoinHandler();
-    bool CloseHandler();
-
-private:
-    enum class Phase { Contact, Join, Close };
+    bool DiscoveryHandler(CMessage const& message);
+    bool JoinHandler(CMessage const& message);    
 };
 
 //------------------------------------------------------------------------------------------------

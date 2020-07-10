@@ -107,7 +107,7 @@ public:
 
     bool PushResponse(CMessage const& message);
     std::vector<CMessage> GetFulfilled();
-    bool Empty() const;
+    bool IsEmpty() const;
 
 private:
     NodeUtils::ObjectIdType KeyGenerator(std::string const& pack) const;

@@ -4,13 +4,14 @@
 //-----------------------------------------------------------------------------------------------
 #include "Configuration.hpp"
 #include "ConfigurationManager.hpp"
+#include "../Components/Endpoints/TechnologyType.hpp"
+#include "../Utilities/FileUtils.hpp"
 //-----------------------------------------------------------------------------------------------
 #include "../Libraries/metajson/metajson.hh"
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include <string>
-#include <string_view>
 //-----------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -18,25 +19,18 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-std::string const FallbackConfigPath = "/etc/";
-std::string const BryptConfigFolder = "/brypt/";
-
-constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the configuration files that read to 12KB
-
-bool IsNewlineOrTab(char c);
-
-void WriteNodeOptions(
+void SerializeNodeOptions(
     Configuration::TDetailsOptions const& options,
     std::ofstream& out);
-void WriteEndpointOptions(
-    std::vector<Configuration::TEndpointOptions> const& options,
+void SerializeEndpointConfigurations(
+    Configuration::EndpointConfigurations const& configurations,
     std::ofstream& out);
-void WriteSecurityOptions(
+void SerializeSecurityOptions(
     Configuration::TSecurityOptions const& options,
     std::ofstream& out);
 
 Configuration::TDetailsOptions GetDetailsOptionsFromUser();
-std::vector<Configuration::TEndpointOptions> GetEndpointOptionsFromUser();
+Configuration::EndpointConfigurations GetEndpointConfigurationsFromUser();
 Configuration::TSecurityOptions GetSecurityOptionsFromUser();
 
 //------------------------------------------------------------------------------------------------
@@ -45,11 +39,12 @@ Configuration::TSecurityOptions GetSecurityOptionsFromUser();
 namespace defaults {
 //------------------------------------------------------------------------------------------------
 
+constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the configuration files to 12KB
+
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view NetworkInterface = "lo";
-constexpr std::string_view TcpBindingAddress = "*:3005";
-constexpr std::string_view LoRaBindingAddress = "861.1:0";
-constexpr std::string_view EntryAddress = "127.0.0.1:9999";
+constexpr std::string_view TcpBindingAddress = "*:35216";
+constexpr std::string_view LoRaBindingAddress = "915:71";
 
 constexpr std::string_view EncryptionStandard = "AES-256-CTR";
 constexpr std::string_view NetworkToken = "01234567890123456789012345678901";
@@ -68,22 +63,37 @@ constexpr std::string_view CentralAutority = "https://bridge.brypt.com:8080";
 // after decoding the file.
 //------------------------------------------------------------------------------------------------
 IOD_SYMBOL(details)
-IOD_SYMBOL(version)
-IOD_SYMBOL(name)
-IOD_SYMBOL(description)
-IOD_SYMBOL(location)
+// "details": {
+//     "version": String,
+//     "name": String,
+//     "description": String,
+//     "location": String
+// }
 
 IOD_SYMBOL(endpoints)
-IOD_SYMBOL(technology_name)
-IOD_SYMBOL(interface)
-IOD_SYMBOL(binding)
-IOD_SYMBOL(entry)
+// "endpoints": [{
+//     "technology_name": String,
+//     "interface": String,
+//     "binding": String
+// }]
 
 IOD_SYMBOL(security)
-IOD_SYMBOL(standard)
-IOD_SYMBOL(token)
+// "security": {
+//     "standard": String,
+//     "token": String,
+//     "central_authority": String
+// }
+
+IOD_SYMBOL(binding)
 IOD_SYMBOL(central_authority)
-//------------------------------------------------------------------------------------------------
+IOD_SYMBOL(description)
+IOD_SYMBOL(interface)
+IOD_SYMBOL(location)
+IOD_SYMBOL(name)
+IOD_SYMBOL(standard)
+IOD_SYMBOL(technology_name)
+IOD_SYMBOL(token)
+IOD_SYMBOL(version)
 
 //------------------------------------------------------------------------------------------------
 
@@ -92,33 +102,43 @@ Configuration::CManager::CManager()
     , m_settings()
     , m_validated(false)
 {
-    m_filepath = GetDefaultConfigurationPath();
+    m_filepath = GetDefaultConfigurationFilepath();
+    FileUtils::CreateFolderIfNoneExist(m_filepath);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::CManager::CManager(std::string const& filepath)
+Configuration::CManager::CManager(std::string_view filepath)
     : m_filepath(filepath)
     , m_settings()
     , m_validated(false)
 {
+    // If the filepath does not have a filename, attach the default config.json
+    if (!m_filepath.has_filename()) {
+        m_filepath = m_filepath / DefaultConfigurationFilename;
+    }
+
+    // If the filepath does not have a parent path, get and attach the default brypt folder
+    if (!m_filepath.has_parent_path()) {
+        m_filepath = GetDefaultBryptFolder() / m_filepath;
+    }
+    
+    FileUtils::CreateFolderIfNoneExist(m_filepath);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-std::optional<Configuration::TSettings> Configuration::CManager::Parse()
+std::optional<Configuration::TSettings> Configuration::CManager::FetchSettings()
 {
-    CreateConfigurationFilePath();
-
     StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
         NodeUtils::printo(
-            "Reading configuration file at: " + m_filepath.string() + "\n",
+            "Reading configuration file at: " + m_filepath.string(),
             NodeUtils::PrintType::Node);
         status = DecodeConfigurationFile();
     } else {
         NodeUtils::printo(
-            "No configuration file exists! Generating file at: " + m_filepath.string() + "\n",
+            "No configuration file exists! Generating file at: " + m_filepath.string(),
             NodeUtils::PrintType::Node);
         status = GenerateConfigurationFile();
     }
@@ -134,7 +154,7 @@ std::optional<Configuration::TSettings> Configuration::CManager::Parse()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::CManager::StatusCode Configuration::CManager::Save()
+Configuration::StatusCode Configuration::CManager::Serialize()
 {
     if (!m_validated) {
         return StatusCode::InputError;
@@ -151,9 +171,9 @@ Configuration::CManager::StatusCode Configuration::CManager::Save()
 
     out << "{\n";
 
-    local::WriteNodeOptions(m_settings.details, out);
-    local::WriteEndpointOptions(m_settings.endpoints, out);
-    local::WriteSecurityOptions(m_settings.security, out);
+    local::SerializeNodeOptions(m_settings.details, out);
+    local::SerializeEndpointConfigurations(m_settings.endpoints, out);
+    local::SerializeSecurityOptions(m_settings.security, out);
 
     out << "}" << std::flush;
 
@@ -164,15 +184,11 @@ Configuration::CManager::StatusCode Configuration::CManager::Save()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::CManager::StatusCode Configuration::CManager::ValidateSettings()
+Configuration::StatusCode Configuration::CManager::ValidateSettings()
 {
     m_validated = false;
 
     if (m_settings.endpoints.empty()) {
-        return StatusCode::DecodeError;
-    }
-
-    if (m_settings.security.token.empty()) {
         return StatusCode::DecodeError;
     }
 
@@ -182,13 +198,13 @@ Configuration::CManager::StatusCode Configuration::CManager::ValidateSettings()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::CManager::StatusCode Configuration::CManager::DecodeConfigurationFile()
+Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
 {
     // Determine the size of the file about to be read. Do not read a file
     // that is above the given treshold. 
     std::error_code error;
     auto const size = std::filesystem::file_size(m_filepath, error);
-    if (error || size == 0 || size > local::FileSizeLimit) {
+    if (error || size == 0 || size > defaults::FileSizeLimit) {
         return StatusCode::FileError;
     }
 
@@ -200,9 +216,9 @@ Configuration::CManager::StatusCode Configuration::CManager::DecodeConfiguration
 
     std::stringstream buffer;
     buffer << file.rdbuf(); // Read the file into the buffer stream
-    std::string jsonStr = buffer.str(); // Put the file contents into a string to be trimmed and parsed
+    std::string json = buffer.str(); // Put the file contents into a string to be trimmed and parsed
     // Remove newlines and tabs from the string
-    jsonStr.erase(std::remove_if(jsonStr.begin(), jsonStr.end(), &local::IsNewlineOrTab), jsonStr.end());
+    json.erase(std::remove_if(json.begin(), json.end(), &FileUtils::IsNewlineOrTab), json.end());
 
     // Decode the JSON string into the configuration struct
     iod::json_object(
@@ -214,13 +230,12 @@ Configuration::CManager::StatusCode Configuration::CManager::DecodeConfiguration
         s::endpoints = iod::json_vector(
             s::technology_name,
             s::interface,
-            s::binding,
-            s::entry),
+            s::binding),
         s::security = iod::json_object(
             s::standard,
             s::token,
             s::central_authority)
-        ).decode(jsonStr, m_settings);
+        ).decode(json, m_settings);
 
     // Valdate the decoded settings. If the settings decoded are not valid return noopt.
     return ValidateSettings();
@@ -232,7 +247,7 @@ Configuration::CManager::StatusCode Configuration::CManager::DecodeConfiguration
 // Description: Generates a new configuration file based on user command line arguements or
 // from user input.
 //-----------------------------------------------------------------------------------------------
-Configuration::CManager::StatusCode Configuration::CManager::GenerateConfigurationFile()
+Configuration::StatusCode Configuration::CManager::GenerateConfigurationFile()
 {
     // If the configuration has not been provided to the Configuration Manager
     // generate a configuration object from user input
@@ -242,7 +257,7 @@ Configuration::CManager::StatusCode Configuration::CManager::GenerateConfigurati
 
     ValidateSettings();
 
-    StatusCode const status = Save();
+    StatusCode const status = Serialize();
     if (status != StatusCode::Success) {
         NodeUtils::printo(
             "Failed to save configuration settings to: " + m_filepath.string(),
@@ -254,60 +269,7 @@ Configuration::CManager::StatusCode Configuration::CManager::GenerateConfigurati
 
 //-----------------------------------------------------------------------------------------------
 
-std::filesystem::path Configuration::CManager::GetDefaultConfigurationPath() const
-{
-    std::string filepath = local::FallbackConfigPath; // Set the filepath root to /etc/ by default
-
-    // Attempt to get the $XDG_CONFIG_HOME enviroment variable to use as the configuration directory
-    // If $XDG_CONFIG_HOME does not exist try to get the user home directory 
-    auto const systemConfigHomePath = std::getenv("XDG_CONFIG_HOME");
-    if (systemConfigHomePath) { 
-        std::size_t const length = strlen(systemConfigHomePath);
-        filepath = std::string(systemConfigHomePath, length);
-    } else {
-        // Attempt to get the $HOME enviroment variable to use the the configuration directory
-        // If $HOME does not exist continue with the fall configuration path
-        auto const userHomePath = std::getenv("HOME");
-        if (userHomePath) {
-            std::size_t const length = strlen(userHomePath);
-            filepath = std::string(userHomePath, length) + "/.config";
-        } 
-    }
-
-    // Concat /brypt/ to the condiguration folder path
-    filepath += local::BryptConfigFolder;
-
-    return filepath/DefaultConfigFilename;
-}
-
-//-----------------------------------------------------------------------------------------------
-
-void Configuration::CManager::CreateConfigurationFilePath()
-{
-    auto const filename = (m_filepath.has_filename()) ? m_filepath.filename() : DefaultConfigFilename;
-    auto const base = m_filepath.parent_path();
-
-    // Create configuration directories if they do not yet exist on the system
-    if (!std::filesystem::exists(base)) {
-        // Create directories in the base path that do not exist
-        bool const status = std::filesystem::create_directories(base);
-        if (!status) {
-            NodeUtils::printo(
-                "There was an error creating the configuration path: " + base.string(),
-                NodeUtils::PrintType::Node);
-        }
-        // Set the permissions on the brypt conffiguration folder such that only the 
-        // user can read, write, and execute
-        std::filesystem::permissions(base, std::filesystem::perms::owner_all);
-    }
-
-    // Return the base path appended with the configuration filename
-    m_filepath =  base/filename;
-}
-
-//-----------------------------------------------------------------------------------------------
-
-std::optional<Configuration::TSettings> Configuration::CManager::GetConfiguration() const
+std::optional<Configuration::TSettings> Configuration::CManager::GetCachedConfiguration() const
 {
     if (!m_validated) {
         return {};
@@ -328,14 +290,14 @@ void Configuration::CManager::GetConfigurationOptionsFromUser()
     TDetailsOptions const detailsOptions = 
         local::GetDetailsOptionsFromUser();
 
-    std::vector<Configuration::TEndpointOptions> const endpointOptions = 
-        local::GetEndpointOptionsFromUser();
+    EndpointConfigurations const endpointConfigurations = 
+        local::GetEndpointConfigurationsFromUser();
 
     Configuration::TSecurityOptions const securityOptions = 
         local::GetSecurityOptionsFromUser();
 
     m_settings.details = detailsOptions;
-    m_settings.endpoints = endpointOptions;
+    m_settings.endpoints = endpointConfigurations;
     m_settings.security = securityOptions;
 }
 
@@ -344,27 +306,16 @@ void Configuration::CManager::GetConfigurationOptionsFromUser()
 void Configuration::CManager::InitializeSettings()
 {
     std::for_each(m_settings.endpoints.begin(), m_settings.endpoints.end(),
-    [](auto& endpoint){
-        endpoint.technology = NodeUtils::ParseTechnologyType(endpoint.technology_name);
-    });
+    [] (auto& endpoint)
+        {
+            endpoint.technology = Endpoints::ParseTechnologyType(endpoint.technology_name);
+        }
+    );
 }
 
 //-----------------------------------------------------------------------------------------------
 
-bool local::IsNewlineOrTab(char c)
-{
-    switch (c) {
-        case '\n':
-        case '\t':
-            return true;
-        default:
-            return false;
-    }
-}
-
-//-----------------------------------------------------------------------------------------------
-
-void local::WriteNodeOptions(
+void local::SerializeNodeOptions(
     Configuration::TDetailsOptions const& options,
     std::ofstream& out)
 {
@@ -378,19 +329,18 @@ void local::WriteNodeOptions(
 
 //-----------------------------------------------------------------------------------------------
 
-void local::WriteEndpointOptions(
-    std::vector<Configuration::TEndpointOptions> const& options,
+void local::SerializeEndpointConfigurations(
+    Configuration::EndpointConfigurations const& configurations,
     std::ofstream& out)
 {
     out << "\t\"endpoints\": [\n";
-    for (auto const& endpoint: options) {
+    for (auto const& options: configurations) {
         out << "\t\t{\n";
-        out << "\t\t\t\"technology_name\": \"" << NodeUtils::TechnologyTypeToString(endpoint.technology) << "\",\n";
-        out << "\t\t\t\"interface\": \"" << endpoint.interface << "\",\n";
-        out << "\t\t\t\"binding\": \"" << endpoint.binding << "\",\n";
-        out << "\t\t\t\"entry\": \"" << endpoint.entry << "\"\n";
+        out << "\t\t\t\"technology_name\": \"" << Endpoints::TechnologyTypeToString(options.technology) << "\",\n";
+        out << "\t\t\t\"interface\": \"" << options.interface << "\",\n";
+        out << "\t\t\t\"binding\": \"" << options.binding << "\"\n";
         out << "\t\t}";
-        if (&endpoint != &options.back()) {
+        if (&options != &configurations.back()) {
             out << ",\n";
         }
     }
@@ -399,7 +349,7 @@ void local::WriteEndpointOptions(
 
 //-----------------------------------------------------------------------------------------------
 
-void local::WriteSecurityOptions(
+void local::SerializeSecurityOptions(
     Configuration::TSecurityOptions const& options,
     std::ofstream& out)
 {
@@ -446,28 +396,24 @@ Configuration::TDetailsOptions local::GetDetailsOptionsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
+Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 {
-    std::vector<Configuration::TEndpointOptions> options;
+    Configuration::EndpointConfigurations configurations;
 
     bool bAddEndpointOption = false;
-    NodeUtils::NodeIdType nodeId = 0;
     do {
-        Configuration::TEndpointOptions endpoint(
-            ++nodeId,
+        Configuration::TEndpointOptions options(
             defaults::TechnologyName,
             defaults::NetworkInterface,
-            defaults::TcpBindingAddress,
-            defaults::EntryAddress
-        );
+            defaults::TcpBindingAddress);
 
         // Get the desired primary technology type for the node
         std::string sTechnology = "";
         std::cout << "Communication Technology: (" << defaults::TechnologyName << ") " << std::flush;
         std::getline(std::cin, sTechnology);
         if (!sTechnology.empty()) {
-            endpoint.technology_name = sTechnology;
-            endpoint.technology = NodeUtils::ParseTechnologyType(sTechnology);
+            options.technology_name = sTechnology;
+            options.technology = Endpoints::ParseTechnologyType(sTechnology);
         }
 
         // Get the network interface that the node will be bound too
@@ -475,7 +421,7 @@ std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
         std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
         std::getline(std::cin, sInterface);
         if (!sInterface.empty()) {
-            endpoint.interface = sInterface;
+            options.interface = sInterface;
         }
 
         // Get the primary and secondary network address components
@@ -484,33 +430,19 @@ std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
         std::string sBinding = "";
         std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
         bindingOutputMessage.append(defaults::TcpBindingAddress.data());
-        if (endpoint.technology == NodeUtils::TechnologyType::LoRa) {
+        if (options.technology == Endpoints::TechnologyType::LoRa) {
             bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
             bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
-            endpoint.binding = defaults::LoRaBindingAddress;
-            endpoint.entry = "";
+            options.binding = defaults::LoRaBindingAddress;
         }
         bindingOutputMessage.append(") ");
         std::cout << bindingOutputMessage << std::flush;
         std::getline(std::cin, sBinding);
         if (!sBinding.empty()) {
-            endpoint.binding = sBinding;
+            options.binding = sBinding;
         }
 
-        // If the technology type is LoRa, return because the cluster is assumed
-        // to be on the same frequency and channel.
-        if (endpoint.technology != NodeUtils::TechnologyType::LoRa) {
-            // Get the entry address of the network this may be the cluster
-            // coordinator. In the future some sort of discovery.
-            std::string sEntry = "";
-            std::cout << "Entry Address: (" << defaults::EntryAddress << ") " << std::flush;
-            std::getline(std::cin, sEntry);
-            if (!sEntry.empty()) {
-                endpoint.entry = sEntry;
-            }
-        }
-
-        options.emplace_back(endpoint);
+        configurations.emplace_back(options);
 
         std::string sContinueChoice;
         std::cout << "Enter any key to setup a key (Press enter to continue): " << std::flush;
@@ -519,7 +451,7 @@ std::vector<Configuration::TEndpointOptions> local::GetEndpointOptionsFromUser()
         std::cout << "\n";
     } while(bAddEndpointOption);
 
-    return options;
+    return configurations;
 }
 
 //-----------------------------------------------------------------------------------------------

@@ -12,7 +12,6 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-
 //------------------------------------------------------------------------------------------------
 namespace NodeUtils {
 //------------------------------------------------------------------------------------------------
@@ -27,9 +26,7 @@ using ObjectIdType = std::uint32_t;
 
 //------------------------------------------------------------------------------------------------
 
-enum class DeviceOperation : std::uint8_t { Root, Branch, Leaf, None };
-enum class EndpointOperation : std::uint8_t { Server, Client, None };
-enum class TechnologyType : std::uint8_t { Direct, LoRa, StreamBridge, TCP, None };
+enum class DeviceOperation : std::uint8_t { Branch, Leaf, None };
 enum class NotificationType : std::uint8_t { Network, Cluster, Node, None };
 enum class PrintType : std::uint8_t { Await, Command, Control, Endpoint, Message, MessageQueue, Node, Notifier, PeerWatcher, Error };
 
@@ -41,12 +38,9 @@ constexpr char const* IDSeperator = ":";
 
 NodeIdType GenerateNodeIdentifier();
 
-TechnologyType ParseTechnologyType(std::string name);
-std::string TechnologyTypeToString(TechnologyType technology);
 std::string GetDesignation(DeviceOperation const& operation);
 
 std::string GetPrintEscape(PrintType const& component);
-
 void printo(std::string_view message, PrintType component);
 
 //------------------------------------------------------------------------------------------------
@@ -62,50 +56,9 @@ inline NodeUtils::NodeIdType NodeUtils::GenerateNodeIdentifier()
 
 //------------------------------------------------------------------------------------------------
 
-inline NodeUtils::TechnologyType NodeUtils::ParseTechnologyType(std::string name)
-{
-    static std::unordered_map<std::string, TechnologyType> const technologyMap = {
-        {"direct", TechnologyType::Direct},
-        {"lora", TechnologyType::LoRa},
-        {"streambridge", TechnologyType::StreamBridge},
-        {"tcp", TechnologyType::TCP},
-    };
-
-    // Adjust the provided technology name to lowercase
-    std::transform(name.begin(), name.end(), name.begin(),
-    [](unsigned char c){
-        return std::tolower(c);
-    });
-
-    if(auto const itr = technologyMap.find(name); itr != technologyMap.end()) {
-        return itr->second;
-    }
-    return TechnologyType::None;
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline std::string NodeUtils::TechnologyTypeToString(TechnologyType technology)
-{
-    static std::unordered_map<TechnologyType, std::string> const technologyMap = {
-        {TechnologyType::Direct, "Direct"},
-        {TechnologyType::LoRa, "LoRa"},
-        {TechnologyType::StreamBridge, "StreamBridge"},
-        {TechnologyType::TCP, "TCP"},
-    };
-
-    if(auto const itr = technologyMap.find(technology); itr != technologyMap.end()) {
-        return itr->second;
-    }
-    return {};
-}
-
-//------------------------------------------------------------------------------------------------
-
 inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
 {
     static std::unordered_map<DeviceOperation, std::string> const designationMap = {
-        {DeviceOperation::Root, "root"},
         {DeviceOperation::Branch, "coordinator"},
         {DeviceOperation::Leaf, "node"},
     };
@@ -113,7 +66,8 @@ inline std::string NodeUtils::GetDesignation(DeviceOperation const& operation)
     if(auto const itr = designationMap.find(operation); itr != designationMap.end()) {
         return itr->second;
     }
-    return std::string();
+
+    return "";
 }
 
 //------------------------------------------------------------------------------------------------

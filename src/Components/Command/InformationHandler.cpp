@@ -123,30 +123,12 @@ bool Command::CInformationHandler::FloodHandler(CMessage const& message)
 {
     printo("Building response for Information request", NodeUtils::PrintType::Command);
     
-    // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = 0;
-    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        id = spNodeState->GetId();
-    }
-
-    NodeUtils::NetworkNonce const nonce = 0;
-
-    if (auto const awaiting = m_instance.GetAwaiting().lock()) {
-        auto const awaitKey = awaiting->PushRequest(message, id);
-
-        CMessage const infoMessage(
-            id,
-            message.GetSourceId(),
-            Command::Type::Information,
-            static_cast<std::uint8_t>(Phase::Respond),
-            local::GenerateNodeInfo(m_instance),
-            nonce,
-            Message::BoundAwaitId({Message::AwaitBinding::Destination, awaitKey}));
-
-        awaiting->PushResponse(infoMessage);
-    }
-
-    // TODO: Add notification distribution, so branches can add their information
+    IHandler::SendClusterNotice(
+        message,
+        "Request for Node Information.",
+        static_cast<std::uint8_t>(Phase::Respond),
+        static_cast<std::uint8_t>(Phase::Close),
+        local::GenerateNodeInfo(m_instance));
 
     return true;
 }

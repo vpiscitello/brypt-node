@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "PeerWatcher.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Endpoints/Endpoint.hpp"
+#include "../Endpoints/EndpointManager.hpp"
 #include "../../Utilities/Message.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -13,15 +13,17 @@ namespace {
 //------------------------------------------------------------------------------------------------
 namespace local {
 //------------------------------------------------------------------------------------------------
+
 constexpr std::chrono::seconds timeout = std::chrono::seconds(10);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CPeerWatcher::CPeerWatcher(std::weak_ptr<EndpointMap> const& wpPeers)
-    : m_wpWatched(wpPeers)
+CPeerWatcher::CPeerWatcher(std::weak_ptr<CEndpointManager> const& wpEndpointManager)
+    : m_wpEndpointManager(wpEndpointManager)
     , m_lastCheckTimepoint()
     , m_requiredUpdateTimepoint()
     , m_process(true)
@@ -29,7 +31,6 @@ CPeerWatcher::CPeerWatcher(std::weak_ptr<EndpointMap> const& wpPeers)
     , m_cv()
     , m_worker()
 {
-    m_worker = std::thread(&CPeerWatcher::watch, this);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -46,7 +47,7 @@ CPeerWatcher::~CPeerWatcher()
 bool CPeerWatcher::Startup()
 {
     if (!m_worker.joinable()) {
-        m_worker = std::thread(&CPeerWatcher::watch, this);
+        m_worker = std::thread(&CPeerWatcher::Watch, this);
     }
     return m_worker.joinable();
 }
@@ -71,7 +72,7 @@ bool CPeerWatcher::Shutdown()
 
 //-------------------------------------------------------------------------------;-----------------
 
-void CPeerWatcher::watch()
+void CPeerWatcher::Watch()
 {
     do {
         {
@@ -102,7 +103,7 @@ void CPeerWatcher::watch()
 
 //------------------------------------------------------------------------------------------------
 
-void CPeerWatcher::heartbeat()
+void CPeerWatcher::Heartbeat()
 {
 
 }

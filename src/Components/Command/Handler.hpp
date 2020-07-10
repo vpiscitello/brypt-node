@@ -6,7 +6,6 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "CommandDefinitions.hpp"
-#include "../Notifier/Notifier.hpp"
 #include "../../Utilities/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -41,7 +40,6 @@ using HandlerMap = std::unordered_map<Command::Type, std::unique_ptr<IHandler>>;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-
 class Command::IHandler {
 public:
     IHandler(
@@ -54,8 +52,37 @@ public:
     virtual bool HandleMessage(CMessage const& message) = 0;
 
 protected:
+    virtual void SendClusterNotice(
+        CMessage const& request,
+        std::string_view noticeData,
+        std::uint8_t noticePhase,
+        std::uint8_t responsePhase,
+        std::optional<std::string> optResponseData) final;
+
+    virtual void SendNetworkNotice(
+        CMessage const& request,
+        std::string_view noticeData,
+        std::uint8_t noticePhase,
+        std::uint8_t responsePhase,
+        std::optional<std::string> optResponseData) final;
+
+    virtual void SendResponse(
+        CMessage const& request,
+        std::string_view responseData,
+        std::uint8_t responsePhase,
+        std::optional<NodeUtils::NodeIdType> optDestinationOverride = {}) final;
+        
     Command::Type m_type;
     CBryptNode& m_instance;
+
+private: 
+    virtual void SendNotice(
+        CMessage const& request,
+        NodeUtils::NodeIdType noticeDestination,
+        std::string_view noticeData,
+        std::uint8_t noticePhase,
+        std::uint8_t responsePhase,
+        std::optional<std::string> optResponseData) final;
 };
 
 //------------------------------------------------------------------------------------------------

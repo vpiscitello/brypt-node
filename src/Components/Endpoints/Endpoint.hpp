@@ -5,8 +5,13 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "EndpointTypes.hpp"
+#include "EndpointIdentifier.hpp"
+#include "TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
+#include "../../Interfaces/EndpointMediator.hpp"
 #include "../../Interfaces/MessageSink.hpp"
+#include "../../Interfaces/PeerMediator.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "zmq.hpp"
@@ -21,6 +26,7 @@
 #include <mutex>
 #include <thread>
 #include <string>
+#include <string_view>
 //------------------------------------------------------------------------------------------------
 
 class CMessage;
@@ -36,12 +42,17 @@ class CLoRaEndpoint;
 class CStreamBridgeEndpoint;
 class CTcpEndpoint;
 
-std::shared_ptr<CEndpoint> Factory(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options);
+std::unique_ptr<CEndpoint> Factory(
+    TechnologyType technology,
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    Endpoints::OperationType operation,
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink);
 
 //------------------------------------------------------------------------------------------------
-} // Command namespace
+} // Endpoint namespace
 //------------------------------------------------------------------------------------------------
 
 class CEndpoint {
@@ -49,70 +60,75 @@ public:
     enum class NetworkInstruction : std::uint8_t { Bind, Connect };
 
     CEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options)
+        NodeUtils::NodeIdType id,
+        std::string_view interface,
+        Endpoints::OperationType operation,
+        IEndpointMediator const* const pEndpointMediator,
+        IPeerMediator* const pPeerMediator,
+        IMessageSink* const pMessageSink,
+        Endpoints::TechnologyType technology = Endpoints::TechnologyType::Invalid)
         : m_mutex()
-        , m_interface(options.interface)
-        , m_operation(options.operation)
-        , m_id(options.id)
-        , m_messageSink(messageSink)
+        , m_identifier(CEndpointIdentifierGenerator::Instance().GetIdentifier())
+        , m_technology(technology)
+        , m_nodeIdentifier(id) 
+        , m_interface(interface)
+        , m_operation(operation)
+        , m_pEndpointMediator(pEndpointMediator)
+        , m_pPeerMediator(pPeerMediator)
+        , m_pMessageSink(pMessageSink)
         , m_active(false)
         , m_terminate(false)
         , m_cv()
         , m_worker()
     {
-        if (m_operation == NodeUtils::EndpointOperation::None) {
+        if (m_operation == Endpoints::OperationType::Invalid) {
             throw std::runtime_error("Endpoint must be provided and endpoint operation type!");
         }
     };
 
-    virtual ~CEndpoint() {}; 
+    virtual ~CEndpoint() = default; 
 
-    virtual NodeUtils::TechnologyType GetInternalType() const = 0;
+    virtual Endpoints::TechnologyType GetInternalType() const = 0;
     virtual std::string GetProtocolType() const = 0;
     virtual std::string GetEntry() const = 0;
+    virtual std::string GetURI() const = 0;
 
     virtual void ScheduleBind(std::string_view binding) = 0;
     virtual void ScheduleConnect(std::string_view entry) = 0;
     virtual void Startup() = 0;
 
-    virtual void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) = 0;
-	virtual void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) = 0;
-	virtual void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
+	virtual bool ScheduleSend(CMessage const& message) = 0;
+	virtual bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
     
 	virtual bool Shutdown() = 0;
 
-    //------------------------------------------------------------------------------------------------
+    bool IsActive() const;
+    Endpoints::EndpointIdType GetIdentifier() const;
+    Endpoints::OperationType GetOperation() const;
 
-    bool GetStatus() const
-    {
-        return m_active;
-    }
-
-    //------------------------------------------------------------------------------------------------
-
-    NodeUtils::EndpointOperation GetOperation() const
-    {
-        return m_operation;
-    }
-
-    //------------------------------------------------------------------------------------------------
-    
 protected:
+    void PublishPeerConnection(CPeer const& peer);
+    void UnpublishPeerConnection(CPeer const& peer);
+
     using EventDeque = std::deque<std::any>;
 
     mutable std::mutex m_mutex;
 
+    Endpoints::EndpointIdType const m_identifier;
+    Endpoints::TechnologyType const m_technology;
+
+	NodeUtils::NodeIdType const m_nodeIdentifier;
     std::string m_interface;
-	NodeUtils::EndpointOperation const m_operation;
-	NodeUtils::NodeIdType const m_id;
-    IMessageSink* const m_messageSink;
+	Endpoints::OperationType const m_operation;
+
+    IEndpointMediator const* const m_pEndpointMediator;
+    IPeerMediator* const m_pPeerMediator;
+    IMessageSink* const m_pMessageSink;
 
 	std::atomic_bool m_active;
     std::atomic_bool m_terminate;
     mutable std::condition_variable m_cv;
     std::thread m_worker;
-
 };
 
 //------------------------------------------------------------------------------------------------

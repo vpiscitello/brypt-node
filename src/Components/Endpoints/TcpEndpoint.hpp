@@ -7,6 +7,7 @@
 #include "Endpoint.hpp"
 #include "PeerDetails.hpp"
 #include "PeerDetailsMap.hpp"
+#include "TechnologyType.hpp"
 #include "../../Utilities/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
@@ -72,32 +73,45 @@ public:
     using SocketDescriptor = std::int32_t;
     using IPv4SocketAddress = struct sockaddr_in;
     
+    constexpr static std::string_view Scheme = "tcp://";
     constexpr static std::string_view ProtocolType = "TCP/IP";
-    constexpr static NodeUtils::TechnologyType InternalType = NodeUtils::TechnologyType::TCP;
+    constexpr static TechnologyType InternalType = TechnologyType::TCP;
 
     CTcpEndpoint(
-        IMessageSink* const messageSink,
-        Configuration::TEndpointOptions const& options);
+        NodeUtils::NodeIdType id,
+        std::string_view interface,
+        OperationType operation,
+        IEndpointMediator const* const pEndpointMediator,
+        IPeerMediator* const pPeerMediator,
+        IMessageSink* const pMessageSink);
     ~CTcpEndpoint() override;
 
     // CEndpoint{
-    NodeUtils::TechnologyType GetInternalType() const override;
+    TechnologyType GetInternalType() const override;
     std::string GetProtocolType() const override;
     std::string GetEntry() const override;
+    std::string GetURI() const override;
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
-    void HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message) override;
-    void ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
+    bool ScheduleSend(CMessage const& message) override;
+    bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint
     
 private:
     enum class ConnectionStateChange : std::uint8_t { Connect, Disconnect };
+    enum class ConnectStatusCode : std::uint8_t {
+        Success,
+        Terminated,
+        GenericError,
+        RetryError,
+        ReflectionError,
+        DuplicateError
+    };
 
     using NetworkInstructionDeque = std::deque<Tcp::TNetworkInstructionEvent>;
     using OutgoingMessageDeque = std::deque<Tcp::TOutgoingMessageEvent>;
@@ -105,6 +119,8 @@ private:
     using ReceiveResult = std::variant<ConnectionStateChange, Message::Buffer>;
     using OptionalReceiveResult = std::optional<ReceiveResult>;
     using SendResult = std::variant<ConnectionStateChange, std::int32_t>;
+
+    using ExtendedPeerDetails = CPeerDetails<void>;
 
     constexpr static std::int32_t SocketAddressSize = sizeof(IPv4SocketAddress);
     constexpr static std::int32_t ReadBufferSize = 8192;
@@ -122,13 +138,13 @@ private:
 
     bool SetupClientWorker();
     void ClientWorker();
-    bool Connect(
+    ConnectStatusCode Connect(
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port,
         IPv4SocketAddress& socketAddress);
-    bool EstablishConnection(
+    ConnectStatusCode IsURIAllowed(std::string_view uri);
+    ConnectStatusCode EstablishConnection(
         SocketDescriptor descriptor, IPv4SocketAddress address);
-    void StartPeerAuthentication(SocketDescriptor descriptor);
 
     void ProcessNetworkInstructions(SocketDescriptor* listener = nullptr);
 
@@ -144,7 +160,7 @@ private:
     NetworkUtils::NetworkAddress m_address;
     NetworkUtils::PortNumber m_port;
 
-    CPeerInformationMap<SocketDescriptor> m_peers;
+    CPeerDetailsMap<SocketDescriptor> m_peers;
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

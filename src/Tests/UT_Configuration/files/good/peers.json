@@ -1,0 +1,14 @@
+{
+	"endpoints": [
+		{
+			"technology": "TCP",
+			"peers": [
+				{
+					"id": 305419896,
+					"entry": "127.0.0.1:35216",
+					"location": ""
+				}
+			]
+		}
+	]
+}

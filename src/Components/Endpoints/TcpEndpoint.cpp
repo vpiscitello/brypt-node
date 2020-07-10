@@ -4,6 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #include "TcpEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "Peer.hpp"
+#include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "../Command/CommandDefinitions.hpp"
 #include "../../Utilities/Message.hpp"
@@ -28,27 +30,23 @@ constexpr std::uint8_t DisabledOption = 0;
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CTcpEndpoint::CTcpEndpoint(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options)
-    : CEndpoint(messageSink, options)
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    OperationType operation,
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink)
+    : CEndpoint(
+        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
-    switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
-            auto const binding = options.GetBinding();
-            ScheduleBind(binding);
-        } break;
-        case NodeUtils::EndpointOperation::Client: {
-            auto const entry = options.GetEntry();
-            if (!entry.empty()) {
-                ScheduleConnect(entry);
-            }
-        } break;
-        default: assert(false); break; // What is this?
+    if (m_pMessageSink) {
+        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
+        m_pMessageSink->RegisterCallback(m_identifier, callback);
     }
 }
 
@@ -68,7 +66,7 @@ Endpoints::CTcpEndpoint::~CTcpEndpoint()
 // Description:
 // Returns:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CTcpEndpoint::GetInternalType() const
+Endpoints::TechnologyType Endpoints::CTcpEndpoint::GetInternalType() const
 {
     return InternalType;
 }
@@ -92,7 +90,27 @@ std::string Endpoints::CTcpEndpoint::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 std::string Endpoints::CTcpEndpoint::GetEntry() const
 {
-    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+    std::string entry = "";
+    if (m_operation == OperationType::Client || m_address.empty()) {
+        return entry;
+    }
+
+    entry.append(m_address);
+    entry.append(NetworkUtils::ComponentSeperator.data());
+    entry.append(std::to_string(m_port));
+
+    return entry;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+// Returns:
+//------------------------------------------------------------------------------------------------
+std::string Endpoints::CTcpEndpoint::GetURI() const
+{
+    return Scheme.data() + GetEntry();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -102,11 +120,15 @@ std::string Endpoints::CTcpEndpoint::GetEntry() const
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
 {
-    if (m_operation != NodeUtils::EndpointOperation::Server) {
+    if (m_operation != OperationType::Server) {
         throw std::runtime_error("Bind was called a non-listening Endpoint!");
     }
 
     auto [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    if (address.empty() || sPort.empty()) {
+        return;
+    }
+
     NetworkUtils::PortNumber port = std::stoul(sPort);
 
     if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
@@ -119,6 +141,12 @@ void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
         m_events.emplace_back(
             Tcp::TNetworkInstructionEvent(NetworkInstruction::Bind, address, port));
     }
+
+    {
+        std::scoped_lock lock(m_mutex);
+        m_address = address; // Capture the address the endpoint bound too
+        m_port = port; // Capture the port the endpoint bound too
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -128,11 +156,15 @@ void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ScheduleConnect(std::string_view entry)
 {
-    if (m_operation != NodeUtils::EndpointOperation::Client) {
+    if (m_operation != OperationType::Client) {
         throw std::runtime_error("Connect was called a non-client Endpoint!");
     }
     
     auto const [address, sPort] = NetworkUtils::SplitAddressString(entry);
+    if (address.empty() || sPort.empty()) {
+        return;
+    }
+
     NetworkUtils::PortNumber port = std::stoul(sPort);
 
     // Schedule the Connect network instruction event
@@ -161,9 +193,10 @@ void Endpoints::CTcpEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::HandleProcessedMessage(NodeUtils::NodeIdType id, CMessage const& message)
+bool Endpoints::CTcpEndpoint::ScheduleSend(CMessage const& message)
 {
-    ScheduleSend(id, message.GetPack()); // Forward the received message to be sent on the socket
+    // Forward the received message to be sent on the socket
+    return ScheduleSend(message.GetDestinationId(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -171,27 +204,17 @@ void Endpoints::CTcpEndpoint::HandleProcessedMessage(NodeUtils::NodeIdType id, C
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message)
-{
-    ScheduleSend(id, message.GetPack()); // Forward the received message to be sent on the socket
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool  Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
-        return;
+        return false;
     }
 
     // Get the socket descriptor of the intended destination. If it is not found, drop the message.
     auto const optDescriptor = m_peers.Translate(id);
     if (!optDescriptor) {
-        return;
+        return false;
     }
 
     // Schedule the outgoing message event
@@ -200,6 +223,8 @@ void Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string
         m_events.emplace_back(
             Tcp::TOutgoingMessageEvent(*optDescriptor, message, 0));
     }
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -214,6 +239,9 @@ bool Endpoints::CTcpEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+    if (m_pMessageSink) {
+        m_pMessageSink->UnpublishCallback(m_identifier);
+    }
      
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
@@ -223,16 +251,14 @@ bool Endpoints::CTcpEndpoint::Shutdown()
     }
 
     m_peers.ReadEachPeer(
-        [&]([[maybe_unused]] auto const& descriptor, auto const& optDetails) -> CallbackIteration
+        [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
         {
-            // If the connection has an attached node, unpublish the callback from Brypt Core
-            if (optDetails) {
-                m_messageSink->UnpublishCallback(optDetails->GetNodeId());
-            }
             ::close(descriptor); // Close the connection descriptor
             return CallbackIteration::Continue;
         }
     );
+
+    m_peers.Clear();
     
     return !m_worker.joinable();
 }
@@ -248,10 +274,10 @@ void Endpoints::CTcpEndpoint::Spawn()
 
     // Attempt to start an endpoint worker thread based on the designated endpoint operation.
     switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
+        case OperationType::Server: {
             bWorkerStarted = SetupServerWorker(); 
         } break;
-        case NodeUtils::EndpointOperation::Client: {
+        case OperationType::Client: {
             bWorkerStarted = SetupClientWorker();
         } break;
         default: return;
@@ -303,7 +329,7 @@ void Endpoints::CTcpEndpoint::ServerWorker()
         // signal before continuing normal operation. 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::CycleTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::CycleTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 m_active = false; // Terminate if the endpoint is shutting down
@@ -325,7 +351,13 @@ bool Endpoints::CTcpEndpoint::Listen(
     NetworkUtils::PortNumber port,
     IPv4SocketAddress& socketAddress)
 {
-    NodeUtils::printo("[TCP] Setting up TCP socket on port " + std::to_string(port), NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+
+    NodeUtils::printo("[TCP] Setting up TCP socket on " + uri, NodeUtils::PrintType::Endpoint);
 
     // If a listener socket was not provided to perform the bind instruction, don't do anything.
     if (listener == nullptr) {
@@ -385,9 +417,6 @@ bool Endpoints::CTcpEndpoint::Listen(
     }
      
     *listener = descriptor; // Set the listener to the valid listening file descriptor 
-
-    m_address = address; // Capture the address the endpoint bound too
-    m_port = port; // Capture the port the endpoint bound too
 
     return true;
 }
@@ -456,7 +485,7 @@ void Endpoints::CTcpEndpoint::ClientWorker()
         // signal before continuing normal operation. 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::CycleTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::CycleTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 m_active = false; // Terminate if the endpoint is shutting down
@@ -470,32 +499,41 @@ void Endpoints::CTcpEndpoint::ClientWorker()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::Connect(
+Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port,
     IPv4SocketAddress& socketAddress)
 {
-    NodeUtils::printo("[TCP] Connecting TCP socket to " + address + ":" + std::to_string(port), NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+    if (auto const status = IsURIAllowed(uri); status != ConnectStatusCode::Success) {
+        return status;
+    }
+
+    NodeUtils::printo("[TCP] Connecting TCP socket to " + uri, NodeUtils::PrintType::Endpoint);
 
     socketAddress.sin_family = AF_INET;
-    socketAddress.sin_port = ::htons(port);
+    socketAddress.sin_port = htons(port);
     // Convert IPv4 and IPv6 addresses from text to binary form
     if (::inet_pton(AF_INET, address.c_str(), &socketAddress.sin_addr) <= 0) {
-        return false;
+        return ConnectStatusCode::GenericError;
     }
 
     SocketDescriptor descriptor = std::numeric_limits<std::int32_t>::min();
     if (descriptor = ::socket(AF_INET, SOCK_STREAM, 0); descriptor < 0) {
-        return false;
+        return ConnectStatusCode::GenericError;
     }
 
-    if (!EstablishConnection(descriptor, socketAddress)) {
-        return false;
+    if (auto const status = EstablishConnection(descriptor, socketAddress); status != ConnectStatusCode::Success) {
+        return status;
     }
 
-    m_peers.TrackConnection(descriptor);  // Start tracking the descriptor for communication
+    m_peers.TrackConnection(descriptor, uri);  // Start tracking the descriptor for communication
 
-    return true;
+    return ConnectStatusCode::Success;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -503,7 +541,40 @@ bool Endpoints::CTcpEndpoint::Connect(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::EstablishConnection(
+Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::IsURIAllowed(std::string_view uri)
+{
+    // Determine if the provided URI matches any of the node's hosted entrypoints.
+    bool bUriMatchedEntry = false;
+    if (m_pEndpointMediator) {
+        auto const entries = m_pEndpointMediator->GetEndpointEntries();
+        for (auto const& [technology, entry]: entries) {
+            if (auto const pos = uri.find(entry); pos != std::string::npos) {
+                bUriMatchedEntry = true; 
+                break;
+            }
+        }
+    }
+    // If the URI matched an entrypoint, the connection should not be allowed as
+    // it would be a connection to oneself.
+    if (bUriMatchedEntry) {
+        return ConnectStatusCode::ReflectionError;
+    }
+
+    // If the URI matches a currently connected or resolving peer. The connection
+    // should not be allowed as it break a valid connection. 
+    if (bool const bWouldBreakConnection = m_peers.IsURITracked(uri); bWouldBreakConnection) {
+        return ConnectStatusCode::DuplicateError;
+    }
+
+    return ConnectStatusCode::Success;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishConnection(
     SocketDescriptor descriptor, 
     IPv4SocketAddress address)
 {
@@ -517,39 +588,28 @@ bool Endpoints::CTcpEndpoint::EstablishConnection(
 
         NodeUtils::printo("[TCP] Connection to peer failed. Error: " + error, NodeUtils::PrintType::Endpoint);
 
-        if (++attempts > Endpoint::ConnectRetryThreshold) {
-            return false;
+        if (++attempts > Endpoints::ConnectRetryThreshold) {
+            return ConnectStatusCode::RetryError;
         }
 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::ConnectRetryTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::ConnectRetryTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
-                return false; // Terminate if the endpoint is shutting down
+                return ConnectStatusCode::Terminated; // Terminate if the endpoint is shutting down
             }
         }
     }
 
-    StartPeerAuthentication(descriptor);
+    auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
+    auto const result = PeerBootstrap::SendContactMessage(
+        m_pEndpointMediator, m_identifier, m_technology, m_nodeIdentifier, sender);
+    if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
+        return ConnectStatusCode::GenericError;
+    }
 
-    return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::StartPeerAuthentication(SocketDescriptor descriptor)
-{
-    // TODO: Implement better method of starting peer authentication
-    CMessage message(
-        m_id, 0x00000000,
-        Command::Type::Connect, 0,
-        "", 0);
-
-    Send(descriptor, message.GetPack());
+    return ConnectStatusCode::Success;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -589,8 +649,8 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
                 }
             } break;
             case NetworkInstruction::Connect: {
-                bool const success = Connect(address, port, socketAddress);
-                if (!success) {
+                auto const status = Connect(address, port, socketAddress);
+                if (status == ConnectStatusCode::GenericError) {
                     std::string const notification = "[TCP] Connection to " + address + ":" + std::to_string(port) + " failed.";
                     NodeUtils::printo(notification, NodeUtils::PrintType::Endpoint);
                 }
@@ -681,8 +741,6 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
                     return {};
                 }
 
-
-
                 buffer.resize(received);
                 return buffer;
             }
@@ -700,35 +758,34 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
 void Endpoints::CTcpEndpoint::HandleReceivedData(
     SocketDescriptor descriptor, Message::Buffer const& message)
 {
-    NodeUtils::printo("[TCP] Received request: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[TCP] Received message: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
     try {
-        CMessage const request(message);
-        auto const id = request.GetSourceId();
+        CMessageContext const context(m_identifier, m_technology);
+        CMessage const request(context, message);
+
         // Update the information about the node as it pertains to received data. The node may not be found 
         // if this is its first connection.
-        bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
+        m_peers.UpdateOnePeer(descriptor,
             [] (auto& details) {
                 details.IncrementMessageSequence();
+            },
+            [this, &request] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
+                optDetails = ExtendedPeerDetails(request.GetSourceId());
+
+                optDetails->SetConnectionState(ConnectionState::Connected);
+                optDetails->SetMessagingPhase(MessagingPhase::Response);
+                optDetails->IncrementMessageSequence();
+
+                CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, uri});
+
+                return PeerResolutionCommand::Promote;
             }
         );
 
-        // Ifd the node was not found then in the update then, we should start tracking the node.
-        if (!bPeerDetailsFound) {
-            // TODO: Peer should be registered with an authentication and key manager.
-            CPeerDetails<> details(
-                request.GetSourceId(),
-                ConnectionState::Connected,
-                MessagingPhase::Response);
-            
-            details.IncrementMessageSequence();
-            m_peers.PromoteConnection(descriptor, details);
-
-            // Register this peer's message handler with the message sink
-            m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
-        }
-
         // TODO: Only authenticated requests should be forwarded into BryptNode
-        m_messageSink->ForwardMessage(id, request);
+        if (m_pMessageSink) {
+            m_pMessageSink->ForwardMessage(request);
+        }
     } catch (...) {
         NodeUtils::printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
     }
@@ -745,7 +802,7 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
     OutgoingMessageDeque outgoing;
     {
         std::scoped_lock lock(m_eventsMutex);
-        for (std::uint32_t idx = 0; idx < Endpoint::OutgoingMessageLimit; ++idx) {
+        for (std::uint32_t idx = 0; idx < Endpoints::OutgoingMessageLimit; ++idx) {
             // If there are no messages left in the outgoing message queue, break from
             // copying the items into the temporary queue.
             if (m_events.size() == 0) {
@@ -800,7 +857,7 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
                         );
                     } else {
                         // If we have already attempted to send the message three times, drop the message.
-                        if (retries == Endpoint::MessageRetryLimit) {
+                        if (retries == Endpoints::MessageRetryLimit) {
                             // TODO: Logic is needed to properly handling this condition. Should the peer be flagged?
                             // Should the response required be flipped?
                             return;
@@ -857,23 +914,30 @@ Endpoints::CTcpEndpoint::SendResult Endpoints::CTcpEndpoint::Send(
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
     SocketDescriptor descriptor,
-    [[maybe_unused]] ConnectionStateChange change)
+    ConnectionStateChange change)
 {
     [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
         [&] (auto& details)
         {
-            auto const id = details.GetNodeId();
-
+            CPeer const peer(details.GetNodeId(), InternalType, details.GetURI());
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
-                    details.SetConnectionState(ConnectionState::Disconnected);   
-                    m_messageSink->UnpublishCallback(id);
+                    details.SetConnectionState(ConnectionState::Disconnected);
+                    CEndpoint::UnpublishPeerConnection(peer);
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;
             }
         }
     );
+
+    switch (change) {
+        case ConnectionStateChange::Disconnect: {
+            m_peers.UntrackConnection(descriptor);
+        } break;
+        // Other ConnectionStateChanges are not currently handled for this endpoint
+        default: assert(false); break;
+    }
 }
 
 //------------------------------------------------------------------------------------------------

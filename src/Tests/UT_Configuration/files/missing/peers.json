@@ -1,0 +1,8 @@
+{
+   "endpoints": [
+      {
+         "technology": "TCP",
+         "peers": []
+      }
+   ]
+}

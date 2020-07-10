@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "StreamBridgeEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "Peer.hpp"
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
 #include "../../Utilities/Message.hpp"
@@ -27,25 +28,27 @@ void ShutdownSocket(zmq::socket_t& socket);
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
-    IMessageSink* const messageSink,
-    Configuration::TEndpointOptions const& options)
-    : CEndpoint(messageSink, options)
+    NodeUtils::NodeIdType id,
+    std::string_view interface,
+    Endpoints::OperationType operation,
+    IEndpointMediator const* const pEndpointMediator,
+    IPeerMediator* const pPeerMediator,
+    IMessageSink* const pMessageSink)
+    : CEndpoint(
+        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::StreamBridge)
     , m_address()
     , m_port()
     , m_peers()
     , m_eventsMutex()
     , m_events()
 {
-    if (m_operation != NodeUtils::EndpointOperation::Server) {
+    if (m_operation != OperationType::Server) {
         throw std::runtime_error("StreamBridge endpoint may only operate in server mode.");
     }
-
-    switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
-            auto const binding = options.GetBinding();
-            ScheduleBind(binding);
-        } break;
-        default: assert(false); break; // What is this?
+    
+    if (m_pMessageSink) {
+        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
+        m_pMessageSink->RegisterCallback(m_identifier, callback);
     }
 }
 
@@ -64,7 +67,7 @@ Endpoints::CStreamBridgeEndpoint::~CStreamBridgeEndpoint()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-NodeUtils::TechnologyType Endpoints::CStreamBridgeEndpoint::GetInternalType() const
+Endpoints::TechnologyType Endpoints::CStreamBridgeEndpoint::GetInternalType() const
 {
     return InternalType;
 }
@@ -87,7 +90,27 @@ std::string Endpoints::CStreamBridgeEndpoint::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 std::string Endpoints::CStreamBridgeEndpoint::GetEntry() const
 {
-    return m_address + NetworkUtils::Wildcard.data() + std::to_string(m_port);
+    std::string entry = "";
+    if (m_address.empty()) {
+        return entry;
+    }
+
+    entry.append(m_address);
+    entry.append(NetworkUtils::ComponentSeperator.data());
+    entry.append(std::to_string(m_port));
+
+    return entry;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+// Returns:
+//------------------------------------------------------------------------------------------------
+std::string Endpoints::CStreamBridgeEndpoint::GetURI() const
+{
+    return Scheme.data() + GetEntry();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -97,11 +120,15 @@ std::string Endpoints::CStreamBridgeEndpoint::GetEntry() const
 //------------------------------------------------------------------------------------------------
 void Endpoints::CStreamBridgeEndpoint::ScheduleBind(std::string_view binding)
 {
-    if (m_operation != NodeUtils::EndpointOperation::Server) {
+    if (m_operation != OperationType::Server) {
         throw std::runtime_error("Bind was called a non-listening Endpoint!");
     }
 
     auto [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    if (address.empty() || sPort.empty()) {
+        return;
+    }
+
     NetworkUtils::PortNumber port = std::stoul(sPort);
 
     if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
@@ -113,6 +140,12 @@ void Endpoints::CStreamBridgeEndpoint::ScheduleBind(std::string_view binding)
         std::scoped_lock lock(m_eventsMutex);
         m_events.emplace_back(
             StreamBridge::TNetworkInstructionEvent(NetworkInstruction::Bind, address, port));
+    }
+
+    {
+        std::scoped_lock lock(m_mutex);
+        m_address = address; // Capture the address the endpoint bound too
+        m_port = port; // Capture the port the endpoint bound too
     }
 }
 
@@ -144,10 +177,10 @@ void Endpoints::CStreamBridgeEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CStreamBridgeEndpoint::HandleProcessedMessage(
-    NodeUtils::NodeIdType id, CMessage const& message)
+bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(CMessage const& message)
 {
-    ScheduleSend(id, message.GetPack()); // Forward the message pack to be sent on the socket
+    // Forward the message pack to be sent on the socket
+    return ScheduleSend(message.GetDestinationId(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -155,26 +188,16 @@ void Endpoints::CStreamBridgeEndpoint::HandleProcessedMessage(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, CMessage const& message)
-{
-    ScheduleSend(id, message.GetPack()); // Forward the message pack to be sent on the socket
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
-        return;
+        return false;
     }
 
     auto const optIdentity = m_peers.Translate(id);
     if (!optIdentity) {
-        return;
+        return false;
     }
 
     // Schedule the outgoing message event
@@ -183,6 +206,8 @@ void Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, st
         m_events.emplace_back(
             StreamBridge::TOutgoingMessageEvent(*optIdentity, message, 0));
     }
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -197,6 +222,9 @@ bool Endpoints::CStreamBridgeEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[StreamBridge] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+    if (m_pMessageSink) {
+        m_pMessageSink->UnpublishCallback(m_identifier);
+    }
 
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
@@ -204,17 +232,6 @@ bool Endpoints::CStreamBridgeEndpoint::Shutdown()
     if (m_worker.joinable()) {
         m_worker.join();
     }
-
-    m_peers.ReadEachPeer(
-        [&]([[maybe_unused]] auto const& identity, auto const& optDetails) -> CallbackIteration
-        {
-            // If the connection has an attached node, unpublish the callback from Brypt Core
-            if (optDetails) {
-                m_messageSink->UnpublishCallback(optDetails->GetNodeId());
-            }
-            return CallbackIteration::Continue;
-        }
-    );
     
     return !m_worker.joinable();
 }
@@ -231,7 +248,7 @@ void Endpoints::CStreamBridgeEndpoint::Spawn()
     // Attempt to start an endpoint worker thread based on the designated endpoint operation.
     // Currently, StreamBridge endpoints may only operate as a server.
     switch (m_operation) {
-        case NodeUtils::EndpointOperation::Server: {
+        case OperationType::Server: {
             bWorkerStarted = SetupServerWorker();
         } break;
         default: return;
@@ -288,7 +305,7 @@ void Endpoints::CStreamBridgeEndpoint::ServerWorker()
         // signal before continuing normal operation. 
         {
             std::unique_lock lock(m_mutex);
-            auto const stop = std::chrono::system_clock::now() + Endpoint::CycleTimeout;
+            auto const stop = std::chrono::system_clock::now() + Endpoints::CycleTimeout;
             m_cv.wait_until(lock, stop, [&]{ return m_terminate.load(); });
             if (m_terminate) {
                 m_active = false; // Terminate if the endpoint is shutting down
@@ -309,8 +326,13 @@ bool Endpoints::CStreamBridgeEndpoint::Listen(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port)
 {
-    std::string sPort = std::to_string(port);
-    printo("[StreamBridge] Setting up ZMQ_STREAM socket on port " + sPort, NodeUtils::PrintType::Endpoint);
+    std::string uri;
+    uri.append(Scheme.data());
+    uri.append(address);
+    uri.append(NetworkUtils::ComponentSeperator);
+    uri.append(std::to_string(port));
+
+    printo("[StreamBridge] Setting up ZMQ_STREAM socket on " + uri, NodeUtils::PrintType::Endpoint);
 
     std::size_t size = 128; // Initalize a size of the buffer
     std::vector<char> buffer(size, 0); // Initialize the receiving buffer
@@ -326,13 +348,10 @@ bool Endpoints::CStreamBridgeEndpoint::Listen(
         }
         
         // Bind the ZMQ_ROUTER socket to the designated interface and port
-        socket.bind("tcp://" + address + ":" + sPort);
+        socket.bind(uri);
     } catch (...) {
         return false;
     }
-
-    m_address = address; // Capture the address the endpoint bound too
-    m_port = port; // Capture the port the endpoint bound too
 
     return true;
 }
@@ -418,7 +437,7 @@ Endpoints::CStreamBridgeEndpoint::OptionalReceiveResult Endpoints::CStreamBridge
     // The first message from the socket will be the internal ZMQ identity used to identifiy a peer
     // If we don't receive an idenity we should return nullopt.
     auto const optIdenitityBytes = socket.recv(message, zmq::recv_flags::dontwait);
-    if (!optIdenitityBytes) {
+    if (!optIdenitityBytes || *optIdenitityBytes != 5) {
         return {};
     }
     assert(*optIdenitityBytes == 5); // We should expect the idenity received to be exactly five bytes
@@ -475,36 +494,34 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
     ZeroMQIdentity const& identity,
     std::string_view message)
 {
-    NodeUtils::printo("[StreamBridge] Received request: " + std::string(message), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo("[StreamBridge] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
     try {
-        CMessage const request(message);
-        auto const id = request.GetSourceId();
-
+        CMessageContext const context(m_identifier, m_technology);
+        CMessage const request(context, message);
+        
         // Update the information about the node as it pertains to received data. The node may not be found 
         // if this is its first connection.
-        bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
+        m_peers.UpdateOnePeer(identity,
             [] (auto& details) {
                 details.IncrementMessageSequence();
+            },
+            [this, &request] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
+                optDetails = ExtendedPeerDetails(request.GetSourceId());
+
+                optDetails->SetConnectionState(ConnectionState::Connected);
+                optDetails->SetMessagingPhase(MessagingPhase::Response);
+                optDetails->IncrementMessageSequence();
+
+                CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, uri});
+
+                return PeerResolutionCommand::Promote;
             }
         );
 
-        // Ifd the node was not found then in the update then, we should start tracking the node.
-        if (!bPeerDetailsFound) {
-            // TODO: Peer should be registered with an authentication and key manager.
-            CPeerDetails<> details(
-                request.GetSourceId(),
-                ConnectionState::Connected,
-                MessagingPhase::Response);
-            
-            details.IncrementMessageSequence();
-            m_peers.PromoteConnection(identity, details);
-
-            // Register this peer's message handler with the message sink
-            m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
-        }
-
         // TODO: Only authenticated requests should be forwarded into BryptNode
-        m_messageSink->ForwardMessage(id, request);
+        if (m_pMessageSink) {
+            m_pMessageSink->ForwardMessage(request);
+        }
     } catch (...) {
         NodeUtils::printo("[StreamBridge] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
     }
@@ -521,7 +538,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
     OutgoingMessageDeque outgoing;
     {
         std::scoped_lock lock(m_eventsMutex);
-        for (std::uint32_t idx = 0; idx < Endpoint::OutgoingMessageLimit; ++idx) {
+        for (std::uint32_t idx = 0; idx < Endpoints::OutgoingMessageLimit; ++idx) {
             // If there are no messages left in the outgoing message queue, break from
             // copying the items into the temporary queue.
             if (m_events.size() == 0) {
@@ -571,7 +588,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
             );
         } else {
             // If we have already attempted to send the message three times, drop the message.
-            if (retries == Endpoint::MessageRetryLimit) {
+            if (retries == Endpoints::MessageRetryLimit) {
                 // TODO: Logic is needed to properly handling this condition. Should the peer be flagged?
                 // Should the response required be flipped?
                 continue;
@@ -595,7 +612,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
 //------------------------------------------------------------------------------------------------
 std::uint32_t Endpoints::CStreamBridgeEndpoint::Send(
     zmq::socket_t& socket,
-    ZeroMQIdentity identity,
+    ZeroMQIdentity const& identity,
     std::string_view message)
 {
     // Create a zmq message from the provided data and send it
@@ -626,19 +643,18 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
     bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
         [&] (auto& details)
         {
-            auto const id = details.GetNodeId();
-
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
-                    details.SetConnectionState(ConnectionState::Disconnected);   
-                    m_messageSink->UnpublishCallback(id);
+                    details.SetConnectionState(ConnectionState::Disconnected);
+                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    m_messageSink->RegisterCallback(id, this, &CEndpoint::HandleProcessedMessage);
+                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
                 } break;
+                case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;
             }

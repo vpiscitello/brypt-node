@@ -94,6 +94,7 @@ std::optional<CMessage> Await::CMessageObject::GetResponse()
     std::string data = iod::json_vector(s::id, s::pack).encode(responsesVector);
 
     m_optAggregateResponse = CMessage(
+        m_request.GetMessageContext(),
         m_request.GetDestinationId(), m_request.GetSourceId(),
         m_request.GetCommandType(), m_request.GetPhase() + 1,
         data, m_request.GetNonce() + 1 );
@@ -225,7 +226,7 @@ std::vector<CMessage> Await::CObjectContainer::GetFulfilled()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Await::CObjectContainer::Empty() const
+bool Await::CObjectContainer::IsEmpty() const
 {
     return m_awaiting.empty();
 }

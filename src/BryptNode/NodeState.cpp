@@ -2,9 +2,9 @@
 #include "NodeState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState()
+CNodeState::CNodeState(NodeUtils::NodeIdType id)
     : m_mutex()
-    , m_id(0) // TODO: Set Machine UUID for state
+    , m_id(id)
     , m_serial()
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
@@ -14,14 +14,12 @@ CNodeState::CNodeState()
 
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState(
-    NodeUtils::DeviceOperation operation,
-    std::set<NodeUtils::TechnologyType> const& technologies)
+CNodeState::CNodeState(NodeUtils::NodeIdType id, Endpoints::TechnologySet const& technologies)
     : m_mutex()
-    , m_id(0) // TODO: Set Machine UUID for state
+    , m_id(id)
     , m_serial()
     , m_cluster(0)
-    , m_operation(operation)
+    , m_operation(NodeUtils::DeviceOperation::None)
     , m_technologies(technologies)
 {
 }
@@ -60,7 +58,7 @@ NodeUtils::DeviceOperation CNodeState::GetOperation() const
 
 //------------------------------------------------------------------------------------------------
 
-std::set<NodeUtils::TechnologyType> CNodeState::GetTechnologies() const
+std::set<Endpoints::TechnologyType> CNodeState::GetTechnologies() const
 {
     std::shared_lock lock(m_mutex);
     return m_technologies;
@@ -100,7 +98,7 @@ void CNodeState::SetOperation(NodeUtils::DeviceOperation operation)
 
 //------------------------------------------------------------------------------------------------
 
-void CNodeState::SetTechnologies(std::set<NodeUtils::TechnologyType> const& technologies)
+void CNodeState::SetTechnologies(std::set<Endpoints::TechnologyType> const& technologies)
 {
     std::unique_lock lock(m_mutex);
     m_technologies = technologies;

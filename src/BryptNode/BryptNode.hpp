@@ -31,9 +31,10 @@ namespace Await {
 class CCommand;
 class CConnection;
 class CControl;
+class CEndpointManager;
 class CMessage;
 class CMessageQueue;
-class CNotifier;
+class CPeerPersistor;
 class CPeerWatcher;
 
 class CNodeState;
@@ -47,8 +48,12 @@ class CSensorState;
 class CBryptNode {
 public:
     // Constructors and Deconstructors
-    explicit CBryptNode(Configuration::TSettings const& settings);
-    ~CBryptNode();
+    CBryptNode(
+        NodeUtils::NodeIdType id,
+        std::shared_ptr<CEndpointManager> const& spEndpointManager,
+        std::shared_ptr<CMessageQueue> const& spMessageQueue,
+        std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
+        Configuration::TSettings const& settings);
 
     void Startup();
     bool Shutdown();
@@ -61,19 +66,17 @@ public:
     std::weak_ptr<CSecurityState> GetSecurityState() const;
     std::weak_ptr<CSensorState> GetSensorState() const;
 
+    std::weak_ptr<CEndpointManager> GetEndpointManager() const;
     std::weak_ptr<CMessageQueue> GetMessageQueue() const;
+    std::weak_ptr<CPeerPersistor> GetPeerPersistor() const;
     std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
-
-    std::weak_ptr<EndpointMap> GetEndpoints() const;
-    std::weak_ptr<CNotifier> GetNotifier() const;
 
 private:
     // Utility Functions
     std::float_t DetermineNodePower();  // Determine the node value to the network
-    bool HasTechnologyType(NodeUtils::TechnologyType technology);
+    bool HasTechnologyType(Endpoints::TechnologyType technology);
 
     // Communication Functions
-    void JoinCoordinator();
     bool ContactAuthority();    // Contact the central authority for some service
     bool NotifyAddressChange(); // Notify the cluster of some address change
 
@@ -86,8 +89,7 @@ private:
     bool Transform();   // Transform the node's function in the cluster/network
 
     // Run Functions
-    void Listen();  // Open a socket to listening for network commands
-    void Connect();
+    void Listen();
 
     // Private Variables
     std::shared_ptr<CNodeState> m_spNodeState;
@@ -97,16 +99,11 @@ private:
     std::shared_ptr<CSecurityState> m_spSecurityState;
     std::shared_ptr<CSensorState> m_spSensorState;
 
-    // These classes should be implemented a threadsafe manner
-    std::shared_ptr<CMessageQueue> m_spQueue;
+    std::shared_ptr<CEndpointManager> m_spEndpointManager;
+    std::shared_ptr<CMessageQueue> m_spMessageQueue;
+    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
     std::shared_ptr<Await::CObjectContainer> m_spAwaiting;
-
-    // Commands of the node
     Command::HandlerMap m_commandHandlers;
-
-    // Connection of the node
-    std::shared_ptr<EndpointMap> m_spEndpoints;
-    std::shared_ptr<CNotifier> m_spNotifier;
     std::shared_ptr<CPeerWatcher> m_spWatcher;
 
     bool m_initialized;

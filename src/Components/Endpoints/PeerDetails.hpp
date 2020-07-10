@@ -6,20 +6,12 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "ConnectionState.hpp"
 #include "../../Utilities/NodeUtils.hpp"
+#include "../../Utilities/ReservedIdentifiers.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
-//------------------------------------------------------------------------------------------------
-
-enum class ConnectionState : std::uint8_t {
-    Connected,
-    Disconnected,
-    Flagged,
-    Resolving,
-    Unknown
-};
-
 //------------------------------------------------------------------------------------------------
 
 enum class MessagingPhase : std::uint8_t {
@@ -32,11 +24,22 @@ enum class MessagingPhase : std::uint8_t {
 class CPeerDetailsBase
 {
 public:
+    explicit CPeerDetailsBase(NodeUtils::NodeIdType id)
+        : m_id(id)
+        , m_uri()
+        , m_updateTimepoint()
+        , m_sequenceNumber(0)
+        , m_connectionState(ConnectionState::Resolving)
+        , m_messagingPhase(MessagingPhase::Request)
+    {
+    }
+
     CPeerDetailsBase(
         NodeUtils::NodeIdType id,
         ConnectionState connectionState,
         MessagingPhase messagingPhase)
         : m_id(id)
+        , m_uri()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(connectionState)
@@ -51,6 +54,7 @@ public:
         ConnectionState connectionState,
         MessagingPhase messagingPhase)
         : m_id(id)
+        , m_uri()
         , m_updateTimepoint(timepoint)
         , m_sequenceNumber(sequenceNumber)
         , m_connectionState(connectionState)
@@ -59,10 +63,15 @@ public:
     }
 
     NodeUtils::NodeIdType GetNodeId() const { return m_id; }
+    std::string GetURI() const { return m_uri; }
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
     MessagingPhase GetMessagingPhase() const { return m_messagingPhase; }
+
+    void SetURI(std::string_view uri) {
+        m_uri = uri;
+    }
 
     void Updated() { m_updateTimepoint = TimeUtils::GetSystemTimepoint(); };
 
@@ -85,6 +94,7 @@ protected:
     // Currently it is expected each connection type maintains information about the node's Brypt ID,
     // the timepoint the connection was last updated, and the message sequence number.
     NodeUtils::NodeIdType m_id;
+    std::string m_uri;
     TimeUtils::Timepoint m_updateTimepoint;
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
@@ -146,6 +156,7 @@ public:
     CPeerDetails& operator=(CPeerDetails const& other)
     {
         m_id = other.GetNodeId();
+        m_uri = other.GetURI();
         m_updateTimepoint = other.GetUpdateTimepoint();
         m_sequenceNumber = other.GetMessageSequenceNumber();
         m_connectionState = other.GetConnectionState();

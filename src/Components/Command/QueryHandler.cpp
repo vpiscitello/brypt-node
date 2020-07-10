@@ -7,10 +7,10 @@
 #include "../Await/Await.hpp"
 #include "../Endpoints/Endpoint.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
-#include "../Notifier/Notifier.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Utilities/ReservedIdentifiers.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
@@ -109,49 +109,13 @@ bool Command::CQueryHandler::FloodHandler(CMessage const& message)
 {
     printo("Sending notification for Query request", NodeUtils::PrintType::Command);
 
-    // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = 0;
-    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        id = spNodeState->GetId();
-    }
-
-    // Get the information pertaining to the node's network
-    std::set<NodeUtils::NodeIdType> peerNames;
-    if (auto const spNetworkState = m_instance.GetNetworkState().lock()) {
-        peerNames = spNetworkState->GetPeerNames();
-    }
-    
-    NodeUtils::NetworkNonce const nonce = 0;
-
-    // Setup the awaiting message object and push this node's response
-    NodeUtils::ObjectIdType awaitKey = 0;
-    if (auto const awaiting = m_instance.GetAwaiting().lock()) {
-        awaitKey = awaiting->PushRequest(message, peerNames);
-
-        // Create a reading message
-        CMessage const readingMessage(
-            id, message.GetSourceId(),
-            Command::Type::Query, static_cast<std::uint8_t>(CQueryHandler::Phase::Aggregate),
-            local::GenerateReading(), nonce,
-            Message::BoundAwaitId(
-                {Message::AwaitBinding::Destination, awaitKey}));
-
-        awaiting->PushResponse(readingMessage);
-    }
-
-    // Create a notice message for the network
-    CMessage const notice(
-        id, 0xFFFFFFFF,
-        Command::Type::Query, static_cast<std::uint8_t>(Phase::Respond),
-        "Request for Sensor Readings.", nonce,
-        Message::BoundAwaitId(
-            {Message::AwaitBinding::Source, awaitKey}));
-
-    // Send the notice via the network notifier connection
-    if (auto const notifier = m_instance.GetNotifier().lock()) {
-        notifier->Send(notice, NodeUtils::NotificationType::Network);
-    }
-
+    IHandler::SendClusterNotice(
+        message,
+        "Request for Sensor Readings.",
+        static_cast<std::uint8_t>(Phase::Respond),
+        static_cast<std::uint8_t>(Phase::Aggregate),
+        local::GenerateReading());
+        
     return true;
 }
 
@@ -164,29 +128,8 @@ bool Command::CQueryHandler::FloodHandler(CMessage const& message)
 bool Command::CQueryHandler::RespondHandler(CMessage const& message)
 {
     printo("Building response for Query request", NodeUtils::PrintType::Command);
-    NodeUtils::NodeIdType id = 0;
-    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        id = spNodeState->GetId();
-    }
-
-    NodeUtils::NodeIdType destinationId = message.GetSourceId();
-    // If there is an await id attached to the message append it to the destinationId
-    std::optional<NodeUtils::ObjectIdType> const& optAwaitId = message.GetAwaitId();
-
-    NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
-    CMessage const request(
-        id, destinationId,
-        Command::Type::Query, static_cast<std::uint8_t>(Phase::Aggregate),
-        local::GenerateReading(), nonce,
-        Message::BoundAwaitId(
-            {Message::AwaitBinding::Destination, *optAwaitId}));
-
-    auto const wpMessageQueue = m_instance.GetMessageQueue();
-    if (auto const spMessageQueue = wpMessageQueue.lock()) {
-        spMessageQueue->PushOutgoingMessage(destinationId, request);
-    }
-
-    return false;
+    IHandler::SendResponse(message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -202,25 +145,7 @@ bool Command::CQueryHandler::AggregateHandler(CMessage const& message)
         awaiting->PushResponse(message);
     }
 
-    // Need to track encryption keys and nonces
-    NodeUtils::NodeIdType id = 0;
-    if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        id = spNodeState->GetId();
-    }
-
-    NodeUtils::NodeIdType const& destinationId = message.GetSourceId();
-    NodeUtils::NetworkNonce const nonce = message.GetNonce() + 1;
-    CMessage const response(
-        id,
-        destinationId,
-        Command::Type::Query,
-        static_cast<std::uint8_t>(Phase::Close),
-        "Message Response",
-        nonce);
-
-    if (auto const messageQueue = m_instance.GetMessageQueue().lock()) {
-        messageQueue->PushOutgoingMessage(destinationId, response);
-    }
+    IHandler::SendResponse(message, "Response Acknowledged.", static_cast<std::uint8_t>(Phase::Close));
     return true;
 }
 

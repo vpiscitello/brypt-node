@@ -12,6 +12,8 @@
 //------------------------------------------------------------------------------------------------
 class Command::CQueryHandler : public Command::IHandler {
 public:
+    enum class Phase { Flood, Respond, Aggregate, Close };
+    
     explicit CQueryHandler(CBryptNode& instance);
 
     // IHandler{
@@ -23,8 +25,6 @@ public:
     bool AggregateHandler(CMessage const& message);
     bool CloseHandler();
 
-private:
-    enum class Phase { Flood, Respond, Aggregate, Close };
 };
 
 //------------------------------------------------------------------------------------------------
