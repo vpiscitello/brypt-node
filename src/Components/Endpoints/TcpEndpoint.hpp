@@ -104,6 +104,14 @@ public:
     
 private:
     enum class ConnectionStateChange : std::uint8_t { Connect, Disconnect };
+    enum class ConnectStatusCode : std::uint8_t {
+        Success,
+        Terminated,
+        GenericError,
+        RetryError,
+        ReflectionError,
+        DuplicateError
+    };
 
     using NetworkInstructionDeque = std::deque<Tcp::TNetworkInstructionEvent>;
     using OutgoingMessageDeque = std::deque<Tcp::TOutgoingMessageEvent>;
@@ -111,6 +119,8 @@ private:
     using ReceiveResult = std::variant<ConnectionStateChange, Message::Buffer>;
     using OptionalReceiveResult = std::optional<ReceiveResult>;
     using SendResult = std::variant<ConnectionStateChange, std::int32_t>;
+
+    using ExtendedPeerDetails = CPeerDetails<void>;
 
     constexpr static std::int32_t SocketAddressSize = sizeof(IPv4SocketAddress);
     constexpr static std::int32_t ReadBufferSize = 8192;
@@ -128,12 +138,12 @@ private:
 
     bool SetupClientWorker();
     void ClientWorker();
-    bool Connect(
+    ConnectStatusCode Connect(
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port,
         IPv4SocketAddress& socketAddress);
-    bool IsURIAllowed(std::string_view uri);
-    bool EstablishConnection(
+    ConnectStatusCode IsURIAllowed(std::string_view uri);
+    ConnectStatusCode EstablishConnection(
         SocketDescriptor descriptor, IPv4SocketAddress address);
 
     void ProcessNetworkInstructions(SocketDescriptor* listener = nullptr);

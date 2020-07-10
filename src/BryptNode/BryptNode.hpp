@@ -48,7 +48,8 @@ class CSensorState;
 class CBryptNode {
 public:
     // Constructors and Deconstructors
-    explicit CBryptNode(
+    CBryptNode(
+        NodeUtils::NodeIdType id,
         std::shared_ptr<CEndpointManager> const& spEndpointManager,
         std::shared_ptr<CMessageQueue> const& spMessageQueue,
         std::shared_ptr<CPeerPersistor> const& spPeerPersistor,

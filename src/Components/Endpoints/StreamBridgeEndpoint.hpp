@@ -102,6 +102,8 @@ private:
     using ReceiveResult = std::variant<ConnectionStateChange, std::string>;
     using OptionalReceiveResult = std::optional<std::pair<ZeroMQIdentity, ReceiveResult>>;
 
+    using ExtendedPeerDetails = CPeerDetails<void>;
+
     void Spawn();
     bool SetupServerWorker();
     void ServerWorker();

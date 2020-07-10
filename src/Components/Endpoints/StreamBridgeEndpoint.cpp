@@ -90,7 +90,16 @@ std::string Endpoints::CStreamBridgeEndpoint::GetProtocolType() const
 //------------------------------------------------------------------------------------------------
 std::string Endpoints::CStreamBridgeEndpoint::GetEntry() const
 {
-    return m_address + NetworkUtils::ComponentSeperator.data() + std::to_string(m_port);
+    std::string entry = "";
+    if (m_address.empty()) {
+        return entry;
+    }
+
+    entry.append(m_address);
+    entry.append(NetworkUtils::ComponentSeperator.data());
+    entry.append(std::to_string(m_port));
+
+    return entry;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -116,6 +125,10 @@ void Endpoints::CStreamBridgeEndpoint::ScheduleBind(std::string_view binding)
     }
 
     auto [address, sPort] = NetworkUtils::SplitAddressString(binding);
+    if (address.empty() || sPort.empty()) {
+        return;
+    }
+
     NetworkUtils::PortNumber port = std::stoul(sPort);
 
     if (auto const found = address.find(NetworkUtils::Wildcard); found != std::string::npos) {
@@ -127,6 +140,12 @@ void Endpoints::CStreamBridgeEndpoint::ScheduleBind(std::string_view binding)
         std::scoped_lock lock(m_eventsMutex);
         m_events.emplace_back(
             StreamBridge::TNetworkInstructionEvent(NetworkInstruction::Bind, address, port));
+    }
+
+    {
+        std::scoped_lock lock(m_mutex);
+        m_address = address; // Capture the address the endpoint bound too
+        m_port = port; // Capture the port the endpoint bound too
     }
 }
 
@@ -334,9 +353,6 @@ bool Endpoints::CStreamBridgeEndpoint::Listen(
         return false;
     }
 
-    m_address = address; // Capture the address the endpoint bound too
-    m_port = port; // Capture the port the endpoint bound too
-
     return true;
 }
 
@@ -421,7 +437,7 @@ Endpoints::CStreamBridgeEndpoint::OptionalReceiveResult Endpoints::CStreamBridge
     // The first message from the socket will be the internal ZMQ identity used to identifiy a peer
     // If we don't receive an idenity we should return nullopt.
     auto const optIdenitityBytes = socket.recv(message, zmq::recv_flags::dontwait);
-    if (!optIdenitityBytes) {
+    if (!optIdenitityBytes || *optIdenitityBytes != 5) {
         return {};
     }
     assert(*optIdenitityBytes == 5); // We should expect the idenity received to be exactly five bytes
@@ -485,23 +501,22 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
         
         // Update the information about the node as it pertains to received data. The node may not be found 
         // if this is its first connection.
-        bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
+        m_peers.UpdateOnePeer(identity,
             [] (auto& details) {
                 details.IncrementMessageSequence();
+            },
+            [this, &request] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
+                optDetails = ExtendedPeerDetails(request.GetSourceId());
+
+                optDetails->SetConnectionState(ConnectionState::Connected);
+                optDetails->SetMessagingPhase(MessagingPhase::Response);
+                optDetails->IncrementMessageSequence();
+
+                CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, uri});
+
+                return PeerResolutionCommand::Promote;
             }
         );
-
-        // If the node was not found then in the update then, we should start tracking the node.
-        if (!bPeerDetailsFound) {
-            // TODO: Peer should be registered with an authentication and key manager.
-            CPeerDetails<> details(request.GetSourceId());
-            details.SetConnectionState(ConnectionState::Connected);
-            details.SetMessagingPhase(MessagingPhase::Response);
-            details.IncrementMessageSequence();
-
-            m_peers.PromoteConnection(identity, details);
-            CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, ""});
-        }
 
         // TODO: Only authenticated requests should be forwarded into BryptNode
         if (m_pMessageSink) {
@@ -631,13 +646,13 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, ""});
+                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, ""});
+                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint

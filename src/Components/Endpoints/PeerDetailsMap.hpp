@@ -20,6 +20,7 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
+enum class PeerResolutionCommand : std::uint8_t { Promote, Demote };
 
 //------------------------------------------------------------------------------------------------
 
@@ -104,7 +105,6 @@ class CPeerDetailsMap
 public:
     using ExtendedPeerDetails = CPeerDetails<ExtensionType>;
     using OptionalPeerDetails = std::optional<ExtendedPeerDetails>;
-    using OptionalConnectionString = std::optional<std::string>;
     
     using ForEachFunction = std::function<CallbackIteration(ConnectionIdType const&)>;
 
@@ -112,6 +112,8 @@ public:
     using UpdateOneFunction = std::function<void(ExtendedPeerDetails&)>;
     using ReadMultipleFunction = std::function<CallbackIteration(ConnectionIdType const&, OptionalPeerDetails const&)>;
     using UpdateMultipleFunction = std::function<CallbackIteration(ConnectionIdType const&, OptionalPeerDetails&)>;
+
+    using UpdateUnpromotedPeerFunction = std::function<PeerResolutionCommand(std::string_view, OptionalPeerDetails&)>;
 
     CPeerDetailsMap()
         : m_mutex()
@@ -238,6 +240,50 @@ public:
         }
 
         updateFunction(*optDetails);
+        return true;
+    }
+
+    //------------------------------------------------------------------------------------------------
+
+    bool UpdateOnePeer(
+        ConnectionIdType const& id,
+        UpdateOneFunction const& promotedPeerFunction,
+        UpdateUnpromotedPeerFunction const& unpromotedPeerFunction)
+    {
+        std::scoped_lock lock(m_mutex);
+        auto const peersIterator = m_peers.find(id);
+        if (peersIterator == m_peers.end()) {
+            return false;
+        }
+
+        OptionalPeerDetails& optDetails = peersIterator->second;
+        if (optDetails) {
+            promotedPeerFunction(*optDetails);
+        } else {
+            // Given that the details could not be found for the given identify, attempt to find an associated URI
+            // in the resolving map. If a URI has been found, store it before asking the caller if the peer should
+            // be upgraded or dropped. 
+            std::string uri = "";
+            if (auto const resolvingIterator = m_resolving.find(id); resolvingIterator != m_resolving.end()) {
+                uri = resolvingIterator->second; 
+                m_resolving.erase(resolvingIterator);
+            }
+
+            auto const result = unpromotedPeerFunction(uri, optDetails);
+            // If the caller indicated the the peer should be promoted, set the details in the 
+            // peers map and set the lookup. Otherwise, the connection tracking should be dropped. 
+            if (optDetails && result == PeerResolutionCommand::Promote) {
+                // If there was a URI for the identity persist it on the details. 
+                if (!uri.empty()) {
+                    optDetails->SetURI(uri);
+                }
+                // Create a lookup for the Node ID.
+                m_nodeIdLookups.emplace(optDetails->GetNodeId(), peersIterator);
+            } else {
+                m_peers.erase(peersIterator);
+            }
+        }
+
         return true;
     }
 

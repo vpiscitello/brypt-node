@@ -238,7 +238,9 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
             // Get the entries for the requestor from the cached list of peers
             [&response, &mappedTechnologyEntries] (Endpoints::TechnologyType technology, CPeer const& peer) -> CallbackIteration
             {
-                mappedTechnologyEntries[technology].emplace_back(peer.GetEntry());
+                if (auto const entry = peer.GetEntry(); !entry.empty()) {
+                    mappedTechnologyEntries[technology].emplace_back(peer.GetEntry());
+                } 
                 return CallbackIteration::Continue;
             },
             // Unused cache error handling function

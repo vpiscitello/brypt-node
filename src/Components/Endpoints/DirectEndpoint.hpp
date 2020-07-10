@@ -95,12 +95,15 @@ public:
 
 private:
     enum class ConnectionStateChange : std::uint8_t { Update };
+    enum class ConnectStatusCode : std::uint8_t { Success, GenericError, ReflectionError, DuplicateError };
     
     using NetworkInstructionDeque = std::deque<Direct::TNetworkInstructionEvent>;
     using OutgoingMessageDeque = std::deque<Direct::TOutgoingMessageEvent>;
 
     using ReceiveResult = std::variant<ConnectionStateChange, std::string>;
     using OptionalReceiveResult = std::optional<std::pair<ZeroMQIdentity, ReceiveResult>>;
+
+    using ExtendedPeerDetails = CPeerDetails<void>;
 
     void Spawn();
 
@@ -113,11 +116,11 @@ private:
 
     bool SetupClientWorker();
     void ClientWorker();
-    bool Connect(
+    ConnectStatusCode Connect(
         zmq::socket_t& socket,
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port);
-    bool IsURIAllowed(std::string_view uri);
+    ConnectStatusCode IsURIAllowed(std::string_view uri);
 
     void ProcessNetworkInstructions(zmq::socket_t& socket);
 

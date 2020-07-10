@@ -176,7 +176,7 @@ CPeerPersistor::CPeerPersistor(
 {
     // If the filepath does not have a filename, attach the default config.json
     if (!m_filepath.has_filename()) {
-        m_filepath = m_filepath / Configuration::DefaultConfigurationFilename;
+        m_filepath = m_filepath / Configuration::DefaultKnownPeersFilename;
     }
 
     // If the filepath does not have a parent path, get and attach the default brypt folder
@@ -334,7 +334,7 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
 
                     spPeers->try_emplace(
                         // Peer Key
-                        peerEntry.id,
+                        peerEntry.entry,
                         // Peer Class
                         peerEntry.id, 
                         technology,
@@ -389,33 +389,57 @@ Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
 
 void CPeerPersistor::AddPeerEntry(CPeer const& peer)
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    // Since we always want ensure the peer can be tracked, we use emplace to either
-    // insert a new entry for the technolgoy type or get the existing entry.
-    auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
-    if (itr != m_spEndpoints->end()) {
-        // TODO: What should happen if the peer is already in the map?
-        itr->second->try_emplace(peer.GetNodeId(), peer);
+    // Get the entry from the peer, if there is no entry there is nothing to store. 
+    auto const entry = peer.GetEntry();
+    if (entry.empty()) {
+        return;
     }
-    
-    // Write the updated peers to the file
-    [[maybe_unused]] auto const status = Serialize();
+
+    {
+        std::scoped_lock lock(m_endpointsMutex);
+        // Since we always want ensure the peer can be tracked, we use emplace to either
+        // insert a new entry for the technolgoy type or get the existing entry.
+        auto const [endpointIterator, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
+        if (endpointIterator != m_spEndpoints->end()) {
+            auto const& [key, spPeers] = *endpointIterator;
+            if (spPeers) {
+                auto const [peersIterator, emplaced] = spPeers->try_emplace(entry, peer);
+                // If the peer already existed in the map, update the node ID and location. 
+                if (!emplaced) {
+                    auto& [entry, storedPeer] = *peersIterator;
+                    storedPeer.SetNodeId(peer.GetNodeId());
+                    storedPeer.SetLocation(peer.GetLocation());
+                }
+            }
+        }
+
+        // Write the updated peers to the file
+        [[maybe_unused]] auto const status = Serialize();
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
 
 void CPeerPersistor::DeletePeerEntry(CPeer const& peer)
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    // Since we always want ensure the peer can be tracked, we use emplace to either
-    // insert a new entry for the technolgoy type or get the existing entry.
-    auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
-    if (itr != m_spEndpoints->end()) {
-        itr->second->erase(peer.GetNodeId()); // Remove the provided peer
+    // Get the entry from the peer, if there is no entry there is nothing to do. 
+    auto const entry = peer.GetEntry();
+    if (entry.empty()) {
+        return;
     }
+    
+    {
+        std::scoped_lock lock(m_endpointsMutex);
+        // Since we always want ensure the peer can be tracked, we use emplace to either
+        // insert a new entry for the technolgoy type or get the existing entry.
+        auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
+        if (itr != m_spEndpoints->end()) {
+            itr->second->erase(peer.GetEntry()); // Remove the provided peer
+        }
 
-    // Write the updated peers to the file
-    [[maybe_unused]] auto const status = Serialize();
+        // Write the updated peers to the file
+        [[maybe_unused]] auto const status = Serialize();
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -553,6 +577,11 @@ void CPeerPersistor::HandlePeerConnectionStateChange(
     // If the persistor peers have not yet been intialized, simply return
     if (!m_spEndpoints) {
         return; 
+    }
+
+    // If the peer has no entry there is nothing to store
+    if (auto const entry = peer.GetEntry(); entry.empty()) {
+        return;
     }
 
     switch (change) {

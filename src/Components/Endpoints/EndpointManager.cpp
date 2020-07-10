@@ -148,8 +148,8 @@ std::uint32_t CEndpointManager::ActiveTechnologyCount() const
 IEndpointMediator::EndpointEntryMap CEndpointManager::GetEndpointEntries() const
 {
     EndpointEntryMap entries;
-    for (auto const& [identifier, spEndpoint] : m_endpoints) {
-        if (spEndpoint && spEndpoint->IsActive()) {
+    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+        if (spEndpoint) {
             if (auto const entry = spEndpoint->GetEntry(); !entry.empty()) {
                 entries.emplace(spEndpoint->GetInternalType(), entry);
             }
@@ -163,8 +163,8 @@ IEndpointMediator::EndpointEntryMap CEndpointManager::GetEndpointEntries() const
 IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
 {
     EndpointURISet uris;
-    for (auto const& [identifier, spEndpoint] : m_endpoints) {
-        if (spEndpoint && spEndpoint->IsActive()) {
+    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+        if (spEndpoint) {
             if (auto const uri = spEndpoint->GetURI(); !uri.empty()) {
                 uris.emplace(uri);
             }

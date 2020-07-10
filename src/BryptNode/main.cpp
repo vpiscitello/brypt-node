@@ -24,6 +24,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+std::string PeersFilename = "";
 std::string ConfigurationFilename = "";
 void ParseArguments(std::int32_t argc, char** argv);
 
@@ -38,7 +39,9 @@ void ParseArguments(std::int32_t argc, char** argv);
 std::int32_t main(std::int32_t argc, char** argv)
 {
     std::cout << "\n== Welcome to the Brypt Network\n";
-    std::cout << "Main process PID: " << getpid() << "\n";
+
+    // TODO: Implement Node ID Generator
+    NodeUtils::NodeIdType const id = static_cast<NodeUtils::NodeIdType>(getpid());
 
     local::ParseArguments(argc, argv);
 
@@ -55,7 +58,7 @@ std::int32_t main(std::int32_t argc, char** argv)
         exit(1);
     }
     
-    auto spPersistor = std::make_shared<CPeerPersistor>();
+    auto spPersistor = std::make_shared<CPeerPersistor>(local::PeersFilename);
     if (!spPersistor->FetchPeers()) {
         std::cout << "Node bootstraps could not be parsed!" << std::endl;
         exit(1);
@@ -68,16 +71,12 @@ std::int32_t main(std::int32_t argc, char** argv)
     assert(spEndpointManager);
     assert(spMessageQueue);
     assert(spPersistor);
-    spEndpointManager->Initialize(
-        0,   // TODO: Get Brypt Node ID and pass it in to the manager
-        spMessageQueue.get(),
-        configurations,
-        spPersistor.get());
+    spEndpointManager->Initialize(id, spMessageQueue.get(), configurations, spPersistor.get());
 
     spPersistor->SetMediator(spEndpointManager.get());
 
     if (!optSettings->endpoints.empty()) {
-        CBryptNode alpha(spEndpointManager, spMessageQueue, spPersistor, *optSettings);
+        CBryptNode alpha(id, spEndpointManager, spMessageQueue, spPersistor, *optSettings);
         alpha.Startup();
     }
 
@@ -100,6 +99,11 @@ void local::ParseArguments(std::int32_t argc, char** argv)
     itr = find (arguments.begin(), arguments.end(), "--config");
     if (itr != arguments.end()) {
         local::ConfigurationFilename = *(++itr);
+    }
+
+    itr = find (arguments.begin(), arguments.end(), "--peers");
+    if (itr != arguments.end()) {
+        local::PeersFilename = *(++itr);
     }
 }
 //------------------------------------------------------------------------------------------------

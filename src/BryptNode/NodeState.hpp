@@ -12,9 +12,8 @@
 
 class CNodeState {
 public:
-    CNodeState();
-
-    CNodeState(Endpoints::TechnologySet const& technologies);
+    explicit CNodeState(NodeUtils::NodeIdType id);
+    CNodeState(NodeUtils::NodeIdType id, Endpoints::TechnologySet const& technologies);
 
     NodeUtils::NodeIdType GetId() const;
     NodeUtils::SerialNumber GetSerial() const;

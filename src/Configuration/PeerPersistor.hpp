@@ -24,7 +24,7 @@
 
 class CPeerPersistor : public IPeerCache, public IPeerObserver {
 public:
-    using PeersMap = std::unordered_map<NodeUtils::NodeIdType, CPeer>;
+    using PeersMap = std::unordered_map<std::string, CPeer>;
     using SharedPeersMap = std::shared_ptr<PeersMap>;
 
     using EndpointPeersMap = std::unordered_map<Endpoints::TechnologyType, SharedPeersMap>;

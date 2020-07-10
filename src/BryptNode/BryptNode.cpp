@@ -26,8 +26,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-constexpr std::chrono::milliseconds CycleTimeout = std::chrono::milliseconds(1000);
-// constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1500);
+constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1000);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -49,6 +48,7 @@ void SimulateClient(
 // Description:
 //------------------------------------------------------------------------------------------------
 CBryptNode::CBryptNode(
+    NodeUtils::NodeIdType id,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CMessageQueue> const& spMessageQueue,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
@@ -77,8 +77,7 @@ CBryptNode::CBryptNode(
     m_spCoordinatorState = std::make_shared<CCoordinatorState>();
     m_spNetworkState = std::make_shared<CNetworkState>();
     m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);
-    m_spNodeState = std::make_shared<CNodeState>(
-        m_spEndpointManager->GetEndpointTechnologies());
+    m_spNodeState = std::make_shared<CNodeState>(id, m_spEndpointManager->GetEndpointTechnologies());
     m_spSensorState = std::make_shared<CSensorState>();
 
     // initialize peer watcher

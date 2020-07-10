@@ -115,7 +115,7 @@ void Command::IHandler::SendResponse(
         id = spNodeState->GetId();
     }
 
-    NodeUtils::NodeIdType destination = request.GetDestinationId();
+    NodeUtils::NodeIdType destination = request.GetSourceId();
     if (optDestinationOverride) {
         destination = *optDestinationOverride;
     }

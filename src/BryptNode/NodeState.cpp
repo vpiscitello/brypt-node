@@ -2,9 +2,9 @@
 #include "NodeState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState()
+CNodeState::CNodeState(NodeUtils::NodeIdType id)
     : m_mutex()
-    , m_id(0) // TODO: Set Machine UUID for state
+    , m_id(id)
     , m_serial()
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
@@ -14,9 +14,9 @@ CNodeState::CNodeState()
 
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState(Endpoints::TechnologySet const& technologies)
+CNodeState::CNodeState(NodeUtils::NodeIdType id, Endpoints::TechnologySet const& technologies)
     : m_mutex()
-    , m_id(0) // TODO: Set Machine UUID for state
+    , m_id(id)
     , m_serial()
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
