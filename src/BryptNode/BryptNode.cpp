@@ -26,7 +26,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1000);
+constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -325,7 +325,7 @@ void CBryptNode::Listen()
         ++run;
 
         //----------------------------------------------------------------------------------------
-        test::SimulateClient(m_spNodeState->GetId(), m_commandHandlers, (run % 10 == 0));
+        test::SimulateClient(m_spNodeState->GetId(), m_commandHandlers, (run % 10000 == 0));
         //----------------------------------------------------------------------------------------
 
         std::this_thread::sleep_for(local::CycleTimeout);

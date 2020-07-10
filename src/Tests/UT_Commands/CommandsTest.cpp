@@ -66,7 +66,7 @@ TEST(CommandSuite, CommandMatchingTest)
     // The node itself will set up internal commands that can operate on it's
     // internal state, but in order to setup our own we need to provide the 
     // commands a node instance and a state.
-    CBryptNode node(nullptr, nullptr, nullptr, settings);
+    CBryptNode node(test::ServerId, nullptr, nullptr, nullptr, settings);
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 

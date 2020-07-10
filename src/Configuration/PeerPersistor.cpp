@@ -317,7 +317,7 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
 
             if (peerEntries.empty()) {
                 NodeUtils::printo(
-                    "Warning: The endpoint \"" + endpointEntry.technology + "\" has no listed bootstrap peer(s)!" + 
+                    "Warning: The \"" + endpointEntry.technology + "\" endpoint has no listed bootstrap peer(s)!\n" + 
                     "Using default bootstrap entry point for the endpoint, custom bootstraps may be set in the peers.json file.",
                     NodeUtils::PrintType::Node);
                 local::FillDefaultBootstrap(technology, peerEntries);

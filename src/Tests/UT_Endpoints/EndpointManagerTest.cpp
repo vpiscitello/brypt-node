@@ -128,7 +128,7 @@ public:
         if (!spPeersMap) {
             spPeersMap = std::make_shared<CPeerPersistor::PeersMap>();
         }
-        spPeersMap->emplace(peer.GetNodeId(), peer);
+        spPeersMap->emplace(peer.GetEntry(), peer);
     }
 
     // IPeerCache {
