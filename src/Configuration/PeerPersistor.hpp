@@ -30,8 +30,12 @@ public:
     using EndpointPeersMap = std::unordered_map<Endpoints::TechnologyType, SharedPeersMap>;
     using SharedEndpointPeersMap = std::shared_ptr<EndpointPeersMap>;
 
+    using DefaultBootstrapEntryMap = std::unordered_map<Endpoints::TechnologyType, std::string>;
+
     CPeerPersistor();
     explicit CPeerPersistor(std::string_view filepath);
+    explicit CPeerPersistor(Configuration::EndpointConfigurations const& configurations);
+    CPeerPersistor(std::string_view filepath, Configuration::EndpointConfigurations const& configurations);
 
     void SetMediator(IPeerMediator* const mediator);
 
@@ -39,6 +43,7 @@ public:
     Configuration::StatusCode Serialize();
     Configuration::StatusCode DecodePeersFile();
     Configuration::StatusCode SerializeEndpointPeers();
+    Configuration::StatusCode SetupPeersFile();
 
     void AddPeerEntry(CPeer const& peer);
     void DeletePeerEntry(CPeer const& peer);
@@ -65,10 +70,14 @@ public:
     
 private:
     IPeerMediator* m_mediator;
+
     std::filesystem::path m_filepath;
     mutable std::mutex m_fileMutex;
+    
     mutable std::mutex m_endpointsMutex;
     SharedEndpointPeersMap m_spEndpoints;
+
+    DefaultBootstrapEntryMap m_defaults;
 };
 
 //------------------------------------------------------------------------------------------------

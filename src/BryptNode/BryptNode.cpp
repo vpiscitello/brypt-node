@@ -73,7 +73,7 @@ CBryptNode::CBryptNode(
     }
 
     // Initialize state from settings.
-    m_spAuthorityState = std::make_shared<CAuthorityState>(settings.security.central_authority);
+    m_spAuthorityState = std::make_shared<CAuthorityState>(settings.security.authority);
     m_spCoordinatorState = std::make_shared<CCoordinatorState>();
     m_spNetworkState = std::make_shared<CNetworkState>();
     m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);

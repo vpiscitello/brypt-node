@@ -1,13 +1,13 @@
 {
+  "version": "0.0.0 Alpha",
 	"details": {
-		"version": "0.0.0-alpha",
 		"name": "alpha",
 		"description": "The first node on the Brypt network.",
 		"location": "44.5638° N, 123.2794° W"
 	},
 	"endpoints": [
 		{
-			"technology_name": "Direct",
+			"technology": "Direct",
 			"interface": "lo",
 			"binding": "*:35216"
 		}
@@ -15,6 +15,6 @@
 	"security": {
 		"standard": "AES-256-CTR",
 		"token": "",
-		"central_authority": ""
+		"authority": ""
 	}
 }

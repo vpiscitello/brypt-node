@@ -26,7 +26,11 @@ struct TKnownPeersEntry;
 using PeerEntriesVector = std::vector<TPeerEntry>;
 using EndpointEntriesVector = std::vector<TEndpointEntry>;
 
-void FillDefaultBootstrap(Endpoints::TechnologyType technology, PeerEntriesVector& entries);
+
+void ParseDefaultBootstraps(
+    Configuration::EndpointConfigurations const& configurations, 
+    CPeerPersistor::DefaultBootstrapEntryMap& defaults);
+void FillDefaultBootstrap(PeerEntriesVector& entries, std::string_view entry);
 
 void WriteEndpointPeers(
     CPeerPersistor::SharedEndpointPeersMap const& endpoints,
@@ -39,9 +43,6 @@ namespace defaults {
 //------------------------------------------------------------------------------------------------
 
 constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the peers files to 12KB
-
-constexpr std::string_view TcpEntry = "127.0.0.1:35216";
-constexpr std::string_view LoRaEntry = "915:7";
 
 //------------------------------------------------------------------------------------------------
 } // default namespace
@@ -78,7 +79,7 @@ IOD_SYMBOL(peers)
 struct local::TPeerEntry
 {
     TPeerEntry()
-        : id()
+        : id(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown))
         , entry()
         , location()
     {
@@ -96,10 +97,9 @@ struct local::TPeerEntry
 
     bool IsValid() const
     {
-        // TODO: Implement invalid node ID 
-        // if (id == 0) {
-        //     return false;
-        // }
+        if (id == static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid)) {
+            return false;
+        }
 
         if (entry.empty()) {
             return false;
@@ -157,8 +157,10 @@ struct local::TKnownPeersEntry
 CPeerPersistor::CPeerPersistor()
     : m_mediator(nullptr)
     , m_filepath()
+    , m_fileMutex()
     , m_endpointsMutex()
     , m_spEndpoints()
+    , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
     FileUtils::CreateFolderIfNoneExist(m_filepath);
@@ -166,13 +168,13 @@ CPeerPersistor::CPeerPersistor()
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::CPeerPersistor(
-    std::string_view filepath)
+CPeerPersistor::CPeerPersistor(std::string_view filepath)
     : m_mediator(nullptr)
     , m_filepath(filepath)
     , m_fileMutex()
     , m_endpointsMutex()
     , m_spEndpoints()
+    , m_defaults()
 {
     // If the filepath does not have a filename, attach the default config.json
     if (!m_filepath.has_filename()) {
@@ -185,6 +187,49 @@ CPeerPersistor::CPeerPersistor(
     }
 
     FileUtils::CreateFolderIfNoneExist(m_filepath);
+}
+
+//-----------------------------------------------------------------------------------------------
+
+CPeerPersistor::CPeerPersistor(Configuration::EndpointConfigurations const& configurations)
+    : m_mediator(nullptr)
+    , m_filepath()
+    , m_fileMutex()
+    , m_endpointsMutex()
+    , m_spEndpoints()
+    , m_defaults()
+{
+    m_filepath = Configuration::GetDefaultPeersFilepath();
+    FileUtils::CreateFolderIfNoneExist(m_filepath);
+
+    local::ParseDefaultBootstraps(configurations, m_defaults);
+}
+
+//-----------------------------------------------------------------------------------------------
+
+CPeerPersistor::CPeerPersistor(
+    std::string_view filepath,
+    Configuration::EndpointConfigurations const& configurations)
+    : m_mediator(nullptr)
+    , m_filepath(filepath)
+    , m_fileMutex()
+    , m_endpointsMutex()
+    , m_spEndpoints()
+    , m_defaults()
+{
+    // If the filepath does not have a filename, attach the default config.json
+    if (!m_filepath.has_filename()) {
+        m_filepath = m_filepath / Configuration::DefaultKnownPeersFilename;
+    }
+
+    // If the filepath does not have a parent path, get and attach the default brypt folder
+    if (!m_filepath.has_parent_path()) {
+        m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath;
+    }
+
+    FileUtils::CreateFolderIfNoneExist(m_filepath);
+
+    local::ParseDefaultBootstraps(configurations, m_defaults);
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -217,6 +262,8 @@ bool CPeerPersistor::FetchPeers()
             "Reading peers file at: " + m_filepath.string(),
             NodeUtils::PrintType::Node);
         status = DecodePeersFile();
+    } else {
+        status = SetupPeersFile();
     }
 
     if (!m_spEndpoints || status != Configuration::StatusCode::Success) {
@@ -306,8 +353,8 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
         {
             // Parse the technology name from the entry, if it is not a valid name continue to 
             // the next endpoint entry.
-            auto const technology = Endpoints::ParseTechnologyType(endpointEntry.technology);
-            if (technology == Endpoints::TechnologyType::Invalid) {
+            auto const technologyType = Endpoints::ParseTechnologyType(endpointEntry.technology);
+            if (technologyType == Endpoints::TechnologyType::Invalid) {
                 return;
             }
 
@@ -316,17 +363,16 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
             spPeers->reserve(peerEntries.size() * 2);
 
             if (peerEntries.empty()) {
-                NodeUtils::printo(
-                    "Warning: The \"" + endpointEntry.technology + "\" endpoint has no listed bootstrap peer(s)!\n" + 
-                    "Using default bootstrap entry point for the endpoint, custom bootstraps may be set in the peers.json file.",
-                    NodeUtils::PrintType::Node);
-                local::FillDefaultBootstrap(technology, peerEntries);
+                if (auto const itr = m_defaults.find(technologyType); itr != m_defaults.end()) {
+                    auto const& [key, defaultBootstrap] = *itr;
+                    local::FillDefaultBootstrap(peerEntries, defaultBootstrap);
+                }
             }
 
             // Insert any valid peers into the endpoint map
             std::for_each(
                 peerEntries.begin(), peerEntries.end(),
-                [&technology, &spPeers] (local::TPeerEntry const& peerEntry)
+                [&technologyType, &spPeers] (local::TPeerEntry const& peerEntry)
                 {
                     if (!peerEntry.IsValid()) {
                         return;
@@ -335,15 +381,15 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
                     spPeers->try_emplace(
                         // Peer Key
                         peerEntry.entry,
-                        // Peer Class
+                        // Peer Constructor Arguements
                         peerEntry.id, 
-                        technology,
+                        technologyType,
                         peerEntry.entry,
                         peerEntry.location);
                 }
             );
             
-            spEndpoints->emplace(technology, spPeers);
+            spEndpoints->emplace(technologyType, spPeers);
         }
     );
 
@@ -378,8 +424,40 @@ Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
 
     Configuration::StatusCode const status = Serialize();
     if (status != Configuration::StatusCode::Success) {
-        NodeUtils::printo(
-            "Warning: Filed to serialize peers!", NodeUtils::PrintType::Node);
+        NodeUtils::printo("Warning: Filed to serialize peers!", NodeUtils::PrintType::Node);
+    }
+
+    return status;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------------------------
+// Description: Initializes and saves a peer file.
+//-----------------------------------------------------------------------------------------------
+Configuration::StatusCode CPeerPersistor::SetupPeersFile()
+{
+    if (!m_spEndpoints) {
+        m_spEndpoints = std::make_shared<EndpointPeersMap>();
+    }
+
+    for (auto const& [technology, entry] : m_defaults) {
+        auto spPeers = std::make_shared<PeersMap>();
+        if (!entry.empty()) {
+            spPeers->try_emplace(
+                // Peer Key
+                entry,
+                // Peer Constructor Arguements
+                static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
+                technology,
+                entry);
+        }
+        m_spEndpoints->emplace(technology, spPeers);
+    }
+
+    Configuration::StatusCode const status = Serialize();
+    if (status != Configuration::StatusCode::Success) {
+        NodeUtils::printo("Warning: Filed to serialize peers!", NodeUtils::PrintType::Node);
     }
 
     return status;
@@ -598,25 +676,25 @@ void CPeerPersistor::HandlePeerConnectionStateChange(
 
 //-----------------------------------------------------------------------------------------------
 
-void local::FillDefaultBootstrap(
-    Endpoints::TechnologyType technology,
-    PeerEntriesVector& entries)
+void local::ParseDefaultBootstraps(
+    Configuration::EndpointConfigurations const& configurations, 
+    CPeerPersistor::DefaultBootstrapEntryMap& defaults)
 {
-    TPeerEntry bootstrap = {
-        static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
-        "", ""};
-
-    switch (technology) {
-        case Endpoints::TechnologyType::Direct:
-        case Endpoints::TechnologyType::StreamBridge:
-        case Endpoints::TechnologyType::TCP: {
-            bootstrap.entry = defaults::TcpEntry;
-        } break;
-        case Endpoints::TechnologyType::LoRa: {
-            bootstrap.entry = defaults::LoRaEntry;
-        } break;
-        default: break; // No other technology types have a default entry point
+    for (auto const& options: configurations) {
+        defaults.emplace(options.type, options.bootstrap);
     }
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void local::FillDefaultBootstrap(PeerEntriesVector& entries, std::string_view entry)
+{
+    if (entry.empty()) {
+        return;
+    }
+
+    TPeerEntry bootstrap;
+    bootstrap.entry = entry;
 
     entries.emplace_back(bootstrap);
 }
@@ -636,6 +714,10 @@ void local::WriteEndpointPeers(
     std::uint32_t const endpointSize = spEndpoints->size();
     out << "\t\"endpoints\": [\n";
     for (auto const& [technology, spPeers]: *spEndpoints) {
+        if (technology == Endpoints::TechnologyType::Invalid){
+            continue;
+        }
+        
         out << "\t\t{\n";
         out << "\t\t\t\"technology\": \"" << Endpoints::TechnologyTypeToString(technology) << "\",\n";
         out << "\t\t\t\"peers\": [\n";
@@ -645,8 +727,12 @@ void local::WriteEndpointPeers(
         for (auto const& [id, peer]: *spPeers) {
             out << "\t\t\t\t{\n";
             out << "\t\t\t\t\t\"id\": " << peer.GetNodeId() << ",\n";
-            out << "\t\t\t\t\t\"entry\": \"" << peer.GetEntry() << "\",\n";
-            out << "\t\t\t\t\t\"location\": \"" << peer.GetLocation() << "\"\n";
+            out << "\t\t\t\t\t\"entry\": \"" << peer.GetEntry();
+            if (auto const location = peer.GetLocation(); !location.empty()) {
+                out << "\",\n\t\t\t\"location\": \"" << location << "\"\n";
+            } else {
+                out << "\"\n";
+            }
             out << "\t\t\t\t}";
             if (++peersWritten != peersSize) {
                 out << ",\n";

@@ -58,7 +58,7 @@ std::int32_t main(std::int32_t argc, char** argv)
         exit(1);
     }
     
-    auto spPersistor = std::make_shared<CPeerPersistor>(local::PeersFilename);
+    auto spPersistor = std::make_shared<CPeerPersistor>(local::PeersFilename, optSettings->GetEndpointConfigurations());
     if (!spPersistor->FetchPeers()) {
         std::cout << "Node bootstraps could not be parsed!" << std::endl;
         exit(1);

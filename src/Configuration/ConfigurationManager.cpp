@@ -19,6 +19,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+void SerializeVersion(std::ofstream& out);
 void SerializeNodeOptions(
     Configuration::TDetailsOptions const& options,
     std::ofstream& out);
@@ -41,9 +42,10 @@ namespace defaults {
 
 constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the configuration files to 12KB
 
-constexpr std::string_view TechnologyName = "Direct";
+constexpr std::string_view TechnologyName = "TCP";
 constexpr std::string_view NetworkInterface = "lo";
 constexpr std::string_view TcpBindingAddress = "*:35216";
+constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
 constexpr std::string_view LoRaBindingAddress = "915:71";
 
 constexpr std::string_view EncryptionStandard = "AES-256-CTR";
@@ -62,9 +64,11 @@ constexpr std::string_view CentralAutority = "https://bridge.brypt.com:8080";
 // the struct. However, initalization is needed to fill out the other parts of the configuration
 // after decoding the file.
 //------------------------------------------------------------------------------------------------
+IOD_SYMBOL(version)
+// "version": String
+
 IOD_SYMBOL(details)
 // "details": {
-//     "version": String,
 //     "name": String,
 //     "description": String,
 //     "location": String
@@ -72,28 +76,29 @@ IOD_SYMBOL(details)
 
 IOD_SYMBOL(endpoints)
 // "endpoints": [{
-//     "technology_name": String,
+//     "type": String,
 //     "interface": String,
-//     "binding": String
+//     "binding": String,
+//     "bootstrap": Optional String
 // }]
 
 IOD_SYMBOL(security)
 // "security": {
 //     "standard": String,
 //     "token": String,
-//     "central_authority": String
+//     "authority": String
 // }
 
+IOD_SYMBOL(authority)
 IOD_SYMBOL(binding)
-IOD_SYMBOL(central_authority)
+IOD_SYMBOL(bootstrap)
 IOD_SYMBOL(description)
 IOD_SYMBOL(interface)
 IOD_SYMBOL(location)
 IOD_SYMBOL(name)
 IOD_SYMBOL(standard)
-IOD_SYMBOL(technology_name)
+IOD_SYMBOL(technology)
 IOD_SYMBOL(token)
-IOD_SYMBOL(version)
 
 //------------------------------------------------------------------------------------------------
 
@@ -171,6 +176,7 @@ Configuration::StatusCode Configuration::CManager::Serialize()
 
     out << "{\n";
 
+    local::SerializeVersion(out);
     local::SerializeNodeOptions(m_settings.details, out);
     local::SerializeEndpointConfigurations(m_settings.endpoints, out);
     local::SerializeSecurityOptions(m_settings.security, out);
@@ -222,19 +228,20 @@ Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
 
     // Decode the JSON string into the configuration struct
     iod::json_object(
+        s::version,
         s::details = iod::json_object(
-            s::version,
             s::name,
             s::description,
             s::location),
         s::endpoints = iod::json_vector(
-            s::technology_name,
+            s::technology,
             s::interface,
-            s::binding),
+            s::binding,
+            s::bootstrap),
         s::security = iod::json_object(
             s::standard,
             s::token,
-            s::central_authority)
+            s::authority)
         ).decode(json, m_settings);
 
     // Valdate the decoded settings. If the settings decoded are not valid return noopt.
@@ -308,9 +315,16 @@ void Configuration::CManager::InitializeSettings()
     std::for_each(m_settings.endpoints.begin(), m_settings.endpoints.end(),
     [] (auto& endpoint)
         {
-            endpoint.technology = Endpoints::ParseTechnologyType(endpoint.technology_name);
+            endpoint.type = Endpoints::ParseTechnologyType(endpoint.technology);
         }
     );
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void local::SerializeVersion(std::ofstream& out)
+{
+    out << "\t\"version\": \"" << Brypt::Version << "\",\n";
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -320,7 +334,6 @@ void local::SerializeNodeOptions(
     std::ofstream& out)
 {
     out << "\t\"details\": {\n";
-    out << "\t\t\"version\": \"" << options.version << "\",\n";
     out << "\t\t\"name\": \"" << options.name << "\",\n";
     out << "\t\t\"description\": \"" << options.description << "\",\n";
     out << "\t\t\"location\": \"" << options.location << "\"\n";
@@ -336,9 +349,14 @@ void local::SerializeEndpointConfigurations(
     out << "\t\"endpoints\": [\n";
     for (auto const& options: configurations) {
         out << "\t\t{\n";
-        out << "\t\t\t\"technology_name\": \"" << Endpoints::TechnologyTypeToString(options.technology) << "\",\n";
+        out << "\t\t\t\"type\": \"" << options.technology << "\",\n";
         out << "\t\t\t\"interface\": \"" << options.interface << "\",\n";
-        out << "\t\t\t\"binding\": \"" << options.binding << "\"\n";
+        out << "\t\t\t\"binding\": \"" << options.binding;
+        if (!options.bootstrap.empty()) {
+            out << "\",\n\t\t\t\"bootstrap\": \"" << options.bootstrap << "\"\n";
+        } else {
+            out << "\"\n";
+        }
         out << "\t\t}";
         if (&options != &configurations.back()) {
             out << ",\n";
@@ -356,7 +374,7 @@ void local::SerializeSecurityOptions(
     out << "\t\"security\": {\n";
     out << "\t\t\"standard\": \"" << options.standard << "\",\n";
     out << "\t\t\"token\": \"" << options.token << "\",\n";
-    out << "\t\t\"central_authority\": \"" << options.central_authority << "\"\n";
+    out << "\t\t\"authority\": \"" << options.authority << "\"\n";
     out << "\t}\n";
 }
 
@@ -366,27 +384,27 @@ Configuration::TDetailsOptions local::GetDetailsOptionsFromUser()
 {
     Configuration::TDetailsOptions options;
     
-    std::string sName = "";
+    std::string name = "";
     std::cout << "Node Name: " << std::flush;
-    std::getline(std::cin, sName);
-    if (!sName.empty()) {
-        options.name = sName;
+    std::getline(std::cin, name);
+    if (!name.empty()) {
+        options.name = name;
     }
 
-    std::string sDecription = "";
+    std::string decription = "";
     std::cout << "Node Description: " << std::flush;
-    std::getline(std::cin, sDecription);
-    if (!sDecription.empty()) {
-        options.description = sDecription;
+    std::getline(std::cin, decription);
+    if (!decription.empty()) {
+        options.description = decription;
     }
 
     // TODO: Possibly expand on location to have different types. Possible types could include
     // worded description, geographic coordinates, custom map coordinates, etc.
-    std::string sLocation = "";
+    std::string location = "";
     std::cout << "Node Location: " << std::flush;
-    std::getline(std::cin, sLocation);
-    if (!sLocation.empty()) {
-        options.location = sLocation;
+    std::getline(std::cin, location);
+    if (!location.empty()) {
+        options.location = location;
     }
 
     std::cout << "\n";
@@ -408,44 +426,53 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
             defaults::TcpBindingAddress);
 
         // Get the desired primary technology type for the node
-        std::string sTechnology = "";
+        std::string technology(defaults::TechnologyName);
         std::cout << "Communication Technology: (" << defaults::TechnologyName << ") " << std::flush;
-        std::getline(std::cin, sTechnology);
-        if (!sTechnology.empty()) {
-            options.technology_name = sTechnology;
-            options.technology = Endpoints::ParseTechnologyType(sTechnology);
+        std::getline(std::cin, technology);
+        if (!technology.empty()) {
+            options.technology = technology;
+            options.type = Endpoints::ParseTechnologyType(technology);
         }
 
         // Get the network interface that the node will be bound too
-        std::string sInterface = "";
+        std::string interface(defaults::NetworkInterface);
         std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
-        std::getline(std::cin, sInterface);
-        if (!sInterface.empty()) {
-            options.interface = sInterface;
+        std::getline(std::cin, interface);
+        if (!interface.empty()) {
+            options.interface = interface;
         }
 
         // Get the primary and secondary network address components
         // Currently, this may be the IP and port for TCP/IP based nodes
         // or frequency and channel for LoRa.
-        std::string sBinding = "";
+        std::string binding(defaults::TcpBindingAddress);
         std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
         bindingOutputMessage.append(defaults::TcpBindingAddress.data());
-        if (options.technology == Endpoints::TechnologyType::LoRa) {
+        if (options.type == Endpoints::TechnologyType::LoRa) {
             bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
             bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
             options.binding = defaults::LoRaBindingAddress;
         }
         bindingOutputMessage.append(") ");
+
         std::cout << bindingOutputMessage << std::flush;
-        std::getline(std::cin, sBinding);
-        if (!sBinding.empty()) {
-            options.binding = sBinding;
+        std::getline(std::cin, binding);
+        if (!binding.empty()) {
+            options.binding = binding;
+        }
+
+        // Get the default bootstrap entry for the technology
+        if (options.type != Endpoints::TechnologyType::LoRa) {
+            std::string bootstrap(defaults::TcpBootstrapEntry);
+            std::cout << "Default Bootstrap Entry: (" << defaults::TcpBootstrapEntry << ") " << std::flush;
+            std::getline(std::cin, bootstrap);
+            options.bootstrap = bootstrap;
         }
 
         configurations.emplace_back(options);
 
         std::string sContinueChoice;
-        std::cout << "Enter any key to setup a key (Press enter to continue): " << std::flush;
+        std::cout << "Enter any key to setup a new endpoint configuration (Press enter to continue): " << std::flush;
         std::getline(std::cin, sContinueChoice);
         bAddEndpointOption = !sContinueChoice.empty();
         std::cout << "\n";
@@ -464,18 +491,18 @@ Configuration::TSecurityOptions local::GetSecurityOptionsFromUser()
         defaults::CentralAutority
     );
     
-    std::string sToken = "";
+    std::string token = "";
     std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
-    std::getline(std::cin, sToken);
-    if (!sToken.empty()) {
-        options.token = sToken;
+    std::getline(std::cin, token);
+    if (!token.empty()) {
+        options.token = token;
     }
 
-    std::string sCentralAuthority = "";
+    std::string authority = "";
     std::cout << "Central Authority: (" << defaults::CentralAutority << ") " << std::flush;
-    std::getline(std::cin, sCentralAuthority);
-    if (!sCentralAuthority.empty()) {
-        options.central_authority = sCentralAuthority;
+    std::getline(std::cin, authority);
+    if (!authority.empty()) {
+        options.authority = authority;
     }
 
     std::cout << "\n";

@@ -43,8 +43,7 @@ std::filesystem::path GetDefaultPeersFilepath();
 struct Configuration::TDetailsOptions
 {
     TDetailsOptions()
-        : version(Brypt::Version)
-        , name()
+        : name()
         , description()
         , location()
     {
@@ -54,14 +53,12 @@ struct Configuration::TDetailsOptions
         std::string_view name,
         std::string_view description = "",
         std::string_view location = "")
-        : version(Brypt::Version)
-        , name(name)
+        : name(name)
         , description(description)
         , location(location)
     {
     }
 
-    std::string version;
     std::string name;
     std::string description;
     std::string location;
@@ -72,46 +69,50 @@ struct Configuration::TDetailsOptions
 struct Configuration::TEndpointOptions
 {
     TEndpointOptions()
-        : technology(Endpoints::TechnologyType::Invalid)
-        , technology_name()
+        : type(Endpoints::TechnologyType::Invalid)
+        , technology()
         , interface()
         , binding()
+        , bootstrap()
     {
     }
 
     TEndpointOptions(
-        std::string_view technology_name,
+        std::string_view technology,
         std::string_view interface,
         std::string_view binding)
-        : technology(Endpoints::TechnologyType::Invalid)
-        , technology_name(technology_name)
+        : type(Endpoints::TechnologyType::Invalid)
+        , technology(technology)
         , interface(interface)
         , binding(binding)
+        , bootstrap()
     {
-        technology = Endpoints::ParseTechnologyType(technology_name.data());
+        type = Endpoints::ParseTechnologyType(technology.data());
     }
 
     TEndpointOptions(
-        Endpoints::TechnologyType technology,
+        Endpoints::TechnologyType type,
         std::string_view interface,
         std::string_view binding)
-        : technology(technology)
-        , technology_name()
+        : type(type)
+        , technology()
         , interface(interface)
         , binding(binding)
+        , bootstrap()
     {
-        technology_name = Endpoints::TechnologyTypeToString(technology);
+        technology = Endpoints::TechnologyTypeToString(type);
     }
 
-    Endpoints::TechnologyType GetTechnology() const { return technology; }
-    std::string GetTechnologyName() const { return technology_name; }
+    Endpoints::TechnologyType GetTechnology() const { return type; }
+    std::string GetTechnologyName() const { return technology; }
     std::string GetInterface() const { return interface; }
     std::string GetBinding() const { return binding; }
+    std::string GetBootstrap() const { return bootstrap; }
 
     NetworkUtils::AddressComponentPair GetBindingComponents() const
     {
         auto components = NetworkUtils::SplitAddressString(binding);
-        switch (technology) {
+        switch (type) {
             case Endpoints::TechnologyType::Direct:
             case Endpoints::TechnologyType::StreamBridge:
             case Endpoints::TechnologyType::TCP: {
@@ -125,10 +126,11 @@ struct Configuration::TEndpointOptions
         return components;
     }
 
-    Endpoints::TechnologyType technology;
-    std::string technology_name;
+    Endpoints::TechnologyType type;
+    std::string technology;
     std::string interface;
     std::string binding;
+    std::string bootstrap;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -138,7 +140,7 @@ struct Configuration::TSecurityOptions
     TSecurityOptions()
         : standard()
         , token()
-        , central_authority()
+        , authority()
     {
     }
 
@@ -148,13 +150,13 @@ struct Configuration::TSecurityOptions
         std::string_view central_authority)
         : standard(standard)
         , token(token)
-        , central_authority(central_authority)
+        , authority(central_authority)
     {
     }
 
     std::string standard;
     std::string token;
-    std::string central_authority;
+    std::string authority;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -162,7 +164,8 @@ struct Configuration::TSecurityOptions
 struct Configuration::TSettings
 {
     TSettings()
-        : details()
+        : version(Brypt::Version)
+        , details()
         , endpoints()
         , security()
     {
@@ -193,6 +196,27 @@ struct Configuration::TSettings
         return *this;
     }
 
+    std::string const& GetVersion()
+    {
+        return version;
+    }
+
+    TDetailsOptions const& GetDetailsOptions()
+    {
+        return details;
+    }
+
+    EndpointConfigurations const& GetEndpointConfigurations()
+    {
+        return endpoints;
+    }
+
+    TSecurityOptions const& GetSecurityOptions()
+    {
+        return security;
+    }
+
+    std::string version;
     TDetailsOptions details;
     EndpointConfigurations endpoints;
     TSecurityOptions security;
