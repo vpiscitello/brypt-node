@@ -32,51 +32,51 @@ make
 A Brypt node makes use of a configuration file to describe the settings to be used when operating. If no configuration file is found, a utility will be run to generate a configuration file from user input. On Linux, the default location is based on supported environment variables and may be one of the following (in order of precedence): *\$XDG_CONFIG_HOME/brypt/config.json*, *\$HOME/brypt/config.json*, or */brypt/config.json*.
 #### Configuration Options
 | Key | Type | Supported Options | Required | Description |
-|-----------|-----------|-----------|-----------|-----------|-----------|
+|-----------|-----------|-----------|-----------|-----------|
 | version | String | N/A | Yes | Indicates the version of the brypt software. |
 | details | Object | N/A | No | Contains human readible details a user may want store about the node. |
 | endpoints | Array | N/A | Yes | Describes the technologies to be used by the node and their respective configurations. |
 | security | Object | N/A | Yes | Describes security options to be used by the node. |
 ##### Details Configuration Options
 | Key | Type | Supported Options | Required | Description |
-|-----------|-----------|-----------|-----------|-----------|-----------|
+|-----------|-----------|-----------|-----------|-----------|
 | name | String | N/A | No | Indicates a name for the node. |
 | description | String | N/A | No | Indicates a description for the node. |
-| location | String | N/A | Yes | Indicates a location for the node. Feature not currently implemented, but may support coordinates or other location discovery systems. |
+| location | String | N/A | No | Indicates a location for the node. Feature not currently implemented, but may support coordinates or other location discovery systems. |
 ##### Endpoint Configuration Options
 | Key | Type | Supported Options | Required | Description |
-|-----------|-----------|-----------|-----------|-----------|-----------|
+|-----------|-----------|-----------|-----------|-----------|
 | technology | String | Direct, StreamBridge, TCP | Yes | Indicates a communication technology that will be used. |
 | interface | String | N/A | Yes | Indicates the network interface that will be used for the technology. |
 | binding | String | N/A | Yes | Indicates the binding (e.g. address:port for IP based technologies) that will be used for the serving endpoint. |
 | bootstrap | String | N/A | No | Indicates a default bootstrap entry that may be used when no other peers are cached. |
 ##### Security Configuration Options
 | Key | Type | Supported Options | Required | Description |
-|-----------|-----------|-----------|-----------|-----------|-----------|
+|-----------|-----------|-----------|-----------|-----------|
 | standard | String | N/A | Yes | Indicates an encryption standard to be used during messaging. Support not currently implemented. |
 | token | String | N/A | Yes | Indicates a token for logically seperating Brypt networks. Support not currently implemented. |
 | authority | String | N/A | No | Indicates a URL for the governing body of the network. |
 ### Schema
 ```json
 {
-    "version": String,
+    "version": "String",
     "details": {
-        "name": String,
-        "description": String,
-        "location": String
+        "name": "String",
+        "description": "String",
+        "location": "String"
     },
     "endpoints": [
         {
-            "technology": String,
-            "interface": String,
-            "binding": String,
-            "bootstrap": String
+            "technology": "String",
+            "interface": "String",
+            "binding": "String",
+            "bootstrap": "String"
         }
     ],
     "security": {
-        "standard": String,
-        "token": String,
-        "authority": String
+        "standard": "String",
+        "token": "String",
+        "authority": "String"
     }
 }
 ```
