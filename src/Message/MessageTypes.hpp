@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "NodeUtils.hpp"
+#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <utility>
@@ -14,12 +14,13 @@
 //------------------------------------------------------------------------------------------------
 namespace Message {
 //------------------------------------------------------------------------------------------------
-enum class VerificationStatus : std::uint8_t { Success, Unauthorized };
+
 enum class AwaitBinding : std::uint8_t { Source, Destination, None };
 
 using Buffer = std::vector<std::uint8_t>;
 using Token = std::vector<std::uint8_t>;
-using BoundAwaitId = std::pair<AwaitBinding, NodeUtils::ObjectIdType>;
+using BoundAwaitingKey = std::pair<AwaitBinding, NodeUtils::ObjectIdType>;
+
 //------------------------------------------------------------------------------------------------
 } // Message namespace
 //------------------------------------------------------------------------------------------------

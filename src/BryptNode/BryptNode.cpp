@@ -17,8 +17,11 @@
 #include "../Components/MessageQueue/MessageQueue.hpp"
 #include "../Components/PeerWatcher/PeerWatcher.hpp"
 #include "../Configuration/PeerPersistor.hpp"
-#include "../Utilities/Message.hpp"
+#include "../Message/Message.hpp"
+#include "../Message/MessageBuilder.hpp"
 #include "../Utilities/NodeUtils.hpp"
+//------------------------------------------------------------------------------------------------
+#include <cassert>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -312,13 +315,13 @@ void CBryptNode::Listen()
 {
     printo("Brypt Node is listening", NodeUtils::PrintType::Node);
     std::uint64_t run = 0;
-    std::optional<CMessage> optQueueRequest;
+    std::optional<CMessage> optRequest;
     // TODO: Implement stopping condition
     do {
-        optQueueRequest = m_spMessageQueue->PopIncomingMessage();
-        if (optQueueRequest) {
-            HandleQueueRequest(*optQueueRequest);
-            optQueueRequest.reset();
+        optRequest = m_spMessageQueue->PopIncomingMessage();
+        if (optRequest) {
+            HandleQueueRequest(*optRequest);
+            optRequest.reset();
         }
 
         ProcessFulfilledMessages();
@@ -347,16 +350,30 @@ void test::SimulateClient(
         return;
     }
 
-    std::cout << "== [Node] Simulating client sensor Information request" << '\n';
-    CMessage informationRequest({}, 0xFFFFFFFF, id, Command::Type::Information, 0, "Request for Network Information.", 0);
-    if (auto const itr = commandHandlers.find(informationRequest.GetCommandType()); itr != commandHandlers.end()) {
-        itr->second->HandleMessage(informationRequest);
+    std::cout << "== [Node] Simulating node information request" << '\n';
+    OptionalMessage const optInformationRequest = CMessage::Builder()
+        .SetSource(id)
+        .SetDestination(ReservedIdentifiers::ClusterRequest)
+        .SetCommand(Command::Type::Information, 0)
+        .SetData("Request for Network Information", 0)
+        .ValidatedBuild();
+    assert(optInformationRequest);
+
+    if (auto const itr = commandHandlers.find(optInformationRequest->GetCommandType()); itr != commandHandlers.end()) {
+        itr->second->HandleMessage(*optInformationRequest);
     }
     
-    std::cout << "== [Node] Simulating client sensor Query request" << '\n';
-    CMessage queryRequest({}, 0xFFFFFFFF, id, Command::Type::Query, 0, "Request for Sensor Readings.", 0);
-    if (auto const itr = commandHandlers.find(queryRequest.GetCommandType()); itr != commandHandlers.end()) {
-        itr->second->HandleMessage(queryRequest);
+    std::cout << "== [Node] Simulating sensor query request" << '\n';
+    OptionalMessage const optQueryRequest = CMessage::Builder()
+        .SetSource(id)
+        .SetDestination(ReservedIdentifiers::ClusterRequest)
+        .SetCommand(Command::Type::Query, 0)
+        .SetData("Request for Sensor Readings", 0)
+        .ValidatedBuild();
+    assert(optQueryRequest);
+
+    if (auto const itr = commandHandlers.find(optQueryRequest->GetCommandType()); itr != commandHandlers.end()) {
+        itr->second->HandleMessage(*optQueryRequest);
     }
 }
 

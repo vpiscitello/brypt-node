@@ -8,7 +8,7 @@
 #include "PeerDetails.hpp"
 #include "PeerDetailsMap.hpp"
 #include "TechnologyType.hpp"
-#include "../../Utilities/MessageTypes.hpp"
+#include "../../Message/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
 #include <deque>

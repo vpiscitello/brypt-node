@@ -5,7 +5,8 @@
 #include "LoRaEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
 #include "EndpointDefinitions.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -127,7 +128,7 @@ void Endpoints::CLoRaEndpoint::Startup()
 bool Endpoints::CLoRaEndpoint::ScheduleSend([[maybe_unused]] CMessage const& message)
 {
     // Forward the message pack to be sent on the socket
-    return ScheduleSend(message.GetDestinationId(), message.GetPack());
+    return ScheduleSend(message.GetDestination(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------

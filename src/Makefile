@@ -25,6 +25,7 @@ AWAITDIR = Components/Await
 COMMANDDIR = Components/Command
 ENDPOINTSDIR = Components/Endpoints
 CONFIGURATIONDIR = Configuration
+MESSAGEDIR = Message
 MESSAGEQUEUEDIR = Components/MessageQueue
 PEERWATCHERDIR = Components/PeerWatcher
 NOTIFIERDIR = Components/Notifier
@@ -34,6 +35,7 @@ $(AWAITDIR) \
 $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
+$(MESSAGEDIR) \
 $(MESSAGEQUEUEDIR) \
 $(PEERWATCHERDIR) \
 $(NOTIFIERDIR)

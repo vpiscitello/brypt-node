@@ -16,7 +16,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
+constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35216";

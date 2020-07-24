@@ -7,7 +7,8 @@
 #include "Peer.hpp"
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -180,7 +181,7 @@ void Endpoints::CStreamBridgeEndpoint::Startup()
 bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(CMessage const& message)
 {
     // Forward the message pack to be sent on the socket
-    return ScheduleSend(message.GetDestinationId(), message.GetPack());
+    return ScheduleSend(message.GetDestination(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -495,35 +496,37 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
     std::string_view message)
 {
     NodeUtils::printo("[StreamBridge] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
-    try {
-        CMessageContext const context(m_identifier, m_technology);
-        CMessage const request(context, message);
-        
-        // Update the information about the node as it pertains to received data. The node may not be found 
-        // if this is its first connection.
-        m_peers.UpdateOnePeer(identity,
-            [] (auto& details) {
-                details.IncrementMessageSequence();
-            },
-            [this, &request] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
-                optDetails = ExtendedPeerDetails(request.GetSourceId());
 
-                optDetails->SetConnectionState(ConnectionState::Connected);
-                optDetails->SetMessagingPhase(MessagingPhase::Response);
-                optDetails->IncrementMessageSequence();
+    OptionalMessage const optRequest = CMessage::Builder()
+        .SetMessageContext({ m_identifier, m_technology })
+        .FromPack(message)
+        .ValidatedBuild();
 
-                CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, uri});
+    if (!optRequest) {
+        return;
+    }
 
-                return PeerResolutionCommand::Promote;
-            }
-        );
+    // Update the information about the node as it pertains to received data. The node may not be found 
+    // if this is its first connection.
+    m_peers.UpdateOnePeer(identity,
+        [] (auto& details) {
+            details.IncrementMessageSequence();
+        },
+        [this, &optRequest] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
+            optDetails = ExtendedPeerDetails(optRequest->GetSource());
 
-        // TODO: Only authenticated requests should be forwarded into BryptNode
-        if (m_pMessageSink) {
-            m_pMessageSink->ForwardMessage(request);
+            optDetails->SetConnectionState(ConnectionState::Connected);
+            optDetails->SetMessagingPhase(MessagingPhase::Response);
+            optDetails->IncrementMessageSequence();
+
+            CEndpoint::PublishPeerConnection({optRequest->GetSource(), InternalType, uri});
+
+            return PeerResolutionCommand::Promote;
         }
-    } catch (...) {
-        NodeUtils::printo("[StreamBridge] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
+    );
+
+    if (m_pMessageSink) {
+        m_pMessageSink->ForwardMessage(*optRequest);
     }
 }
 

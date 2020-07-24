@@ -10,6 +10,8 @@
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/ReservedIdentifiers.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------

@@ -21,11 +21,13 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 SRCDIR = .
 
 ENDPOINTSDIR = ../../Components/Endpoints
+MESSAGEDIR = ../../Message
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
 $(ENDPOINTSDIR) \
+$(MESSAGEDIR) \
 $(MESSAGEQUEUEDIR) \
 $(GTESTDIR)
 

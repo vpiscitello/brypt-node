@@ -4,7 +4,8 @@
 #include "../../Components/Endpoints/DirectEndpoint.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageQueue/MessageQueue.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -32,7 +33,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
+constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
@@ -65,41 +66,50 @@ TEST(CDirectSuite, ServerCommunicationTest)
     auto const optConnectionRequest = queue.PopIncomingMessage();
     ASSERT_TRUE(optConnectionRequest);
 
-    CMessage const connectResponse(
-        optConnectionRequest->GetMessageContext(),
-        test::ServerId, test::ClientId,
-        Command::Type::Connect, 1,
-        "Connection Approved", 1);
-    queue.PushOutgoingMessage(connectResponse);
+    OptionalMessage const optConnectResponse = CMessage::Builder()
+        .SetMessageContext(optConnectionRequest->GetMessageContext())
+        .SetSource(test::ServerId)
+        .SetDestination(test::ClientId)
+        .SetCommand(Command::Type::Connect, 1)
+        .SetData("Connection Approved", optConnectionRequest->GetNonce() + 1)
+        .ValidatedBuild();
+    
+    queue.PushOutgoingMessage(*optConnectResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    auto const optConnectResponse = queue.PopIncomingMessage();
-    ASSERT_TRUE(optConnectResponse);
-    EXPECT_EQ(optConnectResponse->GetPack(), connectResponse.GetPack());
+    auto const optReceivedConnectResponse = queue.PopIncomingMessage();
+    ASSERT_TRUE(optReceivedConnectResponse);
+    EXPECT_EQ(optReceivedConnectResponse->GetPack(), optConnectResponse->GetPack());
 
-    CMessage const electionRequest(
-        optConnectResponse->GetMessageContext(),
-        test::ClientId, test::ServerId,
-        Command::Type::Election, 0,
-        "Hello World!", 0);
-    queue.PushOutgoingMessage(electionRequest);
+    OptionalMessage const optElectionRequest = CMessage::Builder()
+        .SetMessageContext(optReceivedConnectResponse->GetMessageContext())
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(Command::Type::Election, 0)
+        .SetData("Hello World!", optReceivedConnectResponse->GetNonce() + 1)
+        .ValidatedBuild();
+    
+    queue.PushOutgoingMessage(*optElectionRequest);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto const optElectionRequest = queue.PopIncomingMessage();
-    ASSERT_TRUE(optElectionRequest);
-    EXPECT_EQ(optElectionRequest->GetPack(), electionRequest.GetPack());
+    auto const optReceivedElectionRequest = queue.PopIncomingMessage();
+    ASSERT_TRUE(optReceivedElectionRequest);
+    EXPECT_EQ(optReceivedElectionRequest->GetPack(), optElectionRequest->GetPack());
 
-    CMessage const electionResponse(
-        optElectionRequest->GetMessageContext(),
-        test::ServerId, test::ClientId,
-        Command::Type::Election, 1,
-        "Re: Hello World!", 0);
-    queue.PushOutgoingMessage(electionResponse);
+    OptionalMessage const optElectionResponse = CMessage::Builder()
+        .SetMessageContext(optReceivedElectionRequest->GetMessageContext())
+        .SetSource(test::ServerId)
+        .SetDestination(test::ClientId)
+        .SetCommand(Command::Type::Election, 1)
+        .SetData("Re: Hello World!", optReceivedElectionRequest->GetNonce() + 1)
+        .ValidatedBuild();
+
+    queue.PushOutgoingMessage(*optElectionResponse);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto const optElectionResponse = queue.PopIncomingMessage();
-    ASSERT_TRUE(optElectionResponse);
-    EXPECT_EQ(optElectionResponse->GetPack(), electionResponse.GetPack());
+    auto const optReceivedElectionResponse = queue.PopIncomingMessage();
+    ASSERT_TRUE(optReceivedElectionResponse);
+    EXPECT_EQ(optReceivedElectionResponse->GetPack(), optElectionResponse->GetPack());
 }
 
 //------------------------------------------------------------------------------------------------

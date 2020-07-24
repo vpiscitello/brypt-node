@@ -8,7 +8,7 @@
 #include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "../Command/CommandDefinitions.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -196,7 +196,7 @@ void Endpoints::CTcpEndpoint::Startup()
 bool Endpoints::CTcpEndpoint::ScheduleSend(CMessage const& message)
 {
     // Forward the received message to be sent on the socket
-    return ScheduleSend(message.GetDestinationId(), message.GetPack());
+    return ScheduleSend(message.GetDestination(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -759,35 +759,36 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
     SocketDescriptor descriptor, Message::Buffer const& message)
 {
     NodeUtils::printo("[TCP] Received message: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
-    try {
-        CMessageContext const context(m_identifier, m_technology);
-        CMessage const request(context, message);
+    OptionalMessage const optRequest = CMessage::Builder()
+        .SetMessageContext({ m_identifier, m_technology })
+        .FromPack(message)
+        .ValidatedBuild();
 
-        // Update the information about the node as it pertains to received data. The node may not be found 
-        // if this is its first connection.
-        m_peers.UpdateOnePeer(descriptor,
-            [] (auto& details) {
-                details.IncrementMessageSequence();
-            },
-            [this, &request] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
-                optDetails = ExtendedPeerDetails(request.GetSourceId());
+    if (!optRequest) {
+        return;
+    }
 
-                optDetails->SetConnectionState(ConnectionState::Connected);
-                optDetails->SetMessagingPhase(MessagingPhase::Response);
-                optDetails->IncrementMessageSequence();
+    // Update the information about the node as it pertains to received data. The node may not be found 
+    // if this is its first connection.
+    m_peers.UpdateOnePeer(descriptor,
+        [] (auto& details) {
+            details.IncrementMessageSequence();
+        },
+        [this, &optRequest] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
+            optDetails = ExtendedPeerDetails(optRequest->GetSource());
 
-                CEndpoint::PublishPeerConnection({request.GetSourceId(), InternalType, uri});
+            optDetails->SetConnectionState(ConnectionState::Connected);
+            optDetails->SetMessagingPhase(MessagingPhase::Response);
+            optDetails->IncrementMessageSequence();
 
-                return PeerResolutionCommand::Promote;
-            }
-        );
+            CEndpoint::PublishPeerConnection({optRequest->GetSource(), InternalType, uri});
 
-        // TODO: Only authenticated requests should be forwarded into BryptNode
-        if (m_pMessageSink) {
-            m_pMessageSink->ForwardMessage(request);
+            return PeerResolutionCommand::Promote;
         }
-    } catch (...) {
-        NodeUtils::printo("[TCP] Received message failed to unpack.", NodeUtils::PrintType::Endpoint);
+    );
+
+    if (m_pMessageSink) {
+        m_pMessageSink->ForwardMessage(*optRequest);
     }
 }
 

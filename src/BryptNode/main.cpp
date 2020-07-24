@@ -9,7 +9,6 @@
 #include "../Configuration/Configuration.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
-#include "../Utilities/Message.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../Libraries/spdlog/spdlog.h"

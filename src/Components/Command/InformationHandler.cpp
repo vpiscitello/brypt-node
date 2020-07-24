@@ -10,6 +10,8 @@
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/CoordinatorState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------

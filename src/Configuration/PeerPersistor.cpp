@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <optional>
 #include <vector>
 //-----------------------------------------------------------------------------------------------
 
@@ -110,7 +111,7 @@ struct local::TPeerEntry
 
     NodeUtils::NodeIdType id;
     std::string entry;
-    std::string location;
+    std::optional<std::string> location;
 };
 
 //-----------------------------------------------------------------------------------------------
@@ -339,7 +340,7 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
             s::peers = iod::json_vector(
                 s::id,
                 s::entry,
-                s::location
+                s::location = std::optional<std::string>()
             ))
         ).decode(json, knownPeersEntry);
 
@@ -378,6 +379,8 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
                         return;
                     }
 
+                    std::string const location = (peerEntry.location) ? *peerEntry.location : "";
+
                     spPeers->try_emplace(
                         // Peer Key
                         peerEntry.entry,
@@ -385,7 +388,7 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
                         peerEntry.id, 
                         technologyType,
                         peerEntry.entry,
-                        peerEntry.location);
+                        location);
                 }
             );
             

@@ -5,7 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "../../Interfaces/MessageSink.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <atomic>

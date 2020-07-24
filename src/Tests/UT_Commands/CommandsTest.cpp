@@ -6,7 +6,8 @@
 #include "../../Components/MessageQueue/MessageQueue.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -35,7 +36,7 @@ Configuration::TEndpointOptions CreateEndpointOptions();
 Configuration::TSettings CreateConfigurationSettings();
 
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
+constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
@@ -70,61 +71,71 @@ TEST(CommandSuite, CommandMatchingTest)
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
-    CMessage const connectRequest(
-        test::context,
-        test::ServerId, test::ClientId,
-        Command::Type::Connect, test::BasePhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optConnectRequest = CMessage::Builder()
+        .SetMessageContext(test::context)
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(Command::Type::Connect, test::BasePhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
     
-    auto const connectCommandItr = commands.find(connectRequest.GetCommandType());
+    auto const connectCommandItr = commands.find(optConnectRequest->GetCommandType());
     ASSERT_NE(connectCommandItr, commands.end());
 
     auto const connectCommandReturnType = connectCommandItr->second->GetType();
     EXPECT_EQ(connectCommandReturnType, Command::Type::Connect);
 
-    CMessage const electionRequest(
-        test::context,
-        test::ServerId, test::ClientId,
-        Command::Type::Election, test::BasePhase,
-        test::Message, test::Nonce);
-    
-    auto const electionCommandItr = commands.find(electionRequest.GetCommandType());
+    OptionalMessage const optElectionRequest = CMessage::Builder()
+        .SetMessageContext(test::context)
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(Command::Type::Election, test::BasePhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
+
+    auto const electionCommandItr = commands.find(optElectionRequest->GetCommandType());
     ASSERT_NE(electionCommandItr, commands.end());
 
     auto const electionCommandReturnType = electionCommandItr->second->GetType();
     EXPECT_EQ(electionCommandReturnType, Command::Type::Election);
 
-    CMessage const informationRequest(
-        test::context,
-        test::ServerId, test::ClientId,
-        Command::Type::Information, test::BasePhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optInformationRequest = CMessage::Builder()
+        .SetMessageContext(test::context)
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(Command::Type::Information, test::BasePhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
     
-    auto const informationCommandItr = commands.find(informationRequest.GetCommandType());
+    auto const informationCommandItr = commands.find(optInformationRequest->GetCommandType());
     ASSERT_NE(informationCommandItr, commands.end());
 
     auto const informationCommandReturnType = informationCommandItr->second->GetType();
     EXPECT_EQ(informationCommandReturnType, Command::Type::Information);
 
-    CMessage const queryRequest(
-        test::context,
-        test::ServerId, test::ClientId,
-        Command::Type::Query, test::BasePhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optQueryRequest = CMessage::Builder()
+        .SetMessageContext(test::context)
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(Command::Type::Query, test::BasePhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
     
-    auto const queryCommandItr = commands.find(queryRequest.GetCommandType());
+    auto const queryCommandItr = commands.find(optQueryRequest->GetCommandType());
     ASSERT_NE(queryCommandItr, commands.end());
 
     auto const queryCommandReturnType = queryCommandItr->second->GetType();
     EXPECT_EQ(queryCommandReturnType, Command::Type::Query);
 
-    CMessage const transformRequest(
-        test::context,
-        test::ServerId, test::ClientId,
-        Command::Type::Transform, test::BasePhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optTransformRequest = CMessage::Builder()
+        .SetMessageContext(test::context)
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(Command::Type::Transform, test::BasePhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
     
-    auto const transformCommandItr = commands.find(transformRequest.GetCommandType());
+    auto const transformCommandItr = commands.find(optTransformRequest->GetCommandType());
     ASSERT_NE(transformCommandItr, commands.end());
 
     auto const transformCommandReturnType = transformCommandItr->second->GetType();

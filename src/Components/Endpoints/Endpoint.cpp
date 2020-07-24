@@ -10,7 +10,7 @@
 #include "LoRaEndpoint.hpp"
 #include "StreamBridgeEndpoint.hpp"
 #include "TcpEndpoint.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------

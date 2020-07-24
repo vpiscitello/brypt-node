@@ -27,6 +27,7 @@ COMMANDDIR = ../../Components/Command
 ENDPOINTSDIR = ../../Components/Endpoints
 CONFIGURATIONDIR = ../../Configuration
 CONTROLDIR = ../../Components/Control
+MESSAGEDIR = ../../Message
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
 PEERWATCHERDIR = ../../Components/PeerWatcher
 NOTIFIERDIR = ../../Components/Notifier
@@ -39,6 +40,7 @@ $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
+$(MESSAGEDIR) \
 $(MESSAGEQUEUEDIR) \
 $(PEERWATCHERDIR)\
 $(NOTIFIERDIR) \

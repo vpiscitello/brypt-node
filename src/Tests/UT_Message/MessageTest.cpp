@@ -1,5 +1,6 @@
 //------------------------------------------------------------------------------------------------
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -9,6 +10,7 @@
 #include <chrono>
 #include <string>
 #include <string_view>
+#include <thread>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -23,7 +25,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
-constexpr NodeUtils::NodeIdType ServerId = 0xFFFFFFFF;
+constexpr NodeUtils::NodeIdType ServerId = 0x77777777;
 constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
@@ -37,252 +39,279 @@ constexpr std::uint32_t Nonce = 9999;
 
 TEST(CMessageSuite, BaseMessageParameterConstructorTest)
 {
-    CMessage const message(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
 
-    EXPECT_EQ(message.GetSourceId(), test::ClientId);
-    EXPECT_EQ(message.GetDestinationId(), test::ServerId);
-    EXPECT_FALSE(message.GetAwaitId());
-    EXPECT_EQ(message.GetCommandType(), test::Command);
-    EXPECT_EQ(message.GetPhase(), test::RequestPhase);
-    EXPECT_EQ(message.GetNonce(), test::Nonce);
-    EXPECT_GT(message.GetSystemTimepoint(), TimeUtils::Timepoint());
+    EXPECT_EQ(optMessage->GetSource(), test::ClientId);
+    EXPECT_EQ(optMessage->GetDestination(), test::ServerId);
+    EXPECT_FALSE(optMessage->GetAwaitingKey());
+    EXPECT_EQ(optMessage->GetCommandType(), test::Command);
+    EXPECT_EQ(optMessage->GetPhase(), test::RequestPhase);
+    EXPECT_EQ(optMessage->GetNonce(), test::Nonce);
+    EXPECT_GT(optMessage->GetSystemTimepoint(), TimeUtils::Timepoint());
 
-    auto const data = message.GetData();
-    auto const decrypted = message.Decrypt(data, data.size());
-    ASSERT_TRUE(decrypted);
-    std::string const str(decrypted->begin(), decrypted->end());
-    EXPECT_EQ(str, test::Message);
+    auto const optDecrypted = optMessage->GetDecryptedData();
+    ASSERT_TRUE(optDecrypted);
+    std::string const data(optDecrypted->begin(), optDecrypted->end());
+    EXPECT_EQ(data, test::Message);
 
-    auto const pack = message.GetPack();
-    EXPECT_GT(pack.size(), std::size_t(0));
+    auto const pack = optMessage->GetPack();
+    EXPECT_GT(pack.size(), CMessage::FixedPackSize());
 }
 
 //------------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
 {
-    NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
+    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
 
-    CMessage const sourceBoundMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::Source, awaitKey));
+    OptionalMessage const optSourceBoundMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitingObjectKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optSourceBoundMessage);
 
-    EXPECT_EQ(sourceBoundMessage.GetSourceId(), test::ClientId);
-    EXPECT_EQ(sourceBoundMessage.GetDestinationId(), test::ServerId);
-    EXPECT_EQ(sourceBoundMessage.GetAwaitId(), awaitKey);
-    EXPECT_EQ(sourceBoundMessage.GetCommandType(), test::Command);
-    EXPECT_EQ(sourceBoundMessage.GetPhase(), test::RequestPhase);
-    EXPECT_EQ(sourceBoundMessage.GetNonce(), test::Nonce);
-    EXPECT_GT(sourceBoundMessage.GetSystemTimepoint(), TimeUtils::Timepoint());
+    EXPECT_EQ(optSourceBoundMessage->GetSource(), test::ClientId);
+    EXPECT_EQ(optSourceBoundMessage->GetDestination(), test::ServerId);
+    EXPECT_EQ(optSourceBoundMessage->GetAwaitingKey(), awaitingObjectKey);
+    EXPECT_EQ(optSourceBoundMessage->GetCommandType(), test::Command);
+    EXPECT_EQ(optSourceBoundMessage->GetPhase(), test::RequestPhase);
+    EXPECT_EQ(optSourceBoundMessage->GetNonce(), test::Nonce);
+    EXPECT_GT(optSourceBoundMessage->GetSystemTimepoint(), TimeUtils::Timepoint());
 
-    auto const sourceBoundData = sourceBoundMessage.GetData();
-    auto const sourceBoundDecrypted = 
-        sourceBoundMessage.Decrypt(sourceBoundData, sourceBoundData.size());
-    ASSERT_TRUE(sourceBoundDecrypted);
+    auto const optSourceBoundDecrypted = optSourceBoundMessage->GetDecryptedData();
+    ASSERT_TRUE(optSourceBoundDecrypted);
 
-    std::string const sourceBoundStr(sourceBoundDecrypted->begin(), sourceBoundDecrypted->end());
-    EXPECT_EQ(sourceBoundStr, test::Message);
+    std::string const sourceBoundData(optSourceBoundDecrypted->begin(), optSourceBoundDecrypted->end());
+    EXPECT_EQ(sourceBoundData, test::Message);
 
-    std::string const sourceBoundPack = sourceBoundMessage.GetPack();
-    EXPECT_GT(sourceBoundData.size(), std::size_t(0));
+    std::string const sourceBoundPack = optSourceBoundMessage->GetPack();
+    EXPECT_GT(sourceBoundPack.size(), CMessage::FixedPackSize());
 
-    CMessage const destinationBoundMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::Destination, awaitKey));
+    OptionalMessage const optDestinationBoundMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitingObjectKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optDestinationBoundMessage);
 
-    EXPECT_EQ(destinationBoundMessage.GetSourceId(), test::ClientId);
-    EXPECT_EQ(destinationBoundMessage.GetDestinationId(), test::ServerId);
-    EXPECT_EQ(destinationBoundMessage.GetAwaitId(), awaitKey);
-    EXPECT_EQ(destinationBoundMessage.GetCommandType(), test::Command);
-    EXPECT_EQ(destinationBoundMessage.GetPhase(), test::RequestPhase);
-    EXPECT_EQ(destinationBoundMessage.GetNonce(), test::Nonce);
-    EXPECT_GT(destinationBoundMessage.GetSystemTimepoint(), TimeUtils::Timepoint());
+    EXPECT_EQ(optDestinationBoundMessage->GetSource(), test::ClientId);
+    EXPECT_EQ(optDestinationBoundMessage->GetDestination(), test::ServerId);
+    EXPECT_EQ(optDestinationBoundMessage->GetAwaitingKey(), awaitingObjectKey);
+    EXPECT_EQ(optDestinationBoundMessage->GetCommandType(), test::Command);
+    EXPECT_EQ(optDestinationBoundMessage->GetPhase(), test::RequestPhase);
+    EXPECT_EQ(optDestinationBoundMessage->GetNonce(), test::Nonce);
+    EXPECT_GT(optDestinationBoundMessage->GetSystemTimepoint(), TimeUtils::Timepoint());
 
-    auto const destinationBoundData = destinationBoundMessage.GetData();
-    auto const destinationBoundDecrypted = 
-        destinationBoundMessage.Decrypt(destinationBoundData, destinationBoundData.size());
-    ASSERT_TRUE(destinationBoundDecrypted);
+    auto const optDestinationBoundDecrypted = optDestinationBoundMessage->GetDecryptedData();
+    ASSERT_TRUE(optDestinationBoundDecrypted);
 
-    std::string const destinationBoundStr(
-        destinationBoundDecrypted->begin(), destinationBoundDecrypted->end());
-    EXPECT_EQ(destinationBoundStr, test::Message);
+    std::string const destinationBoundData(optDestinationBoundDecrypted->begin(), optDestinationBoundDecrypted->end());
+    EXPECT_EQ(destinationBoundData, test::Message);
 
-    std::string const destinationBoundPack = destinationBoundMessage.GetPack();
-    EXPECT_GT(sourceBoundData.size(), std::size_t(0));
+    std::string const destinationBoundPack = optDestinationBoundMessage->GetPack();
+    EXPECT_GT(destinationBoundPack.size(), CMessage::FixedPackSize());
 }
 
-//------------------------------------------------------------------------------------------------
+// //------------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, BaseMessagePackConstructorTest)
 {
-    CMessage const baseMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optBaseMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
 
-    auto const pack = baseMessage.GetPack();
-    EXPECT_GT(pack.size(), std::size_t(0));
+    auto const pack = optBaseMessage->GetPack();
+    EXPECT_GT(pack.size(), CMessage::FixedPackSize());
 
-    CMessage const packMessage({}, pack);
+    OptionalMessage const optPackMessage = CMessage::Builder()
+        .FromPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(baseMessage.GetSourceId(), packMessage.GetSourceId());
-    EXPECT_EQ(baseMessage.GetDestinationId(), packMessage.GetDestinationId());
-    EXPECT_FALSE(baseMessage.GetAwaitId());
-    EXPECT_EQ(baseMessage.GetCommandType(), packMessage.GetCommandType());
-    EXPECT_EQ(baseMessage.GetPhase(), packMessage.GetPhase());
-    EXPECT_EQ(baseMessage.GetNonce(), packMessage.GetNonce());
-    EXPECT_GT(baseMessage.GetSystemTimepoint(), packMessage.GetSystemTimepoint());
+    EXPECT_EQ(optBaseMessage->GetSource(), optPackMessage->GetSource());
+    EXPECT_EQ(optBaseMessage->GetDestination(), optPackMessage->GetDestination());
+    EXPECT_FALSE(optBaseMessage->GetAwaitingKey());
+    EXPECT_EQ(optBaseMessage->GetCommandType(), optPackMessage->GetCommandType());
+    EXPECT_EQ(optBaseMessage->GetPhase(), optPackMessage->GetPhase());
+    EXPECT_EQ(optBaseMessage->GetNonce(), optPackMessage->GetNonce());
+    EXPECT_GT(optBaseMessage->GetSystemTimepoint(), optPackMessage->GetSystemTimepoint());
 
-    auto const data = packMessage.GetData();
-    auto const decrypted = packMessage.Decrypt(data, data.size());
-    ASSERT_TRUE(decrypted);
-    std::string const str(decrypted->begin(), decrypted->end());
-    EXPECT_EQ(str, test::Message);
+    auto const optDecrypted = optPackMessage->GetDecryptedData();
+    ASSERT_TRUE(optDecrypted);
+    std::string const data(optDecrypted->begin(), optDecrypted->end());
+    EXPECT_EQ(data, test::Message);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, BoundMessagePackConstructorTest)
 {
-    NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
+    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
 
-    CMessage const boundMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::Destination, awaitKey));
+    OptionalMessage const optBoundMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitingObjectKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBoundMessage);
 
-    auto const pack = boundMessage.GetPack();
-    EXPECT_GT(pack.size(), std::size_t(0));
+    auto const pack = optBoundMessage->GetPack();
+    EXPECT_GT(pack.size(), CMessage::FixedPackSize());
 
-    CMessage const packMessage({}, pack);
+    OptionalMessage const optPackMessage = CMessage::Builder()
+        .FromPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(boundMessage.GetSourceId(), packMessage.GetSourceId());
-    EXPECT_EQ(boundMessage.GetDestinationId(), packMessage.GetDestinationId());
-    EXPECT_EQ(boundMessage.GetAwaitId(), packMessage.GetAwaitId());
-    EXPECT_EQ(boundMessage.GetCommandType(), packMessage.GetCommandType());
-    EXPECT_EQ(boundMessage.GetPhase(), packMessage.GetPhase());
-    EXPECT_EQ(boundMessage.GetNonce(), packMessage.GetNonce());
-    EXPECT_GT(boundMessage.GetSystemTimepoint(), packMessage.GetSystemTimepoint());
+    EXPECT_EQ(optBoundMessage->GetSource(), optPackMessage->GetSource());
+    EXPECT_EQ(optBoundMessage->GetDestination(), optPackMessage->GetDestination());
+    EXPECT_EQ(optBoundMessage->GetAwaitingKey(), optPackMessage->GetAwaitingKey());
+    EXPECT_EQ(optBoundMessage->GetCommandType(), optPackMessage->GetCommandType());
+    EXPECT_EQ(optBoundMessage->GetPhase(), optPackMessage->GetPhase());
+    EXPECT_EQ(optBoundMessage->GetNonce(), optPackMessage->GetNonce());
+    EXPECT_GT(optBoundMessage->GetSystemTimepoint(), optPackMessage->GetSystemTimepoint());
 
-    auto const data = packMessage.GetData();
-    auto const decrypted = packMessage.Decrypt(data, data.size());
-    ASSERT_TRUE(decrypted);
-    std::string const str(decrypted->begin(), decrypted->end());
-    EXPECT_EQ(str, test::Message);
+    auto const optDecrypted = optPackMessage->GetDecryptedData();
+    ASSERT_TRUE(optDecrypted);
+    std::string const data(optDecrypted->begin(), optDecrypted->end());
+    EXPECT_EQ(data, test::Message);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, BoundMessageBufferConstructorTest)
 {
-    NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
+    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
 
-    CMessage const boundMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::Destination, awaitKey));
+    OptionalMessage const optBoundMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitingObjectKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBoundMessage);
 
-    auto const pack = boundMessage.GetPack();
+    auto const pack = optBoundMessage->GetPack();
     Message::Buffer buffer(pack.begin(), pack.end());
 
-    EXPECT_GT(buffer.size(), std::size_t(0));
+    EXPECT_GT(buffer.size(), CMessage::FixedPackSize());
     EXPECT_EQ(buffer.size(), pack.size());
 
-    CMessage const packMessage({}, buffer);
+    OptionalMessage const optPackMessage = CMessage::Builder()
+        .FromPack(buffer)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(boundMessage.GetSourceId(), packMessage.GetSourceId());
-    EXPECT_EQ(boundMessage.GetDestinationId(), packMessage.GetDestinationId());
-    EXPECT_EQ(boundMessage.GetAwaitId(), packMessage.GetAwaitId());
-    EXPECT_EQ(boundMessage.GetCommandType(), packMessage.GetCommandType());
-    EXPECT_EQ(boundMessage.GetPhase(), packMessage.GetPhase());
-    EXPECT_EQ(boundMessage.GetNonce(), packMessage.GetNonce());
-    EXPECT_GT(boundMessage.GetSystemTimepoint(), packMessage.GetSystemTimepoint());
+    EXPECT_EQ(optBoundMessage->GetSource(), optPackMessage->GetSource());
+    EXPECT_EQ(optBoundMessage->GetDestination(), optPackMessage->GetDestination());
+    EXPECT_EQ(optBoundMessage->GetAwaitingKey(), optPackMessage->GetAwaitingKey());
+    EXPECT_EQ(optBoundMessage->GetCommandType(), optPackMessage->GetCommandType());
+    EXPECT_EQ(optBoundMessage->GetPhase(), optPackMessage->GetPhase());
+    EXPECT_EQ(optBoundMessage->GetNonce(), optPackMessage->GetNonce());
+    EXPECT_GT(optBoundMessage->GetSystemTimepoint(), optPackMessage->GetSystemTimepoint());
 
-    auto const data = packMessage.GetData();
-    auto const decrypted = packMessage.Decrypt(data, data.size());
-    ASSERT_TRUE(decrypted);
-    std::string const str(decrypted->begin(), decrypted->end());
-    EXPECT_EQ(str, test::Message);
+    auto const optDecrypted = optPackMessage->GetDecryptedData();
+    ASSERT_TRUE(optDecrypted);
+    std::string const data(optDecrypted->begin(), optDecrypted->end());
+    EXPECT_EQ(data, test::Message);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, BaseMessageVerificationTest)
 {
-    CMessage const baseMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce);
+    OptionalMessage const optBaseMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBaseMessage);
 
-    auto const pack = baseMessage.GetPack();
-    auto const baseStatus = baseMessage.Verify();
-    EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
+    auto const baseStatus = MessageSecurity::Verify(*optBaseMessage);
+    EXPECT_EQ(baseStatus, MessageSecurity::VerificationStatus::Success);
 
-    CMessage packMessage({}, pack);
-    auto const packStatus = packMessage.Verify();
-    EXPECT_EQ(packStatus, Message::VerificationStatus::Success);
+    OptionalMessage const optPackMessage = CMessage::Builder()
+        .FromPack(optBaseMessage->GetPack())
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    auto const packStatus = MessageSecurity::Verify(*optPackMessage);
+    EXPECT_EQ(packStatus, MessageSecurity::VerificationStatus::Success);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, BoundMessageVerificationTest)
 {
-    NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
+    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
 
-    CMessage const baseMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::Source, awaitKey));
+    OptionalMessage const optBaseMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitingObjectKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBaseMessage);
 
-    auto const pack = baseMessage.GetPack();
-    auto const baseStatus = baseMessage.Verify();
-    EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
+    auto const baseStatus = MessageSecurity::Verify(*optBaseMessage);
+    EXPECT_EQ(baseStatus, MessageSecurity::VerificationStatus::Success);
 
-    CMessage packMessage({}, pack);
-    auto const packStatus = packMessage.Verify();
-    EXPECT_EQ(packStatus, Message::VerificationStatus::Success);
+    OptionalMessage const optPackMessage = CMessage::Builder()
+        .FromPack(optBaseMessage->GetPack())
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    auto const packStatus = MessageSecurity::Verify(*optPackMessage);
+    EXPECT_EQ(packStatus, MessageSecurity::VerificationStatus::Success);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 TEST(CMessageSuite, AlteredMessageVerificationTest)
 {
-    NodeUtils::ObjectIdType const awaitKey = 0x89ABCDEF;
+    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
 
-    CMessage const baseMessage(
-        {},
-        test::ClientId, test::ServerId,
-        test::Command, test::RequestPhase,
-        test::Message, test::Nonce,
-        Message::BoundAwaitId(Message::AwaitBinding::Source, awaitKey));
+    OptionalMessage const optBaseMessage = CMessage::Builder()
+        .SetSource(test::ClientId)
+        .SetDestination(test::ServerId)
+        .SetCommand(test::Command, test::RequestPhase)
+        .SetData(test::Message, test::Nonce)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitingObjectKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBaseMessage);
 
-    auto pack = baseMessage.GetPack();
-    auto const baseStatus = baseMessage.Verify();
-    EXPECT_EQ(baseStatus, Message::VerificationStatus::Success);
+    auto pack = optBaseMessage->GetPack();
+    auto const baseStatus = MessageSecurity::Verify(pack);
+    EXPECT_EQ(baseStatus, MessageSecurity::VerificationStatus::Success);
 
     std::replace(pack.begin(), pack.end(), pack.at(pack.size() / 2), '?');
 
-    CMessage packMessage({}, pack);
-    auto const packStatus = packMessage.Verify();
-    EXPECT_EQ(packStatus, Message::VerificationStatus::Unauthorized);
+    OptionalMessage const optPackMessage = CMessage::Builder()
+        .FromPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    auto const packStatus = MessageSecurity::Verify(*optPackMessage);
+    EXPECT_EQ(packStatus, MessageSecurity::VerificationStatus::Success);
 }
 
 //-----------------------------------------------------------------------------------------------

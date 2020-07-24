@@ -12,6 +12,8 @@
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
@@ -109,14 +111,6 @@ Command::CConnectHandler::CConnectHandler(CBryptNode& instance)
 //------------------------------------------------------------------------------------------------
 bool Command::CConnectHandler::HandleMessage(CMessage const& message)
 {
-    // TODO: Implement mechanism to ensure all messages are verified before hitting 
-    // handlers that require authenticated routes? 
-    // If the message is not verified then drop the handling
-    if (auto const status = message.Verify();
-        status != Message::VerificationStatus::Success) {
-        return false;
-    }
-
     bool status = false;
     auto const phase = static_cast<CConnectHandler::Phase>(message.GetPhase());
     switch (phase) {
@@ -168,21 +162,19 @@ bool Command::CConnectHandler::JoinHandler(CMessage const& message)
 
 bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message)
 {
-    auto const buffer = message.GetData();
-    auto const optDecryptedBuffer = message.Decrypt(buffer, buffer.size());
-    if (!optDecryptedBuffer) {
+    auto const optRequestData = message.GetDecryptedData();
+    if (optRequestData) {
         return false;
     }
 
-    std::string const encodedRequest(optDecryptedBuffer->begin(), optDecryptedBuffer->end());
-
     // Parse response the response 
+    std::string_view const dataview(reinterpret_cast<char const*>(optRequestData->data()), optRequestData->size());
     PeerBootstrap::Json::TConnectRequest request;
     iod::json_object(
         s::entrypoints = iod::json_vector(
             s::name,
             s::entry
-    )).decode(encodedRequest, request);
+    )).decode(dataview, request);
 
     if (!request.entrypoints.empty()) {
         // Get shared_ptrs for the CPeerPersitor and CEndpointManager
@@ -197,7 +189,7 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message
                 // entry it may be used in bootstrapping and distribution of entries for technologies
                 // to peers that have different capabilites not accessible by this node. The verification
                 // of entrypoints should be handled by a different module (i.e. the endpoint or security mechanism).
-                spPeerPersistor->AddPeerEntry({message.GetSourceId(), technology, entry});
+                spPeerPersistor->AddPeerEntry({message.GetSource(), technology, entry});
             }
             if (spEndpointManager) {
                 // If we have an endpoint for the given technology, schedule the connect.
@@ -271,14 +263,13 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 
 bool local::HandleDiscoveryResponse(CBryptNode& instance, CMessage const& message)
 {
-    auto const buffer = message.GetData();
-    auto const optDecryptedBuffer = message.Decrypt(buffer, buffer.size());
-    if (!optDecryptedBuffer) {
+    auto const optRequestData = message.GetDecryptedData();
+    if (optRequestData) {
         return false;
     }
+    
 
-    std::string const encodedResponse(optDecryptedBuffer->begin(), optDecryptedBuffer->end());
-
+    std::string_view const dataview(reinterpret_cast<char const*>(optRequestData->data()), optRequestData->size());
     // Parse response the response 
     Json::TDiscoveryResponse response;
     iod::json_object(
@@ -286,7 +277,7 @@ bool local::HandleDiscoveryResponse(CBryptNode& instance, CMessage const& messag
         s::technologies = iod::json_vector(
             s::name,
             s::entries
-    )).decode(encodedResponse, response);
+    )).decode(dataview, response);
 
     auto wpEndpointManager = instance.GetEndpointManager();
     if (auto spEndpointManager = wpEndpointManager.lock(); spEndpointManager) {

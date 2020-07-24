@@ -3,6 +3,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "Await.hpp"
+#include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <algorithm>
@@ -44,7 +45,7 @@ Await::CMessageObject::CMessageObject(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + Await::Timeout)
 {
-    NodeUtils::NodeIdType const& source = m_request.GetSourceId();
+    NodeUtils::NodeIdType const& source = m_request.GetSource();
     for (auto const& peer: peers) {
         if (peer == source) {
             continue;
@@ -93,11 +94,13 @@ std::optional<CMessage> Await::CMessageObject::GetResponse()
 
     std::string data = iod::json_vector(s::id, s::pack).encode(responsesVector);
 
-    m_optAggregateResponse = CMessage(
-        m_request.GetMessageContext(),
-        m_request.GetDestinationId(), m_request.GetSourceId(),
-        m_request.GetCommandType(), m_request.GetPhase() + 1,
-        data, m_request.GetNonce() + 1 );
+    m_optAggregateResponse = CMessage::Builder()
+        .SetMessageContext(m_request.GetMessageContext())
+        .SetSource(m_request.GetDestination())
+        .SetDestination(m_request.GetSource())
+        .SetCommand(m_request.GetCommandType(), m_request.GetPhase() + 1)
+        .SetData(data, m_request.GetNonce() + 1)
+        .ValidatedBuild();
 
     // After the aggregate response has been generated the tracked responses can be 
     // cleared. Therby rejecting any new responses.
@@ -114,7 +117,7 @@ std::optional<CMessage> Await::CMessageObject::GetResponse()
 //------------------------------------------------------------------------------------------------
 Await::Status Await::CMessageObject::UpdateResponse(CMessage const& response)
 {
-    auto const itr = m_responses.find(response.GetSourceId());
+    auto const itr = m_responses.find(response.GetSource());
     if(itr == m_responses.end() || !itr->second.empty()) {
         NodeUtils::printo("Unexpected node response", NodeUtils::PrintType::Await);
         return m_status;
@@ -172,7 +175,7 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
 bool Await::CObjectContainer::PushResponse(CMessage const& message)
 {
     // Try to get an await object ID from the message
-    auto const& optKey = message.GetAwaitId();
+    auto const& optKey = message.GetAwaitingKey();
     if (!optKey) {
         return false;
     }

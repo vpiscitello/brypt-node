@@ -3,7 +3,7 @@
 #include "../../Components/Endpoints/DirectEndpoint.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageQueue/MessageQueue.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -31,7 +31,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0xFFFFFFFF;
+constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";

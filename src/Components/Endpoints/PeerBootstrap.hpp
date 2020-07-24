@@ -19,10 +19,12 @@
 #include "TechnologyType.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Command/ConnectHandler.hpp"
-#include "../../Utilities/Message.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
+#include <cassert>
 #include <string>
 #include <vector>
 //------------------------------------------------------------------------------------------------
@@ -32,9 +34,9 @@ namespace PeerBootstrap {
 //------------------------------------------------------------------------------------------------
 
 // Information used to generate the message required to request a connection with a Brypt peer
-constexpr Command::Type ConnectionRequestCommand = Command::Type::Connect;
-constexpr std::uint8_t ConnectionRequestPhase = static_cast<std::uint8_t>(Command::CConnectHandler::Phase::Discovery);
-constexpr std::uint8_t ConnectionRequestNonce = 0;
+constexpr Command::Type ConnectCommand = Command::Type::Connect;
+constexpr std::uint8_t DiscoveryPhase = static_cast<std::uint8_t>(Command::CConnectHandler::Phase::Discovery);
+constexpr std::uint8_t InitialNonce = 0;
 
 template<typename Functor, typename Enabled = std::enable_if_t<std::is_bind_expression_v<Functor>>>
 auto SendContactMessage(
@@ -122,7 +124,7 @@ auto PeerBootstrap::SendContactMessage(
     IEndpointMediator const* const pEndpointMediator,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
-    NodeUtils::NodeIdType sourceIdentifier,
+    NodeUtils::NodeIdType source,
     Functor const& callback) -> typename Functor::result_type
 {
     Json::TConnectRequest request;
@@ -140,11 +142,16 @@ auto PeerBootstrap::SendContactMessage(
             s::entry
         )).encode(request);
 
-    CMessage const message(
-        {identifier, technology},
-        sourceIdentifier, static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
-        ConnectionRequestCommand, ConnectionRequestPhase,
-        encoded, ConnectionRequestNonce);
+    OptionalMessage const optDiscoveryRequest = CMessage::Builder()
+        .SetMessageContext({ identifier, technology })
+        .SetSource(source)
+        .SetDestination(ReservedIdentifiers::Unknown)
+        .SetCommand(ConnectCommand, DiscoveryPhase)
+        .SetData(encoded, InitialNonce)
+        .ValidatedBuild();
+    assert(optDiscoveryRequest);
 
-    return callback(message.GetPack());
+    return callback(optDiscoveryRequest->GetPack());
 }
+
+//------------------------------------------------------------------------------------------------

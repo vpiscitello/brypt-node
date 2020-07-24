@@ -77,7 +77,7 @@ bool CMessageQueue::PushOutgoingMessage(CMessage const& message)
 	// Attempt to find a mapped callback for the node in the known callbacks
 	// If it exists and has a context attached forward the message to the handler
 	auto messageContext = message.GetMessageContext();
-	auto const key = std::make_pair(messageContext.GetEndpointId(), message.GetDestinationId());
+	auto const key = std::make_pair(messageContext.GetEndpointId(), message.GetDestination());
 	if (auto const itr = m_endpointsPeerLookups.find(key); itr != m_endpointsPeerLookups.end()) {
 		auto& [id, lookup] = *itr;
 		auto const callback = lookup->second.GetCallback();

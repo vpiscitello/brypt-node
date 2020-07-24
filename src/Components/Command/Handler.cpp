@@ -14,9 +14,11 @@
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Message/Message.hpp"
+#include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Connecting to a new network or peer
+#include <cassert>
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Command::IHandler> Command::Factory(
@@ -115,28 +117,31 @@ void Command::IHandler::SendResponse(
         id = spNodeState->GetId();
     }
 
-    NodeUtils::NodeIdType destination = request.GetSourceId();
+    NodeUtils::NodeIdType destination = request.GetSource();
     if (optDestinationOverride) {
         destination = *optDestinationOverride;
     }
 
-    std::optional<Message::BoundAwaitId> optBoundAwaitId = {};
-    std::optional<NodeUtils::ObjectIdType> const optAwaitId = request.GetAwaitId();
-    if (optAwaitId) {
-        optBoundAwaitId = {Message::AwaitBinding::Destination, *optAwaitId};
+    std::optional<Message::BoundAwaitingKey> optBoundAwaitId = {};
+    std::optional<NodeUtils::ObjectIdType> const optAwaitingKey = request.GetAwaitingKey();
+    if (optAwaitingKey) {
+        optBoundAwaitId = { Message::AwaitBinding::Destination, *optAwaitingKey };
     }
 
     // Using the information from the node instance generate a discovery response message
-    CMessage response(
-        request.GetMessageContext(),
-        id, destination,
-        request.GetCommandType(), responsePhase,
-        responseData,  request.GetNonce() + 1);
+    OptionalMessage const optResponse = CMessage::Builder()
+        .SetMessageContext(request.GetMessageContext())
+        .SetSource(id)
+        .SetDestination(destination)
+        .SetCommand(request.GetCommandType(), responsePhase)
+        .SetData(responseData,  request.GetNonce() + 1)
+        .ValidatedBuild();
+    assert(optResponse);
 
     // Get the message queue from the node instance and forward the response
     auto const wpMessageQueue = m_instance.GetMessageQueue();
     if (auto const spMessageQueue = wpMessageQueue.lock(); spMessageQueue) {
-        spMessageQueue->PushOutgoingMessage(response);
+        spMessageQueue->PushOutgoingMessage(*optResponse);
     }
 }
 
@@ -169,26 +174,29 @@ void Command::IHandler::SendNotice(
 
         if (optResponseData) {
             // Create a reading message
-            CMessage const nodeResponse(
-                request.GetMessageContext(),
-                id, request.GetSourceId(),
-                request.GetCommandType(), responsePhase,
-                *optResponseData, request.GetNonce() + 1,
-                Message::BoundAwaitId(
-                    {Message::AwaitBinding::Destination, awaitObjectKey}));
-
-            awaiting->PushResponse(nodeResponse);
+            OptionalMessage const optNodeResponse = CMessage::Builder()
+                .SetMessageContext(request.GetMessageContext())
+                .SetSource(id)
+                .SetDestination(request.GetSource())
+                .SetCommand(request.GetCommandType(), responsePhase)
+                .SetData(*optResponseData, request.GetNonce() + 1)
+                .BindAwaitingKey(Message::AwaitBinding::Destination, awaitObjectKey)
+                .ValidatedBuild();
+            assert(optNodeResponse);
+            awaiting->PushResponse(*optNodeResponse);
         }
     }
 
     // Create a notice message for the network
-    CMessage const notice(
-        request.GetMessageContext(),
-        id, noticeDestination,
-        request.GetCommandType(), noticePhase,
-        noticeData, request.GetNonce() + 1,
-        Message::BoundAwaitId(
-            {Message::AwaitBinding::Source, awaitObjectKey}));
+    OptionalMessage const optNotice = CMessage::Builder()
+        .SetMessageContext(request.GetMessageContext())
+        .SetSource(id)
+        .SetDestination(noticeDestination)
+        .SetCommand(request.GetCommandType(), noticePhase)
+        .SetData(noticeData, request.GetNonce() + 1)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitObjectKey)
+        .ValidatedBuild();
+    assert(optNotice);
 
     // TODO: Handle sending notices
 }
