@@ -196,15 +196,6 @@ BryptIdentifier::CContainer::CContainer(BufferType const& buffer, BufferContentT
 
 //------------------------------------------------------------------------------------------------
 
-// BryptIdentifier::CContainer::CContainer(CContainer const& other)
-//     : m_internalRepresentation(other.m_internalRepresentation)
-//     , m_networkRepresentation(other.m_networkRepresentation)
-//     , m_valid(other.m_valid)
-// {
-// }
-
-//------------------------------------------------------------------------------------------------
-
 bool BryptIdentifier::CContainer::operator<(CContainer const& other) const
 {
     return (m_internalRepresentation < other.m_internalRepresentation);
