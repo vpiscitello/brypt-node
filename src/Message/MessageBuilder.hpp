@@ -5,9 +5,14 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "Message.hpp"
-#include "../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include <optional>
+//------------------------------------------------------------------------------------------------
+
+namespace BryptIdentifier {
+	class CContainer;
+}
+
 //------------------------------------------------------------------------------------------------
 
 using OptionalMessage = std::optional<CMessage>;
@@ -19,9 +24,12 @@ public:
 	CMessageBuilder();
 
 	CMessageBuilder& SetMessageContext(CMessageContext const& context);
-	CMessageBuilder& SetSource(NodeUtils::NodeIdType id);
-	CMessageBuilder& SetDestination(NodeUtils::NodeIdType id);
-	CMessageBuilder& SetDestination(ReservedIdentifiers id);
+	CMessageBuilder& SetSource(BryptIdentifier::CContainer const& identifier);
+	CMessageBuilder& SetSource(BryptIdentifier::InternalType const& identifier);
+	CMessageBuilder& SetSource(std::string_view identifier);
+	CMessageBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
+	CMessageBuilder& SetDestination(BryptIdentifier::InternalType const& identifier);
+	CMessageBuilder& SetDestination(std::string_view identifier);
 	CMessageBuilder& BindAwaitingKey(Message::AwaitBinding binding, NodeUtils::ObjectIdType key);
 	CMessageBuilder& SetCommand(Command::Type type, std::uint8_t phase);
 	CMessageBuilder& SetData(std::string_view data, NodeUtils::NetworkNonce nonce = 0);

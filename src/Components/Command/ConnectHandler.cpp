@@ -14,7 +14,6 @@
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <chrono>
@@ -267,7 +266,6 @@ bool local::HandleDiscoveryResponse(CBryptNode& instance, CMessage const& messag
     if (optRequestData) {
         return false;
     }
-    
 
     std::string_view const dataview(reinterpret_cast<char const*>(optRequestData->data()), optRequestData->size());
     // Parse response the response 

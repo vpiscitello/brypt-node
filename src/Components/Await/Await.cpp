@@ -17,7 +17,7 @@ IOD_SYMBOL(pack)
 //------------------------------------------------------------------------------------------------
 Await::CMessageObject::CMessageObject(
     CMessage const& request,
-    NodeUtils::NodeIdType const& peer)
+    BryptIdentifier::CContainer const& peer)
     : m_status(Status::Unfulfilled)
     , m_expected(1)
     , m_received(0)
@@ -26,7 +26,7 @@ Await::CMessageObject::CMessageObject(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + Await::Timeout)
 {
-    m_responses[peer] = std::string();
+    m_responses[peer] = {};
 }
 
 //------------------------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ Await::CMessageObject::CMessageObject(
 //------------------------------------------------------------------------------------------------
 Await::CMessageObject::CMessageObject(
     CMessage const& request,
-    std::set<NodeUtils::NodeIdType> const& peers)
+    std::set<BryptIdentifier::CContainer> const& peers)
     : m_status(Status::Unfulfilled)
     , m_expected(peers.size())
     , m_received(0)
@@ -45,12 +45,12 @@ Await::CMessageObject::CMessageObject(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + Await::Timeout)
 {
-    NodeUtils::NodeIdType const& source = m_request.GetSource();
+    BryptIdentifier::CContainer const& source = m_request.GetSource();
     for (auto const& peer: peers) {
         if (peer == source) {
             continue;
         }
-        m_responses[peer] = std::string();
+        m_responses[peer] = {};
     }
 }
 
@@ -140,7 +140,7 @@ Await::Status Await::CMessageObject::UpdateResponse(CMessage const& response)
 //------------------------------------------------------------------------------------------------
 NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
     CMessage const& message,
-    NodeUtils::NodeIdType const& peer)
+    BryptIdentifier::CContainer const& peer)
 {
     NodeUtils::ObjectIdType const key = KeyGenerator(message.GetPack());
     NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::Await);
@@ -157,7 +157,7 @@ NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
 //------------------------------------------------------------------------------------------------
 NodeUtils::ObjectIdType Await::CObjectContainer::PushRequest(
     CMessage const& message,
-    std::set<NodeUtils::NodeIdType> const& peers)
+    std::set<BryptIdentifier::CContainer> const& peers)
 {
     NodeUtils::ObjectIdType const key = KeyGenerator(message.GetPack());
     NodeUtils::printo("Pushing AwaitObject with key: " + std::to_string(key), NodeUtils::PrintType::Await);

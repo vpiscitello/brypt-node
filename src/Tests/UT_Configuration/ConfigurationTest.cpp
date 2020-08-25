@@ -43,8 +43,8 @@ TEST(ConfigurationManagerSuite, ParseGoodFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/good/config.json";
     Configuration::CManager manager(filepath.c_str());
-    auto const optSettings = manager.FetchSettings();
-    EXPECT_TRUE(optSettings);
+    auto const status = manager.FetchSettings();
+    EXPECT_EQ(status, Configuration::StatusCode::Success);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -53,8 +53,8 @@ TEST(ConfigurationManagerSuite, ParseMalformedFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/malformed/config.json";
     Configuration::CManager manager(filepath.c_str());
-    auto const optSettings = manager.FetchSettings();
-    EXPECT_FALSE(optSettings);
+    auto const status = manager.FetchSettings();
+    EXPECT_NE(status, Configuration::StatusCode::Success);
 }
 
 //------------------------------------------------------------------------------------------------

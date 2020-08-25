@@ -8,13 +8,13 @@
 #include "EndpointTypes.hpp"
 #include "EndpointIdentifier.hpp"
 #include "TechnologyType.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Interfaces/EndpointMediator.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 #include "../../Utilities/NodeUtils.hpp"
-#include "zmq.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
 #include <atomic>
@@ -44,7 +44,7 @@ class CTcpEndpoint;
 
 std::unique_ptr<CEndpoint> Factory(
     TechnologyType technology,
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
@@ -60,7 +60,7 @@ public:
     enum class NetworkInstruction : std::uint8_t { Bind, Connect };
 
     CEndpoint(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         std::string_view interface,
         Endpoints::OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
@@ -70,7 +70,7 @@ public:
         : m_mutex()
         , m_identifier(CEndpointIdentifierGenerator::Instance().GetIdentifier())
         , m_technology(technology)
-        , m_nodeIdentifier(id) 
+        , m_bryptID(identifier) 
         , m_interface(interface)
         , m_operation(operation)
         , m_pEndpointMediator(pEndpointMediator)
@@ -98,7 +98,9 @@ public:
     virtual void Startup() = 0;
 
 	virtual bool ScheduleSend(CMessage const& message) = 0;
-	virtual bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) = 0;
+	virtual bool ScheduleSend(
+        BryptIdentifier::CContainer const& identifier,
+        std::string_view message) = 0;
     
 	virtual bool Shutdown() = 0;
 
@@ -117,7 +119,7 @@ protected:
     Endpoints::EndpointIdType const m_identifier;
     Endpoints::TechnologyType const m_technology;
 
-	NodeUtils::NodeIdType const m_nodeIdentifier;
+	BryptIdentifier::CContainer const m_bryptID;
     std::string m_interface;
 	Endpoints::OperationType const m_operation;
 

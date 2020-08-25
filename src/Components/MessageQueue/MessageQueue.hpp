@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Message/Message.hpp"
-#include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <boost/functional/hash.hpp>
@@ -23,15 +23,15 @@
 
 class CRegisteredEndpoint {
 public:
-    using ConnectedPeersSet = std::unordered_set<NodeUtils::NodeIdType>;
+    using ConnectedPeersSet = std::unordered_set<BryptIdentifier::CContainer, BryptIdentifier::Hasher>;
 
     explicit CRegisteredEndpoint(ProcessedMessageCallback const& callback);
 
     ProcessedMessageCallback const& GetCallback() const;
 
-    void TrackPeer(NodeUtils::NodeIdType id);
-    void UntrackPeer(NodeUtils::NodeIdType id);
-    bool IsPeerInGroup(NodeUtils::NodeIdType id) const;
+    void TrackPeer(BryptIdentifier::CContainer const& identifier);
+    void UntrackPeer(BryptIdentifier::CContainer const& identifier);
+    bool IsPeerInGroup(BryptIdentifier::CContainer const& identifier) const;
     std::uint32_t TrackedPeerCount() const;
 
     ConnectedPeersSet const& GetConnectedPeers() const;
@@ -66,16 +66,16 @@ public:
 
     virtual void PublishPeerConnection(
         Endpoints::EndpointIdType endpointIdentifier,
-        NodeUtils::NodeIdType peerIdentifier) override;
+        BryptIdentifier::CContainer const& peerIdentifier) override;
     virtual void UnpublishPeerConnection(
         Endpoints::EndpointIdType endpointIdentifier,
-        NodeUtils::NodeIdType peerIdentifier) override;
+        BryptIdentifier::CContainer const& peerIdentifier) override;
     // }IMessageSink
 
 private:
     using RegisteredEndpointMap = std::unordered_map<Endpoints::EndpointIdType, CRegisteredEndpoint>;
     using RegisteredEndpointMapIterator = RegisteredEndpointMap::iterator;
-    using PeerContextKey = std::pair<Endpoints::EndpointIdType, NodeUtils::NodeIdType>;
+    using PeerContextKey = std::pair<Endpoints::EndpointIdType, BryptIdentifier::InternalType>;
     using PeerContextLookupMap = std::unordered_map<PeerContextKey, RegisteredEndpointMapIterator, boost::hash<PeerContextKey>>;
 
     mutable std::shared_mutex m_incomingMutex;

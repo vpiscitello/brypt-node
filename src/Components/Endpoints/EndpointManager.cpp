@@ -38,7 +38,7 @@ CEndpointManager::~CEndpointManager()
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::Initialize(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     IMessageSink* const pMessageSink,
     Configuration::EndpointConfigurations const& configurations,
     IPeerCache const* const pBootstrapCache)
@@ -52,13 +52,13 @@ void CEndpointManager::Initialize(
         if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
             switch (technology) {
                 case Endpoints::TechnologyType::Direct: {
-                    InitializeDirectEndpoints(id, options, pMessageSink, pBootstrapCache);
+                    InitializeDirectEndpoints(identifier, options, pMessageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::TCP: {
-                    InitializeTCPEndpoints(id, options, pMessageSink, pBootstrapCache);
+                    InitializeTCPEndpoints(identifier, options, pMessageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::StreamBridge: {
-                    InitializeStreamBridgeEndpoints(id, options, pMessageSink);
+                    InitializeStreamBridgeEndpoints(identifier, options, pMessageSink);
                 } break;
                 default: break; // No other technologies have implemented endpoints
             }
@@ -199,7 +199,7 @@ void CEndpointManager::ForwardPeerConnectionStateChange(CPeer const& peer, Conne
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::InitializeDirectEndpoints(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const pMessageSink,
     IPeerCache const* const pBootstrapCache)
@@ -208,7 +208,7 @@ void CEndpointManager::InitializeDirectEndpoints(
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, id, options.GetInterface(), Endpoints::OperationType::Server, this, this, pMessageSink);
+        technology, identifier, options.GetInterface(), Endpoints::OperationType::Server, this, this, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -216,7 +216,7 @@ void CEndpointManager::InitializeDirectEndpoints(
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        technology, id, options.GetInterface(), Endpoints::OperationType::Client, this, this, pMessageSink);
+        technology, identifier, options.GetInterface(), Endpoints::OperationType::Client, this, this, pMessageSink);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
@@ -230,7 +230,7 @@ void CEndpointManager::InitializeDirectEndpoints(
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::InitializeTCPEndpoints(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const pMessageSink,
     IPeerCache const* const pBootstrapCache)
@@ -239,7 +239,8 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, id, options.GetInterface(), Endpoints::OperationType::Server, this, this, pMessageSink);
+        technology, identifier, options.GetInterface(),
+         Endpoints::OperationType::Server, this, this, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -247,7 +248,8 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        technology, id, options.GetInterface(), Endpoints::OperationType::Client, this, this, pMessageSink);
+        technology, identifier, options.GetInterface(),
+         Endpoints::OperationType::Client, this, this, pMessageSink);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
@@ -261,14 +263,15 @@ void CEndpointManager::InitializeTCPEndpoints(
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::InitializeStreamBridgeEndpoints(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const pMessageSink)
 {
     auto const technology = Endpoints::TechnologyType::StreamBridge;
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, id, options.GetInterface(), Endpoints::OperationType::Server, this, this, pMessageSink);
+        technology, identifier, options.GetInterface(),
+         Endpoints::OperationType::Server, this, this, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 

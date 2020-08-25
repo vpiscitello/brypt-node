@@ -35,6 +35,20 @@ inline void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk)
 
 //------------------------------------------------------------------------------------------------
 
+inline void PackChunk(Message::Buffer& buffer, std::string const& chunk)
+{
+	buffer.insert(buffer.end(), chunk.begin(), chunk.end());
+}
+
+//------------------------------------------------------------------------------------------------
+
+inline void PackChunk(Message::Buffer& buffer, std::string_view chunk)
+{
+	buffer.insert(buffer.end(), chunk.begin(), chunk.end());
+}
+
+//------------------------------------------------------------------------------------------------
+
 template<typename ChunkType>
 void UnpackChunk(Message::Buffer const& buffer, std::uint32_t& position, ChunkType& destination)
 {
@@ -55,6 +69,26 @@ inline void UnpackChunk(
 	Message::Buffer::const_iterator begin = buffer.begin() + position;
 	Message::Buffer::const_iterator end = begin + size;
 	destination.insert(destination.begin(), begin, end);
+	if (bUpdatePositionToEnd) {
+		position += size;
+	}
+}
+
+//------------------------------------------------------------------------------------------------
+
+inline void UnpackChunk(
+	Message::Buffer const& buffer,
+	std::uint32_t& position,
+	Message::Buffer& destination,
+	Message::Buffer::const_iterator const& end,
+	bool bUpdatePositionToEnd = true)
+{
+	auto const beginSize = destination.size();
+	Message::Buffer::const_iterator begin = buffer.begin() + position;
+	destination.insert(destination.begin(), begin, end);
+	auto const endSize = destination.size();
+
+	std::uint32_t const size = static_cast<std::uint32_t>(endSize - beginSize);
 	if (bUpdatePositionToEnd) {
 		position += size;
 	}

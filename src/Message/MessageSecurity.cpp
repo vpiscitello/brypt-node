@@ -209,7 +209,7 @@ MessageSecurity::VerificationStatus MessageSecurity::Verify(std::string_view pac
 		optGeneratedBuffer->size());
 
 	if (result != 0) {
-		return VerificationStatus::Success;
+		return VerificationStatus::Unauthorized;
 	}
 
 	return VerificationStatus::Success;

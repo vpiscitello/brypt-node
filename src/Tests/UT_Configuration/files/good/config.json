@@ -1,5 +1,8 @@
 {
-  "version": "0.0.0 Alpha",
+	"version": "0.0.0 Alpha",
+	"identifier": {
+		"type": "Ephemeral"
+	},
 	"details": {
 		"name": "alpha",
 		"description": "The first node on the Brypt network.",

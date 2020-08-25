@@ -7,8 +7,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "ConnectionState.hpp"
-#include "../../Utilities/NodeUtils.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
@@ -24,8 +23,8 @@ enum class MessagingPhase : std::uint8_t {
 class CPeerDetailsBase
 {
 public:
-    explicit CPeerDetailsBase(NodeUtils::NodeIdType id)
-        : m_id(id)
+    explicit CPeerDetailsBase(BryptIdentifier::CContainer const& identifier)
+        : m_identifier(identifier)
         , m_uri()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
@@ -35,10 +34,10 @@ public:
     }
 
     CPeerDetailsBase(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         ConnectionState connectionState,
         MessagingPhase messagingPhase)
-        : m_id(id)
+        : m_identifier(identifier)
         , m_uri()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
@@ -48,12 +47,12 @@ public:
     }
 
     CPeerDetailsBase(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         TimeUtils::Timepoint const& timepoint,
         std::uint32_t sequenceNumber,
         ConnectionState connectionState,
         MessagingPhase messagingPhase)
-        : m_id(id)
+        : m_identifier(identifier)
         , m_uri()
         , m_updateTimepoint(timepoint)
         , m_sequenceNumber(sequenceNumber)
@@ -62,7 +61,7 @@ public:
     {
     }
 
-    NodeUtils::NodeIdType GetNodeId() const { return m_id; }
+    BryptIdentifier::CContainer GetIdentifier() const { return m_identifier; }
     std::string GetURI() const { return m_uri; }
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
@@ -93,7 +92,7 @@ public:
 protected: 
     // Currently it is expected each connection type maintains information about the node's Brypt ID,
     // the timepoint the connection was last updated, and the message sequence number.
-    NodeUtils::NodeIdType m_id;
+    BryptIdentifier::CContainer m_identifier;
     std::string m_uri;
     TimeUtils::Timepoint m_updateTimepoint;
     std::uint32_t m_sequenceNumber;
@@ -120,10 +119,11 @@ public:
 
     CPeerDetails& operator=(CPeerDetails const& other)
     {
-        m_id = other.GetNodeId();
-        m_updateTimepoint = other.GetUpdateTimepoint();
-        m_sequenceNumber = other.GetMessageSequenceNumber();
-        m_connectionState = other.GetConnectionState();
+        m_identifier = other.m_identifier;
+        m_uri = other.m_uri;
+        m_updateTimepoint = other.m_updateTimepoint;
+        m_sequenceNumber = other.m_sequenceNumber;
+        m_connectionState = other.m_connectionState;
         return *this;
     }
 
@@ -141,11 +141,11 @@ public:
     using UpdateExtensionFunction = std::function<void(ExtensionType&)>;
 
     CPeerDetails(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         ConnectionState connectionState,
         MessagingPhase messagePhase,
         ExtensionType const& extension)
-        : CPeerDetailsBase(id, connectionState, messagePhase)
+        : CPeerDetailsBase(identifier, connectionState, messagePhase)
         , m_extension(extension)
     {
     }
@@ -155,12 +155,12 @@ public:
 
     CPeerDetails& operator=(CPeerDetails const& other)
     {
-        m_id = other.GetNodeId();
-        m_uri = other.GetURI();
-        m_updateTimepoint = other.GetUpdateTimepoint();
-        m_sequenceNumber = other.GetMessageSequenceNumber();
-        m_connectionState = other.GetConnectionState();
-        m_extension = other.GetExtension();
+        m_identifier = other.m_identifier;
+        m_uri = other.m_uri;
+        m_updateTimepoint = other.m_updateTimepoint;
+        m_sequenceNumber = other.m_sequenceNumber;
+        m_connectionState = other.m_connectionState;
+        m_extension = other.m_extension;
         return *this;
     }
 

@@ -10,13 +10,15 @@
 #include "QueryHandler.hpp"
 #include "TransformHandler.hpp"
 #include "../Await/Await.hpp"
+#include "../Endpoints/Peer.hpp"
 #include "../MessageQueue/MessageQueue.hpp"
+#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Configuration/PeerPersistor.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -75,13 +77,8 @@ void Command::IHandler::SendClusterNotice(
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData)
 {
-    SendNotice(
-        request,
-        static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::ClusterRequest),
-        noticeData,
-        noticePhase,
-        responsePhase,
-        optResponseData);
+    static BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::ClusterRequest);
+    SendNotice(request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -93,13 +90,8 @@ void Command::IHandler::SendNetworkNotice(
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData)
 {
-    SendNotice(
-        request,
-        static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::NetworkRequest),
-        noticeData,
-        noticePhase,
-        responsePhase,
-        optResponseData);
+    static BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::NetworkRequest);
+    SendNotice(request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -108,16 +100,16 @@ void Command::IHandler::SendResponse(
     CMessage const& request,
     std::string_view responseData,
     std::uint8_t responsePhase,
-    std::optional<NodeUtils::NodeIdType> optDestinationOverride)
+    std::optional<BryptIdentifier::CContainer> optDestinationOverride)
 {
     // Get the current Node ID and Cluster ID for this node
-    NodeUtils::NodeIdType id = static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid);
+    BryptIdentifier::CContainer identifier;
     auto const wpNodeState = m_instance.GetNodeState();
     if (auto const spNodeState = wpNodeState.lock(); spNodeState) {
-        id = spNodeState->GetId();
+        identifier = spNodeState->GetIdentifier();
     }
 
-    NodeUtils::NodeIdType destination = request.GetSource();
+    BryptIdentifier::CContainer destination = request.GetSource();
     if (optDestinationOverride) {
         destination = *optDestinationOverride;
     }
@@ -131,7 +123,7 @@ void Command::IHandler::SendResponse(
     // Using the information from the node instance generate a discovery response message
     OptionalMessage const optResponse = CMessage::Builder()
         .SetMessageContext(request.GetMessageContext())
-        .SetSource(id)
+        .SetSource(identifier)
         .SetDestination(destination)
         .SetCommand(request.GetCommandType(), responsePhase)
         .SetData(responseData,  request.GetNonce() + 1)
@@ -149,22 +141,32 @@ void Command::IHandler::SendResponse(
 
 void Command::IHandler::SendNotice(
     CMessage const& request,
-    NodeUtils::NodeIdType noticeDestination,
+    BryptIdentifier::CContainer noticeDestination,
     std::string_view noticeData,
     std::uint8_t noticePhase,
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData = {})
 {
     // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = 0;
+    BryptIdentifier::CContainer identifier;
     if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        id = spNodeState->GetId();
+        identifier = spNodeState->GetIdentifier();
     }
 
     // Get the information pertaining to the node's network
-    std::set<NodeUtils::NodeIdType> peers;
-    if (auto const spNetworkState = m_instance.GetNetworkState().lock()) {
-        peers = spNetworkState->GetPeerNames();
+    std::set<BryptIdentifier::CContainer> peers;
+    if (auto const spPeerPersistor = m_instance.GetPeerPersistor().lock()) {
+        spPeerPersistor->ForEachCachedPeer(
+            [&peers] (
+                [[maybe_unused]] Endpoints::TechnologyType technology,
+                CPeer const& peer) -> CallbackIteration
+            {
+                peers.emplace(peer.GetIdentifier());
+                return CallbackIteration::Continue;
+            },
+            // Unused cache error handling function
+            [] ([[maybe_unused]] Endpoints::TechnologyType technology) {}
+        );
     }
     
     // Setup the awaiting message object and push this node's response
@@ -176,7 +178,7 @@ void Command::IHandler::SendNotice(
             // Create a reading message
             OptionalMessage const optNodeResponse = CMessage::Builder()
                 .SetMessageContext(request.GetMessageContext())
-                .SetSource(id)
+                .SetSource(identifier)
                 .SetDestination(request.GetSource())
                 .SetCommand(request.GetCommandType(), responsePhase)
                 .SetData(*optResponseData, request.GetNonce() + 1)
@@ -190,7 +192,7 @@ void Command::IHandler::SendNotice(
     // Create a notice message for the network
     OptionalMessage const optNotice = CMessage::Builder()
         .SetMessageContext(request.GetMessageContext())
-        .SetSource(id)
+        .SetSource(identifier)
         .SetDestination(noticeDestination)
         .SetCommand(request.GetCommandType(), noticePhase)
         .SetData(noticeData, request.GetNonce() + 1)

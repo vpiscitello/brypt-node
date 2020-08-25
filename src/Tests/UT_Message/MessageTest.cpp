@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/NodeUtils.hpp"
@@ -24,8 +25,9 @@ namespace local {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
-constexpr NodeUtils::NodeIdType ServerId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
@@ -308,10 +310,7 @@ TEST(CMessageSuite, AlteredMessageVerificationTest)
     OptionalMessage const optPackMessage = CMessage::Builder()
         .FromPack(pack)
         .ValidatedBuild();
-    ASSERT_TRUE(optPackMessage);
-
-    auto const packStatus = MessageSecurity::Verify(*optPackMessage);
-    EXPECT_EQ(packStatus, MessageSecurity::VerificationStatus::Success);
+    ASSERT_FALSE(optPackMessage);
 }
 
 //-----------------------------------------------------------------------------------------------

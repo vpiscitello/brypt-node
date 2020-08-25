@@ -7,6 +7,7 @@
 #include "MessageContext.hpp"
 #include "MessageSecurity.hpp"
 #include "MessageTypes.hpp"
+#include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Utilities/NodeUtils.hpp"
 #include "../Utilities/TimeUtils.hpp"
 #include "../Components/Command/CommandDefinitions.hpp"
@@ -33,8 +34,8 @@ public:
 	// } CMessageBuilder
 
 	CMessageContext const& GetMessageContext() const;
-	NodeUtils::NodeIdType const& GetSource() const;
-	NodeUtils::NodeIdType const& GetDestination() const;
+	BryptIdentifier::CContainer const& GetSource() const;
+	BryptIdentifier::CContainer const& GetDestination() const;
 	std::optional<NodeUtils::ObjectIdType> GetAwaitingKey() const;
 	Command::Type GetCommandType() const;
 	std::uint32_t GetPhase() const;
@@ -49,8 +50,6 @@ public:
 	constexpr static std::size_t FixedPackSize()
 	{
 		std::size_t size = 0;
-		size += sizeof(m_source);
-		size += sizeof(m_destination);
 		size += sizeof(m_optBoundAwaitingKey->first);
 		size += sizeof(m_optBoundAwaitingKey->second);
 		size += sizeof(m_command);
@@ -64,9 +63,9 @@ public:
 
 private:
 	CMessageContext m_context;
-
-	NodeUtils::NodeIdType m_source;	// ID of the sending node
-	NodeUtils::NodeIdType m_destination;	// ID of the receiving node
+	
+	BryptIdentifier::CContainer m_source;	// ID of the sending node
+	BryptIdentifier::CContainer m_destination;	// ID of the receiving node
 	std::optional<Message::BoundAwaitingKey> m_optBoundAwaitingKey;	// ID bound to the source or destination on a passdown message
 
 	Command::Type m_command;	// Command type to be run

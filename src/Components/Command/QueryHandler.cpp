@@ -12,7 +12,6 @@
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"

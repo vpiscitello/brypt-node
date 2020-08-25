@@ -4,14 +4,15 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Utilities/NetworkUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
 #include "../Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -22,6 +23,7 @@ namespace Configuration {
 //------------------------------------------------------------------------------------------------
 
 struct TSettings;
+struct TIdentifierOptions;
 struct TDetailsOptions;
 struct TEndpointOptions;
 struct TSecurityOptions;
@@ -38,6 +40,39 @@ std::filesystem::path GetDefaultPeersFilepath();
 
 //------------------------------------------------------------------------------------------------
 } // Configuration namespace
+//------------------------------------------------------------------------------------------------
+
+struct Configuration::TIdentifierOptions
+{
+    TIdentifierOptions()
+        : value()
+        , type()
+        , container()
+    {
+    }
+
+    TIdentifierOptions(std::string_view type)
+        : value()
+        , type(type)
+        , container()
+    {
+    }
+
+    TIdentifierOptions(
+        std::string_view value,
+        std::string_view type)
+        : value(value)
+        , type(type)
+        , container()
+    {
+    }
+
+    std::optional<std::string> value;
+    std::string type;
+
+    BryptIdentifier::CContainer container;
+};
+
 //------------------------------------------------------------------------------------------------
 
 struct Configuration::TDetailsOptions
@@ -107,7 +142,7 @@ struct Configuration::TEndpointOptions
     std::string GetTechnologyName() const { return technology; }
     std::string GetInterface() const { return interface; }
     std::string GetBinding() const { return binding; }
-    std::string GetBootstrap() const { return bootstrap; }
+    std::optional<std::string> GetBootstrap() const { return bootstrap; }
 
     NetworkUtils::AddressComponentPair GetBindingComponents() const
     {
@@ -130,7 +165,7 @@ struct Configuration::TEndpointOptions
     std::string technology;
     std::string interface;
     std::string binding;
-    std::string bootstrap;
+    std::optional<std::string> bootstrap;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -147,10 +182,10 @@ struct Configuration::TSecurityOptions
     TSecurityOptions(
         std::string_view standard,
         std::string_view token,
-        std::string_view central_authority)
+        std::string_view authority)
         : standard(standard)
         , token(token)
-        , authority(central_authority)
+        , authority(authority)
     {
     }
 
@@ -201,6 +236,11 @@ struct Configuration::TSettings
         return version;
     }
 
+    TIdentifierOptions const& GetIdentifierOptions()
+    {
+        return identifier;
+    }
+
     TDetailsOptions const& GetDetailsOptions()
     {
         return details;
@@ -217,6 +257,7 @@ struct Configuration::TSettings
     }
 
     std::string version;
+    TIdentifierOptions identifier;
     TDetailsOptions details;
     EndpointConfigurations endpoints;
     TSecurityOptions security;

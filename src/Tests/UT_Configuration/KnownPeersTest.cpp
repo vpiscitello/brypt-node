@@ -1,10 +1,11 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../Components/Endpoints/Peer.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Utilities/NodeUtils.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -28,11 +29,11 @@ namespace test {
 constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
 constexpr std::string_view DirectBootstrapEntry = "127.0.0.1:35217";
 
+BryptIdentifier::CContainer const KnownPeerId("bry0:37GDnYQnHhqkVfV6UGyXudsZTU3q");
 constexpr Endpoints::TechnologyType PeerTechnology = Endpoints::TechnologyType::TCP;
-constexpr NodeUtils::NodeIdType PeerId = 305419896;
 constexpr std::string_view PeerEntry = "127.0.0.1:35216";
 
-constexpr NodeUtils::NodeIdType NewPeerId = 0xAABBCCDD;
+BryptIdentifier::CContainer const NewPeerId(BryptIdentifier::Generate());
 constexpr std::string_view NewPeerEntry = "127.0.0.1:35217";
 
 //------------------------------------------------------------------------------------------------
@@ -40,7 +41,7 @@ constexpr std::string_view NewPeerEntry = "127.0.0.1:35217";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(ConfigurationManagerSuite, GeneratePeersFilepathTest)
+TEST(PeerPersistorSuite, GeneratePeersFilepathTest)
 {
     auto const filepath = Configuration::GetDefaultPeersFilepath();
     EXPECT_TRUE(filepath.has_parent_path());
@@ -52,7 +53,7 @@ TEST(ConfigurationManagerSuite, GeneratePeersFilepathTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(ConfigurationManagerSuite, DefualtBootstrapTest)
+TEST(PeerPersistorSuite, DefualtBootstrapTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/good/default-peers.json";
 
@@ -101,11 +102,11 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
 
     std::uint32_t iterations = 0;
     CPeer foundPeer;
-    ASSERT_EQ(foundPeer.GetNodeId(), static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid));
+    ASSERT_EQ(foundPeer.GetIdentifier(), BryptIdentifier::CContainer());
     persistor.ForEachCachedPeer(
         test::PeerTechnology,
         [&iterations, &foundPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetNodeId() == test::PeerId) {
+            if (peer.GetIdentifier() == test::KnownPeerId) {
                 foundPeer = peer;
             }
             ++iterations;
@@ -113,7 +114,7 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
         }
     );
     ASSERT_EQ(iterations, std::uint32_t(1));
-    ASSERT_EQ(foundPeer.GetNodeId(), test::PeerId);
+    ASSERT_EQ(foundPeer.GetIdentifier(), test::KnownPeerId);
     EXPECT_EQ(foundPeer.GetEntry(), test::PeerEntry);
     EXPECT_TRUE(foundPeer.GetLocation().empty());
     EXPECT_EQ(foundPeer.GetTechnologyType(), test::PeerTechnology);
@@ -158,14 +159,14 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     persistor.ForEachCachedPeer(
         test::PeerTechnology,
         [&initialPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetNodeId() == test::PeerId) {
+            if (peer.GetIdentifier() == test::KnownPeerId) {
                 initialPeer = peer;
                 return CallbackIteration::Stop;
             }
             return CallbackIteration::Continue;
         }
     );
-    ASSERT_EQ(initialPeer.GetNodeId(), test::PeerId);
+    ASSERT_EQ(initialPeer.GetIdentifier(), test::KnownPeerId);
 
     // Create a new peer and notify the persistor
     CPeer newPeer(test::NewPeerId, test::PeerTechnology, test::NewPeerEntry);
@@ -178,14 +179,14 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     persistor.ForEachCachedPeer(
         test::PeerTechnology,
         [&newConnectedPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetNodeId() == test::NewPeerId) {
+            if (peer.GetIdentifier() == test::NewPeerId) {
                 newConnectedPeer = peer;
                 return CallbackIteration::Stop;
             }
             return CallbackIteration::Continue;
         }
     );
-    ASSERT_EQ(newConnectedPeer.GetNodeId(), test::NewPeerId);
+    ASSERT_EQ(newConnectedPeer.GetIdentifier(), test::NewPeerId);
 
     // Verify that a new persistor can read the updates
     {
@@ -198,7 +199,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         persistor.ForEachCachedPeer(
             test::PeerTechnology,
             [&checkConnectedPeer] (CPeer const& peer) -> CallbackIteration {
-                if (peer.GetNodeId() == test::NewPeerId) {
+                if (peer.GetIdentifier() == test::NewPeerId) {
                     checkConnectedPeer = peer;
                     return CallbackIteration::Stop;
                 }
@@ -207,7 +208,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         );
 
         // Verify the values that were read from the new persistor match
-        EXPECT_EQ(checkConnectedPeer.GetNodeId(), newConnectedPeer.GetNodeId());
+        EXPECT_EQ(checkConnectedPeer.GetIdentifier(), newConnectedPeer.GetIdentifier());
         EXPECT_EQ(checkConnectedPeer.GetEntry(), newConnectedPeer.GetEntry());
         EXPECT_EQ(checkConnectedPeer.GetLocation(), newConnectedPeer.GetLocation());
         EXPECT_EQ(checkConnectedPeer.GetTechnologyType(), newConnectedPeer.GetTechnologyType());
@@ -224,7 +225,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     persistor.ForEachCachedPeer(
         test::PeerTechnology,
         [&bFoundNewPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetNodeId() == test::NewPeerId) {
+            if (peer.GetIdentifier() == test::NewPeerId) {
                 bFoundNewPeer = true;
             }
             return CallbackIteration::Continue;

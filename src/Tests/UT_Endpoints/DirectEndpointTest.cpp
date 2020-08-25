@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/DirectEndpoint.hpp"
@@ -32,8 +33,9 @@ std::unique_ptr<Endpoints::CDirectEndpoint> MakeDirectClient(
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";

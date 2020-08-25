@@ -17,11 +17,11 @@
 //------------------------------------------------------------------------------------------------
 #include "EndpointIdentifier.hpp"
 #include "TechnologyType.hpp"
+#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Command/ConnectHandler.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <cassert>
@@ -43,7 +43,7 @@ auto SendContactMessage(
     IEndpointMediator const* const pEndpointMediator,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
-    NodeUtils::NodeIdType sourceIdentifier,
+    BryptIdentifier::CContainer const& source,
     Functor const& callback) -> typename Functor::result_type;
 
 //------------------------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ auto PeerBootstrap::SendContactMessage(
     IEndpointMediator const* const pEndpointMediator,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
-    NodeUtils::NodeIdType source,
+    BryptIdentifier::CContainer const& source,
     Functor const& callback) -> typename Functor::result_type
 {
     Json::TConnectRequest request;
@@ -145,7 +145,7 @@ auto PeerBootstrap::SendContactMessage(
     OptionalMessage const optDiscoveryRequest = CMessage::Builder()
         .SetMessageContext({ identifier, technology })
         .SetSource(source)
-        .SetDestination(ReservedIdentifiers::Unknown)
+        .SetDestination(ReservedIdentifiers::Network::Unknown)
         .SetCommand(ConnectCommand, DiscoveryPhase)
         .SetData(encoded, InitialNonce)
         .ValidatedBuild();

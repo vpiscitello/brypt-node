@@ -22,23 +22,23 @@ ProcessedMessageCallback const& CRegisteredEndpoint::GetCallback() const
 
 //------------------------------------------------------------------------------------------------
 
-void CRegisteredEndpoint::TrackPeer(NodeUtils::NodeIdType id)
+void CRegisteredEndpoint::TrackPeer(BryptIdentifier::CContainer const& identifier)
 {
-	m_peers.emplace(id);
+	m_peers.emplace(identifier);
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CRegisteredEndpoint::UntrackPeer(NodeUtils::NodeIdType id)
+void CRegisteredEndpoint::UntrackPeer(BryptIdentifier::CContainer const& identifier)
 {
-	m_peers.erase(id);
+	m_peers.erase(identifier);
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool CRegisteredEndpoint::IsPeerInGroup(NodeUtils::NodeIdType id) const
+bool CRegisteredEndpoint::IsPeerInGroup(BryptIdentifier::CContainer const& identifier) const
 {
-	if (auto const itr = m_peers.find(id); itr == m_peers.end()) {
+	if (auto const itr = m_peers.find(identifier); itr == m_peers.end()) {
 		return false;
 	}
 
@@ -77,7 +77,9 @@ bool CMessageQueue::PushOutgoingMessage(CMessage const& message)
 	// Attempt to find a mapped callback for the node in the known callbacks
 	// If it exists and has a context attached forward the message to the handler
 	auto messageContext = message.GetMessageContext();
-	auto const key = std::make_pair(messageContext.GetEndpointId(), message.GetDestination());
+	auto const key = std::make_pair(
+		messageContext.GetEndpointId(),
+		message.GetDestination().GetInternalRepresentation());
 	if (auto const itr = m_endpointsPeerLookups.find(key); itr != m_endpointsPeerLookups.end()) {
 		auto& [id, lookup] = *itr;
 		auto const callback = lookup->second.GetCallback();
@@ -182,8 +184,8 @@ void CMessageQueue::UnpublishCallback(Endpoints::EndpointIdType id)
 		// Get the set of tracked peers and erase the associated lookups, the iterator to endpoint
 		// tracker will become invalidated after erasure.
 		auto const trackedPeers = registeredEndpoint.GetConnectedPeers();
-		for (auto const& nodeId : trackedPeers) {
-			m_endpointsPeerLookups.erase(std::make_pair(id, nodeId));
+		for (auto const& identifier : trackedPeers) {
+			m_endpointsPeerLookups.erase(std::make_pair(id, identifier.GetInternalRepresentation()));
 		}
 		// Erase the endpoint tracker from the map
 		m_endpoints.erase(itr);
@@ -194,7 +196,7 @@ void CMessageQueue::UnpublishCallback(Endpoints::EndpointIdType id)
 
 void CMessageQueue::PublishPeerConnection(
 	Endpoints::EndpointIdType endpointIdentifier,
-	NodeUtils::NodeIdType peerIdentifier)
+	BryptIdentifier::CContainer const& peerIdentifier)
 {
 	std::scoped_lock lock(m_endpointsMutex);
 
@@ -205,7 +207,11 @@ void CMessageQueue::PublishPeerConnection(
 	}
 
 	// Attempt to insert the endpoint context lookup for the peer
-	m_endpointsPeerLookups.emplace(std::make_pair(endpointIdentifier, peerIdentifier), itr);
+	m_endpointsPeerLookups.emplace(
+		std::make_pair(
+			endpointIdentifier,
+			peerIdentifier.GetInternalRepresentation()),
+		itr);
 
 	// Add the peer to the list of tracked peers in the registered endpoint tracker
 	auto& [key, tracker] = *itr;
@@ -216,12 +222,15 @@ void CMessageQueue::PublishPeerConnection(
 
 void CMessageQueue::UnpublishPeerConnection(
 	Endpoints::EndpointIdType endpointIdentifier,
-	NodeUtils::NodeIdType peerIdentifier)
+	BryptIdentifier::CContainer const& peerIdentifier)
 {
 	std::scoped_lock lock(m_endpointsMutex);
 
 	// Attempt to erase the lookup for the peer
-	m_endpointsPeerLookups.erase(std::make_pair(endpointIdentifier, peerIdentifier));
+	m_endpointsPeerLookups.erase(
+		std::make_pair(
+			endpointIdentifier,
+			peerIdentifier.GetInternalRepresentation()));
 
 	// If the endpoint is actually registered, then untrack the peer in the endpoint tracker
 	if (auto const itr = m_endpoints.find(endpointIdentifier); itr != m_endpoints.end()) {

@@ -20,10 +20,12 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
+BRYPTIDENTIFIERDIR = ../../BryptIdentifier
 CONFIGURATIONDIR = ../../Configuration
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
+$(BRYPTIDENTIFIERDIR) \
 $(CONFIGURATIONDIR) \
 $(GTESTDIR)
 

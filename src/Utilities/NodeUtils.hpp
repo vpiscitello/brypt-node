@@ -16,9 +16,7 @@
 namespace NodeUtils {
 //------------------------------------------------------------------------------------------------
 
-using NodeIdType = std::uint32_t;
 using ClusterIdType = std::uint32_t;
-using SerialNumber = std::string;
 
 using NetworkNonce = std::uint32_t;
 
@@ -36,8 +34,6 @@ constexpr std::string_view NetworkKey = "01234567890123456789012345678901";
 
 constexpr char const* IDSeperator = ":";
 
-NodeIdType GenerateNodeIdentifier();
-
 std::string GetDesignation(DeviceOperation const& operation);
 
 std::string GetPrintEscape(PrintType const& component);
@@ -46,13 +42,6 @@ void printo(std::string_view message, PrintType component);
 //------------------------------------------------------------------------------------------------
 } // NodeUtils namespace
 //------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-
-inline NodeUtils::NodeIdType NodeUtils::GenerateNodeIdentifier()
-{
-    return 0;
-}
 
 //------------------------------------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Utilities/NodeUtils.hpp"
+#include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
+#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 #include <cstdint>
@@ -12,26 +13,23 @@
 
 class CNodeState {
 public:
-    explicit CNodeState(NodeUtils::NodeIdType id);
-    CNodeState(NodeUtils::NodeIdType id, Endpoints::TechnologySet const& technologies);
+    explicit CNodeState(BryptIdentifier::CContainer const& identifier);
+    CNodeState(
+        BryptIdentifier::CContainer const& identifier,
+        Endpoints::TechnologySet const& technologies);
 
-    NodeUtils::NodeIdType GetId() const;
-    NodeUtils::SerialNumber GetSerial() const;
+    BryptIdentifier::CContainer GetIdentifier() const;
     NodeUtils::ClusterIdType GetCluster() const;
     NodeUtils::DeviceOperation GetOperation() const;
-    std::set<Endpoints::TechnologyType> GetTechnologies() const;
 
-    void SetId(NodeUtils::NodeIdType const& id);
-    void SetSerial(NodeUtils::SerialNumber const& serial);
+    void SetIdentifier(BryptIdentifier::CContainer const& identifier);
     void SetCluster(NodeUtils::ClusterIdType const& cluster);
     void SetOperation(NodeUtils::DeviceOperation operation);
-    void SetTechnologies(std::set<Endpoints::TechnologyType> const& technologies);
 
 private:
     mutable std::shared_mutex m_mutex;
 
-    NodeUtils::NodeIdType m_id;// Network identification number of the node
-    NodeUtils::SerialNumber m_serial; // Hardset identification number of the device
+    BryptIdentifier::CContainer m_identifier; // BryptIdentifier of the node
 
     NodeUtils::ClusterIdType m_cluster;   // Cluster identification number of the node's cluster
     NodeUtils::DeviceOperation m_operation;  // A enumeration value of the node's root status

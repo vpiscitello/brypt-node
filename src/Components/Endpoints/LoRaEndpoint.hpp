@@ -22,7 +22,7 @@ public:
     constexpr static TechnologyType InternalType = TechnologyType::LoRa;
 
     CLoRaEndpoint(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
@@ -41,7 +41,9 @@ public:
     void Startup() override;
 
     bool ScheduleSend(CMessage const& message) override;
-    bool ScheduleSend(NodeUtils::NodeIdType id, std::string_view message) override;
+    bool ScheduleSend(
+        BryptIdentifier::CContainer const& identifier,
+        std::string_view message) override;
 
     bool Shutdown() override;
     // }CEndpoint

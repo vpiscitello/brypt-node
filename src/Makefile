@@ -21,6 +21,7 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 SRCDIR = .
 
 BRYPTNODEDIR = BryptNode
+BRYPTIDENTIFIERDIR = BryptIdentifier
 AWAITDIR = Components/Await
 COMMANDDIR = Components/Command
 ENDPOINTSDIR = Components/Endpoints
@@ -31,6 +32,7 @@ PEERWATCHERDIR = Components/PeerWatcher
 NOTIFIERDIR = Components/Notifier
 
 MODULES = $(BRYPTNODEDIR) \
+$(BRYPTIDENTIFIERDIR) \
 $(AWAITDIR) \
 $(COMMANDDIR) \
 $(ENDPOINTSDIR) \

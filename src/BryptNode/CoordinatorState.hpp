@@ -1,8 +1,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Utilities/NetworkUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
@@ -16,18 +16,18 @@ public:
         Endpoints::TechnologyType technology,
         NetworkUtils::AddressComponentPair const& entryComponents);
     
-    NodeUtils::NodeIdType GetId() const;
+    BryptIdentifier::CContainer GetIdentifier() const;
     std::string GetEntry() const;
     Endpoints::TechnologyType GetTechnology() const;
 
-    void SetId(NodeUtils::NodeIdType const& id);
+    void SetIdentifier(BryptIdentifier::CContainer const& identifier);
     void SetEntry(NetworkUtils::AddressComponentPair const& id);
     void SetTechnology(Endpoints::TechnologyType technology);
 
 private:
     mutable std::shared_mutex m_mutex;
 
-    NodeUtils::NodeIdType m_id;    // Coordinator identification number of the node's coordinator
+    BryptIdentifier::CContainer m_identifier; // BryptIdentifier of the node's coordinator
     std::string m_entry; // The combination of the two provided entry components 
     Endpoints::TechnologyType m_technology;
 };

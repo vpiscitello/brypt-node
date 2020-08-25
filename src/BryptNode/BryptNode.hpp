@@ -23,9 +23,19 @@
 
 //------------------------------------------------------------------------------------------------
 // Forward Declarations
+//------------------------------------------------------------------------------------------------
+
 namespace Await {
     class CMessageObject;
     class CObjectContainer;
+}
+
+namespace BryptIdentifier {
+    class CContainer;
+}
+
+namespace Configuration {
+    class CManager;
 }
 
 class CCommand;
@@ -43,17 +53,18 @@ class CCoordinatorState;
 class CNetworkState;
 class CSecurityState;
 class CSensorState;
+
 //------------------------------------------------------------------------------------------------
 
 class CBryptNode {
 public:
     // Constructors and Deconstructors
     CBryptNode(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         std::shared_ptr<CEndpointManager> const& spEndpointManager,
         std::shared_ptr<CMessageQueue> const& spMessageQueue,
         std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
-        Configuration::TSettings const& settings);
+        std::unique_ptr<Configuration::CManager> const& upConfigurationManager);
 
     void Startup();
     bool Shutdown();

@@ -6,11 +6,13 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "CommandDefinitions.hpp"
-#include "../../Utilities/NodeUtils.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
 class CBryptNode;
@@ -70,7 +72,7 @@ protected:
         CMessage const& request,
         std::string_view responseData,
         std::uint8_t responsePhase,
-        std::optional<NodeUtils::NodeIdType> optDestinationOverride = {}) final;
+        std::optional<BryptIdentifier::CContainer> optDestinationOverride = {}) final;
         
     Command::Type m_type;
     CBryptNode& m_instance;
@@ -78,7 +80,7 @@ protected:
 private: 
     virtual void SendNotice(
         CMessage const& request,
-        NodeUtils::NodeIdType noticeDestination,
+        BryptIdentifier::CContainer noticeDestination,
         std::string_view noticeData,
         std::uint8_t noticePhase,
         std::uint8_t responsePhase,

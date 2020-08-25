@@ -1,5 +1,6 @@
 
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 #include "../../Components/Endpoints/PeerDetailsMap.hpp"
@@ -15,8 +16,9 @@ namespace {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35216";
@@ -90,21 +92,21 @@ TEST(PeerDetailsSuite, PeerMapMultipleNodeTest)
     CPeerDetailsMap<std::string> peers;
     
     std::string const firstClientConnectionId = "1";
-    NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
+    BryptIdentifier::CContainer const firstClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const firstClientInformation(
         firstClientNodeId,
         ConnectionState::Unknown,
         MessagingPhase::Response);
 
     std::string const secondClientConnectionId = "2";
-    NodeUtils::NodeIdType const secondClientNodeId = 0x00000002;
+    BryptIdentifier::CContainer const secondClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const secondClientInformation(
         secondClientNodeId,
         ConnectionState::Unknown,
         MessagingPhase::Response);
 
     std::string const thirdClientConnectionId = "3";
-    NodeUtils::NodeIdType const thirdClientNodeId = 0x00000003;
+    BryptIdentifier::CContainer const thirdClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const thirdClientInformation(
         thirdClientNodeId,
         ConnectionState::Unknown,
@@ -191,7 +193,7 @@ TEST(PeerDetailsSuite, PeerMapConnectionStateFilterTest)
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
-    NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
+    BryptIdentifier::CContainer const firstClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const firstClientInformation(
         firstClientNodeId,
         timepoint,
@@ -200,7 +202,7 @@ TEST(PeerDetailsSuite, PeerMapConnectionStateFilterTest)
         MessagingPhase::Response);
 
     std::string const secondClientConnectionId = "2";
-    NodeUtils::NodeIdType const secondClientNodeId = 0x00000002;
+    BryptIdentifier::CContainer const secondClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const secondClientInformation(
         secondClientNodeId,
         timepoint - 10min,
@@ -209,7 +211,7 @@ TEST(PeerDetailsSuite, PeerMapConnectionStateFilterTest)
         MessagingPhase::Response);
 
     std::string const thirdClientConnectionId = "3";
-    NodeUtils::NodeIdType const thirdClientNodeId = 0x00000003;
+    BryptIdentifier::CContainer const thirdClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const thirdClientInformation(
         thirdClientNodeId,
         timepoint,
@@ -263,7 +265,7 @@ TEST(PeerDetailsSuite, PeerMapPromotionFilterTest)
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
-    NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
+    BryptIdentifier::CContainer const firstClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const firstClientInformation(
         firstClientNodeId,
         timepoint,
@@ -272,7 +274,7 @@ TEST(PeerDetailsSuite, PeerMapPromotionFilterTest)
         MessagingPhase::Response);
 
     std::string const secondClientConnectionId = "2";
-    NodeUtils::NodeIdType const secondClientNodeId = 0x00000002;
+    BryptIdentifier::CContainer const secondClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const secondClientInformation(
         secondClientNodeId,
         timepoint - 10min,
@@ -281,7 +283,7 @@ TEST(PeerDetailsSuite, PeerMapPromotionFilterTest)
         MessagingPhase::Response);
 
     std::string const thirdClientConnectionId = "3";
-    NodeUtils::NodeIdType const thirdClientNodeId = 0x00000003;
+    BryptIdentifier::CContainer const thirdClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const thirdClientInformation(
         thirdClientNodeId,
         timepoint,
@@ -333,7 +335,7 @@ TEST(PeerDetailsSuite, PeerMapMessageSequenceFilterTest)
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
-    NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
+    BryptIdentifier::CContainer const firstClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const firstClientInformation(
         firstClientNodeId,
         timepoint,
@@ -342,7 +344,7 @@ TEST(PeerDetailsSuite, PeerMapMessageSequenceFilterTest)
         MessagingPhase::Response);
 
     std::string const secondClientConnectionId = "2";
-    NodeUtils::NodeIdType const secondClientNodeId = 0x00000002;
+    BryptIdentifier::CContainer const secondClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const secondClientInformation(
         secondClientNodeId,
         timepoint - 10min,
@@ -351,7 +353,7 @@ TEST(PeerDetailsSuite, PeerMapMessageSequenceFilterTest)
         MessagingPhase::Response);
 
     std::string const thirdClientConnectionId = "3";
-    NodeUtils::NodeIdType const thirdClientNodeId = 0x00000003;
+    BryptIdentifier::CContainer const thirdClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const thirdClientInformation(
         thirdClientNodeId,
         timepoint,
@@ -413,7 +415,7 @@ TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstClientConnectionId = "1";
-    NodeUtils::NodeIdType const firstClientNodeId = 0x00000001;
+    BryptIdentifier::CContainer const firstClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const firstClientInformation(
         firstClientNodeId,
         timepoint,
@@ -422,7 +424,7 @@ TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
         MessagingPhase::Response);
 
     std::string const secondClientConnectionId = "2";
-    NodeUtils::NodeIdType const secondClientNodeId = 0x00000002;
+    BryptIdentifier::CContainer const secondClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const secondClientInformation(
         secondClientNodeId,
         timepoint - 10min,
@@ -431,7 +433,7 @@ TEST(PeerDetailsSuite, PeerMapTimepointFilterTest)
         MessagingPhase::Response);
 
     std::string const thirdClientConnectionId = "3";
-    NodeUtils::NodeIdType const thirdClientNodeId = 0x00000003;
+    BryptIdentifier::CContainer const thirdClientNodeId(BryptIdentifier::Generate());
     CPeerDetails<> const thirdClientInformation(
         thirdClientNodeId,
         timepoint,

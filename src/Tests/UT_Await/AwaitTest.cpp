@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Components/Await/Await.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
@@ -24,8 +25,9 @@ namespace local {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-constexpr NodeUtils::NodeIdType ClientId = 0x12345678;
-constexpr NodeUtils::NodeIdType ServerId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
@@ -95,8 +97,8 @@ TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    NodeUtils::NodeIdType const peerOneId = 0xAAAAAAAA;
-    NodeUtils::NodeIdType const peerTwoId = 0xBBBBBBBB;
+    BryptIdentifier::CContainer const peerOneId(BryptIdentifier::Generate());
+    BryptIdentifier::CContainer const peerTwoId(BryptIdentifier::Generate());
     Await::CMessageObject awaitObject(*optRequest, { test::ServerId, peerOneId, peerTwoId });
 
     auto const initialStatus = awaitObject.GetStatus();
@@ -192,8 +194,8 @@ TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    NodeUtils::NodeIdType const peerOneId = 0xAAAAAAAA;
-    NodeUtils::NodeIdType const peerTwoId = 0xBBBBBBBB;
+    BryptIdentifier::CContainer const peerOneId(BryptIdentifier::Generate());
+    BryptIdentifier::CContainer const peerTwoId(BryptIdentifier::Generate());
     Await::CMessageObject awaitObject(*optRequest, { test::ServerId, peerOneId, peerTwoId });
 
     auto const initialStatus = awaitObject.GetStatus();
@@ -324,15 +326,18 @@ TEST(AwaitSuite, FulfilledAwaitTest)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
-    
+
+    BryptIdentifier::CContainer const peerOneId(BryptIdentifier::Generate());
+    BryptIdentifier::CContainer const peerTwoId(BryptIdentifier::Generate());
+
     Await::CObjectContainer awaiting;
-    auto const key = awaiting.PushRequest(*optRequest, {test::ServerId, 0xAAAAAAAA, 0xBBBBBBBB});
+    auto const key = awaiting.PushRequest(*optRequest, {test::ServerId, peerOneId, peerTwoId});
     ASSERT_GT(key, std::uint32_t(0));
 
     OptionalMessage const optResponse = CMessage::Builder()
         .SetMessageContext(test::context)
         .SetSource(test::ServerId)
-        .SetDestination(0x01234567)
+        .SetDestination(test::ClientId)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .BindAwaitingKey(Message::AwaitBinding::Destination, key)
@@ -340,7 +345,7 @@ TEST(AwaitSuite, FulfilledAwaitTest)
 
     OptionalMessage const optResponseA = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(0xAAAAAAAA)
+        .SetSource(peerOneId)
         .SetDestination(test::ServerId)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
@@ -349,7 +354,7 @@ TEST(AwaitSuite, FulfilledAwaitTest)
 
     OptionalMessage const optResponseB = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(0xBBBBBBBB)
+        .SetSource(peerTwoId)
         .SetDestination(test::ServerId)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)

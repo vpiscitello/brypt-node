@@ -4,7 +4,7 @@
 
 CCoordinatorState::CCoordinatorState()
     : m_mutex()
-    , m_id(0)
+    , m_identifier()
     , m_technology(Endpoints::TechnologyType::Invalid)
 {
 }
@@ -15,7 +15,7 @@ CCoordinatorState::CCoordinatorState(
     Endpoints::TechnologyType technology,
     NetworkUtils::AddressComponentPair const& components)
     : m_mutex()
-    , m_id(0)
+    , m_identifier()
     , m_entry()
     , m_technology(technology)
 {
@@ -26,10 +26,10 @@ CCoordinatorState::CCoordinatorState(
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::NodeIdType CCoordinatorState::GetId() const 
+BryptIdentifier::CContainer CCoordinatorState::GetIdentifier() const 
 {
     std::shared_lock lock(m_mutex);
-    return m_id;
+    return m_identifier;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -50,10 +50,10 @@ Endpoints::TechnologyType CCoordinatorState::GetTechnology() const
 
 //------------------------------------------------------------------------------------------------
 
-void CCoordinatorState::SetId(NodeUtils::NodeIdType const& id)
+void CCoordinatorState::SetIdentifier(BryptIdentifier::CContainer const& identifier)
 {
     std::unique_lock lock(m_mutex);
-    m_id = id;
+    m_identifier = identifier;
 }
 
 //------------------------------------------------------------------------------------------------

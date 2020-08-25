@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 #include "../../Utilities/TimeUtils.hpp"
@@ -45,13 +46,13 @@ constexpr TimeUtils::TimePeriod Timeout = std::chrono::milliseconds(1500);
 struct Await::TResponseObject
 {
     TResponseObject(
-        NodeUtils::NodeIdType const id,
+        BryptIdentifier::CContainer const id,
         std::string const& pack)
         : id(id)
         , pack(pack)
     {
     }
-    NodeUtils::NodeIdType const id;
+    BryptIdentifier::CContainer const id;
     std::string const pack;
 };
 
@@ -65,11 +66,11 @@ class Await::CMessageObject
 public:
     CMessageObject(
         CMessage const& request,
-        NodeUtils::NodeIdType const& peer);
+        BryptIdentifier::CContainer const& peer);
 
     CMessageObject(
         CMessage const& request,
-        std::set<NodeUtils::NodeIdType> const& peers);
+        std::set<BryptIdentifier::CContainer> const& peers);
 
     Await::Status GetStatus();
 
@@ -84,7 +85,7 @@ private:
     CMessage const m_request;
     std::optional<CMessage> m_optAggregateResponse;
 
-    std::unordered_map<NodeUtils::NodeIdType, std::string> m_responses;
+    std::unordered_map<BryptIdentifier::CContainer, std::string, BryptIdentifier::Hasher> m_responses;
 
     TimeUtils::Timepoint const m_expire;
 };
@@ -99,14 +100,15 @@ class Await::CObjectContainer
 public:
     NodeUtils::ObjectIdType PushRequest(
         CMessage const& message,
-        NodeUtils::NodeIdType const& peer);
+        BryptIdentifier::CContainer const& peer);
 
     NodeUtils::ObjectIdType PushRequest(
         CMessage const& message,
-        std::set<NodeUtils::NodeIdType> const& peers);
+        std::set<BryptIdentifier::CContainer> const& peers);
 
     bool PushResponse(CMessage const& message);
     std::vector<CMessage> GetFulfilled();
+
     bool IsEmpty() const;
 
 private:

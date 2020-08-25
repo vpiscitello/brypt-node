@@ -5,13 +5,13 @@
 #include "Message.hpp"
 #include "MessageBuilder.hpp"
 #include "PackUtils.hpp"
-#include "../Utilities/ReservedIdentifiers.hpp"
+#include "../BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 
 CMessage::CMessage()
 	: m_context()
-	, m_source(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid))
-	, m_destination(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid))
+	, m_source()
+	, m_destination()
 	, m_optBoundAwaitingKey()
 	, m_command()
 	, m_phase()
@@ -51,14 +51,14 @@ CMessageContext const& CMessage::GetMessageContext() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::NodeIdType const& CMessage::GetSource() const
+BryptIdentifier::CContainer const& CMessage::GetSource() const
 {
 	return m_source;
 }
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::NodeIdType const& CMessage::GetDestination() const
+BryptIdentifier::CContainer const& CMessage::GetDestination() const
 {
 	return m_destination;
 }
@@ -123,11 +123,20 @@ NodeUtils::NetworkNonce CMessage::GetNonce() const
 //------------------------------------------------------------------------------------------------
 std::string CMessage::GetPack() const
 {
-	Message::Buffer buffer;
-	buffer.reserve(FixedPackSize() + m_data.size());
+	std::uint32_t const size = FixedPackSize() + 
+		m_source.NetworkRepresentationSize() +
+		m_destination.NetworkRepresentationSize() +
+		m_data.size();
 
-	PackUtils::PackChunk(buffer, m_source);
-	PackUtils::PackChunk(buffer, m_destination);
+	Message::Buffer buffer;
+	buffer.reserve(size);
+
+	PackUtils::PackChunk(buffer, m_source.GetNetworkRepresentation());
+	PackUtils::PackChunk(buffer, BryptIdentifier::TerminatorByte);
+
+	PackUtils::PackChunk(buffer, m_destination.GetNetworkRepresentation());
+	PackUtils::PackChunk(buffer, BryptIdentifier::TerminatorByte);
+
 	if (m_optBoundAwaitingKey) {
 		PackUtils::PackChunk(buffer, m_optBoundAwaitingKey->first);
 		PackUtils::PackChunk(buffer, m_optBoundAwaitingKey->second);
@@ -155,12 +164,12 @@ std::string CMessage::GetPack() const
 CMessage::ValidationStatus CMessage::Validate() const
 {	
 	// A message must have a valid brypt source identifier attached
-	if (m_source == static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid)) {
+	if (!m_source.IsValid()) {
 		return ValidationStatus::Error;
 	}
 
 	// A message must have a valid brypt destination identifier attached
-	if (m_destination == static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid)) {
+	if (!m_destination.IsValid()) {
 		return ValidationStatus::Error;
 	}
 

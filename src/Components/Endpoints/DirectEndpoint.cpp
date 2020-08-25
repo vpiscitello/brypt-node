@@ -31,14 +31,15 @@ void ShutdownSocket(zmq::socket_t& socket);
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CDirectEndpoint::CDirectEndpoint(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::Direct)
+        identifier, interface, operation, pEndpointMediator,
+        pPeerMediator, pMessageSink, TechnologyType::Direct)
     , m_address()
     , m_port(0)
     , m_peers()
@@ -203,14 +204,16 @@ bool Endpoints::CDirectEndpoint::ScheduleSend(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CDirectEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool Endpoints::CDirectEndpoint::ScheduleSend(
+    BryptIdentifier::CContainer const& identifier,
+    std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
         return false;
     }
 
-    auto const optIdentity = m_peers.Translate(id);
+    auto const optIdentity = m_peers.Translate(identifier);
     if (!optIdentity) {
         return false;
     }
@@ -473,7 +476,7 @@ Endpoints::CDirectEndpoint::ConnectStatusCode Endpoints::CDirectEndpoint::Connec
 
     auto sender = std::bind(&CDirectEndpoint::Send, this, std::ref(socket), identity, std::placeholders::_1);
     std::uint32_t sent = PeerBootstrap::SendContactMessage(
-        m_pEndpointMediator, m_identifier, m_technology, m_nodeIdentifier, sender);
+        m_pEndpointMediator, m_identifier, m_technology, m_bryptID, sender);
     if (sent <= 0) {
         return ConnectStatusCode::GenericError;
     }
@@ -812,13 +815,13 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
+                    CEndpoint::UnpublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
+                    CEndpoint::PublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint

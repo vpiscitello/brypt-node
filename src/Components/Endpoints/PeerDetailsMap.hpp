@@ -9,8 +9,6 @@
 #include "PeerDetails.hpp"
 #include "../../Utilities/CallbackIteration.hpp"
 #include "../../Utilities/EnumMaskUtils.hpp"
-#include "../../Utilities/NodeUtils.hpp"
-#include "../../Utilities/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
@@ -150,7 +148,7 @@ public:
         }
 
         auto const [itr, emplaced] = m_peers.emplace(connectionId, details);
-        m_nodeIdLookups.emplace(details.GetNodeId(), itr);
+        m_nodeIdLookups.emplace(details.GetIdentifier(), itr);
 
         // If the provided peer details has a non-empty URI, add an entry in the uri lookups map
         if (auto const uri = details.GetURI(); !uri.empty()) {
@@ -201,7 +199,7 @@ public:
         }
 
         peersIterator->second = std::move(details);
-        m_nodeIdLookups.emplace(details.GetNodeId(), peersIterator);
+        m_nodeIdLookups.emplace(details.GetIdentifier(), peersIterator);
 
         return true;
     }
@@ -218,7 +216,7 @@ public:
 
         OptionalPeerDetails const& optDetails = itr->second;
         if (optDetails) {
-            m_nodeIdLookups.erase(optDetails->GetNodeId());
+            m_nodeIdLookups.erase(optDetails->GetIdentifier());
         }
 
         m_peers.erase(itr);
@@ -278,7 +276,7 @@ public:
                     optDetails->SetURI(uri);
                 }
                 // Create a lookup for the Node ID.
-                m_nodeIdLookups.emplace(optDetails->GetNodeId(), peersIterator);
+                m_nodeIdLookups.emplace(optDetails->GetIdentifier(), peersIterator);
             } else {
                 m_peers.erase(peersIterator);
             }
@@ -562,7 +560,7 @@ public:
     //------------------------------------------------------------------------------------------------
 
 
-    std::optional<NodeUtils::NodeIdType> Translate(ConnectionIdType const& id)
+    std::optional<BryptIdentifier::CContainer> Translate(ConnectionIdType const& id)
     {
         std::scoped_lock lock(m_mutex);
         auto const itr = m_peers.find(id);
@@ -575,15 +573,15 @@ public:
             return {};
         }
 
-        return optDetails->GetNodeId();
+        return optDetails->GetIdentifier();
     }
 
     //------------------------------------------------------------------------------------------------
 
-    std::optional<ConnectionIdType> Translate(NodeUtils::NodeIdType id)
+    std::optional<ConnectionIdType> Translate(BryptIdentifier::CContainer const& identifier)
     {
         std::scoped_lock lock(m_mutex);
-        auto const itr = m_nodeIdLookups.find(id);
+        auto const itr = m_nodeIdLookups.find(identifier);
         if (itr == m_nodeIdLookups.end()) {
             return {};
         }
@@ -635,7 +633,7 @@ private:
     using ResolvingPeersMap = typename std::unordered_map<ConnectionIdType, std::string>;
     using PeerDetailsMap = typename std::unordered_map<ConnectionIdType, OptionalPeerDetails, ConnectionIdHasher>;
     using PeerDetailsLookup = typename PeerDetailsMap::iterator;
-    using NodeIdToPeerLookupMap = std::unordered_map<NodeUtils::NodeIdType, PeerDetailsLookup>;
+    using NodeIdToPeerLookupMap = std::unordered_map<BryptIdentifier::CContainer, PeerDetailsLookup, BryptIdentifier::Hasher>;
     using URIToPeerLookupMap = std::unordered_map<std::string, PeerDetailsLookup>;
 
     mutable std::recursive_mutex m_mutex;

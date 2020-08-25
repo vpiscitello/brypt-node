@@ -29,14 +29,15 @@ void ShutdownSocket(zmq::socket_t& socket);
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::StreamBridge)
+        identifier, interface, operation, pEndpointMediator,
+        pPeerMediator, pMessageSink, TechnologyType::StreamBridge)
     , m_address()
     , m_port()
     , m_peers()
@@ -189,14 +190,16 @@ bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(
+    BryptIdentifier::CContainer const& identifier,
+    std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
         return false;
     }
 
-    auto const optIdentity = m_peers.Translate(id);
+    auto const optIdentity = m_peers.Translate(identifier);
     if (!optIdentity) {
         return false;
     }
@@ -649,13 +652,13 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
+                    CEndpoint::UnpublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::PublishPeerConnection({details.GetNodeId(), InternalType, details.GetURI()});
+                    CEndpoint::PublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint

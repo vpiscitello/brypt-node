@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/StreamBridgeEndpoint.hpp"
@@ -36,14 +37,15 @@ std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpClient(
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35216";
-constexpr std::string_view ClientBinding = "*:35217";
-constexpr std::string_view ServerEntry = "127.0.0.1:35216";
-constexpr std::string_view ClientEntry = "127.0.0.1:35217";
+constexpr std::string_view ServerBinding = "*:35218";
+constexpr std::string_view ClientBinding = "*:35219";
+constexpr std::string_view ServerEntry = "127.0.0.1:35218";
+constexpr std::string_view ClientEntry = "127.0.0.1:35219";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace

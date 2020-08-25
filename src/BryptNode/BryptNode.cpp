@@ -10,12 +10,15 @@
 #include "NodeState.hpp"
 #include "SecurityState.hpp"
 #include "SensorState.hpp"
+#include "../BryptIdentifier/BryptIdentifier.hpp"
+#include "../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../Components/Await/Await.hpp"
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Components/MessageQueue/MessageQueue.hpp"
 #include "../Components/PeerWatcher/PeerWatcher.hpp"
+#include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
 #include "../Message/Message.hpp"
 #include "../Message/MessageBuilder.hpp"
@@ -38,7 +41,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 void SimulateClient(
-    NodeUtils::NodeIdType const& id,
+    BryptIdentifier::CContainer const& identifier,
     Command::HandlerMap const& commandHandlers,
     bool activated);
 
@@ -51,11 +54,11 @@ void SimulateClient(
 // Description:
 //------------------------------------------------------------------------------------------------
 CBryptNode::CBryptNode(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CMessageQueue> const& spMessageQueue,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
-    Configuration::TSettings const& settings)
+    std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
     : m_spNodeState()
     , m_spAuthorityState()
     , m_spCoordinatorState()
@@ -76,11 +79,11 @@ CBryptNode::CBryptNode(
     }
 
     // Initialize state from settings.
-    m_spAuthorityState = std::make_shared<CAuthorityState>(settings.security.authority);
+    m_spAuthorityState = std::make_shared<CAuthorityState>(upConfigurationManager->GetCentralAuthority());
     m_spCoordinatorState = std::make_shared<CCoordinatorState>();
     m_spNetworkState = std::make_shared<CNetworkState>();
-    m_spSecurityState = std::make_shared<CSecurityState>(settings.security.standard);
-    m_spNodeState = std::make_shared<CNodeState>(id, m_spEndpointManager->GetEndpointTechnologies());
+    m_spSecurityState = std::make_shared<CSecurityState>(upConfigurationManager->GetSecurityStandard());
+    m_spNodeState = std::make_shared<CNodeState>(identifier, m_spEndpointManager->GetEndpointTechnologies());
     m_spSensorState = std::make_shared<CSensorState>();
 
     // initialize peer watcher
@@ -225,7 +228,7 @@ std::float_t CBryptNode::DetermineNodePower()
 //------------------------------------------------------------------------------------------------
 bool CBryptNode::HasTechnologyType(Endpoints::TechnologyType technology)
 {
-    auto const technologies = m_spNodeState->GetTechnologies();
+    auto const technologies = m_spEndpointManager->GetEndpointTechnologies();
     auto const itr = technologies.find(technology);
     return (itr != technologies.end());
 }
@@ -328,7 +331,7 @@ void CBryptNode::Listen()
         ++run;
 
         //----------------------------------------------------------------------------------------
-        test::SimulateClient(m_spNodeState->GetId(), m_commandHandlers, (run % 10000 == 0));
+        test::SimulateClient(m_spNodeState->GetIdentifier(), m_commandHandlers, (run % 10000 == 0));
         //----------------------------------------------------------------------------------------
 
         std::this_thread::sleep_for(local::CycleTimeout);
@@ -342,7 +345,7 @@ void CBryptNode::Listen()
 // Description:
 //------------------------------------------------------------------------------------------------
 void test::SimulateClient(
-    NodeUtils::NodeIdType const& id,
+    BryptIdentifier::CContainer const& identifier,
     Command::HandlerMap const& commandHandlers,
     bool activated)
 {
@@ -352,8 +355,8 @@ void test::SimulateClient(
 
     std::cout << "== [Node] Simulating node information request" << '\n';
     OptionalMessage const optInformationRequest = CMessage::Builder()
-        .SetSource(id)
-        .SetDestination(ReservedIdentifiers::ClusterRequest)
+        .SetSource(identifier)
+        .SetDestination(ReservedIdentifiers::Network::ClusterRequest)
         .SetCommand(Command::Type::Information, 0)
         .SetData("Request for Network Information", 0)
         .ValidatedBuild();
@@ -365,8 +368,8 @@ void test::SimulateClient(
     
     std::cout << "== [Node] Simulating sensor query request" << '\n';
     OptionalMessage const optQueryRequest = CMessage::Builder()
-        .SetSource(id)
-        .SetDestination(ReservedIdentifiers::ClusterRequest)
+        .SetSource(identifier)
+        .SetDestination(ReservedIdentifiers::Network::ClusterRequest)
         .SetCommand(Command::Type::Query, 0)
         .SetData("Request for Sensor Readings", 0)
         .ValidatedBuild();

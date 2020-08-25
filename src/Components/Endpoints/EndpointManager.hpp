@@ -36,7 +36,7 @@ public:
     ~CEndpointManager();
 
     void Initialize(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         IMessageSink* const pMessageSink,
         Configuration::EndpointConfigurations const& configurations,
         IPeerCache const* const pBootsrapCache);
@@ -68,17 +68,17 @@ private:
     using EndpointsMultimap = std::unordered_map<Endpoints::EndpointIdType, SharedEndpoint>;
 
     void InitializeDirectEndpoints(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const pMessageSink,
         IPeerCache const* const pBootstrapCache);
     void InitializeTCPEndpoints(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const pMessageSink,
         IPeerCache const* const pBootstrapCache);
     void InitializeStreamBridgeEndpoints(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const pMessageSink);
 

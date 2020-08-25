@@ -23,6 +23,7 @@ SRCDIR = .
 
 MAINDIR = ../../BryptNode
 AWAITDIR = ../../Components/Await
+BRYPTIDENTIFIERDIR = ../../BryptIdentifier
 COMMANDDIR = ../../Components/Command
 ENDPOINTSDIR = ../../Components/Endpoints
 CONFIGURATIONDIR = ../../Configuration
@@ -36,6 +37,7 @@ GTESTDIR = ../../Libraries/googletest
 MODULES = $(SRCDIR) \
 $(MAINDIR) \
 $(AWAITDIR) \
+$(BRYPTIDENTIFIERDIR) \
 $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \

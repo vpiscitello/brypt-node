@@ -20,12 +20,14 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
+BRYPTIDENTIFIERDIR = ../../BryptIdentifier
 ENDPOINTSDIR = ../../Components/Endpoints
 MESSAGEDIR = ../../Message
 MESSAGEQUEUEDIR = ../../Components/MessageQueue
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
+$(BRYPTIDENTIFIERDIR) \
 $(ENDPOINTSDIR) \
 $(MESSAGEDIR) \
 $(MESSAGEQUEUEDIR) \

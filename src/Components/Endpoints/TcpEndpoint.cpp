@@ -30,14 +30,15 @@ constexpr std::uint8_t DisabledOption = 0;
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CTcpEndpoint::CTcpEndpoint(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::TCP)
+        identifier, interface, operation, pEndpointMediator,
+        pPeerMediator, pMessageSink, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_peers()
@@ -204,7 +205,9 @@ bool Endpoints::CTcpEndpoint::ScheduleSend(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool  Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::string_view message)
+bool  Endpoints::CTcpEndpoint::ScheduleSend(
+    BryptIdentifier::CContainer const& identifier,
+    std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) {
@@ -212,7 +215,7 @@ bool  Endpoints::CTcpEndpoint::ScheduleSend(NodeUtils::NodeIdType id, std::strin
     }
 
     // Get the socket descriptor of the intended destination. If it is not found, drop the message.
-    auto const optDescriptor = m_peers.Translate(id);
+    auto const optDescriptor = m_peers.Translate(identifier);
     if (!optDescriptor) {
         return false;
     }
@@ -604,7 +607,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishCon
 
     auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
     auto const result = PeerBootstrap::SendContactMessage(
-        m_pEndpointMediator, m_identifier, m_technology, m_nodeIdentifier, sender);
+        m_pEndpointMediator, m_identifier, m_technology, m_bryptID, sender);
     if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
         return ConnectStatusCode::GenericError;
     }
@@ -920,7 +923,7 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
     [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
         [&] (auto& details)
         {
-            CPeer const peer(details.GetNodeId(), InternalType, details.GetURI());
+            CPeer const peer(details.GetIdentifier(), InternalType, details.GetURI());
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);

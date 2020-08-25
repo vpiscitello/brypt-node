@@ -4,8 +4,9 @@
 //-----------------------------------------------------------------------------------------------
 #include "Configuration.hpp"
 #include "PeerPersistor.hpp"
+#include "../BryptIdentifier/BryptIdentifier.hpp"
+#include "../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../Utilities/FileUtils.hpp"
-#include "../Utilities/ReservedIdentifiers.hpp"
 //-----------------------------------------------------------------------------------------------
 #include "../Libraries/metajson/metajson.hh"
 #include <cstdlib>
@@ -80,14 +81,14 @@ IOD_SYMBOL(peers)
 struct local::TPeerEntry
 {
     TPeerEntry()
-        : id(static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown))
+        : id()
         , entry()
         , location()
     {
     }
 
     TPeerEntry(
-        NodeUtils::NodeIdType id,
+        std::string_view id,
         std::string_view entry,
         std::string_view location)
         : id(id)
@@ -98,7 +99,7 @@ struct local::TPeerEntry
 
     bool IsValid() const
     {
-        if (id == static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Invalid)) {
+        if (!ReservedIdentifiers::IsIdentifierAllowed(id)) {
             return false;
         }
 
@@ -109,7 +110,7 @@ struct local::TPeerEntry
         return true;
     }
 
-    NodeUtils::NodeIdType id;
+    BryptIdentifier::NetworkType id;
     std::string entry;
     std::optional<std::string> location;
 };
@@ -444,6 +445,8 @@ Configuration::StatusCode CPeerPersistor::SetupPeersFile()
         m_spEndpoints = std::make_shared<EndpointPeersMap>();
     }
 
+    BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::Unknown);
+
     for (auto const& [technology, entry] : m_defaults) {
         auto spPeers = std::make_shared<PeersMap>();
         if (!entry.empty()) {
@@ -451,7 +454,7 @@ Configuration::StatusCode CPeerPersistor::SetupPeersFile()
                 // Peer Key
                 entry,
                 // Peer Constructor Arguements
-                static_cast<NodeUtils::NodeIdType>(ReservedIdentifiers::Unknown),
+                identifier,
                 technology,
                 entry);
         }
@@ -488,7 +491,7 @@ void CPeerPersistor::AddPeerEntry(CPeer const& peer)
                 // If the peer already existed in the map, update the node ID and location. 
                 if (!emplaced) {
                     auto& [entry, storedPeer] = *peersIterator;
-                    storedPeer.SetNodeId(peer.GetNodeId());
+                    storedPeer.SetIdentifier(peer.GetIdentifier());
                     storedPeer.SetLocation(peer.GetLocation());
                 }
             }
@@ -684,7 +687,9 @@ void local::ParseDefaultBootstraps(
     CPeerPersistor::DefaultBootstrapEntryMap& defaults)
 {
     for (auto const& options: configurations) {
-        defaults.emplace(options.type, options.bootstrap);
+        if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {
+            defaults.emplace(options.type, *optBootstrap);
+        }
     }
 }
 
@@ -729,7 +734,7 @@ void local::WriteEndpointPeers(
         std::uint32_t const peersSize = spPeers->size();
         for (auto const& [id, peer]: *spPeers) {
             out << "\t\t\t\t{\n";
-            out << "\t\t\t\t\t\"id\": " << peer.GetNodeId() << ",\n";
+            out << "\t\t\t\t\t\"id\": \"" << peer.GetIdentifier() << "\",\n";
             out << "\t\t\t\t\t\"entry\": \"" << peer.GetEntry();
             if (auto const location = peer.GetLocation(); !location.empty()) {
                 out << "\",\n\t\t\t\"location\": \"" << location << "\"\n";

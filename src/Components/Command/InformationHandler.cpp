@@ -6,10 +6,12 @@
 //------------------------------------------------------------------------------------------------
 #include "../Await/Await.hpp"
 #include "../Endpoints/Endpoint.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/CoordinatorState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
+#include "../../Configuration/PeerPersistor.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
@@ -41,7 +43,7 @@ struct TNodeInfo;
 //------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding
 //------------------------------------------------------------------------------------------------
-IOD_SYMBOL(id)
+IOD_SYMBOL(identifier)
 IOD_SYMBOL(cluster)
 IOD_SYMBOL(coordinator)
 IOD_SYMBOL(neighbor_count)
@@ -53,14 +55,14 @@ IOD_SYMBOL(update_timestamp)
 struct Json::TNodeInfo
 {
     TNodeInfo(
-        NodeUtils::NodeIdType id,
+        BryptIdentifier::CContainer const& identifier,
         NodeUtils::ClusterIdType cluster,
-        NodeUtils::NodeIdType coordinator,
+        BryptIdentifier::CContainer const& coordinator,
         std::size_t neighbor_count,
         std::string const& designation,
         std::string const& technologies,
         std::string const& update_timestamp)
-        : id(id)
+        : identifier(identifier)
         , cluster(cluster)
         , coordinator(coordinator)
         , neighbor_count(neighbor_count)
@@ -69,9 +71,9 @@ struct Json::TNodeInfo
         , update_timestamp(update_timestamp)
     {
     }
-    NodeUtils::NodeIdType const id;
+    BryptIdentifier::CContainer const identifier;
     NodeUtils::ClusterIdType const cluster;
-    NodeUtils::NodeIdType const coordinator;
+    BryptIdentifier::CContainer const coordinator;
     std::size_t const neighbor_count;
     std::string const designation;
     std::string const technologies;
@@ -168,29 +170,29 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
     std::vector<Json::TNodeInfo> nodesInfo;
 
     // Get the information pertaining to the node itself
-    NodeUtils::NodeIdType id = 0; 
+    BryptIdentifier::CContainer identifier; 
     NodeUtils::ClusterIdType cluster = 0;
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
     if (auto const spNodeState = instance.GetNodeState().lock()) {
-        id = spNodeState->GetId();
+        identifier = spNodeState->GetIdentifier();
         cluster = spNodeState->GetCluster();
         operation = spNodeState->GetOperation();
     }
 
     // Get the information pertaining to the node's coordinator
-    NodeUtils::NodeIdType coordinatorId = 0; 
+    BryptIdentifier::CContainer coordinatorId; 
     if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
-        coordinatorId = spCoordinatorState->GetId();
+        coordinatorId = spCoordinatorState->GetIdentifier();
     }
 
     // Get the information pertaining to the node's network
-    std::size_t knownNodes = 0;
-    if (auto const spNetworkState = instance.GetNetworkState().lock()) {
-        knownNodes = spNetworkState->GetKnownNodes();
+    std::uint32_t knownNodes = 0;
+    if (auto const spPeerPersistor = instance.GetPeerPersistor().lock()) {
+        knownNodes = spPeerPersistor->CachedPeersCount();
     }
 
     nodesInfo.emplace_back(
-        id, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
+        identifier, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
         "IEEE 802.11", TimeUtils::GetSystemTimestamp());
 
     // TODO: Endpoints represent a collection of peers, so the details of the peers must be 
@@ -211,7 +213,7 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
     } */
 
     std::string const data = iod::json_vector(
-        s::id, s::cluster, s::coordinator, s::neighbor_count,
+        s::identifier, s::cluster, s::coordinator, s::neighbor_count,
         s::designation, s::technologies, s::update_timestamp).encode(nodesInfo);
 
     return data;

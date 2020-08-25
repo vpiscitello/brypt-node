@@ -1,4 +1,5 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Endpoints/ConnectionState.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
@@ -35,15 +36,16 @@ class CPeerCacheStub;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35216";
-constexpr std::string_view ClientBinding = "*:35217";
-constexpr std::string_view ServerEntry = "127.0.0.1:35216";
-constexpr std::string_view ClientEntry = "127.0.0.1:35217";
+constexpr std::string_view ServerBinding = "*:35222";
+constexpr std::string_view ClientBinding = "*:35223";
+constexpr std::string_view ServerEntry = "127.0.0.1:35222";
+constexpr std::string_view ClientEntry = "127.0.0.1:35223";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -209,7 +211,7 @@ TEST(CEndpointManagerSuite, SingleObserverTest)
     ConnectionState const checkConnectedState = observer.GetConnectionState();
 
     ASSERT_TRUE(optCheckConnectedPeer);
-    EXPECT_EQ(optCheckConnectedPeer->GetNodeId(), peer.GetNodeId());
+    EXPECT_EQ(optCheckConnectedPeer->GetIdentifier(), peer.GetIdentifier());
     EXPECT_EQ(optCheckConnectedPeer->GetTechnologyType(), peer.GetTechnologyType());
     EXPECT_EQ(optCheckConnectedPeer->GetEntry(), peer.GetEntry());
     EXPECT_EQ(optCheckConnectedPeer->GetLocation(), peer.GetLocation());
@@ -252,7 +254,7 @@ TEST(CEndpointManagerSuite, MultipleObserverTest)
         ConnectionState const checkConnectedState = observer.GetConnectionState();
 
         ASSERT_TRUE(optCheckConnectedPeer);
-        EXPECT_EQ(optCheckConnectedPeer->GetNodeId(), peer.GetNodeId());
+        EXPECT_EQ(optCheckConnectedPeer->GetIdentifier(), peer.GetIdentifier());
         EXPECT_EQ(optCheckConnectedPeer->GetTechnologyType(), peer.GetTechnologyType());
         EXPECT_EQ(optCheckConnectedPeer->GetEntry(), peer.GetEntry());
         EXPECT_EQ(optCheckConnectedPeer->GetLocation(), peer.GetLocation());

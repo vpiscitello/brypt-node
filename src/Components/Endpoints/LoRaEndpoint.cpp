@@ -21,14 +21,15 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CLoRaEndpoint::CLoRaEndpoint(
-    NodeUtils::NodeIdType id,
+    BryptIdentifier::CContainer const& identifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        id, interface, operation, pEndpointMediator, pPeerMediator, pMessageSink, TechnologyType::LoRa)
+        identifier, interface, operation, pEndpointMediator,
+        pPeerMediator, pMessageSink, TechnologyType::LoRa)
 {
     if (m_pMessageSink) {
         auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
@@ -137,7 +138,8 @@ bool Endpoints::CLoRaEndpoint::ScheduleSend([[maybe_unused]] CMessage const& mes
 // Description:
 //------------------------------------------------------------------------------------------------
 bool Endpoints::CLoRaEndpoint::ScheduleSend(
-    [[maybe_unused]] NodeUtils::NodeIdType id, [[maybe_unused]] std::string_view message)
+    [[maybe_unused]] BryptIdentifier::CContainer const& identifier,
+    [[maybe_unused]] std::string_view message)
 {
     return false;
 }

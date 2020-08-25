@@ -5,6 +5,7 @@
 #include "MessageBuilder.hpp"
 #include "MessageSecurity.hpp"
 #include "PackUtils.hpp"
+#include "../BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 
 CMessageBuilder::CMessageBuilder()
@@ -22,25 +23,49 @@ CMessageBuilder& CMessageBuilder::SetMessageContext(CMessageContext const& conte
 
 //------------------------------------------------------------------------------------------------
 
-CMessageBuilder& CMessageBuilder::SetSource(NodeUtils::NodeIdType id)
+CMessageBuilder& CMessageBuilder::SetSource(BryptIdentifier::CContainer const& identifier)
 {
-	m_message.m_source = id;
+	m_message.m_source = identifier;
 	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageBuilder& CMessageBuilder::SetDestination(NodeUtils::NodeIdType id)
+CMessageBuilder& CMessageBuilder::SetSource(BryptIdentifier::InternalType const& identifier)
 {
-	m_message.m_destination = id;
+	m_message.m_source = BryptIdentifier::CContainer(identifier);
 	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageBuilder& CMessageBuilder::SetDestination(ReservedIdentifiers id)
+CMessageBuilder& CMessageBuilder::SetSource(std::string_view identifier)
 {
-	m_message.m_destination = static_cast<NodeUtils::NodeIdType>(id);
+	m_message.m_source = BryptIdentifier::CContainer(identifier);
+	return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CMessageBuilder& CMessageBuilder::SetDestination(BryptIdentifier::CContainer const& identifier)
+{
+	m_message.m_destination = identifier;
+	return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CMessageBuilder& CMessageBuilder::SetDestination(BryptIdentifier::InternalType const& identifier)
+{
+	m_message.m_destination = BryptIdentifier::CContainer(identifier);
+	return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CMessageBuilder& CMessageBuilder::SetDestination(std::string_view identifier)
+{
+	m_message.m_destination = BryptIdentifier::CContainer(identifier);
 	return *this;
 }
 
@@ -134,8 +159,21 @@ void CMessageBuilder::Unpack(Message::Buffer const& buffer)
 	std::uint32_t position = 0;
 
     try {
-        PackUtils::UnpackChunk(buffer, position, m_message.m_source);
-        PackUtils::UnpackChunk(buffer, position, m_message.m_destination);
+        Message::Buffer sourceIdentifierBytes;
+        auto const sourceIdentifierEnd = 
+            std::find(buffer.begin(), buffer.end(), BryptIdentifier::TerminatorByte);
+        PackUtils::UnpackChunk(buffer, position, sourceIdentifierBytes, sourceIdentifierEnd);
+        position += 1;
+        m_message.m_source = BryptIdentifier::CContainer(
+            sourceIdentifierBytes, BryptIdentifier::BufferContentType::Network);
+
+        Message::Buffer destinationIdentifierBytes;
+        auto const destinationIdentifierEnd = 
+            std::find(buffer.begin() + position, buffer.end(), BryptIdentifier::TerminatorByte);
+        PackUtils::UnpackChunk(buffer, position, destinationIdentifierBytes, destinationIdentifierEnd);
+        position += 1;
+        m_message.m_destination = BryptIdentifier::CContainer(
+            destinationIdentifierBytes, BryptIdentifier::BufferContentType::Network);
 
         Message::AwaitBinding binding = Message::AwaitBinding::None;
         PackUtils::UnpackChunk(buffer, position, binding);
@@ -157,7 +195,7 @@ void CMessageBuilder::Unpack(Message::Buffer const& buffer)
         PackUtils::UnpackChunk(buffer, position, timestamp);
         m_message.m_timepoint = TimeUtils::Timepoint(TimeUtils::TimePeriod(timestamp));
     } catch (...) {
-        NodeUtils::printo("[Node] Message failed to unpack.", NodeUtils::PrintType::Node);
+        NodeUtils::printo("Message failed to unpack.", NodeUtils::PrintType::Node);
     }
 }
 

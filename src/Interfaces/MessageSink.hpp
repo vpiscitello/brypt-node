@@ -6,11 +6,14 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 #include <utility>
 //------------------------------------------------------------------------------------------------
+
+namespace BryptIdentifier {
+    class CContainer;
+}
 
 class CEndpoint;
 class CMessage;
@@ -38,10 +41,10 @@ public:
     // endpoint the message for the node is commincated over.
     virtual void PublishPeerConnection(
         Endpoints::EndpointIdType endpointIdentifier,
-        NodeUtils::NodeIdType peerIdentifier) = 0;
+        BryptIdentifier::CContainer const& peerIdentifier) = 0;
     virtual void UnpublishPeerConnection(
         Endpoints::EndpointIdType endpointIdentifier,
-        NodeUtils::NodeIdType peerIdentifier) = 0;
+        BryptIdentifier::CContainer const& peerIdentifier) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

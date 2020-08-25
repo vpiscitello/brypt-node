@@ -6,7 +6,6 @@
 //------------------------------------------------------------------------------------------------
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Utilities/CallbackIteration.hpp"
-#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 #include <utility>

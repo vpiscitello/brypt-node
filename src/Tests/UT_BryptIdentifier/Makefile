@@ -1,7 +1,7 @@
 CXX = g++-9
 BUILDDIR = ../../build
 BINARYDIR = ../../bin
-BINARYNAME = UT_Await
+BINARYNAME = UT_BryptIdentifier
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
@@ -20,15 +20,11 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
-AWAITDIR = ../../Components/Await
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
-MESSAGEDIR = ../../Message
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
-$(AWAITDIR) \
 $(BRYPTIDENTIFIERDIR) \
-$(MESSAGEDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))

@@ -1,10 +1,12 @@
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../Components/Command/Handler.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageQueue/MessageQueue.hpp"
 #include "../../Configuration/Configuration.hpp"
+#include "../../Configuration/ConfigurationManager.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
@@ -33,10 +35,11 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 Configuration::TEndpointOptions CreateEndpointOptions();
-Configuration::TSettings CreateConfigurationSettings();
+std::unique_ptr<Configuration::CManager> CreateConfigurationManager();
 
-constexpr NodeUtils::NodeIdType ServerId = 0x12345678;
-constexpr NodeUtils::NodeIdType ClientId = 0x77777777;
+BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
@@ -62,12 +65,12 @@ CMessageContext const context(identifier, technology);
 
 TEST(CommandSuite, CommandMatchingTest)
 {
-    auto const settings = test::CreateConfigurationSettings();
+    auto const upConfigurationManager = test::CreateConfigurationManager();
 
     // The node itself will set up internal commands that can operate on it's
     // internal state, but in order to setup our own we need to provide the 
     // commands a node instance and a state.
-    CBryptNode node(test::ServerId, nullptr, nullptr, nullptr, settings);
+    CBryptNode node(test::ServerId, nullptr, nullptr, nullptr, upConfigurationManager);
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
@@ -156,7 +159,7 @@ Configuration::TEndpointOptions test::CreateEndpointOptions()
 
 //------------------------------------------------------------------------------------------------
 
-Configuration::TSettings test::CreateConfigurationSettings()
+std::unique_ptr<Configuration::CManager> test::CreateConfigurationManager()
 {
     auto const endpointOptions = CreateEndpointOptions();
     Configuration::TSettings settings(
@@ -165,7 +168,7 @@ Configuration::TSettings test::CreateConfigurationSettings()
         Configuration::TSecurityOptions()
     );
 
-    return settings;
+    return std::make_unique<Configuration::CManager>(settings);
 }
 
 //------------------------------------------------------------------------------------------------
