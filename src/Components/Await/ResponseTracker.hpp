@@ -1,39 +1,34 @@
 //------------------------------------------------------------------------------------------------
-// File: Await.hpp
+// File: ResponseTracker.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Message/Message.hpp"
-#include "../../Utilities/NodeUtils.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#include <openssl/md5.h>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/hashed_index.hpp>
+#include <boost/multi_index/mem_fun.hpp>
 //------------------------------------------------------------------------------------------------
-#include <cstdio>
-#include <cstring>
 #include <cstdint>
 #include <chrono>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
-#include <vector>
 //------------------------------------------------------------------------------------------------
+
+class CBryptPeer;
 
 //------------------------------------------------------------------------------------------------
 namespace Await {
 //------------------------------------------------------------------------------------------------
 
-enum class Status : std::uint8_t { Fulfilled, Unfulfilled };
+struct TResponseEntry;
 
-struct TResponseObject;
-class CMessageObject;
-class CObjectContainer;
-
-using MessageMap = std::unordered_map<NodeUtils::ObjectIdType, CMessageObject>;
-
-constexpr TimeUtils::TimePeriod Timeout = std::chrono::milliseconds(1500);
+class CResponseTracker;
 
 //------------------------------------------------------------------------------------------------
 } // Await namespace
@@ -43,17 +38,24 @@ constexpr TimeUtils::TimePeriod Timeout = std::chrono::milliseconds(1500);
 // Description:
 //------------------------------------------------------------------------------------------------
 
-struct Await::TResponseObject
+struct Await::TResponseEntry
 {
-    TResponseObject(
-        BryptIdentifier::CContainer const id,
-        std::string const& pack)
-        : id(id)
+    TResponseEntry(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        std::string_view pack)
+        : identifier(spBryptIdentifier)
         , pack(pack)
     {
+        assert(spBryptIdentifier);
     }
-    BryptIdentifier::CContainer const id;
-    std::string const pack;
+
+    BryptIdentifier::InternalType GetInternalBryptIdentifier() const
+    {
+        return identifier->GetInternalRepresentation();
+    }
+
+    BryptIdentifier::SharedContainer const identifier;
+    std::string pack;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -61,60 +63,46 @@ struct Await::TResponseObject
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class Await::CMessageObject
+class Await::CResponseTracker
 {
 public:
-    CMessageObject(
+    constexpr static TimeUtils::TimePeriod ExpirationPeriod = std::chrono::milliseconds(1500);
+
+    CResponseTracker(
+        std::weak_ptr<CBryptPeer> const& wpRequestor,
         CMessage const& request,
-        BryptIdentifier::CContainer const& peer);
+        BryptIdentifier::SharedContainer const& spBryptPeerIdentifier);
 
-    CMessageObject(
+    CResponseTracker(
+        std::weak_ptr<CBryptPeer> const& wpRequestor,
         CMessage const& request,
-        std::set<BryptIdentifier::CContainer> const& peers);
+        std::set<BryptIdentifier::SharedContainer> const& identifiers);
 
-    Await::Status GetStatus();
+    Await::ResponseStatus UpdateResponse(CMessage const& response);
+    Await::ResponseStatus CheckResponseStatus();
+    std::uint32_t GetResponseCount() const;
 
-    std::optional<CMessage> GetResponse();
-    Await::Status UpdateResponse(CMessage const& response);
+    bool SendFulfilledResponse();
 
 private:
-    Await::Status m_status;
+    using ResponseTracker = boost::multi_index_container<
+        TResponseEntry,
+        boost::multi_index::indexed_by<
+            boost::multi_index::hashed_unique<
+                boost::multi_index::const_mem_fun<
+                    TResponseEntry,
+                    BryptIdentifier::InternalType,
+                    &TResponseEntry::GetInternalBryptIdentifier>>>>;
+
+    Await::ResponseStatus m_status;
     std::uint32_t m_expected;
     std::uint32_t m_received;
 
+    std::weak_ptr<CBryptPeer> m_wpRequestor;
     CMessage const m_request;
-    std::optional<CMessage> m_optAggregateResponse;
-
-    std::unordered_map<BryptIdentifier::CContainer, std::string, BryptIdentifier::Hasher> m_responses;
+    ResponseTracker m_responses;
 
     TimeUtils::Timepoint const m_expire;
-};
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-class Await::CObjectContainer
-{
-public:
-    NodeUtils::ObjectIdType PushRequest(
-        CMessage const& message,
-        BryptIdentifier::CContainer const& peer);
-
-    NodeUtils::ObjectIdType PushRequest(
-        CMessage const& message,
-        std::set<BryptIdentifier::CContainer> const& peers);
-
-    bool PushResponse(CMessage const& message);
-    std::vector<CMessage> GetFulfilled();
-
-    bool IsEmpty() const;
-
-private:
-    NodeUtils::ObjectIdType KeyGenerator(std::string const& pack) const;
-
-    MessageMap m_awaiting;
 };
 
 //------------------------------------------------------------------------------------------------

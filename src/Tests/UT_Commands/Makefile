@@ -24,28 +24,28 @@ SRCDIR = .
 MAINDIR = ../../BryptNode
 AWAITDIR = ../../Components/Await
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
+BRYPTPEERDIR = ../../Components/BryptPeer
 COMMANDDIR = ../../Components/Command
 ENDPOINTSDIR = ../../Components/Endpoints
 CONFIGURATIONDIR = ../../Configuration
 CONTROLDIR = ../../Components/Control
 MESSAGEDIR = ../../Message
-MESSAGEQUEUEDIR = ../../Components/MessageQueue
+MESSAGECONTROLDIR = ../../Components/MessageControl
 PEERWATCHERDIR = ../../Components/PeerWatcher
-NOTIFIERDIR = ../../Components/Notifier
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
 $(MAINDIR) \
 $(AWAITDIR) \
 $(BRYPTIDENTIFIERDIR) \
+$(BRYPTPEERDIR) \
 $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
 $(MESSAGEDIR) \
-$(MESSAGEQUEUEDIR) \
+$(MESSAGECONTROLDIR) \
 $(PEERWATCHERDIR)\
-$(NOTIFIERDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES), $(filter-out $(sdir)/main.cpp, $(wildcard $(sdir)/*.cpp)))

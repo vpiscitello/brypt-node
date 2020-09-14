@@ -1,8 +1,6 @@
-{
-   "endpoints": [
-      {
-         "technology": "TCP",
-         "peers": []
-      }
-   ]
-}
+[
+   {
+      "technology": "TCP",
+      "bootstraps": []
+   }
+]

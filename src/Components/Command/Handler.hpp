@@ -6,6 +6,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "CommandDefinitions.hpp"
+#include "../MessageControl/AssociatedMessage.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -16,6 +17,7 @@
 //------------------------------------------------------------------------------------------------
 
 class CBryptNode;
+class CBryptPeer;
 class CMessage;
 
 //------------------------------------------------------------------------------------------------
@@ -51,10 +53,11 @@ public:
     
     virtual Command::Type GetType() const final;
 
-    virtual bool HandleMessage(CMessage const& message) = 0;
+    virtual bool HandleMessage(AssociatedMessage const& message) = 0;
 
 protected:
     virtual void SendClusterNotice(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
@@ -62,6 +65,7 @@ protected:
         std::optional<std::string> optResponseData) final;
 
     virtual void SendNetworkNotice(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
@@ -69,6 +73,7 @@ protected:
         std::optional<std::string> optResponseData) final;
 
     virtual void SendResponse(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessage const& request,
         std::string_view responseData,
         std::uint8_t responsePhase,
@@ -79,6 +84,7 @@ protected:
 
 private: 
     virtual void SendNotice(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessage const& request,
         BryptIdentifier::CContainer noticeDestination,
         std::string_view noticeData,

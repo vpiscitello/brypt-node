@@ -17,12 +17,12 @@ public:
     explicit CQueryHandler(CBryptNode& instance);
 
     // IHandler{
-    bool HandleMessage(CMessage const& message) override;
+    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool FloodHandler(CMessage const& message);
-    bool RespondHandler(CMessage const& message);
-    bool AggregateHandler(CMessage const& message);
+    bool FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
+    bool RespondHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
+    bool AggregateHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
     bool CloseHandler();
 
 };

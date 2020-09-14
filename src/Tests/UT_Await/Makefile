@@ -10,9 +10,9 @@ GTEST_INCLUDE = -I../../Libraries/googletest/include
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -DZMQ_BUILD_DRAFT_API -pthread
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -DZMQ_BUILD_DRAFT_API -pthread
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(GTEST_INCLUDE)
@@ -22,12 +22,14 @@ SRCDIR = .
 
 AWAITDIR = ../../Components/Await
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
+BRYPTPEERDIR = ../../Components/BryptPeer
 MESSAGEDIR = ../../Message
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
 $(AWAITDIR) \
 $(BRYPTIDENTIFIERDIR) \
+$(BRYPTPEERDIR) \
 $(MESSAGEDIR) \
 $(GTESTDIR)
 

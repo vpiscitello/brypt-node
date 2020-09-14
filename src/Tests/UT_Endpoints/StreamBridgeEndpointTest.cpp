@@ -5,7 +5,7 @@
 #include "../../Components/Endpoints/StreamBridgeEndpoint.hpp"
 #include "../../Components/Endpoints/TcpEndpoint.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageQueue/MessageQueue.hpp"
+#include "../../Components/MessageControl/MessageCollector.hpp"
 #include "../../Utilities/CallbackIteration.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
@@ -37,8 +37,10 @@ std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpClient(
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
 
 constexpr std::string_view TechnologyName = "Direct";
 constexpr std::string_view Interface = "lo";
@@ -54,68 +56,79 @@ constexpr std::string_view ClientEntry = "127.0.0.1:35219";
 
 TEST(CStreamBridgeSuite, ServerCommunicationTest)
 {
-    CMessageQueue queue;
+    CMessageCollector collector;
 
-    auto upServer = local::MakeStreamBridgeServer(&queue);
+    auto upServer = local::MakeStreamBridgeServer(&collector);
     upServer->ScheduleBind(test::ServerBinding);
     upServer->Startup();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
-    auto upClient = local::MakeTcpClient(&queue);
+    auto upClient = local::MakeTcpClient(&collector);
     upClient->ScheduleConnect(test::ServerEntry);
     upClient->Startup();
 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    // We expect there to be a connect request in the incoming queue from the client
-    auto const optConnectionRequest = queue.PopIncomingMessage();
-    ASSERT_TRUE(optConnectionRequest);
+    // We expect there to be a connect request in the incoming collector from the client
+    auto const optAssociatedConnectRequest = collector.PopIncomingMessage();
+    ASSERT_TRUE(optAssociatedConnectRequest);
+    auto const& [wpConnectRequestPeer, connectRequest] = *optAssociatedConnectRequest;
 
     OptionalMessage const optConnectResponse = CMessage::Builder()
-        .SetMessageContext(optConnectionRequest->GetMessageContext())
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(connectRequest.GetMessageContext())
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(*test::spClientIdentifier)
         .SetCommand(Command::Type::Connect, 1)
-        .SetData("Connection Approved", optConnectionRequest->GetNonce() + 1)
+        .SetData("Connection Approved", connectRequest.GetNonce() + 1)
         .ValidatedBuild();
     
-    queue.PushOutgoingMessage(*optConnectResponse);
+    if (auto const spConnectRequestPeer = wpConnectRequestPeer.lock(); spConnectRequestPeer) {
+        spConnectRequestPeer->ScheduleSend(*optConnectResponse);
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    auto const optReceivedConnectResponse = queue.PopIncomingMessage();
-    ASSERT_TRUE(optReceivedConnectResponse);
-    EXPECT_EQ(optReceivedConnectResponse->GetPack(), optConnectResponse->GetPack());
+    auto const optAssociatedConnectResponse = collector.PopIncomingMessage();
+    ASSERT_TRUE(optAssociatedConnectResponse);
+    auto const& [wpConnectResponsePeer, connectResponse] = *optAssociatedConnectResponse;
+
+    EXPECT_EQ(connectResponse.GetPack(), optConnectResponse->GetPack());
 
     OptionalMessage const optElectionRequest = CMessage::Builder()
-        .SetMessageContext(optReceivedConnectResponse->GetMessageContext())
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(connectResponse.GetMessageContext())
+        .SetSource(*test::spClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Election, 0)
-        .SetData("Hello World!", optReceivedConnectResponse->GetNonce() + 1)
+        .SetData("Hello World!", connectResponse.GetNonce() + 1)
         .ValidatedBuild();
-    
-    queue.PushOutgoingMessage(*optElectionRequest);
+
+    if (auto const spConnectResponsePeer = wpConnectResponsePeer.lock(); spConnectResponsePeer) {
+        spConnectResponsePeer->ScheduleSend(*optElectionRequest);
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto const optReceivedElectionRequest = queue.PopIncomingMessage();
-    ASSERT_TRUE(optReceivedElectionRequest);
-    EXPECT_EQ(optReceivedElectionRequest->GetPack(), optElectionRequest->GetPack());
+    auto const optAssociatedElectionRequest = collector.PopIncomingMessage();
+    ASSERT_TRUE(optAssociatedElectionRequest);
+    auto const& [wpElectionRequestPeer, electionRequest] = *optAssociatedElectionRequest;
+    EXPECT_EQ(electionRequest.GetPack(), optElectionRequest->GetPack());
 
     OptionalMessage const optElectionResponse = CMessage::Builder()
-        .SetMessageContext(optReceivedElectionRequest->GetMessageContext())
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(electionRequest.GetMessageContext())
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(*test::spClientIdentifier)
         .SetCommand(Command::Type::Election, 1)
-        .SetData("Re: Hello World!", optReceivedElectionRequest->GetNonce() + 1)
+        .SetData("Re: Hello World!", electionRequest.GetNonce() + 1)
         .ValidatedBuild();
 
-    queue.PushOutgoingMessage(*optElectionResponse);
+    if (auto const spElectionRequestPeer = wpElectionRequestPeer.lock(); spElectionRequestPeer) {
+        spElectionRequestPeer->ScheduleSend(*optElectionResponse);
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto const optReceivedElectionResponse = queue.PopIncomingMessage();
-    ASSERT_TRUE(optReceivedElectionResponse);
-    EXPECT_EQ(optReceivedElectionResponse->GetPack(), optElectionResponse->GetPack());
+    auto const optAssociatedElectionResponse = collector.PopIncomingMessage();
+    ASSERT_TRUE(optAssociatedElectionResponse);
+    auto const& [wpElectionResponsePeer, electionResponse] = *optAssociatedElectionResponse;
+    EXPECT_EQ(electionResponse.GetPack(), optElectionResponse->GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -124,7 +137,7 @@ std::unique_ptr<Endpoints::CStreamBridgeEndpoint> local::MakeStreamBridgeServer(
     IMessageSink* const sink)
 {
     return std::make_unique<Endpoints::CStreamBridgeEndpoint>(
-        test::ServerId,
+        test::spServerIdentifier,
         test::Interface,
         Endpoints::OperationType::Server,
         nullptr,
@@ -138,7 +151,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
     IMessageSink* const sink)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
-        test::ClientId,
+        test::spClientIdentifier,
         test::Interface,
         Endpoints::OperationType::Client,
         nullptr,

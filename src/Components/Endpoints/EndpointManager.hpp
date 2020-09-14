@@ -1,11 +1,11 @@
 //------------------------------------------------------------------------------------------------
-// File: Endpoint.hpp
-// Description: Defines a set of communication methods for use on varying types of communication
-// technologies. Currently supports ZMQ D, ZMQ StreamBridge, and TCP sockets.
+// File: EndpointManager.hpp
+// Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "EndpointTypes.hpp"
+#include "EndpointIdentifier.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Interfaces/EndpointMediator.hpp"
@@ -36,10 +36,10 @@ public:
     ~CEndpointManager();
 
     void Initialize(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         IMessageSink* const pMessageSink,
         Configuration::EndpointConfigurations const& configurations,
-        IPeerCache const* const pBootsrapCache);
+        IBootstrapCache const* const pBootsrapCache);
     void Startup();
     void Shutdown();
 
@@ -60,25 +60,27 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
-    virtual void ForwardPeerConnectionStateChange(
-        CPeer const& peer, ConnectionState change) override;
+    virtual void ForwardConnectionStateChange(
+        Endpoints::TechnologyType technology,
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        ConnectionState change) override;
     // } IPeerMediator
     
 private:
     using EndpointsMultimap = std::unordered_map<Endpoints::EndpointIdType, SharedEndpoint>;
 
     void InitializeDirectEndpoints(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const pMessageSink,
-        IPeerCache const* const pBootstrapCache);
+        IBootstrapCache const* const pBootstrapCache);
     void InitializeTCPEndpoints(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const pMessageSink,
-        IPeerCache const* const pBootstrapCache);
+        IBootstrapCache const* const pBootstrapCache);
     void InitializeStreamBridgeEndpoints(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
         IMessageSink* const pMessageSink);
 

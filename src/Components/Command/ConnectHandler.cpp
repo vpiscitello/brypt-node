@@ -7,7 +7,7 @@
 #include "../Endpoints/Endpoint.hpp"
 #include "../Endpoints/EndpointManager.hpp"
 #include "../Endpoints/PeerBootstrap.hpp"
-#include "../MessageQueue/MessageQueue.hpp"
+#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptNode/NodeState.hpp"
@@ -108,14 +108,15 @@ Command::CConnectHandler::CConnectHandler(CBryptNode& instance)
 // Description: Connect message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnectHandler::HandleMessage(CMessage const& message)
+bool Command::CConnectHandler::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
+    auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CConnectHandler::Phase>(message.GetPhase());
     switch (phase) {
         // TODO: Implement method of authentication before supplying entries
         case Phase::Discovery: {
-            status = DiscoveryHandler(message);
+            status = DiscoveryHandler(wpBryptPeer, message);
         } break;
         case Phase::Join: {
             status = JoinHandler(message);
@@ -132,7 +133,9 @@ bool Command::CConnectHandler::HandleMessage(CMessage const& message)
 // Description:
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnectHandler::DiscoveryHandler(CMessage const& message)
+bool Command::CConnectHandler::DiscoveryHandler(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CMessage const& message)
 {
     bool const status = local::HandleDiscoveryRequest(m_instance, message);
     if (!status) {
@@ -140,7 +143,7 @@ bool Command::CConnectHandler::DiscoveryHandler(CMessage const& message)
     }
 
     auto const response = local::BuildDiscoveryResponse(m_instance);
-    IHandler::SendResponse(message, response, static_cast<std::uint8_t>(Phase::Join));
+    IHandler::SendResponse(wpBryptPeer, message, response, static_cast<std::uint8_t>(Phase::Join));
 
     return status;
 }
@@ -153,8 +156,7 @@ bool Command::CConnectHandler::DiscoveryHandler(CMessage const& message)
 //------------------------------------------------------------------------------------------------
 bool Command::CConnectHandler::JoinHandler(CMessage const& message)
 {
-    bool const status = local::HandleDiscoveryResponse(m_instance, message);
-    return status;
+    return local::HandleDiscoveryResponse(m_instance, message);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -167,7 +169,8 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message
     }
 
     // Parse response the response 
-    std::string_view const dataview(reinterpret_cast<char const*>(optRequestData->data()), optRequestData->size());
+    std::string_view const dataview(reinterpret_cast<char const*>(
+        optRequestData->data()), optRequestData->size());
     PeerBootstrap::Json::TConnectRequest request;
     iod::json_object(
         s::entrypoints = iod::json_vector(
@@ -176,9 +179,10 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message
     )).decode(dataview, request);
 
     if (!request.entrypoints.empty()) {
-        // Get shared_ptrs for the CPeerPersitor and CEndpointManager
+        // Get shared_ptrs for the CBryptPeerPersitor and CEndpointManager
         auto spPeerPersistor = instance.GetPeerPersistor().lock();
         auto spEndpointManager = instance.GetEndpointManager().lock();
+        
         // For each listed entrypoint, handle each entry for the given technology.
         for (auto const& [name, entry]: request.entrypoints) {
             // Parse the technoloy type from the human readible name.
@@ -188,7 +192,7 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message
                 // entry it may be used in bootstrapping and distribution of entries for technologies
                 // to peers that have different capabilites not accessible by this node. The verification
                 // of entrypoints should be handled by a different module (i.e. the endpoint or security mechanism).
-                spPeerPersistor->AddPeerEntry({message.GetSource(), technology, entry});
+                spPeerPersistor->AddBootstrapEntry(technology, entry);
             }
             if (spEndpointManager) {
                 // If we have an endpoint for the given technology, schedule the connect.
@@ -215,8 +219,8 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
         response.cluster = spNodeState->GetCluster();
     }
 
-    using TechnologyEntriesMap = std::unordered_map<Endpoints::TechnologyType, std::vector<std::string>>;
-    TechnologyEntriesMap mappedTechnologyEntries;
+    using EndpointBootstrapsMap = std::unordered_map<Endpoints::TechnologyType, std::vector<std::string>>;
+    EndpointBootstrapsMap endpoints;
     // Get the current known peers of this node. The known peers will be supplied to the requestor
     // such that they may attempt to connect to them.
     auto const wpPeerPersistor = instance.GetPeerPersistor();
@@ -225,13 +229,13 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
     if (auto const spPeerPersistor = wpPeerPersistor.lock(); spPeerPersistor) {
         // For each technology type stored in the cached peers emplace the entry into the asscoaited 
         // technology entries vector.
-        spPeerPersistor->ForEachCachedPeer(
+        spPeerPersistor->ForEachCachedBootstrap(
             // Get the entries for the requestor from the cached list of peers
-            [&response, &mappedTechnologyEntries] (Endpoints::TechnologyType technology, CPeer const& peer) -> CallbackIteration
+            [&response, &endpoints] (
+                Endpoints::TechnologyType technology,
+                std::string_view const& bootstrap) -> CallbackIteration
             {
-                if (auto const entry = peer.GetEntry(); !entry.empty()) {
-                    mappedTechnologyEntries[technology].emplace_back(peer.GetEntry());
-                } 
+                endpoints[technology].emplace_back(bootstrap);
                 return CallbackIteration::Continue;
             },
             // Unused cache error handling function
@@ -239,12 +243,12 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
         );
 
         // Encode the peers list for the response
-        for (auto const& [technology, entries]: mappedTechnologyEntries) {
-            auto& technologyEntries = response.technologies.emplace_back();
-            technologyEntries.name = Endpoints::TechnologyTypeToString(technology);
+        for (auto const& [technology, bootstraps]: endpoints) {
+            auto& entry = response.technologies.emplace_back();
+            entry.name = Endpoints::TechnologyTypeToString(technology);
             // The metajson library can't encode nested vectors, so for now the entries are encoded 
             // before being placed in the data struct. 
-            technologyEntries.entries = iod::json_encode(entries);
+            entry.entries = iod::json_encode(bootstraps);
         }
     }
 

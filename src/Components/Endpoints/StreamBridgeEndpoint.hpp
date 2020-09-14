@@ -5,8 +5,8 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
-#include "PeerDetails.hpp"
-#include "PeerDetailsMap.hpp"
+#include "ConnectionDetails.hpp"
+#include "ConnectionTracker.hpp"
 #include "TechnologyType.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
@@ -69,7 +69,7 @@ public:
     constexpr static TechnologyType InternalType = TechnologyType::StreamBridge;
 
     CStreamBridgeEndpoint(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
@@ -104,7 +104,7 @@ private:
     using ReceiveResult = std::variant<ConnectionStateChange, std::string>;
     using OptionalReceiveResult = std::optional<std::pair<ZeroMQIdentity, ReceiveResult>>;
 
-    using ExtendedPeerDetails = CPeerDetails<void>;
+    using ExtendedConnectionDetails = CConnectionDetails<void>;
 
     void Spawn();
     bool SetupServerWorker();
@@ -131,7 +131,7 @@ private:
     NetworkUtils::NetworkAddress m_address;
     NetworkUtils::PortNumber m_port;
 
-    CPeerDetailsMap<ZeroMQIdentity> m_peers;
+    CConnectionTracker<ZeroMQIdentity> m_tracker;
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

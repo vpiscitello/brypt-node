@@ -17,7 +17,7 @@ public:
     explicit CTransformHandler(CBryptNode& instance);
 
     // IHandler{
-    bool HandleMessage(CMessage const& message) override;
+    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
     bool InfoHandler();

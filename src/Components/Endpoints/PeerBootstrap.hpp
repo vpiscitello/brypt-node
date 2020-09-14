@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: PeerConnector.hpp
+// File: PeerBootstrap.hpp
 // Description: Used by endpoints to generate the message needed to start a valid and 
 // authenticated connection with a Brypt peer. The intention is to avoid asking the core
 //  application how it should procede after a raw connection has been established over a given 
@@ -43,7 +43,7 @@ auto SendContactMessage(
     IEndpointMediator const* const pEndpointMediator,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
-    BryptIdentifier::CContainer const& source,
+    BryptIdentifier::SharedContainer const& spSource,
     Functor const& callback) -> typename Functor::result_type;
 
 //------------------------------------------------------------------------------------------------
@@ -124,9 +124,13 @@ auto PeerBootstrap::SendContactMessage(
     IEndpointMediator const* const pEndpointMediator,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
-    BryptIdentifier::CContainer const& source,
+    BryptIdentifier::SharedContainer const& spSource,
     Functor const& callback) -> typename Functor::result_type
 {
+    if (!spSource) {
+        return {};
+    }
+
     Json::TConnectRequest request;
     if (pEndpointMediator) {
         auto const entries = pEndpointMediator->GetEndpointEntries();
@@ -144,7 +148,7 @@ auto PeerBootstrap::SendContactMessage(
 
     OptionalMessage const optDiscoveryRequest = CMessage::Builder()
         .SetMessageContext({ identifier, technology })
-        .SetSource(source)
+        .SetSource(*spSource)
         .SetDestination(ReservedIdentifiers::Network::Unknown)
         .SetCommand(ConnectCommand, DiscoveryPhase)
         .SetData(encoded, InitialNonce)

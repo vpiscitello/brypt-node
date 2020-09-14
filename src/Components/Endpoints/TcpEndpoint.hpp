@@ -5,10 +5,10 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
-#include "PeerDetails.hpp"
-#include "PeerDetailsMap.hpp"
+#include "ConnectionDetails.hpp"
+#include "ConnectionTracker.hpp"
 #include "TechnologyType.hpp"
-#include "../../Message/MessageTypes.hpp"
+#include "../../Message/MessageDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
 #include <deque>
@@ -78,7 +78,7 @@ public:
     constexpr static TechnologyType InternalType = TechnologyType::TCP;
 
     CTcpEndpoint(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
@@ -122,7 +122,7 @@ private:
     using OptionalReceiveResult = std::optional<ReceiveResult>;
     using SendResult = std::variant<ConnectionStateChange, std::int32_t>;
 
-    using ExtendedPeerDetails = CPeerDetails<void>;
+    using ExtendedConnectionDetails = CConnectionDetails<void>;
 
     constexpr static std::int32_t SocketAddressSize = sizeof(IPv4SocketAddress);
     constexpr static std::int32_t ReadBufferSize = 8192;
@@ -162,7 +162,7 @@ private:
     NetworkUtils::NetworkAddress m_address;
     NetworkUtils::PortNumber m_port;
 
-    CPeerDetailsMap<SocketDescriptor> m_peers;
+    CConnectionTracker<SocketDescriptor> m_tracker;
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

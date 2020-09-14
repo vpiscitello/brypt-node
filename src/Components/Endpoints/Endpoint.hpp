@@ -29,6 +29,7 @@
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
+class CBryptPeer;
 class CMessage;
 
 //------------------------------------------------------------------------------------------------
@@ -44,7 +45,7 @@ class CTcpEndpoint;
 
 std::unique_ptr<CEndpoint> Factory(
     TechnologyType technology,
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
@@ -60,7 +61,7 @@ public:
     enum class NetworkInstruction : std::uint8_t { Bind, Connect };
 
     CEndpoint(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view interface,
         Endpoints::OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
@@ -68,9 +69,9 @@ public:
         IMessageSink* const pMessageSink,
         Endpoints::TechnologyType technology = Endpoints::TechnologyType::Invalid)
         : m_mutex()
-        , m_identifier(CEndpointIdentifierGenerator::Instance().GetIdentifier())
+        , m_identifier(CEndpointIdentifierGenerator::Instance().GetEndpointIdentifier())
         , m_technology(technology)
-        , m_bryptID(identifier) 
+        , m_spBryptIdentifier(spBryptIdentifier) 
         , m_interface(interface)
         , m_operation(operation)
         , m_pEndpointMediator(pEndpointMediator)
@@ -105,12 +106,12 @@ public:
 	virtual bool Shutdown() = 0;
 
     bool IsActive() const;
-    Endpoints::EndpointIdType GetIdentifier() const;
+    Endpoints::EndpointIdType GetEndpointIdentifier() const;
     Endpoints::OperationType GetOperation() const;
 
 protected:
-    void PublishPeerConnection(CPeer const& peer);
-    void UnpublishPeerConnection(CPeer const& peer);
+    void PublishPeerConnection(std::weak_ptr<CBryptPeer> const& wpBryptPeer);
+    void UnpublishPeerConnection(std::weak_ptr<CBryptPeer> const& wpBryptPeer);
 
     using EventDeque = std::deque<std::any>;
 
@@ -119,7 +120,7 @@ protected:
     Endpoints::EndpointIdType const m_identifier;
     Endpoints::TechnologyType const m_technology;
 
-	BryptIdentifier::CContainer const m_bryptID;
+	BryptIdentifier::SharedContainer const m_spBryptIdentifier;
     std::string m_interface;
 	Endpoints::OperationType const m_operation;
 

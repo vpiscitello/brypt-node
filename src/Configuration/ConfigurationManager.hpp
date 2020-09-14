@@ -38,7 +38,7 @@ public:
 
     std::optional<Configuration::TSettings> GetSettings() const;
 
-    std::optional<BryptIdentifier::CContainer> GetBryptIdentifier() const;
+    BryptIdentifier::SharedContainer GetBryptIdentifier() const;
 
     std::string GetNodeName() const;
     std::string GetNodeDescription() const;

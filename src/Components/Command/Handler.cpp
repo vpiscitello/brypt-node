@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: ConnectHandler.cpp
+// File: Handler.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "Handler.hpp"
@@ -9,9 +9,10 @@
 #include "InformationHandler.hpp"
 #include "QueryHandler.hpp"
 #include "TransformHandler.hpp"
-#include "../Await/Await.hpp"
-#include "../Endpoints/Peer.hpp"
-#include "../MessageQueue/MessageQueue.hpp"
+#include "../Await/AwaitDefinitions.hpp"
+#include "../Await/TrackingManager.hpp"
+#include "../BryptPeer/BryptPeer.hpp"
+#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
@@ -71,6 +72,7 @@ Command::Type Command::IHandler::GetType() const
 //------------------------------------------------------------------------------------------------
 
 void Command::IHandler::SendClusterNotice(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
@@ -78,12 +80,13 @@ void Command::IHandler::SendClusterNotice(
     std::optional<std::string> optResponseData)
 {
     static BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::ClusterRequest);
-    SendNotice(request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
+    SendNotice(wpBryptPeer, request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void Command::IHandler::SendNetworkNotice(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
@@ -91,23 +94,25 @@ void Command::IHandler::SendNetworkNotice(
     std::optional<std::string> optResponseData)
 {
     static BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::NetworkRequest);
-    SendNotice(request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
+    SendNotice(wpBryptPeer, request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void Command::IHandler::SendResponse(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CMessage const& request,
     std::string_view responseData,
     std::uint8_t responsePhase,
     std::optional<BryptIdentifier::CContainer> optDestinationOverride)
 {
     // Get the current Node ID and Cluster ID for this node
-    BryptIdentifier::CContainer identifier;
+    BryptIdentifier::SharedContainer spBryptIdentifier;
     auto const wpNodeState = m_instance.GetNodeState();
     if (auto const spNodeState = wpNodeState.lock(); spNodeState) {
-        identifier = spNodeState->GetIdentifier();
+        spBryptIdentifier = spNodeState->GetBryptIdentifier();
     }
+    assert(spBryptIdentifier);
 
     BryptIdentifier::CContainer destination = request.GetSource();
     if (optDestinationOverride) {
@@ -115,7 +120,7 @@ void Command::IHandler::SendResponse(
     }
 
     std::optional<Message::BoundAwaitingKey> optBoundAwaitId = {};
-    std::optional<NodeUtils::ObjectIdType> const optAwaitingKey = request.GetAwaitingKey();
+    std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitingKey();
     if (optAwaitingKey) {
         optBoundAwaitId = { Message::AwaitBinding::Destination, *optAwaitingKey };
     }
@@ -123,23 +128,22 @@ void Command::IHandler::SendResponse(
     // Using the information from the node instance generate a discovery response message
     OptionalMessage const optResponse = CMessage::Builder()
         .SetMessageContext(request.GetMessageContext())
-        .SetSource(identifier)
+        .SetSource(*spBryptIdentifier)
         .SetDestination(destination)
         .SetCommand(request.GetCommandType(), responsePhase)
         .SetData(responseData,  request.GetNonce() + 1)
         .ValidatedBuild();
     assert(optResponse);
 
-    // Get the message queue from the node instance and forward the response
-    auto const wpMessageQueue = m_instance.GetMessageQueue();
-    if (auto const spMessageQueue = wpMessageQueue.lock(); spMessageQueue) {
-        spMessageQueue->PushOutgoingMessage(*optResponse);
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        spBryptPeer->ScheduleSend(*optResponse);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
 void Command::IHandler::SendNotice(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CMessage const& request,
     BryptIdentifier::CContainer noticeDestination,
     std::string_view noticeData,
@@ -147,56 +151,55 @@ void Command::IHandler::SendNotice(
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData = {})
 {
+    std::set<BryptIdentifier::SharedContainer> peers;
+
     // Get the information pertaining to the node itself
-    BryptIdentifier::CContainer identifier;
+    BryptIdentifier::SharedContainer spBryptIdentifier;
     if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        identifier = spNodeState->GetIdentifier();
+        spBryptIdentifier = spNodeState->GetBryptIdentifier();
     }
+    peers.emplace(spBryptIdentifier);
 
     // Get the information pertaining to the node's network
-    std::set<BryptIdentifier::CContainer> peers;
     if (auto const spPeerPersistor = m_instance.GetPeerPersistor().lock()) {
-        spPeerPersistor->ForEachCachedPeer(
+        spPeerPersistor->ForEachCachedIdentifier(
             [&peers] (
-                [[maybe_unused]] Endpoints::TechnologyType technology,
-                CPeer const& peer) -> CallbackIteration
+                BryptIdentifier::SharedContainer const& spBryptIdentifier) -> CallbackIteration
             {
-                peers.emplace(peer.GetIdentifier());
+                peers.emplace(spBryptIdentifier);
                 return CallbackIteration::Continue;
-            },
-            // Unused cache error handling function
-            [] ([[maybe_unused]] Endpoints::TechnologyType technology) {}
+            }
         );
     }
     
     // Setup the awaiting message object and push this node's response
-    NodeUtils::ObjectIdType awaitObjectKey = 0;
-    if (auto const awaiting = m_instance.GetAwaiting().lock()) {
-        awaitObjectKey = awaiting->PushRequest(request, peers);
+    Await::TrackerKey awaitTrackingKey = 0;
+    if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {
+        awaitTrackingKey = spAwaitManager->PushRequest(wpBryptPeer, request, peers);
 
         if (optResponseData) {
             // Create a reading message
             OptionalMessage const optNodeResponse = CMessage::Builder()
                 .SetMessageContext(request.GetMessageContext())
-                .SetSource(identifier)
+                .SetSource(*spBryptIdentifier)
                 .SetDestination(request.GetSource())
                 .SetCommand(request.GetCommandType(), responsePhase)
                 .SetData(*optResponseData, request.GetNonce() + 1)
-                .BindAwaitingKey(Message::AwaitBinding::Destination, awaitObjectKey)
+                .BindAwaitingKey(Message::AwaitBinding::Destination, awaitTrackingKey)
                 .ValidatedBuild();
             assert(optNodeResponse);
-            awaiting->PushResponse(*optNodeResponse);
+            spAwaitManager->PushResponse(*optNodeResponse);
         }
     }
 
     // Create a notice message for the network
     OptionalMessage const optNotice = CMessage::Builder()
         .SetMessageContext(request.GetMessageContext())
-        .SetSource(identifier)
+        .SetSource(*spBryptIdentifier)
         .SetDestination(noticeDestination)
         .SetCommand(request.GetCommandType(), noticePhase)
         .SetData(noticeData, request.GetNonce() + 1)
-        .BindAwaitingKey(Message::AwaitBinding::Source, awaitObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     assert(optNotice);
 

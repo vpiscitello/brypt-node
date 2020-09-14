@@ -17,10 +17,10 @@ public:
     explicit CConnectHandler(CBryptNode& instance);
 
     // IHandler{
-    bool HandleMessage(CMessage const& message) override;
+    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool DiscoveryHandler(CMessage const& message);
+    bool DiscoveryHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
     bool JoinHandler(CMessage const& message);    
 };
 

@@ -19,7 +19,7 @@ CMessageContext::CMessageContext(
 {
 }
 
-Endpoints::EndpointIdType CMessageContext::GetEndpointId() const
+Endpoints::EndpointIdType CMessageContext::GetEndpointIdentifier() const
 {
 	return m_endpointIdentifier;
 }

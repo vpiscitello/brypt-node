@@ -30,7 +30,7 @@ public:
 	CMessageBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
 	CMessageBuilder& SetDestination(BryptIdentifier::InternalType const& identifier);
 	CMessageBuilder& SetDestination(std::string_view identifier);
-	CMessageBuilder& BindAwaitingKey(Message::AwaitBinding binding, NodeUtils::ObjectIdType key);
+	CMessageBuilder& BindAwaitingKey(Message::AwaitBinding binding, Await::TrackerKey key);
 	CMessageBuilder& SetCommand(Command::Type type, std::uint8_t phase);
 	CMessageBuilder& SetData(std::string_view data, NodeUtils::NetworkNonce nonce = 0);
 	CMessageBuilder& SetData(Message::Buffer const& buffer, NodeUtils::NetworkNonce nonce = 0);

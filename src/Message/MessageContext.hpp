@@ -20,7 +20,7 @@ public:
 	CMessageContext();
 	CMessageContext(Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology);
 
-	Endpoints::EndpointIdType GetEndpointId() const;
+	Endpoints::EndpointIdType GetEndpointIdentifier() const;
 	Endpoints::TechnologyType GetEndpointTechnology() const;
 
 private:

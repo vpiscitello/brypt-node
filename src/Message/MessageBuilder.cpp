@@ -73,7 +73,7 @@ CMessageBuilder& CMessageBuilder::SetDestination(std::string_view identifier)
 
 CMessageBuilder& CMessageBuilder::BindAwaitingKey(
     Message::AwaitBinding binding,
-    NodeUtils::ObjectIdType key)
+    Await::TrackerKey key)
 {
 	m_message.m_optBoundAwaitingKey = Message::BoundAwaitingKey(binding, key);
 	return *this;
@@ -178,7 +178,7 @@ void CMessageBuilder::Unpack(Message::Buffer const& buffer)
         Message::AwaitBinding binding = Message::AwaitBinding::None;
         PackUtils::UnpackChunk(buffer, position, binding);
         if (binding != Message::AwaitBinding::None) {
-            NodeUtils::ObjectIdType key = 0;
+            Await::TrackerKey key = 0;
             PackUtils::UnpackChunk(buffer, position, key);
             m_message.m_optBoundAwaitingKey = Message::BoundAwaitingKey(binding, key);
         }

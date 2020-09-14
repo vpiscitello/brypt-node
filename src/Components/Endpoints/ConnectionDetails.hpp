@@ -1,12 +1,11 @@
 //------------------------------------------------------------------------------------------------
-// File: PeerDetailsMap.hpp
-// Description: Classes used to track information about a connected peer. There are two instances
-// of the PeerDetail struct, most notably one may be instantiated with an extension struct/class
-// to track additionaly data pertaint to the caller. 
+// File: ConnectionDetails.hpp
+// Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "ConnectionState.hpp"
+#include "../BryptPeer/BryptPeer.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -20,65 +19,65 @@ enum class MessagingPhase : std::uint8_t {
 
 //------------------------------------------------------------------------------------------------
 
-class CPeerDetailsBase
+class CConnectionDetailsBase
 {
 public:
-    explicit CPeerDetailsBase(BryptIdentifier::CContainer const& identifier)
-        : m_identifier(identifier)
-        , m_uri()
+    explicit CConnectionDetailsBase(std::string_view uri)
+        : m_uri(uri)
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
         , m_messagingPhase(MessagingPhase::Request)
+        , m_spBryptPeer()
     {
     }
 
-    CPeerDetailsBase(
-        BryptIdentifier::CContainer const& identifier,
-        ConnectionState connectionState,
-        MessagingPhase messagingPhase)
-        : m_identifier(identifier)
-        , m_uri()
+    explicit CConnectionDetailsBase(std::shared_ptr<CBryptPeer> const& spBryptPeer)
+        : m_uri()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
-        , m_connectionState(connectionState)
-        , m_messagingPhase(messagingPhase)
+        , m_connectionState(ConnectionState::Resolving)
+        , m_messagingPhase(MessagingPhase::Request)
+        , m_spBryptPeer(spBryptPeer)
     {
     }
 
-    CPeerDetailsBase(
-        BryptIdentifier::CContainer const& identifier,
-        TimeUtils::Timepoint const& timepoint,
-        std::uint32_t sequenceNumber,
-        ConnectionState connectionState,
-        MessagingPhase messagingPhase)
-        : m_identifier(identifier)
-        , m_uri()
-        , m_updateTimepoint(timepoint)
-        , m_sequenceNumber(sequenceNumber)
-        , m_connectionState(connectionState)
-        , m_messagingPhase(messagingPhase)
-    {
-    }
-
-    BryptIdentifier::CContainer GetIdentifier() const { return m_identifier; }
     std::string GetURI() const { return m_uri; }
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
     MessagingPhase GetMessagingPhase() const { return m_messagingPhase; }
+    std::shared_ptr<CBryptPeer> GetBryptPeer() const { return m_spBryptPeer; }
+    BryptIdentifier::SharedContainer GetBryptIdentifier() const
+    {
+        if (!m_spBryptPeer) {
+            return {};
+        }
+        return m_spBryptPeer->GetBryptIdentifier();
+    }
 
-    void SetURI(std::string_view uri) {
+    void SetURI(std::string_view uri)
+    {
         m_uri = uri;
     }
 
-    void Updated() { m_updateTimepoint = TimeUtils::GetSystemTimepoint(); };
+    void SetUpdatedTimepoint(TimeUtils::Timepoint const& timepoint)
+    {
+        m_updateTimepoint = timepoint;
+    }
 
-    void IncrementMessageSequence() {
+    void SetMessageSequenceNumber(std::uint32_t sequenceNumber)
+    {
+        m_sequenceNumber = sequenceNumber;
+    }
+
+    void IncrementMessageSequence()
+    {
         ++m_sequenceNumber;
     }
 
-    void SetConnectionState(ConnectionState state) {
+    void SetConnectionState(ConnectionState state)
+    {
         m_connectionState = state;
         Updated();
     }
@@ -89,41 +88,59 @@ public:
         Updated();
     }
 
+    void SetBryptPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer)
+    {
+        m_spBryptPeer = spBryptPeer;
+    }
+
+    void Updated()
+    {
+        m_updateTimepoint = TimeUtils::GetSystemTimepoint();
+    }
+
+    bool IsPeerConnection() const 
+    {
+        if (!m_spBryptPeer) {
+            return false;
+        }
+
+        return true;
+    }
+
 protected: 
-    // Currently it is expected each connection type maintains information about the node's Brypt ID,
-    // the timepoint the connection was last updated, and the message sequence number.
-    BryptIdentifier::CContainer m_identifier;
     std::string m_uri;
     TimeUtils::Timepoint m_updateTimepoint;
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
     MessagingPhase m_messagingPhase;
+    
+    std::shared_ptr<CBryptPeer> m_spBryptPeer;
 
 };
 
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType = void, typename Enabled = void>
-class CPeerDetails;
+class CConnectionDetails;
 
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
-class CPeerDetails<ExtensionType, std::enable_if_t<std::is_same_v<ExtensionType, void>>> : public CPeerDetailsBase
+class CConnectionDetails<ExtensionType, std::enable_if_t<std::is_same_v<ExtensionType, void>>> : public CConnectionDetailsBase
 {
 public:
-    using CPeerDetailsBase::CPeerDetailsBase;
+    using CConnectionDetailsBase::CConnectionDetailsBase;
 
-    CPeerDetails(CPeerDetails const& other) = default;
-    CPeerDetails(CPeerDetails&& other) = default;
+    CConnectionDetails(CConnectionDetails const& other) = default;
+    CConnectionDetails(CConnectionDetails&& other) = default;
 
-    CPeerDetails& operator=(CPeerDetails const& other)
+    CConnectionDetails& operator=(CConnectionDetails const& other)
     {
-        m_identifier = other.m_identifier;
         m_uri = other.m_uri;
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
+        m_spBryptPeer = other.m_spBryptPeer;
         return *this;
     }
 
@@ -132,34 +149,40 @@ public:
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
-class CPeerDetails<ExtensionType, std::enable_if_t<std::is_class_v<ExtensionType>>> : public CPeerDetailsBase
+class CConnectionDetails<ExtensionType, std::enable_if_t<std::is_class_v<ExtensionType>>> : public CConnectionDetailsBase
 {
 public:
-    using CPeerDetailsBase::CPeerDetailsBase;
+    using CConnectionDetailsBase::CConnectionDetailsBase;
 
     using ReadExtensionFunction = std::function<void(ExtensionType const&)>;
     using UpdateExtensionFunction = std::function<void(ExtensionType&)>;
 
-    CPeerDetails(
-        BryptIdentifier::CContainer const& identifier,
-        ConnectionState connectionState,
-        MessagingPhase messagePhase,
+    CConnectionDetails(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         ExtensionType const& extension)
-        : CPeerDetailsBase(identifier, connectionState, messagePhase)
+        : CConnectionDetailsBase(spBryptIdentifier)
         , m_extension(extension)
     {
     }
 
-    CPeerDetails(CPeerDetails const& other) = default;
-    CPeerDetails(CPeerDetails&& other) = default;
-
-    CPeerDetails& operator=(CPeerDetails const& other)
+    CConnectionDetails(
+        std::string_view uri,
+        ExtensionType const& extension)
+        : CConnectionDetailsBase(uri)
+        , m_extension(extension)
     {
-        m_identifier = other.m_identifier;
+    }
+
+    CConnectionDetails(CConnectionDetails const& other) = default;
+    CConnectionDetails(CConnectionDetails&& other) = default;
+
+    CConnectionDetails& operator=(CConnectionDetails const& other)
+    {
         m_uri = other.m_uri;
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
+        m_spBryptPeer = other.spBryptPeer;
         m_extension = other.m_extension;
         return *this;
     }

@@ -6,8 +6,10 @@
 //------------------------------------------------------------------------------------------------
 #include "../Components/Endpoints/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
+#include <memory>
+//------------------------------------------------------------------------------------------------
 
-class CPeer;
+class CBryptPeer;
 
 //------------------------------------------------------------------------------------------------
 
@@ -16,7 +18,10 @@ class IPeerObserver
 public:
     virtual ~IPeerObserver() = default;
 
-    virtual void HandlePeerConnectionStateChange(CPeer const& peer, ConnectionState change) = 0;
+    virtual void HandleConnectionStateChange(
+        Endpoints::TechnologyType technology,
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        ConnectionState change) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

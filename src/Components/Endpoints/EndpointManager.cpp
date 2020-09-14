@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: Endpoint.cpp
+// File: EndpointManager.cpp
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "EndpointManager.hpp"
@@ -13,7 +13,7 @@ namespace local {
 
 void ConnectBootstraps(
     std::shared_ptr<CEndpoint> const& spEndpoint,
-    IPeerCache const* const pBootsrapCache);
+    IBootstrapCache const* const pBootsrapCache);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -38,10 +38,10 @@ CEndpointManager::~CEndpointManager()
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::Initialize(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     IMessageSink* const pMessageSink,
     Configuration::EndpointConfigurations const& configurations,
-    IPeerCache const* const pBootstrapCache)
+    IBootstrapCache const* const pBootstrapCache)
 {
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
     for (auto const& options: configurations) {
@@ -52,13 +52,16 @@ void CEndpointManager::Initialize(
         if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
             switch (technology) {
                 case Endpoints::TechnologyType::Direct: {
-                    InitializeDirectEndpoints(identifier, options, pMessageSink, pBootstrapCache);
+                    InitializeDirectEndpoints(
+                        spBryptIdentifier, options, pMessageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::TCP: {
-                    InitializeTCPEndpoints(identifier, options, pMessageSink, pBootstrapCache);
+                    InitializeTCPEndpoints(
+                        spBryptIdentifier, options, pMessageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::StreamBridge: {
-                    InitializeStreamBridgeEndpoints(identifier, options, pMessageSink);
+                    InitializeStreamBridgeEndpoints(
+                        spBryptIdentifier, options, pMessageSink);
                 } break;
                 default: break; // No other technologies have implemented endpoints
             }
@@ -191,38 +194,45 @@ void CEndpointManager::UnpublishObserver(IPeerObserver* const observer)
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::ForwardPeerConnectionStateChange(CPeer const& peer, ConnectionState change)
+void CEndpointManager::ForwardConnectionStateChange(
+    Endpoints::TechnologyType technology,
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    ConnectionState change)
 {
-    NotifyObservers(&IPeerObserver::HandlePeerConnectionStateChange, peer, change);
+    NotifyObservers(
+        &IPeerObserver::HandleConnectionStateChange,
+        technology, wpBryptPeer, change);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::InitializeDirectEndpoints(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const pMessageSink,
-    IPeerCache const* const pBootstrapCache)
+    IBootstrapCache const* const pBootstrapCache)
 {
     auto const technology = Endpoints::TechnologyType::Direct;
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, identifier, options.GetInterface(), Endpoints::OperationType::Server, this, this, pMessageSink);
+        technology, spBryptIdentifier, options.GetInterface(),
+        Endpoints::OperationType::Server, this, this, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
-    m_endpoints.emplace(spServer->GetIdentifier(), spServer);
+    m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        technology, identifier, options.GetInterface(), Endpoints::OperationType::Client, this, this, pMessageSink);
+        technology, spBryptIdentifier, options.GetInterface(),
+        Endpoints::OperationType::Client, this, this, pMessageSink);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
     }
 
-    m_endpoints.emplace(spClient->GetIdentifier(), spClient);
+    m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
 
     m_technologies.emplace(technology);
 }
@@ -230,32 +240,32 @@ void CEndpointManager::InitializeDirectEndpoints(
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::InitializeTCPEndpoints(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const pMessageSink,
-    IPeerCache const* const pBootstrapCache)
+    IBootstrapCache const* const pBootstrapCache)
 {
     auto const technology = Endpoints::TechnologyType::TCP;
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, identifier, options.GetInterface(),
+        technology, spBryptIdentifier, options.GetInterface(),
          Endpoints::OperationType::Server, this, this, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
-    m_endpoints.emplace(spServer->GetIdentifier(), spServer);
+    m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        technology, identifier, options.GetInterface(),
+        technology, spBryptIdentifier, options.GetInterface(),
          Endpoints::OperationType::Client, this, this, pMessageSink);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
     }
 
-    m_endpoints.emplace(spClient->GetIdentifier(), spClient);
+    m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
 
     m_technologies.emplace(technology);
 }
@@ -263,19 +273,19 @@ void CEndpointManager::InitializeTCPEndpoints(
 //------------------------------------------------------------------------------------------------
 
 void CEndpointManager::InitializeStreamBridgeEndpoints(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
     IMessageSink* const pMessageSink)
 {
     auto const technology = Endpoints::TechnologyType::StreamBridge;
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, identifier, options.GetInterface(),
+        technology, spBryptIdentifier, options.GetInterface(),
          Endpoints::OperationType::Server, this, this, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
-    m_endpoints.emplace(spServer->GetIdentifier(), spServer);
+    m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
 
     m_technologies.emplace(technology);
 }
@@ -316,7 +326,7 @@ void CEndpointManager::NotifyObserversConst(FunctionType const& function, Args&&
 
 void local::ConnectBootstraps(
     std::shared_ptr<CEndpoint> const& spEndpoint,
-    IPeerCache const* const pBootstrapCache)
+    IBootstrapCache const* const pBootstrapCache)
 {
     // If the given endpoint id not able to connect to peers, don't do anything.
     if (!spEndpoint || spEndpoint->GetOperation() != Endpoints::OperationType::Client) {
@@ -329,10 +339,10 @@ void local::ConnectBootstraps(
 
     // Iterate through the provided bootstraps for the endpoint and schedule a connect
     // for each peer in the list.
-    pBootstrapCache->ForEachCachedPeer(
+    pBootstrapCache->ForEachCachedBootstrap(
         spEndpoint->GetInternalType(), 
-        [&spEndpoint] (CPeer const& bootstrap) -> CallbackIteration {
-            spEndpoint->ScheduleConnect(bootstrap.GetEntry());
+        [&spEndpoint] (std::string_view const& bootstrap) -> CallbackIteration {
+            spEndpoint->ScheduleConnect(bootstrap);
             return CallbackIteration::Continue;
         });
 }

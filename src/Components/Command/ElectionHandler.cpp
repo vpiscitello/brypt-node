@@ -22,9 +22,10 @@ Command::CElectionHandler::CElectionHandler(CBryptNode& instance)
 // Description: Election message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CElectionHandler::HandleMessage(CMessage const& message) {
+bool Command::CElectionHandler::HandleMessage(AssociatedMessage const& associatedMessage) {
     bool status = false;
 
+    auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CElectionHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Probe: {

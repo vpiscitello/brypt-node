@@ -1,11 +1,13 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Components/Await/Await.hpp"
+#include "../../Components/Await/AwaitDefinitions.hpp"
+#include "../../Components/Await/ResponseTracker.hpp"
+#include "../../Components/Await/TrackingManager.hpp"
+#include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
-#include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -25,8 +27,9 @@ namespace local {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
 
 constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
@@ -34,9 +37,9 @@ constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
 constexpr std::uint32_t Nonce = 9999;
 
-constexpr Endpoints::EndpointIdType const identifier = 1;
-constexpr Endpoints::TechnologyType const technology = Endpoints::TechnologyType::TCP;
-CMessageContext const context(identifier, technology);
+constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
+constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+CMessageContext const MessageContext(EndpointIdentifier, EndpointTechnology);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -45,339 +48,438 @@ CMessageContext const context(identifier, technology);
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, AwaitObjectSingleResponseTest)
+TEST(CResponseTrackerSuite, SingleResponseTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    Await::CMessageObject awaitObject(*optRequest, test::ServerId);
+    Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
 
-    auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::Unfulfilled);
+    auto const initialResponseStatus = tracker.CheckResponseStatus();
+    EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Unfulfilled);
 
-    auto const initialResponse = awaitObject.GetResponse();
-    EXPECT_FALSE(initialResponse);
+    bool const bInitialSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_FALSE(bInitialSendSuccess);
+    EXPECT_FALSE(optFulfilledResponse);
 
     OptionalMessage const optResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    auto const updateStatus = awaitObject.UpdateResponse(*optResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optResponse), Await::ResponseStatus::Fulfilled);
 
-    auto const optUpdateResponse = awaitObject.GetResponse();
-    ASSERT_TRUE(optUpdateResponse);
+    bool const bUpdateSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_TRUE(bUpdateSendSuccess);
 
-    EXPECT_EQ(optUpdateResponse->GetSource(), test::ServerId);
-    EXPECT_EQ(optUpdateResponse->GetDestination(), test::ClientId);
-    EXPECT_FALSE(optUpdateResponse->GetAwaitingKey());
-    EXPECT_EQ(optUpdateResponse->GetCommandType(), test::Command);
-    EXPECT_EQ(optUpdateResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(optUpdateResponse->GetNonce(), test::Nonce + 1);
+    ASSERT_TRUE(optFulfilledResponse);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
+    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, AwaitObjectMultipleResponseTest)
+TEST(CResponseTrackerSuite, MultipleResponseTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    BryptIdentifier::CContainer const peerOneId(BryptIdentifier::Generate());
-    BryptIdentifier::CContainer const peerTwoId(BryptIdentifier::Generate());
-    Await::CMessageObject awaitObject(*optRequest, { test::ServerId, peerOneId, peerTwoId });
+    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+        BryptIdentifier::Generate());
+    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+        BryptIdentifier::Generate());
 
-    auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::Unfulfilled);
+    Await::CResponseTracker tracker(
+        spClientPeer,
+        *optRequest,
+        { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
 
-    auto const initialResponse = awaitObject.GetResponse();
-    EXPECT_FALSE(initialResponse);
+    auto const initialResponseStatus = tracker.CheckResponseStatus();
+    EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Unfulfilled);
+
+    bool const bInitialSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_FALSE(bInitialSendSuccess);
+    EXPECT_FALSE(optFulfilledResponse);
 
     OptionalMessage const optServerResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
     OptionalMessage const optPeerOneResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(peerOneId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*spFirstIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
     OptionalMessage const optPeerTwoResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(peerTwoId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*spSecondIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
-    auto updateStatus = awaitObject.UpdateResponse(*optServerResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optPeerOneResponse), Await::ResponseStatus::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::ResponseStatus::Fulfilled);
 
-    updateStatus = awaitObject.UpdateResponse(*optPeerOneResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
+    bool const bUpdateSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_TRUE(bUpdateSendSuccess);
 
-    updateStatus = awaitObject.UpdateResponse(*optPeerTwoResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
-
-    auto const optUpdateResponse = awaitObject.GetResponse();
-    ASSERT_TRUE(optUpdateResponse);
-
-    EXPECT_EQ(optUpdateResponse->GetSource(), test::ServerId);
-    EXPECT_EQ(optUpdateResponse->GetDestination(), test::ClientId);
-    EXPECT_FALSE(optUpdateResponse->GetAwaitingKey());
-    EXPECT_EQ(optUpdateResponse->GetCommandType(), test::Command);
-    EXPECT_EQ(optUpdateResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(optUpdateResponse->GetNonce(), test::Nonce + 1);
+    ASSERT_TRUE(optFulfilledResponse);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
+    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, ExpiredAwaitObjectNoResponsesTest)
+TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    Await::CMessageObject awaitObject(*optRequest, test::ServerId);
+    Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
 
-    std::this_thread::sleep_for(Await::Timeout);
+    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod);
 
-    auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::Fulfilled);
+    auto const initialResponseStatus = tracker.CheckResponseStatus();
+    EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Fulfilled);
 
-    auto const response = awaitObject.GetResponse();
-    ASSERT_TRUE(response);
+    bool const bInitialSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_TRUE(bInitialSendSuccess);
 
-    EXPECT_EQ(response->GetSource(), test::ServerId);
-    EXPECT_EQ(response->GetDestination(), test::ClientId);
-    EXPECT_FALSE(response->GetAwaitingKey());
-    EXPECT_EQ(response->GetCommandType(), test::Command);
-    EXPECT_EQ(response->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(response->GetNonce(), test::Nonce + 1);
-    EXPECT_GT(response->GetData().size(), std::uint32_t(0));
+    ASSERT_TRUE(optFulfilledResponse);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
+    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
+    EXPECT_GT(optFulfilledResponse->GetData().size(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, ExpiredAwaitObjectSomeResponsesTest)
+TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    BryptIdentifier::CContainer const peerOneId(BryptIdentifier::Generate());
-    BryptIdentifier::CContainer const peerTwoId(BryptIdentifier::Generate());
-    Await::CMessageObject awaitObject(*optRequest, { test::ServerId, peerOneId, peerTwoId });
+    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+        BryptIdentifier::Generate());
+    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+        BryptIdentifier::Generate());
 
-    auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::Unfulfilled);
+    Await::CResponseTracker tracker(
+        spClientPeer,
+        *optRequest,
+        { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
 
-    auto const initialResponse = awaitObject.GetResponse();
-    EXPECT_FALSE(initialResponse);
+    auto const initialResponseStatus = tracker.CheckResponseStatus();
+    EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Unfulfilled);
+
+    bool const bInitialSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_FALSE(bInitialSendSuccess);
+    EXPECT_FALSE(optFulfilledResponse);
 
     OptionalMessage const optServerResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
     OptionalMessage const optPeerTwoResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(peerTwoId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*spSecondIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
-    auto updateStatus = awaitObject.UpdateResponse(*optServerResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::ResponseStatus::Unfulfilled);
 
-    updateStatus = awaitObject.UpdateResponse(*optPeerTwoResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
+    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod);
 
-    std::this_thread::sleep_for(Await::Timeout);
+    bool const bUpdateSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_TRUE(bUpdateSendSuccess);
 
-    updateStatus = awaitObject.GetStatus();
-    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
-
-    auto const response = awaitObject.GetResponse();
-    ASSERT_TRUE(response);
-
-    EXPECT_EQ(response->GetSource(), test::ServerId);
-    EXPECT_EQ(response->GetDestination(), test::ClientId);
-    EXPECT_FALSE(response->GetAwaitingKey());
-    EXPECT_EQ(response->GetCommandType(), test::Command);
-    EXPECT_EQ(response->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(response->GetNonce(), test::Nonce + 1);
-    EXPECT_GT(response->GetData().size(), std::uint32_t(0));
+    ASSERT_TRUE(optFulfilledResponse);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
+    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
+    EXPECT_GT(optFulfilledResponse->GetData().size(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, ExpiredAwaitObjectLateResponsesTest)
+TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
-    
-    Await::CMessageObject awaitObject(*optRequest, test::ServerId);
 
-    std::this_thread::sleep_for(Await::Timeout);
+    Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
+    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod);
 
-    auto const initialStatus = awaitObject.GetStatus();
-    EXPECT_EQ(initialStatus, Await::Status::Fulfilled);
+    auto const initialResponseStatus = tracker.CheckResponseStatus();
+    EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Fulfilled);
+    EXPECT_EQ(tracker.GetResponseCount(), std::uint32_t(0));
 
-    auto const initialResponse = awaitObject.GetResponse();
-    ASSERT_TRUE(initialResponse);
-
-    std::uint32_t const initialResponseSize = initialResponse->GetData().size();
+    bool const bInitialSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_TRUE(bInitialSendSuccess);
+    EXPECT_TRUE(optFulfilledResponse);
 
     OptionalMessage const optLateResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    auto const updateStatus = awaitObject.UpdateResponse(*optLateResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Fulfilled);
-
-    auto const optUpdateResponse = awaitObject.GetResponse();
-    ASSERT_TRUE(optUpdateResponse);
-
-    std::uint32_t const updateResponseSize = optUpdateResponse->GetData().size();
-
-    EXPECT_EQ(initialResponseSize, updateResponseSize);
+    EXPECT_EQ(tracker.UpdateResponse(*optLateResponse), Await::ResponseStatus::Completed);
+    EXPECT_EQ(tracker.GetResponseCount(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, AwaitObjectUnexpectedResponsesTest)
+TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    Await::CMessageObject awaitObject(*optRequest, test::ServerId);
+    Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
 
     OptionalMessage const optUnexpectedResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
+        .SetMessageContext(test::MessageContext)
         .SetSource(0x12345678)
-        .SetDestination(test::ClientId)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    auto const updateStatus = awaitObject.UpdateResponse(*optUnexpectedResponse);
-    EXPECT_EQ(updateStatus, Await::Status::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optUnexpectedResponse), Await::ResponseStatus::Unfulfilled);
+    EXPECT_EQ(tracker.GetResponseCount(), std::uint32_t(0));
 
-    auto const optUpdateResponse = awaitObject.GetResponse();
-    EXPECT_FALSE(optUpdateResponse);
+    auto const bUpdateSendSuccess = tracker.SendFulfilledResponse();
+    EXPECT_FALSE(bUpdateSendSuccess);
+    EXPECT_FALSE(optFulfilledResponse);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(AwaitSuite, FulfilledAwaitTest)
+TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
 {
+    std::optional<CMessage> optFulfilledResponse = {};
+    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    spClientPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier,
+        test::EndpointTechnology,
+        [&optFulfilledResponse] (CMessage const& message) -> bool
+        {
+            CMessage::ValidationStatus status = message.Validate();
+            if (status != CMessage::ValidationStatus::Success) {
+                return false;
+            }
+            optFulfilledResponse = message;
+            return true;
+        });
+
     OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
-    BryptIdentifier::CContainer const peerOneId(BryptIdentifier::Generate());
-    BryptIdentifier::CContainer const peerTwoId(BryptIdentifier::Generate());
+    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+        BryptIdentifier::Generate());
+    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+        BryptIdentifier::Generate());
 
-    Await::CObjectContainer awaiting;
-    auto const key = awaiting.PushRequest(*optRequest, {test::ServerId, peerOneId, peerTwoId});
-    ASSERT_GT(key, std::uint32_t(0));
+    Await::CTrackingManager manager;
+    auto const key = manager.PushRequest(
+        spClientPeer,
+        *optRequest,
+        { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
+    EXPECT_GT(key, std::uint32_t(0));
 
     OptionalMessage const optResponse = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ServerId)
-        .SetDestination(test::ClientId)
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*test::spServerIdentifier)
+        .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .BindAwaitingKey(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
 
-    OptionalMessage const optResponseA = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(peerOneId)
-        .SetDestination(test::ServerId)
+    OptionalMessage const optFirstResponse = CMessage::Builder()
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*spFirstIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .BindAwaitingKey(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
 
-    OptionalMessage const optResponseB = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(peerTwoId)
-        .SetDestination(test::ServerId)
+    OptionalMessage const optSecondResponse = CMessage::Builder()
+        .SetMessageContext(test::MessageContext)
+        .SetSource(*spSecondIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
         .SetData(test::Message, test::Nonce)
         .BindAwaitingKey(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
     
-    bool result = false;
-    result = awaiting.PushResponse(*optResponse);
-    EXPECT_TRUE(result);
+    EXPECT_TRUE(manager.PushResponse(*optResponse));
+    EXPECT_TRUE(manager.PushResponse(*optFirstResponse));
+    EXPECT_TRUE(manager.PushResponse(*optSecondResponse));
 
-    result = awaiting.PushResponse(*optResponseA);
-    EXPECT_TRUE(result);
-
-    result = awaiting.PushResponse(*optResponseB);
-    EXPECT_TRUE(result);
-
-    auto const fulfilled = awaiting.GetFulfilled();
-    EXPECT_GT(fulfilled.size(), std::uint32_t(0));
-
-    for (auto const& message: fulfilled) {
-        auto const optDecrypted = message.GetDecryptedData();
-        ASSERT_TRUE(optDecrypted);
-    }
+    manager.ProcessFulfilledRequests();
+    EXPECT_TRUE(optFulfilledResponse);
 }
 
 //------------------------------------------------------------------------------------------------

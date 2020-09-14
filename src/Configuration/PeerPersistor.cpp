@@ -2,7 +2,6 @@
 // File: ConfigurationManager.cpp 
 // Description:
 //-----------------------------------------------------------------------------------------------
-#include "Configuration.hpp"
 #include "PeerPersistor.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../BryptIdentifier/ReservedIdentifiers.hpp"
@@ -21,21 +20,19 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-struct TPeerEntry;
+struct TBootstrapEntry;
 struct TEndpointEntry;
-struct TKnownPeersEntry;
 
-using PeerEntriesVector = std::vector<TPeerEntry>;
+using BootstrapVector = std::vector<TBootstrapEntry>;
 using EndpointEntriesVector = std::vector<TEndpointEntry>;
-
 
 void ParseDefaultBootstraps(
     Configuration::EndpointConfigurations const& configurations, 
-    CPeerPersistor::DefaultBootstrapEntryMap& defaults);
-void FillDefaultBootstrap(PeerEntriesVector& entries, std::string_view entry);
+    CPeerPersistor::DefaultBootstrapMap& defaults);
+void FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target);
 
 void WriteEndpointPeers(
-    CPeerPersistor::SharedEndpointPeersMap const& endpoints,
+    CPeerPersistor::UniqueEndpointBootstrapMap const& endpoints,
     std::ofstream& out);
 
 //------------------------------------------------------------------------------------------------
@@ -54,114 +51,69 @@ constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the peers files to 12KB
 //------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding. 
 //------------------------------------------------------------------------------------------------
-IOD_SYMBOL(endpoints)
-// "endpoints": [
+// [
 //  {
 //     "technology": String,
-//     "peers": [
-//      {
-//         "id": Number
-//         "entry": String,
-//         "location": String
-//     },
+//     "bootstraps": [
+//         "target": String,
 //     ...
 //     ],
-// },
+//  }
 // ...,
 // ]
 
-IOD_SYMBOL(entry)
+IOD_SYMBOL(bootstraps)
+IOD_SYMBOL(target)
 IOD_SYMBOL(technology)
-IOD_SYMBOL(id)
-IOD_SYMBOL(location)
-IOD_SYMBOL(peers)
 
 //------------------------------------------------------------------------------------------------
 
-struct local::TPeerEntry
+struct local::TBootstrapEntry
 {
-    TPeerEntry()
-        : id()
-        , entry()
-        , location()
+    TBootstrapEntry()
+        : target()
+    {
+    }
+    TBootstrapEntry(std::string_view target)
+        : target(target)
     {
     }
 
-    TPeerEntry(
-        std::string_view id,
-        std::string_view entry,
-        std::string_view location)
-        : id(id)
-        , entry(entry)
-        , location(location)
-    {
-    }
-
-    bool IsValid() const
-    {
-        if (!ReservedIdentifiers::IsIdentifierAllowed(id)) {
-            return false;
-        }
-
-        if (entry.empty()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    BryptIdentifier::NetworkType id;
-    std::string entry;
-    std::optional<std::string> location;
+    std::string target;
 };
 
-//-----------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------
 
 struct local::TEndpointEntry
-{    
+{
     TEndpointEntry()
         : technology()
-        , peers()
+        , bootstraps()
     {
     }
 
     TEndpointEntry(
         std::string_view technology,
-        std::vector<TPeerEntry> const& peers)
+        BootstrapVector const& bootstraps)
         : technology(technology)
-        , peers(peers)
+        , bootstraps(bootstraps)
     {
     }
 
     std::string technology;
-    std::vector<TPeerEntry> peers;
-};
-
-//-----------------------------------------------------------------------------------------------
-
-struct local::TKnownPeersEntry
-{
-    TKnownPeersEntry()
-        : endpoints()
-    {
-    }
-
-    TKnownPeersEntry(std::vector<TEndpointEntry> const& endpoints)
-        : endpoints(endpoints)
-    {
-    }
-
-    EndpointEntriesVector endpoints;
+    BootstrapVector bootstraps;
 };
 
 //-----------------------------------------------------------------------------------------------
 
 CPeerPersistor::CPeerPersistor()
     : m_mediator(nullptr)
-    , m_filepath()
     , m_fileMutex()
-    , m_endpointsMutex()
-    , m_spEndpoints()
+    , m_filepath()
+    , m_endpointBootstrapsMutex()
+    , m_upEndpointBootstraps()
+    , m_bryptIdentifiersMutex()
+    , m_upBryptIdentifiers(std::make_unique<BryptIdentifierSet>())
     , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
@@ -172,10 +124,12 @@ CPeerPersistor::CPeerPersistor()
 
 CPeerPersistor::CPeerPersistor(std::string_view filepath)
     : m_mediator(nullptr)
-    , m_filepath(filepath)
     , m_fileMutex()
-    , m_endpointsMutex()
-    , m_spEndpoints()
+    , m_filepath(filepath)
+    , m_endpointBootstrapsMutex()
+    , m_upEndpointBootstraps()
+    , m_bryptIdentifiersMutex()
+    , m_upBryptIdentifiers(std::make_unique<BryptIdentifierSet>())
     , m_defaults()
 {
     // If the filepath does not have a filename, attach the default config.json
@@ -195,10 +149,12 @@ CPeerPersistor::CPeerPersistor(std::string_view filepath)
 
 CPeerPersistor::CPeerPersistor(Configuration::EndpointConfigurations const& configurations)
     : m_mediator(nullptr)
-    , m_filepath()
     , m_fileMutex()
-    , m_endpointsMutex()
-    , m_spEndpoints()
+    , m_filepath()
+    , m_endpointBootstrapsMutex()
+    , m_upEndpointBootstraps()
+    , m_bryptIdentifiersMutex()
+    , m_upBryptIdentifiers(std::make_unique<BryptIdentifierSet>())
     , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
@@ -213,10 +169,12 @@ CPeerPersistor::CPeerPersistor(
     std::string_view filepath,
     Configuration::EndpointConfigurations const& configurations)
     : m_mediator(nullptr)
-    , m_filepath(filepath)
     , m_fileMutex()
-    , m_endpointsMutex()
-    , m_spEndpoints()
+    , m_filepath(filepath)
+    , m_endpointBootstrapsMutex()
+    , m_upEndpointBootstraps()
+    , m_bryptIdentifiersMutex()
+    , m_upBryptIdentifiers(std::make_unique<BryptIdentifierSet>())
     , m_defaults()
 {
     // If the filepath does not have a filename, attach the default config.json
@@ -256,7 +214,7 @@ void CPeerPersistor::SetMediator(IPeerMediator* const mediator)
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::FetchPeers()
+bool CPeerPersistor::FetchBootstraps()
 {
     Configuration::StatusCode status = Configuration::StatusCode::DecodeError;
     if (std::filesystem::exists(m_filepath)) {
@@ -268,7 +226,7 @@ bool CPeerPersistor::FetchPeers()
         status = SetupPeersFile();
     }
 
-    if (!m_spEndpoints || status != Configuration::StatusCode::Success) {
+    if (!m_upEndpointBootstraps || status != Configuration::StatusCode::Success) {
         NodeUtils::printo(
             "Failed to decode peers file at: " + m_filepath.string(),
             NodeUtils::PrintType::Node);
@@ -284,7 +242,7 @@ Configuration::StatusCode CPeerPersistor::Serialize()
 {
     std::scoped_lock lock(m_fileMutex);
     
-    if (!m_spEndpoints) {
+    if (!m_upEndpointBootstraps) {
         return Configuration::StatusCode::InputError;
     }
 
@@ -297,11 +255,7 @@ Configuration::StatusCode CPeerPersistor::Serialize()
         return Configuration::StatusCode::FileError;
     }
 
-    out << "{\n";
-
-    local::WriteEndpointPeers(m_spEndpoints, out);
-
-    out << "}" << std::flush;
+    local::WriteEndpointPeers(m_upEndpointBootstraps, out);
 
     out.close();
 
@@ -332,76 +286,61 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
     // Remove newlines and tabs from the string
     json.erase(std::remove_if(json.begin(), json.end(), &FileUtils::IsNewlineOrTab), json.end());
 
-    local::TKnownPeersEntry knownPeersEntry;
+    local::EndpointEntriesVector endpoints;
 
     // Decode the JSON string into the configuration struct
-    iod::json_object(
-        s::endpoints = iod::json_vector(
-            s::technology,
-            s::peers = iod::json_vector(
-                s::id,
-                s::entry,
-                s::location = std::optional<std::string>()
-            ))
-        ).decode(json, knownPeersEntry);
+    iod::json_vector(
+        s::technology,
+        s::bootstraps = iod::json_vector(s::target)).decode(json, endpoints);
 
-    auto& endpointEntries = knownPeersEntry.endpoints;
-    auto spEndpoints = std::make_shared<EndpointPeersMap>();
-    spEndpoints->reserve(endpointEntries.size());
+    auto upEndpointBootstraps = std::make_unique<EndpointBootstrapMap>();
+    upEndpointBootstraps->reserve(endpoints.size());
 
     std::for_each(
-        endpointEntries.begin(), endpointEntries.end(),
-        [&] (local::TEndpointEntry& endpointEntry)
+        endpoints.begin(), endpoints.end(),
+        [&] (local::TEndpointEntry& endpoint)
         {
             // Parse the technology name from the entry, if it is not a valid name continue to 
             // the next endpoint entry.
-            auto const technologyType = Endpoints::ParseTechnologyType(endpointEntry.technology);
-            if (technologyType == Endpoints::TechnologyType::Invalid) {
+            auto const technology = Endpoints::ParseTechnologyType(endpoint.technology);
+            if (technology == Endpoints::TechnologyType::Invalid) {
                 return;
             }
 
-            auto& peerEntries = endpointEntry.peers;
-            auto const spPeers = std::make_shared<PeersMap>();
-            spPeers->reserve(peerEntries.size() * 2);
+            auto upBootstraps = std::make_unique<BootstrapSet>();
 
-            if (peerEntries.empty()) {
-                if (auto const itr = m_defaults.find(technologyType); itr != m_defaults.end()) {
+            auto& bootstraps = endpoint.bootstraps;
+            upBootstraps->reserve(bootstraps.size());
+
+            if (bootstraps.empty()) {
+                if (auto const itr = m_defaults.find(technology); itr != m_defaults.end()) {
                     auto const& [key, defaultBootstrap] = *itr;
-                    local::FillDefaultBootstrap(peerEntries, defaultBootstrap);
+                    local::FillDefaultBootstrap(bootstraps, defaultBootstrap);
                 }
             }
 
             // Insert any valid peers into the endpoint map
             std::for_each(
-                peerEntries.begin(), peerEntries.end(),
-                [&technologyType, &spPeers] (local::TPeerEntry const& peerEntry)
+                bootstraps.begin(), bootstraps.end(),
+                [&technology, &upBootstraps] (local::TBootstrapEntry const& bootstrap)
                 {
-                    if (!peerEntry.IsValid()) {
+                    if (bootstrap.target.empty()) {
                         return;
                     }
 
-                    std::string const location = (peerEntry.location) ? *peerEntry.location : "";
-
-                    spPeers->try_emplace(
-                        // Peer Key
-                        peerEntry.entry,
-                        // Peer Constructor Arguements
-                        peerEntry.id, 
-                        technologyType,
-                        peerEntry.entry,
-                        location);
+                    upBootstraps->emplace(bootstrap.target);
                 }
             );
             
-            spEndpoints->emplace(technologyType, spPeers);
+            upEndpointBootstraps->emplace(technology, std::move(upBootstraps));
         }
     );
 
-    if (spEndpoints->empty()) {
+    if (upEndpointBootstraps->empty()) {
         return Configuration::StatusCode::DecodeError;
     }
 
-    m_spEndpoints = spEndpoints;
+    m_upEndpointBootstraps = std::move(upEndpointBootstraps);
     return Configuration::StatusCode::Success;
 }
 
@@ -413,12 +352,12 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
 //-----------------------------------------------------------------------------------------------
 Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
 {
-    if (!m_spEndpoints) {
+    if (!m_upEndpointBootstraps) {
         return Configuration::StatusCode::DecodeError;
     }
 
-    for (auto const& [endpoint, spPeers] : *m_spEndpoints) {
-        if (spPeers->empty()) {
+    for (auto const& [endpoint, upBootstraps] : *m_upEndpointBootstraps) {
+        if (upBootstraps->empty()) {
             auto const technology = Endpoints::TechnologyTypeToString(endpoint);
             NodeUtils::printo(
                 "Warning: " + technology + " has no attached bootstrap peers!",
@@ -441,24 +380,16 @@ Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
 //-----------------------------------------------------------------------------------------------
 Configuration::StatusCode CPeerPersistor::SetupPeersFile()
 {
-    if (!m_spEndpoints) {
-        m_spEndpoints = std::make_shared<EndpointPeersMap>();
+    if (!m_upEndpointBootstraps) {
+        m_upEndpointBootstraps = std::make_unique<EndpointBootstrapMap>();
     }
 
-    BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::Unknown);
-
-    for (auto const& [technology, entry] : m_defaults) {
-        auto spPeers = std::make_shared<PeersMap>();
-        if (!entry.empty()) {
-            spPeers->try_emplace(
-                // Peer Key
-                entry,
-                // Peer Constructor Arguements
-                identifier,
-                technology,
-                entry);
+    for (auto const& [technology, bootstrap] : m_defaults) {
+        auto upBootstraps = std::make_unique<BootstrapSet>();
+        if (!bootstrap.empty()) {
+            upBootstraps->emplace(bootstrap);
         }
-        m_spEndpoints->emplace(technology, spPeers);
+        m_upEndpointBootstraps->emplace(technology, std::move(upBootstraps));
     }
 
     Configuration::StatusCode const status = Serialize();
@@ -471,29 +402,34 @@ Configuration::StatusCode CPeerPersistor::SetupPeersFile()
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::AddPeerEntry(CPeer const& peer)
+void CPeerPersistor::AddBootstrapEntry(
+    Endpoints::TechnologyType technology,
+    std::shared_ptr<CBryptPeer> const& spBryptPeer)
 {
     // Get the entry from the peer, if there is no entry there is nothing to store. 
-    auto const entry = peer.GetEntry();
-    if (entry.empty()) {
+    if (auto const optBootstrap = spBryptPeer->GetRegisteredEntry(technology); optBootstrap) {
+        AddBootstrapEntry(technology, *optBootstrap);
+    }
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void CPeerPersistor::AddBootstrapEntry(
+    Endpoints::TechnologyType technology,
+    std::string_view bootstrap)
+{
+    if (bootstrap.empty()) {
         return;
     }
 
     {
-        std::scoped_lock lock(m_endpointsMutex);
+        std::scoped_lock lock(m_endpointBootstrapsMutex);
         // Since we always want ensure the peer can be tracked, we use emplace to either
         // insert a new entry for the technolgoy type or get the existing entry.
-        auto const [endpointIterator, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
-        if (endpointIterator != m_spEndpoints->end()) {
-            auto const& [key, spPeers] = *endpointIterator;
-            if (spPeers) {
-                auto const [peersIterator, emplaced] = spPeers->try_emplace(entry, peer);
-                // If the peer already existed in the map, update the node ID and location. 
-                if (!emplaced) {
-                    auto& [entry, storedPeer] = *peersIterator;
-                    storedPeer.SetIdentifier(peer.GetIdentifier());
-                    storedPeer.SetLocation(peer.GetLocation());
-                }
+        if (auto const [itr, emplaced] = m_upEndpointBootstraps->try_emplace(technology); itr != m_upEndpointBootstraps->end()) {
+            auto const& [key, upBootstraps] = *itr;
+            if (upBootstraps) {
+                upBootstraps->emplace(bootstrap);
             }
         }
 
@@ -504,21 +440,33 @@ void CPeerPersistor::AddPeerEntry(CPeer const& peer)
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::DeletePeerEntry(CPeer const& peer)
+void CPeerPersistor::DeleteBootstrapEntry(
+    Endpoints::TechnologyType technology,
+    std::shared_ptr<CBryptPeer> const& spBryptPeer)
 {
-    // Get the entry from the peer, if there is no entry there is nothing to do. 
-    auto const entry = peer.GetEntry();
-    if (entry.empty()) {
+    // Get the entry from the peer, if there is no entry there is nothing to delete. 
+    if (auto const optBootstrap = spBryptPeer->GetRegisteredEntry(technology); optBootstrap) {
+        DeleteBootstrapEntry(technology, *optBootstrap);
+    }
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void CPeerPersistor::DeleteBootstrapEntry(
+    Endpoints::TechnologyType technology,
+    std::string_view bootstrap)
+{
+    if (bootstrap.empty()) {
         return;
     }
-    
+
     {
-        std::scoped_lock lock(m_endpointsMutex);
+        std::scoped_lock lock(m_endpointBootstrapsMutex);
         // Since we always want ensure the peer can be tracked, we use emplace to either
         // insert a new entry for the technolgoy type or get the existing entry.
-        auto const [itr, emplaced] = m_spEndpoints->try_emplace(peer.GetTechnologyType());
-        if (itr != m_spEndpoints->end()) {
-            itr->second->erase(peer.GetEntry()); // Remove the provided peer
+        if (auto const [itr, emplaced] = m_upEndpointBootstraps->try_emplace(technology); itr != m_upEndpointBootstraps->end()) {
+            auto const& [key, upBootstraps] = *itr;
+            upBootstraps->erase(bootstrap.data());
         }
 
         // Write the updated peers to the file
@@ -528,43 +476,55 @@ void CPeerPersistor::DeletePeerEntry(CPeer const& peer)
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const
+void CPeerPersistor::AddBryptIdentifier(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    if (!m_spEndpoints) {
-        return false;
-    }
-
-    for (auto const& [technology, spPeersMap]: *m_spEndpoints) {
-        if (readFunction(technology) != CallbackIteration::Continue) {
-            return false;
+    // If this is the first time endpoint that has registered a connection with this peer
+    // then we need to track the peer identifier, otherwise it is assumed that the peer
+    // has already been tracked. 
+    if (auto const count = spBryptPeer->RegisteredEndpointCount(); count == 1) {
+        std::scoped_lock lock(m_bryptIdentifiersMutex);
+        auto const spBryptIdentifier = spBryptPeer->GetBryptIdentifier();
+        if (spBryptIdentifier && spBryptIdentifier->IsValid()) {
+            m_upBryptIdentifiers->emplace(spBryptIdentifier);
         }
     }
-
-    return true;  
 }
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::ForEachCachedPeer(
-    AllEndpointPeersReadFunction const& readFunction,
-    AllEndpointPeersErrorFunction const& errorFunction) const
+void CPeerPersistor::DeleteBryptIdentifier(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    if (!m_spEndpoints) {
+    // If this is the last connection notifying a disconnect from the peer then it is assumed 
+    // the peer has been completed severed from this node. 
+    if (auto const count = spBryptPeer->RegisteredEndpointCount(); count <= 1) {
+        std::scoped_lock lock(m_bryptIdentifiersMutex);
+        if (auto const spBryptIdentifier = spBryptPeer->GetBryptIdentifier(); spBryptIdentifier) {
+            m_upBryptIdentifiers->erase(spBryptIdentifier);
+        }
+    }
+}
+
+//-----------------------------------------------------------------------------------------------
+
+bool CPeerPersistor::ForEachCachedBootstrap(
+    AllEndpointBootstrapReadFunction const& readFunction,
+    AllEndpointBootstrapErrorFunction const& errorFunction) const
+{
+    std::scoped_lock lock(m_endpointBootstrapsMutex);
+    if (!m_upEndpointBootstraps) {
         return false;
     }
 
-    for (auto const& [technology, spPeersMap]: *m_spEndpoints) {
-        if (!spPeersMap) {
+    for (auto const& [technology, upBootstraps]: *m_upEndpointBootstraps) {
+        if (!upBootstraps) {
             // Notify the caller that there are no listed peers for an endpoint of a given technology
             errorFunction(technology);
             continue;
         }
 
         CallbackIteration result;
-        for (auto const& [id, peer]: *spPeersMap) {
-            result = readFunction(technology, peer);
+        for (auto const& bootstrap: *upBootstraps) {
+            result = readFunction(technology, bootstrap);
             if (result != CallbackIteration::Continue) {
                 break;
             }
@@ -579,23 +539,23 @@ bool CPeerPersistor::ForEachCachedPeer(
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::ForEachCachedPeer(
+bool CPeerPersistor::ForEachCachedBootstrap(
     Endpoints::TechnologyType technology,
-    OneEndpointPeersReadFunction const& readFunction) const
+    OneEndpointBootstrapReadFunction const& readFunction) const
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    if (!m_spEndpoints) {
+    std::scoped_lock lock(m_endpointBootstrapsMutex);
+    if (!m_upEndpointBootstraps) {
         return false;
     }
 
-    auto const itr = m_spEndpoints->find(technology);
-    if (itr == m_spEndpoints->end()) {
+    auto const itr = m_upEndpointBootstraps->find(technology);
+    if (itr == m_upEndpointBootstraps->end()) {
         return false;
     }   
 
-    auto const& [key, spPeersMap] = *itr;
-    for (auto const& [id, peer]: *spPeersMap) {
-        auto const result = readFunction(peer);
+    auto const& [key, upBootstraps] = *itr;
+    for (auto const& bootstrap: *upBootstraps) {
+        auto const result = readFunction(bootstrap);
         if (result != CallbackIteration::Continue) {
             break;
         }
@@ -606,28 +566,17 @@ bool CPeerPersistor::ForEachCachedPeer(
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerPersistor::CachedEndpointsCount() const
+std::uint32_t CPeerPersistor::CachedBootstrapCount() const
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    if (m_spEndpoints) {
-        return m_spEndpoints->size();
-    }
-    return 0;
-}
-
-//-----------------------------------------------------------------------------------------------
-
-std::uint32_t CPeerPersistor::CachedPeersCount() const
-{
-    std::scoped_lock lock(m_endpointsMutex);
-    if (!m_spEndpoints) {
+    std::scoped_lock lock(m_endpointBootstrapsMutex);
+    if (!m_upEndpointBootstraps) {
         return 0;
     }
 
     std::uint32_t count = 0;
-    for (auto const& [technology, spPeersMap]: *m_spEndpoints) {
-        if (spPeersMap) {
-            count += spPeersMap->size();
+    for (auto const& [technology, upBootstraps]: *m_upEndpointBootstraps) {
+        if (upBootstraps) {
+            count += upBootstraps->size();
         }
     }
 
@@ -636,17 +585,17 @@ std::uint32_t CPeerPersistor::CachedPeersCount() const
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerPersistor::CachedPeersCount(Endpoints::TechnologyType technology) const
+std::uint32_t CPeerPersistor::CachedBootstrapCount(Endpoints::TechnologyType technology) const
 {
-    std::scoped_lock lock(m_endpointsMutex);
-    if (!m_spEndpoints) {
+    std::scoped_lock lock(m_endpointBootstrapsMutex);
+    if (!m_upEndpointBootstraps) {
         return 0;
     }
 
-    if (auto const itr = m_spEndpoints->find(technology); itr != m_spEndpoints->end()) {
-        auto const& [technology, spPeersMap] = *itr;
-        if (spPeersMap) {
-            return spPeersMap->size();
+    if (auto const itr = m_upEndpointBootstraps->find(technology); itr != m_upEndpointBootstraps->end()) {
+        auto const& [technology, upBootstraps] = *itr;
+        if (upBootstraps) {
+            return upBootstraps->size();
         }
     }   
     return 0;
@@ -654,29 +603,56 @@ std::uint32_t CPeerPersistor::CachedPeersCount(Endpoints::TechnologyType technol
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::HandlePeerConnectionStateChange(
-    CPeer const& peer,
+bool CPeerPersistor::ForEachCachedIdentifier(IdentifierReadFunction const& readFunction) const
+{
+    std::scoped_lock lock(m_endpointBootstrapsMutex);
+    if (!m_upBryptIdentifiers) {
+        return false;
+    }
+
+    for (auto const& spBryptIdentifier: *m_upBryptIdentifiers) {
+        auto const result = readFunction(spBryptIdentifier);
+        if (result != CallbackIteration::Continue) {
+            break;
+        }
+    }
+
+    return true;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+std::uint32_t CPeerPersistor::ActivePeerCount() const
+{
+    std::scoped_lock lock(m_bryptIdentifiersMutex);
+    return m_upBryptIdentifiers->size();
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void CPeerPersistor::HandleConnectionStateChange(
+    Endpoints::TechnologyType technology,
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     ConnectionState change)
 {
     // If the persistor peers have not yet been intialized, simply return
-    if (!m_spEndpoints) {
+    if (!m_upEndpointBootstraps) {
         return; 
     }
 
-    // If the peer has no entry there is nothing to store
-    if (auto const entry = peer.GetEntry(); entry.empty()) {
-        return;
-    }
-
-    switch (change) {
-        case ConnectionState::Connected: {
-            AddPeerEntry(peer); 
-        } break;
-        case ConnectionState::Disconnected:
-        case ConnectionState::Flagged: {
-            DeletePeerEntry(peer);
-        } break;
-        default: return; // Currently, we don't adjust the peers for any other changes.
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        switch (change) {
+            case ConnectionState::Connected: {
+                AddBryptIdentifier(spBryptPeer);
+                AddBootstrapEntry(technology, spBryptPeer);
+            } break;
+            case ConnectionState::Disconnected:
+            case ConnectionState::Flagged: {
+                DeleteBryptIdentifier(spBryptPeer);
+                DeleteBootstrapEntry(technology, spBryptPeer);
+            } break;
+            default: return; // Currently, we don't adjust the peers for any other changes.
+        }
     }
 }
 
@@ -684,7 +660,7 @@ void CPeerPersistor::HandlePeerConnectionStateChange(
 
 void local::ParseDefaultBootstraps(
     Configuration::EndpointConfigurations const& configurations, 
-    CPeerPersistor::DefaultBootstrapEntryMap& defaults)
+    CPeerPersistor::DefaultBootstrapMap& defaults)
 {
     for (auto const& options: configurations) {
         if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {
@@ -695,65 +671,54 @@ void local::ParseDefaultBootstraps(
 
 //-----------------------------------------------------------------------------------------------
 
-void local::FillDefaultBootstrap(PeerEntriesVector& entries, std::string_view entry)
+void local::FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target)
 {
-    if (entry.empty()) {
+    if (target.empty()) {
         return;
     }
 
-    TPeerEntry bootstrap;
-    bootstrap.entry = entry;
-
-    entries.emplace_back(bootstrap);
+    bootstraps.emplace_back(target);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 void local::WriteEndpointPeers(
-    CPeerPersistor::SharedEndpointPeersMap const& spEndpoints,
+    CPeerPersistor::UniqueEndpointBootstrapMap const& upEndpointBootstraps,
     std::ofstream& out)
 {
     // If the provided endpoint peers are empty, ther is nothing to do
-    if (!spEndpoints) {
+    if (!upEndpointBootstraps) {
         return;
     }
 
     std::uint32_t endpointsWritten = 0;
-    std::uint32_t const endpointSize = spEndpoints->size();
-    out << "\t\"endpoints\": [\n";
-    for (auto const& [technology, spPeers]: *spEndpoints) {
+    std::uint32_t const endpointSize = upEndpointBootstraps->size();
+    out << "[\n";
+    for (auto const& [technology, upBootstraps]: *upEndpointBootstraps) {
         if (technology == Endpoints::TechnologyType::Invalid){
             continue;
         }
         
-        out << "\t\t{\n";
-        out << "\t\t\t\"technology\": \"" << Endpoints::TechnologyTypeToString(technology) << "\",\n";
-        out << "\t\t\t\"peers\": [\n";
+        out << "\t{\n";
+        out << "\t\t\"technology\": \"" << Endpoints::TechnologyTypeToString(technology) << "\",\n";
+        out << "\t\t\"bootstraps\": [\n";
 
         std::uint32_t peersWritten = 0;
-        std::uint32_t const peersSize = spPeers->size();
-        for (auto const& [id, peer]: *spPeers) {
-            out << "\t\t\t\t{\n";
-            out << "\t\t\t\t\t\"id\": \"" << peer.GetIdentifier() << "\",\n";
-            out << "\t\t\t\t\t\"entry\": \"" << peer.GetEntry();
-            if (auto const location = peer.GetLocation(); !location.empty()) {
-                out << "\",\n\t\t\t\"location\": \"" << location << "\"\n";
-            } else {
-                out << "\"\n";
-            }
-            out << "\t\t\t\t}";
+        std::uint32_t const peersSize = upBootstraps->size();
+        for (auto const& bootstrap: *upBootstraps) {
+            out << "\t\t\t{ \"target\": \"" << bootstrap << "\" }";
             if (++peersWritten != peersSize) {
                 out << ",\n";
             }
         }
 
-        out << "\n\t\t\t]\n";
-        out << "\t\t}";
+        out << "\n\t\t]\n";
+        out << "\t}";
         if (++endpointsWritten != endpointSize) {
             out << ",\n";
         }
     }
-    out << "\n\t]\n";
+    out << "\n]\n";
 }
 
 //-----------------------------------------------------------------------------------------------

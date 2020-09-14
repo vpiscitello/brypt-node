@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #include "QueryHandler.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Await/Await.hpp"
+#include "../Await/TrackingManager.hpp"
 #include "../Endpoints/Endpoint.hpp"
-#include "../MessageQueue/MessageQueue.hpp"
+#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
@@ -76,20 +76,21 @@ Command::CQueryHandler::CQueryHandler(CBryptNode& instance)
 // Description: Information message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::HandleMessage(CMessage const& message)
+bool Command::CQueryHandler::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
 
+    auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CQueryHandler::Phase>(message.GetPhase());
     switch (phase) {
         case CQueryHandler::Phase::Flood: {
-            status = FloodHandler(message);
+            status = FloodHandler(wpBryptPeer, message);
         } break;
         case CQueryHandler::Phase::Respond: {
-            status = RespondHandler(message);
+            status = RespondHandler(wpBryptPeer, message);
         } break;
         case CQueryHandler::Phase::Aggregate: {
-            status = AggregateHandler(message);
+            status = AggregateHandler(wpBryptPeer, message);
         } break;
         case CQueryHandler::Phase::Close: {
             status = CloseHandler();
@@ -106,12 +107,12 @@ bool Command::CQueryHandler::HandleMessage(CMessage const& message)
 // Description: Handles the flood phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::FloodHandler(CMessage const& message)
+bool Command::CQueryHandler::FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message)
 {
     printo("Sending notification for Query request", NodeUtils::PrintType::Command);
 
     IHandler::SendClusterNotice(
-        message,
+        wpBryptPeer, message,
         "Request for Sensor Readings.",
         static_cast<std::uint8_t>(Phase::Respond),
         static_cast<std::uint8_t>(Phase::Aggregate),
@@ -126,10 +127,13 @@ bool Command::CQueryHandler::FloodHandler(CMessage const& message)
 // Description: Handles the respond phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::RespondHandler(CMessage const& message)
+bool Command::CQueryHandler::RespondHandler(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CMessage const& message)
 {
     printo("Building response for Query request", NodeUtils::PrintType::Command);
-    IHandler::SendResponse(message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
+    IHandler::SendResponse(
+        wpBryptPeer, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
     return true;
 }
 
@@ -139,14 +143,17 @@ bool Command::CQueryHandler::RespondHandler(CMessage const& message)
 // Description: Handles the aggregate phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::AggregateHandler(CMessage const& message)
+bool Command::CQueryHandler::AggregateHandler(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CMessage const& message)
 {
-    printo("Pushing response to AwaitObject", NodeUtils::PrintType::Command);
-    if (auto const awaiting = m_instance.GetAwaiting().lock()) {
-        awaiting->PushResponse(message);
+    printo("Pushing response to ResponseTracker", NodeUtils::PrintType::Command);
+    if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {
+        spAwaitManager->PushResponse(message);
     }
 
-    IHandler::SendResponse(message, "Response Acknowledged.", static_cast<std::uint8_t>(Phase::Close));
+    IHandler::SendResponse(
+        wpBryptPeer, message, "Response Acknowledged.", static_cast<std::uint8_t>(Phase::Close));
     return true;
 }
 

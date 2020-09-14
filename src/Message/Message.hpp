@@ -6,10 +6,11 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageContext.hpp"
 #include "MessageSecurity.hpp"
-#include "MessageTypes.hpp"
+#include "MessageDefinitions.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Utilities/NodeUtils.hpp"
 #include "../Utilities/TimeUtils.hpp"
+#include "../Components/Await/AwaitDefinitions.hpp"
 #include "../Components/Command/CommandDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <optional>
@@ -36,7 +37,7 @@ public:
 	CMessageContext const& GetMessageContext() const;
 	BryptIdentifier::CContainer const& GetSource() const;
 	BryptIdentifier::CContainer const& GetDestination() const;
-	std::optional<NodeUtils::ObjectIdType> GetAwaitingKey() const;
+	std::optional<Await::TrackerKey> GetAwaitingKey() const;
 	Command::Type GetCommandType() const;
 	std::uint32_t GetPhase() const;
 	Message::Buffer const& GetData() const;

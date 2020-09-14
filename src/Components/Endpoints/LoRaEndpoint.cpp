@@ -21,20 +21,16 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CLoRaEndpoint::CLoRaEndpoint(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        identifier, interface, operation, pEndpointMediator,
+        spBryptIdentifier, interface, operation, pEndpointMediator,
         pPeerMediator, pMessageSink, TechnologyType::LoRa)
 {
-    if (m_pMessageSink) {
-        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_pMessageSink->RegisterCallback(m_identifier, callback);
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -156,9 +152,6 @@ bool Endpoints::CLoRaEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[LoRa] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_pMessageSink) {
-        m_pMessageSink->UnpublishCallback(m_identifier);
-    }
 
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set

@@ -190,7 +190,7 @@ BryptIdentifier::CContainer::CContainer(BufferType const& buffer, BufferContentT
             auto const pData = reinterpret_cast<char const*>(buffer.data());
             SetupFromNetworkRepresentation({pData, buffer.size()});
         } break;
-        default: assert(true); break;
+        default: assert(false); break;
     }
 }
 
@@ -289,6 +289,19 @@ std::stringstream& BryptIdentifier::operator<<(
     BryptIdentifier::CContainer const& identifier)
 {
     stream << identifier.m_networkRepresentation;
+    return stream;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::stringstream& BryptIdentifier::operator<<(
+    std::stringstream& stream,
+    BryptIdentifier::SharedContainer const& spIdentifier)
+{
+    if (!spIdentifier) {
+        return stream;
+    }
+    stream << spIdentifier->m_networkRepresentation;
     return stream;
 }
 

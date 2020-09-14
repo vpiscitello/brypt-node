@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <sstream>
@@ -35,6 +36,9 @@ constexpr std::uint8_t const ChecksumSize = 4;
 constexpr std::uint8_t const MaxNetworkSize = 36;
 
 class CContainer;
+using SharedContainer = std::shared_ptr<CContainer>;
+using WeakContainer = std::weak_ptr<CContainer>;
+
 struct Hasher;
 
 std::string Generate();
@@ -50,6 +54,9 @@ std::ostream& operator<<(
         
 std::stringstream& operator<<(
     std::stringstream& stream, BryptIdentifier::CContainer const& identifier);
+
+std::stringstream& operator<<(
+    std::stringstream& stream, BryptIdentifier::SharedContainer const& spIdentifier);
 
 //------------------------------------------------------------------------------------------------
 } // BryptIdentifier namespace
@@ -77,6 +84,9 @@ public:
     friend std::stringstream& operator<<(
         std::stringstream& stream,
         CContainer const& identifier);
+    friend std::stringstream& operator<<(
+        std::stringstream& stream,
+        SharedContainer const& spIdentifier);
 
     InternalType GetInternalRepresentation() const;
     NetworkType GetNetworkRepresentation() const;
@@ -97,7 +107,8 @@ private:
 //------------------------------------------------------------------------------------------------
 
 struct BryptIdentifier::Hasher  {
-    std::size_t operator()(CContainer const& identifier) const {
+    std::size_t operator()(CContainer const& identifier) const
+    {
         return std::hash<InternalType>()(identifier.GetInternalRepresentation());
     }
 };

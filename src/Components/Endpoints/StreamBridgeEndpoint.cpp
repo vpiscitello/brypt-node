@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #include "StreamBridgeEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "Peer.hpp"
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
+#include "../BryptPeer/BryptPeer.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
@@ -29,28 +29,23 @@ void ShutdownSocket(zmq::socket_t& socket);
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        identifier, interface, operation, pEndpointMediator,
+        spBryptIdentifier, interface, operation, pEndpointMediator,
         pPeerMediator, pMessageSink, TechnologyType::StreamBridge)
     , m_address()
     , m_port()
-    , m_peers()
+    , m_tracker()
     , m_eventsMutex()
     , m_events()
 {
     if (m_operation != OperationType::Server) {
         throw std::runtime_error("StreamBridge endpoint may only operate in server mode.");
-    }
-    
-    if (m_pMessageSink) {
-        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_pMessageSink->RegisterCallback(m_identifier, callback);
     }
 }
 
@@ -199,7 +194,7 @@ bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(
         return false;
     }
 
-    auto const optIdentity = m_peers.Translate(identifier);
+    auto const optIdentity = m_tracker.Translate(identifier);
     if (!optIdentity) {
         return false;
     }
@@ -226,9 +221,6 @@ bool Endpoints::CStreamBridgeEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[StreamBridge] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_pMessageSink) {
-        m_pMessageSink->UnpublishCallback(m_identifier);
-    }
 
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
@@ -445,17 +437,19 @@ Endpoints::CStreamBridgeEndpoint::OptionalReceiveResult Endpoints::CStreamBridge
         return {};
     }
     assert(*optIdenitityBytes == 5); // We should expect the idenity received to be exactly five bytes
-    Endpoints::CStreamBridgeEndpoint::ZeroMQIdentity const identity(static_cast<char*>(message.data()), *optIdenitityBytes);
+    Endpoints::CStreamBridgeEndpoint::ZeroMQIdentity const identity(
+        static_cast<char*>(message.data()), *optIdenitityBytes);
 
-    // The second message from the socket should be either an zero length message (indicating a connect or disconnect)
-    // or an actual message. We should block this receive to ensure we get the data associated with the identiy.
+    // The second message from the socket should be either an zero length message (indicating a 
+    // connect or disconnect) or an actual message. We should block this receive to ensure we get 
+    // the data associated with the identiy.
     auto const optDataBytes = socket.recv(message, zmq::recv_flags::none);
     if (!optDataBytes) {
         return {};
     }
 
-    // If the bytes received contains zero, we have received peer state change and should signal the processing
-    // code to update basesharedd on known information.
+    // If the bytes received contains zero, we have received peer state change and should signal the 
+    // processing code to update basesharedd on known information.
     if (*optDataBytes == 0) {
         return {{ identity, ConnectionStateChange::Update }};
     }
@@ -464,7 +458,7 @@ Endpoints::CStreamBridgeEndpoint::OptionalReceiveResult Endpoints::CStreamBridge
     // the current request is allowed, however, a check must be made to ensure the peer is 
     // adhering to the request/reply structure. 
     bool bMessageAllowed = true;
-    [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
+    [[maybe_unused]] bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(identity,
         [&bMessageAllowed](auto& details) {
             // TODO: A generic message filtering service should be used to ensure all connection interfaces
             // use the same message allowance scheme. 
@@ -511,25 +505,34 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
 
     // Update the information about the node as it pertains to received data. The node may not be found 
     // if this is its first connection.
-    m_peers.UpdateOnePeer(identity,
-        [] (auto& details) {
+    std::shared_ptr<CBryptPeer> spBryptPeer = {};
+    m_tracker.UpdateOneConnection(identity,
+        [&spBryptPeer] (auto& details) {
+            spBryptPeer = details.GetBryptPeer();
             details.IncrementMessageSequence();
         },
-        [this, &optRequest] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
-            optDetails = ExtendedPeerDetails(optRequest->GetSource());
+        [this, &spBryptPeer, &optRequest] (std::string_view uri) -> ExtendedConnectionDetails
+        {
+            auto scheduler = [this] (CMessage const& message) -> bool
+                {
+                    return ScheduleSend(message);
+                };
+            spBryptPeer = std::make_shared<CBryptPeer>(optRequest->GetSource());
+            spBryptPeer->RegisterEndpointConnection(m_identifier, m_technology, scheduler, uri);
+            
+            ExtendedConnectionDetails details(spBryptPeer);
+            details.SetConnectionState(ConnectionState::Connected);
+            details.SetMessagingPhase(MessagingPhase::Response);
+            details.IncrementMessageSequence();
 
-            optDetails->SetConnectionState(ConnectionState::Connected);
-            optDetails->SetMessagingPhase(MessagingPhase::Response);
-            optDetails->IncrementMessageSequence();
+            CEndpoint::PublishPeerConnection(spBryptPeer);
 
-            CEndpoint::PublishPeerConnection({optRequest->GetSource(), InternalType, uri});
-
-            return PeerResolutionCommand::Promote;
+            return details;
         }
     );
 
     if (m_pMessageSink) {
-        m_pMessageSink->ForwardMessage(*optRequest);
+        m_pMessageSink->CollectMessage(spBryptPeer, *optRequest);
     }
 }
 
@@ -569,7 +572,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
         // Determine if the message being sent is allowed given the current state of communications
         // with the peer. Brypt networking structure dictates that each request is coupled with a response.
         MessagingPhase phase = MessagingPhase::Response;
-        m_peers.ReadOnePeer(identity,
+        m_tracker.ReadOneConnection(identity,
             [&phase] (auto const& details) {
                 phase = details.GetMessagingPhase();
             }
@@ -586,7 +589,7 @@ void Endpoints::CStreamBridgeEndpoint::ProcessOutgoingMessages(zmq::socket_t& so
         // If the message was sent, update relevant peer tracking details
         // Otherwise, schedule another send attempt if possible
         if (bytesSent > 0) {
-            m_peers.UpdateOnePeer(identity,
+            m_tracker.UpdateOneConnection(identity,
                 [] (auto& details) {
                     details.IncrementMessageSequence();
                     details.SetMessagingPhase(MessagingPhase::Request);
@@ -646,19 +649,20 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
     ZeroMQIdentity const& identity,
     [[maybe_unused]] ConnectionStateChange change)
 {
-    bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
+    bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(identity,
         [&] (auto& details)
         {
+            auto const spBryptPeer = details.GetBryptPeer();
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
+                    CEndpoint::UnpublishPeerConnection(spBryptPeer);
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::PublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
+                    CEndpoint::PublishPeerConnection(spBryptPeer);
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint
@@ -667,8 +671,8 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
         }
     );
 
-    if (!bPeerDetailsFound) {
-        m_peers.TrackConnection(identity);
+    if (!bConnectionDetailsFound) {
+        m_tracker.TrackConnection(identity);
     }
 }
 

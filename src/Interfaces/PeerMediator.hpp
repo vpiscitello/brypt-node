@@ -4,10 +4,13 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Components/Endpoints/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
+#include <memory>
+//------------------------------------------------------------------------------------------------
 
-class CPeer;
+class CBryptPeer;
 class IPeerObserver;
 
 //------------------------------------------------------------------------------------------------
@@ -20,7 +23,10 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
-    virtual void ForwardPeerConnectionStateChange(CPeer const& peer, ConnectionState change) = 0;
+    virtual void ForwardConnectionStateChange(
+        Endpoints::TechnologyType technology,
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        ConnectionState change) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

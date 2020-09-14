@@ -1,12 +1,12 @@
 //------------------------------------------------------------------------------------------------
-// File: TcpConnection.cpp
+// File: TcpEndpoint.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "TcpEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "Peer.hpp"
 #include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
+#include "../BryptPeer/BryptPeer.hpp"
 #include "../Command/CommandDefinitions.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
@@ -30,25 +30,21 @@ constexpr std::uint8_t DisabledOption = 0;
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CTcpEndpoint::CTcpEndpoint(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        identifier, interface, operation, pEndpointMediator,
+        spBryptIdentifier, interface, operation, pEndpointMediator,
         pPeerMediator, pMessageSink, TechnologyType::TCP)
     , m_address()
     , m_port(0)
-    , m_peers()
+    , m_tracker()
     , m_eventsMutex()
     , m_events()
 {
-    if (m_pMessageSink) {
-        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_pMessageSink->RegisterCallback(m_identifier, callback);
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -215,7 +211,7 @@ bool  Endpoints::CTcpEndpoint::ScheduleSend(
     }
 
     // Get the socket descriptor of the intended destination. If it is not found, drop the message.
-    auto const optDescriptor = m_peers.Translate(identifier);
+    auto const optDescriptor = m_tracker.Translate(identifier);
     if (!optDescriptor) {
         return false;
     }
@@ -242,10 +238,7 @@ bool Endpoints::CTcpEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_pMessageSink) {
-        m_pMessageSink->UnpublishCallback(m_identifier);
-    }
-     
+      
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
     
@@ -253,7 +246,7 @@ bool Endpoints::CTcpEndpoint::Shutdown()
         m_worker.join();
     }
 
-    m_peers.ReadEachPeer(
+    m_tracker.ReadEachConnection(
         [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
         {
             ::close(descriptor); // Close the connection descriptor
@@ -261,7 +254,7 @@ bool Endpoints::CTcpEndpoint::Shutdown()
         }
     );
 
-    m_peers.Clear();
+    m_tracker.Clear();
     
     return !m_worker.joinable();
 }
@@ -315,7 +308,7 @@ bool Endpoints::CTcpEndpoint::SetupServerWorker()
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ServerWorker()
 {
-    SocketDescriptor listenDescriptor = Tcp::InvalidDescriptor;
+    SocketDescriptor listener = Tcp::InvalidDescriptor;
     
     // Notify the calling thread that the connection worker is ready
     m_active = true;
@@ -323,8 +316,8 @@ void Endpoints::CTcpEndpoint::ServerWorker()
 
     // Start the endpoint's event loop 
     while(m_active) {
-        ProcessNetworkInstructions(&listenDescriptor); // Process any endpoint instructions at the front if the event queue
-        AcceptConnection(listenDescriptor);
+        ProcessNetworkInstructions(&listener); // Process any endpoint instructions at the front if the event queue
+        AcceptConnection(listener);
         ProcessIncomingMessages(); // Process any messages on the socket to be handled this cycle 
         ProcessOutgoingMessages(); // Send messages from the outgoing message queue
         
@@ -340,7 +333,7 @@ void Endpoints::CTcpEndpoint::ServerWorker()
         }
     }
 
-    ::close(listenDescriptor);  // Close the server thread's local listen socket
+    ::close(listener);  // Close the server thread's local listen socket
 }
 
 //------------------------------------------------------------------------------------------------
@@ -429,29 +422,29 @@ bool Endpoints::CTcpEndpoint::Listen(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::AcceptConnection(SocketDescriptor listenDescriptor)
+void Endpoints::CTcpEndpoint::AcceptConnection(SocketDescriptor listener)
 {
     // Create a static socket address, so we don't need to create it everytime we check the socket 
     static IPv4SocketAddress address = {}; // Zero initialize the socket address
     socklen_t size = SocketAddressSize;
 
     // Accept a connection that may be queued on the socket
-    SocketDescriptor connectionDescriptor = ::accept(
-        listenDescriptor,
+    SocketDescriptor connection = ::accept(
+        listener,
         reinterpret_cast<sockaddr*>(&address),
         &size);
 
     // If an invalid descriptor has been returned by accept then return
-    if (connectionDescriptor < 0) {
+    if (connection < 0) {
         return;
     }
 
     // Make the accepted socket non-blocking
-    if (::fcntl(connectionDescriptor, F_SETFL, ::fcntl(connectionDescriptor, F_GETFL) | O_NONBLOCK) < 0) {
+    if (::fcntl(connection, F_SETFL, ::fcntl(connection, F_GETFL) | O_NONBLOCK) < 0) {
         return;
     }
     
-    m_peers.TrackConnection(connectionDescriptor);
+    m_tracker.TrackConnection(connection);
 
     std::memset(&address, 0, SocketAddressSize); // Reset the data contained in the socket address
 }
@@ -530,11 +523,12 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
         return ConnectStatusCode::GenericError;
     }
 
-    if (auto const status = EstablishConnection(descriptor, socketAddress); status != ConnectStatusCode::Success) {
+    if (auto const status = EstablishConnection(descriptor, socketAddress);
+        status != ConnectStatusCode::Success) {
         return status;
     }
 
-    m_peers.TrackConnection(descriptor, uri);  // Start tracking the descriptor for communication
+    m_tracker.TrackConnection(descriptor, uri);  // Start tracking the descriptor for communication
 
     return ConnectStatusCode::Success;
 }
@@ -565,7 +559,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::IsURIAllowed
 
     // If the URI matches a currently connected or resolving peer. The connection
     // should not be allowed as it break a valid connection. 
-    if (bool const bWouldBreakConnection = m_peers.IsURITracked(uri); bWouldBreakConnection) {
+    if (bool const bWouldBreakConnection = m_tracker.IsURITracked(uri); bWouldBreakConnection) {
         return ConnectStatusCode::DuplicateError;
     }
 
@@ -589,7 +583,8 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishCon
             error = std::string(result, strlen(result));
         } 
 
-        NodeUtils::printo("[TCP] Connection to peer failed. Error: " + error, NodeUtils::PrintType::Endpoint);
+        NodeUtils::printo(
+            "[TCP] Connection to peer failed. Error: " + error, NodeUtils::PrintType::Endpoint);
 
         if (++attempts > Endpoints::ConnectRetryThreshold) {
             return ConnectStatusCode::RetryError;
@@ -607,7 +602,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishCon
 
     auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
     auto const result = PeerBootstrap::SendContactMessage(
-        m_pEndpointMediator, m_identifier, m_technology, m_bryptID, sender);
+        m_pEndpointMediator, m_identifier, m_technology, m_spBryptIdentifier, sender);
     if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
         return ConnectStatusCode::GenericError;
     }
@@ -647,14 +642,16 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
                 // Set the provided listen descriptor to the new listening socket
                 bool const success = Listen(listener, address, port, socketAddress);
                 if (!success) {
-                    std::string const notification = "[TCP] Binding to " + address + ":" + std::to_string(port) + " failed.";
+                    std::string const notification = "[TCP] Binding to " + address + ":"\
+                         + std::to_string(port) + " failed.";
                     NodeUtils::printo(notification, NodeUtils::PrintType::Endpoint);
                 }
             } break;
             case NetworkInstruction::Connect: {
                 auto const status = Connect(address, port, socketAddress);
                 if (status == ConnectStatusCode::GenericError) {
-                    std::string const notification = "[TCP] Connection to " + address + ":" + std::to_string(port) + " failed.";
+                    std::string const notification = "[TCP] Connection to " + address + ":"\
+                         + std::to_string(port) + " failed.";
                     NodeUtils::printo(notification, NodeUtils::PrintType::Endpoint);
                 }
             } break;
@@ -670,7 +667,7 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ProcessIncomingMessages()
 {
-    m_peers.ForEachConnection(
+    m_tracker.ForEachConnection(
         [&](SocketDescriptor const& descriptor) -> CallbackIteration
         {
             OptionalReceiveResult optResult = Receive(descriptor);
@@ -724,7 +721,7 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
                 }
                 
                 bool bMessageAllowed = true;
-                [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
+                [[maybe_unused]] bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(descriptor,
                     [&bMessageAllowed](auto& details) {
                         // TODO: A generic message filtering service should be used to ensure all connection interfaces
                         // use the same message allowance scheme. 
@@ -761,7 +758,10 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
 void Endpoints::CTcpEndpoint::HandleReceivedData(
     SocketDescriptor descriptor, Message::Buffer const& message)
 {
-    NodeUtils::printo("[TCP] Received message: " + std::string(message.begin(), message.end()), NodeUtils::PrintType::Endpoint);
+    NodeUtils::printo(
+        "[TCP] Received message: " + std::string(message.begin(), message.end()),
+        NodeUtils::PrintType::Endpoint);
+
     OptionalMessage const optRequest = CMessage::Builder()
         .SetMessageContext({ m_identifier, m_technology })
         .FromPack(message)
@@ -771,28 +771,38 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
         return;
     }
 
-    // Update the information about the node as it pertains to received data. The node may not be found 
-    // if this is its first connection.
-    m_peers.UpdateOnePeer(descriptor,
-        [] (auto& details) {
+    // Update the information about the node as it pertains to received data. The node may not be
+    // found if this is its first connection.
+    std::shared_ptr<CBryptPeer> spBryptPeer = {};
+    m_tracker.UpdateOneConnection(descriptor,
+        [&spBryptPeer] (auto& details) {
+            spBryptPeer = details.GetBryptPeer();
             details.IncrementMessageSequence();
         },
-        [this, &optRequest] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
-            optDetails = ExtendedPeerDetails(optRequest->GetSource());
+        [this, &spBryptPeer, &optRequest] (std::string_view uri) -> ExtendedConnectionDetails
+        {
+            auto scheduler = [this] (CMessage const& message) -> bool
+                {
+                    return ScheduleSend(message);
+                };
 
-            optDetails->SetConnectionState(ConnectionState::Connected);
-            optDetails->SetMessagingPhase(MessagingPhase::Response);
-            optDetails->IncrementMessageSequence();
+            spBryptPeer = std::make_shared<CBryptPeer>(optRequest->GetSource());
+            spBryptPeer->RegisterEndpointConnection(m_identifier, m_technology, scheduler, uri);
 
-            CEndpoint::PublishPeerConnection({optRequest->GetSource(), InternalType, uri});
+            ExtendedConnectionDetails details(spBryptPeer);
+            details.SetConnectionState(ConnectionState::Connected);
+            details.SetMessagingPhase(MessagingPhase::Response);
+            details.IncrementMessageSequence();
 
-            return PeerResolutionCommand::Promote;
+            CEndpoint::PublishPeerConnection(spBryptPeer);
+
+            return details;
         }
     );
 
     if (m_pMessageSink) {
-        m_pMessageSink->ForwardMessage(*optRequest);
-    }
+        m_pMessageSink->CollectMessage(spBryptPeer, *optRequest);
+    } 
 }
 
 //------------------------------------------------------------------------------------------------
@@ -831,8 +841,8 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
         // Determine if the message being sent is allowed given the current state of communications
         // with the peer. Brypt networking structure dictates that each request is coupled with a response.
         MessagingPhase phase = MessagingPhase::Response;
-        m_peers.UpdateOnePeer(descriptor,
-            [&phase] (auto& details) {
+        m_tracker.ReadOneConnection(descriptor,
+            [&phase] (auto const& details) {
                 phase = details.GetMessagingPhase();
             }
         );
@@ -853,7 +863,7 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
                     // If the message was sent, update relevant peer tracking details
                     // Otherwise, schedule another send attempt if possible
                     if (sent != 0) {
-                        m_peers.UpdateOnePeer(descriptor,
+                        m_tracker.UpdateOneConnection(descriptor,
                             [] (auto& details) {
                                 details.IncrementMessageSequence();
                                 details.SetMessagingPhase(MessagingPhase::Request);
@@ -920,14 +930,14 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
     SocketDescriptor descriptor,
     ConnectionStateChange change)
 {
-    [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(descriptor,
+    [[maybe_unused]] bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(descriptor,
         [&] (auto& details)
         {
-            CPeer const peer(details.GetIdentifier(), InternalType, details.GetURI());
+            auto const spBryptPeer = details.GetBryptPeer();
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection(peer);
+                    CEndpoint::UnpublishPeerConnection(spBryptPeer);
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;
@@ -937,7 +947,7 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
 
     switch (change) {
         case ConnectionStateChange::Disconnect: {
-            m_peers.UntrackConnection(descriptor);
+            m_tracker.UntrackConnection(descriptor);
         } break;
         // Other ConnectionStateChanges are not currently handled for this endpoint
         default: assert(false); break;

@@ -2,9 +2,9 @@
 #include "NodeState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState(BryptIdentifier::CContainer const& identifier)
+CNodeState::CNodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
     : m_mutex()
-    , m_identifier(identifier)
+    , m_spBryptIdentifier(spBryptIdentifier)
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
     , m_technologies()
@@ -14,10 +14,10 @@ CNodeState::CNodeState(BryptIdentifier::CContainer const& identifier)
 //------------------------------------------------------------------------------------------------
 
 CNodeState::CNodeState(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Endpoints::TechnologySet const& technologies)
     : m_mutex()
-    , m_identifier(identifier)
+    , m_spBryptIdentifier(spBryptIdentifier)
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
     , m_technologies(technologies)
@@ -26,10 +26,10 @@ CNodeState::CNodeState(
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer CNodeState::GetIdentifier() const
+BryptIdentifier::SharedContainer CNodeState::GetBryptIdentifier() const
 {
     std::shared_lock lock(m_mutex);
-    return m_identifier;
+    return m_spBryptIdentifier;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -50,10 +50,10 @@ NodeUtils::DeviceOperation CNodeState::GetOperation() const
 
 //------------------------------------------------------------------------------------------------
 
-void CNodeState::SetIdentifier(BryptIdentifier::CContainer const& identifier)
+void CNodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 {
     std::unique_lock lock(m_mutex);
-    m_identifier = identifier;
+    m_spBryptIdentifier = spBryptIdentifier;
 }
 
 //------------------------------------------------------------------------------------------------

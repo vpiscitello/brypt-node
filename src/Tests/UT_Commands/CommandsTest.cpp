@@ -4,7 +4,7 @@
 #include "../../Components/Command/Handler.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageQueue/MessageQueue.hpp"
+#include "../../Components/MessageControl/MessageCollector.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/ConfigurationManager.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
@@ -37,8 +37,9 @@ namespace test {
 Configuration::TEndpointOptions CreateEndpointOptions();
 std::unique_ptr<Configuration::CManager> CreateConfigurationManager();
 
-BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
 
 constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
@@ -70,14 +71,14 @@ TEST(CommandSuite, CommandMatchingTest)
     // The node itself will set up internal commands that can operate on it's
     // internal state, but in order to setup our own we need to provide the 
     // commands a node instance and a state.
-    CBryptNode node(test::ServerId, nullptr, nullptr, nullptr, upConfigurationManager);
+    CBryptNode node(test::spServerIdentifier, nullptr, nullptr, nullptr, upConfigurationManager);
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
     OptionalMessage const optConnectRequest = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Connect, test::BasePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
@@ -90,8 +91,8 @@ TEST(CommandSuite, CommandMatchingTest)
 
     OptionalMessage const optElectionRequest = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Election, test::BasePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
@@ -104,8 +105,8 @@ TEST(CommandSuite, CommandMatchingTest)
 
     OptionalMessage const optInformationRequest = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Information, test::BasePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
@@ -118,8 +119,8 @@ TEST(CommandSuite, CommandMatchingTest)
 
     OptionalMessage const optQueryRequest = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Query, test::BasePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
@@ -132,8 +133,8 @@ TEST(CommandSuite, CommandMatchingTest)
 
     OptionalMessage const optTransformRequest = CMessage::Builder()
         .SetMessageContext(test::context)
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Transform, test::BasePhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();

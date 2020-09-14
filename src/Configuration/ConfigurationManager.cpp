@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <boost/algorithm/string.hpp>
 //-----------------------------------------------------------------------------------------------
@@ -310,17 +311,18 @@ std::optional<Configuration::TSettings> Configuration::CManager::GetSettings() c
 
 //-----------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> Configuration::CManager::GetBryptIdentifier() const
+BryptIdentifier::SharedContainer Configuration::CManager::GetBryptIdentifier() const
 {
     if (!m_validated) {
         return {};
     }
 
-    if (!m_settings.identifier.container.IsValid()) {
+    auto& spBryptIdentifier = m_settings.identifier.container;
+    if (!spBryptIdentifier || !spBryptIdentifier->IsValid()) {
         return {};
     }
 
-    return m_settings.identifier.container;
+    return spBryptIdentifier;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -750,24 +752,30 @@ void local::InitializeIdentifierOptions(Configuration::TIdentifierOptions& optio
     // Would should never hit this function before the the options have been validated.
     if (options.type == "Ephemeral") {
         // Generate a new Brypt Identifier and store the network representation as the value.
-        options.container = BryptIdentifier::CContainer(BryptIdentifier::Generate());
-        options.value = options.container.GetNetworkRepresentation();
+        options.container = std::make_shared<BryptIdentifier::CContainer>(
+            BryptIdentifier::Generate());
+        assert(options.container);
+        options.value = options.container->GetNetworkRepresentation();
     } else if (options.type == "Persistent") {
         // If an identifier value has been parsed, attempt to use the provided value as
         // the identifier. We need to check the validity of the identifier to ensure the
         // value was properly formatted. 
         // Otherwise, a new Brypt Identifier must be be generated. 
         if (options.value) {
-            options.container = BryptIdentifier::CContainer(*options.value);
-            if (!options.container.IsValid()) {
+            options.container = std::make_shared<BryptIdentifier::CContainer>(
+                *options.value);
+            assert(options.container);
+            if (!options.container->IsValid()) {
                 options.value.reset();
             }
         } else {
-            options.container = BryptIdentifier::CContainer(BryptIdentifier::Generate());
-            options.value = options.container.GetNetworkRepresentation();  
+            options.container = std::make_shared<BryptIdentifier::CContainer>(
+                BryptIdentifier::Generate());
+            assert(options.container);
+            options.value = options.container->GetNetworkRepresentation();  
         }
     } else {
-        assert(true); // How did these identifier options pass validation?
+        assert(false); // How did these identifier options pass validation?
     }
 }
 

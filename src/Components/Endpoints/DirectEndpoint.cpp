@@ -4,10 +4,10 @@
 //------------------------------------------------------------------------------------------------
 #include "DirectEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "Peer.hpp"
 #include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
+#include "../BryptPeer/BryptPeer.hpp"
 #include "../Command/CommandDefinitions.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
@@ -31,25 +31,21 @@ void ShutdownSocket(zmq::socket_t& socket);
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CDirectEndpoint::CDirectEndpoint(
-    BryptIdentifier::CContainer const& identifier,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
     : CEndpoint(
-        identifier, interface, operation, pEndpointMediator,
+        spBryptIdentifier, interface, operation, pEndpointMediator,
         pPeerMediator, pMessageSink, TechnologyType::Direct)
     , m_address()
     , m_port(0)
-    , m_peers()
+    , m_tracker()
     , m_eventsMutex()
     , m_events()
 {
-    if (m_pMessageSink) {
-        auto callback = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };  
-        m_pMessageSink->RegisterCallback(m_identifier, callback);
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -213,7 +209,7 @@ bool Endpoints::CDirectEndpoint::ScheduleSend(
         return false;
     }
 
-    auto const optIdentity = m_peers.Translate(identifier);
+    auto const optIdentity = m_tracker.Translate(identifier);
     if (!optIdentity) {
         return false;
     }
@@ -240,9 +236,6 @@ bool Endpoints::CDirectEndpoint::Shutdown()
     }
 
     NodeUtils::printo("[Direct] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    if (m_pMessageSink) {
-        m_pMessageSink->UnpublishCallback(m_identifier);
-    }
     
     m_terminate = true; // Stop the worker thread from processing the connections
     m_cv.notify_all(); // Notify the worker that exit conditions have been set
@@ -251,7 +244,7 @@ bool Endpoints::CDirectEndpoint::Shutdown()
         m_worker.join();
     }
 
-    m_peers.Clear();
+    m_tracker.Clear();
     
     return !m_worker.joinable();
 }
@@ -472,11 +465,11 @@ Endpoints::CDirectEndpoint::ConnectStatusCode Endpoints::CDirectEndpoint::Connec
         return ConnectStatusCode::GenericError;
     }
 
-    m_peers.TrackConnection(identity, uri);
+    m_tracker.TrackConnection(identity, uri);
 
     auto sender = std::bind(&CDirectEndpoint::Send, this, std::ref(socket), identity, std::placeholders::_1);
     std::uint32_t sent = PeerBootstrap::SendContactMessage(
-        m_pEndpointMediator, m_identifier, m_technology, m_bryptID, sender);
+        m_pEndpointMediator, m_identifier, m_technology, m_spBryptIdentifier, sender);
     if (sent <= 0) {
         return ConnectStatusCode::GenericError;
     }
@@ -510,7 +503,7 @@ Endpoints::CDirectEndpoint::ConnectStatusCode Endpoints::CDirectEndpoint::IsURIA
 
     // If the URI matches a currently connected or resolving peer. The connection
     // should not be allowed as it break a valid connection. 
-    if (bool const bWouldBreakConnection = m_peers.IsURITracked(uri); bWouldBreakConnection) {
+    if (bool const bWouldBreakConnection = m_tracker.IsURITracked(uri); bWouldBreakConnection) {
         return ConnectStatusCode::DuplicateError;
     }
 
@@ -628,7 +621,7 @@ Endpoints::CDirectEndpoint::OptionalReceiveResult Endpoints::CDirectEndpoint::Re
     // the current request is allowed, however, a check must be made to ensure the peer is 
     // adhering to the request/reply structure. 
     bool bMessageAllowed = true;
-    [[maybe_unused]] bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
+    [[maybe_unused]] bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(identity,
         [&bMessageAllowed](auto& details) {
             // TODO: A generic message filtering service should be used to ensure all connection interfaces
             // use the same message allowance scheme. 
@@ -675,25 +668,34 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
 
     // Update the information about the node as it pertains to received data. The node may not be found 
     // if this is its first connection.
-    m_peers.UpdateOnePeer(identity,
-        [] (auto& details) {
+    std::shared_ptr<CBryptPeer> spBryptPeer = {};
+    m_tracker.UpdateOneConnection(identity,
+        [&spBryptPeer] (auto& details) {
+            spBryptPeer = details.GetBryptPeer();
             details.IncrementMessageSequence();
         },
-        [this, &optRequest] (std::string_view uri, auto& optDetails) -> PeerResolutionCommand {
-            optDetails = ExtendedPeerDetails(optRequest->GetSource());
+        [this, &spBryptPeer, &optRequest] (std::string_view uri) -> ExtendedConnectionDetails
+        {
+            auto scheduler = [this] (CMessage const& message) -> bool
+                {
+                    return ScheduleSend(message);
+                };
+            spBryptPeer = std::make_shared<CBryptPeer>(optRequest->GetSource());
+            spBryptPeer->RegisterEndpointConnection(m_identifier, m_technology, scheduler, uri);
 
-            optDetails->SetConnectionState(ConnectionState::Connected);
-            optDetails->SetMessagingPhase(MessagingPhase::Response);
-            optDetails->IncrementMessageSequence();
+            ExtendedConnectionDetails details(spBryptPeer);
+            details.SetConnectionState(ConnectionState::Connected);
+            details.SetMessagingPhase(MessagingPhase::Response);
+            details.IncrementMessageSequence();
 
-            CEndpoint::PublishPeerConnection({optRequest->GetSource(), InternalType, uri});
+            CEndpoint::PublishPeerConnection(spBryptPeer);
 
-            return PeerResolutionCommand::Promote;
+            return details;
         }
     );
 
     if (m_pMessageSink) {
-        m_pMessageSink->ForwardMessage(*optRequest);
+        m_pMessageSink->CollectMessage(spBryptPeer, *optRequest);
     }
 }
 
@@ -732,7 +734,7 @@ void Endpoints::CDirectEndpoint::ProcessOutgoingMessages(zmq::socket_t& socket)
         // Determine if the message being sent is allowed given the current state of communications
         // with the peer. Brypt networking structure dictates that each request is coupled with a response.
         MessagingPhase phase = MessagingPhase::Response;
-        m_peers.ReadOnePeer(identity,
+        m_tracker.ReadOneConnection(identity,
             [&phase] (auto const& details) {
                 phase = details.GetMessagingPhase();
             }
@@ -749,7 +751,7 @@ void Endpoints::CDirectEndpoint::ProcessOutgoingMessages(zmq::socket_t& socket)
         // If the message was sent, update relevant peer tracking details
         // Otherwise, schedule another send attempt if possible
         if (bytesSent > 0) {
-            m_peers.UpdateOnePeer(identity,
+            m_tracker.UpdateOneConnection(identity,
                 [] (auto& details) {
                     details.IncrementMessageSequence();
                     details.SetMessagingPhase(MessagingPhase::Request);
@@ -809,19 +811,20 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
     ZeroMQIdentity const& identity,
     [[maybe_unused]] ConnectionStateChange change)
 {
-    bool const bPeerDetailsFound = m_peers.UpdateOnePeer(identity,
+    bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(identity,
         [&] (auto& details)
         {
+            auto const spBryptPeer = details.GetBryptPeer();
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
+                    CEndpoint::UnpublishPeerConnection(spBryptPeer);
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::PublishPeerConnection({details.GetIdentifier(), InternalType, details.GetURI()});
+                    CEndpoint::PublishPeerConnection(spBryptPeer);
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint
@@ -830,8 +833,8 @@ void Endpoints::CDirectEndpoint::HandleConnectionStateChange(
         }
     );
 
-    if (!bPeerDetailsFound) {
-        m_peers.TrackConnection(identity);
+    if (!bConnectionDetailsFound) {
+        m_tracker.TrackConnection(identity);
     }
 }
 

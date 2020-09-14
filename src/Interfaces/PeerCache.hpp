@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: PeerCache.hpp
+// File: BootstrapCache.hpp
 // Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -7,11 +7,14 @@
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cstdint>
 #include <functional>
-#include <utility>
 //------------------------------------------------------------------------------------------------
 
-class CPeer;
+namespace BryptIdentifier {
+  class CContainer;
+  using SharedContainer = std::shared_ptr<CContainer>;
+}
 
 //------------------------------------------------------------------------------------------------
 
@@ -20,22 +23,13 @@ class IPeerCache
 public:
     virtual ~IPeerCache() = default;
 
-    using AllEndpointReadFunction = std::function<CallbackIteration(Endpoints::TechnologyType)>;
-    using OneEndpointPeersReadFunction = std::function<CallbackIteration(CPeer const&)>;
-    using AllEndpointPeersReadFunction = std::function<CallbackIteration(Endpoints::TechnologyType, CPeer const&)>;
-    using AllEndpointPeersErrorFunction = std::function<void(Endpoints::TechnologyType)>;
+    using IdentifierReadFunction = std::function<
+        CallbackIteration(BryptIdentifier::SharedContainer const& spBryptIdentifier)>;
 
-    virtual bool ForEachCachedEndpoint(AllEndpointReadFunction const& readFunction) const = 0;
-    virtual bool ForEachCachedPeer(
-        AllEndpointPeersReadFunction const& readFunction,
-        AllEndpointPeersErrorFunction const& errorFunction) const = 0;
-    virtual bool ForEachCachedPeer(
-        Endpoints::TechnologyType technology,
-        OneEndpointPeersReadFunction const& readFunction) const = 0;
+    virtual bool ForEachCachedIdentifier(IdentifierReadFunction const& readFunction) const = 0;
 
-    virtual std::uint32_t CachedEndpointsCount() const = 0;
-    virtual std::uint32_t CachedPeersCount() const = 0;
-    virtual std::uint32_t CachedPeersCount(Endpoints::TechnologyType technology) const = 0;
+    virtual std::uint32_t ActivePeerCount() const = 0;
+
 };
 
 //------------------------------------------------------------------------------------------------

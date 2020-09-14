@@ -65,7 +65,7 @@ BryptIdentifier::CContainer const& CMessage::GetDestination() const
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<NodeUtils::ObjectIdType> CMessage::GetAwaitingKey() const
+std::optional<Await::TrackerKey> CMessage::GetAwaitingKey() const
 {
 	if (!m_optBoundAwaitingKey) {
 		return {};

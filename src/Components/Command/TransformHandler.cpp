@@ -23,10 +23,11 @@ Command::CTransformHandler::CTransformHandler(CBryptNode& instance)
 // Description: Transform message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CTransformHandler::HandleMessage(CMessage const& message)
+bool Command::CTransformHandler::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
 
+    auto& [spBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CTransformHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Information: {

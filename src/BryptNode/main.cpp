@@ -1,12 +1,12 @@
 //------------------------------------------------------------------------------------------------
-// File: Test.cpp
+// File: main.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
-#include "../Components/MessageQueue/MessageQueue.hpp"
+#include "../Components/MessageControl/MessageCollector.hpp"
 #include "../Configuration/Configuration.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
@@ -36,7 +36,7 @@ void ParseArguments(std::int32_t argc, char** argv);
 std::int32_t main(std::int32_t argc, char** argv)
 {
     std::cout << std::endl;
-    std::cout << "== Welcome to the Brypt Network" << std::endl;
+    NodeUtils::printo("Welcome to the Brypt Network", NodeUtils::PrintType::Node);
 
     local::ParseArguments(argc, argv);
 
@@ -50,23 +50,31 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     auto const status = upConfigurationManager->FetchSettings();
     if (status != Configuration::StatusCode::Success) {
-        std::cout << "Node configuration settings could not be parsed!" << std::endl;
+        NodeUtils::printo(
+            "Node configuration settings could not be parsed!",
+            NodeUtils::PrintType::Node);
         exit(1);
     }
 
-    auto const optBryptIdentifier = upConfigurationManager->GetBryptIdentifier();
-    if (!optBryptIdentifier) {
-        std::cout << "A Brypt Identifier could not be established based on the specified"\
-                     "configuration options!" << std::endl;
+    auto const spBryptIdentifier = upConfigurationManager->GetBryptIdentifier();
+    if (!spBryptIdentifier) {
+        NodeUtils::printo(
+            "A Brypt Identifier could not be established based on the specified"\
+            "configuration options!",
+            NodeUtils::PrintType::Node);
         exit(1);
     }
 
-    std::cout << "== Brypt Identifier: " << *optBryptIdentifier << std::endl;
+    NodeUtils::printo(
+        "Brypt Identifier: " + spBryptIdentifier->GetNetworkRepresentation(),
+        NodeUtils::PrintType::Node);
 
     auto const optEndpointConfigurations = upConfigurationManager->GetEndpointConfigurations();
     if (!optEndpointConfigurations) {
-        std::cout << "No endpoint configurations could were parsed from the configuration"\
-                     "file!" << std::endl;
+        NodeUtils::printo(
+            "No endpoint configurations could were parsed from the configuration"\
+            "file!",
+            NodeUtils::PrintType::Node);
         exit(1);
     }
 
@@ -74,25 +82,25 @@ std::int32_t main(std::int32_t argc, char** argv)
     auto spPersistor = std::make_shared<CPeerPersistor>(
         local::PeersFilename,
         *optEndpointConfigurations);
-    auto spMessageQueue = std::make_shared<CMessageQueue>();
+    auto spMessageCollector = std::make_shared<CMessageCollector>();
 
-    if (!spPersistor->FetchPeers()) {
-        std::cout << "Node bootstraps could not be parsed!" << std::endl;
+    if (!spPersistor->FetchBootstraps()) {
+        NodeUtils::printo("Node bootstraps could not be parsed!", NodeUtils::PrintType::Node);
         exit(1);
     }
 
     spEndpointManager->Initialize(
-        *optBryptIdentifier,
-        spMessageQueue.get(),
+        spBryptIdentifier,
+        spMessageCollector.get(),
         *optEndpointConfigurations,
         spPersistor.get());
 
     spPersistor->SetMediator(spEndpointManager.get());
 
     CBryptNode alpha(
-        *optBryptIdentifier,
+        spBryptIdentifier,
         spEndpointManager,
-        spMessageQueue,
+        spMessageCollector,
         spPersistor,
         upConfigurationManager);
 

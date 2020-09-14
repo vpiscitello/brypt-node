@@ -25,8 +25,8 @@ namespace local {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientId(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerId(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
 
 constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
@@ -42,15 +42,15 @@ constexpr std::uint32_t Nonce = 9999;
 TEST(CMessageSuite, BaseMessageParameterConstructorTest)
 {
     OptionalMessage const optMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    EXPECT_EQ(optMessage->GetSource(), test::ClientId);
-    EXPECT_EQ(optMessage->GetDestination(), test::ServerId);
+    EXPECT_EQ(optMessage->GetSource(), test::ClientIdentifier);
+    EXPECT_EQ(optMessage->GetDestination(), test::ServerIdentifier);
     EXPECT_FALSE(optMessage->GetAwaitingKey());
     EXPECT_EQ(optMessage->GetCommandType(), test::Command);
     EXPECT_EQ(optMessage->GetPhase(), test::RequestPhase);
@@ -70,20 +70,20 @@ TEST(CMessageSuite, BaseMessageParameterConstructorTest)
 
 TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
 {
-    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
+    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     OptionalMessage const optSourceBoundMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Source, awaitingObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optSourceBoundMessage);
 
-    EXPECT_EQ(optSourceBoundMessage->GetSource(), test::ClientId);
-    EXPECT_EQ(optSourceBoundMessage->GetDestination(), test::ServerId);
-    EXPECT_EQ(optSourceBoundMessage->GetAwaitingKey(), awaitingObjectKey);
+    EXPECT_EQ(optSourceBoundMessage->GetSource(), test::ClientIdentifier);
+    EXPECT_EQ(optSourceBoundMessage->GetDestination(), test::ServerIdentifier);
+    EXPECT_EQ(optSourceBoundMessage->GetAwaitingKey(), awaitTrackingKey);
     EXPECT_EQ(optSourceBoundMessage->GetCommandType(), test::Command);
     EXPECT_EQ(optSourceBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_EQ(optSourceBoundMessage->GetNonce(), test::Nonce);
@@ -99,17 +99,17 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
     EXPECT_GT(sourceBoundPack.size(), CMessage::FixedPackSize());
 
     OptionalMessage const optDestinationBoundMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitingObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optDestinationBoundMessage);
 
-    EXPECT_EQ(optDestinationBoundMessage->GetSource(), test::ClientId);
-    EXPECT_EQ(optDestinationBoundMessage->GetDestination(), test::ServerId);
-    EXPECT_EQ(optDestinationBoundMessage->GetAwaitingKey(), awaitingObjectKey);
+    EXPECT_EQ(optDestinationBoundMessage->GetSource(), test::ClientIdentifier);
+    EXPECT_EQ(optDestinationBoundMessage->GetDestination(), test::ServerIdentifier);
+    EXPECT_EQ(optDestinationBoundMessage->GetAwaitingKey(), awaitTrackingKey);
     EXPECT_EQ(optDestinationBoundMessage->GetCommandType(), test::Command);
     EXPECT_EQ(optDestinationBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_EQ(optDestinationBoundMessage->GetNonce(), test::Nonce);
@@ -130,8 +130,8 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
 TEST(CMessageSuite, BaseMessagePackConstructorTest)
 {
     OptionalMessage const optBaseMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
@@ -162,14 +162,14 @@ TEST(CMessageSuite, BaseMessagePackConstructorTest)
 
 TEST(CMessageSuite, BoundMessagePackConstructorTest)
 {
-    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
+    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     OptionalMessage const optBoundMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitingObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBoundMessage);
 
@@ -199,14 +199,14 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
 
 TEST(CMessageSuite, BoundMessageBufferConstructorTest)
 {
-    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
+    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     OptionalMessage const optBoundMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitingObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBoundMessage);
 
@@ -240,8 +240,8 @@ TEST(CMessageSuite, BoundMessageBufferConstructorTest)
 TEST(CMessageSuite, BaseMessageVerificationTest)
 {
     OptionalMessage const optBaseMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
@@ -263,14 +263,14 @@ TEST(CMessageSuite, BaseMessageVerificationTest)
 
 TEST(CMessageSuite, BoundMessageVerificationTest)
 {
-    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
+    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     OptionalMessage const optBaseMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Source, awaitingObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
@@ -290,14 +290,14 @@ TEST(CMessageSuite, BoundMessageVerificationTest)
 
 TEST(CMessageSuite, AlteredMessageVerificationTest)
 {
-    NodeUtils::ObjectIdType const awaitingObjectKey = 0x89ABCDEF;
+    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     OptionalMessage const optBaseMessage = CMessage::Builder()
-        .SetSource(test::ClientId)
-        .SetDestination(test::ServerId)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
         .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Source, awaitingObjectKey)
+        .BindAwaitingKey(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 

@@ -1,7 +1,7 @@
 CXX = g++-9
 BUILDDIR = ../../build
 BINARYDIR = ../../bin
-BINARYNAME = UT_MessageQueue
+BINARYNAME = UT_MessageControl
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
@@ -21,16 +21,16 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 SRCDIR = .
 
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
-ENDPOINTSDIR = ../../Components/Endpoints
+BRYPTPEERDIR = ../../Components/BryptPeer
 MESSAGEDIR = ../../Message
-MESSAGEQUEUEDIR = ../../Components/MessageQueue
+MESSAGECONTROLDIR = ../../Components/MessageControl
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
 $(BRYPTIDENTIFIERDIR) \
-$(ENDPOINTSDIR) \
+$(BRYPTPEERDIR) \
 $(MESSAGEDIR) \
-$(MESSAGEQUEUEDIR) \
+$(MESSAGECONTROLDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))

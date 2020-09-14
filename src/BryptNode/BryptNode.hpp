@@ -1,14 +1,14 @@
 //------------------------------------------------------------------------------------------------
-// File: Node.hpp
+// File: BryptNode.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/BryptPeer/BryptPeer.hpp"
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Configuration/Configuration.hpp"
-#include "../Utilities/NetworkUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
+#include "../Message/Message.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
 #include <cstdlib>
@@ -26,12 +26,13 @@
 //------------------------------------------------------------------------------------------------
 
 namespace Await {
-    class CMessageObject;
-    class CObjectContainer;
+    class CResponseTracker;
+    class CTrackingManager;
 }
 
 namespace BryptIdentifier {
     class CContainer;
+    using SharedContainer = std::shared_ptr<CContainer>;
 }
 
 namespace Configuration {
@@ -43,7 +44,7 @@ class CConnection;
 class CControl;
 class CEndpointManager;
 class CMessage;
-class CMessageQueue;
+class CMessageCollector;
 class CPeerPersistor;
 class CPeerWatcher;
 
@@ -60,9 +61,9 @@ class CBryptNode {
 public:
     // Constructors and Deconstructors
     CBryptNode(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::shared_ptr<CEndpointManager> const& spEndpointManager,
-        std::shared_ptr<CMessageQueue> const& spMessageQueue,
+        std::shared_ptr<CMessageCollector> const& spMessageCollector,
         std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
         std::unique_ptr<Configuration::CManager> const& upConfigurationManager);
 
@@ -78,11 +79,17 @@ public:
     std::weak_ptr<CSensorState> GetSensorState() const;
 
     std::weak_ptr<CEndpointManager> GetEndpointManager() const;
-    std::weak_ptr<CMessageQueue> GetMessageQueue() const;
     std::weak_ptr<CPeerPersistor> GetPeerPersistor() const;
-    std::weak_ptr<Await::CObjectContainer> GetAwaiting() const;
+    std::weak_ptr<CMessageCollector> GetMessageCollector() const;
+    std::weak_ptr<Await::CTrackingManager> GetAwaitManager() const;
 
 private:
+    // Run Functions
+    void StartLifecycle();
+
+    // Lifecycle Functions
+    void HandleIncomingMessage(AssociatedMessage const& associatedMessage);
+
     // Utility Functions
     std::float_t DetermineNodePower();  // Determine the node value to the network
     bool HasTechnologyType(Endpoints::TechnologyType technology);
@@ -91,16 +98,9 @@ private:
     bool ContactAuthority();    // Contact the central authority for some service
     bool NotifyAddressChange(); // Notify the cluster of some address change
 
-    // Request Handlers
-    void HandleQueueRequest(CMessage const& message);
-    void ProcessFulfilledMessages();
-
     // Election Functions
     bool Election();    // Call for an election for cluster leader
     bool Transform();   // Transform the node's function in the cluster/network
-
-    // Run Functions
-    void Listen();
 
     // Private Variables
     std::shared_ptr<CNodeState> m_spNodeState;
@@ -111,10 +111,10 @@ private:
     std::shared_ptr<CSensorState> m_spSensorState;
 
     std::shared_ptr<CEndpointManager> m_spEndpointManager;
-    std::shared_ptr<CMessageQueue> m_spMessageQueue;
     std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
-    std::shared_ptr<Await::CObjectContainer> m_spAwaiting;
-    Command::HandlerMap m_commandHandlers;
+    std::shared_ptr<CMessageCollector> m_spMessageCollector ;
+    std::shared_ptr<Await::CTrackingManager> m_spAwaitManager;
+    Command::HandlerMap m_handlers;
     std::shared_ptr<CPeerWatcher> m_spWatcher;
 
     bool m_initialized;

@@ -4,7 +4,6 @@
 //------------------------------------------------------------------------------------------------
 #include "InformationHandler.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Await/Await.hpp"
 #include "../Endpoints/Endpoint.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptNode/BryptNode.hpp"
@@ -16,6 +15,7 @@
 #include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
+#include <cassert>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -55,25 +55,25 @@ IOD_SYMBOL(update_timestamp)
 struct Json::TNodeInfo
 {
     TNodeInfo(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         NodeUtils::ClusterIdType cluster,
-        BryptIdentifier::CContainer const& coordinator,
+        BryptIdentifier::SharedContainer const& spCoordinatorIdentifier,
         std::size_t neighbor_count,
         std::string const& designation,
         std::string const& technologies,
         std::string const& update_timestamp)
-        : identifier(identifier)
+        : identifier(spBryptIdentifier)
         , cluster(cluster)
-        , coordinator(coordinator)
+        , coordinator(spCoordinatorIdentifier)
         , neighbor_count(neighbor_count)
         , designation(designation)
         , technologies(technologies)
         , update_timestamp(update_timestamp)
     {
     }
-    BryptIdentifier::CContainer const identifier;
+    BryptIdentifier::SharedContainer const identifier;
     NodeUtils::ClusterIdType const cluster;
-    BryptIdentifier::CContainer const coordinator;
+    BryptIdentifier::SharedContainer const coordinator;
     std::size_t const neighbor_count;
     std::string const designation;
     std::string const technologies;
@@ -96,14 +96,15 @@ Command::CInformationHandler::CInformationHandler(CBryptNode& instance)
 // Description: Information message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::HandleMessage(CMessage const& message)
+bool Command::CInformationHandler::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
 
+    auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CInformationHandler::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Flood: {
-            status = FloodHandler(message);
+            status = FloodHandler(wpBryptPeer, message);
         } break;
         case Phase::Respond: {
             status = RespondHandler();
@@ -123,12 +124,12 @@ bool Command::CInformationHandler::HandleMessage(CMessage const& message)
 // Description: Handles the flood phase for the Information type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::FloodHandler(CMessage const& message)
+bool Command::CInformationHandler::FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message)
 {
     printo("Building response for Information request", NodeUtils::PrintType::Command);
     
     IHandler::SendClusterNotice(
-        message,
+        wpBryptPeer, message,
         "Request for Node Information.",
         static_cast<std::uint8_t>(Phase::Respond),
         static_cast<std::uint8_t>(Phase::Close),
@@ -167,32 +168,33 @@ bool Command::CInformationHandler::CloseHandler()
 //------------------------------------------------------------------------------------------------
 std::string local::GenerateNodeInfo(CBryptNode const& instance)
 {
-    std::vector<Json::TNodeInfo> nodesInfo;
-
     // Get the information pertaining to the node itself
-    BryptIdentifier::CContainer identifier; 
+    BryptIdentifier::SharedContainer spBryptIdentifier; 
     NodeUtils::ClusterIdType cluster = 0;
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
     if (auto const spNodeState = instance.GetNodeState().lock()) {
-        identifier = spNodeState->GetIdentifier();
+        spBryptIdentifier = spNodeState->GetBryptIdentifier();
         cluster = spNodeState->GetCluster();
         operation = spNodeState->GetOperation();
     }
+    assert(spBryptIdentifier);
 
     // Get the information pertaining to the node's coordinator
-    BryptIdentifier::CContainer coordinatorId; 
+    BryptIdentifier::SharedContainer spCoordinatorIdentifier; 
     if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
-        coordinatorId = spCoordinatorState->GetIdentifier();
+        spCoordinatorIdentifier = spCoordinatorState->GetBryptIdentifier();
     }
 
     // Get the information pertaining to the node's network
-    std::uint32_t knownNodes = 0;
+    std::uint32_t neighbors = 0;
     if (auto const spPeerPersistor = instance.GetPeerPersistor().lock()) {
-        knownNodes = spPeerPersistor->CachedPeersCount();
+        neighbors = spPeerPersistor->ActivePeerCount();
     }
 
+    std::vector<Json::TNodeInfo> nodesInfo;
     nodesInfo.emplace_back(
-        identifier, cluster, coordinatorId, knownNodes, NodeUtils::GetDesignation(operation), 
+        spBryptIdentifier, cluster, spCoordinatorIdentifier,
+        neighbors, NodeUtils::GetDesignation(operation), 
         "IEEE 802.11", TimeUtils::GetSystemTimestamp());
 
     // TODO: Endpoints represent a collection of peers, so the details of the peers must be 
@@ -202,13 +204,8 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
             
             std::string const timestamp = TimeUtils::TimepointToString(endpoint.GetUpdateClock());
             nodesInfo.emplace_back(
-                spConnection->GetPeerName(),
-                cluster,
-                id,
-                0,
-                "node",
-                spConnection->GetProtocolType(),
-                timestamp);
+                spConnection->GetPeerName(), cluster, id, 0,
+                "node", spConnection->GetProtocolType(), timestamp);
         }
     } */
 

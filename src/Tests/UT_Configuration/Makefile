@@ -21,12 +21,16 @@ CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 SRCDIR = .
 
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
+BRYPTPEERDIR = ../../Components/BryptPeer
 CONFIGURATIONDIR = ../../Configuration
+MESSAGEDIR = ../../Message
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
 $(BRYPTIDENTIFIERDIR) \
+$(BRYPTPEERDIR) \
 $(CONFIGURATIONDIR) \
+$(MESSAGEDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))

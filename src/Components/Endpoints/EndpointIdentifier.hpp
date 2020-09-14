@@ -31,7 +31,7 @@ public:
     CEndpointIdentifierGenerator(CEndpointIdentifierGenerator const&) = delete;
     void operator=(CEndpointIdentifierGenerator const&) = delete;
 
-    Endpoints::EndpointIdType GetIdentifier() { return ++m_identifier; }
+    Endpoints::EndpointIdType GetEndpointIdentifier() { return ++m_identifier; }
     
 private:
     CEndpointIdentifierGenerator()

@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../../Components/Endpoints/Peer.hpp"
+#include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
@@ -26,15 +26,12 @@ namespace local {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
+constexpr Endpoints::EndpointIdType EndpointIdentifier = 1;
+constexpr Endpoints::TechnologyType PeerTechnology = Endpoints::TechnologyType::TCP;
+constexpr std::string_view NewBootstrapEntry = "127.0.0.1:35220";
+
 constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
 constexpr std::string_view DirectBootstrapEntry = "127.0.0.1:35217";
-
-BryptIdentifier::CContainer const KnownPeerId("bry0:37GDnYQnHhqkVfV6UGyXudsZTU3q");
-constexpr Endpoints::TechnologyType PeerTechnology = Endpoints::TechnologyType::TCP;
-constexpr std::string_view PeerEntry = "127.0.0.1:35216";
-
-BryptIdentifier::CContainer const NewPeerId(BryptIdentifier::Generate());
-constexpr std::string_view NewPeerEntry = "127.0.0.1:35217";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -70,20 +67,18 @@ TEST(PeerPersistorSuite, DefualtBootstrapTest)
     configurations.emplace_back(directOptions);
 
     CPeerPersistor persistor(filepath.c_str(), configurations);
-    auto const bParsed = persistor.FetchPeers();
+    auto const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
-    EXPECT_EQ(persistor.CachedEndpointsCount(), std::uint32_t(2));
-    EXPECT_EQ(persistor.CachedPeersCount(), std::uint32_t(2));
-    EXPECT_EQ(persistor.CachedPeersCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedPeersCount(Endpoints::TechnologyType::Direct), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(), std::uint32_t(2));
+    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::Direct), std::uint32_t(1));
 
     CPeerPersistor checkPersistor(filepath.c_str(), configurations);
-    auto const bCheckParsed = checkPersistor.FetchPeers();
+    auto const bCheckParsed = checkPersistor.FetchBootstraps();
     ASSERT_TRUE(bCheckParsed);
-    EXPECT_EQ(checkPersistor.CachedEndpointsCount(), std::uint32_t(2));
-    EXPECT_EQ(checkPersistor.CachedPeersCount(), std::uint32_t(2));
-    EXPECT_EQ(checkPersistor.CachedPeersCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
-    EXPECT_EQ(checkPersistor.CachedPeersCount(Endpoints::TechnologyType::Direct), std::uint32_t(1));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(), std::uint32_t(2));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::Direct), std::uint32_t(1));
 
     std::filesystem::remove(filepath);
 }
@@ -94,30 +89,19 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/good/peers.json";
     CPeerPersistor persistor(filepath.c_str());
-    auto const bParsed = persistor.FetchPeers();
+    auto const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
-    EXPECT_EQ(persistor.CachedEndpointsCount(), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedPeersCount(), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedPeersCount(test::PeerTechnology), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
 
-    std::uint32_t iterations = 0;
-    CPeer foundPeer;
-    ASSERT_EQ(foundPeer.GetIdentifier(), BryptIdentifier::CContainer());
-    persistor.ForEachCachedPeer(
+    persistor.ForEachCachedBootstrap(
         test::PeerTechnology,
-        [&iterations, &foundPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetIdentifier() == test::KnownPeerId) {
-                foundPeer = peer;
-            }
-            ++iterations;
+        [] (std::string_view const& bootstrap) -> CallbackIteration
+        {
+            EXPECT_EQ(bootstrap, test::TcpBootstrapEntry);
             return CallbackIteration::Continue;
         }
     );
-    ASSERT_EQ(iterations, std::uint32_t(1));
-    ASSERT_EQ(foundPeer.GetIdentifier(), test::KnownPeerId);
-    EXPECT_EQ(foundPeer.GetEntry(), test::PeerEntry);
-    EXPECT_TRUE(foundPeer.GetLocation().empty());
-    EXPECT_EQ(foundPeer.GetTechnologyType(), test::PeerTechnology);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -126,7 +110,7 @@ TEST(PeerPersistorSuite, ParseMalformedFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/malformed/peers.json";
     CPeerPersistor persistor(filepath.c_str());
-    bool const bParsed = persistor.FetchPeers();
+    bool const bParsed = persistor.FetchBootstraps();
     EXPECT_FALSE(bParsed);
 }
 
@@ -136,8 +120,8 @@ TEST(PeerPersistorSuite, ParseMissingPeersFileTest)
 {
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/missing/peers.json";
     CPeerPersistor persistor(filepath.c_str());
-    bool const bParsed = persistor.FetchPeers();
-    std::uint32_t const count = persistor.CachedPeersCount(test::PeerTechnology);
+    bool const bParsed = persistor.FetchBootstraps();
+    std::uint32_t const count = persistor.CachedBootstrapCount(test::PeerTechnology);
     EXPECT_TRUE(bParsed);
     EXPECT_EQ(count, std::uint32_t(0));
 }
@@ -150,88 +134,96 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     CPeerPersistor persistor(filepath.c_str());
 
     // Check the initial state of the cached peers
-    bool const bParsed = persistor.FetchPeers();
+    bool const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
-    EXPECT_EQ(persistor.CachedEndpointsCount(), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedPeersCount(test::PeerTechnology), std::uint32_t(1));
-
-    CPeer initialPeer;
-    persistor.ForEachCachedPeer(
-        test::PeerTechnology,
-        [&initialPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetIdentifier() == test::KnownPeerId) {
-                initialPeer = peer;
-                return CallbackIteration::Stop;
-            }
-            return CallbackIteration::Continue;
-        }
-    );
-    ASSERT_EQ(initialPeer.GetIdentifier(), test::KnownPeerId);
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
 
     // Create a new peer and notify the persistor
-    CPeer newPeer(test::NewPeerId, test::PeerTechnology, test::NewPeerEntry);
-    persistor.HandlePeerConnectionStateChange(newPeer, ConnectionState::Connected);
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(
+        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    spBryptPeer->RegisterEndpointConnection(
+        test::EndpointIdentifier, test::PeerTechnology, {}, test::NewBootstrapEntry);
+
+    persistor.HandleConnectionStateChange(
+        test::PeerTechnology, spBryptPeer, ConnectionState::Connected);
+
+    EXPECT_EQ(persistor.ActivePeerCount(), std::uint32_t(1));
+    persistor.ForEachCachedIdentifier(
+        [&spBryptPeer] (
+            BryptIdentifier::SharedContainer const& spCheckIdentifier) -> CallbackIteration
+        {
+            EXPECT_TRUE(spCheckIdentifier);
+            auto const& spBryptIdentifier = spBryptPeer->GetBryptIdentifier();
+            EXPECT_TRUE(spBryptIdentifier);
+            EXPECT_EQ(spBryptIdentifier, spCheckIdentifier);
+            EXPECT_EQ(*spBryptIdentifier, *spCheckIdentifier);
+            return CallbackIteration::Continue;
+        }
+    );
 
     // Verify the new peer has been added to the current persistor
-    EXPECT_EQ(persistor.CachedPeersCount(test::PeerTechnology), std::uint32_t(2));
-
-    CPeer newConnectedPeer;
-    persistor.ForEachCachedPeer(
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(2));
+    
+    bool bFoundConnectedBootstrap;
+    persistor.ForEachCachedBootstrap(
         test::PeerTechnology,
-        [&newConnectedPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetIdentifier() == test::NewPeerId) {
-                newConnectedPeer = peer;
+        [&bFoundConnectedBootstrap] (std::string_view const& bootstrap) -> CallbackIteration
+        {
+            if (bootstrap == test::NewBootstrapEntry) {
+                bFoundConnectedBootstrap = true;
                 return CallbackIteration::Stop;
             }
             return CallbackIteration::Continue;
         }
     );
-    ASSERT_EQ(newConnectedPeer.GetIdentifier(), test::NewPeerId);
+    EXPECT_TRUE(bFoundConnectedBootstrap);
 
     // Verify that a new persistor can read the updates
     {
         auto checkPersistor = std::make_unique<CPeerPersistor>(filepath.c_str());
-        bool const bCheckParsed = checkPersistor->FetchPeers();
+        bool const bCheckParsed = checkPersistor->FetchBootstraps();
         ASSERT_TRUE(bCheckParsed);
-        EXPECT_EQ(persistor.CachedPeersCount(test::PeerTechnology), std::uint32_t(2));
+        EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(2));
 
-        CPeer checkConnectedPeer;
-        persistor.ForEachCachedPeer(
+        bool bFoundCheckBootstrap;
+        persistor.ForEachCachedBootstrap(
             test::PeerTechnology,
-            [&checkConnectedPeer] (CPeer const& peer) -> CallbackIteration {
-                if (peer.GetIdentifier() == test::NewPeerId) {
-                    checkConnectedPeer = peer;
+            [&bFoundCheckBootstrap] (std::string_view const& bootstrap) -> CallbackIteration
+            {
+                if (bootstrap == test::NewBootstrapEntry) {
+                    bFoundCheckBootstrap = true;
                     return CallbackIteration::Stop;
                 }
                 return CallbackIteration::Continue;
             }
         );
 
-        // Verify the values that were read from the new persistor match
-        EXPECT_EQ(checkConnectedPeer.GetIdentifier(), newConnectedPeer.GetIdentifier());
-        EXPECT_EQ(checkConnectedPeer.GetEntry(), newConnectedPeer.GetEntry());
-        EXPECT_EQ(checkConnectedPeer.GetLocation(), newConnectedPeer.GetLocation());
-        EXPECT_EQ(checkConnectedPeer.GetTechnologyType(), newConnectedPeer.GetTechnologyType());
+        EXPECT_TRUE(bFoundCheckBootstrap);
     }
 
     // Tell the persistor the new peer has been disconnected
-    persistor.HandlePeerConnectionStateChange(newPeer, ConnectionState::Disconnected);
+    persistor.HandleConnectionStateChange(
+        test::PeerTechnology, spBryptPeer, ConnectionState::Disconnected);
+    spBryptPeer->WithdrawEndpointConnection(test::EndpointIdentifier);
+
+    EXPECT_EQ(persistor.ActivePeerCount(), std::uint32_t(0));
     
-    persistor.FetchPeers(); // Force the persitor to re-query the persistor file
-    EXPECT_EQ(persistor.CachedPeersCount(test::PeerTechnology), std::uint32_t(1));
+    persistor.FetchBootstraps(); // Force the persitor to re-query the persistor file
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
 
     // Verify the peer added from this test has been removed
-    bool bFoundNewPeer = false;
-    persistor.ForEachCachedPeer(
+    bool bFoundDisconnectedBootstrap = false;
+    persistor.ForEachCachedBootstrap(
         test::PeerTechnology,
-        [&bFoundNewPeer] (CPeer const& peer) -> CallbackIteration {
-            if (peer.GetIdentifier() == test::NewPeerId) {
-                bFoundNewPeer = true;
+        [&bFoundDisconnectedBootstrap] (std::string_view const& bootstrap) -> CallbackIteration
+        {
+            if (bootstrap == test::NewBootstrapEntry) {
+                bFoundDisconnectedBootstrap = true;
             }
             return CallbackIteration::Continue;
         }
     );
-    ASSERT_FALSE(bFoundNewPeer);
+    EXPECT_FALSE(bFoundDisconnectedBootstrap);
 }
 
 //------------------------------------------------------------------------------------------------

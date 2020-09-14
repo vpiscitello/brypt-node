@@ -70,7 +70,7 @@ struct Configuration::TIdentifierOptions
     std::optional<std::string> value;
     std::string type;
 
-    BryptIdentifier::CContainer container;
+    BryptIdentifier::SharedContainer container;
 };
 
 //------------------------------------------------------------------------------------------------
