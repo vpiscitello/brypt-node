@@ -671,7 +671,7 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint
-                default: assert(false); break;
+                default: break;
             }
         }
     );

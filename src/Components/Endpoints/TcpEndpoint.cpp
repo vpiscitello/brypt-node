@@ -940,7 +940,7 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
                     }
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
-                default: assert(false); break;
+                default: break;
             }
         }
     );
@@ -950,7 +950,7 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
             m_tracker.UntrackConnection(descriptor);
         } break;
         // Other ConnectionStateChanges are not currently handled for this endpoint
-        default: assert(false); break;
+        default: break;
     }
 }
 

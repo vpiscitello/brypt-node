@@ -164,11 +164,11 @@ bool Command::CConnectHandler::JoinHandler(CMessage const& message)
 bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message)
 {
     auto const optRequestData = message.GetDecryptedData();
-    if (optRequestData) {
+    if (!optRequestData) {
         return false;
     }
 
-    // Parse response the response 
+    // Parse the discovery request
     std::string_view const dataview(reinterpret_cast<char const*>(
         optRequestData->data()), optRequestData->size());
     PeerBootstrap::Json::TConnectRequest request;
@@ -267,12 +267,12 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 bool local::HandleDiscoveryResponse(CBryptNode& instance, CMessage const& message)
 {
     auto const optRequestData = message.GetDecryptedData();
-    if (optRequestData) {
+    if (!optRequestData) {
         return false;
     }
 
     std::string_view const dataview(reinterpret_cast<char const*>(optRequestData->data()), optRequestData->size());
-    // Parse response the response 
+    // Parse the discovery response
     Json::TDiscoveryResponse response;
     iod::json_object(
         s::cluster,

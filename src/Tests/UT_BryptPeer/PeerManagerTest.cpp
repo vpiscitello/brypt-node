@@ -75,7 +75,7 @@ public:
                 m_spBryptPeer.reset();
             } break;
             // Not currently testing other connection states for the observer
-            default: assert(false); break;
+            default: break;
         }
     }
     // } IPeerObserver
