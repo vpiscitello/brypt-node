@@ -5,12 +5,12 @@
 #include "InformationHandler.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../Endpoints/Endpoint.hpp"
+#include "../BryptPeer/PeerManager.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/CoordinatorState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
-#include "../../Configuration/PeerPersistor.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
@@ -187,8 +187,8 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
 
     // Get the information pertaining to the node's network
     std::uint32_t neighbors = 0;
-    if (auto const spPeerPersistor = instance.GetPeerPersistor().lock()) {
-        neighbors = spPeerPersistor->ActivePeerCount();
+    if (auto const spPeerManager = instance.GetPeerManager().lock(); spPeerManager) {
+        neighbors = spPeerManager->ActivePeerCount();
     }
 
     std::vector<Json::TNodeInfo> nodesInfo;

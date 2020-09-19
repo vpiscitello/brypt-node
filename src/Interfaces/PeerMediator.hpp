@@ -11,6 +11,7 @@
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
+class CEndpointRegistration;
 class IPeerObserver;
 
 //------------------------------------------------------------------------------------------------
@@ -23,9 +24,13 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
-    virtual void ForwardConnectionStateChange(
-        Endpoints::TechnologyType technology,
+    virtual std::shared_ptr<CBryptPeer> LinkPeer(
+        BryptIdentifier::CContainer const& identifier) = 0;
+
+    virtual void DispatchPeerStateChange(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        Endpoints::EndpointIdType identifier,
+        Endpoints::TechnologyType technology,
         ConnectionState change) = 0;
 };
 

@@ -32,7 +32,7 @@ namespace Await {
 
 namespace BryptIdentifier {
     class CContainer;
-    using SharedContainer = std::shared_ptr<CContainer>;
+    using SharedContainer = std::shared_ptr<CContainer const>;
 }
 
 namespace Configuration {
@@ -45,6 +45,7 @@ class CControl;
 class CEndpointManager;
 class CMessage;
 class CMessageCollector;
+class CPeerManager;
 class CPeerPersistor;
 class CPeerWatcher;
 
@@ -63,6 +64,7 @@ public:
     CBryptNode(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::shared_ptr<CEndpointManager> const& spEndpointManager,
+        std::shared_ptr<CPeerManager> const& spPeerManager,
         std::shared_ptr<CMessageCollector> const& spMessageCollector,
         std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
         std::unique_ptr<Configuration::CManager> const& upConfigurationManager);
@@ -79,8 +81,9 @@ public:
     std::weak_ptr<CSensorState> GetSensorState() const;
 
     std::weak_ptr<CEndpointManager> GetEndpointManager() const;
-    std::weak_ptr<CPeerPersistor> GetPeerPersistor() const;
+    std::weak_ptr<CPeerManager> GetPeerManager() const;
     std::weak_ptr<CMessageCollector> GetMessageCollector() const;
+    std::weak_ptr<CPeerPersistor> GetPeerPersistor() const;
     std::weak_ptr<Await::CTrackingManager> GetAwaitManager() const;
 
 private:
@@ -111,11 +114,14 @@ private:
     std::shared_ptr<CSensorState> m_spSensorState;
 
     std::shared_ptr<CEndpointManager> m_spEndpointManager;
-    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
+    std::shared_ptr<CPeerManager> m_spPeerManager;
     std::shared_ptr<CMessageCollector> m_spMessageCollector ;
     std::shared_ptr<Await::CTrackingManager> m_spAwaitManager;
-    Command::HandlerMap m_handlers;
     std::shared_ptr<CPeerWatcher> m_spWatcher;
+
+    Command::HandlerMap m_handlers;
+
+    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
 
     bool m_initialized;
 };

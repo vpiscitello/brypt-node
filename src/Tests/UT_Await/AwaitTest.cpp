@@ -28,7 +28,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
 constexpr Command::Type Command = Command::Type::Election;
@@ -52,7 +52,7 @@ TEST(CResponseTrackerSuite, SingleResponseTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -110,7 +110,7 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -131,9 +131,9 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
         BryptIdentifier::Generate());
-    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
         BryptIdentifier::Generate());
 
     Await::CResponseTracker tracker(
@@ -194,7 +194,7 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -241,7 +241,7 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -262,9 +262,9 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
     
-    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
         BryptIdentifier::Generate());
-    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
         BryptIdentifier::Generate());
 
     Await::CResponseTracker tracker(
@@ -319,7 +319,7 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -369,7 +369,7 @@ TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -414,7 +414,7 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
 {
     std::optional<CMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optFulfilledResponse] (CMessage const& message) -> bool
@@ -435,9 +435,9 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetData(test::Message, test::Nonce)
         .ValidatedBuild();
 
-    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
         BryptIdentifier::Generate());
-    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
         BryptIdentifier::Generate());
 
     Await::CTrackingManager manager;

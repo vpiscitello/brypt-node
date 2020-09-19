@@ -18,9 +18,10 @@ class IPeerObserver
 public:
     virtual ~IPeerObserver() = default;
 
-    virtual void HandleConnectionStateChange(
-        Endpoints::TechnologyType technology,
+    virtual void HandlePeerStateChange(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        Endpoints::EndpointIdType identifier,
+        Endpoints::TechnologyType technology,
         ConnectionState change) = 0;
 };
 

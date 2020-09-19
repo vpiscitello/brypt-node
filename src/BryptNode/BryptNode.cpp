@@ -13,6 +13,7 @@
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../Components/Await/TrackingManager.hpp"
+#include "../Components/BryptPeer/PeerManager.hpp"
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
@@ -54,6 +55,7 @@ void SimulateClient(Command::HandlerMap const& handlers, bool activated);
 CBryptNode::CBryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
+    std::shared_ptr<CPeerManager> const& spPeerManager,
     std::shared_ptr<CMessageCollector> const& spMessageCollector,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
@@ -64,11 +66,12 @@ CBryptNode::CBryptNode(
     , m_spSecurityState()
     , m_spSensorState()
     , m_spEndpointManager(spEndpointManager)
-    , m_spPeerPersistor(spPeerPersistor)
+    , m_spPeerManager(spPeerManager)
     , m_spMessageCollector(spMessageCollector)
     , m_spAwaitManager(std::make_shared<Await::CTrackingManager>())
-    , m_handlers()
     , m_spWatcher()
+    , m_handlers()
+    , m_spPeerPersistor(spPeerPersistor)
     , m_initialized(false)
 {
     // An Endpoint Manager must be provided to the node in order to to operator 
@@ -138,8 +141,6 @@ bool CBryptNode::Shutdown()
 
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-
 std::weak_ptr<CNodeState> CBryptNode::GetNodeState() const
 {
     return m_spNodeState;
@@ -189,9 +190,9 @@ std::weak_ptr<CEndpointManager> CBryptNode::GetEndpointManager() const
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CPeerPersistor> CBryptNode::GetPeerPersistor() const
+std::weak_ptr<CPeerManager> CBryptNode::GetPeerManager() const
 {
-    return m_spPeerPersistor;
+    return m_spPeerManager;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -206,6 +207,13 @@ std::weak_ptr<CMessageCollector> CBryptNode::GetMessageCollector() const
 std::weak_ptr<Await::CTrackingManager> CBryptNode::GetAwaitManager() const
 {
     return m_spAwaitManager;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::weak_ptr<CPeerPersistor> CBryptNode::GetPeerPersistor() const
+{
+    return m_spPeerPersistor;
 }
 
 //------------------------------------------------------------------------------------------------

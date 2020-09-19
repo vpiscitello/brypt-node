@@ -74,22 +74,21 @@ Endpoints::OperationType CEndpoint::GetOperation() const
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpoint::PublishPeerConnection(std::weak_ptr<CBryptPeer> const& wpBryptPeer)
+std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(BryptIdentifier::CContainer const& identifier) const
 {
-    if(m_pPeerMediator) {
-        m_pPeerMediator->ForwardConnectionStateChange(
-            m_technology, wpBryptPeer, ConnectionState::Connected);
-    }
-}
+    std::shared_ptr<CBryptPeer> spBryptPeer = {};
 
-//------------------------------------------------------------------------------------------------
-
-void CEndpoint::UnpublishPeerConnection(std::weak_ptr<CBryptPeer> const& wpBryptPeer)
-{
+    // If the endpoint has a known peer mediator then we should use the mediator to acquire or 
+    // link this endpoint with a unified peer identified by the provided Brypt Identifier. 
+    // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
+    // should only be hit in unit tests of the endpoint. 
     if(m_pPeerMediator) {
-        m_pPeerMediator->ForwardConnectionStateChange(
-            m_technology, wpBryptPeer, ConnectionState::Disconnected);
+        spBryptPeer = m_pPeerMediator->LinkPeer(identifier);
+    } else {
+        spBryptPeer = std::make_shared<CBryptPeer>(identifier);
     }
+
+    return spBryptPeer;
 }
 
 //------------------------------------------------------------------------------------------------

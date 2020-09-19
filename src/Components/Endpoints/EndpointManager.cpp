@@ -23,8 +23,6 @@ void ConnectBootstraps(
 CEndpointManager::CEndpointManager()
     : m_endpoints()
     , m_technologies()
-    , m_observersMutex()
-    , m_observers()
 {
 }
 
@@ -39,6 +37,7 @@ CEndpointManager::~CEndpointManager()
 
 void CEndpointManager::Initialize(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink,
     Configuration::EndpointConfigurations const& configurations,
     IBootstrapCache const* const pBootstrapCache)
@@ -53,15 +52,15 @@ void CEndpointManager::Initialize(
             switch (technology) {
                 case Endpoints::TechnologyType::Direct: {
                     InitializeDirectEndpoints(
-                        spBryptIdentifier, options, pMessageSink, pBootstrapCache);
+                        spBryptIdentifier, options, pPeerMediator, pMessageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::TCP: {
                     InitializeTCPEndpoints(
-                        spBryptIdentifier, options, pMessageSink, pBootstrapCache);
+                        spBryptIdentifier, options, pPeerMediator, pMessageSink, pBootstrapCache);
                 } break;
                 case Endpoints::TechnologyType::StreamBridge: {
                     InitializeStreamBridgeEndpoints(
-                        spBryptIdentifier, options, pMessageSink);
+                        spBryptIdentifier, options, pPeerMediator, pMessageSink);
                 } break;
                 default: break; // No other technologies have implemented endpoints
             }
@@ -178,37 +177,10 @@ IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::RegisterObserver(IPeerObserver* const observer)
-{
-    std::scoped_lock lock(m_observersMutex);
-    m_observers.emplace(observer);
-}
-
-//------------------------------------------------------------------------------------------------
-
-void CEndpointManager::UnpublishObserver(IPeerObserver* const observer)
-{
-    std::scoped_lock lock(m_observersMutex);
-    m_observers.erase(observer);
-}
-
-//------------------------------------------------------------------------------------------------
-
-void CEndpointManager::ForwardConnectionStateChange(
-    Endpoints::TechnologyType technology,
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    ConnectionState change)
-{
-    NotifyObservers(
-        &IPeerObserver::HandleConnectionStateChange,
-        technology, wpBryptPeer, change);
-}
-
-//------------------------------------------------------------------------------------------------
-
 void CEndpointManager::InitializeDirectEndpoints(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
+    IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink,
     IBootstrapCache const* const pBootstrapCache)
 {
@@ -217,7 +189,7 @@ void CEndpointManager::InitializeDirectEndpoints(
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-        Endpoints::OperationType::Server, this, this, pMessageSink);
+        Endpoints::OperationType::Server, this, pPeerMediator, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -226,7 +198,7 @@ void CEndpointManager::InitializeDirectEndpoints(
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-        Endpoints::OperationType::Client, this, this, pMessageSink);
+        Endpoints::OperationType::Client, this, pPeerMediator, pMessageSink);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
@@ -242,6 +214,7 @@ void CEndpointManager::InitializeDirectEndpoints(
 void CEndpointManager::InitializeTCPEndpoints(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
+    IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink,
     IBootstrapCache const* const pBootstrapCache)
 {
@@ -250,7 +223,7 @@ void CEndpointManager::InitializeTCPEndpoints(
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-         Endpoints::OperationType::Server, this, this, pMessageSink);
+         Endpoints::OperationType::Server, this, pPeerMediator, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -259,7 +232,7 @@ void CEndpointManager::InitializeTCPEndpoints(
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-         Endpoints::OperationType::Client, this, this, pMessageSink);
+         Endpoints::OperationType::Client, this, pPeerMediator, pMessageSink);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
@@ -275,51 +248,20 @@ void CEndpointManager::InitializeTCPEndpoints(
 void CEndpointManager::InitializeStreamBridgeEndpoints(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
+    IPeerMediator* const pPeerMediator,
     IMessageSink* const pMessageSink)
 {
     auto const technology = Endpoints::TechnologyType::StreamBridge;
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-         Endpoints::OperationType::Server, this, this, pMessageSink);
+         Endpoints::OperationType::Server, this, pPeerMediator, pMessageSink);
 
     spServer->ScheduleBind(options.GetBinding());
 
     m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
 
     m_technologies.emplace(technology);
-}
-
-//------------------------------------------------------------------------------------------------
-
-template<typename FunctionType, typename...Args>
-void CEndpointManager::NotifyObservers(FunctionType const& function, Args&&...args)
-{
-    std::scoped_lock lock(m_observersMutex);
-    for (auto itr = m_observers.cbegin(); itr != m_observers.cend();) {
-        auto const& observer = *itr; // Get a refernce to the current observer pointer
-        // If the observer is no longer valid erase the dangling pointer from the set
-        // Otherwise, send the observer the notification
-        if (!observer) {
-            itr = m_observers.erase(itr);
-        } else {
-            auto const binder = std::bind(function, observer, std::forward<Args>(args)...);
-            binder();
-            ++itr;
-        }
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
-template<typename FunctionType, typename...Args>
-void CEndpointManager::NotifyObserversConst(FunctionType const& function, Args&&...args) const
-{
-    std::scoped_lock lock(m_observersMutex);
-    for (auto const& observer: m_observers) {
-        auto const binder = std::bind(function, observer, std::forward<Args>(args)...);
-        binder();
-    }
 }
 
 //------------------------------------------------------------------------------------------------

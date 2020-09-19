@@ -214,6 +214,13 @@ bool BryptIdentifier::CContainer::operator==(CContainer const& other) const
 
 //------------------------------------------------------------------------------------------------
 
+bool BryptIdentifier::CContainer::operator!=(CContainer const& other) const
+{
+    return !operator==(other);
+}
+
+//------------------------------------------------------------------------------------------------
+
 BryptIdentifier::InternalType BryptIdentifier::CContainer::GetInternalRepresentation() const
 {
     return m_internalRepresentation;
@@ -324,7 +331,7 @@ BryptIdentifier::BufferType local::GenerateIdentifier(DigestContext const& upDig
         if(identifier.empty()) {
             return {};
         }
-    } while(!ReservedIdentifiers::IsIdentifierReserved(identifier));
+    } while(ReservedIdentifiers::IsIdentifierReserved(identifier));
 
     return identifier;
 }

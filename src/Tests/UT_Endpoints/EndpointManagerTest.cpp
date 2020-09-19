@@ -1,17 +1,11 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Components/Command/CommandDefinitions.hpp"
-#include "../../Components/Endpoints/ConnectionState.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/EndpointManager.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Interfaces/BootstrapCache.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
-#include "../../Interfaces/PeerObserver.hpp"
-#include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -27,7 +21,6 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-class CPeerObserverStub;
 class CBootstrapCacheStub;
 
 //------------------------------------------------------------------------------------------------
@@ -36,84 +29,17 @@ class CBootstrapCacheStub;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
-    BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
-constexpr std::string_view TechnologyName = "Direct";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35222";
-constexpr std::string_view ClientBinding = "*:35223";
-constexpr std::string_view ServerEntry = "127.0.0.1:35222";
 constexpr std::string_view ClientEntry = "127.0.0.1:35223";
 
 //------------------------------------------------------------------------------------------------
 } // test namespace
 } // namespace
-//------------------------------------------------------------------------------------------------
-
-class local::CPeerObserverStub : public IPeerObserver
-{
-public:
-    explicit CPeerObserverStub(IPeerMediator* const mediator)
-        : m_mediator(mediator)
-        , m_spBryptPeer()
-        , m_state(ConnectionState::Unknown)
-    {
-        m_mediator->RegisterObserver(this);
-    }
-
-    CPeerObserverStub(CPeerObserverStub&& other)
-        : m_mediator(other.m_mediator)
-        , m_spBryptPeer(std::move(other.m_spBryptPeer))
-        , m_state(other.m_state)
-    {
-        m_mediator->RegisterObserver(this);
-    }
-
-    ~CPeerObserverStub()
-    {
-        m_mediator->UnpublishObserver(this);
-    }
-
-    // IPeerObserver {
-    void HandleConnectionStateChange(
-        [[maybe_unused]] Endpoints::TechnologyType technology,
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        ConnectionState change) override
-    {
-        m_state = change;
-        switch(m_state) {
-            case ConnectionState::Connected: {
-                m_spBryptPeer = wpBryptPeer.lock();
-            } break;
-            case ConnectionState::Disconnected: {
-                m_spBryptPeer.reset();
-            } break;
-            // Not currently testing other connection states for the observer
-            default: assert(false); break;
-        }
-    }
-    // } IPeerObserver
-
-    std::shared_ptr<CBryptPeer> GetBryptPeer() const
-    {
-        return m_spBryptPeer;
-    }
-
-    ConnectionState GetConnectionState() const
-    {
-        return m_state;
-    }
-
-private:
-    IPeerMediator* m_mediator;
-    std::shared_ptr<CBryptPeer> m_spBryptPeer;
-    ConnectionState m_state;
-};
-
 //------------------------------------------------------------------------------------------------
 
 class local::CBootstrapCacheStub : public IBootstrapCache
@@ -181,84 +107,6 @@ private:
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CEndpointManagerSuite, SingleObserverTest)
-{
-    CEndpointManager manager;
-    local::CPeerObserverStub observer(&manager);
-
-    auto const optInitialCheckPeer = observer.GetBryptPeer();
-    ConnectionState const checkInitialState = observer.GetConnectionState();
-    ASSERT_FALSE(optInitialCheckPeer);
-    EXPECT_EQ(checkInitialState, ConnectionState::Unknown);
-
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::spClientIdentifier);
-    spBryptPeer->RegisterEndpointConnection(
-        rand(), test::TechnologyType, {}, test::ClientEntry);
-
-    manager.ForwardConnectionStateChange(
-        test::TechnologyType, spBryptPeer, ConnectionState::Connected);
-    auto const spCheckBryptPeer = observer.GetBryptPeer();
-    ConnectionState const checkConnectedState = observer.GetConnectionState();
-
-    ASSERT_TRUE(spCheckBryptPeer);
-    EXPECT_EQ(spCheckBryptPeer->GetBryptIdentifier(), spBryptPeer->GetBryptIdentifier());
-    EXPECT_EQ(checkConnectedState, ConnectionState::Connected);
-
-    manager.ForwardConnectionStateChange(
-        test::TechnologyType, spBryptPeer, ConnectionState::Disconnected);
-    auto const optCheckDisonnectedPeer = observer.GetBryptPeer();
-    ConnectionState const checkDisonnectedState = observer.GetConnectionState();
-    ASSERT_FALSE(optCheckDisonnectedPeer);
-    EXPECT_EQ(checkDisonnectedState, ConnectionState::Disconnected);
-}
-
-//------------------------------------------------------------------------------------------------
-
-TEST(CEndpointManagerSuite, MultipleObserverTest)
-{
-    CEndpointManager manager;
-
-    std::vector<local::CPeerObserverStub> observers;
-    for (std::uint32_t idx = 0; idx < 12; ++idx) {
-        observers.emplace_back(local::CPeerObserverStub(&manager));
-    }
-
-    for (auto const& observer: observers) {
-        auto const optInitialCheckPeer = observer.GetBryptPeer();
-        ConnectionState const checkInitialState = observer.GetConnectionState();
-        ASSERT_FALSE(optInitialCheckPeer);
-        EXPECT_EQ(checkInitialState, ConnectionState::Unknown);
-    }
-
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::spClientIdentifier);
-    spBryptPeer->RegisterEndpointConnection(
-        rand(), test::TechnologyType, {}, test::ClientEntry);
-
-    manager.ForwardConnectionStateChange(
-        test::TechnologyType, spBryptPeer, ConnectionState::Connected);
-
-    for (auto const& observer: observers) {
-        auto const spCheckBryptPeer = observer.GetBryptPeer();
-        ConnectionState const checkConnectedState = observer.GetConnectionState();
-
-        ASSERT_TRUE(spCheckBryptPeer);
-        EXPECT_EQ(spCheckBryptPeer->GetBryptIdentifier(), spBryptPeer->GetBryptIdentifier());
-        EXPECT_EQ(checkConnectedState, ConnectionState::Connected);
-    }
-
-    manager.ForwardConnectionStateChange(
-        test::TechnologyType, spBryptPeer, ConnectionState::Disconnected);
-
-    for (auto const& observer: observers) {
-        auto const optCheckDisonnectedPeer = observer.GetBryptPeer();
-        ConnectionState const checkDisonnectedState = observer.GetConnectionState();
-        ASSERT_FALSE(optCheckDisonnectedPeer);
-        EXPECT_EQ(checkDisonnectedState, ConnectionState::Disconnected);
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
 TEST(CEndpointManagerSuite, EndpointStartupTest)
 {
     auto upEndpointManager = std::make_unique<CEndpointManager>();
@@ -273,7 +121,8 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
     local::CBootstrapCacheStub cache;
     cache.AddBootstrap(test::TechnologyType, test::ClientEntry);
 
-    upEndpointManager->Initialize(test::spServerIdentifier, nullptr, configurations, &cache);
+    upEndpointManager->Initialize(
+        test::spBryptIdentifier, nullptr, nullptr, configurations, &cache);
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();
     EXPECT_EQ(initialActiveEndpoints, std::uint32_t(0));

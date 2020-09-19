@@ -43,10 +43,13 @@ Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
     , m_tracker()
     , m_eventsMutex()
     , m_events()
+    , m_scheduler()
 {
     if (m_operation != OperationType::Server) {
         throw std::runtime_error("StreamBridge endpoint may only operate in server mode.");
     }
+
+    m_scheduler = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -513,20 +516,16 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
         },
         [this, &spBryptPeer, &optRequest] (std::string_view uri) -> ExtendedConnectionDetails
         {
-            auto scheduler = [this] (CMessage const& message) -> bool
-                {
-                    return ScheduleSend(message);
-                };
-            spBryptPeer = std::make_shared<CBryptPeer>(optRequest->GetSource());
-            spBryptPeer->RegisterEndpointConnection(m_identifier, m_technology, scheduler, uri);
+            spBryptPeer = CEndpoint::LinkPeer(optRequest->GetSource());
             
             ExtendedConnectionDetails details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Connected);
             details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
 
-            CEndpoint::PublishPeerConnection(spBryptPeer);
-
+            spBryptPeer->RegisterEndpoint(
+                m_identifier, m_technology, m_scheduler, uri);
+                
             return details;
         }
     );
@@ -652,17 +651,23 @@ void Endpoints::CStreamBridgeEndpoint::HandleConnectionStateChange(
     bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(identity,
         [&] (auto& details)
         {
-            auto const spBryptPeer = details.GetBryptPeer();
+            auto spBryptPeer = details.GetBryptPeer();
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection(spBryptPeer);
+                    spBryptPeer->WithdrawEndpoint(m_identifier, m_technology);
+                    if (spBryptPeer) {
+                        spBryptPeer->WithdrawEndpoint(m_identifier, m_technology);
+                    }
                 } break;
                 case ConnectionState::Disconnected: {
                     // TODO: Previously disconnected nodes should be re-authenticated prior to re-adding
                     // their callbacks with BryptNode
                     details.SetConnectionState(ConnectionState::Connected);
-                    CEndpoint::PublishPeerConnection(spBryptPeer);
+                    if (spBryptPeer) {
+                        spBryptPeer->RegisterEndpoint(
+                            m_identifier, m_technology, m_scheduler, details.GetURI());
+                    }
                 } break;
                 case ConnectionState::Resolving: break;
                 // Other ConnectionStates are not currently handled for this endpoint

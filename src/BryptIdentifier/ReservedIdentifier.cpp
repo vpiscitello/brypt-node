@@ -17,7 +17,7 @@
 bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::BufferType const& buffer)
 {
     if (buffer.size() != BryptIdentifier::InternalSize) {
-        return false;
+        return true;
     }
 
     auto const optInternalRepresentation = BryptIdentifier::ConvertToInternalRepresentation(buffer);
@@ -29,22 +29,22 @@ bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::BufferType const
 bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::InternalType const& identifier)
 {
     if (identifier == ReservedIdentifiers::Internal::ClusterRequest) {
-        return false;
+        return true;
     }
 
     if (identifier == ReservedIdentifiers::Internal::NetworkRequest) {
-        return false;
+        return true;
     }
 
     if (identifier == ReservedIdentifiers::Internal::Unknown) {
-        return false;
+        return true;
     }
 
     if (identifier == ReservedIdentifiers::Internal::Invalid) {
-        return false;
+        return true;
     }
     
-    return true;
+    return false;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -52,22 +52,29 @@ bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::InternalType con
 bool ReservedIdentifiers::IsIdentifierReserved(std::string_view identifier)
 {
     if (identifier == ReservedIdentifiers::Network::ClusterRequest) {
-        return false;
+        return true;
     }
 
     if (identifier == ReservedIdentifiers::Network::NetworkRequest) {
-        return false;
+        return true;
     }
 
     if (identifier == ReservedIdentifiers::Network::Unknown) {
-        return false;
+        return true;
     }
 
     if (identifier == ReservedIdentifiers::Network::Invalid) {
-        return false;
+        return true;
     }
     
-    return true;
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::CContainer const& identifier)
+{
+    return IsIdentifierReserved(identifier.GetInternalRepresentation());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -90,6 +97,14 @@ bool ReservedIdentifiers::IsIdentifierAllowed(std::string_view identifier)
     }
     
     return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+
+bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::CContainer const& identifier)
+{
+    return IsIdentifierAllowed(identifier.GetInternalRepresentation());
 }
 
 //------------------------------------------------------------------------------------------------

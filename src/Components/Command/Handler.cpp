@@ -12,12 +12,12 @@
 #include "../Await/AwaitDefinitions.hpp"
 #include "../Await/TrackingManager.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
+#include "../BryptPeer/PeerManager.hpp"
 #include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
-#include "../../Configuration/PeerPersistor.hpp"
 #include "../../Message/Message.hpp"
 #include "../../Message/MessageBuilder.hpp"
 //------------------------------------------------------------------------------------------------
@@ -161,8 +161,8 @@ void Command::IHandler::SendNotice(
     peers.emplace(spBryptIdentifier);
 
     // Get the information pertaining to the node's network
-    if (auto const spPeerPersistor = m_instance.GetPeerPersistor().lock()) {
-        spPeerPersistor->ForEachCachedIdentifier(
+    if (auto const spPeerManager = m_instance.GetPeerManager().lock(); spPeerManager) {
+        spPeerManager->ForEachCachedIdentifier(
             [&peers] (
                 BryptIdentifier::SharedContainer const& spBryptIdentifier) -> CallbackIteration
             {

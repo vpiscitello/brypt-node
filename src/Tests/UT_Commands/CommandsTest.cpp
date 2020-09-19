@@ -38,7 +38,7 @@ Configuration::TEndpointOptions CreateEndpointOptions();
 std::unique_ptr<Configuration::CManager> CreateConfigurationManager();
 
 BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
 constexpr std::string_view TechnologyName = "Direct";
@@ -71,7 +71,8 @@ TEST(CommandSuite, CommandMatchingTest)
     // The node itself will set up internal commands that can operate on it's
     // internal state, but in order to setup our own we need to provide the 
     // commands a node instance and a state.
-    CBryptNode node(test::spServerIdentifier, nullptr, nullptr, nullptr, upConfigurationManager);
+    CBryptNode node(
+        test::spServerIdentifier, nullptr, nullptr, nullptr, nullptr, upConfigurationManager);
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 

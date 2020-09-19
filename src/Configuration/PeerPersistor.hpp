@@ -10,7 +10,6 @@
 #include "../Components/BryptPeer/BryptPeer.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Interfaces/BootstrapCache.hpp"
-#include "../Interfaces/PeerCache.hpp"
 #include "../Interfaces/PeerMediator.hpp"
 #include "../Interfaces/PeerObserver.hpp"
 #include "../Utilities/NodeUtils.hpp"
@@ -27,12 +26,12 @@
 
 namespace BryptIdentifier {
     class CContainer;
-    using SharedContainer = std::shared_ptr<CContainer>;
+    using SharedContainer = std::shared_ptr<CContainer const>;
 }
 
 //------------------------------------------------------------------------------------------------
 
-class CPeerPersistor : public IBootstrapCache, public IPeerCache, public IPeerObserver {
+class CPeerPersistor : public IPeerObserver, public IBootstrapCache {
 public:
     using BootstrapSet = std::unordered_set<std::string>;
     using UniqueBootstrapSet = std::unique_ptr<BootstrapSet>;
@@ -61,44 +60,39 @@ public:
     Configuration::StatusCode SetupPeersFile();
 
     void AddBootstrapEntry(
-        Endpoints::TechnologyType technology,
-        std::shared_ptr<CBryptPeer> const& spBryptPeer);
+        std::shared_ptr<CBryptPeer> const& spBryptPeer,
+        Endpoints::EndpointIdType identifier,
+        Endpoints::TechnologyType technology);
     void AddBootstrapEntry(
         Endpoints::TechnologyType technology,
         std::string_view bootstrap);
     void DeleteBootstrapEntry(
-        Endpoints::TechnologyType technology,
-        std::shared_ptr<CBryptPeer> const& spBryptPeer);
+        std::shared_ptr<CBryptPeer> const& spBryptPeer,
+        Endpoints::EndpointIdType identifier,
+        Endpoints::TechnologyType technology);
     void DeleteBootstrapEntry(
         Endpoints::TechnologyType technology,
         std::string_view bootstrap);
 
-    void AddBryptIdentifier(std::shared_ptr<CBryptPeer> const& spBryptPeer);
-    void DeleteBryptIdentifier(std::shared_ptr<CBryptPeer> const& spBryptPeer);
+    // IPeerObserver {
+    void HandlePeerStateChange(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        Endpoints::EndpointIdType identifier,
+        Endpoints::TechnologyType technology,
+        ConnectionState change) override;
+    // } IPeerObserver
 
     // IBootstrapCache {
     bool ForEachCachedBootstrap(
-        AllEndpointBootstrapReadFunction const& readFunction,
-        AllEndpointBootstrapErrorFunction const& errorFunction) const override;
+        AllEndpointBootstrapReadFunction const& callback,
+        AllEndpointBootstrapErrorFunction const& error) const override;
     bool ForEachCachedBootstrap(
         Endpoints::TechnologyType technology,
-        OneEndpointBootstrapReadFunction const& readFunction) const override;
+        OneEndpointBootstrapReadFunction const& callback) const override;
 
     std::uint32_t CachedBootstrapCount() const override;
     std::uint32_t CachedBootstrapCount(Endpoints::TechnologyType technology) const override;
     // } IBootstrapCache
-
-    // IPeerCache {
-    bool ForEachCachedIdentifier(IdentifierReadFunction const& readFunction) const override;
-    std::uint32_t ActivePeerCount() const override;
-    // } IPeerCache
-
-    // IPeerObserver {
-    void HandleConnectionStateChange(
-        Endpoints::TechnologyType technology,
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        ConnectionState change) override;
-    // } IPeerObserver
     
 private:
     IPeerMediator* m_mediator;
@@ -108,9 +102,6 @@ private:
     
     mutable std::mutex m_endpointBootstrapsMutex;
     UniqueEndpointBootstrapMap m_upEndpointBootstraps;
-
-    mutable std::mutex m_bryptIdentifiersMutex;
-    UniqueBryptIdentifierSet m_upBryptIdentifiers;
 
     DefaultBootstrapMap m_defaults;
 };

@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
+#include "../Components/BryptPeer/PeerManager.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/MessageControl/MessageCollector.hpp"
@@ -78,31 +79,29 @@ std::int32_t main(std::int32_t argc, char** argv)
         exit(1);
     }
 
-    auto spEndpointManager = std::make_shared<CEndpointManager>();
-    auto spPersistor = std::make_shared<CPeerPersistor>(
-        local::PeersFilename,
-        *optEndpointConfigurations);
-    auto spMessageCollector = std::make_shared<CMessageCollector>();
+    auto const spPeerManager = std::make_shared<CPeerManager>();
 
-    if (!spPersistor->FetchBootstraps()) {
+    auto const spPeerPersistor = std::make_shared<CPeerPersistor>(
+        local::PeersFilename, *optEndpointConfigurations);
+
+    spPeerPersistor->SetMediator(spPeerManager.get());
+    
+    if (!spPeerPersistor->FetchBootstraps()) {
         NodeUtils::printo("Node bootstraps could not be parsed!", NodeUtils::PrintType::Node);
         exit(1);
     }
 
-    spEndpointManager->Initialize(
-        spBryptIdentifier,
-        spMessageCollector.get(),
-        *optEndpointConfigurations,
-        spPersistor.get());
+    auto const spMessageCollector = std::make_shared<CMessageCollector>();
 
-    spPersistor->SetMediator(spEndpointManager.get());
+    auto const spEndpointManager = std::make_shared<CEndpointManager>();
+    spEndpointManager->Initialize(
+        spBryptIdentifier, spPeerManager.get(), spMessageCollector.get(),
+        *optEndpointConfigurations, spPeerPersistor.get());
+
 
     CBryptNode alpha(
-        spBryptIdentifier,
-        spEndpointManager,
-        spMessageCollector,
-        spPersistor,
-        upConfigurationManager);
+        spBryptIdentifier, spEndpointManager, spPeerManager,
+        spMessageCollector, spPeerPersistor, upConfigurationManager);
 
     alpha.Startup();
 

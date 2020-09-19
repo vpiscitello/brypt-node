@@ -752,7 +752,7 @@ void local::InitializeIdentifierOptions(Configuration::TIdentifierOptions& optio
     // Would should never hit this function before the the options have been validated.
     if (options.type == "Ephemeral") {
         // Generate a new Brypt Identifier and store the network representation as the value.
-        options.container = std::make_shared<BryptIdentifier::CContainer>(
+        options.container = std::make_shared<BryptIdentifier::CContainer const>(
             BryptIdentifier::Generate());
         assert(options.container);
         options.value = options.container->GetNetworkRepresentation();
@@ -762,14 +762,14 @@ void local::InitializeIdentifierOptions(Configuration::TIdentifierOptions& optio
         // value was properly formatted. 
         // Otherwise, a new Brypt Identifier must be be generated. 
         if (options.value) {
-            options.container = std::make_shared<BryptIdentifier::CContainer>(
+            options.container = std::make_shared<BryptIdentifier::CContainer const>(
                 *options.value);
             assert(options.container);
             if (!options.container->IsValid()) {
                 options.value.reset();
             }
         } else {
-            options.container = std::make_shared<BryptIdentifier::CContainer>(
+            options.container = std::make_shared<BryptIdentifier::CContainer const>(
                 BryptIdentifier::Generate());
             assert(options.container);
             options.value = options.container->GetNetworkRepresentation();  

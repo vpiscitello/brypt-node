@@ -109,9 +109,8 @@ public:
     Endpoints::EndpointIdType GetEndpointIdentifier() const;
     Endpoints::OperationType GetOperation() const;
 
-protected:
-    void PublishPeerConnection(std::weak_ptr<CBryptPeer> const& wpBryptPeer);
-    void UnpublishPeerConnection(std::weak_ptr<CBryptPeer> const& wpBryptPeer);
+protected: 
+    std::shared_ptr<CBryptPeer> LinkPeer(BryptIdentifier::CContainer const& identifier) const;
 
     using EventDeque = std::deque<std::any>;
 

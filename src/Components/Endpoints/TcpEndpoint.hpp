@@ -166,6 +166,9 @@ private:
 
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;
+
+    MessageScheduler m_scheduler;
+
 };
 
 //------------------------------------------------------------------------------------------------

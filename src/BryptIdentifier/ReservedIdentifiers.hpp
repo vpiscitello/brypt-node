@@ -16,9 +16,11 @@ namespace ReservedIdentifiers {
 bool IsIdentifierReserved(BryptIdentifier::BufferType const& buffer);
 bool IsIdentifierReserved(BryptIdentifier::InternalType const& identifier);
 bool IsIdentifierReserved(std::string_view identifier);
+bool IsIdentifierReserved(BryptIdentifier::CContainer const& identifier);
 
 bool IsIdentifierAllowed(BryptIdentifier::InternalType const& identifier);
 bool IsIdentifierAllowed(std::string_view identifier);
+bool IsIdentifierAllowed(BryptIdentifier::CContainer const& identifier);
 
 //------------------------------------------------------------------------------------------------
 namespace Internal {

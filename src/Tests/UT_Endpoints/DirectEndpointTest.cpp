@@ -33,9 +33,9 @@ std::unique_ptr<Endpoints::CDirectEndpoint> MakeDirectClient(
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
 constexpr std::string_view TechnologyName = "Direct";

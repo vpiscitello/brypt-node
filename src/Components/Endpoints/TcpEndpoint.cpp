@@ -44,7 +44,9 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     , m_tracker()
     , m_eventsMutex()
     , m_events()
+    , m_scheduler()
 {
+    m_scheduler = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -781,20 +783,15 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
         },
         [this, &spBryptPeer, &optRequest] (std::string_view uri) -> ExtendedConnectionDetails
         {
-            auto scheduler = [this] (CMessage const& message) -> bool
-                {
-                    return ScheduleSend(message);
-                };
-
-            spBryptPeer = std::make_shared<CBryptPeer>(optRequest->GetSource());
-            spBryptPeer->RegisterEndpointConnection(m_identifier, m_technology, scheduler, uri);
-
+            spBryptPeer = CEndpoint::LinkPeer(optRequest->GetSource());
+            
             ExtendedConnectionDetails details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Connected);
             details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
-
-            CEndpoint::PublishPeerConnection(spBryptPeer);
+            
+            spBryptPeer->RegisterEndpoint(
+                m_identifier, m_technology, m_scheduler, uri);
 
             return details;
         }
@@ -934,10 +931,13 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
         [&] (auto& details)
         {
             auto const spBryptPeer = details.GetBryptPeer();
+            
             switch (details.GetConnectionState()) {
                 case ConnectionState::Connected: {
                     details.SetConnectionState(ConnectionState::Disconnected);
-                    CEndpoint::UnpublishPeerConnection(spBryptPeer);
+                    if (spBryptPeer) {
+                        spBryptPeer->WithdrawEndpoint(m_identifier, m_technology);
+                    }
                 } break;
                 // Other ConnectionStates are not currently handled for this endpoint
                 default: assert(false); break;

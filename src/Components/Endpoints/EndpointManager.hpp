@@ -23,9 +23,8 @@ class CEndpoint;
 
 //------------------------------------------------------------------------------------------------
 
-class CEndpointManager : public IEndpointMediator, public IPeerMediator {
+class CEndpointManager : public IEndpointMediator {
 public:
-    using ObserverSet = std::set<IPeerObserver*>;
     using SharedEndpoint = std::shared_ptr<CEndpoint>;
 
     CEndpointManager();
@@ -37,6 +36,7 @@ public:
 
     void Initialize(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        IPeerMediator* const pPeerMediator,
         IMessageSink* const pMessageSink,
         Configuration::EndpointConfigurations const& configurations,
         IBootstrapCache const* const pBootsrapCache);
@@ -55,16 +55,6 @@ public:
     virtual EndpointEntryMap GetEndpointEntries() const override;
     virtual EndpointURISet GetEndpointURIs() const override;
     // } IEndpointMediator
-
-    // IPeerMediator {
-    virtual void RegisterObserver(IPeerObserver* const observer) override;
-    virtual void UnpublishObserver(IPeerObserver* const observer) override;
-
-    virtual void ForwardConnectionStateChange(
-        Endpoints::TechnologyType technology,
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        ConnectionState change) override;
-    // } IPeerMediator
     
 private:
     using EndpointsMultimap = std::unordered_map<Endpoints::EndpointIdType, SharedEndpoint>;
@@ -72,29 +62,24 @@ private:
     void InitializeDirectEndpoints(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
+        IPeerMediator* const pPeerMediator,
         IMessageSink* const pMessageSink,
         IBootstrapCache const* const pBootstrapCache);
     void InitializeTCPEndpoints(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
+        IPeerMediator* const pPeerMediator,
         IMessageSink* const pMessageSink,
         IBootstrapCache const* const pBootstrapCache);
     void InitializeStreamBridgeEndpoints(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
+        IPeerMediator* const pPeerMediator,
         IMessageSink* const pMessageSink);
-
-    template<typename FunctionType, typename...Args>
-    void NotifyObservers(FunctionType const& function, Args&&...args);
-
-    template<typename FunctionType, typename...Args>
-    void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
     EndpointsMultimap m_endpoints;
     Endpoints::TechnologySet m_technologies;
 
-    mutable std::mutex m_observersMutex;
-    ObserverSet m_observers;
 };
 
 //------------------------------------------------------------------------------------------------

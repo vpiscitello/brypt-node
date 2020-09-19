@@ -141,25 +141,11 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     // Create a new peer and notify the persistor
     auto const spBryptPeer = std::make_shared<CBryptPeer>(
         BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
-    spBryptPeer->RegisterEndpointConnection(
+    spBryptPeer->RegisterEndpoint(
         test::EndpointIdentifier, test::PeerTechnology, {}, test::NewBootstrapEntry);
 
-    persistor.HandleConnectionStateChange(
-        test::PeerTechnology, spBryptPeer, ConnectionState::Connected);
-
-    EXPECT_EQ(persistor.ActivePeerCount(), std::uint32_t(1));
-    persistor.ForEachCachedIdentifier(
-        [&spBryptPeer] (
-            BryptIdentifier::SharedContainer const& spCheckIdentifier) -> CallbackIteration
-        {
-            EXPECT_TRUE(spCheckIdentifier);
-            auto const& spBryptIdentifier = spBryptPeer->GetBryptIdentifier();
-            EXPECT_TRUE(spBryptIdentifier);
-            EXPECT_EQ(spBryptIdentifier, spCheckIdentifier);
-            EXPECT_EQ(*spBryptIdentifier, *spCheckIdentifier);
-            return CallbackIteration::Continue;
-        }
-    );
+    persistor.HandlePeerStateChange(
+        spBryptPeer, test::EndpointIdentifier, test::PeerTechnology, ConnectionState::Connected);
 
     // Verify the new peer has been added to the current persistor
     EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(2));
@@ -202,12 +188,10 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     }
 
     // Tell the persistor the new peer has been disconnected
-    persistor.HandleConnectionStateChange(
-        test::PeerTechnology, spBryptPeer, ConnectionState::Disconnected);
-    spBryptPeer->WithdrawEndpointConnection(test::EndpointIdentifier);
+    persistor.HandlePeerStateChange(
+        spBryptPeer, test::EndpointIdentifier, test::PeerTechnology, ConnectionState::Disconnected);
+    spBryptPeer->WithdrawEndpoint(test::EndpointIdentifier, test::PeerTechnology);
 
-    EXPECT_EQ(persistor.ActivePeerCount(), std::uint32_t(0));
-    
     persistor.FetchBootstraps(); // Force the persitor to re-query the persistor file
     EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
 

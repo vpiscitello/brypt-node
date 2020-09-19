@@ -36,8 +36,8 @@ constexpr std::uint8_t const ChecksumSize = 4;
 constexpr std::uint8_t const MaxNetworkSize = 36;
 
 class CContainer;
-using SharedContainer = std::shared_ptr<CContainer>;
-using WeakContainer = std::weak_ptr<CContainer>;
+using SharedContainer = std::shared_ptr<CContainer const>;
+using WeakContainer = std::weak_ptr<CContainer const>;
 
 struct Hasher;
 
@@ -77,6 +77,7 @@ public:
 
     bool operator<(CContainer const& other) const;
     bool operator==(CContainer const& other) const;
+    bool operator!=(CContainer const& other) const;
 
     friend std::ostream& operator<<(
         std::ostream& stream,

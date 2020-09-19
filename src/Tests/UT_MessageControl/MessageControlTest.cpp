@@ -28,7 +28,7 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
 constexpr Command::Type Command = Command::Type::Election;
@@ -56,7 +56,7 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
 
     std::optional<CMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optForwardedResponse] (CMessage const& message) -> bool
@@ -114,7 +114,7 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
 
     std::optional<CMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpointConnection(
+    spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
         [&optForwardedResponse] (CMessage const& message) -> bool
