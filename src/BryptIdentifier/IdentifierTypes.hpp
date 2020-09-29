@@ -1,26 +1,36 @@
 //------------------------------------------------------------------------------------------------
-// File: MessageDefinitions.hpp
+// File: IdentifierTypes.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Await/AwaitDefinitions.hpp"
+#include <memory>
+#include <string>
 //------------------------------------------------------------------------------------------------
-#include <cstdint>
-#include <utility>
-#include <vector>
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-namespace Message {
+#include <boost/multiprecision/cpp_int.hpp>
 //------------------------------------------------------------------------------------------------
 
-enum class AwaitBinding : std::uint8_t { Source, Destination, None };
+//------------------------------------------------------------------------------------------------
+namespace BryptIdentifier {
 
-using Buffer = std::vector<std::uint8_t>;
-using Token = std::vector<std::uint8_t>;
-using BoundAwaitingKey = std::pair<AwaitBinding, Await::TrackerKey>;
+class CContainer;
+using SharedContainer = std::shared_ptr<CContainer const>;
+using WeakContainer = std::weak_ptr<CContainer const>;
+
+namespace Internal {
+//------------------------------------------------------------------------------------------------
+
+using Type = boost::multiprecision::uint128_t;
 
 //------------------------------------------------------------------------------------------------
-} // Message namespace
+} // Internal namespace
+//------------------------------------------------------------------------------------------------
+namespace Network {
+//------------------------------------------------------------------------------------------------
+
+using Type = std::string;
+
+//------------------------------------------------------------------------------------------------
+} // Network namespace
+} // BryptIdentifier namespace
 //------------------------------------------------------------------------------------------------

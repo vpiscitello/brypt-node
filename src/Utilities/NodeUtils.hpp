@@ -18,8 +18,6 @@ namespace NodeUtils {
 
 using ClusterIdType = std::uint32_t;
 
-using NetworkNonce = std::uint32_t;
-
 //------------------------------------------------------------------------------------------------
 
 enum class DeviceOperation : std::uint8_t { Branch, Leaf, None };

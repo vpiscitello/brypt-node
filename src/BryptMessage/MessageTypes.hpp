@@ -4,7 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Utilities/NodeUtils.hpp"
+#include "MessageDefinitions.hpp"
+#include "../Components/Await/AwaitDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <utility>
@@ -15,11 +16,8 @@
 namespace Message {
 //------------------------------------------------------------------------------------------------
 
-enum class AwaitBinding : std::uint8_t { Source, Destination, None };
-
+using Version = std::pair<std::uint8_t, std::uint8_t>;
 using Buffer = std::vector<std::uint8_t>;
-using Token = std::vector<std::uint8_t>;
-using BoundAwaitingKey = std::pair<AwaitBinding, NodeUtils::ObjectIdType>;
 
 //------------------------------------------------------------------------------------------------
 } // Message namespace
