@@ -50,7 +50,7 @@ TEST(CMessageSuite, BaseMessageParameterConstructorTest)
     EXPECT_EQ(optMessage->GetSourceIdentifier(), test::ClientIdentifier);
     ASSERT_TRUE(optMessage->GetDestinationIdentifier());
     EXPECT_EQ(*optMessage->GetDestinationIdentifier(), test::ServerIdentifier);
-    EXPECT_FALSE(optMessage->GetAwaitingKey());
+    EXPECT_FALSE(optMessage->GetAwaitTrackerKey());
     EXPECT_EQ(optMessage->GetCommand(), test::Command);
     EXPECT_EQ(optMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optMessage->GetTimepoint(), TimeUtils::Timepoint());
@@ -80,7 +80,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
 
     EXPECT_EQ(optSourceBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(optSourceBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
-    EXPECT_EQ(optSourceBoundMessage->GetAwaitingKey(), awaitTrackingKey);
+    EXPECT_EQ(optSourceBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
     EXPECT_EQ(optSourceBoundMessage->GetCommand(), test::Command);
     EXPECT_EQ(optSourceBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optSourceBoundMessage->GetTimepoint(), TimeUtils::Timepoint());
@@ -103,7 +103,7 @@ TEST(CMessageSuite, BoundAwaitMessageParameterConstructorTest)
 
     EXPECT_EQ(optDestinationBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(optDestinationBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
-    EXPECT_EQ(optDestinationBoundMessage->GetAwaitingKey(), awaitTrackingKey);
+    EXPECT_EQ(optDestinationBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
     EXPECT_EQ(optDestinationBoundMessage->GetCommand(), test::Command);
     EXPECT_EQ(optDestinationBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optDestinationBoundMessage->GetTimepoint(), TimeUtils::Timepoint());
@@ -137,7 +137,7 @@ TEST(CMessageSuite, BaseMessagePackConstructorTest)
 
     EXPECT_EQ(optBaseMessage->GetSourceIdentifier(), optPackMessage->GetSourceIdentifier());
     EXPECT_EQ(optBaseMessage->GetDestinationIdentifier(), optPackMessage->GetDestinationIdentifier());
-    EXPECT_FALSE(optBaseMessage->GetAwaitingKey());
+    EXPECT_FALSE(optBaseMessage->GetAwaitTrackerKey());
     EXPECT_EQ(optBaseMessage->GetCommand(), optPackMessage->GetCommand());
     EXPECT_EQ(optBaseMessage->GetPhase(), optPackMessage->GetPhase());
     EXPECT_GT(optBaseMessage->GetTimepoint(), optPackMessage->GetTimepoint());
@@ -172,7 +172,7 @@ TEST(CMessageSuite, BoundMessagePackConstructorTest)
 
     EXPECT_EQ(optBoundMessage->GetSourceIdentifier(), optPackMessage->GetSourceIdentifier());
     EXPECT_EQ(optBoundMessage->GetDestinationIdentifier(), optPackMessage->GetDestinationIdentifier());
-    EXPECT_EQ(optBoundMessage->GetAwaitingKey(), optPackMessage->GetAwaitingKey());
+    EXPECT_EQ(optBoundMessage->GetAwaitTrackerKey(), optPackMessage->GetAwaitTrackerKey());
     EXPECT_EQ(optBoundMessage->GetCommand(), optPackMessage->GetCommand());
     EXPECT_EQ(optBoundMessage->GetPhase(), optPackMessage->GetPhase());
     EXPECT_GT(optBoundMessage->GetTimepoint(), optPackMessage->GetTimepoint());
@@ -207,7 +207,7 @@ TEST(CMessageSuite, BoundMessageBufferConstructorTest)
 
     EXPECT_EQ(optBoundMessage->GetSourceIdentifier(), optPackMessage->GetSourceIdentifier());
     EXPECT_EQ(optBoundMessage->GetDestinationIdentifier(), optPackMessage->GetDestinationIdentifier());
-    EXPECT_EQ(optBoundMessage->GetAwaitingKey(), optPackMessage->GetAwaitingKey());
+    EXPECT_EQ(optBoundMessage->GetAwaitTrackerKey(), optPackMessage->GetAwaitTrackerKey());
     EXPECT_EQ(optBoundMessage->GetCommand(), optPackMessage->GetCommand());
     EXPECT_EQ(optBoundMessage->GetPhase(), optPackMessage->GetPhase());
     EXPECT_GT(optBoundMessage->GetTimepoint(), optPackMessage->GetTimepoint());

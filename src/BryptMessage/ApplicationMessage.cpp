@@ -44,7 +44,7 @@ CApplicationMessage::CApplicationMessage()
 	, m_phase()
 	, m_data()
 	, m_timepoint(TimeUtils::GetSystemTimepoint())
-	, m_optBoundTrackerKey()
+	, m_optBoundAwaitTracker()
 {
 }
 
@@ -57,7 +57,7 @@ CApplicationMessage::CApplicationMessage(CApplicationMessage const& other)
 	, m_phase(other.m_phase)
 	, m_data(other.m_data)
 	, m_timepoint(other.m_timepoint)
-	, m_optBoundTrackerKey(other.m_optBoundTrackerKey)
+	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
 {
 }
 //------------------------------------------------------------------------------------------------
@@ -97,16 +97,6 @@ std::optional<BryptIdentifier::CContainer> const& CApplicationMessage::GetDestin
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<Await::TrackerKey> CApplicationMessage::GetAwaitingKey() const
-{
-	if (!m_optBoundTrackerKey) {
-		return {};
-	}
-	return m_optBoundTrackerKey->second;
-}
-
-//------------------------------------------------------------------------------------------------
-
 Command::Type CApplicationMessage::GetCommand() const
 {
 	return m_command;
@@ -142,12 +132,22 @@ TimeUtils::Timepoint const& CApplicationMessage::GetTimepoint() const
 
 //------------------------------------------------------------------------------------------------
 
+std::optional<Await::TrackerKey> CApplicationMessage::GetAwaitTrackerKey() const
+{
+	if (!m_optBoundAwaitTracker) {
+		return {};
+	}
+	return m_optBoundAwaitTracker->second;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::uint32_t CApplicationMessage::GetPackSize() const
 {
 	std::uint32_t size = FixedPackSize();
 	size += m_header.GetPackSize();
 	size += m_data.size();
-	if (m_optBoundTrackerKey) {
+	if (m_optBoundAwaitTracker) {
 		size += FixedAwaitExtensionSize();
 	}
 
@@ -187,12 +187,12 @@ std::string CApplicationMessage::GetPack() const
 	// Extension Packing
 	PackUtils::PackChunk(buffer, std::uint8_t(0));
 	auto& extensionCountByte = buffer.back();
-	if (m_optBoundTrackerKey) {
+	if (m_optBoundAwaitTracker) {
 		++extensionCountByte;
 		PackUtils::PackChunk(buffer, local::Extensions::AwaitTracker);
 		PackUtils::PackChunk(buffer, FixedAwaitExtensionSize());
-		PackUtils::PackChunk(buffer, m_optBoundTrackerKey->first);
-		PackUtils::PackChunk(buffer, m_optBoundTrackerKey->second);
+		PackUtils::PackChunk(buffer, m_optBoundAwaitTracker->first);
+		PackUtils::PackChunk(buffer, m_optBoundAwaitTracker->second);
 	}
 	
 	// Calculate the number of bytes needed to pad to next 4 byte boundary
@@ -254,8 +254,8 @@ constexpr std::uint16_t CApplicationMessage::FixedAwaitExtensionSize() const
 	std::uint16_t size = 0;
 	size += sizeof(local::Extensions::AwaitTracker); // 1 byte for the extension type
 	size += sizeof(std::uint16_t); // 2 bytes for the extension size
-	size += sizeof(m_optBoundTrackerKey->first); // 1 byte for await tracker binding
-	size += sizeof(m_optBoundTrackerKey->second); // 4 bytes for await tracker key
+	size += sizeof(m_optBoundAwaitTracker->first); // 1 byte for await tracker binding
+	size += sizeof(m_optBoundAwaitTracker->second); // 4 bytes for await tracker key
 	return size;
 }
 
@@ -347,16 +347,6 @@ CApplicationBuilder& CApplicationBuilder::SetDestination(std::string_view identi
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::BindAwaitTracker(
-    Message::AwaitBinding binding,
-    Await::TrackerKey key)
-{
-	m_message.m_optBoundTrackerKey = Message::BoundTrackerKey(binding, key);
-	return *this;
-}
-
-//------------------------------------------------------------------------------------------------
-
 CApplicationBuilder& CApplicationBuilder::SetCommand(Command::Type type, std::uint8_t phase)
 {
 	m_message.m_command = type;
@@ -381,6 +371,25 @@ CApplicationBuilder& CApplicationBuilder::SetData(Message::Buffer const& buffer)
 		m_message.m_data = *optData;
 	}
     return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CApplicationBuilder& CApplicationBuilder::BindAwaitTracker(
+    Message::AwaitBinding binding,
+    Await::TrackerKey key)
+{
+	m_message.m_optBoundAwaitTracker = Message::BoundTrackerKey(binding, key);
+	return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CApplicationBuilder& CApplicationBuilder::BindAwaitTracker(
+    std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker)
+{
+	m_message.m_optBoundAwaitTracker = optBoundAwaitTracker;
+	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -486,7 +495,7 @@ void CApplicationBuilder::UnpackExtensions(
 		switch (extension)
 		{
 			case static_cast<ExtensionType>(local::Extensions::AwaitTracker): {
-				m_message.m_optBoundTrackerKey = local::UnpackAwaitTracker(
+				m_message.m_optBoundAwaitTracker = local::UnpackAwaitTracker(
 					begin, end, m_message.FixedAwaitExtensionSize());
 			} break;					
 			default: return;

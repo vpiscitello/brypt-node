@@ -51,11 +51,11 @@ public:
 	Message::Destination const& GetDestinationType() const;
 	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
 
-	std::optional<Await::TrackerKey> GetAwaitingKey() const;
 	Command::Type GetCommand() const;
 	std::uint32_t GetPhase() const;
 	Message::Buffer GetData() const;
 	TimeUtils::Timepoint const& GetTimepoint() const;
+	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;
 
     std::uint32_t GetPackSize() const;
 	std::string GetPack() const;
@@ -75,7 +75,7 @@ private:
 
 	// Optional Extension: Allows the sender to associate to the destination's response with a 
 	// a hopped or flooded request from another peer. 
-	std::optional<Message::BoundTrackerKey> m_optBoundTrackerKey;
+	std::optional<Message::BoundTrackerKey> m_optBoundAwaitTracker;
 
 };
 
@@ -96,10 +96,12 @@ public:
 	CApplicationBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
 	CApplicationBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
 	CApplicationBuilder& SetDestination(std::string_view identifier);
-	CApplicationBuilder& BindAwaitTracker(Message::AwaitBinding binding, Await::TrackerKey key);
 	CApplicationBuilder& SetCommand(Command::Type type, std::uint8_t phase);
 	CApplicationBuilder& SetData(std::string_view data);
 	CApplicationBuilder& SetData(Message::Buffer const& buffer);
+	CApplicationBuilder& BindAwaitTracker(Message::AwaitBinding binding, Await::TrackerKey key);
+	CApplicationBuilder& BindAwaitTracker(
+		std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker);
 
 	CApplicationBuilder& FromPack(Message::Buffer const& buffer);
 	CApplicationBuilder& FromPack(std::string_view pack);
