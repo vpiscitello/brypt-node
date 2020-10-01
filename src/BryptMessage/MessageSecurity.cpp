@@ -151,46 +151,27 @@ std::optional<Message::Buffer> MessageSecurity::HMAC(
 	
 //------------------------------------------------------------------------------------------------
 
-MessageSecurity::VerificationStatus MessageSecurity::Verify(CApplicationMessage const& message)
-{
-    return Verify(message.GetPack());
-}
-
 //------------------------------------------------------------------------------------------------
-
+// Description: Compare the Message token with the computed HMAC.
 //------------------------------------------------------------------------------------------------
 MessageSecurity::VerificationStatus MessageSecurity::Verify(Message::Buffer const& buffer)
 {
-    return Verify(reinterpret_cast<char const*>(buffer.data()));
-}
-
-//------------------------------------------------------------------------------------------------
-
-// Description: Compare the Message token with the computed HMAC.
-//------------------------------------------------------------------------------------------------
-MessageSecurity::VerificationStatus MessageSecurity::Verify(std::string_view pack)
-{
-	if (pack.empty()) {
+	if (buffer.empty()) {
 		return VerificationStatus::Unauthorized;
 	}
 
-	Message::Buffer decoded = PackUtils::Z85Decode(pack);
-    if (decoded.size() < TokenSize) {
-		return VerificationStatus::Unauthorized;
-    }
-
-    std::uint32_t packContentSize = decoded.size() - TokenSize;
+    std::uint32_t packContentSize = buffer.size() - TokenSize;
     Message::Buffer attachedTokenBuffer;
     attachedTokenBuffer.reserve(packContentSize);
 
-	Message::Buffer::const_iterator tokenBegin = decoded.end() - TokenSize;
-	Message::Buffer::const_iterator tokenEnd = decoded.end();
+	Message::Buffer::const_iterator tokenBegin = buffer.end() - TokenSize;
+	Message::Buffer::const_iterator tokenEnd = buffer.end();
 	PackUtils::UnpackChunk(tokenBegin, tokenEnd, attachedTokenBuffer, TokenSize);
     if (attachedTokenBuffer.empty()) {
 		return VerificationStatus::Unauthorized;
     }
 
-	auto const optGeneratedBuffer = MessageSecurity::HMAC(decoded, packContentSize);
+	auto const optGeneratedBuffer = MessageSecurity::HMAC(buffer, packContentSize);
 	if (!optGeneratedBuffer || optGeneratedBuffer->size() != attachedTokenBuffer.size()) {
 		return VerificationStatus::Unauthorized;
 	}
