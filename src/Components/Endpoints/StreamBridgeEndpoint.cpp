@@ -7,8 +7,7 @@
 #include "EndpointDefinitions.hpp"
 #include "ZmqContextPool.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -49,7 +48,7 @@ Endpoints::CStreamBridgeEndpoint::CStreamBridgeEndpoint(
         throw std::runtime_error("StreamBridge endpoint may only operate in server mode.");
     }
 
-    m_scheduler = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };
+    m_scheduler = [this] (CApplicationMessage const& message) -> bool { return ScheduleSend(message); };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -177,7 +176,7 @@ void Endpoints::CStreamBridgeEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(CMessage const& message)
+bool Endpoints::CStreamBridgeEndpoint::ScheduleSend(CApplicationMessage const& message)
 {
     // Forward the message pack to be sent on the socket
     return ScheduleSend(message.GetDestination(), message.GetPack());
@@ -497,9 +496,9 @@ void Endpoints::CStreamBridgeEndpoint::HandleReceivedData(
 {
     NodeUtils::printo("[StreamBridge] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext({ m_identifier, m_technology })
-        .FromPack(message)
+        .FromEncodedPack(message)
         .ValidatedBuild();
 
     if (!optRequest) {

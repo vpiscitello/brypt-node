@@ -8,8 +8,7 @@
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/ConfigurationManager.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -76,57 +75,57 @@ TEST(CommandSuite, CommandMatchingTest)
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
-    OptionalMessage const optConnectRequest = CMessage::Builder()
+    auto const optConnectRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Connect, test::BasePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
-    auto const connectCommandItr = commands.find(optConnectRequest->GetCommandType());
+    auto const connectCommandItr = commands.find(optConnectRequest->GetCommand());
     ASSERT_NE(connectCommandItr, commands.end());
 
     auto const connectCommandReturnType = connectCommandItr->second->GetType();
     EXPECT_EQ(connectCommandReturnType, Command::Type::Connect);
 
-    OptionalMessage const optElectionRequest = CMessage::Builder()
+    auto const optElectionRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Election, test::BasePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
-    auto const electionCommandItr = commands.find(optElectionRequest->GetCommandType());
+    auto const electionCommandItr = commands.find(optElectionRequest->GetCommand());
     ASSERT_NE(electionCommandItr, commands.end());
 
     auto const electionCommandReturnType = electionCommandItr->second->GetType();
     EXPECT_EQ(electionCommandReturnType, Command::Type::Election);
 
-    OptionalMessage const optInformationRequest = CMessage::Builder()
+    auto const optInformationRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Information, test::BasePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
-    auto const informationCommandItr = commands.find(optInformationRequest->GetCommandType());
+    auto const informationCommandItr = commands.find(optInformationRequest->GetCommand());
     ASSERT_NE(informationCommandItr, commands.end());
 
     auto const informationCommandReturnType = informationCommandItr->second->GetType();
     EXPECT_EQ(informationCommandReturnType, Command::Type::Information);
 
-    OptionalMessage const optQueryRequest = CMessage::Builder()
+    auto const optQueryRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Query, test::BasePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
-    auto const queryCommandItr = commands.find(optQueryRequest->GetCommandType());
+    auto const queryCommandItr = commands.find(optQueryRequest->GetCommand());
     ASSERT_NE(queryCommandItr, commands.end());
 
     auto const queryCommandReturnType = queryCommandItr->second->GetType();

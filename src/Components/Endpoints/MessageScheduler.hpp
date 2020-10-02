@@ -8,10 +8,10 @@
 #include <functional>
 //------------------------------------------------------------------------------------------------
 
-class CMessage;
+class CApplicationMessage;
 
 //------------------------------------------------------------------------------------------------
 
-using MessageScheduler = std::function<bool(CMessage const& message)>;
+using MessageScheduler = std::function<bool(CApplicationMessage const& message)>;
 
 //------------------------------------------------------------------------------------------------

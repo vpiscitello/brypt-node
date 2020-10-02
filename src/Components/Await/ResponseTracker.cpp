@@ -4,7 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #include "ResponseTracker.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------
@@ -20,8 +21,8 @@ IOD_SYMBOL(pack)
 //------------------------------------------------------------------------------------------------
 Await::CResponseTracker::CResponseTracker(
     std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CMessage const& request,
-    BryptIdentifier::SharedContainer const& spBryptPeerIdentifier)
+    CApplicationMessage const& request,
+    BryptIdentifier::SharedContainer const& spPeerIdentifier)
     : m_status(ResponseStatus::Unfulfilled)
     , m_expected(1)
     , m_received(0)
@@ -30,8 +31,8 @@ Await::CResponseTracker::CResponseTracker(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
 {
-    if (spBryptPeerIdentifier) {
-        TResponseEntry entry = { spBryptPeerIdentifier, {} };
+    if (spPeerIdentifier) {
+        TResponseEntry entry = { spPeerIdentifier, {} };
         m_responses.emplace(entry);
     }
 }
@@ -43,7 +44,7 @@ Await::CResponseTracker::CResponseTracker(
 //------------------------------------------------------------------------------------------------
 Await::CResponseTracker::CResponseTracker(
     std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CMessage const& request,
+    CApplicationMessage const& request,
     std::set<BryptIdentifier::SharedContainer> const& identifiers)
     : m_status(ResponseStatus::Unfulfilled)
     , m_expected(identifiers.size())
@@ -53,7 +54,7 @@ Await::CResponseTracker::CResponseTracker(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
 {
-    BryptIdentifier::CContainer const& source = m_request.GetSource();
+    BryptIdentifier::CContainer const& source = m_request.GetSourceIdentifier();
     for (auto const& spBryptPeerIdentifier: identifiers) {
         if (!spBryptPeerIdentifier || *spBryptPeerIdentifier == source) {
             continue;
@@ -69,9 +70,9 @@ Await::CResponseTracker::CResponseTracker(
 // Description: This places a response message into the aggregate object for this await object.
 // Returns: true if the await object is fulfilled, false otherwise.
 //------------------------------------------------------------------------------------------------
-Await::ResponseStatus Await::CResponseTracker::UpdateResponse(CMessage const& response)
+Await::ResponseStatus Await::CResponseTracker::UpdateResponse(CApplicationMessage const& response)
 {
-    auto const itr = m_responses.find(response.GetSource().GetInternalRepresentation());
+    auto const itr = m_responses.find(response.GetSourceIdentifier().GetInternalRepresentation());
     if(itr == m_responses.end() || !itr->pack.empty()) {
         NodeUtils::printo("Unexpected node response", NodeUtils::PrintType::Await);
         return m_status;
@@ -136,12 +137,17 @@ bool Await::CResponseTracker::SendFulfilledResponse()
 
     std::string data = iod::json_vector(s::identifier, s::pack).encode(responsesVector);
 
-    auto const optResponse = CMessage::Builder()
+    auto const optDestination = m_request.GetDestinationIdentifier();
+    if (!optDestination) {
+        return false;
+    }
+
+    auto const optResponse = CApplicationMessage::Builder()
         .SetMessageContext(m_request.GetMessageContext())
-        .SetSource(m_request.GetDestination())
-        .SetDestination(m_request.GetSource())
-        .SetCommand(m_request.GetCommandType(), m_request.GetPhase() + 1)
-        .SetData(data, m_request.GetNonce() + 1)
+        .SetSource(*optDestination)
+        .SetDestination(m_request.GetSourceIdentifier())
+        .SetCommand(m_request.GetCommand(), m_request.GetPhase() + 1)
+        .SetData(data)
         .ValidatedBuild();
     assert(optResponse);
 

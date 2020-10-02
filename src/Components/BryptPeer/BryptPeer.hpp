@@ -8,7 +8,8 @@
 #include "../Endpoints/EndpointIdentifier.hpp"
 #include "../Endpoints/MessageScheduler.hpp"
 #include "../Endpoints/TechnologyType.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptIdentifier/IdentifierTypes.hpp"
+#include "../../BryptMessage/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 #include <memory>
@@ -18,7 +19,7 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CMessage;
+class CApplicationMessage;
 class IPeerMediator;
 
 //------------------------------------------------------------------------------------------------
@@ -31,7 +32,7 @@ public:
         IPeerMediator* const pPeerMediator = nullptr);
 
     BryptIdentifier::SharedContainer GetBryptIdentifier() const;
-    BryptIdentifier::InternalType GetInternalBryptIdentifier() const;
+    BryptIdentifier::Internal::Type GetInternalIdentifier() const;
     std::string GetLocation() const;
 
     void SetLocation(std::string_view location);
@@ -52,7 +53,7 @@ public:
 
     bool IsActive() const;
 
-    bool ScheduleSend(CMessage const& message) const;
+    bool ScheduleSend(CApplicationMessage const& message) const;
 
 private:
     using RegisteredEndpoints = std::unordered_map<Endpoints::EndpointIdType, CEndpointRegistration>;

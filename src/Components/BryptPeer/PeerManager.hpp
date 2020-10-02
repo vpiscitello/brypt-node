@@ -5,7 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../Interfaces/PeerCache.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../Interfaces/PeerObserver.hpp"
@@ -58,8 +58,8 @@ private:
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
                     CBryptPeer,
-                    BryptIdentifier::InternalType,
-                    &CBryptPeer::GetInternalBryptIdentifier>>>>;
+                    BryptIdentifier::Internal::Type,
+                    &CBryptPeer::GetInternalIdentifier>>>>;
 
     std::uint32_t PeerCount(Filter filter) const;
 

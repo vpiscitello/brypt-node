@@ -8,7 +8,7 @@
 #include "ConnectionDetails.hpp"
 #include "ConnectionTracker.hpp"
 #include "TechnologyType.hpp"
-#include "../../Message/MessageDefinitions.hpp"
+#include "../../BryptMessage/MessageDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
 #include <deque>
@@ -96,7 +96,7 @@ public:
     void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
-    bool ScheduleSend(CMessage const& message) override;
+    bool ScheduleSend(CApplicationMessage const& message) override;
     bool ScheduleSend(
         BryptIdentifier::CContainer const& identifier,
         std::string_view message) override;

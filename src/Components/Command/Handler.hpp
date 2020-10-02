@@ -18,7 +18,7 @@
 
 class CBryptNode;
 class CBryptPeer;
-class CMessage;
+class CApplicationMessage;
 
 //------------------------------------------------------------------------------------------------
 namespace Command {
@@ -58,7 +58,7 @@ public:
 protected:
     virtual void SendClusterNotice(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessage const& request,
+        CApplicationMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
         std::uint8_t responsePhase,
@@ -66,7 +66,7 @@ protected:
 
     virtual void SendNetworkNotice(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessage const& request,
+        CApplicationMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
         std::uint8_t responsePhase,
@@ -74,7 +74,7 @@ protected:
 
     virtual void SendResponse(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessage const& request,
+        CApplicationMessage const& request,
         std::string_view responseData,
         std::uint8_t responsePhase,
         std::optional<BryptIdentifier::CContainer> optDestinationOverride = {}) final;
@@ -85,8 +85,8 @@ protected:
 private: 
     virtual void SendNotice(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessage const& request,
-        BryptIdentifier::CContainer noticeDestination,
+        CApplicationMessage const& request,
+        Message::Destination destination,
         std::string_view noticeData,
         std::uint8_t noticePhase,
         std::uint8_t responsePhase,

@@ -3,9 +3,10 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
-#include "../../Message/Message.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -38,7 +39,7 @@ BryptIdentifier::SharedContainer CBryptPeer::GetBryptIdentifier() const
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::InternalType CBryptPeer::GetInternalBryptIdentifier() const
+BryptIdentifier::Internal::Type CBryptPeer::GetInternalIdentifier() const
 {
     assert(m_spBryptIdentifier);
     return m_spBryptIdentifier->GetInternalRepresentation();
@@ -167,7 +168,7 @@ bool CBryptPeer::IsActive() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::ScheduleSend(CMessage const& message) const
+bool CBryptPeer::ScheduleSend(CApplicationMessage const& message) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     auto const& context = message.GetMessageContext();

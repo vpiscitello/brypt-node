@@ -10,8 +10,7 @@
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
@@ -107,7 +106,9 @@ bool Command::CQueryHandler::HandleMessage(AssociatedMessage const& associatedMe
 // Description: Handles the flood phase for the Query type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message)
+bool Command::CQueryHandler::FloodHandler(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CApplicationMessage const& message)
 {
     printo("Sending notification for Query request", NodeUtils::PrintType::Command);
 
@@ -129,7 +130,7 @@ bool Command::CQueryHandler::FloodHandler(std::weak_ptr<CBryptPeer> const& wpBry
 //------------------------------------------------------------------------------------------------
 bool Command::CQueryHandler::RespondHandler(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& message)
+    CApplicationMessage const& message)
 {
     printo("Building response for Query request", NodeUtils::PrintType::Command);
     IHandler::SendResponse(
@@ -145,7 +146,7 @@ bool Command::CQueryHandler::RespondHandler(
 //------------------------------------------------------------------------------------------------
 bool Command::CQueryHandler::AggregateHandler(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& message)
+    CApplicationMessage const& message)
 {
     printo("Pushing response to ResponseTracker", NodeUtils::PrintType::Command);
     if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {

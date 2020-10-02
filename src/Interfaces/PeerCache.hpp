@@ -4,18 +4,12 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../BryptIdentifier/IdentifierTypes.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <functional>
-//------------------------------------------------------------------------------------------------
-
-namespace BryptIdentifier {
-  class CContainer;
-  using SharedContainer = std::shared_ptr<CContainer const>;
-}
-
 //------------------------------------------------------------------------------------------------
 
 class IPeerCache

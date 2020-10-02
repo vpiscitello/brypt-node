@@ -24,12 +24,12 @@ SRCDIR = .
 MAINDIR = ../../BryptNode
 AWAITDIR = ../../Components/Await
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
+BRYPTMESSAGEDIR = ../../BryptMessage
 BRYPTPEERDIR = ../../Components/BryptPeer
 COMMANDDIR = ../../Components/Command
 ENDPOINTSDIR = ../../Components/Endpoints
 CONFIGURATIONDIR = ../../Configuration
 CONTROLDIR = ../../Components/Control
-MESSAGEDIR = ../../Message
 MESSAGECONTROLDIR = ../../Components/MessageControl
 PEERWATCHERDIR = ../../Components/PeerWatcher
 GTESTDIR = ../../Libraries/googletest
@@ -38,12 +38,12 @@ MODULES = $(SRCDIR) \
 $(MAINDIR) \
 $(AWAITDIR) \
 $(BRYPTIDENTIFIERDIR) \
+$(BRYPTMESSAGEDIR) \
 $(BRYPTPEERDIR) \
 $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
-$(MESSAGEDIR) \
 $(MESSAGECONTROLDIR) \
 $(PEERWATCHERDIR)\
 $(GTESTDIR)

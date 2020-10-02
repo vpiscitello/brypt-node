@@ -20,8 +20,7 @@
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Command/ConnectHandler.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <cassert>
@@ -67,6 +66,7 @@ struct TTechnologyEntry
     std::string name;
     std::string entry;
 };
+
 using TechnologyEntries = std::vector<TTechnologyEntry>;
 
 struct TConnectRequest;
@@ -146,7 +146,7 @@ auto PeerBootstrap::SendContactMessage(
             s::entry
         )).encode(request);
 
-    OptionalMessage const optDiscoveryRequest = CMessage::Builder()
+    auto const optDiscoveryRequest = CApplicationMessage::Builder()
         .SetMessageContext({ identifier, technology })
         .SetSource(*spSource)
         .SetDestination(ReservedIdentifiers::Network::Unknown)

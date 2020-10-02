@@ -12,6 +12,7 @@
 #include "SensorState.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../BryptIdentifier/ReservedIdentifiers.hpp"
+#include "../BryptMessage/ApplicationMessage.hpp"
 #include "../Components/Await/TrackingManager.hpp"
 #include "../Components/BryptPeer/PeerManager.hpp"
 #include "../Components/Command/Handler.hpp"
@@ -22,7 +23,6 @@
 #include "../Components/PeerWatcher/PeerWatcher.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
-#include "../Message/MessageBuilder.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -252,7 +252,7 @@ void CBryptNode::StartLifecycle()
 void CBryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessage)
 { 
     auto& [spBryptPeer, message] = associatedMessage;
-    if (auto const itr = m_handlers.find(message.GetCommandType()); itr != m_handlers.end()) {
+    if (auto const itr = m_handlers.find(message.GetCommand()); itr != m_handlers.end()) {
         auto const& [type, handler] = *itr;
         handler->HandleMessage(associatedMessage);
     }
@@ -355,15 +355,16 @@ void test::SimulateClient(Command::HandlerMap const& handlers, bool activated)
         data =  "Request for sensor readings.";
     }
 
-    OptionalMessage const optRequest = CMessage::Builder()
-        .SetSource(ReservedIdentifiers::Network::Unknown)
-        .SetDestination(ReservedIdentifiers::Network::ClusterRequest)
+    static auto const source = BryptIdentifier::CContainer(BryptIdentifier::Generate());
+    auto const optRequest = CApplicationMessage::Builder()
+        .SetSource(source)
+        .MakeClusterMessage()
         .SetCommand(command, 0)
-        .SetData(data, 0)
+        .SetData(data)
         .ValidatedBuild();
     assert(optRequest);
 
-    if (auto const itr = handlers.find(optRequest->GetCommandType()); itr != handlers.end()) {
+    if (auto const itr = handlers.find(optRequest->GetCommand()); itr != handlers.end()) {
         auto const& [command, handler] = *itr;
         handler->HandleMessage(AssociatedMessage{ {}, *optRequest });
     }

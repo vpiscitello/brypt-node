@@ -30,7 +30,7 @@
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
-class CMessage;
+class CApplicationMessage;
 
 //------------------------------------------------------------------------------------------------
 
@@ -98,7 +98,7 @@ public:
     virtual void ScheduleConnect(std::string_view entry) = 0;
     virtual void Startup() = 0;
 
-	virtual bool ScheduleSend(CMessage const& message) = 0;
+	virtual bool ScheduleSend(CApplicationMessage const& message) = 0;
 	virtual bool ScheduleSend(
         BryptIdentifier::CContainer const& identifier,
         std::string_view message) = 0;

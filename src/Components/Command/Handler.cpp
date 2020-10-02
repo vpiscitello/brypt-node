@@ -18,8 +18,7 @@
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -73,35 +72,37 @@ Command::Type Command::IHandler::GetType() const
 
 void Command::IHandler::SendClusterNotice(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& request,
+    CApplicationMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData)
 {
-    static BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::ClusterRequest);
-    SendNotice(wpBryptPeer, request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
+    SendNotice(
+        wpBryptPeer, request, Message::Destination::Cluster,
+        noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void Command::IHandler::SendNetworkNotice(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& request,
+    CApplicationMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData)
 {
-    static BryptIdentifier::CContainer const identifier(ReservedIdentifiers::Network::NetworkRequest);
-    SendNotice(wpBryptPeer, request, identifier, noticeData, noticePhase, responsePhase, optResponseData);
+    SendNotice(
+        wpBryptPeer, request, Message::Destination::Network,
+        noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void Command::IHandler::SendResponse(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& request,
+    CApplicationMessage const& request,
     std::string_view responseData,
     std::uint8_t responsePhase,
     std::optional<BryptIdentifier::CContainer> optDestinationOverride)
@@ -114,24 +115,25 @@ void Command::IHandler::SendResponse(
     }
     assert(spBryptIdentifier);
 
-    BryptIdentifier::CContainer destination = request.GetSource();
+    BryptIdentifier::CContainer destination = request.GetSourceIdentifier();
     if (optDestinationOverride) {
         destination = *optDestinationOverride;
     }
 
-    std::optional<Message::BoundAwaitingKey> optBoundAwaitId = {};
-    std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitingKey();
+    std::optional<Message::BoundTrackerKey> optBoundAwaitTracker = {};
+    std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitTrackerKey();
     if (optAwaitingKey) {
-        optBoundAwaitId = { Message::AwaitBinding::Destination, *optAwaitingKey };
+        optBoundAwaitTracker = { Message::AwaitBinding::Destination, *optAwaitingKey };
     }
 
     // Using the information from the node instance generate a discovery response message
-    OptionalMessage const optResponse = CMessage::Builder()
+    auto const optResponse = CApplicationMessage::Builder()
         .SetMessageContext(request.GetMessageContext())
         .SetSource(*spBryptIdentifier)
         .SetDestination(destination)
-        .SetCommand(request.GetCommandType(), responsePhase)
-        .SetData(responseData,  request.GetNonce() + 1)
+        .SetCommand(request.GetCommand(), responsePhase)
+        .SetData(responseData)
+        .BindAwaitTracker(optBoundAwaitTracker)
         .ValidatedBuild();
     assert(optResponse);
 
@@ -144,8 +146,8 @@ void Command::IHandler::SendResponse(
 
 void Command::IHandler::SendNotice(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& request,
-    BryptIdentifier::CContainer noticeDestination,
+    CApplicationMessage const& request,
+    Message::Destination destination,
     std::string_view noticeData,
     std::uint8_t noticePhase,
     std::uint8_t responsePhase,
@@ -179,13 +181,13 @@ void Command::IHandler::SendNotice(
 
         if (optResponseData) {
             // Create a reading message
-            OptionalMessage const optNodeResponse = CMessage::Builder()
+            auto const optNodeResponse = CApplicationMessage::Builder()
                 .SetMessageContext(request.GetMessageContext())
                 .SetSource(*spBryptIdentifier)
-                .SetDestination(request.GetSource())
-                .SetCommand(request.GetCommandType(), responsePhase)
-                .SetData(*optResponseData, request.GetNonce() + 1)
-                .BindAwaitingKey(Message::AwaitBinding::Destination, awaitTrackingKey)
+                .SetDestination(request.GetSourceIdentifier())
+                .SetCommand(request.GetCommand(), responsePhase)
+                .SetData(*optResponseData)
+                .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
                 .ValidatedBuild();
             assert(optNodeResponse);
             spAwaitManager->PushResponse(*optNodeResponse);
@@ -193,14 +195,25 @@ void Command::IHandler::SendNotice(
     }
 
     // Create a notice message for the network
-    OptionalMessage const optNotice = CMessage::Builder()
+    auto builder = CApplicationMessage::Builder()
         .SetMessageContext(request.GetMessageContext())
         .SetSource(*spBryptIdentifier)
-        .SetDestination(noticeDestination)
-        .SetCommand(request.GetCommandType(), noticePhase)
-        .SetData(noticeData, request.GetNonce() + 1)
-        .BindAwaitingKey(Message::AwaitBinding::Source, awaitTrackingKey)
-        .ValidatedBuild();
+        .SetCommand(request.GetCommand(), noticePhase)
+        .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
+        .SetData(noticeData);
+
+    switch (destination) {
+        case Message::Destination::Cluster: {
+            builder.MakeClusterMessage();
+        } break;
+        case Message::Destination::Network: {
+            builder.MakeNetworkMessage();
+        } break;
+        // Callers should not call this method for other message destination types
+        default: assert(false); break;
+    }
+
+    auto const optNotice = builder.ValidatedBuild();
     assert(optNotice);
 
     // TODO: Handle sending notices

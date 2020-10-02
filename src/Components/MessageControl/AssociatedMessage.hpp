@@ -9,10 +9,10 @@
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
-class CMessage;
+class CApplicationMessage;
 
 //------------------------------------------------------------------------------------------------
 
-using AssociatedMessage = std::pair<std::weak_ptr<CBryptPeer>, CMessage>;
+using AssociatedMessage = std::pair<std::weak_ptr<CBryptPeer>, CApplicationMessage>;
 
 //------------------------------------------------------------------------------------------------
