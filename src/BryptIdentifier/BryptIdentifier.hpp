@@ -4,6 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "IdentifierTypes.hpp"
+//------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -11,43 +13,23 @@
 #include <string>
 #include <sstream>
 //------------------------------------------------------------------------------------------------
-#include <boost/multiprecision/cpp_int.hpp>
-//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace BryptIdentifier {
 //------------------------------------------------------------------------------------------------
 
-using InternalType = boost::multiprecision::uint128_t;
-using NetworkType = std::string;
-
 using BufferType = std::vector<std::uint8_t>;
 enum class BufferContentType : std::uint8_t { Internal, Network };
-
-constexpr std::string_view const Prefix = "bry";
-constexpr std::string_view const Version = "0";
-constexpr std::string_view const MetadataSeperator = ":";
-
-constexpr std::string_view const Metadata = "bry0:";
-constexpr std::uint8_t const TerminatorByte = 59; // ";"
-
-constexpr std::uint8_t const InternalSize = 16;
-constexpr std::uint8_t const ChecksumSize = 4;
-constexpr std::uint8_t const MaxNetworkSize = 36;
-
-class CContainer;
-using SharedContainer = std::shared_ptr<CContainer const>;
-using WeakContainer = std::weak_ptr<CContainer const>;
 
 struct Hasher;
 
 std::string Generate();
 
-std::optional<InternalType> ConvertToInternalRepresentation(BufferType const& buffer);
-std::optional<InternalType> ConvertToInternalRepresentation(std::string_view identifier);
+std::optional<Internal::Type> ConvertToInternalRepresentation(BufferType const& buffer);
+std::optional<Internal::Type> ConvertToInternalRepresentation(std::string_view identifier);
 
-std::optional<NetworkType> ConvertToNetworkRepresentation(InternalType const& identifier);
-std::optional<NetworkType> ConvertToNetworkRepresentation(BufferType const& identifier);
+std::optional<Network::Type> ConvertToNetworkRepresentation(Internal::Type const& identifier);
+std::optional<Network::Type> ConvertToNetworkRepresentation(BufferType const& identifier);
 
 std::ostream& operator<<(
     std::ostream& stream, BryptIdentifier::CContainer const& identifier);
@@ -66,7 +48,7 @@ class BryptIdentifier::CContainer
 {
 public:
     CContainer();
-    explicit CContainer(InternalType const& identifier);
+    explicit CContainer(Internal::Type const& identifier);
     explicit CContainer(std::string_view identifier);
     explicit CContainer(BufferType const& buffer, BufferContentType type);
 
@@ -89,18 +71,18 @@ public:
         std::stringstream& stream,
         SharedContainer const& spIdentifier);
 
-    InternalType GetInternalRepresentation() const;
-    NetworkType GetNetworkRepresentation() const;
+    Internal::Type GetInternalRepresentation() const;
+    Network::Type GetNetworkRepresentation() const;
 
     std::uint32_t NetworkRepresentationSize() const;
     bool IsValid() const;
 
 private:
-    void SetupFromInternalRepresentation(InternalType const& identifier);
+    void SetupFromInternalRepresentation(Internal::Type const& identifier);
     void SetupFromNetworkRepresentation(std::string_view identifier);
 
-    BryptIdentifier::InternalType m_internalRepresentation;
-    BryptIdentifier::NetworkType m_networkRepresentation;
+    BryptIdentifier::Internal::Type m_internalRepresentation;
+    BryptIdentifier::Network::Type m_networkRepresentation;
     bool m_valid;
 
 };
@@ -110,7 +92,7 @@ private:
 struct BryptIdentifier::Hasher  {
     std::size_t operator()(CContainer const& identifier) const
     {
-        return std::hash<InternalType>()(identifier.GetInternalRepresentation());
+        return std::hash<Internal::Type>()(identifier.GetInternalRepresentation());
     }
 };
 

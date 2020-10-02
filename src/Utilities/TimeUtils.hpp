@@ -14,12 +14,12 @@ namespace TimeUtils {
 //------------------------------------------------------------------------------------------------
 
 using Timepoint = std::chrono::system_clock::time_point;
-using TimePeriod = std::chrono::milliseconds;
+using Timestamp = std::chrono::milliseconds;
 
 Timepoint GetSystemTimepoint();
 std::string GetSystemTimestamp();
 std::string TimepointToString(Timepoint const& time);
-TimePeriod TimepointToTimePeriod(Timepoint const& time);
+Timestamp TimepointToTimestamp(Timepoint const& time);
 Timepoint StringToTimepoint(std::string const& timestamp);
 
 //------------------------------------------------------------------------------------------------
@@ -38,7 +38,7 @@ inline TimeUtils::Timepoint TimeUtils::GetSystemTimepoint()
 inline std::string TimeUtils::GetSystemTimestamp()
 {
     Timepoint const current = GetSystemTimepoint();
-    auto const milliseconds = std::chrono::duration_cast<TimePeriod>(current.time_since_epoch());
+    auto const milliseconds = std::chrono::duration_cast<Timestamp>(current.time_since_epoch());
 
     std::stringstream epochStream;
     epochStream.clear();
@@ -50,7 +50,7 @@ inline std::string TimeUtils::GetSystemTimestamp()
 
 inline std::string TimeUtils::TimepointToString(Timepoint const& time)
 {
-    auto const milliseconds = TimepointToTimePeriod(time);
+    auto const milliseconds = TimepointToTimestamp(time);
 
     std::stringstream epochStream;
     epochStream.clear();
@@ -60,9 +60,9 @@ inline std::string TimeUtils::TimepointToString(Timepoint const& time)
 
 //------------------------------------------------------------------------------------------------
 
-inline TimeUtils::TimePeriod TimeUtils::TimepointToTimePeriod(Timepoint const& time)
+inline TimeUtils::Timestamp TimeUtils::TimepointToTimestamp(Timepoint const& timepoint)
 {
-    return std::chrono::duration_cast<TimePeriod>(time.time_since_epoch());
+    return std::chrono::duration_cast<Timestamp>(timepoint.time_since_epoch());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -70,7 +70,7 @@ inline TimeUtils::TimePeriod TimeUtils::TimepointToTimePeriod(Timepoint const& t
 inline TimeUtils::Timepoint TimeUtils::StringToTimepoint(std::string const& timestamp)
 {
     std::int64_t const llMilliseconds = std::stoll(timestamp);
-    TimePeriod const milliseconds(llMilliseconds);
+    Timestamp const milliseconds(llMilliseconds);
     return std::chrono::system_clock::time_point(milliseconds);
 }
 

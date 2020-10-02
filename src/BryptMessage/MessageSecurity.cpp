@@ -2,7 +2,7 @@
 // File: MessageSecurity.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "Message.hpp"
+#include "ApplicationMessage.hpp"
 #include "MessageSecurity.hpp"
 #include "PackUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
@@ -37,9 +37,7 @@ using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_f
 // Description: Encrypt a provided message with AES-CTR-256 and return ciphertext.
 //------------------------------------------------------------------------------------------------
 std::optional<Message::Buffer> MessageSecurity::Encrypt(
-    Message::Buffer const& buffer,
-    std::uint32_t length,
-    NodeUtils::NetworkNonce nonce)
+    Message::Buffer const& buffer, std::uint32_t length, std::uint64_t nonce)
 {
 	if (length == 0) {
 		return {};
@@ -83,9 +81,7 @@ std::optional<Message::Buffer> MessageSecurity::Encrypt(
 // Description: Decrypt a provided message with AES-CTR-256 and return decrypted text.
 //------------------------------------------------------------------------------------------------
 std::optional<Message::Buffer> MessageSecurity::Decrypt(
-    Message::Buffer const& buffer,
-    std::uint32_t length,
-    NodeUtils::NetworkNonce nonce)
+    Message::Buffer const& buffer, std::uint32_t length, std::uint64_t nonce)
 {
 	if (length == 0) {
 		return {};
@@ -129,14 +125,14 @@ std::optional<Message::Buffer> MessageSecurity::Decrypt(
 // Description: HMAC Blake2s a provided message and return the authentication token.
 //------------------------------------------------------------------------------------------------
 std::optional<Message::Buffer> MessageSecurity::HMAC(
-    Message::Buffer const& message,
+    Message::Buffer const& buffer,
     std::uint32_t length)
 {
 	if (length == 0) {
 		return {};
 	}
 
-	auto data = reinterpret_cast<unsigned char const*>(message.data());
+	auto data = reinterpret_cast<unsigned char const*>(buffer.data());
 	auto key = reinterpret_cast<unsigned char const*>(NodeUtils::NetworkKey.data());
 
 	EVP_MD const* pDigest = EVP_get_digestbyname(HashMethod.data());
@@ -155,7 +151,7 @@ std::optional<Message::Buffer> MessageSecurity::HMAC(
 	
 //------------------------------------------------------------------------------------------------
 
-MessageSecurity::VerificationStatus MessageSecurity::Verify(CMessage const& message)
+MessageSecurity::VerificationStatus MessageSecurity::Verify(CApplicationMessage const& message)
 {
     return Verify(message.GetPack());
 }
@@ -183,17 +179,13 @@ MessageSecurity::VerificationStatus MessageSecurity::Verify(std::string_view pac
 		return VerificationStatus::Unauthorized;
     }
 
-	// TODO: This is not valid a hash may have null bytes that is not part of the encoding padding. 
-	// This shall be updated when the security mechanisms are re-implemented. 
-	if (auto const itr = std::find(decoded.end() - 4, decoded.end(), '\0'); itr != decoded.end()) {
-		decoded.erase(itr, decoded.end()); // Remove padding bytes
-	}
-
     std::uint32_t packContentSize = decoded.size() - TokenSize;
     Message::Buffer attachedTokenBuffer;
     attachedTokenBuffer.reserve(packContentSize);
 
-	PackUtils::UnpackChunk(decoded, packContentSize, attachedTokenBuffer, TokenSize, false);
+	Message::Buffer::const_iterator tokenBegin = decoded.end() - TokenSize;
+	Message::Buffer::const_iterator tokenEnd = decoded.end();
+	PackUtils::UnpackChunk(tokenBegin, tokenEnd, attachedTokenBuffer, TokenSize);
     if (attachedTokenBuffer.empty()) {
 		return VerificationStatus::Unauthorized;
     }
