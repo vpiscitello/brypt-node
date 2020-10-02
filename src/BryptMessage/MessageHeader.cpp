@@ -3,6 +3,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "MessageHeader.hpp"
+#include "MessageUtils.hpp"
 #include "PackUtils.hpp"
 #include "../BryptIdentifier/IdentifierDefinitions.hpp"
 #include "../BryptIdentifier/ReservedIdentifiers.hpp"
@@ -215,16 +216,7 @@ Message::Protocol local::UnpackProtocol(
 
     ProtocolType protocol = 0;
     PackUtils::UnpackChunk(begin, end, protocol);
-
-    switch (protocol) {
-        case static_cast<ProtocolType>(Message::Protocol::Application): {
-            return Message::Protocol::Application;
-        }
-        case static_cast<ProtocolType>(Message::Protocol::Handshake): {
-            return Message::Protocol::Handshake;
-        }
-        default: return Message::Protocol::Invalid;
-    }
+    return Message::ConvertToProtocol(protocol);
 }
 
 //------------------------------------------------------------------------------------------------
