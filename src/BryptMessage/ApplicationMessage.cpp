@@ -43,7 +43,7 @@ CApplicationMessage::CApplicationMessage()
 	, m_command()
 	, m_phase()
 	, m_data()
-	, m_timepoint(TimeUtils::GetSystemTimepoint())
+	, m_timestamp(TimeUtils::GetSystemTimestamp())
 	, m_optBoundAwaitTracker()
 {
 }
@@ -56,7 +56,7 @@ CApplicationMessage::CApplicationMessage(CApplicationMessage const& other)
 	, m_command(other.m_command)
 	, m_phase(other.m_phase)
 	, m_data(other.m_data)
-	, m_timepoint(other.m_timepoint)
+	, m_timestamp(other.m_timestamp)
 	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
 {
 }
@@ -113,8 +113,7 @@ std::uint32_t CApplicationMessage::GetPhase() const
 
 Message::Buffer CApplicationMessage::GetData() const
 {
-	auto const data = MessageSecurity::Decrypt(
-		m_data, m_data.size(), TimeUtils::TimepointToTimestamp(m_timepoint).count());
+	auto const data = MessageSecurity::Decrypt(m_data, m_data.size(), m_timestamp.count());
 
 	if (!data) {
 		return {};
@@ -125,9 +124,9 @@ Message::Buffer CApplicationMessage::GetData() const
 
 //------------------------------------------------------------------------------------------------
 
-TimeUtils::Timepoint const& CApplicationMessage::GetTimepoint() const
+TimeUtils::Timestamp const& CApplicationMessage::GetTimestamp() const
 {
-	return m_timepoint;
+	return m_timestamp;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -182,7 +181,7 @@ std::string CApplicationMessage::GetPack() const
 	PackUtils::PackChunk(buffer, m_command);
 	PackUtils::PackChunk(buffer, m_phase);
 	PackUtils::PackChunk(buffer, m_data, sizeof(std::uint32_t));
-	PackUtils::PackChunk(buffer, TimeUtils::TimepointToTimestamp(m_timepoint));
+	PackUtils::PackChunk(buffer, m_timestamp);
 
 	// Extension Packing
 	PackUtils::PackChunk(buffer, std::uint8_t(0));
@@ -226,7 +225,7 @@ Message::ValidationStatus CApplicationMessage::Validate() const
 	}
 
 	// A message must identify the time it was created
-	if (m_timepoint == TimeUtils::Timepoint()) {
+	if (m_timestamp == TimeUtils::Timestamp()) {
 		return Message::ValidationStatus::Error;
 	}
 
@@ -366,7 +365,7 @@ CApplicationBuilder& CApplicationBuilder::SetData(std::string_view data)
 CApplicationBuilder& CApplicationBuilder::SetData(Message::Buffer const& buffer)
 {
 	auto const optData = MessageSecurity::Encrypt(
-        buffer, buffer.size(), TimeUtils::TimepointToTimestamp(m_message.m_timepoint).count());
+        buffer, buffer.size(), m_message.m_timestamp.count());
 	if(optData) {
 		m_message.m_data = *optData;
 	}
@@ -394,25 +393,34 @@ CApplicationBuilder& CApplicationBuilder::BindAwaitTracker(
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::FromPack(Message::Buffer const& buffer)
+CApplicationBuilder& CApplicationBuilder::FromDecodedPack(Message::Buffer const& buffer)
 {
-    return FromPack(reinterpret_cast<char const*>(buffer.data()));
+    if (buffer.empty()) {
+        return *this;
+    }
+
+    if (MessageSecurity::Verify(buffer) != MessageSecurity::VerificationStatus::Success) {
+        return *this;
+    }
+
+	Unpack(buffer);
+    return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::FromPack(std::string_view pack)
+CApplicationBuilder& CApplicationBuilder::FromEncodedPack(std::string_view pack)
 {
     if (pack.empty()) {
         return *this;
     }
     
-    auto const status = MessageSecurity::Verify(pack);
-    if (status != MessageSecurity::VerificationStatus::Success) {
+	auto const buffer = PackUtils::Z85Decode(pack);
+    if (MessageSecurity::Verify(buffer) != MessageSecurity::VerificationStatus::Success) {
         return *this;
     }
 
-    Unpack(PackUtils::Z85Decode(pack));
+    Unpack(buffer);
     return *this;
 }
 
@@ -447,6 +455,11 @@ void CApplicationBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
+	// If the message in the buffer is not an application message, it can not be parsed
+	if (m_message.m_header.m_protocol != Message::Protocol::Application) {
+		return;
+	}
+
 	if (m_message.m_command = local::UnpackCommand(begin, end);
 		m_message.m_command == Command::Type::Invalid) {
 		return;
@@ -469,7 +482,7 @@ void CApplicationBuilder::Unpack(Message::Buffer const& buffer)
 	if (!PackUtils::UnpackChunk(begin, end, timestamp)) {
 		return;
 	}
-	m_message.m_timepoint = TimeUtils::Timepoint(TimeUtils::Timestamp(timestamp));
+	m_message.m_timestamp = TimeUtils::Timestamp(timestamp);
 
 	std::uint8_t extensions = 0;
 	if (!PackUtils::UnpackChunk(begin, end, extensions)) {

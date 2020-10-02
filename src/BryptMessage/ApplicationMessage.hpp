@@ -6,7 +6,6 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
-#include "MessageSecurity.hpp"
 #include "MessageTypes.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Utilities/TimeUtils.hpp"
@@ -54,7 +53,7 @@ public:
 	Command::Type GetCommand() const;
 	std::uint32_t GetPhase() const;
 	Message::Buffer GetData() const;
-	TimeUtils::Timepoint const& GetTimepoint() const;
+	TimeUtils::Timestamp const& GetTimestamp() const;
 	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;
 
     std::uint32_t GetPackSize() const;
@@ -71,7 +70,7 @@ private:
 	Command::Type m_command; // The application command
 	std::uint8_t m_phase; // The command phase
 	Message::Buffer m_data;	// The command payload
-	TimeUtils::Timepoint m_timepoint; // The message creation timepoint
+	TimeUtils::Timestamp m_timestamp; // The message creation timestamp
 
 	// Optional Extension: Allows the sender to associate to the destination's response with a 
 	// a hopped or flooded request from another peer. 
@@ -103,8 +102,8 @@ public:
 	CApplicationBuilder& BindAwaitTracker(
 		std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker);
 
-	CApplicationBuilder& FromPack(Message::Buffer const& buffer);
-	CApplicationBuilder& FromPack(std::string_view pack);
+	CApplicationBuilder& FromDecodedPack(Message::Buffer const& buffer);
+	CApplicationBuilder& FromEncodedPack(std::string_view pack);
 
     CApplicationMessage&& Build();
     OptionalMessage ValidatedBuild();

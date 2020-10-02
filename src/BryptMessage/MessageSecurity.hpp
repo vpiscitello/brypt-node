@@ -28,9 +28,7 @@ std::optional<Message::Buffer> Decrypt(
     Message::Buffer const& buffer, std::uint32_t length, std::uint64_t nonce);
 std::optional<Message::Buffer> HMAC(Message::Buffer const& buffer, std::uint32_t length);
 
-VerificationStatus Verify(CApplicationMessage const& message);
 VerificationStatus Verify(Message::Buffer const& buffer);
-VerificationStatus Verify(std::string_view pack);
 	
 //------------------------------------------------------------------------------------------------
 } // MessageSecurity namespace

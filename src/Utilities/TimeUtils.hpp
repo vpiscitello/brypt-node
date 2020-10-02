@@ -13,11 +13,11 @@
 namespace TimeUtils {
 //------------------------------------------------------------------------------------------------
 
-using Timepoint = std::chrono::system_clock::time_point;
 using Timestamp = std::chrono::milliseconds;
+using Timepoint = std::chrono::time_point<std::chrono::system_clock, Timestamp>;
 
 Timepoint GetSystemTimepoint();
-std::string GetSystemTimestamp();
+Timestamp GetSystemTimestamp();
 std::string TimepointToString(Timepoint const& time);
 Timestamp TimepointToTimestamp(Timepoint const& time);
 Timepoint StringToTimepoint(std::string const& timestamp);
@@ -30,20 +30,16 @@ Timepoint StringToTimepoint(std::string const& timestamp);
 
 inline TimeUtils::Timepoint TimeUtils::GetSystemTimepoint()
 {
-    return std::chrono::system_clock::now();
+    return std::chrono::time_point_cast<Timestamp>(std::chrono::system_clock::now());
 }
 
 //------------------------------------------------------------------------------------------------
 
-inline std::string TimeUtils::GetSystemTimestamp()
+inline TimeUtils::Timestamp TimeUtils::GetSystemTimestamp()
 {
-    Timepoint const current = GetSystemTimepoint();
-    auto const milliseconds = std::chrono::duration_cast<Timestamp>(current.time_since_epoch());
-
-    std::stringstream epochStream;
-    epochStream.clear();
-    epochStream << milliseconds.count();
-    return epochStream.str();
+    Timepoint const timepoint = GetSystemTimepoint();
+    auto const milliseconds = std::chrono::duration_cast<Timestamp>(timepoint.time_since_epoch());
+    return milliseconds;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -63,15 +59,6 @@ inline std::string TimeUtils::TimepointToString(Timepoint const& time)
 inline TimeUtils::Timestamp TimeUtils::TimepointToTimestamp(Timepoint const& timepoint)
 {
     return std::chrono::duration_cast<Timestamp>(timepoint.time_since_epoch());
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline TimeUtils::Timepoint TimeUtils::StringToTimepoint(std::string const& timestamp)
-{
-    std::int64_t const llMilliseconds = std::stoll(timestamp);
-    Timestamp const milliseconds(llMilliseconds);
-    return std::chrono::system_clock::time_point(milliseconds);
 }
 
 //------------------------------------------------------------------------------------------------
