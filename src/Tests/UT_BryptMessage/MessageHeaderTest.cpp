@@ -1,0 +1,335 @@
+//------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptIdentifier/IdentifierDefinitions.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
+#include "../../BryptMessage/HandshakeMessage.hpp"
+#include "../../BryptMessage/MessageUtils.hpp"
+#include "../../BryptMessage/PackUtils.hpp"
+//------------------------------------------------------------------------------------------------
+#include "../../Libraries/googletest/include/gtest/gtest.h"
+//------------------------------------------------------------------------------------------------
+#include <cstdint>
+#include <string>
+#include <string_view>
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+namespace {
+namespace local {
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+} // local namespace
+//------------------------------------------------------------------------------------------------
+namespace test {
+//------------------------------------------------------------------------------------------------
+
+BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
+
+constexpr Command::Type Command = Command::Type::Election;
+constexpr std::uint8_t Phase = 0;
+
+//------------------------------------------------------------------------------------------------
+} // local namespace
+} // namespace
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, ApplicationConstructorTest)
+{
+    auto const optMessage = CApplicationMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    CMessageHeader const header = optMessage->GetMessageHeader();
+    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
+    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
+    ASSERT_TRUE(header.GetDestinationIdentifier());
+    EXPECT_EQ(*header.GetDestinationIdentifier(), test::ServerIdentifier);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, ApplicationPackTest)
+{
+    auto const optBaseMessage = CApplicationMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBaseMessage);
+
+    CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
+    EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
+    ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
+    EXPECT_EQ(*baseHeader.GetDestinationIdentifier(), test::ServerIdentifier);
+
+    auto const pack = optBaseMessage->GetPack();
+
+    auto const optPackMessage = CApplicationMessage::Builder()
+        .FromEncodedPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    CMessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
+    EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
+    EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
+    ASSERT_TRUE(packHeader.GetDestinationIdentifier());
+    EXPECT_EQ(*packHeader.GetDestinationIdentifier(), *baseHeader.GetDestinationIdentifier());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, HandshakeConstructorTest)
+{
+    auto const optMessage = CHandshakeMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    CMessageHeader const header = optMessage->GetMessageHeader();
+    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Handshake);
+    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
+    ASSERT_TRUE(header.GetDestinationIdentifier());
+    EXPECT_EQ(*header.GetDestinationIdentifier(), test::ServerIdentifier);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, HandshakePackTest)
+{
+    auto const optBaseMessage = CHandshakeMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .ValidatedBuild();
+    ASSERT_TRUE(optBaseMessage);
+
+    CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Handshake);
+    EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
+    ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
+    EXPECT_EQ(*baseHeader.GetDestinationIdentifier(), test::ServerIdentifier);
+
+    auto const pack = optBaseMessage->GetPack();
+
+    auto const optPackMessage = CHandshakeMessage::Builder()
+        .FromEncodedPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    CMessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
+    EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
+    EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
+    ASSERT_TRUE(packHeader.GetDestinationIdentifier());
+    EXPECT_EQ(*packHeader.GetDestinationIdentifier(), *baseHeader.GetDestinationIdentifier());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, ClusterDestinationTest)
+{
+    auto const optMessage = CApplicationMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .MakeClusterMessage()
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    CMessageHeader const header = optMessage->GetMessageHeader();
+    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
+    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetDestinationType(), Message::Destination::Cluster);
+    EXPECT_FALSE(header.GetDestinationIdentifier());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, NetworkDestinationTest)
+{
+    auto const optMessage = CApplicationMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .MakeNetworkMessage()
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    CMessageHeader const header = optMessage->GetMessageHeader();
+    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
+    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetDestinationType(), Message::Destination::Network);
+    EXPECT_FALSE(header.GetDestinationIdentifier());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, ClusterPackTest)
+{
+    auto const optBaseMessage = CApplicationMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .MakeClusterMessage()
+        .ValidatedBuild();
+    ASSERT_TRUE(optBaseMessage);
+
+    CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
+    EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Cluster);
+    EXPECT_FALSE(baseHeader.GetDestinationIdentifier());
+
+    auto const pack = optBaseMessage->GetPack();
+
+    auto const optPackMessage = CApplicationMessage::Builder()
+        .FromEncodedPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    CMessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
+    EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
+    EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
+    EXPECT_FALSE(packHeader.GetDestinationIdentifier());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekProtocolTest)
+{
+    auto const optHandshakeMessage = CHandshakeMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .ValidatedBuild();
+    ASSERT_TRUE(optHandshakeMessage);
+
+    auto const handshakeBuffer = PackUtils::Z85Decode(optHandshakeMessage->GetPack());
+    auto const optHandshakeProtocol = Message::PeekProtocol(
+        handshakeBuffer.begin(), handshakeBuffer.end());
+
+    ASSERT_TRUE(optHandshakeProtocol);
+    EXPECT_EQ(*optHandshakeProtocol, Message::Protocol::Handshake);
+
+    auto const optApplicationMessage = CApplicationMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .ValidatedBuild();
+    ASSERT_TRUE(optApplicationMessage);
+
+    auto const applicationBuffer = PackUtils::Z85Decode(optApplicationMessage->GetPack());
+    auto const optApplicationProtocol = Message::PeekProtocol(
+        applicationBuffer.begin(), applicationBuffer.end());
+
+    ASSERT_TRUE(optApplicationProtocol);
+    EXPECT_EQ(*optApplicationProtocol, Message::Protocol::Application);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekProtocolNullBytesTest)
+{
+    Message::Buffer const buffer(12, 0x00);
+    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optProtocol);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
+{
+    Message::Buffer const buffer(12, 0xF0);
+    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optProtocol);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekProtocolEmptyBufferTest)
+{
+    Message::Buffer const buffer;
+    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optProtocol);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceTest)
+{
+    auto const optMessage = CHandshakeMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    auto const buffer = PackUtils::Z85Decode(optMessage->GetPack());
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+
+    ASSERT_TRUE(optSource);
+    EXPECT_EQ(*optSource, test::ClientIdentifier);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceNullBytesTest)
+{
+    Message::Buffer const buffer(128, 0x00);
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceInvalidIdentifierTest)
+{
+    Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength);
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceSmallBufferTest)
+{
+    Message::Buffer const buffer(12, BryptIdentifier::Network::MinimumLength);
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
+{
+    Message::Buffer const buffer(128, BryptIdentifier::Network::MaximumLength + 1);
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
+{
+    Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength - 1);
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(CMessageHeaderSuite, PeekSourceEmptyBufferTest)
+{
+    Message::Buffer const buffer;
+    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
