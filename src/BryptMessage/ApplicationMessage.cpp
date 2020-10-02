@@ -320,7 +320,6 @@ CApplicationBuilder& CApplicationBuilder::MakeNetworkMessage()
 
 CApplicationBuilder& CApplicationBuilder::SetDestination(BryptIdentifier::CContainer const& identifier)
 {
-	m_message.m_header.m_destination = Message::Destination::Node;
 	m_message.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
 }
@@ -330,7 +329,6 @@ CApplicationBuilder& CApplicationBuilder::SetDestination(BryptIdentifier::CConta
 CApplicationBuilder& CApplicationBuilder::SetDestination(
     BryptIdentifier::Internal::Type const& identifier)
 {
-	m_message.m_header.m_destination = Message::Destination::Node;
 	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::CContainer(identifier);
 	return *this;
 }
@@ -339,7 +337,6 @@ CApplicationBuilder& CApplicationBuilder::SetDestination(
 
 CApplicationBuilder& CApplicationBuilder::SetDestination(std::string_view identifier)
 {
-	m_message.m_header.m_destination = Message::Destination::Node;
 	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::CContainer(identifier);
 	return *this;
 }

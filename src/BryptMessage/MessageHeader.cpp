@@ -35,7 +35,8 @@ CMessageHeader::CMessageHeader()
     : m_protocol(Message::Protocol::Invalid)
     , m_version()
     , m_source()
-    , m_destination()
+    , m_destination(Message::Destination::Node)
+    , m_optDestinationIdentifier()
 {
 }
 
@@ -112,9 +113,14 @@ Message::Buffer CMessageHeader::GetPackedBuffer() const
 	PackUtils::PackChunk(
 		buffer, m_source.GetNetworkRepresentation(), sizeof(std::uint8_t));
     PackUtils::PackChunk(buffer, m_destination);
+
+    // If a destination as been set pack the size and the identifier. 
+    // Otherwise, indicate there is no destination identifier.
     if (m_optDestinationIdentifier) {
         PackUtils::PackChunk(
             buffer, m_optDestinationIdentifier->GetNetworkRepresentation(), sizeof(std::uint8_t));
+    } else {
+        PackUtils::PackChunk(buffer, std::uint8_t(0));
     }
     
     // Extension Packing: Currently, there are no supported extensions of the header. 
@@ -193,9 +199,7 @@ bool CMessageHeader::ParseBuffer(
         return false;
     }
 
-    if (m_destination == Message::Destination::Node) {
-        m_optDestinationIdentifier = local::UnpackIdentifier(begin, end);
-    }
+    m_optDestinationIdentifier = local::UnpackIdentifier(begin, end);
 
     // Unpack the number of extensions. 
     std::uint8_t extensions = 0;
