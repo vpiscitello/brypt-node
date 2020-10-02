@@ -4,8 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Message/Message.hpp"
+#include "../../BryptIdentifier/IdentifierTypes.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
@@ -49,7 +49,7 @@ struct Await::TResponseEntry
         assert(spBryptIdentifier);
     }
 
-    BryptIdentifier::InternalType GetInternalBryptIdentifier() const
+    BryptIdentifier::Internal::Type GetPeerIdentifier() const
     {
         return identifier->GetInternalRepresentation();
     }
@@ -66,19 +66,19 @@ struct Await::TResponseEntry
 class Await::CResponseTracker
 {
 public:
-    constexpr static TimeUtils::TimePeriod ExpirationPeriod = std::chrono::milliseconds(1500);
+    constexpr static TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
 
     CResponseTracker(
         std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CMessage const& request,
-        BryptIdentifier::SharedContainer const& spBryptPeerIdentifier);
+        CApplicationMessage const& request,
+        BryptIdentifier::SharedContainer const& spPeerIdentifier);
 
     CResponseTracker(
         std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CMessage const& request,
+        CApplicationMessage const& request,
         std::set<BryptIdentifier::SharedContainer> const& identifiers);
 
-    Await::ResponseStatus UpdateResponse(CMessage const& response);
+    Await::ResponseStatus UpdateResponse(CApplicationMessage const& response);
     Await::ResponseStatus CheckResponseStatus();
     std::uint32_t GetResponseCount() const;
 
@@ -91,15 +91,15 @@ private:
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
                     TResponseEntry,
-                    BryptIdentifier::InternalType,
-                    &TResponseEntry::GetInternalBryptIdentifier>>>>;
+                    BryptIdentifier::Internal::Type,
+                    &TResponseEntry::GetPeerIdentifier>>>>;
 
     Await::ResponseStatus m_status;
     std::uint32_t m_expected;
     std::uint32_t m_received;
 
     std::weak_ptr<CBryptPeer> m_wpRequestor;
-    CMessage const m_request;
+    CApplicationMessage const m_request;
     ResponseTracker m_responses;
 
     TimeUtils::Timepoint const m_expire;

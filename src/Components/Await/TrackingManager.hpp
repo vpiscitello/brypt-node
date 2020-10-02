@@ -16,7 +16,7 @@
 #include <vector>
 //------------------------------------------------------------------------------------------------
 
-class CMessage;
+class CApplicationMessage;
 class CBryptPeer;
 
 //------------------------------------------------------------------------------------------------
@@ -37,15 +37,15 @@ class Await::CTrackingManager
 public:
     TrackerKey PushRequest(
         std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CMessage const& message,
+        CApplicationMessage const& message,
         BryptIdentifier::SharedContainer const& spBryptPeerIdentifier);
 
     TrackerKey PushRequest(
         std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CMessage const& message,
+        CApplicationMessage const& message,
         std::set<BryptIdentifier::SharedContainer> const& spBryptPeerIdentifier);
 
-    bool PushResponse(CMessage const& message);
+    bool PushResponse(CApplicationMessage const& message);
     void ProcessFulfilledRequests();
 
 private:

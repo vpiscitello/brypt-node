@@ -9,8 +9,7 @@
 #include "ZmqContextPool.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../Command/CommandDefinitions.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -47,7 +46,7 @@ Endpoints::CDirectEndpoint::CDirectEndpoint(
     , m_events()
     , m_scheduler()
 {
-    m_scheduler = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };
+    m_scheduler = [this] (CApplicationMessage const& message) -> bool { return ScheduleSend(message); };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -191,7 +190,7 @@ void Endpoints::CDirectEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CDirectEndpoint::ScheduleSend(CMessage const& message)
+bool Endpoints::CDirectEndpoint::ScheduleSend(CApplicationMessage const& message)
 {
     // Forward the message pack to be sent on the socket
     return ScheduleSend(message.GetDestination(), message.GetPack());
@@ -659,9 +658,9 @@ void Endpoints::CDirectEndpoint::HandleReceivedData(
 {
     NodeUtils::printo("[Direct] Received message: " + std::string(message), NodeUtils::PrintType::Endpoint);
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext({ m_identifier, m_technology })
-        .FromPack(message)
+        .FromEncodedPack(message)
         .ValidatedBuild();
 
     if (!optRequest) {

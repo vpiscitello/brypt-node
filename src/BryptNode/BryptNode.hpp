@@ -4,11 +4,12 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../BryptIdentifier/IdentifierTypes.hpp"
 #include "../Components/BryptPeer/BryptPeer.hpp"
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Configuration/Configuration.hpp"
-#include "../Message/Message.hpp"
+#include "../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
 #include <cstdlib>
@@ -28,11 +29,6 @@
 namespace Await {
     class CResponseTracker;
     class CTrackingManager;
-}
-
-namespace BryptIdentifier {
-    class CContainer;
-    using SharedContainer = std::shared_ptr<CContainer const>;
 }
 
 namespace Configuration {

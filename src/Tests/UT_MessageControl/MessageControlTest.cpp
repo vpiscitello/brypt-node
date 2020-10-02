@@ -5,8 +5,7 @@
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageControl/AssociatedMessage.hpp"
 #include "../../Components/MessageControl/MessageCollector.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -54,27 +53,27 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
 {
     CMessageCollector collector;
 
-    std::optional<CMessage> optForwardedResponse = {};
+    std::optional<CApplicationMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optForwardedResponse] (CMessage const& message) -> bool
+        [&optForwardedResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optForwardedResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
     collector.CollectMessage(spClientPeer, *optRequest);
@@ -88,12 +87,12 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
     auto& [wpClientRequestPeer, request] = *optAssociatedMessage;
     EXPECT_EQ(optRequest->GetPack(), request.GetPack());
 
-    OptionalMessage const optResponse = CMessage::Builder()
+    auto const optResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce + 1)
+        .SetData(test::Message)
         .ValidatedBuild();
 
     if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {
@@ -112,15 +111,15 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
 {
     CMessageCollector collector;
 
-    std::optional<CMessage> optForwardedResponse = {};
+    std::optional<CApplicationMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optForwardedResponse] (CMessage const& message) -> bool
+        [&optForwardedResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optForwardedResponse = message;
@@ -128,12 +127,12 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
         });
 
     for (std::uint32_t count = 0; count < test::Iterations; ++count) {
-        OptionalMessage const optRequest = CMessage::Builder()
+        auto const optRequest = CApplicationMessage::Builder()
             .SetMessageContext(test::MessageContext)
             .SetSource(test::ClientIdentifier)
             .SetDestination(*test::spServerIdentifier)
             .SetCommand(test::Command, test::RequestPhase)
-            .SetData(test::Message, test::Nonce)
+            .SetData(test::Message)
             .ValidatedBuild();
 
         collector.CollectMessage(spClientPeer, *optRequest);
@@ -148,12 +147,12 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
 
         auto& [wpClientRequestPeer, request] = *optAssociatedMessage;
 
-        OptionalMessage const optResponse = CMessage::Builder()
+        auto const optResponse = CApplicationMessage::Builder()
             .SetMessageContext(test::MessageContext)
             .SetSource(*test::spServerIdentifier)
             .SetDestination(test::ClientIdentifier)
             .SetCommand(test::Command, test::ResponsePhase)
-            .SetData(test::Message, test::Nonce + (test::Iterations + 1 - count))
+            .SetData(test::Message)
             .ValidatedBuild();
 
         if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {

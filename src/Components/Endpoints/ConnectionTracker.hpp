@@ -8,6 +8,7 @@
 //------------------------------------------------------------------------------------------------
 #include "ConnectionDetails.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../Utilities/CallbackIteration.hpp"
 #include "../../Utilities/EnumMaskUtils.hpp"
@@ -56,7 +57,7 @@ public:
         return m_connection;
     }
 
-    BryptIdentifier::InternalType GetInternalBryptIdentifier() const
+    BryptIdentifier::Internal::Type GetPeerIdentifier() const
     {
         if (!m_optConnectionDetails) {
             return ReservedIdentifiers::Internal::Unknown;
@@ -693,8 +694,8 @@ private:
                 boost::multi_index::tag<TIdentifierIndex>,
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
-                    BryptIdentifier::InternalType,
-                    &ConnectionEntryType::GetInternalBryptIdentifier>>,
+                    BryptIdentifier::Internal::Type,
+                    &ConnectionEntryType::GetPeerIdentifier>>,
             boost::multi_index::hashed_non_unique<
                 boost::multi_index::tag<TURIIndex>,
                 boost::multi_index::const_mem_fun<

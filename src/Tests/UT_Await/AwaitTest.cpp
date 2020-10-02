@@ -6,8 +6,7 @@
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -50,27 +49,27 @@ CMessageContext const MessageContext(EndpointIdentifier, EndpointTechnology);
 
 TEST(CResponseTrackerSuite, SingleResponseTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -82,12 +81,12 @@ TEST(CResponseTrackerSuite, SingleResponseTest)
     EXPECT_FALSE(bInitialSendSuccess);
     EXPECT_FALSE(optFulfilledResponse);
 
-    OptionalMessage const optResponse = CMessage::Builder()
+    auto const optResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     EXPECT_EQ(tracker.UpdateResponse(*optResponse), Await::ResponseStatus::Fulfilled);
@@ -96,39 +95,38 @@ TEST(CResponseTrackerSuite, SingleResponseTest)
     EXPECT_TRUE(bUpdateSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
-    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Command);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
 }
 
 //------------------------------------------------------------------------------------------------
 
 TEST(CResponseTrackerSuite, MultipleResponseTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
@@ -148,28 +146,28 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
     EXPECT_FALSE(bInitialSendSuccess);
     EXPECT_FALSE(optFulfilledResponse);
 
-    OptionalMessage const optServerResponse = CMessage::Builder()
+    auto const optServerResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
-    OptionalMessage const optPeerOneResponse = CMessage::Builder()
+    auto const optPeerOneResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*spFirstIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
-    OptionalMessage const optPeerTwoResponse = CMessage::Builder()
+    auto const optPeerTwoResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*spSecondIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
     EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
@@ -180,39 +178,38 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
     EXPECT_TRUE(bUpdateSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
-    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Command);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
 }
 
 //------------------------------------------------------------------------------------------------
 
 TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -226,12 +223,11 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
     EXPECT_TRUE(bInitialSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
-    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Command);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
     EXPECT_GT(optFulfilledResponse->GetData().size(), std::uint32_t(0));
 }
 
@@ -239,27 +235,27 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
 
 TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
@@ -279,20 +275,20 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_FALSE(bInitialSendSuccess);
     EXPECT_FALSE(optFulfilledResponse);
 
-    OptionalMessage const optServerResponse = CMessage::Builder()
+    auto const optServerResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
-    OptionalMessage const optPeerTwoResponse = CMessage::Builder()
+    auto const optPeerTwoResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*spSecondIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
     EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
@@ -304,12 +300,11 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_TRUE(bUpdateSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    EXPECT_FALSE(optFulfilledResponse->GetAwaitingKey());
-    EXPECT_EQ(optFulfilledResponse->GetCommandType(), test::Command);
+    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
+    EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Command);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_EQ(optFulfilledResponse->GetNonce(), test::Nonce + 1);
     EXPECT_GT(optFulfilledResponse->GetData().size(), std::uint32_t(0));
 }
 
@@ -317,27 +312,27 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
 
 TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -351,12 +346,12 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
     EXPECT_TRUE(bInitialSendSuccess);
     EXPECT_TRUE(optFulfilledResponse);
 
-    OptionalMessage const optLateResponse = CMessage::Builder()
+    auto const optLateResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     EXPECT_EQ(tracker.UpdateResponse(*optLateResponse), Await::ResponseStatus::Completed);
@@ -367,37 +362,37 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
 
 TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
 
-    OptionalMessage const optUnexpectedResponse = CMessage::Builder()
+    auto const optUnexpectedResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(0x12345678)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
     
     EXPECT_EQ(tracker.UpdateResponse(*optUnexpectedResponse), Await::ResponseStatus::Unfulfilled);
@@ -412,27 +407,27 @@ TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
 
 TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
 {
-    std::optional<CMessage> optFulfilledResponse = {};
+    std::optional<CApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CMessage const& message) -> bool
+        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
         {
-            CMessage::ValidationStatus status = message.Validate();
-            if (status != CMessage::ValidationStatus::Success) {
+            Message::ValidationStatus status = message.Validate();
+            if (status != Message::ValidationStatus::Success) {
                 return false;
             }
             optFulfilledResponse = message;
             return true;
         });
 
-    OptionalMessage const optRequest = CMessage::Builder()
+    auto const optRequest = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message, test::Nonce)
+        .SetData(test::Message)
         .ValidatedBuild();
 
     auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
@@ -447,31 +442,31 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
         { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
     EXPECT_GT(key, std::uint32_t(0));
 
-    OptionalMessage const optResponse = CMessage::Builder()
+    auto const optResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Destination, key)
+        .SetData(test::Message)
+        .BindAwaitTracker(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
 
-    OptionalMessage const optFirstResponse = CMessage::Builder()
+    auto const optFirstResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*spFirstIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Destination, key)
+        .SetData(test::Message)
+        .BindAwaitTracker(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
 
-    OptionalMessage const optSecondResponse = CMessage::Builder()
+    auto const optSecondResponse = CApplicationMessage::Builder()
         .SetMessageContext(test::MessageContext)
         .SetSource(*spSecondIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message, test::Nonce)
-        .BindAwaitingKey(Message::AwaitBinding::Destination, key)
+        .SetData(test::Message)
+        .BindAwaitTracker(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
     
     EXPECT_TRUE(manager.PushResponse(*optResponse));

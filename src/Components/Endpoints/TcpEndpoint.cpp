@@ -8,7 +8,9 @@
 #include "EndpointDefinitions.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../Command/CommandDefinitions.hpp"
-#include "../../Message/Message.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
+#include "../../BryptMessage/MessageUtils.hpp"
+#include "../../BryptMessage/PackUtils.hpp"
 #include "../../Utilities/VariantVisitor.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -46,7 +48,7 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     , m_events()
     , m_scheduler()
 {
-    m_scheduler = [this] (CMessage const& message) -> bool { return ScheduleSend(message); };
+    m_scheduler = [this] (CApplicationMessage const& message) -> bool { return ScheduleSend(message); };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -192,7 +194,7 @@ void Endpoints::CTcpEndpoint::Startup()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::ScheduleSend(CMessage const& message)
+bool Endpoints::CTcpEndpoint::ScheduleSend(CApplicationMessage const& message)
 {
     // Forward the received message to be sent on the socket
     return ScheduleSend(message.GetDestination(), message.GetPack());
@@ -685,8 +687,8 @@ void Endpoints::CTcpEndpoint::ProcessIncomingMessages()
                     {
                         HandleConnectionStateChange(descriptor, change);
                     },
-                    [this, &descriptor](Message::Buffer const& message) {
-                        HandleReceivedData(descriptor, message);
+                    [this, &descriptor](Message::Buffer const& buffer) {
+                        HandleReceivedData(descriptor, buffer);
                     },
                 },
                 *optResult);
@@ -758,18 +760,16 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
 // Description:
 //------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::HandleReceivedData(
-    SocketDescriptor descriptor, Message::Buffer const& message)
+    SocketDescriptor descriptor, Message::Buffer const& buffer)
 {
     NodeUtils::printo(
-        "[TCP] Received message: " + std::string(message.begin(), message.end()),
+        "[TCP] Received message: " + std::string(buffer.begin(), buffer.end()),
         NodeUtils::PrintType::Endpoint);
 
-    OptionalMessage const optRequest = CMessage::Builder()
-        .SetMessageContext({ m_identifier, m_technology })
-        .FromPack(message)
-        .ValidatedBuild();
-
-    if (!optRequest) {
+    auto const pBuffer = reinterpret_cast<char const*>(buffer.data());
+    auto const decoded = PackUtils::Z85Decode({ pBuffer, buffer.size() });
+    auto const optIdentifier = Message::PeekSource(decoded.begin(), decoded.end());
+    if (!optIdentifier) {
         return;
     }
 
@@ -781,9 +781,9 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
             spBryptPeer = details.GetBryptPeer();
             details.IncrementMessageSequence();
         },
-        [this, &spBryptPeer, &optRequest] (std::string_view uri) -> ExtendedConnectionDetails
+        [this, &optIdentifier, &spBryptPeer] (std::string_view uri) -> ExtendedConnectionDetails
         {
-            spBryptPeer = CEndpoint::LinkPeer(optRequest->GetSource());
+            spBryptPeer = CEndpoint::LinkPeer(*optIdentifier);
             
             ExtendedConnectionDetails details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Connected);

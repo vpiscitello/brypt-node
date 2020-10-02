@@ -11,7 +11,7 @@
 #include "TcpEndpoint.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Message/Message.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------

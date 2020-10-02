@@ -7,8 +7,7 @@
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageControl/MessageCollector.hpp"
 #include "../../Utilities/CallbackIteration.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -75,12 +74,12 @@ TEST(CStreamBridgeSuite, ServerCommunicationTest)
     ASSERT_TRUE(optAssociatedConnectRequest);
     auto const& [wpConnectRequestPeer, connectRequest] = *optAssociatedConnectRequest;
 
-    OptionalMessage const optConnectResponse = CMessage::Builder()
+    auto const optConnectResponse = CApplicationMessage::Builder()
         .SetMessageContext(connectRequest.GetMessageContext())
         .SetSource(*test::spServerIdentifier)
         .SetDestination(*test::spClientIdentifier)
         .SetCommand(Command::Type::Connect, 1)
-        .SetData("Connection Approved", connectRequest.GetNonce() + 1)
+        .SetData("Connection Approved")
         .ValidatedBuild();
     
     if (auto const spConnectRequestPeer = wpConnectRequestPeer.lock(); spConnectRequestPeer) {
@@ -94,12 +93,12 @@ TEST(CStreamBridgeSuite, ServerCommunicationTest)
 
     EXPECT_EQ(connectResponse.GetPack(), optConnectResponse->GetPack());
 
-    OptionalMessage const optElectionRequest = CMessage::Builder()
+    auto const optElectionRequest = CApplicationMessage::Builder()
         .SetMessageContext(connectResponse.GetMessageContext())
         .SetSource(*test::spClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Election, 0)
-        .SetData("Hello World!", connectResponse.GetNonce() + 1)
+        .SetData("Hello World!")
         .ValidatedBuild();
 
     if (auto const spConnectResponsePeer = wpConnectResponsePeer.lock(); spConnectResponsePeer) {
@@ -112,12 +111,12 @@ TEST(CStreamBridgeSuite, ServerCommunicationTest)
     auto const& [wpElectionRequestPeer, electionRequest] = *optAssociatedElectionRequest;
     EXPECT_EQ(electionRequest.GetPack(), optElectionRequest->GetPack());
 
-    OptionalMessage const optElectionResponse = CMessage::Builder()
+    auto const optElectionResponse = CApplicationMessage::Builder()
         .SetMessageContext(electionRequest.GetMessageContext())
         .SetSource(*test::spServerIdentifier)
         .SetDestination(*test::spClientIdentifier)
         .SetCommand(Command::Type::Election, 1)
-        .SetData("Re: Hello World!", electionRequest.GetNonce() + 1)
+        .SetData("Re: Hello World!")
         .ValidatedBuild();
 
     if (auto const spElectionRequestPeer = wpElectionRequestPeer.lock(); spElectionRequestPeer) {

@@ -40,7 +40,7 @@ public:
     void ScheduleConnect(std::string_view entry) override;
     void Startup() override;
 
-    bool ScheduleSend(CMessage const& message) override;
+    bool ScheduleSend(CApplicationMessage const& message) override;
     bool ScheduleSend(
         BryptIdentifier::CContainer const& identifier,
         std::string_view message) override;

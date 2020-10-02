@@ -3,6 +3,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "TrackingManager.hpp"
+#include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
@@ -15,7 +16,7 @@
 //------------------------------------------------------------------------------------------------
 Await::TrackerKey Await::CTrackingManager::PushRequest(
     std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CMessage const& message,
+    CApplicationMessage const& message,
     BryptIdentifier::SharedContainer const& spBryptPeerIdentifier)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
@@ -34,7 +35,7 @@ Await::TrackerKey Await::CTrackingManager::PushRequest(
 //------------------------------------------------------------------------------------------------
 Await::TrackerKey Await::CTrackingManager::PushRequest(
     std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CMessage const& message,
+    CApplicationMessage const& message,
     std::set<BryptIdentifier::SharedContainer> const& identifiers)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
@@ -51,10 +52,10 @@ Await::TrackerKey Await::CTrackingManager::PushRequest(
 // await ID
 // Returns: boolean indicating success or not
 //------------------------------------------------------------------------------------------------
-bool Await::CTrackingManager::PushResponse(CMessage const& message)
+bool Await::CTrackingManager::PushResponse(CApplicationMessage const& message)
 {
     // Try to get an await object ID from the message
-    auto const& optKey = message.GetAwaitingKey();
+    auto const& optKey = message.GetAwaitTrackerKey();
     if (!optKey) {
         return false;
     }

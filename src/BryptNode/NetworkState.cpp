@@ -12,7 +12,7 @@ CNetworkState::CNetworkState()
 
 //------------------------------------------------------------------------------------------------
 
-TimeUtils::TimePeriod CNetworkState::GetUptimeCount() const
+TimeUtils::Timestamp CNetworkState::GetUptimeCount() const
 {
     std::shared_lock lock(m_mutex);
     return m_uptime;

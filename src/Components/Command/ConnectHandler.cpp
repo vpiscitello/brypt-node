@@ -12,8 +12,7 @@
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../Configuration/PeerPersistor.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <chrono>
@@ -25,10 +24,10 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-bool HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message);
+bool HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message);
 std::string BuildDiscoveryResponse(CBryptNode& instance);
 
-bool HandleDiscoveryResponse(CBryptNode& instance, CMessage const& message);
+bool HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& message);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -135,7 +134,7 @@ bool Command::CConnectHandler::HandleMessage(AssociatedMessage const& associated
 //------------------------------------------------------------------------------------------------
 bool Command::CConnectHandler::DiscoveryHandler(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessage const& message)
+    CApplicationMessage const& message)
 {
     bool const status = local::HandleDiscoveryRequest(m_instance, message);
     if (!status) {
@@ -154,23 +153,18 @@ bool Command::CConnectHandler::DiscoveryHandler(
 // Description: Handles the join phase for the Connect type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CConnectHandler::JoinHandler(CMessage const& message)
+bool Command::CConnectHandler::JoinHandler(CApplicationMessage const& message)
 {
     return local::HandleDiscoveryResponse(m_instance, message);
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool local::HandleDiscoveryRequest(CBryptNode& instance, CMessage const& message)
+bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message)
 {
-    auto const optRequestData = message.GetDecryptedData();
-    if (!optRequestData) {
-        return false;
-    }
-
     // Parse the discovery request
-    std::string_view const dataview(reinterpret_cast<char const*>(
-        optRequestData->data()), optRequestData->size());
+    auto const data = message.GetData();
+    std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
     PeerBootstrap::Json::TConnectRequest request;
     iod::json_object(
         s::entrypoints = iod::json_vector(
@@ -264,15 +258,11 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 
 //------------------------------------------------------------------------------------------------
 
-bool local::HandleDiscoveryResponse(CBryptNode& instance, CMessage const& message)
+bool local::HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& message)
 {
-    auto const optRequestData = message.GetDecryptedData();
-    if (!optRequestData) {
-        return false;
-    }
-
-    std::string_view const dataview(reinterpret_cast<char const*>(optRequestData->data()), optRequestData->size());
     // Parse the discovery response
+    auto const data = message.GetData();
+    std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
     Json::TDiscoveryResponse response;
     iod::json_object(
         s::cluster,

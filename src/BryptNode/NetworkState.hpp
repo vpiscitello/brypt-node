@@ -12,7 +12,7 @@ class CNetworkState {
 public:
     CNetworkState();
 
-    TimeUtils::TimePeriod GetUptimeCount() const;
+    TimeUtils::Timestamp GetUptimeCount() const;
     TimeUtils::Timepoint GetRegisteredTimepoint() const;
     TimeUtils::Timepoint GetUpdatedTimepoint() const;
 
@@ -22,7 +22,7 @@ public:
 private:
     mutable std::shared_mutex m_mutex;
 
-    TimeUtils::TimePeriod m_uptime; // The amount of time the node has been live
+    TimeUtils::Timestamp m_uptime; // The amount of time the node has been live
     TimeUtils::Timepoint m_registered; // The timestamp the node was added to the network
     TimeUtils::Timepoint m_updated;    // The timestamp the node was last updated
 };

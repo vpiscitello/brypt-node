@@ -20,9 +20,9 @@ public:
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
-    bool RespondHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
-    bool AggregateHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message);
+    bool FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
+    bool RespondHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
+    bool AggregateHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
     bool CloseHandler();
 
 };

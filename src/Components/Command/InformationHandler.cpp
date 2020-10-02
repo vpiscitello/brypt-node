@@ -11,8 +11,7 @@
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/CoordinatorState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
-#include "../../Message/Message.hpp"
-#include "../../Message/MessageBuilder.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 #include <cassert>
@@ -124,7 +123,8 @@ bool Command::CInformationHandler::HandleMessage(AssociatedMessage const& associ
 // Description: Handles the flood phase for the Information type command
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CMessage const& message)
+bool Command::CInformationHandler::FloodHandler(
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message)
 {
     printo("Building response for Information request", NodeUtils::PrintType::Command);
     
@@ -197,7 +197,6 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
         neighbors, NodeUtils::GetDesignation(operation), 
         "IEEE 802.11", TimeUtils::GetSystemTimestamp());
 
-    // TODO: Endpoints represent a collection of peers, so the details of the peers must be 
     /* if (auto const spEndpoints = m_instance.GetEndpoints().lock(); spEndpoints) {
         for (auto const& endpoint : *spEndpoints) {
             // obtained through some other means. 

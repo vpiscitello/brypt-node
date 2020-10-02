@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "Configuration.hpp"
 #include "StatusCode.hpp"
+#include "../BryptIdentifier/IdentifierTypes.hpp"
 #include "../Components/Endpoints/ConnectionState.hpp"
 #include "../Components/BryptPeer/BryptPeer.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
@@ -22,13 +23,6 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
-//------------------------------------------------------------------------------------------------
-
-namespace BryptIdentifier {
-    class CContainer;
-    using SharedContainer = std::shared_ptr<CContainer const>;
-}
-
 //------------------------------------------------------------------------------------------------
 
 class CPeerPersistor : public IPeerObserver, public IBootstrapCache {

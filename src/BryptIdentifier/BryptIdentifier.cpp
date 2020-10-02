@@ -189,7 +189,7 @@ BryptIdentifier::CContainer::CContainer(BufferType const& buffer, BufferContentT
         } break;
         case BufferContentType::Network: {
             auto const pData = reinterpret_cast<char const*>(buffer.data());
-            SetupFromNetworkRepresentation({pData, buffer.size()});
+            SetupFromNetworkRepresentation({ pData, buffer.size() });
         } break;
         default: assert(false); break;
     }
