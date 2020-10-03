@@ -31,7 +31,7 @@ constexpr Endpoints::TechnologyType PeerTechnology = Endpoints::TechnologyType::
 constexpr std::string_view NewBootstrapEntry = "127.0.0.1:35220";
 
 constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
-constexpr std::string_view DirectBootstrapEntry = "127.0.0.1:35217";
+constexpr std::string_view LoraBootstrapEntry = "915:71";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -61,24 +61,24 @@ TEST(PeerPersistorSuite, DefualtBootstrapTest)
     tcpOptions.bootstrap = test::TcpBootstrapEntry;
     configurations.emplace_back(tcpOptions);
 
-    Configuration::TEndpointOptions directOptions;
-    directOptions.type = Endpoints::TechnologyType::Direct;
-    directOptions.bootstrap = test::DirectBootstrapEntry;
-    configurations.emplace_back(directOptions);
+    Configuration::TEndpointOptions loraOptions;
+    loraOptions.type = Endpoints::TechnologyType::LoRa;
+    loraOptions.bootstrap = test::LoraBootstrapEntry;
+    configurations.emplace_back(loraOptions);
 
     CPeerPersistor persistor(filepath.c_str(), configurations);
     auto const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
     EXPECT_EQ(persistor.CachedBootstrapCount(), std::uint32_t(2));
     EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::Direct), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::LoRa), std::uint32_t(1));
 
     CPeerPersistor checkPersistor(filepath.c_str(), configurations);
     auto const bCheckParsed = checkPersistor.FetchBootstraps();
     ASSERT_TRUE(bCheckParsed);
     EXPECT_EQ(checkPersistor.CachedBootstrapCount(), std::uint32_t(2));
     EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
-    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::Direct), std::uint32_t(1));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::LoRa), std::uint32_t(1));
 
     std::filesystem::remove(filepath);
 }

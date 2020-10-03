@@ -59,23 +59,11 @@ public:
 private:
     using EndpointsMultimap = std::unordered_map<Endpoints::EndpointIdType, SharedEndpoint>;
 
-    void InitializeDirectEndpoints(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        Configuration::TEndpointOptions const& options,
-        IPeerMediator* const pPeerMediator,
-        IMessageSink* const pMessageSink,
-        IBootstrapCache const* const pBootstrapCache);
     void InitializeTCPEndpoints(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Configuration::TEndpointOptions const& options,
         IPeerMediator* const pPeerMediator,
-        IMessageSink* const pMessageSink,
         IBootstrapCache const* const pBootstrapCache);
-    void InitializeStreamBridgeEndpoints(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        Configuration::TEndpointOptions const& options,
-        IPeerMediator* const pPeerMediator,
-        IMessageSink* const pMessageSink);
 
     EndpointsMultimap m_endpoints;
     Endpoints::TechnologySet m_technologies;

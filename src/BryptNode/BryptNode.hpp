@@ -39,16 +39,15 @@ class CCommand;
 class CConnection;
 class CControl;
 class CEndpointManager;
-class CMessage;
 class CMessageCollector;
 class CPeerManager;
 class CPeerPersistor;
 class CPeerWatcher;
 
-class CNodeState;
 class CAuthorityState;
 class CCoordinatorState;
 class CNetworkState;
+class CNodeState;
 class CSecurityState;
 class CSensorState;
 
@@ -89,19 +88,8 @@ private:
     // Lifecycle Functions
     void HandleIncomingMessage(AssociatedMessage const& associatedMessage);
 
-    // Utility Functions
-    std::float_t DetermineNodePower();  // Determine the node value to the network
-    bool HasTechnologyType(Endpoints::TechnologyType technology);
+    bool m_initialized;
 
-    // Communication Functions
-    bool ContactAuthority();    // Contact the central authority for some service
-    bool NotifyAddressChange(); // Notify the cluster of some address change
-
-    // Election Functions
-    bool Election();    // Call for an election for cluster leader
-    bool Transform();   // Transform the node's function in the cluster/network
-
-    // Private Variables
     std::shared_ptr<CNodeState> m_spNodeState;
     std::shared_ptr<CAuthorityState> m_spAuthorityState;
     std::shared_ptr<CCoordinatorState> m_spCoordinatorState;
@@ -113,13 +101,10 @@ private:
     std::shared_ptr<CPeerManager> m_spPeerManager;
     std::shared_ptr<CMessageCollector> m_spMessageCollector ;
     std::shared_ptr<Await::CTrackingManager> m_spAwaitManager;
-    std::shared_ptr<CPeerWatcher> m_spWatcher;
+    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
 
     Command::HandlerMap m_handlers;
 
-    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
-
-    bool m_initialized;
 };
 
 //------------------------------------------------------------------------------------------------

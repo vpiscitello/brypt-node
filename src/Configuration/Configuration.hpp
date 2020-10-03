@@ -148,8 +148,6 @@ struct Configuration::TEndpointOptions
     {
         auto components = NetworkUtils::SplitAddressString(binding);
         switch (type) {
-            case Endpoints::TechnologyType::Direct:
-            case Endpoints::TechnologyType::StreamBridge:
             case Endpoints::TechnologyType::TCP: {
                 if (auto const found = components.first.find(NetworkUtils::Wildcard); found != std::string::npos) {
                     components.first = NetworkUtils::GetInterfaceAddress(interface);

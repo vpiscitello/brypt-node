@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------------------------
 // File: Endpoint.hpp
 // Description: Defines a set of communication methods for use on varying types of communication
-// technologies. Currently supports ZMQ D, ZMQ StreamBridge, and TCP sockets.
+// technologies. Currently supports TCP sockets.
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
@@ -38,9 +38,7 @@ class CApplicationMessage;
 namespace Endpoints {
 //------------------------------------------------------------------------------------------------
 
-class CDirectEndpoint;
 class CLoRaEndpoint;
-class CStreamBridgeEndpoint;
 class CTcpEndpoint;
 
 std::unique_ptr<CEndpoint> Factory(

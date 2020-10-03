@@ -40,8 +40,8 @@ BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
 auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
-constexpr std::string_view TechnologyName = "Direct";
-constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
+constexpr std::string_view TechnologyName = "TCP";
+constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35216";
 constexpr std::string_view ClientBinding = "*:35217";
@@ -130,20 +130,6 @@ TEST(CommandSuite, CommandMatchingTest)
 
     auto const queryCommandReturnType = queryCommandItr->second->GetType();
     EXPECT_EQ(queryCommandReturnType, Command::Type::Query);
-
-    OptionalMessage const optTransformRequest = CMessage::Builder()
-        .SetMessageContext(test::context)
-        .SetSource(test::ClientIdentifier)
-        .SetDestination(*test::spServerIdentifier)
-        .SetCommand(Command::Type::Transform, test::BasePhase)
-        .SetData(test::Message, test::Nonce)
-        .ValidatedBuild();
-    
-    auto const transformCommandItr = commands.find(optTransformRequest->GetCommandType());
-    ASSERT_NE(transformCommandItr, commands.end());
-
-    auto const transformCommandReturnType = transformCommandItr->second->GetType();
-    EXPECT_EQ(transformCommandReturnType, Command::Type::Transform);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -193,9 +179,6 @@ void local::SetupCommandHandlerMap(
         Command::Type::Query,
         Command::Factory(Command::Type::Query, node));
 
-    commands.emplace(
-        Command::Type::Transform,
-        Command::Factory(Command::Type::Transform, node));
 }
 
 //------------------------------------------------------------------------------------------------

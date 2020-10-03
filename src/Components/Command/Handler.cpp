@@ -8,7 +8,6 @@
 #include "ElectionHandler.hpp"
 #include "InformationHandler.hpp"
 #include "QueryHandler.hpp"
-#include "TransformHandler.hpp"
 #include "../Await/AwaitDefinitions.hpp"
 #include "../Await/TrackingManager.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
@@ -39,9 +38,6 @@ std::unique_ptr<Command::IHandler> Command::Factory(
 
         case Command::Type::Query:
             return std::make_unique<CQueryHandler>(instance);
-
-        case Command::Type::Transform:
-            return std::make_unique<CTransformHandler>(instance);
 
         case Command::Type::Invalid:
         default:

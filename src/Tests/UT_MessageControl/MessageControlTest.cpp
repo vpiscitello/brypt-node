@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Components/Endpoints/Endpoint.hpp"
-#include "../../Components/Endpoints/DirectEndpoint.hpp"
+#include "../../Components/BryptPeer/BryptPeer.hpp"
+#include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageControl/AssociatedMessage.hpp"
 #include "../../Components/MessageControl/MessageCollector.hpp"

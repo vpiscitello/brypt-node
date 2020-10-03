@@ -15,7 +15,7 @@
 namespace Endpoints {
 //------------------------------------------------------------------------------------------------
 
-enum class TechnologyType : std::uint8_t { Direct, LoRa, StreamBridge, TCP, Invalid };
+enum class TechnologyType : std::uint8_t { LoRa, TCP, Invalid };
 
 using TechnologySet = std::set<Endpoints::TechnologyType>;
 
@@ -29,9 +29,7 @@ std::string TechnologyTypeToString(TechnologyType technology);
 inline Endpoints::TechnologyType Endpoints::ParseTechnologyType(std::string name)
 {
     static std::unordered_map<std::string, TechnologyType> const technologyMap = {
-        {"direct", TechnologyType::Direct},
         {"lora", TechnologyType::LoRa},
-        {"streambridge", TechnologyType::StreamBridge},
         {"tcp", TechnologyType::TCP},
     };
 
@@ -52,9 +50,7 @@ inline Endpoints::TechnologyType Endpoints::ParseTechnologyType(std::string name
 inline std::string Endpoints::TechnologyTypeToString(TechnologyType technology)
 {
     static std::unordered_map<TechnologyType, std::string> const technologyMap = {
-        {TechnologyType::Direct, "Direct"},
         {TechnologyType::LoRa, "LoRa"},
-        {TechnologyType::StreamBridge, "StreamBridge"},
         {TechnologyType::TCP, "TCP"},
     };
 

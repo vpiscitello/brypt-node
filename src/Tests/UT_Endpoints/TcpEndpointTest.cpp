@@ -37,7 +37,7 @@ auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer con
 auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
-constexpr std::string_view TechnologyName = "Direct";
+constexpr std::string_view TechnologyName = "TCP";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35220";
