@@ -17,10 +17,9 @@
 #include "../Components/BryptPeer/PeerManager.hpp"
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Components/MessageControl/AssociatedMessage.hpp"
 #include "../Components/MessageControl/MessageCollector.hpp"
-#include "../Components/PeerWatcher/PeerWatcher.hpp"
+#include "../Components/Security/SecurityManager.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
 #include "../Utilities/NodeUtils.hpp"
@@ -59,7 +58,8 @@ CBryptNode::CBryptNode(
     std::shared_ptr<CMessageCollector> const& spMessageCollector,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
-    : m_spNodeState()
+    : m_initialized(false)
+    , m_spNodeState()
     , m_spAuthorityState()
     , m_spCoordinatorState()
     , m_spNetworkState()
@@ -69,10 +69,8 @@ CBryptNode::CBryptNode(
     , m_spPeerManager(spPeerManager)
     , m_spMessageCollector(spMessageCollector)
     , m_spAwaitManager(std::make_shared<Await::CTrackingManager>())
-    , m_spWatcher()
-    , m_handlers()
     , m_spPeerPersistor(spPeerPersistor)
-    , m_initialized(false)
+    , m_handlers()
 {
     // An Endpoint Manager must be provided to the node in order to to operator 
     if (!m_spEndpointManager) {
@@ -87,9 +85,6 @@ CBryptNode::CBryptNode(
     m_spNodeState = std::make_shared<CNodeState>(spBryptIdentifier, m_spEndpointManager->GetEndpointTechnologies());
     m_spSensorState = std::make_shared<CSensorState>();
 
-    // initialize peer watcher
-    // m_spWatcher = std::make_shared<CPeerWatcher>(m_spEndpoints);
-
     m_handlers.emplace(
         Command::Type::Information,
         Command::Factory(Command::Type::Information, *this));
@@ -101,10 +96,6 @@ CBryptNode::CBryptNode(
     m_handlers.emplace(
         Command::Type::Election,
         Command::Factory(Command::Type::Election, *this));
-
-    m_handlers.emplace(
-        Command::Type::Transform,
-        Command::Factory(Command::Type::Transform, *this));
 
     m_handlers.emplace(
         Command::Type::Connect,
@@ -121,22 +112,20 @@ CBryptNode::CBryptNode(
 void CBryptNode::Startup()
 {
     if (m_initialized == false) {
-        throw std::runtime_error("Node instance must be setup before starting!");
+        throw std::runtime_error("Invalid Brypt Node instance!");
     }
 
     printo("Starting up Brypt Node", NodeUtils::PrintType::Node);
 
     m_spEndpointManager->Startup();
-    std::this_thread::sleep_for(local::CycleTimeout);
 
-    StartLifecycle(); // Make threaded operation?
+    StartLifecycle();
 }
 
 //------------------------------------------------------------------------------------------------
 
 bool CBryptNode::Shutdown()
 {
-    return m_spWatcher->Shutdown();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -224,7 +213,6 @@ std::weak_ptr<CPeerPersistor> CBryptNode::GetPeerPersistor() const
 //------------------------------------------------------------------------------------------------
 void CBryptNode::StartLifecycle()
 {
-    printo("Brypt Node is listening", NodeUtils::PrintType::Node);
     std::uint64_t run = 0;
     // TODO: Implement stopping condition
     do {
@@ -256,73 +244,6 @@ void CBryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessag
         auto const& [type, handler] = *itr;
         handler->HandleMessage(associatedMessage);
     }
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-std::float_t CBryptNode::DetermineNodePower()
-{
-    return 0.0;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-bool CBryptNode::HasTechnologyType(Endpoints::TechnologyType technology)
-{
-    auto const technologies = m_spEndpointManager->GetEndpointTechnologies();
-    auto const itr = technologies.find(technology);
-    return (itr != technologies.end());
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-bool CBryptNode::ContactAuthority()
-{
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-bool CBryptNode::NotifyAddressChange()
-{
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-bool CBryptNode::Election()
-{
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-bool CBryptNode::Transform()
-{
-    return false;
 }
 
 //------------------------------------------------------------------------------------------------

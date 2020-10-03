@@ -1,13 +1,11 @@
 //------------------------------------------------------------------------------------------------
 // File: Endpoint.cpp
 // Description: Defines a set of communication methods for use on varying types of communication
-// technologies. Currently supports ZMQ REQ/REP, ZMQ StreamBridge, and TCP sockets.
+// technologies. Currently supports TCP sockets.
 //------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "DirectEndpoint.hpp"
 #include "LoRaEndpoint.hpp"
-#include "StreamBridgeEndpoint.hpp"
 #include "TcpEndpoint.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
@@ -26,18 +24,8 @@ std::unique_ptr<CEndpoint> Endpoints::Factory(
     IMessageSink* const pMessageSink)
 {
     switch (technology) {
-        case TechnologyType::Direct: {
-            return std::make_unique<CDirectEndpoint>(
-                spBryptIdentifier, interface, operation,
-                pEndpointMediator, pPeerMediator, pMessageSink);
-        }
         case TechnologyType::LoRa: {
             return std::make_unique<CLoRaEndpoint>(
-                spBryptIdentifier, interface, operation,
-                pEndpointMediator, pPeerMediator, pMessageSink);
-        }
-        case TechnologyType::StreamBridge: {
-            return std::make_unique<CStreamBridgeEndpoint>(
                 spBryptIdentifier, interface, operation,
                 pEndpointMediator, pPeerMediator, pMessageSink);
         }

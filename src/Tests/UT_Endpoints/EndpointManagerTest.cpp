@@ -32,7 +32,7 @@ namespace test {
 auto const spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
-constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::Direct;
+constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35222";
 constexpr std::string_view ClientEntry = "127.0.0.1:35223";

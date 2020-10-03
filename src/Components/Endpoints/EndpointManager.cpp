@@ -50,17 +50,9 @@ void CEndpointManager::Initialize(
         // to re-initilize a technology as the endpoints should exist until appliction termination.
         if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
             switch (technology) {
-                case Endpoints::TechnologyType::Direct: {
-                    InitializeDirectEndpoints(
-                        spBryptIdentifier, options, pPeerMediator, pMessageSink, pBootstrapCache);
-                } break;
                 case Endpoints::TechnologyType::TCP: {
                     InitializeTCPEndpoints(
                         spBryptIdentifier, options, pPeerMediator, pMessageSink, pBootstrapCache);
-                } break;
-                case Endpoints::TechnologyType::StreamBridge: {
-                    InitializeStreamBridgeEndpoints(
-                        spBryptIdentifier, options, pPeerMediator, pMessageSink);
                 } break;
                 default: break; // No other technologies have implemented endpoints
             }
@@ -177,40 +169,6 @@ IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::InitializeDirectEndpoints(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    Configuration::TEndpointOptions const& options,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink,
-    IBootstrapCache const* const pBootstrapCache)
-{
-    auto const technology = Endpoints::TechnologyType::Direct;
-
-    // Add the server based endpoint
-    std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, spBryptIdentifier, options.GetInterface(),
-        Endpoints::OperationType::Server, this, pPeerMediator, pMessageSink);
-
-    spServer->ScheduleBind(options.GetBinding());
-
-    m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
-
-    // Add the client based endpoint
-    std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        technology, spBryptIdentifier, options.GetInterface(),
-        Endpoints::OperationType::Client, this, pPeerMediator, pMessageSink);
-
-    if (pBootstrapCache) {
-        local::ConnectBootstraps(spClient, pBootstrapCache);
-    }
-
-    m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
-
-    m_technologies.emplace(technology);
-}
-
-//------------------------------------------------------------------------------------------------
-
 void CEndpointManager::InitializeTCPEndpoints(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
@@ -239,27 +197,6 @@ void CEndpointManager::InitializeTCPEndpoints(
     }
 
     m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
-
-    m_technologies.emplace(technology);
-}
-
-//------------------------------------------------------------------------------------------------
-
-void CEndpointManager::InitializeStreamBridgeEndpoints(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    Configuration::TEndpointOptions const& options,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink)
-{
-    auto const technology = Endpoints::TechnologyType::StreamBridge;
-    // Add the server based endpoint
-    std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, spBryptIdentifier, options.GetInterface(),
-         Endpoints::OperationType::Server, this, pPeerMediator, pMessageSink);
-
-    spServer->ScheduleBind(options.GetBinding());
-
-    m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
 
     m_technologies.emplace(technology);
 }

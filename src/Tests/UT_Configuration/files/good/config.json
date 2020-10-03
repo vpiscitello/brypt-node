@@ -10,7 +10,7 @@
 	},
 	"endpoints": [
 		{
-			"technology": "Direct",
+			"technology": "TCP",
 			"interface": "lo",
 			"binding": "*:35216"
 		}

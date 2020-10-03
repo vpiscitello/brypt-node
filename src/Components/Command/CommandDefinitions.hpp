@@ -8,15 +8,7 @@
 namespace Command {
 //------------------------------------------------------------------------------------------------
 
-enum class Type : std::uint8_t
-{
-    Invalid = 0,
-    Information,
-    Query,
-    Election,
-    Transform,
-    Connect
-};
+enum class Type : std::uint8_t { Invalid, Connect, Information, Query, Election };
 
 //------------------------------------------------------------------------------------------------
 } // namespace Command

@@ -10,9 +10,9 @@ EXTERNAL_LIBARIES_INCLUDE = -ILibraries
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -DZMQ_BUILD_DRAFT_API -MMD -MP
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread  -MMD -MP
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -DZMQ_BUILD_DRAFT_API -MMD -MP
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)

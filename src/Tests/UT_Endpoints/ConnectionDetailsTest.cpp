@@ -19,7 +19,7 @@ namespace test {
 BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
 BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
 
-constexpr std::string_view TechnologyName = "Direct";
+constexpr std::string_view TechnologyName = "TCP";
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35222";
 constexpr std::string_view ClientBinding = "*:35223";

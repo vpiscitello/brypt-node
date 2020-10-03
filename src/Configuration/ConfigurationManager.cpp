@@ -78,9 +78,7 @@ std::array<std::string_view, 2> IdentifierTypes = {
 };
 
 std::array<std::string_view, 4> EndpointTypes = {
-    "Direct",
     "LoRa",
-    "StreamBridge",
     "TCP"
 };
 
