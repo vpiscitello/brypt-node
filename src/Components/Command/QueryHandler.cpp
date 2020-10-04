@@ -6,7 +6,6 @@
 //------------------------------------------------------------------------------------------------
 #include "../Await/TrackingManager.hpp"
 #include "../Endpoints/Endpoint.hpp"
-#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
 #include "../../BryptNode/NetworkState.hpp"
@@ -50,13 +49,13 @@ struct Json::TReading
 {
     TReading(
         std::uint32_t reading,
-        std::string const& timestamp)
+        TimeUtils::Timestamp const& timestamp)
         : reading(reading)
-        , timestamp(timestamp)
+        , timestamp(timestamp.count())
     {
     }
     std::uint32_t const reading;
-    std::string const timestamp;
+    std::uint64_t const timestamp;
 };
 
 //------------------------------------------------------------------------------------------------

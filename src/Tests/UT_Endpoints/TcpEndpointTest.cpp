@@ -37,20 +37,17 @@ auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer con
 auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
-constexpr std::string_view TechnologyName = "TCP";
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35220";
-constexpr std::string_view ClientBinding = "*:35221";
-constexpr std::string_view ServerEntry = "127.0.0.1:35220";
-constexpr std::string_view ClientEntry = "127.0.0.1:35221";
+constexpr std::string_view ServerBinding = "*:35216";
+constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CTcpSuite, ServerMessageForwardingTest)
+TEST(CTcpSuite, SingleConnectionTest)
 {
     CMessageCollector collector;
 
@@ -58,11 +55,14 @@ TEST(CTcpSuite, ServerMessageForwardingTest)
     upServer->ScheduleBind(test::ServerBinding);
     upServer->Startup();
 
+    // Wait a period of time to ensure the server endpoint is spun up
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     auto upClient = local::MakeTcpClient(&collector);
     upClient->ScheduleConnect(test::ServerEntry);
     upClient->Startup();
+
+    // Wait a period of time to ensure the client initiated the connection with the server
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     // We expect there to be a connect request in the incoming collector from the client

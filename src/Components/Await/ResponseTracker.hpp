@@ -66,7 +66,7 @@ struct Await::TResponseEntry
 class Await::CResponseTracker
 {
 public:
-    constexpr static TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
+    constexpr static auto const ExpirationPeriod = std::chrono::milliseconds(1500);
 
     CResponseTracker(
         std::weak_ptr<CBryptPeer> const& wpRequestor,

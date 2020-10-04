@@ -35,7 +35,6 @@ namespace PeerBootstrap {
 // Information used to generate the message required to request a connection with a Brypt peer
 constexpr Command::Type ConnectCommand = Command::Type::Connect;
 constexpr std::uint8_t DiscoveryPhase = static_cast<std::uint8_t>(Command::CConnectHandler::Phase::Discovery);
-constexpr std::uint8_t InitialNonce = 0;
 
 template<typename Functor, typename Enabled = std::enable_if_t<std::is_bind_expression_v<Functor>>>
 auto SendContactMessage(
@@ -149,9 +148,8 @@ auto PeerBootstrap::SendContactMessage(
     auto const optDiscoveryRequest = CApplicationMessage::Builder()
         .SetMessageContext({ identifier, technology })
         .SetSource(*spSource)
-        .SetDestination(ReservedIdentifiers::Network::Unknown)
         .SetCommand(ConnectCommand, DiscoveryPhase)
-        .SetData(encoded, InitialNonce)
+        .SetData(encoded)
         .ValidatedBuild();
     assert(optDiscoveryRequest);
 

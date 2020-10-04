@@ -34,8 +34,8 @@ auto const spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer cons
 
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35222";
-constexpr std::string_view ClientEntry = "127.0.0.1:35223";
+constexpr std::string_view ServerBinding = "*:35216";
+constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 
 //------------------------------------------------------------------------------------------------
 } // test namespace
@@ -119,10 +119,10 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
     configurations.emplace_back(options);
     
     local::CBootstrapCacheStub cache;
-    cache.AddBootstrap(test::TechnologyType, test::ClientEntry);
+    cache.AddBootstrap(test::TechnologyType, test::ServerEntry);
 
     upEndpointManager->Initialize(
-        test::spBryptIdentifier, nullptr, nullptr, configurations, &cache);
+        test::spBryptIdentifier, nullptr, configurations, &cache);
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();
     EXPECT_EQ(initialActiveEndpoints, std::uint32_t(0));

@@ -12,7 +12,6 @@
 #include "../Await/TrackingManager.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../BryptPeer/PeerManager.hpp"
-#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
@@ -100,8 +99,7 @@ void Command::IHandler::SendResponse(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CApplicationMessage const& request,
     std::string_view responseData,
-    std::uint8_t responsePhase,
-    std::optional<BryptIdentifier::CContainer> optDestinationOverride)
+    std::uint8_t responsePhase)
 {
     // Get the current Node ID and Cluster ID for this node
     BryptIdentifier::SharedContainer spBryptIdentifier;
@@ -111,10 +109,8 @@ void Command::IHandler::SendResponse(
     }
     assert(spBryptIdentifier);
 
+    // Since we are responding to the request, the destination will point to its source.
     BryptIdentifier::CContainer destination = request.GetSourceIdentifier();
-    if (optDestinationOverride) {
-        destination = *optDestinationOverride;
-    }
 
     std::optional<Message::BoundTrackerKey> optBoundAwaitTracker = {};
     std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitTrackerKey();

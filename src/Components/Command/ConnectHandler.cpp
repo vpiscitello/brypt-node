@@ -7,7 +7,6 @@
 #include "../Endpoints/Endpoint.hpp"
 #include "../Endpoints/EndpointManager.hpp"
 #include "../Endpoints/PeerBootstrap.hpp"
-#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptNode/NodeState.hpp"

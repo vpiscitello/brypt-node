@@ -60,14 +60,14 @@ struct Json::TNodeInfo
         std::size_t neighbor_count,
         std::string const& designation,
         std::string const& technologies,
-        std::string const& update_timestamp)
+        TimeUtils::Timestamp const& update_timestamp)
         : identifier(spBryptIdentifier)
         , cluster(cluster)
         , coordinator(spCoordinatorIdentifier)
         , neighbor_count(neighbor_count)
         , designation(designation)
         , technologies(technologies)
-        , update_timestamp(update_timestamp)
+        , update_timestamp(update_timestamp.count())
     {
     }
     BryptIdentifier::SharedContainer const identifier;
@@ -76,7 +76,7 @@ struct Json::TNodeInfo
     std::size_t const neighbor_count;
     std::string const designation;
     std::string const technologies;
-    std::string const update_timestamp;
+    std::uint64_t const update_timestamp;
 };
 
 //------------------------------------------------------------------------------------------------

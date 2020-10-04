@@ -22,7 +22,7 @@ using ClusterIdType = std::uint32_t;
 
 enum class DeviceOperation : std::uint8_t { Branch, Leaf, None };
 enum class NotificationType : std::uint8_t { Network, Cluster, Node, None };
-enum class PrintType : std::uint8_t { Await, Command, Control, Endpoint, Message, MessageControl, Node, Notifier, PeerWatcher, Error };
+enum class PrintType : std::uint8_t { Await, Command, Endpoint, Message, MessageControl, Node, Error };
 
 //------------------------------------------------------------------------------------------------
 
@@ -62,13 +62,10 @@ inline std::string NodeUtils::GetPrintEscape(PrintType const& component)
     static std::unordered_map<PrintType, std::string> const escapeMap = {
         {PrintType::Await, "\x1b[1;30;48;5;93m[    Await    ]\x1b[0m "},
         {PrintType::Command, "\x1b[1;30;48;5;220m[   Command   ]\x1b[0m "},
-        {PrintType::Control, "\x1b[1;97;48;5;4m[   Control   ]\x1b[0m "},
         {PrintType::Endpoint, "\x1b[1;30;48;5;6m[   Endpoint  ]\x1b[0m "},
         {PrintType::Message, "\x1b[1;30;48;5;135m[   Message   ]\x1b[0m "},
         {PrintType::MessageControl, "\x1b[1;30;48;5;129m[ MessageControl ]\x1b[0m "},
         {PrintType::Node, "\x1b[1;30;48;5;42m[     Node    ]\x1b[0m "},
-        {PrintType::Notifier, "\x1b[1;30;48;5;12m[   Notifier  ]\x1b[0m "},
-        {PrintType::PeerWatcher, "\x1b[1;30;48;5;203m[ PeerWatcher ]\x1b[0m "},
         {PrintType::Error, "\x1b[1;30;48;5;196m[    Error    ]\x1b[0m "},
     };
 

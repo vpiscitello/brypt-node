@@ -4,7 +4,6 @@
 #include "../../Components/Command/Handler.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageControl/MessageCollector.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Configuration/ConfigurationManager.hpp"
 #include "../../Configuration/PeerPersistor.hpp"

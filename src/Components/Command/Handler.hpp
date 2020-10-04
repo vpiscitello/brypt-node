@@ -8,6 +8,7 @@
 #include "CommandDefinitions.hpp"
 #include "../MessageControl/AssociatedMessage.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptMessage/MessageDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -76,8 +77,7 @@ protected:
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CApplicationMessage const& request,
         std::string_view responseData,
-        std::uint8_t responsePhase,
-        std::optional<BryptIdentifier::CContainer> optDestinationOverride = {}) final;
+        std::uint8_t responsePhase) final;
         
     Command::Type m_type;
     CBryptNode& m_instance;
