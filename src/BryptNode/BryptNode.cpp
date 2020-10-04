@@ -18,8 +18,7 @@
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/MessageControl/AssociatedMessage.hpp"
-#include "../Components/MessageControl/MessageCollector.hpp"
-#include "../Components/Security/SecurityManager.hpp"
+#include "../Components/MessageControl/AuthenticatedProcessor.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
 #include "../Utilities/NodeUtils.hpp"
@@ -56,7 +55,6 @@ CBryptNode::CBryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CPeerManager> const& spPeerManager,
-    std::shared_ptr<CMessageCollector> const& spMessageCollector,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
     : m_initialized(false)
@@ -68,7 +66,7 @@ CBryptNode::CBryptNode(
     , m_spSensorState()
     , m_spEndpointManager(spEndpointManager)
     , m_spPeerManager(spPeerManager)
-    , m_spMessageCollector(spMessageCollector)
+    , m_spMessageProcessor()
     , m_spAwaitManager(std::make_shared<Await::CTrackingManager>())
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
@@ -188,13 +186,6 @@ std::weak_ptr<CPeerManager> CBryptNode::GetPeerManager() const
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CMessageCollector> CBryptNode::GetMessageCollector() const
-{
-    return m_spMessageCollector;
-}
-
-//------------------------------------------------------------------------------------------------
-
 std::weak_ptr<Await::CTrackingManager> CBryptNode::GetAwaitManager() const
 {
     return m_spAwaitManager;
@@ -218,7 +209,7 @@ void CBryptNode::StartLifecycle()
     std::uint64_t run = 0;
     // TODO: Implement stopping condition
     do {
-        if (auto const optMessage = m_spMessageCollector->PopIncomingMessage(); optMessage) {
+        if (auto const optMessage = m_spMessageProcessor->PopIncomingMessage(); optMessage) {
             HandleIncomingMessage(*optMessage);
         }
 

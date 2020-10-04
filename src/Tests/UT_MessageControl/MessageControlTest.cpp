@@ -4,7 +4,7 @@
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageControl/AssociatedMessage.hpp"
-#include "../../Components/MessageControl/MessageCollector.hpp"
+#include "../../Components/MessageControl/AuthenticatedProcessor.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -49,9 +49,9 @@ constexpr std::uint32_t Iterations = 10000;
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
+TEST(CAuthenticatedProcessorSuite, SingleMessageCollectionTest)
 {
-    CMessageCollector collector;
+    CAuthenticatedProcessor collector;
 
     std::optional<CApplicationMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
@@ -114,9 +114,9 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
+TEST(CAuthenticatedProcessorSuite, MultipleMessageCollectionTest)
 {
-    CMessageCollector collector;
+    CAuthenticatedProcessor collector;
 
     std::optional<CApplicationMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);

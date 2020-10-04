@@ -7,7 +7,6 @@
 #include "../Components/BryptPeer/PeerManager.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
-#include "../Components/MessageControl/MessageCollector.hpp"
 #include "../Configuration/Configuration.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
@@ -79,29 +78,23 @@ std::int32_t main(std::int32_t argc, char** argv)
         exit(1);
     }
 
-    auto const spPeerManager = std::make_shared<CPeerManager>();
-
     auto const spPeerPersistor = std::make_shared<CPeerPersistor>(
         local::PeersFilename, *optEndpointConfigurations);
 
-    spPeerPersistor->SetMediator(spPeerManager.get());
-    
     if (!spPeerPersistor->FetchBootstraps()) {
         NodeUtils::printo("Node bootstraps could not be parsed!", NodeUtils::PrintType::Node);
         exit(1);
     }
 
-    auto const spMessageCollector = std::make_shared<CMessageCollector>();
+    auto const spPeerManager = std::make_shared<CPeerManager>();
+    spPeerPersistor->SetMediator(spPeerManager.get());
 
     auto const spEndpointManager = std::make_shared<CEndpointManager>();
     spEndpointManager->Initialize(
-        spBryptIdentifier, spPeerManager.get(), spMessageCollector.get(),
-        *optEndpointConfigurations, spPeerPersistor.get());
-
+        spBryptIdentifier, spPeerManager.get(), *optEndpointConfigurations, spPeerPersistor.get());
 
     CBryptNode alpha(
-        spBryptIdentifier, spEndpointManager, spPeerManager,
-        spMessageCollector, spPeerPersistor, upConfigurationManager);
+        spBryptIdentifier, spEndpointManager, spPeerManager, spPeerPersistor, upConfigurationManager);
 
     alpha.Startup();
 

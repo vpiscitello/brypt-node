@@ -29,7 +29,6 @@ COMMANDDIR = Components/Command
 ENDPOINTSDIR = Components/Endpoints
 CONFIGURATIONDIR = Configuration
 MESSAGECONTROLDIR = Components/MessageControl
-PEERWATCHERDIR = Components/PeerWatcher
 NOTIFIERDIR = Components/Notifier
 
 MODULES = $(BRYPTNODEDIR) \
@@ -41,7 +40,6 @@ $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(MESSAGECONTROLDIR) \
-$(PEERWATCHERDIR) \
 $(NOTIFIERDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
