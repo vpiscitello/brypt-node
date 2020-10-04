@@ -37,7 +37,6 @@ public:
     void Initialize(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         IPeerMediator* const pPeerMediator,
-        IMessageSink* const pMessageSink,
         Configuration::EndpointConfigurations const& configurations,
         IBootstrapCache const* const pBootsrapCache);
     void Startup();

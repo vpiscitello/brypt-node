@@ -9,6 +9,7 @@
 #include "../Endpoints/MessageScheduler.hpp"
 #include "../Endpoints/TechnologyType.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
+#include "../../Interfaces/MessageSink.hpp"
 #include "../../BryptMessage/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
@@ -20,6 +21,7 @@
 //------------------------------------------------------------------------------------------------
 
 class CApplicationMessage;
+class CMessageContext;
 class IPeerMediator;
 
 //------------------------------------------------------------------------------------------------
@@ -37,6 +39,8 @@ public:
 
     void SetLocation(std::string_view location);
 
+    void SetReceiver(IMessageSink* const pMessageSink);
+
     void RegisterEndpoint(CEndpointRegistration const& registration);
     void RegisterEndpoint(
         Endpoints::EndpointIdType identifier,
@@ -53,7 +57,13 @@ public:
 
     bool IsActive() const;
 
-    bool ScheduleSend(CApplicationMessage const& message) const;
+    bool ScheduleSend(
+        CMessageContext const& context,
+        BryptIdentifier::CContainer const& destination,
+        std::string_view const& message) const;
+    bool ScheduleReceive(
+        CMessageContext const& context,
+        Message::Buffer const& buffer);
 
 private:
     using RegisteredEndpoints = std::unordered_map<Endpoints::EndpointIdType, CEndpointRegistration>;
@@ -67,6 +77,8 @@ private:
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;
 
+    mutable std::recursive_mutex m_receiverMutex;
+    IMessageSink* m_pMessageSink;
 };
 
 //------------------------------------------------------------------------------------------------

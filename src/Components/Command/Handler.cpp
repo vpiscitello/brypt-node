@@ -130,7 +130,8 @@ void Command::IHandler::SendResponse(
     assert(optResponse);
 
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spBryptPeer->ScheduleSend(*optResponse);
+        spBryptPeer->ScheduleSend(
+            optResponse->GetMessageContext(), destination, optResponse->GetPack());
     }
 }
 

@@ -14,6 +14,8 @@
 #include <string_view>
 #include <thread>
 //------------------------------------------------------------------------------------------------
+using namespace std::chrono_literals;
+//------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace {
@@ -54,13 +56,19 @@ TEST(CResponseTrackerSuite, SingleResponseTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 
@@ -111,13 +119,19 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 
@@ -194,13 +208,19 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 
@@ -214,7 +234,7 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
 
-    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod);
+    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod + 1ms);
 
     auto const initialResponseStatus = tracker.CheckResponseStatus();
     EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Fulfilled);
@@ -240,13 +260,19 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 
@@ -294,7 +320,7 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
     EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::ResponseStatus::Unfulfilled);
 
-    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod);
+    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod + 1ms);
 
     bool const bUpdateSendSuccess = tracker.SendFulfilledResponse();
     EXPECT_TRUE(bUpdateSendSuccess);
@@ -317,13 +343,19 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 
@@ -336,7 +368,7 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
         .ValidatedBuild();
 
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
-    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod);
+    std::this_thread::sleep_for(Await::CResponseTracker::ExpirationPeriod + 1ms);
 
     auto const initialResponseStatus = tracker.CheckResponseStatus();
     EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Fulfilled);
@@ -367,13 +399,19 @@ TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 
@@ -412,13 +450,19 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optFulfilledResponse] (CApplicationMessage const& message) -> bool
+        [&optFulfilledResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optFulfilledResponse = message;
+            optFulfilledResponse = optMessage;
             return true;
         });
 

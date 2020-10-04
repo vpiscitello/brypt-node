@@ -36,11 +36,10 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink)
+    IPeerMediator* const pPeerMediator)
     : CEndpoint(
-        spBryptIdentifier, interface, operation, pEndpointMediator,
-        pPeerMediator, pMessageSink, TechnologyType::TCP)
+        spBryptIdentifier, interface, operation,
+        pEndpointMediator, pPeerMediator, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_tracker()
@@ -48,7 +47,11 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     , m_events()
     , m_scheduler()
 {
-    m_scheduler = [this] (CApplicationMessage const& message) -> bool { return ScheduleSend(message); };
+    m_scheduler = [this] (
+        BryptIdentifier::CContainer const& destination, std::string_view message) -> bool
+        {
+            return ScheduleSend(destination, message);
+        };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -187,17 +190,6 @@ void Endpoints::CTcpEndpoint::Startup()
         return; 
     }
     Spawn();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::ScheduleSend(CApplicationMessage const& message)
-{
-    // Forward the received message to be sent on the socket
-    return ScheduleSend(message.GetDestination(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -790,16 +782,13 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
             details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
             
-            spBryptPeer->RegisterEndpoint(
-                m_identifier, m_technology, m_scheduler, uri);
+            spBryptPeer->RegisterEndpoint(m_identifier, m_technology, m_scheduler, uri);
 
             return details;
         }
     );
 
-    if (m_pMessageSink) {
-        m_pMessageSink->CollectMessage(spBryptPeer, *optRequest);
-    } 
+    spBryptPeer->ScheduleReceive({ m_identifier, m_technology }, decoded);
 }
 
 //------------------------------------------------------------------------------------------------

@@ -58,13 +58,19 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optForwardedResponse] (CApplicationMessage const& message) -> bool
+        [&optForwardedResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optForwardedResponse = message;
+            optForwardedResponse = optMessage;
             return true;
         });
 
@@ -76,7 +82,7 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
         .SetData(test::Message)
         .ValidatedBuild();
 
-    collector.CollectMessage(spClientPeer, *optRequest);
+    collector.CollectMessage(spClientPeer, test::MessageContext, optRequest->GetPack());
 
     EXPECT_EQ(collector.QueuedMessageCount(), std::uint32_t(1));
     
@@ -97,7 +103,8 @@ TEST(CMessageCollectorSuite, SingleMessageCollectionTest)
 
     if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {
         EXPECT_EQ(spClientRequestPeer, spClientPeer);
-        spClientRequestPeer->ScheduleSend(*optResponse);
+        spClientRequestPeer->ScheduleSend(
+            optResponse->GetMessageContext(), test::ClientIdentifier, optResponse->GetPack());
     } else {
         ASSERT_FALSE(true);
     }
@@ -116,13 +123,19 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&optForwardedResponse] (CApplicationMessage const& message) -> bool
+        [&optForwardedResponse] (
+            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            Message::ValidationStatus status = message.Validate();
+            auto const optMessage = CApplicationMessage::Builder()
+                .FromEncodedPack(message)
+                .ValidatedBuild();
+            EXPECT_TRUE(optMessage);
+
+            Message::ValidationStatus status = optMessage->Validate();
             if (status != Message::ValidationStatus::Success) {
                 return false;
             }
-            optForwardedResponse = message;
+            optForwardedResponse = optMessage;
             return true;
         });
 
@@ -135,7 +148,7 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
             .SetData(test::Message)
             .ValidatedBuild();
 
-        collector.CollectMessage(spClientPeer, *optRequest);
+        collector.CollectMessage(spClientPeer, test::MessageContext, optRequest->GetPack());
     }
 
     EXPECT_EQ(collector.QueuedMessageCount(), std::uint32_t(test::Iterations));
@@ -157,7 +170,8 @@ TEST(CMessageCollectorSuite, MultipleMessageCollectionTest)
 
         if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {
             EXPECT_EQ(spClientRequestPeer, spClientPeer);
-            spClientRequestPeer->ScheduleSend(*optResponse);
+            spClientRequestPeer->ScheduleSend(
+                optResponse->GetMessageContext(), test::ClientIdentifier, optResponse->GetPack());
         } else {
             ASSERT_FALSE(true);
         }

@@ -38,7 +38,6 @@ CEndpointManager::~CEndpointManager()
 void CEndpointManager::Initialize(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink,
     Configuration::EndpointConfigurations const& configurations,
     IBootstrapCache const* const pBootstrapCache)
 {
@@ -52,7 +51,7 @@ void CEndpointManager::Initialize(
             switch (technology) {
                 case Endpoints::TechnologyType::TCP: {
                     InitializeTCPEndpoints(
-                        spBryptIdentifier, options, pPeerMediator, pMessageSink, pBootstrapCache);
+                        spBryptIdentifier, options, pPeerMediator, pBootstrapCache);
                 } break;
                 default: break; // No other technologies have implemented endpoints
             }
@@ -173,7 +172,6 @@ void CEndpointManager::InitializeTCPEndpoints(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Configuration::TEndpointOptions const& options,
     IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink,
     IBootstrapCache const* const pBootstrapCache)
 {
     auto const technology = Endpoints::TechnologyType::TCP;
@@ -181,7 +179,7 @@ void CEndpointManager::InitializeTCPEndpoints(
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-         Endpoints::OperationType::Server, this, pPeerMediator, pMessageSink);
+        Endpoints::OperationType::Server, this, pPeerMediator);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -190,7 +188,7 @@ void CEndpointManager::InitializeTCPEndpoints(
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
         technology, spBryptIdentifier, options.GetInterface(),
-         Endpoints::OperationType::Client, this, pPeerMediator, pMessageSink);
+        Endpoints::OperationType::Client, this, pPeerMediator);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);

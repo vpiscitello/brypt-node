@@ -24,11 +24,10 @@ Endpoints::CLoRaEndpoint::CLoRaEndpoint(
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink)
+    IPeerMediator* const pPeerMediator)
     : CEndpoint(
-        spBryptIdentifier, interface, operation, pEndpointMediator,
-        pPeerMediator, pMessageSink, TechnologyType::LoRa)
+        spBryptIdentifier, interface, operation,
+        pEndpointMediator, pPeerMediator, TechnologyType::LoRa)
 {
 }
 
@@ -114,17 +113,6 @@ void Endpoints::CLoRaEndpoint::Startup()
         return; 
     }
     Spawn();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CLoRaEndpoint::ScheduleSend([[maybe_unused]] CApplicationMessage const& message)
-{
-    // Forward the message pack to be sent on the socket
-    return ScheduleSend(message.GetDestination(), message.GetPack());
 }
 
 //------------------------------------------------------------------------------------------------

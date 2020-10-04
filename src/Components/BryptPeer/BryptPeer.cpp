@@ -7,6 +7,7 @@
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
+#include "../../BryptMessage/MessageContext.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -19,6 +20,8 @@ CBryptPeer::CBryptPeer(
     , m_location()
     , m_endpointsMutex()
     , m_endpoints()
+    , m_receiverMutex()
+    , m_pMessageSink()
 {
     // A Brypt Peer must always be constructed with an identifier that can uniquely identify
     // the peer. 
@@ -59,6 +62,14 @@ void CBryptPeer::SetLocation(std::string_view location)
 {
     std::scoped_lock lock(m_dataMutex);
     m_location = location;
+}
+
+//------------------------------------------------------------------------------------------------
+
+void CBryptPeer::SetReceiver(IMessageSink* const pMessageSink)
+{
+    std::scoped_lock lock(m_receiverMutex);
+    m_pMessageSink = pMessageSink;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -168,19 +179,33 @@ bool CBryptPeer::IsActive() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::ScheduleSend(CApplicationMessage const& message) const
+bool CBryptPeer::ScheduleSend(
+    CMessageContext const& context,
+    BryptIdentifier::CContainer const& destination,
+    std::string_view const& message) const
 {
     std::scoped_lock lock(m_endpointsMutex);
-    auto const& context = message.GetMessageContext();
     if (auto const itr = m_endpoints.find(context.GetEndpointIdentifier());
         itr != m_endpoints.end()) {
         auto const& [identifier, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
         if (scheduler) {
-            return scheduler(message);
+            return scheduler(destination, message);
         }
     }
 
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::ScheduleReceive(
+    CMessageContext const& context, Message::Buffer const& buffer)
+{
+    std::scoped_lock lock(m_receiverMutex);
+    if (m_pMessageSink) {
+        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+    }
     return false;
 }
 

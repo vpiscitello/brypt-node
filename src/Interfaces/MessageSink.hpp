@@ -5,11 +5,17 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../BryptMessage/MessageTypes.hpp"
+//------------------------------------------------------------------------------------------------
+#include <cstdint>
 #include <functional>
+#include <memory>
+#include <string_view>
+#include <vector>
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
-class CMessage;
+class CMessageContext;
 
 //------------------------------------------------------------------------------------------------
 
@@ -18,9 +24,15 @@ class IMessageSink
 public:
     virtual ~IMessageSink() = default;
 
-    virtual void CollectMessage(
+    virtual bool CollectMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessage const& message) = 0;
+        CMessageContext const& context,
+        std::string_view buffer) = 0;
+        
+    virtual bool CollectMessage(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        CMessageContext const& context,
+        Message::Buffer const& buffer) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

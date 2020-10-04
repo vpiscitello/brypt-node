@@ -11,7 +11,6 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Configuration/Configuration.hpp"
 #include "../../Interfaces/EndpointMediator.hpp"
-#include "../../Interfaces/MessageSink.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 #include "../../Utilities/NodeUtils.hpp"
@@ -47,8 +46,7 @@ std::unique_ptr<CEndpoint> Factory(
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink);
+    IPeerMediator* const pPeerMediator);
 
 //------------------------------------------------------------------------------------------------
 } // Endpoint namespace
@@ -64,7 +62,6 @@ public:
         Endpoints::OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
         IPeerMediator* const pPeerMediator,
-        IMessageSink* const pMessageSink,
         Endpoints::TechnologyType technology = Endpoints::TechnologyType::Invalid)
         : m_mutex()
         , m_identifier(CEndpointIdentifierGenerator::Instance().GetEndpointIdentifier())
@@ -74,7 +71,6 @@ public:
         , m_operation(operation)
         , m_pEndpointMediator(pEndpointMediator)
         , m_pPeerMediator(pPeerMediator)
-        , m_pMessageSink(pMessageSink)
         , m_active(false)
         , m_terminate(false)
         , m_cv()
@@ -96,9 +92,8 @@ public:
     virtual void ScheduleConnect(std::string_view entry) = 0;
     virtual void Startup() = 0;
 
-	virtual bool ScheduleSend(CApplicationMessage const& message) = 0;
 	virtual bool ScheduleSend(
-        BryptIdentifier::CContainer const& identifier,
+        BryptIdentifier::CContainer const& destination,
         std::string_view message) = 0;
     
 	virtual bool Shutdown() = 0;
@@ -123,7 +118,6 @@ protected:
 
     IEndpointMediator const* const m_pEndpointMediator;
     IPeerMediator* const m_pPeerMediator;
-    IMessageSink* const m_pMessageSink;
 
 	std::atomic_bool m_active;
     std::atomic_bool m_terminate;

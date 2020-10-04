@@ -162,7 +162,8 @@ bool Await::CResponseTracker::SendFulfilledResponse()
     m_status = ResponseStatus::Completed;
 
     if (auto const spRequestor = m_wpRequestor.lock(); spRequestor) {
-        return spRequestor->ScheduleSend(*optResponse);
+        return spRequestor->ScheduleSend(
+            optResponse->GetMessageContext(), destination, optResponse->GetPack());
     }
 
     return false;

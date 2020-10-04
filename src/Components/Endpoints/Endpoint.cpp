@@ -20,19 +20,16 @@ std::unique_ptr<CEndpoint> Endpoints::Factory(
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator, 
-    IMessageSink* const pMessageSink)
+    IPeerMediator* const pPeerMediator)
 {
     switch (technology) {
         case TechnologyType::LoRa: {
             return std::make_unique<CLoRaEndpoint>(
-                spBryptIdentifier, interface, operation,
-                pEndpointMediator, pPeerMediator, pMessageSink);
+                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
         }
         case TechnologyType::TCP: {
             return std::make_unique<CTcpEndpoint>(
-                spBryptIdentifier, interface, operation,
-                pEndpointMediator, pPeerMediator, pMessageSink);
+                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
         }
         case TechnologyType::Invalid: return nullptr;
     }
