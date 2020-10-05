@@ -1,10 +1,12 @@
 //------------------------------------------------------------------------------------------------
+#include "MessageSinkStub.hpp"
+#include "SinglePeerMediatorStub.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Components/Command/CommandDefinitions.hpp"
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/TcpEndpoint.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageControl/MessageCollector.hpp"
+#include "../../Components/MessageControl/AuthenticatedProcessor.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -22,9 +24,9 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpServer(
-    IMessageSink* const sink);
+    IPeerMediator* const mediator);
 std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpClient(
-    IMessageSink* const sink);
+    IPeerMediator* const mediator);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -49,16 +51,24 @@ constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 
 TEST(CTcpSuite, SingleConnectionTest)
 {
-    CMessageCollector collector;
+    // Create a stub message collector that endpoints can forward messages into.
+    CMessageSinkStub collector;
 
-    auto upServer = local::MakeTcpServer(&collector);
+    // Create stub peer mediators for the server and client endpoints. Each will store a single 
+    // peer for the endpoint and set the peer's receiver to the stub collector. 
+    CSinglePeerMediatorStub serverMediator(&collector);
+    CSinglePeerMediatorStub clientMediator(&collector);
+
+    // Make the server endpoint
+    auto upServer = local::MakeTcpServer(&serverMediator);
     upServer->ScheduleBind(test::ServerBinding);
     upServer->Startup();
 
     // Wait a period of time to ensure the server endpoint is spun up
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
-    auto upClient = local::MakeTcpClient(&collector);
+    // Make the client endpoint
+    auto upClient = local::MakeTcpClient(&clientMediator);
     upClient->ScheduleConnect(test::ServerEntry);
     upClient->Startup();
 
@@ -79,8 +89,13 @@ TEST(CTcpSuite, SingleConnectionTest)
         .ValidatedBuild();
     
     if (auto const spConnectRequestPeer = wpConnectRequestPeer.lock(); spConnectRequestPeer) {
-        spConnectRequestPeer->ScheduleSend(*optConnectResponse);
+        spConnectRequestPeer->ScheduleSend(
+            optConnectResponse->GetMessageContext(),
+            *test::spClientIdentifier,
+            optConnectResponse->GetPack());
     }
+
+    // Wait a period of time to ensure the message has connect response has been sent and received. 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
     auto const optAssociatedConnectResponse = collector.PopIncomingMessage();
@@ -98,8 +113,13 @@ TEST(CTcpSuite, SingleConnectionTest)
         .ValidatedBuild();
 
     if (auto const spConnectResponsePeer = wpConnectResponsePeer.lock(); spConnectResponsePeer) {
-        spConnectResponsePeer->ScheduleSend(*optElectionRequest);
+        spConnectResponsePeer->ScheduleSend(
+            optElectionRequest->GetMessageContext(),
+            *test::spServerIdentifier,
+            optElectionRequest->GetPack());
     }
+
+    // Wait a period of time to ensure the message has election request has been sent and received. 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto const optAssociatedElectionRequest = collector.PopIncomingMessage();
@@ -116,8 +136,13 @@ TEST(CTcpSuite, SingleConnectionTest)
         .ValidatedBuild();
 
     if (auto const spElectionRequestPeer = wpElectionRequestPeer.lock(); spElectionRequestPeer) {
-        spElectionRequestPeer->ScheduleSend(*optElectionResponse);
+        spElectionRequestPeer->ScheduleSend(
+            optElectionResponse->GetMessageContext(),
+            *test::spClientIdentifier,
+            optElectionResponse->GetPack());
     }
+
+    // Wait a period of time to ensure the message has election response has been sent and received. 
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     auto const optAssociatedElectionResponse = collector.PopIncomingMessage();
@@ -129,29 +154,27 @@ TEST(CTcpSuite, SingleConnectionTest)
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
-    IMessageSink* const sink)
+    IPeerMediator* const mediator)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
         test::spServerIdentifier,
         test::Interface,
         Endpoints::OperationType::Server,
         nullptr,
-        nullptr,
-        sink);
+        mediator);
 }
 
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
-    IMessageSink* const sink)
+    IPeerMediator* const mediator)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
         test::spClientIdentifier,
         test::Interface,
         Endpoints::OperationType::Client,
         nullptr,
-        nullptr,
-        sink);
+        mediator);
 }
 
 //------------------------------------------------------------------------------------------------
