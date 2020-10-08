@@ -20,7 +20,6 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CApplicationMessage;
 class CMessageContext;
 class IPeerMediator;
 
@@ -38,9 +37,9 @@ public:
     std::string GetLocation() const;
 
     void SetLocation(std::string_view location);
-
     void SetReceiver(IMessageSink* const pMessageSink);
 
+    bool IsActive() const;
     void RegisterEndpoint(CEndpointRegistration const& registration);
     void RegisterEndpoint(
         Endpoints::EndpointIdType identifier,
@@ -55,12 +54,14 @@ public:
     std::optional<std::string> GetRegisteredEntry(Endpoints::EndpointIdType identifier) const;
     std::uint32_t RegisteredEndpointCount() const;
 
-    bool IsActive() const;
-
     bool ScheduleSend(
         CMessageContext const& context,
         BryptIdentifier::CContainer const& destination,
         std::string_view const& message) const;
+
+    bool ScheduleReceive(
+        CMessageContext const& context,
+        std::string_view const& buffer);
     bool ScheduleReceive(
         CMessageContext const& context,
         Message::Buffer const& buffer);

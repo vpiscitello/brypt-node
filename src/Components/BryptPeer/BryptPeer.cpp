@@ -5,9 +5,9 @@
 #include "BryptPeer.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
+#include "../../Interfaces/PeerMediator.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -70,6 +70,14 @@ void CBryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 {
     std::scoped_lock lock(m_receiverMutex);
     m_pMessageSink = pMessageSink;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::IsActive() const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    return (m_endpoints.size() != 0);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -171,14 +179,6 @@ std::uint32_t CBryptPeer::RegisteredEndpointCount() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsActive() const
-{
-    std::scoped_lock lock(m_endpointsMutex);
-    return (m_endpoints.size() != 0);
-}
-
-//------------------------------------------------------------------------------------------------
-
 bool CBryptPeer::ScheduleSend(
     CMessageContext const& context,
     BryptIdentifier::CContainer const& destination,
@@ -194,6 +194,18 @@ bool CBryptPeer::ScheduleSend(
         }
     }
 
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::ScheduleReceive(
+    CMessageContext const& context, std::string_view const& buffer)
+{
+    std::scoped_lock lock(m_receiverMutex);
+    if (m_pMessageSink) {
+        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+    }
     return false;
 }
 

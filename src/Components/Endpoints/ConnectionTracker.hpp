@@ -60,12 +60,12 @@ public:
     BryptIdentifier::Internal::Type GetPeerIdentifier() const
     {
         if (!m_optConnectionDetails) {
-            return ReservedIdentifiers::Internal::Unknown;
+            return ReservedIdentifiers::Internal::Invalid;
         }
 
         auto const spBryptIdentifier = m_optConnectionDetails->GetBryptIdentifier();
         if (!spBryptIdentifier) {
-            return ReservedIdentifiers::Internal::Unknown;
+            return ReservedIdentifiers::Internal::Invalid;
         }
 
         return spBryptIdentifier->GetInternalRepresentation();
