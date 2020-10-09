@@ -487,8 +487,7 @@ void CPeerPersistor::HandlePeerStateChange(
             case ConnectionState::Connected: {
                 AddBootstrapEntry(spBryptPeer, identifier, technology);
             } break;
-            case ConnectionState::Disconnected:
-            case ConnectionState::Flagged: {
+            case ConnectionState::Disconnected:{
                 DeleteBootstrapEntry(spBryptPeer, identifier, technology);
             } break;
             default: return; // Currently, we don't persist information for other state changes.

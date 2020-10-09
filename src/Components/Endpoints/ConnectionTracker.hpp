@@ -119,7 +119,6 @@ using FilterPredicate = std::conditional_t<
 enum class ConnectionStateFilter : std::uint8_t {
     Connected = MaskLevel(std::uint8_t(0)),
     Disconnected = MaskLevel(std::uint8_t(1)),
-    Flagged = MaskLevel(std::uint8_t(2)),
     Resolving = MaskLevel(std::uint8_t(3)),
     Unknown = MaskLevel(std::uint8_t(4)),
     Invalid = MaskLevel(std::uint8_t(5))
@@ -154,7 +153,6 @@ inline ConnectionStateFilter ConnectionStateToFilter(ConnectionState state)
     {
         { ConnectionState::Connected, ConnectionStateFilter::Connected },
         { ConnectionState::Disconnected, ConnectionStateFilter::Disconnected },
-        { ConnectionState::Flagged, ConnectionStateFilter::Flagged },
         { ConnectionState::Resolving, ConnectionStateFilter::Resolving},
         { ConnectionState::Unknown, ConnectionStateFilter::Unknown }
     };

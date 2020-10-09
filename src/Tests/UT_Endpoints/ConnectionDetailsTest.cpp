@@ -253,7 +253,7 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
-    secondConnectionDetails.SetConnectionState(ConnectionState::Flagged);
+    secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
@@ -296,7 +296,7 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
             updateFoundIdentifiers.push_back(id);
             return CallbackIteration::Continue;
         },
-        ConnectionStateFilter::Disconnected | ConnectionStateFilter::Flagged
+        ConnectionStateFilter::Disconnected | ConnectionStateFilter::Resolving
     );
 
     EXPECT_EQ(updateFoundIdentifiers.size(), std::size_t(2));
@@ -333,7 +333,7 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
-    secondConnectionDetails.SetConnectionState(ConnectionState::Flagged);
+    secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
@@ -409,7 +409,7 @@ TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
-    secondConnectionDetails.SetConnectionState(ConnectionState::Flagged);
+    secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
@@ -496,7 +496,7 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
-    secondConnectionDetails.SetConnectionState(ConnectionState::Flagged);
+    secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 

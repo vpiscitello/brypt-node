@@ -619,8 +619,6 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
         std::scoped_lock lock(m_eventsMutex);
 
         // Splice all network instruction events until the first non-instruction event
-        // TODO: Should looping be flagged here? The endpoint could in theory be DOS'd by maniuplating
-        // connect calls, how/why would this happen?
         while (m_events.size() != 0 && 
                m_events.front().type() == typeid(Tcp::TNetworkInstructionEvent)) {
 
@@ -721,10 +719,8 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
                     [&bMessageAllowed](auto& details) {
                         // TODO: A generic message filtering service should be used to ensure all connection interfaces
                         // use the same message allowance scheme. 
-                        // TODO: If the peer is breaking protocol should it be flagged?
-                        ConnectionState state = details.GetConnectionState();
                         MessagingPhase phase = details.GetMessagingPhase();
-                        if (state != ConnectionState::Flagged && phase != MessagingPhase::Request) {
+                        if (phase != MessagingPhase::Request) {
                             bMessageAllowed = false;
                             return;
                         }
@@ -858,8 +854,6 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
                     } else {
                         // If we have already attempted to send the message three times, drop the message.
                         if (retries == Endpoints::MessageRetryLimit) {
-                            // TODO: Logic is needed to properly handling this condition. Should the peer be flagged?
-                            // Should the response required be flipped?
                             return;
                         }
                         std::uint8_t const attempts = retries + 1;
@@ -928,7 +922,6 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
                         spBryptPeer->WithdrawEndpoint(m_identifier, m_technology);
                     }
                 } break;
-                // Other ConnectionStates are not currently handled for this endpoint
                 default: break;
             }
         }
@@ -938,7 +931,6 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
         case ConnectionStateChange::Disconnect: {
             m_tracker.UntrackConnection(descriptor);
         } break;
-        // Other ConnectionStateChanges are not currently handled for this endpoint
         default: break;
     }
 }
