@@ -3,6 +3,8 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
+#include "../Security/SecurityState.hpp"
+#include "../Security/SecurityMediator.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
@@ -18,6 +20,8 @@ CBryptPeer::CBryptPeer(
     , m_dataMutex()
     , m_spBryptIdentifier()
     , m_location()
+    , m_mediatorMutex()
+    , m_upSecurityMediator()
     , m_endpointsMutex()
     , m_endpoints()
     , m_receiverMutex()
@@ -31,6 +35,12 @@ CBryptPeer::CBryptPeer(
     }
 
     m_spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer const>(identifier);
+}
+
+//------------------------------------------------------------------------------------------------
+
+CBryptPeer::~CBryptPeer()
+{
 }
 
 //------------------------------------------------------------------------------------------------
@@ -175,6 +185,21 @@ std::uint32_t CBryptPeer::RegisteredEndpointCount() const
 {
     std::scoped_lock lock(m_endpointsMutex);
     return m_endpoints.size();
+}
+
+//------------------------------------------------------------------------------------------------
+
+void CBryptPeer::AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator)
+{
+    std::scoped_lock lock(m_mediatorMutex);
+
+    // Take ownership of the security mediator.
+    m_upSecurityMediator = std::move(upSecurityMediator);
+
+    // Bind ourselves to the SecurityMediator in order to allow it to manage our security state. When
+    // we have been bound to the SecurityMediator it will control our receiver and prepare for
+    // key sharing. 
+    m_upSecurityMediator->Bind(shared_from_this());
 }
 
 //------------------------------------------------------------------------------------------------

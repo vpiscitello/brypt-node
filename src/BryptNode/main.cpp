@@ -89,7 +89,7 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     auto const spMessageCollector = std::make_shared<CAuthenticatedProcessor>();
 
-    auto const spPeerManager = std::make_shared<CPeerManager>();
+    auto const spPeerManager = std::make_shared<CPeerManager>(spMessageCollector);
     spPeerPersistor->SetMediator(spPeerManager.get());
 
     auto const spEndpointManager = std::make_shared<CEndpointManager>();

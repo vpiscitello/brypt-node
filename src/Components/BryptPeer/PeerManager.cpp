@@ -3,7 +3,11 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "PeerManager.hpp"
+#include "../Security/SecurityMediator.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../Interfaces/MessageSink.hpp"
+#include "../../Interfaces/PeerObserver.hpp"
+#include "../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -11,11 +15,12 @@
 //------------------------------------------------------------------------------------------------
 // Description: 
 //------------------------------------------------------------------------------------------------
-CPeerManager::CPeerManager()
+CPeerManager::CPeerManager(std::weak_ptr<IMessageSink> const& wpMessageProcessor)
     : m_peersMutex()
     , m_peers()
     , m_observersMutex()
     , m_observers()
+    , m_wpMessageProcessor(wpMessageProcessor)
 {
 }
 
@@ -55,7 +60,13 @@ std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
                 spBryptPeer = spTrackedPeer;
             });
         } else {
+            // Make BryptPeer that can be shared with the endpoint. 
             spBryptPeer = std::make_shared<CBryptPeer>(identifier, this);
+
+            // Make a SecurityMediator to manage to receiver and security state of the peer. 
+            auto upSecurityMediator = std::make_unique<CSecurityMediator>(nullptr, m_wpMessageProcessor);
+            spBryptPeer->AttachSecurityMediator(std::move(upSecurityMediator));
+
             m_peers.emplace(spBryptPeer);
         }
     }

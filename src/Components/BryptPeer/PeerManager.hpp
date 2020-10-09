@@ -8,7 +8,6 @@
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../Interfaces/PeerCache.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
-#include "../../Interfaces/PeerObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -18,13 +17,17 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
+class IMessageSink;
+class IPeerObserver;
+
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
 class CPeerManager : public IPeerMediator, public IPeerCache
 {
 public:
-    CPeerManager();
+    explicit CPeerManager(
+        std::weak_ptr<IMessageSink> const& wpMessageProcessor = {});
 
     // IPeerMediator {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
@@ -75,6 +78,8 @@ private:
     mutable std::mutex m_observersMutex;
     ObserverSet m_observers;
     
+    std::weak_ptr<IMessageSink> const m_wpMessageProcessor;
+
 };
 
 //------------------------------------------------------------------------------------------------

@@ -21,6 +21,7 @@
 //------------------------------------------------------------------------------------------------
 
 class CMessageContext;
+class CSecurityMediator;
 class IPeerMediator;
 
 //------------------------------------------------------------------------------------------------
@@ -28,9 +29,11 @@ class IPeerMediator;
 class CBryptPeer : public std::enable_shared_from_this<CBryptPeer>
 {
 public:
-    explicit CBryptPeer(
+    CBryptPeer(
         BryptIdentifier::CContainer const& identifier,
         IPeerMediator* const pPeerMediator = nullptr);
+
+    ~CBryptPeer();
 
     BryptIdentifier::SharedContainer GetBryptIdentifier() const;
     BryptIdentifier::Internal::Type GetInternalIdentifier() const;
@@ -54,6 +57,8 @@ public:
     std::optional<std::string> GetRegisteredEntry(Endpoints::EndpointIdType identifier) const;
     std::uint32_t RegisteredEndpointCount() const;
 
+    void AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator);
+    
     bool ScheduleSend(
         CMessageContext const& context,
         BryptIdentifier::CContainer const& destination,
@@ -74,6 +79,9 @@ private:
     mutable std::recursive_mutex m_dataMutex;
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
     std::string m_location;
+
+    mutable std::recursive_mutex m_mediatorMutex;
+    std::unique_ptr<CSecurityMediator> m_upSecurityMediator;
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;
