@@ -55,6 +55,7 @@ CBryptNode::CBryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CPeerManager> const& spPeerManager,
+    std::shared_ptr<CAuthenticatedProcessor> const& spMessageProcessor,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
     : m_initialized(false)
@@ -66,13 +67,13 @@ CBryptNode::CBryptNode(
     , m_spSensorState()
     , m_spEndpointManager(spEndpointManager)
     , m_spPeerManager(spPeerManager)
-    , m_spMessageProcessor()
+    , m_spMessageProcessor(spMessageProcessor)
     , m_spAwaitManager(std::make_shared<Await::CTrackingManager>())
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
 {
-    // An Endpoint Manager must be provided to the node in order to to operator 
-    if (!m_spEndpointManager) {
+    // An EndpointManager and PeerManager is required for the node to operate
+    if (!m_spEndpointManager || !m_spPeerManager) {
         return;
     }
 

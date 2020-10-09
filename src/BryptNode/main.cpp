@@ -7,6 +7,7 @@
 #include "../Components/BryptPeer/PeerManager.hpp"
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
+#include "../Components/MessageControl/AuthenticatedProcessor.hpp"
 #include "../Configuration/Configuration.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
@@ -86,6 +87,8 @@ std::int32_t main(std::int32_t argc, char** argv)
         exit(1);
     }
 
+    auto const spMessageCollector = std::make_shared<CAuthenticatedProcessor>();
+
     auto const spPeerManager = std::make_shared<CPeerManager>();
     spPeerPersistor->SetMediator(spPeerManager.get());
 
@@ -94,7 +97,8 @@ std::int32_t main(std::int32_t argc, char** argv)
         spBryptIdentifier, spPeerManager.get(), *optEndpointConfigurations, spPeerPersistor.get());
 
     CBryptNode alpha(
-        spBryptIdentifier, spEndpointManager, spPeerManager, spPeerPersistor, upConfigurationManager);
+        spBryptIdentifier, spEndpointManager, spPeerManager, 
+        spMessageCollector, spPeerPersistor, upConfigurationManager);
 
     alpha.Startup();
 
