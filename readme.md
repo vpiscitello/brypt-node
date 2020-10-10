@@ -13,6 +13,8 @@ Brypt is an exploration into creating a secure distributed network and applicati
 - Boost 1.72
 - libzmq 4.3.2
 - cppzmq 4.6.0
+- liboqs 0.3.0
+- liboqs-cpp 0.3.0
 - metajson 0.2
 - Google Test 1.10
   

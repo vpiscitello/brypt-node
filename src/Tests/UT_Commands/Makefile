@@ -5,7 +5,10 @@ BINARYNAME = UT_Commands
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
+OQS_LIB = -L/usr/local/lib
+
 OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
+OQS_INCLUDE = -I/usr/local/include/oqs
 GTEST_INCLUDE = -I../../Libraries/googletest/include
 EXTERNAL_LIBARIES_INCLUDE = -I../../Libraries
 
@@ -16,8 +19,8 @@ else
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
 endif
 
-CXXINCLUDES = $(OPENSSL_INCLUDE) $(GTEST_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
-CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
+CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(GTEST_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
+CXXLIBS = -lzmq $(OPENSSL_LIB) $(OQS_LIB) -lpthread -lcrypto -loqs -ldl
 
 SRCDIR = .
 
@@ -31,7 +34,7 @@ ENDPOINTSDIR = ../../Components/Endpoints
 CONFIGURATIONDIR = ../../Configuration
 CONTROLDIR = ../../Components/Control
 MESSAGECONTROLDIR = ../../Components/MessageControl
-PEERWATCHERDIR = ../../Components/PeerWatcher
+SECURITYDIR = ../../Components/Security
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
@@ -45,7 +48,7 @@ $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
 $(MESSAGECONTROLDIR) \
-$(PEERWATCHERDIR)\
+$(SECURITYDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES), $(filter-out $(sdir)/main.cpp, $(wildcard $(sdir)/*.cpp)))

@@ -5,7 +5,10 @@ BINARYNAME = UT_Security
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
+OQS_LIB = -L/usr/local/lib
+
 OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
+OQS_INCLUDE = -I/usr/local/include/oqs
 GTEST_INCLUDE = -I../../Libraries/googletest/include
 
 mode = release
@@ -15,8 +18,8 @@ else
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
 endif
 
-CXXINCLUDES = $(OPENSSL_INCLUDE) $(GTEST_INCLUDE)
-CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
+CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(GTEST_INCLUDE)
+CXXLIBS = -lzmq $(OPENSSL_LIB) $(OQS_LIB) -lpthread -lcrypto -loqs -ldl
 
 SRCDIR = .
 
