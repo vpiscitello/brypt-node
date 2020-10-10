@@ -18,7 +18,7 @@
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/MessageControl/AssociatedMessage.hpp"
-#include "../Components/MessageControl/AuthenticatedProcessor.hpp"
+#include "../Components/MessageControl/AuthorizedProcessor.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
 #include "../Utilities/NodeUtils.hpp"
@@ -55,7 +55,7 @@ CBryptNode::CBryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CPeerManager> const& spPeerManager,
-    std::shared_ptr<CAuthenticatedProcessor> const& spMessageProcessor,
+    std::shared_ptr<CAuthorizedProcessor> const& spMessageProcessor,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
     : m_initialized(false)

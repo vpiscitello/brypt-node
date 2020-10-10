@@ -49,7 +49,6 @@ constexpr std::string_view ClientEntry = "127.0.0.1:35217";
 
 constexpr std::uint8_t BasePhase = 0;
 constexpr std::string_view Message = "Hello World!";
-constexpr std::uint32_t Nonce = 9999;
 
 constexpr Endpoints::EndpointIdType const identifier = 1;
 constexpr Endpoints::TechnologyType const technology = Endpoints::TechnologyType::TCP;

@@ -1,11 +1,11 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageControl/AssociatedMessage.hpp"
-#include "../../Components/MessageControl/AuthenticatedProcessor.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
+#include "../../Components/MessageControl/AuthorizedProcessor.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -34,7 +34,6 @@ constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
-constexpr std::uint32_t Nonce = 0;
 
 constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
 constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
@@ -47,11 +46,9 @@ constexpr std::uint32_t Iterations = 10000;
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-
-TEST(CAuthenticatedProcessorSuite, SingleMessageCollectionTest)
+TEST(CAuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
-    CAuthenticatedProcessor collector;
+    CAuthorizedProcessor collector;
 
     std::optional<CApplicationMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
@@ -114,9 +111,9 @@ TEST(CAuthenticatedProcessorSuite, SingleMessageCollectionTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CAuthenticatedProcessorSuite, MultipleMessageCollectionTest)
+TEST(CAuthorizedProcessorSuite, MultipleMessageCollectionTest)
 {
-    CAuthenticatedProcessor collector;
+    CAuthorizedProcessor collector;
 
     std::optional<CApplicationMessage> optForwardedResponse = {};
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);

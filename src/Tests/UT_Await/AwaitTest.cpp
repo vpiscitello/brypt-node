@@ -36,7 +36,6 @@ constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
-constexpr std::uint32_t Nonce = 9999;
 
 constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
 constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;

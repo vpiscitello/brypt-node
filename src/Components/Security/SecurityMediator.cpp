@@ -15,12 +15,12 @@
 //------------------------------------------------------------------------------------------------
 CSecurityMediator::CSecurityMediator(
     std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
-    std::weak_ptr<IMessageSink> const& wpAuthenticatedSink)
+    std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
     : m_state(SecurityState::Unauthorized)
     , m_upSecurityStrategy(std::move(upSecurityStrategy))
     , m_spBryptPeer()
     , m_upExchangeProcessor()
-    , m_wpAuthenticatedSink(wpAuthenticatedSink)
+    , m_wpAuthorizedSink(wpAuthorizedSink)
 {
 }
 
@@ -28,7 +28,7 @@ CSecurityMediator::CSecurityMediator(
 
 CSecurityMediator::~CSecurityMediator()
 {
-    // If the unauthenticated sink is still active for the peer, we must unset the peer's receiver
+    // If the unauthorized sink is still active for the peer, we must unset the peer's receiver
     // to ensure the receiver does not point to invalid memory. Note: the process of acquiring the 
     // receiver mutex in CBryptPeer should ensure that the sink is not destructed while it is 
     // actively processing a message. 
@@ -46,14 +46,14 @@ void CSecurityMediator::HandleExchangeClose(
     if (m_spBryptPeer) {
         switch (status) {
             // If we have been notified us of a successful exchange set the message sink for the peer 
-            // to the authenticated sink and mark the peer as authorized. 
+            // to the authorized sink and mark the peer as authorized. 
             case ExchangeStatus::Success: {
-                if (auto const spMessageSink = m_wpAuthenticatedSink.lock(); spMessageSink) {
+                if (auto const spMessageSink = m_wpAuthorizedSink.lock(); spMessageSink) {
                     m_state = SecurityState::Authorized;
                     m_upSecurityStrategy = std::move(upSecurityStrategy);
                     m_spBryptPeer->SetReceiver(spMessageSink.get());
                 } else {
-                    assert(false); // We should always be able to acquire the authenticated sink 
+                    assert(false); // We should always be able to acquire the authorized sink 
                 }
             } break;
             // If we have been notified us of a failed exchange unset the message sink for the peer 

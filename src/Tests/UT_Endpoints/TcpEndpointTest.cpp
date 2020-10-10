@@ -6,7 +6,7 @@
 #include "../../Components/Endpoints/Endpoint.hpp"
 #include "../../Components/Endpoints/TcpEndpoint.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageControl/AuthenticatedProcessor.hpp"
+#include "../../Components/MessageControl/AuthorizedProcessor.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------

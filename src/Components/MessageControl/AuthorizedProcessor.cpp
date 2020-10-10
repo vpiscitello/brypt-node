@@ -1,8 +1,8 @@
 //------------------------------------------------------------------------------------------------
-// File: AuthenticatedProcessor.cpp
+// File: AuthorizedProcessor.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "AuthenticatedProcessor.hpp"
+#include "AuthorizedProcessor.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
@@ -10,7 +10,7 @@
 #include <mutex>
 //------------------------------------------------------------------------------------------------
 
-CAuthenticatedProcessor::CAuthenticatedProcessor()
+CAuthorizedProcessor::CAuthorizedProcessor()
 	: m_incomingMutex()
 	, m_incoming()
 {
@@ -18,7 +18,7 @@ CAuthenticatedProcessor::CAuthenticatedProcessor()
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CAuthenticatedProcessor::QueuedMessageCount() const
+std::uint32_t CAuthorizedProcessor::QueuedMessageCount() const
 {
 	std::shared_lock lock(m_incomingMutex);
 	return m_incoming.size();
@@ -26,7 +26,7 @@ std::uint32_t CAuthenticatedProcessor::QueuedMessageCount() const
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<AssociatedMessage> CAuthenticatedProcessor::PopIncomingMessage()
+std::optional<AssociatedMessage> CAuthorizedProcessor::PopIncomingMessage()
 {
 	std::scoped_lock lock(m_incomingMutex);
 	if (m_incoming.empty()) {
@@ -41,7 +41,7 @@ std::optional<AssociatedMessage> CAuthenticatedProcessor::PopIncomingMessage()
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthenticatedProcessor::CollectMessage(
+bool CAuthorizedProcessor::CollectMessage(
 	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
 	CMessageContext const& context,
 	std::string_view buffer)
@@ -60,7 +60,7 @@ bool CAuthenticatedProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthenticatedProcessor::CollectMessage(
+bool CAuthorizedProcessor::CollectMessage(
 	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
 	CMessageContext const& context,
 	Message::Buffer const& buffer)
@@ -79,7 +79,7 @@ bool CAuthenticatedProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthenticatedProcessor::CollectMessage(
+bool CAuthorizedProcessor::CollectMessage(
 	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
 	CApplicationMessage const& message)
 {

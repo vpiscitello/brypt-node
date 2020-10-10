@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: AuthenticatedProcessor.hpp
+// File: AuthorizedProcessor.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -21,9 +21,9 @@ class CMessageContext;
 
 //------------------------------------------------------------------------------------------------
 
-class CAuthenticatedProcessor : public IMessageSink {
+class CAuthorizedProcessor : public IMessageSink {
 public:
-    CAuthenticatedProcessor();
+    CAuthorizedProcessor();
     
     std::optional<AssociatedMessage> PopIncomingMessage();
     std::uint32_t QueuedMessageCount() const;

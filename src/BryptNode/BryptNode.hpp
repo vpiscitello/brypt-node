@@ -35,7 +35,7 @@ namespace Configuration {
     class CManager;
 }
 
-class CAuthenticatedProcessor;
+class CAuthorizedProcessor;
 class CEndpointManager;
 class CPeerManager;
 class CPeerPersistor;
@@ -56,7 +56,7 @@ public:
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::shared_ptr<CEndpointManager> const& spEndpointManager,
         std::shared_ptr<CPeerManager> const& spPeerManager,
-        std::shared_ptr<CAuthenticatedProcessor> const& spMessageProcessor,
+        std::shared_ptr<CAuthorizedProcessor> const& spMessageProcessor,
         std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
         std::unique_ptr<Configuration::CManager> const& upConfigurationManager);
 
@@ -94,7 +94,7 @@ private:
 
     std::shared_ptr<CEndpointManager> m_spEndpointManager;
     std::shared_ptr<CPeerManager> m_spPeerManager;
-    std::shared_ptr<CAuthenticatedProcessor> m_spMessageProcessor;
+    std::shared_ptr<CAuthorizedProcessor> m_spMessageProcessor;
     std::shared_ptr<Await::CTrackingManager> m_spAwaitManager;
     std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
 

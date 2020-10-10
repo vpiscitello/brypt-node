@@ -26,7 +26,7 @@ class CSecurityMediator : public IExchangeObserver
 public:
     CSecurityMediator(
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
-        std::weak_ptr<IMessageSink> const& wpAuthenticatedSink);
+        std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
 
     CSecurityMediator(CSecurityMediator&& other) = delete;
     CSecurityMediator(CSecurityMediator const& other) = delete;
@@ -53,7 +53,7 @@ private:
     std::shared_ptr<CBryptPeer> m_spBryptPeer;
 
     std::unique_ptr<CExchangeProcessor> m_upExchangeProcessor;
-    std::weak_ptr<IMessageSink> m_wpAuthenticatedSink;
+    std::weak_ptr<IMessageSink> m_wpAuthorizedSink;
 
 };
 
