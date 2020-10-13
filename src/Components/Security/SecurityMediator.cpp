@@ -16,7 +16,7 @@
 CSecurityMediator::CSecurityMediator(
     std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
     std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
-    : m_state(SecurityState::Unauthorized)
+    : m_state(Security::State::Unauthorized)
     , m_upSecurityStrategy(std::move(upSecurityStrategy))
     , m_spBryptPeer()
     , m_upExchangeProcessor()
@@ -49,7 +49,7 @@ void CSecurityMediator::HandleExchangeClose(
             // to the authorized sink and mark the peer as authorized. 
             case ExchangeStatus::Success: {
                 if (auto const spMessageSink = m_wpAuthorizedSink.lock(); spMessageSink) {
-                    m_state = SecurityState::Authorized;
+                    m_state = Security::State::Authorized;
                     m_upSecurityStrategy = std::move(upSecurityStrategy);
                     m_spBryptPeer->SetReceiver(spMessageSink.get());
                 } else {
@@ -59,7 +59,7 @@ void CSecurityMediator::HandleExchangeClose(
             // If we have been notified us of a failed exchange unset the message sink for the peer 
             // and mark the peer as unauthorized. 
             case ExchangeStatus::Failed: {
-                m_state = SecurityState::Unauthorized;
+                m_state = Security::State::Unauthorized;
                 m_spBryptPeer->SetReceiver(nullptr);
             } break;
             default: assert(false); break;  // What is this?
@@ -71,7 +71,7 @@ void CSecurityMediator::HandleExchangeClose(
 
 //------------------------------------------------------------------------------------------------
 
-SecurityState CSecurityMediator::GetSecurityState() const
+Security::State CSecurityMediator::GetSecurityState() const
 {
     return m_state;
 }

@@ -40,14 +40,14 @@ public:
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy = nullptr) override;
     // } IExchangeObserver
 
-    SecurityState GetSecurityState() const;
+    Security::State GetSecurityState() const;
 
     void Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer);
 
 private:
     void PrepareExchange();
 
-    SecurityState m_state;
+    Security::State m_state;
 
     std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
     std::shared_ptr<CBryptPeer> m_spBryptPeer;

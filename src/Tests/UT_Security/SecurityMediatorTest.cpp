@@ -107,7 +107,7 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
     // Verify the peer's receiver has been swapped to the stub message sink when the 
     // mediator is notified of a sucessful exchange. 
     upSecurityMediator->HandleExchangeClose(ExchangeStatus::Success);
-    EXPECT_EQ(upSecurityMediator->GetSecurityState(), SecurityState::Authorized);
+    EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Authorized);
 
     EXPECT_TRUE(spBryptPeer->ScheduleReceive({}, pack));
 
@@ -137,7 +137,7 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     // Verify the peer receiver has been dropped when the tracker has been notified of a failed
     // exchange. 
     upSecurityMediator->HandleExchangeClose(ExchangeStatus::Failed);
-    EXPECT_EQ(upSecurityMediator->GetSecurityState(), SecurityState::Unauthorized);
+    EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Unauthorized);
 
     EXPECT_FALSE(spBryptPeer->ScheduleReceive({}, pack));
 }
