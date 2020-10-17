@@ -11,12 +11,12 @@
 #include <cstring>
 //------------------------------------------------------------------------------------------------
 
-void Security::EraseMemory(void* const begin, std::uint32_t size)
+void Security::EraseMemory(void* begin, std::uint32_t size)
 {
 #if defined(__STDC_LIB_EXT1__)
     std::memset_s(begin, size, 0, size);
 #else
-    auto volatile data = reinterpret_cast<std::uint8_t volatile* volatile>(begin);
+    auto data = reinterpret_cast<std::uint8_t volatile*>(begin);
     for (std::uint32_t erased = 0; erased < size; ++erased) {
         data[erased] = 0x00;
     }

@@ -11,7 +11,7 @@
 namespace Security {
 //------------------------------------------------------------------------------------------------
 
-void EraseMemory(void* const begin, std::uint32_t size);
+void EraseMemory(void* begin, std::uint32_t size);
 
 //------------------------------------------------------------------------------------------------
 } // Security namespace
