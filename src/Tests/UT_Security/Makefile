@@ -28,6 +28,7 @@ BRYPTMESSAGEDIR = ../../BryptMessage
 BRYPTPEERDIR = ../../Components/BryptPeer
 MESSAGECONTROLDIR = ../../Components/MessageControl
 SECURITYDIR = ../../Components/Security
+POSTQUANTUMSECURITYDIR = ../../Components/Security/PostQuantum
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
@@ -35,6 +36,7 @@ $(BRYPTIDENTIFIERDIR) \
 $(BRYPTMESSAGEDIR) \
 $(BRYPTPEERDIR) \
 $(SECURITYDIR) \
+$(POSTQUANTUMSECURITYDIR) \
 $(MESSAGECONTROLDIR) \
 $(GTESTDIR)
 
