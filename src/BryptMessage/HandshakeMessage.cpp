@@ -326,8 +326,7 @@ void CHandshakeBuilder::UnpackExtensions(
 		ExtensionType extension = 0;
 		PackUtils::UnpackChunk(begin, end, extension);
 
-		switch (extension)
-		{				
+		switch (extension) {				
 			default: return;
 		}
 	}
