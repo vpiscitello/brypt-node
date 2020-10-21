@@ -38,8 +38,7 @@ Security::OptionalBuffer GenerateVerificationData(
 //------------------------------------------------------------------------------------------------
 
 Security::CKeyStore::CKeyStore()
-    : m_optPublicKey()
-    , m_optPeerPublicKey()
+    : m_optPeerPublicKey()
     , m_seed(local::BaseExpansionSeed.begin(), local::BaseExpansionSeed.end())
     , m_optPrinicpalKey()
     , m_optVerificationData()
@@ -50,13 +49,6 @@ Security::CKeyStore::CKeyStore()
     , m_bHasGeneratedKeys(false)
 {
 
-}
-
-//------------------------------------------------------------------------------------------------
-
-void Security::CKeyStore::SetPublicKey(Security::Buffer&& buffer)
-{
-    m_optPublicKey = std::move(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -154,13 +146,6 @@ bool Security::CKeyStore::GenerateSessionKeys(
     m_bHasGeneratedKeys = true;
 
     return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-Security::OptionalBuffer Security::CKeyStore::GetPublicKey() const
-{
-    return m_optPublicKey;
 }
 
 //------------------------------------------------------------------------------------------------

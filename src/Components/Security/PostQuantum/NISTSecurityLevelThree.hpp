@@ -13,11 +13,58 @@
 #include <oqscpp/oqs_cpp.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <functional>
+#include <shared_mutex>
 #include <string_view>
 #include <vector>
 //------------------------------------------------------------------------------------------------
 
-class CPQNISTL3Strategy : public ISecurityStrategy {
+//------------------------------------------------------------------------------------------------
+namespace Security {
+namespace PQNISTL3 {
+//------------------------------------------------------------------------------------------------
+
+class CContext;
+class CStrategy;
+
+//------------------------------------------------------------------------------------------------
+} // PQNISTL3 namespace
+} // Security namespace
+//------------------------------------------------------------------------------------------------
+
+class Security::PQNISTL3::CContext
+{
+public:
+    // A callback providing the caller the encapsulation and the shared secret. The caller may 
+    // take ownsership of both of these items. 
+    using EncapsulationCallback = std::function<void(Security::Buffer&&, Security::Buffer&&)>;
+
+    CContext(std::string_view kem);
+
+    std::uint32_t GetPublicKeySize() const;
+    Security::Buffer GetPublicKey() const;
+    std::uint32_t GetPublicKey(Security::Buffer& buffer) const;
+    bool GenerateEncapsulatedSecret(
+        Security::Buffer const& publicKey, EncapsulationCallback const& callback) const;
+    bool DecapsulateSecret(
+        Security::Buffer const& encapsulation, Security::Buffer& decapsulation) const;
+
+    CContext(CContext const&) = delete;
+    CContext(CContext&&) = delete;
+    void operator=(CContext const&) = delete;
+
+private:
+    mutable std::shared_mutex m_kemMutex;
+    oqs::KeyEncapsulation m_kem;
+
+    mutable std::shared_mutex m_publicKeyMutex;
+    Security::Buffer m_publicKey;
+
+};
+
+//------------------------------------------------------------------------------------------------
+
+class Security::PQNISTL3::CStrategy : public ISecurityStrategy {
 public:
     constexpr static Security::Strategy Type = Security::Strategy::PQNISTLevelThree;
 
@@ -32,11 +79,11 @@ public:
     constexpr static std::uint32_t PrincipalRandomLength = 32;
     constexpr static std::uint32_t SignatureLength = 48;
 
-    CPQNISTL3Strategy();
+    explicit CStrategy(Context context);
 
-    CPQNISTL3Strategy(CPQNISTL3Strategy&& other) = delete;
-    CPQNISTL3Strategy(CPQNISTL3Strategy const& other) = delete;
-    CPQNISTL3Strategy& operator=(CPQNISTL3Strategy const& other) = delete;
+    CStrategy(CStrategy&& other) = delete;
+    CStrategy(CStrategy const& other) = delete;
+    CStrategy& operator=(CStrategy const& other) = delete;
 
     // ISecurityStrategy {
     virtual Security::Strategy GetStrategyType() const override;
@@ -57,6 +104,9 @@ public:
     virtual Security::VerificationStatus Verify(Security::Buffer const& buffer) const override;
     // } ISecurityStrategy
 
+    static void InitializeApplicationContext();
+
+    std::weak_ptr<CContext> GetSessionContext() const;
     std::uint32_t GetPublicKeySize() const;
 
 private:
@@ -98,6 +148,10 @@ private:
         std::uint8_t stage;
         Security::SynchronizationStatus status;
     } m_synchronization;
+
+    static std::shared_ptr<CContext> m_spSharedContext;
+
+    std::shared_ptr<CContext> m_spSessionContext;
 
     oqs::KeyEncapsulation m_kem;
     Security::CKeyStore m_store;

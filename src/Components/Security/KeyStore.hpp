@@ -54,7 +54,6 @@ public:
         std::uint32_t contentKeyBytes,
         std::uint32_t signatureKeyBytes);
 
-    Security::OptionalBuffer GetPublicKey() const;
     Security::OptionalBuffer GetPeerPublicKey() const;
 
     Security::OptionalKeyResult GetContentKey() const;
@@ -78,7 +77,6 @@ private:
     std::uint32_t SetAcceptorKeyCordons(
         std::uint32_t contentKeyBytes, std::uint32_t signatureKeyBytes);
     
-    Security::OptionalBuffer m_optPublicKey;
     Security::OptionalBuffer m_optPeerPublicKey;
 
     Security::Buffer m_seed;

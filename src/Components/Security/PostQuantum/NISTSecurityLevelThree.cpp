@@ -19,6 +19,7 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <optional>
 //------------------------------------------------------------------------------------------------
 
@@ -46,33 +47,127 @@ bool ParseEncapsulationMessage(
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CPQNISTL3Strategy::CPQNISTL3Strategy()
-    : m_role(Security::Role::Unknown)
-    , m_synchronization(
-        { 1, Security::SynchronizationStatus::Processing })
-    , m_kem(KeyEncapsulationSchme.data())
-    , m_store()
+//------------------------------------------------------------------------------------------------
+// Declare the static shared context the strategy may use in a shared application context. 
+//------------------------------------------------------------------------------------------------
+
+std::shared_ptr<Security::PQNISTL3::CContext> Security::PQNISTL3::CStrategy::m_spSharedContext = nullptr;
+
+//------------------------------------------------------------------------------------------------
+
+Security::PQNISTL3::CContext::CContext(std::string_view kem)
+    : m_kemMutex()
+    , m_kem(kem.data())
+    , m_publicKeyMutex()
+    , m_publicKey()
 {
-    m_store.SetPublicKey(m_kem.generate_keypair());
+    try {
+        m_publicKey = m_kem.generate_keypair();
+    }
+    catch (...) {
+        throw std::runtime_error("Security Context failed to generate public/private key pair!");
+    }
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Strategy CPQNISTL3Strategy::GetStrategyType() const
+std::uint32_t Security::PQNISTL3::CContext::GetPublicKeySize() const
+{
+    std::shared_lock lock(m_kemMutex);
+    auto const& details = m_kem.get_details();
+    return details.length_public_key;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::Buffer Security::PQNISTL3::CContext::GetPublicKey() const
+{
+    return m_publicKey;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t Security::PQNISTL3::CContext::GetPublicKey(Security::Buffer& buffer) const
+{
+    std::shared_lock lock(m_publicKeyMutex);
+    buffer.insert(buffer.end(), m_publicKey.begin(), m_publicKey.end());
+    return m_publicKey.size();
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool Security::PQNISTL3::CContext::GenerateEncapsulatedSecret(
+    Security::Buffer const& publicKey, EncapsulationCallback const& callback) const
+{
+    std::shared_lock lock(m_kemMutex);
+    try {
+        auto [encaped, secret] = m_kem.encap_secret(publicKey);
+        callback(std::move(encaped), std::move(secret));
+        return true;
+    }
+    catch(...) {
+        return false;
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool Security::PQNISTL3::CContext::DecapsulateSecret(
+    Security::Buffer const& encapsulation, Security::Buffer& decapsulation) const
+{
+    // Try to generate and decapsulate the shared secret. If the OQS method throws an error,
+    // signal that the operation did not succeed. 
+    try {
+        std::shared_lock lock(m_kemMutex);
+        decapsulation = std::move(m_kem.decap_secret(encapsulation));
+        return true;
+    }
+    catch(...) {
+        return false;
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::PQNISTL3::CStrategy::CStrategy(Context context)
+    : m_role(Security::Role::Unknown)
+    , m_synchronization(
+        { 1, Security::SynchronizationStatus::Processing })
+    , m_spSessionContext()
+    , m_kem(KeyEncapsulationSchme.data())
+    , m_store()
+{
+    switch (context) {
+        case Context::Unique: {
+            m_spSessionContext = std::make_shared<CContext>(KeyEncapsulationSchme);
+        } break;
+        case Context::Application: {
+            if (!m_spSharedContext) {
+                throw std::runtime_error("Shared Application Context has not been initialized!");
+            }
+            m_spSessionContext = m_spSharedContext;
+        } break;
+        default: assert(false); break;
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::Strategy Security::PQNISTL3::CStrategy::GetStrategyType() const
 {
     return Type;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CPQNISTL3Strategy::SetRole(Security::Role role)
+void Security::PQNISTL3::CStrategy::SetRole(Security::Role role)
 {
     m_role = role;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CPQNISTL3Strategy::SynchronizationStages() const
+std::uint32_t Security::PQNISTL3::CStrategy::SynchronizationStages() const
 {
     switch (m_role) {
         case Security::Role::Initiator: return InitiatorSynchronizationStages;
@@ -83,14 +178,14 @@ std::uint32_t CPQNISTL3Strategy::SynchronizationStages() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus CPQNISTL3Strategy::SynchronizationStatus() const
+Security::SynchronizationStatus Security::PQNISTL3::CStrategy::SynchronizationStatus() const
 {
     return m_synchronization.status;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::Synchronize(Security::Buffer const& buffer)
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::Synchronize(Security::Buffer const& buffer)
 {
     if (m_role == Security::Role::Unknown) {
         throw std::runtime_error("The Security Strategy cannot be used without first setting the role!");
@@ -109,7 +204,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::Synchronize(Security::Buffer 
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer CPQNISTL3Strategy::Encrypt(
+Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
     Security::Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const
 {
     // Ensure the caller is able to encrypt the buffer with generated session keys. 
@@ -175,7 +270,7 @@ Security::OptionalBuffer CPQNISTL3Strategy::Encrypt(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer CPQNISTL3Strategy::Decrypt(
+Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
     Security::Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const
 {
     // Ensure the caller is able to decrypt the buffer with generated session keys.
@@ -241,7 +336,7 @@ Security::OptionalBuffer CPQNISTL3Strategy::Decrypt(
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CPQNISTL3Strategy::Sign(Security::Buffer& buffer) const
+std::uint32_t Security::PQNISTL3::CStrategy::Sign(Security::Buffer& buffer) const
 {
     // Ensure the caller is able to sign the buffer with generated session keys.
     if (!m_store.HasGeneratedKeys()) {
@@ -271,7 +366,7 @@ std::uint32_t CPQNISTL3Strategy::Sign(Security::Buffer& buffer) const
 
 //------------------------------------------------------------------------------------------------
 
-Security::VerificationStatus CPQNISTL3Strategy::Verify(Security::Buffer const& buffer) const
+Security::VerificationStatus Security::PQNISTL3::CStrategy::Verify(Security::Buffer const& buffer) const
 {
     // Ensure the caller is able to verify the buffer with generated session keys.
     if (!m_store.HasGeneratedKeys()) {
@@ -315,15 +410,29 @@ Security::VerificationStatus CPQNISTL3Strategy::Verify(Security::Buffer const& b
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CPQNISTL3Strategy::GetPublicKeySize() const
+void Security::PQNISTL3::CStrategy::InitializeApplicationContext()
 {
-    auto const& details = m_kem.get_details();
-    return details.length_public_key;
+    Security::PQNISTL3::CStrategy::m_spSharedContext = std::make_shared<CContext>(
+        KeyEncapsulationSchme);
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer CPQNISTL3Strategy::GenerateSignature(
+std::weak_ptr<Security::PQNISTL3::CContext> Security::PQNISTL3::CStrategy::GetSessionContext() const
+{
+    return m_spSessionContext;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t Security::PQNISTL3::CStrategy::GetPublicKeySize() const
+{
+    return m_spSessionContext->GetPublicKeySize();
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::OptionalBuffer Security::PQNISTL3::CStrategy::GenerateSignature(
     std::uint8_t const* pKey,
     std::uint32_t keySize,
     std::uint8_t const* pData,
@@ -347,7 +456,7 @@ Security::OptionalBuffer CPQNISTL3Strategy::GenerateSignature(
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorSynchronization(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorSynchronization(
     Security::Buffer const& buffer)
 {
     //         Stage       |            Input            |           Output            |
@@ -374,7 +483,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorSynchronizatio
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorInitialization(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorInitialization(
     Security::Buffer const& buffer)
 {
     // Handle processing the synchronization buffer.
@@ -400,17 +509,17 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorInitialization
 
     m_store.ExpandSessionSeed(*optPrincipalSeed);
 
-    // Get out public key to be provided to the acceptor. If for some reason we do not have a
-    // public key this synchronization stage can not be completed. 
-    auto const& optPublicKey = m_store.GetPublicKey();
-    if (!optPublicKey) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return {m_synchronization.status, {} };
-    }
+    // The session context should always exist after the constructor is called. 
+    assert(m_spSessionContext);
 
     Security::Buffer response;
-    response.reserve(optPublicKey->size() + optPrincipalSeed->size());
-    response.insert(response.end(), optPublicKey->begin(), optPublicKey->end());
+    response.reserve(m_spSessionContext->GetPublicKeySize() + optPrincipalSeed->size());
+
+    if (std::uint32_t fetched = m_spSessionContext->GetPublicKey(response); fetched == 0) {
+        m_synchronization.status = Security::SynchronizationStatus::Error;
+        return { m_synchronization.status, {} };
+    }
+
     response.insert(response.end(), optPrincipalSeed->begin(), optPrincipalSeed->end());
 
     // We expect to be provided the peer's shared secret encapsulation in the next 
@@ -422,7 +531,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorInitialization
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorDecapsulation(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorDecapsulation(
     Security::Buffer const& buffer)
 {
     // The caller should provide us with a synchronization message generated by an acceptor
@@ -493,7 +602,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleInitiatorDecapsulation(
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorSynchronization(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorSynchronization(
     Security::Buffer const& buffer)
 {
     //          Stage      |            Input            |           Output            |
@@ -524,7 +633,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorSynchronization
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorInitialization(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorInitialization(
     Security::Buffer const& buffer)
 {
     // Verify that we have been provided a properly formatted acceptor initialization message. 
@@ -545,18 +654,19 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorInitialization(
     // Add the prinicpal random data to the store in order to use it when generating session keys. 
     m_store.ExpandSessionSeed(*optPrincipalSeed);
 
-    // Get our public key to provide the peer. 
-    auto const& optPublicKey = m_store.GetPublicKey();
-    if (!optPublicKey) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
-    }
+    // The session context should always exist after the constructor is called. 
+    assert(m_spSessionContext);
 
     // Make an initialization message for the acceptor containing our public key and principal 
     // random seed. 
     Security::Buffer response;
-    response.reserve(optPublicKey->size() + optPrincipalSeed->size());
-    response.insert(response.end(), optPublicKey->begin(), optPublicKey->end());
+    response.reserve(m_spSessionContext->GetPublicKeySize() + optPrincipalSeed->size());
+
+    if (std::uint32_t fetched = m_spSessionContext->GetPublicKey(response); fetched == 0) {
+        m_synchronization.status = Security::SynchronizationStatus::Error;
+        return { m_synchronization.status, {} };
+    }
+
     response.insert(response.end(), optPrincipalSeed->begin(), optPrincipalSeed->end());
 
     // We expect to be provided the peer's public key and principal random seed in the next stage. 
@@ -567,7 +677,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorInitialization(
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorEncapsulation(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorEncapsulation(
     Security::Buffer const& buffer)
 {
     // Process the synchronization message. 
@@ -635,7 +745,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorEncapsulation(
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorVerification(
+Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorVerification(
     Security::Buffer const& buffer)
 {
     // In the acceptor's verification stage we expect to have been provided the initator's 
@@ -684,7 +794,7 @@ Security::SynchronizationResult CPQNISTL3Strategy::HandleAcceptorVerification(
 // caller is provided the encapsulated shared secret to provide the peer. If an error is 
 // encountered nullopt is provided instead. 
 //------------------------------------------------------------------------------------------------
-Security::OptionalBuffer CPQNISTL3Strategy::EncapsulateSharedSecret()
+Security::OptionalBuffer Security::PQNISTL3::CStrategy::EncapsulateSharedSecret()
 {
     // A shared secret cannot be generated and encapsulated without the peer's public key. 
     auto const& optPeerPublicKey = m_store.GetPeerPublicKey();
@@ -692,17 +802,26 @@ Security::OptionalBuffer CPQNISTL3Strategy::EncapsulateSharedSecret()
         return {};
     }
 
-    // Try to generate and encapsulate a shared secret. If the OQS method throws an error,
-    // return nothing to signal it failed. 
-    try {
-        auto [encaped, secret] = m_kem.encap_secret(*optPeerPublicKey);
-        m_store.GenerateSessionKeys(
-            m_role, std::move(secret), local::EncryptionKeySize, SignatureLength);
-        return encaped;
-    }
-    catch(...) {
+    // The session context should always exist after the constructor is called. 
+    assert(m_spSessionContext);
+
+    Security::Buffer encapsulation;
+    // Use the session context to generate a secret for using the peer's public key. 
+    bool const success = m_spSessionContext->GenerateEncapsulatedSecret(
+        *optPeerPublicKey,
+        [this, &encapsulation] (Security::Buffer&& encaped, Security::Buffer&& secret)
+        {
+            m_store.GenerateSessionKeys(
+                m_role, std::move(secret), local::EncryptionKeySize, SignatureLength);
+
+            encapsulation = std::move(encaped);
+        });
+
+    if (!success) {
         return {};
     }
+
+    return encapsulation;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -711,19 +830,18 @@ Security::OptionalBuffer CPQNISTL3Strategy::EncapsulateSharedSecret()
 // Description: Decapsulates an ephemeral session key using NTRU-HPS-2048-677 from the provided
 // encapsulated ciphertext. 
 //------------------------------------------------------------------------------------------------
-bool CPQNISTL3Strategy::DecapsulateSharedSecret(Security::Buffer const& encapsulation)
+bool Security::PQNISTL3::CStrategy::DecapsulateSharedSecret(Security::Buffer const& encapsulation)
 {
-    // Try to generate and decapsulate the shared secret. If the OQS method throws an error,
-    // signal that the operation did not succeed. 
-    try {
-        m_store.GenerateSessionKeys(
-            m_role, std::move(m_kem.decap_secret(encapsulation)),
-            local::EncryptionKeySize, SignatureLength);
-        return true;
-    }
-    catch(...) {
+    // The session context should always exist after the constructor is called. 
+    assert(m_spSessionContext);
+
+    Security::Buffer decapsulation;
+    if (!m_spSessionContext->DecapsulateSecret(encapsulation, decapsulation)) {
         return false;
     }
+    
+    return m_store.GenerateSessionKeys(
+        m_role, std::move(decapsulation), local::EncryptionKeySize, SignatureLength);
 }
 
 //------------------------------------------------------------------------------------------------
