@@ -129,8 +129,8 @@ bool Security::PQNISTL3::CContext::DecapsulateSecret(
 
 //------------------------------------------------------------------------------------------------
 
-Security::PQNISTL3::CStrategy::CStrategy(Context context)
-    : m_role(Security::Role::Unknown)
+Security::PQNISTL3::CStrategy::CStrategy(Security::Role role, Context context)
+    : m_role(role)
     , m_synchronization(
         { 1, Security::SynchronizationStatus::Processing })
     , m_spSessionContext()
@@ -160,9 +160,9 @@ Security::Strategy Security::PQNISTL3::CStrategy::GetStrategyType() const
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CStrategy::SetRole(Security::Role role)
+Security::Role Security::PQNISTL3::CStrategy::GetRole() const
 {
-    m_role = role;
+    return m_role;
 }
 
 //------------------------------------------------------------------------------------------------

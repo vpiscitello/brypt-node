@@ -79,7 +79,7 @@ public:
     constexpr static std::uint32_t PrincipalRandomLength = 32;
     constexpr static std::uint32_t SignatureLength = 48;
 
-    explicit CStrategy(Context context);
+    CStrategy(Security::Role role, Context context);
 
     CStrategy(CStrategy&& other) = delete;
     CStrategy(CStrategy const& other) = delete;
@@ -87,7 +87,7 @@ public:
 
     // ISecurityStrategy {
     virtual Security::Strategy GetStrategyType() const override;
-    virtual void SetRole(Security::Role role) override;
+    virtual Security::Role GetRole() const override;
 
     virtual std::uint32_t SynchronizationStages() const override;
     virtual Security::SynchronizationStatus SynchronizationStatus() const override;

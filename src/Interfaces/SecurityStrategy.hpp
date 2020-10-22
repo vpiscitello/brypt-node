@@ -15,7 +15,7 @@ public:
     virtual ~ISecurityStrategy() = default;
 
     virtual Security::Strategy GetStrategyType() const = 0;
-    virtual void SetRole(Security::Role role) = 0;
+    virtual Security::Role GetRole() const = 0;
 
     virtual std::uint32_t SynchronizationStages() const = 0;
     virtual Security::SynchronizationStatus SynchronizationStatus() const = 0;

@@ -15,7 +15,7 @@ enum class Strategy : std::uint16_t { Invalid = 0x0000, PQNISTLevelThree = 0x100
 
 enum class Context : std::uint8_t { Unique, Application };
 
-enum class Role : std::uint8_t { Unknown, Initiator, Acceptor };
+enum class Role : std::uint8_t { Initiator, Acceptor };
 
 enum class SynchronizationStatus : std::uint8_t { Error, Processing, Ready };
 
