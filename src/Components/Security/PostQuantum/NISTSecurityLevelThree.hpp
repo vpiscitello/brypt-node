@@ -10,6 +10,7 @@
 #include "../SecurityDefinitions.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
+#include <openssl/evp.h>
 #include <oqscpp/oqs_cpp.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -26,6 +27,9 @@ namespace PQNISTL3 {
 
 class CContext;
 class CStrategy;
+class CSynchronizationTracker;
+
+using TransactionHasher = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 
 //------------------------------------------------------------------------------------------------
 } // PQNISTL3 namespace
@@ -143,11 +147,7 @@ private:
 
     Security::Role m_role;
 
-    struct TSynchronication
-    {
-        std::uint8_t stage;
-        Security::SynchronizationStatus status;
-    } m_synchronization;
+    CSynchronizationTracker m_synchronization;
 
     static std::shared_ptr<CContext> m_spSharedContext;
 
@@ -155,6 +155,39 @@ private:
 
     oqs::KeyEncapsulation m_kem;
     Security::CKeyStore m_store;
+
+};
+
+//------------------------------------------------------------------------------------------------
+
+class Security::PQNISTL3::CSynchronizationTracker
+{
+public:
+    CSynchronizationTracker();
+
+    SynchronizationStatus GetStatus() const;
+    
+    template <typename EnumType>
+    EnumType GetStage() const;
+
+    template<typename EnumType>
+    void SetStage(EnumType);
+
+    void SetError();
+
+    void AddTransactionData(Buffer const& buffer) const;
+
+    template<typename EnumType>
+    void FinalizeTransaction(EnumType type) const;
+
+    VerificationStatus VerifyTransaction(Buffer const& buffer);
+    
+    void ResetState();
+
+private:
+    SynchronizationStatus m_status;
+    std::uint8_t m_stage;
+    TransactionHasher m_upTransactionHasher;
 
 };
 

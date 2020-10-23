@@ -18,7 +18,7 @@ public:
     virtual Security::Role GetRole() const = 0;
 
     virtual std::uint32_t SynchronizationStages() const = 0;
-    virtual Security::SynchronizationStatus SynchronizationStatus() const = 0;
+    virtual Security::SynchronizationStatus GetSynchronizationStatus() const = 0;
     virtual Security::SynchronizationResult Synchronize(Security::Buffer const& buffer) = 0;
 
     virtual Security::OptionalBuffer Encrypt(

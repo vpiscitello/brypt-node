@@ -131,8 +131,7 @@ bool Security::PQNISTL3::CContext::DecapsulateSecret(
 
 Security::PQNISTL3::CStrategy::CStrategy(Security::Role role, Context context)
     : m_role(role)
-    , m_synchronization(
-        { 1, Security::SynchronizationStatus::Processing })
+    , m_synchronization()
     , m_spSessionContext()
     , m_kem(KeyEncapsulationSchme.data())
     , m_store()
@@ -178,9 +177,9 @@ std::uint32_t Security::PQNISTL3::CStrategy::SynchronizationStages() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus Security::PQNISTL3::CStrategy::SynchronizationStatus() const
+Security::SynchronizationStatus Security::PQNISTL3::CStrategy::GetSynchronizationStatus() const
 {
-    return m_synchronization.status;
+    return m_synchronization.GetStatus();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -462,7 +461,7 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorSy
     //         Stage       |            Input            |           Output            |
     //     Initialization  | PublicKey + PrincipalRandom | PublicKey + PrincipalRandom |
     //     Decapsulation   | Encapsulation + SyncMessage |         SyncMessage         |
-    switch (static_cast<InitiatorSynchronizationStage>(m_synchronization.stage))
+    switch (m_synchronization.GetStage<InitiatorSynchronizationStage>())
     {
         case InitiatorSynchronizationStage::Initialization: {
             return HandleInitiatorInitialization(buffer);
@@ -473,8 +472,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorSy
         // It is an error to be called in all other synchrinization stages. 
         case InitiatorSynchronizationStage::Complete:
         case InitiatorSynchronizationStage::Invalid: {
-            m_synchronization.status = Security::SynchronizationStatus::Error;
-            return { m_synchronization.status, {} };
+            m_synchronization.SetError();
+            return { m_synchronization.GetStatus(), {} };
         }
     }
 
@@ -493,8 +492,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorIn
         // If the provided buffer does not contain the 
         if (std::uint32_t const expected = (details.length_public_key + PrincipalRandomLength);
             buffer.size() != expected) {
-            m_synchronization.status = Security::SynchronizationStatus::Error;
-            return { m_synchronization.status, {} };
+            m_synchronization.SetError();
+            return { m_synchronization.GetStatus(), {} };
         }
 
         m_store.SetPeerPublicKey({ buffer.begin(), buffer.begin() + details.length_public_key });
@@ -503,8 +502,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorIn
 
     auto const optPrincipalSeed = local::GenerateRandomData(PrincipalRandomLength);
     if (!optPrincipalSeed) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     m_store.ExpandSessionSeed(*optPrincipalSeed);
@@ -516,17 +515,17 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorIn
     response.reserve(m_spSessionContext->GetPublicKeySize() + optPrincipalSeed->size());
 
     if (std::uint32_t fetched = m_spSessionContext->GetPublicKey(response); fetched == 0) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     response.insert(response.end(), optPrincipalSeed->begin(), optPrincipalSeed->end());
 
     // We expect to be provided the peer's shared secret encapsulation in the next 
     // synchronization stage. 
-    m_synchronization.stage = static_cast<std::uint8_t>(InitiatorSynchronizationStage::Decapsulation);
+    m_synchronization.SetStage(InitiatorSynchronizationStage::Decapsulation);
 
-    return { m_synchronization.status, response };
+    return { m_synchronization.GetStatus(), response };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -540,38 +539,38 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorDe
     Security::Buffer encapsulation;
     Security::Buffer peerVerificationData;
     if (!local::ParseEncapsulationMessage(buffer, encapsulation, peerVerificationData)) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Attempt to decapsulate the shared secret. If the shared secret could not be decapsulated
     // or the session keys fail to be generated, it is an error. 
     if (!DecapsulateSharedSecret(encapsulation)) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Now that the shared secret has been decapsulated, we can verify that the message has been
     // provided by an honest peer. If the provided buffer cannot be verified, it is an error. 
-    if (auto const status = Verify(buffer); status != Security::VerificationStatus::Success) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+    if (auto const status = Verify(buffer); status != VerificationStatus::Success) {
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Given the buffer has been verified we can decrypt the provided verification data to 
     // ensure our the session keys align with the peer. 
     auto const optDecryptedData = Decrypt(peerVerificationData, peerVerificationData.size(), 0);
     if (!optDecryptedData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Get our own verification data to verify the peer's session keys and provide the peer some 
     // data that they can verify that we have generated the proper session keys. 
     auto const& optVerificationData = m_store.GetVerificationData();
     if (!optVerificationData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Verify the provided verification data matches the verification data we have generated. 
@@ -579,8 +578,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorDe
     bool const bMatchedVerificationData = std::equal(
         optVerificationData->begin(), optVerificationData->end(), optDecryptedData->begin());
     if (!bMatchedVerificationData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Encrypt our own verification data to challenge the peer's session keys. 
@@ -589,15 +588,14 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorDe
 
     // If for some reason we cannot sign the verification data it is an error. 
     if (Sign(*optVerificationMessage) == 0) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // The synchronization process is now complete. 
-    m_synchronization.stage = static_cast<std::uint8_t>(InitiatorSynchronizationStage::Complete);
-    m_synchronization.status = Security::SynchronizationStatus::Ready;
+    m_synchronization.FinalizeTransaction(InitiatorSynchronizationStage::Complete);
 
-    return {m_synchronization.status, *optVerificationMessage };
+    return {m_synchronization.GetStatus(), *optVerificationMessage };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -609,7 +607,7 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorSyn
     //     Initialization  |            Hello            | PublicKey + PrincipalRandom |
     //     Encapsulation   | PublicKey + PrincipalRandom | Encapsulation + SyncMessage |
     //      Verification   |          SyncMessage        |            Done             |
-    switch (static_cast<AcceptorSynchronizationStage>(m_synchronization.stage))
+    switch (m_synchronization.GetStage<AcceptorSynchronizationStage>())
     {
         case AcceptorSynchronizationStage::Initialization: {
             return HandleAcceptorInitialization(buffer);
@@ -623,8 +621,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorSyn
         // It is an error to be called in all other synchrinization stages. 
         case AcceptorSynchronizationStage::Complete:
         case AcceptorSynchronizationStage::Invalid: {
-            m_synchronization.status = Security::SynchronizationStatus::Error;
-            return { m_synchronization.status, {} };
+            m_synchronization.SetError();
+            return { m_synchronization.GetStatus(), {} };
         }
     }
 
@@ -640,15 +638,15 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorIni
     bool const bMatchedVerificationMessage = std::equal(
         Security::InitializationMessage.begin(), Security::InitializationMessage.end(), buffer.begin());
     if (!bMatchedVerificationMessage) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Generate random data to be used to generate the session keys. 
     auto const optPrincipalSeed = local::GenerateRandomData(PrincipalRandomLength);
     if (!optPrincipalSeed) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Add the prinicpal random data to the store in order to use it when generating session keys. 
@@ -663,16 +661,16 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorIni
     response.reserve(m_spSessionContext->GetPublicKeySize() + optPrincipalSeed->size());
 
     if (std::uint32_t fetched = m_spSessionContext->GetPublicKey(response); fetched == 0) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     response.insert(response.end(), optPrincipalSeed->begin(), optPrincipalSeed->end());
 
-    // We expect to be provided the peer's public key and principal random seed in the next stage. 
-    m_synchronization.stage = static_cast<std::uint8_t>(AcceptorSynchronizationStage::Encapsulation);
+    // We expect to be provided the peer's public key and principal random seed in the next stage.
+    m_synchronization.SetStage(AcceptorSynchronizationStage::Encapsulation);
 
-    return { Security::SynchronizationStatus::Processing, response };
+    return { m_synchronization.GetStatus(), response };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -688,8 +686,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorEnc
         // proceed with the synchronization process. 
         if (std::uint32_t const expected = (details.length_public_key + PrincipalRandomLength);
             buffer.size() != expected) {
-            m_synchronization.status = Security::SynchronizationStatus::Error;
-            return { m_synchronization.status, {} };
+            m_synchronization.SetError();
+            return { m_synchronization.GetStatus(), {} };
         }
 
         // The first section of the buffer is expected to be the peer's public key. 
@@ -705,16 +703,16 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorEnc
     // along with verification data and a signature. 
     auto optEncapsulation = EncapsulateSharedSecret();
     if (!optEncapsulation) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return {m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return {m_synchronization.GetStatus(), {} };
     }
 
     // Get the verification data to provide as part of the message, such that the peer can verify
     // the decapsulation was successful. 
     auto const& optVerificationData = m_store.GetVerificationData();
     if (!optVerificationData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Encrypt verification data, to both challenge the peer and so an honest peer can verify that
@@ -722,8 +720,8 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorEnc
     Security::OptionalBuffer optVerificationMessage = Encrypt(
         *optVerificationData, optVerificationData->size(), 0);
     if (!optVerificationMessage) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Pack the encapsulation and verification message into a buffer the initator can parse. 
@@ -734,13 +732,14 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorEnc
     // after decapsulation has occured. If the message for some reason could not be signed, there 
     // is nothing else to do. 
     if(Sign(message) == 0) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
-    // We expect to be provided the peer's verification data in the next stage.  
-    m_synchronization.stage = static_cast<std::uint8_t>(AcceptorSynchronizationStage::Verification);
-    return { Security::SynchronizationStatus::Processing, message };
+    // We expect to be provided the peer's verification data in the next stage.
+    m_synchronization.SetStage(AcceptorSynchronizationStage::Verification);
+
+    return { m_synchronization.GetStatus(), message };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -751,24 +750,24 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorVer
     // In the acceptor's verification stage we expect to have been provided the initator's 
     // signed verfiection data. If the buffer could not be verified, it is an error. 
     if (auto const status = Verify(buffer); status != Security::VerificationStatus::Success) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Get our own verification data to verify the peer's verification data aligns with our
     // own. 
     auto const& optVerificationData = m_store.GetVerificationData();
     if (!optVerificationData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Given the buffer has been verified we can decrypt the provided verification data to 
     // ensure our the session keys align with the peer. 
     auto const optDecryptedData = Decrypt(buffer, optVerificationData->size(), 0);
     if (!optDecryptedData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
     // Verify the provided verification data matches the verification data we have generated. 
@@ -776,15 +775,14 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorVer
     bool const bMatchedVerificationData = std::equal(
         optVerificationData->begin(), optVerificationData->end(), optDecryptedData->begin());
     if (!bMatchedVerificationData) {
-        m_synchronization.status = Security::SynchronizationStatus::Error;
-        return { m_synchronization.status, {} };
+        m_synchronization.SetError();
+        return { m_synchronization.GetStatus(), {} };
     }
 
-    // The synchronization process is now complete. 
-    m_synchronization.stage = static_cast<std::uint8_t>(AcceptorSynchronizationStage::Complete);
-    m_synchronization.status = Security::SynchronizationStatus::Ready;
+    // The synchronization process is now complete.
+    m_synchronization.FinalizeTransaction(AcceptorSynchronizationStage::Complete);
 
-    return { Security::SynchronizationStatus::Ready, {} };
+    return { m_synchronization.GetStatus(), {} };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -842,6 +840,80 @@ bool Security::PQNISTL3::CStrategy::DecapsulateSharedSecret(Security::Buffer con
     
     return m_store.GenerateSessionKeys(
         m_role, std::move(decapsulation), local::EncryptionKeySize, SignatureLength);
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::PQNISTL3::CSynchronizationTracker::CSynchronizationTracker()
+    : m_stage()
+    , m_status()
+    , m_upTransactionHasher(nullptr, &EVP_MD_CTX_free)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::SynchronizationStatus Security::PQNISTL3::CSynchronizationTracker::GetStatus() const
+{
+    return m_status;
+}
+
+//------------------------------------------------------------------------------------------------
+
+template <typename EnumType>
+EnumType Security::PQNISTL3::CSynchronizationTracker::GetStage() const
+{
+    return static_cast<EnumType>(m_stage);
+}
+
+//------------------------------------------------------------------------------------------------
+
+template <typename EnumType>
+void Security::PQNISTL3::CSynchronizationTracker::SetStage(EnumType type)
+{
+    using UnderlyingType = typename std::underlying_type_t<EnumType>;
+    assert(sizeof(UnderlyingType) == size(decltype(m_stage)));
+    m_stage = static_cast<decltype(m_stage)>(type);
+}
+
+//------------------------------------------------------------------------------------------------
+
+
+void Security::PQNISTL3::CSynchronizationTracker::SetError()
+{
+    m_status = SynchronizationStatus::Error;
+}
+
+//------------------------------------------------------------------------------------------------
+
+void Security::PQNISTL3::CSynchronizationTracker::AddTransactionData(
+    [[maybe_unused]] Buffer const& buffer) const
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+template<typename EnumType>
+void Security::PQNISTL3::CSynchronizationTracker::FinalizeTransaction(EnumType type) const
+{
+    m_status = SynchronizationStatus::Ready;
+    SetStage(type);
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::VerificationStatus Security::PQNISTL3::CSynchronizationTracker::VerifyTransaction(
+    [[maybe_unused]] Buffer const& buffer)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+void Security::PQNISTL3::CSynchronizationTracker::ResetState()
+{
+    m_status = SynchronizationStatus::Processing;
+    m_stage = 0;
+    m_upTransactionHasher.reset();
 }
 
 //------------------------------------------------------------------------------------------------
