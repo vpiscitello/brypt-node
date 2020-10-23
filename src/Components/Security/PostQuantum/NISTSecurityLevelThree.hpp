@@ -27,8 +27,9 @@ namespace PQNISTL3 {
 //------------------------------------------------------------------------------------------------
 
 class CContext;
-class CStrategy;
 class CSynchronizationTracker;
+
+class CStrategy;
 
 using TransactionHasher = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 
@@ -64,6 +65,35 @@ private:
 
     mutable std::shared_mutex m_publicKeyMutex;
     Buffer m_publicKey;
+
+};
+
+//------------------------------------------------------------------------------------------------
+
+class Security::PQNISTL3::CSynchronizationTracker
+{
+public:
+    CSynchronizationTracker();
+
+    SynchronizationStatus GetStatus() const;
+    void SetError();
+    void AddTransactionData(Buffer const& buffer);
+    VerificationStatus VerifyTransaction(Buffer const& buffer);
+    void ResetState();
+
+    template <typename EnumType>
+    EnumType GetStage() const;
+
+    template<typename EnumType>
+    void SetStage(EnumType);
+
+    template<typename EnumType>
+    void FinalizeTransaction(EnumType type);
+    
+private:
+    SynchronizationStatus m_status;
+    std::uint8_t m_stage;
+    TransactionHasher m_upTransactionHasher;
 
 };
 
@@ -149,39 +179,6 @@ private:
 
     oqs::KeyEncapsulation m_kem;
     Security::CKeyStore m_store;
-
-};
-
-//------------------------------------------------------------------------------------------------
-
-class Security::PQNISTL3::CSynchronizationTracker
-{
-public:
-    CSynchronizationTracker();
-
-    SynchronizationStatus GetStatus() const;
-    
-    template <typename EnumType>
-    EnumType GetStage() const;
-
-    template<typename EnumType>
-    void SetStage(EnumType);
-
-    void SetError();
-
-    void AddTransactionData(Buffer const& buffer) const;
-
-    template<typename EnumType>
-    void FinalizeTransaction(EnumType type) const;
-
-    VerificationStatus VerifyTransaction(Buffer const& buffer);
-    
-    void ResetState();
-
-private:
-    SynchronizationStatus m_status;
-    std::uint8_t m_stage;
-    TransactionHasher m_upTransactionHasher;
 
 };
 

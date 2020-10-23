@@ -128,6 +128,80 @@ bool Security::PQNISTL3::CContext::DecapsulateSecret(
 
 //------------------------------------------------------------------------------------------------
 
+Security::PQNISTL3::CSynchronizationTracker::CSynchronizationTracker()
+    : m_status()
+    , m_stage()
+    , m_upTransactionHasher(nullptr, &EVP_MD_CTX_free)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::SynchronizationStatus Security::PQNISTL3::CSynchronizationTracker::GetStatus() const
+{
+    return m_status;
+}
+
+//------------------------------------------------------------------------------------------------
+
+void Security::PQNISTL3::CSynchronizationTracker::SetError()
+{
+    m_status = SynchronizationStatus::Error;
+}
+
+//------------------------------------------------------------------------------------------------
+
+void Security::PQNISTL3::CSynchronizationTracker::AddTransactionData(
+    [[maybe_unused]] Buffer const& buffer)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::VerificationStatus Security::PQNISTL3::CSynchronizationTracker::VerifyTransaction(
+    [[maybe_unused]] Buffer const& buffer)
+{
+    return VerificationStatus::Failed;
+}
+
+//------------------------------------------------------------------------------------------------
+
+void Security::PQNISTL3::CSynchronizationTracker::ResetState()
+{
+    m_status = SynchronizationStatus::Processing;
+    m_stage = 0;
+    m_upTransactionHasher.reset();
+}
+
+//------------------------------------------------------------------------------------------------
+
+template <typename EnumType>
+EnumType Security::PQNISTL3::CSynchronizationTracker::GetStage() const
+{
+    return static_cast<EnumType>(m_stage);
+}
+
+//------------------------------------------------------------------------------------------------
+
+template <typename EnumType>
+void Security::PQNISTL3::CSynchronizationTracker::SetStage(EnumType type)
+{
+    using UnderlyingType = typename std::underlying_type_t<EnumType>;
+    assert(sizeof(UnderlyingType) == sizeof(m_stage));
+    m_stage = static_cast<decltype(m_stage)>(type);
+}
+
+//------------------------------------------------------------------------------------------------
+
+template<typename EnumType>
+void Security::PQNISTL3::CSynchronizationTracker::FinalizeTransaction(EnumType type)
+{
+    m_status = SynchronizationStatus::Ready;
+    SetStage(type);
+}
+
+//------------------------------------------------------------------------------------------------
+
 Security::PQNISTL3::CStrategy::CStrategy(Role role, Context context)
     : m_role(role)
     , m_synchronization()
@@ -831,80 +905,6 @@ bool Security::PQNISTL3::CStrategy::DecapsulateSharedSecret(Buffer const& encaps
     
     return m_store.GenerateSessionKeys(
         m_role, std::move(decapsulation), local::EncryptionKeySize, SignatureLength);
-}
-
-//------------------------------------------------------------------------------------------------
-
-Security::PQNISTL3::CSynchronizationTracker::CSynchronizationTracker()
-    : m_stage()
-    , m_status()
-    , m_upTransactionHasher(nullptr, &EVP_MD_CTX_free)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-Security::SynchronizationStatus Security::PQNISTL3::CSynchronizationTracker::GetStatus() const
-{
-    return m_status;
-}
-
-//------------------------------------------------------------------------------------------------
-
-template <typename EnumType>
-EnumType Security::PQNISTL3::CSynchronizationTracker::GetStage() const
-{
-    return static_cast<EnumType>(m_stage);
-}
-
-//------------------------------------------------------------------------------------------------
-
-template <typename EnumType>
-void Security::PQNISTL3::CSynchronizationTracker::SetStage(EnumType type)
-{
-    using UnderlyingType = typename std::underlying_type_t<EnumType>;
-    assert(sizeof(UnderlyingType) == size(decltype(m_stage)));
-    m_stage = static_cast<decltype(m_stage)>(type);
-}
-
-//------------------------------------------------------------------------------------------------
-
-
-void Security::PQNISTL3::CSynchronizationTracker::SetError()
-{
-    m_status = SynchronizationStatus::Error;
-}
-
-//------------------------------------------------------------------------------------------------
-
-void Security::PQNISTL3::CSynchronizationTracker::AddTransactionData(
-    [[maybe_unused]] Buffer const& buffer) const
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-template<typename EnumType>
-void Security::PQNISTL3::CSynchronizationTracker::FinalizeTransaction(EnumType type) const
-{
-    m_status = SynchronizationStatus::Ready;
-    SetStage(type);
-}
-
-//------------------------------------------------------------------------------------------------
-
-Security::VerificationStatus Security::PQNISTL3::CSynchronizationTracker::VerifyTransaction(
-    [[maybe_unused]] Buffer const& buffer)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-void Security::PQNISTL3::CSynchronizationTracker::ResetState()
-{
-    m_status = SynchronizationStatus::Processing;
-    m_stage = 0;
-    m_upTransactionHasher.reset();
 }
 
 //------------------------------------------------------------------------------------------------
