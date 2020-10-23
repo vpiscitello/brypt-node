@@ -15,6 +15,7 @@
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <shared_mutex>
 #include <string_view>
 #include <vector>
@@ -41,17 +42,17 @@ class Security::PQNISTL3::CContext
 public:
     // A callback providing the caller the encapsulation and the shared secret. The caller may 
     // take ownsership of both of these items. 
-    using EncapsulationCallback = std::function<void(Security::Buffer&&, Security::Buffer&&)>;
+    using EncapsulationCallback = std::function<void(Buffer&&, Buffer&&)>;
 
     CContext(std::string_view kem);
 
     std::uint32_t GetPublicKeySize() const;
-    Security::Buffer GetPublicKey() const;
-    std::uint32_t GetPublicKey(Security::Buffer& buffer) const;
+    Buffer GetPublicKey() const;
+    std::uint32_t GetPublicKey(Buffer& buffer) const;
     bool GenerateEncapsulatedSecret(
-        Security::Buffer const& publicKey, EncapsulationCallback const& callback) const;
+        Buffer const& publicKey, EncapsulationCallback const& callback) const;
     bool DecapsulateSecret(
-        Security::Buffer const& encapsulation, Security::Buffer& decapsulation) const;
+        Buffer const& encapsulation, Buffer& decapsulation) const;
 
     CContext(CContext const&) = delete;
     CContext(CContext&&) = delete;
@@ -62,7 +63,7 @@ private:
     oqs::KeyEncapsulation m_kem;
 
     mutable std::shared_mutex m_publicKeyMutex;
-    Security::Buffer m_publicKey;
+    Buffer m_publicKey;
 
 };
 
@@ -70,7 +71,7 @@ private:
 
 class Security::PQNISTL3::CStrategy : public ISecurityStrategy {
 public:
-    constexpr static Security::Strategy Type = Security::Strategy::PQNISTLevelThree;
+    constexpr static Strategy Type = Strategy::PQNISTLevelThree;
 
     enum class InitiatorSynchronizationStage : std::uint8_t { 
         Invalid, Initialization, Decapsulation, Complete };
@@ -83,29 +84,29 @@ public:
     constexpr static std::uint32_t PrincipalRandomLength = 32;
     constexpr static std::uint32_t SignatureLength = 48;
 
-    CStrategy(Security::Role role, Context context);
+    CStrategy(Role role, Context context);
 
     CStrategy(CStrategy&& other) = delete;
     CStrategy(CStrategy const& other) = delete;
     CStrategy& operator=(CStrategy const& other) = delete;
 
     // ISecurityStrategy {
-    virtual Security::Strategy GetStrategyType() const override;
-    virtual Security::Role GetRole() const override;
+    virtual Strategy GetStrategyType() const override;
+    virtual Role GetRole() const override;
 
     virtual std::uint32_t SynchronizationStages() const override;
-    virtual Security::SynchronizationStatus SynchronizationStatus() const override;
-    virtual Security::SynchronizationResult Synchronize(Security::Buffer const& buffer) override;
+    virtual SynchronizationStatus GetSynchronizationStatus() const override;
+    virtual SynchronizationResult Synchronize(Buffer const& buffer) override;
 
-    virtual Security::OptionalBuffer Encrypt(
-        Security::Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
+    virtual OptionalBuffer Encrypt(
+        Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
 
-    virtual Security::OptionalBuffer Decrypt(
-        Security::Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
+    virtual OptionalBuffer Decrypt(
+        Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
 
-    virtual std::uint32_t Sign(Security::Buffer& buffer) const override;
+    virtual std::uint32_t Sign(Buffer& buffer) const override;
 
-    virtual Security::VerificationStatus Verify(Security::Buffer const& buffer) const override;
+    virtual VerificationStatus Verify(Buffer const& buffer) const override;
     // } ISecurityStrategy
 
     static void InitializeApplicationContext();
@@ -119,33 +120,26 @@ private:
     constexpr static std::string_view MessageAuthenticationScheme = "SHA384";
 
     // ISecurityStrategy {
-    virtual Security::OptionalBuffer GenerateSignature(
+    virtual OptionalBuffer GenerateSignature(
         std::uint8_t const* pKey,
         std::uint32_t keySize,
         std::uint8_t const* pData,
         std::uint32_t dataSize) const override;
     // } ISecurityStrategy
     
-    Security::SynchronizationResult HandleInitiatorSynchronization(
-        Security::Buffer const& buffer);
-    Security::SynchronizationResult HandleInitiatorInitialization(
-        Security::Buffer const& buffer);
-    Security::SynchronizationResult HandleInitiatorDecapsulation(
-        Security::Buffer const& buffer);
+    SynchronizationResult HandleInitiatorSynchronization(Buffer const& buffer);
+    SynchronizationResult HandleInitiatorInitialization(Buffer const& buffer);
+    SynchronizationResult HandleInitiatorDecapsulation(Buffer const& buffer);
 
-    Security::SynchronizationResult HandleAcceptorSynchronization(
-        Security::Buffer const& buffer);
-    Security::SynchronizationResult HandleAcceptorInitialization(
-        Security::Buffer const& buffer);
-    Security::SynchronizationResult HandleAcceptorEncapsulation(
-        Security::Buffer const& buffer);
-    Security::SynchronizationResult HandleAcceptorVerification(
-        Security::Buffer const& buffer);
+    SynchronizationResult HandleAcceptorSynchronization(Buffer const& buffer);
+    SynchronizationResult HandleAcceptorInitialization(Buffer const& buffer);
+    SynchronizationResult HandleAcceptorEncapsulation(Buffer const& buffer);
+    SynchronizationResult HandleAcceptorVerification(Buffer const& buffer);
 
-    Security::OptionalBuffer EncapsulateSharedSecret();
-    bool DecapsulateSharedSecret(Security::Buffer const& encapsulation);
+    OptionalBuffer EncapsulateSharedSecret();
+    bool DecapsulateSharedSecret(Buffer const& encapsulation);
 
-    Security::Role m_role;
+    Role m_role;
 
     CSynchronizationTracker m_synchronization;
 
