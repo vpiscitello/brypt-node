@@ -284,7 +284,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
 
     // Create an OpenSSL encryption context. 
 	local::CipherContext upCipherContext(EVP_CIPHER_CTX_new(), &EVP_CIPHER_CTX_free);
-	if (ERR_get_error() != 0 || upCipherContext == nullptr) {
+	if (ERR_get_error() != 0 || !upCipherContext) {
 		return {};
 	}
 
@@ -303,8 +303,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
 	std::memcpy(iv.data(), &nonce, sizeof(nonce));
 
     // Initialize the OpenSSL cipher using AES-256-CTR with the encryption key and IV. 
-	EVP_EncryptInit_ex(upCipherContext.get(), EVP_aes_256_ctr(), nullptr, pKey, iv.data());
-	if (ERR_get_error() != 0) {
+	if (!EVP_EncryptInit_ex(upCipherContext.get(), EVP_aes_256_ctr(), nullptr, pKey, iv.data())) {
 		return {};
 	}
 
@@ -318,14 +317,12 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
 
     // Encrypt the plaintext into the ciphertext buffer. 
 	std::int32_t encrypted = 0;
-	EVP_EncryptUpdate(upCipherContext.get(), pCiphertext, &encrypted, pPlaintext, size);
-	if (ERR_get_error() != 0 || encrypted == 0) {
+	if (!EVP_EncryptUpdate(upCipherContext.get(), pCiphertext, &encrypted, pPlaintext, size) || encrypted == 0) {
 		return {};
 	}
 
     // Cleanup the OpenSSL encryption cipher. 
-	EVP_EncryptFinal_ex(upCipherContext.get(), pCiphertext + encrypted, &encrypted);
-	if (ERR_get_error() != 0) {
+	if (!EVP_EncryptFinal_ex(upCipherContext.get(), pCiphertext + encrypted, &encrypted)) {
 		return {};
 	}
 
@@ -350,7 +347,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
 
     // Create an OpenSSL decryption context.
 	local::CipherContext upCipherContext(EVP_CIPHER_CTX_new(), &EVP_CIPHER_CTX_free);
-	if (ERR_get_error() != 0 || upCipherContext == nullptr) {
+	if (ERR_get_error() != 0 || !upCipherContext) {
 		return {};
 	}
 
@@ -369,8 +366,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
 	std::memcpy(iv.data(), &nonce, sizeof(nonce));
 
     // Initialize the OpenSSL cipher using AES-256-CTR with the decryption key and IV.
-	EVP_DecryptInit_ex(upCipherContext.get(), EVP_aes_256_ctr(), nullptr, pKey, iv.data());
-	if (ERR_get_error() != 0) {
+	if (!EVP_DecryptInit_ex(upCipherContext.get(), EVP_aes_256_ctr(), nullptr, pKey, iv.data())) {
 		return {};
 	}
 
@@ -384,14 +380,12 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
 
     // Decrypt the ciphertext into the plaintext buffer.
 	std::int32_t decrypted = 0;
-	EVP_DecryptUpdate(upCipherContext.get(), pPlaintext, &decrypted, pCiphertext, size);
-	if (ERR_get_error() != 0 || decrypted == 0) {
+	if (!EVP_DecryptUpdate(upCipherContext.get(), pPlaintext, &decrypted, pCiphertext, size) || decrypted == 0) {
 		return {};
 	}
 
     // Cleanup the OpenSSL decryption cipher.
-	EVP_DecryptFinal_ex(upCipherContext.get(), pPlaintext + decrypted ,&decrypted);
-	if (ERR_get_error() != 0) {
+	if (!EVP_DecryptFinal_ex(upCipherContext.get(), pPlaintext + decrypted ,&decrypted)) {
 		return {};
 	}
 
