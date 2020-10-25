@@ -38,6 +38,8 @@ class CSecureBuffer;
 class Security::CKeyStore
 {
 public:
+    constexpr static std::uint32_t VerificationDataSize = 32;
+
     CKeyStore();
 
     CKeyStore(CKeyStore&& other) = delete;

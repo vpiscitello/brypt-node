@@ -23,7 +23,6 @@ constexpr std::string_view BaseExpansionSeed = "expansion-seed";
 
 constexpr std::string_view VerificationData = "verify";
 constexpr std::uint32_t VerificationKeySize = 32;
-constexpr std::uint32_t VerificationDataBytes = 32;
 
 using DigestContext = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 
@@ -135,7 +134,7 @@ bool Security::CKeyStore::GenerateSessionKeys(
     m_optVerificationData = local::GenerateVerificationData(
         m_optPrinicpalKey->GetData() + partitioned, 
         local::VerificationKeySize,
-        local::VerificationDataBytes);
+        VerificationDataSize);
 
     // If for some reason verification data could not be generated the generation of session
     // keys was not successful. 
