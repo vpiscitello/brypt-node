@@ -11,6 +11,21 @@
 #include <cstring>
 //------------------------------------------------------------------------------------------------
 
+Security::Strategy Security::ConvertToStrategy(std::underlying_type_t<Security::Strategy> strategy)
+{
+    using StrategyType = std::underlying_type_t<Security::Strategy>;
+
+    switch (strategy) {
+        case static_cast<StrategyType>(Security::Strategy::PQNISTL3): {
+            return Security::Strategy::PQNISTL3;
+        }
+        default: break;
+    }
+    return Security::Strategy::Invalid;
+}
+
+//------------------------------------------------------------------------------------------------
+
 void Security::EraseMemory(void* begin, std::uint32_t size)
 {
 #if defined(__STDC_LIB_EXT1__)

@@ -101,7 +101,7 @@ private:
 
 class Security::PQNISTL3::CStrategy : public ISecurityStrategy {
 public:
-    constexpr static Strategy Type = Strategy::PQNISTLevelThree;
+    constexpr static Strategy Type = Strategy::PQNISTL3;
 
     enum class InitiatorSynchronizationStage : std::uint8_t { 
         Invalid, Initialization, Decapsulation, Complete };

@@ -11,7 +11,7 @@
 namespace Security {
 //------------------------------------------------------------------------------------------------
 
-enum class Strategy : std::uint16_t { Invalid = 0x0000, PQNISTLevelThree = 0x1003 };
+enum class Strategy : std::uint16_t { Invalid = 0x0000, PQNISTL3 = 0x1003 };
 
 enum class Context : std::uint8_t { Unique, Application };
 
