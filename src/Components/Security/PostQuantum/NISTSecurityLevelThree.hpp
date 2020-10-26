@@ -10,7 +10,6 @@
 #include "../SecurityDefinitions.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
-#include <openssl/evp.h>
 #include <oqscpp/oqs_cpp.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -31,8 +30,6 @@ class CSynchronizationTracker;
 
 class CStrategy;
 
-using TransactionHasher = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
-
 //------------------------------------------------------------------------------------------------
 } // PQNISTL3 namespace
 } // Security namespace
@@ -45,11 +42,15 @@ public:
     // take ownsership of both of these items. 
     using EncapsulationCallback = std::function<void(Buffer&&, Buffer&&)>;
 
+    constexpr static std::uint32_t PublicKeySize = 930;
+    constexpr static std::uint32_t EncapsulationSize = 930;
+
     CContext(std::string_view kem);
 
     std::uint32_t GetPublicKeySize() const;
     Buffer GetPublicKey() const;
     std::uint32_t GetPublicKey(Buffer& buffer) const;
+
     bool GenerateEncapsulatedSecret(
         Buffer const& publicKey, EncapsulationCallback const& callback) const;
     bool DecapsulateSecret(
@@ -73,27 +74,38 @@ private:
 class Security::PQNISTL3::CSynchronizationTracker
 {
 public:
+    using TransactionSignator = std::function<std::uint32_t(Buffer const&, Buffer&)>;
+    using TransactionVerifier = std::function<VerificationStatus(Buffer const& buffer)>;
+
     CSynchronizationTracker();
 
     SynchronizationStatus GetStatus() const;
     void SetError();
-    void AddTransactionData(Buffer const& buffer);
-    VerificationStatus VerifyTransaction(Buffer const& buffer);
-    void ResetState();
 
     template <typename EnumType>
     EnumType GetStage() const;
 
     template<typename EnumType>
-    void SetStage(EnumType);
+    void SetStage(EnumType stage);
+
+    void SetSignator(TransactionSignator const& signator);
+    void SetVerifier(TransactionVerifier const& verifier);
+    bool UpdateTransaction(Buffer const& buffer);
+    bool SignTransaction(Buffer& message);
+    VerificationStatus VerifyTransaction();
 
     template<typename EnumType>
-    void FinalizeTransaction(EnumType type);
-    
+    void Finalize(EnumType stage);
+
+    bool ResetState();
+
 private:
     SynchronizationStatus m_status;
     std::uint8_t m_stage;
-    TransactionHasher m_upTransactionHasher;
+    
+    Buffer m_transaction;
+    TransactionSignator m_signator;
+    TransactionVerifier m_verifier;
 
 };
 
@@ -103,16 +115,17 @@ class Security::PQNISTL3::CStrategy : public ISecurityStrategy {
 public:
     constexpr static Strategy Type = Strategy::PQNISTL3;
 
-    enum class InitiatorSynchronizationStage : std::uint8_t { 
-        Invalid, Initialization, Decapsulation, Complete };
-    enum class AcceptorSynchronizationStage : std::uint8_t { 
-        Invalid, Initialization, Encapsulation, Verification, Complete };
+    constexpr static std::string_view KeyEncapsulationSchme = "NTRU-HPS-2048-677";
+    constexpr static std::string_view EncryptionScheme = "AES-256-CTR";
+    constexpr static std::string_view MessageAuthenticationScheme = "SHA384";
 
-    constexpr static std::uint32_t InitiatorSynchronizationStages = 2; 
-    constexpr static std::uint32_t AcceptorSynchronizationStages = 3; 
+    enum class InitiatorStage : std::uint8_t { Initialization, Complete };
+    enum class AcceptorStage : std::uint8_t { Initialization, Verification, Complete };
+    constexpr static std::uint32_t InitiatorStages = 1; 
+    constexpr static std::uint32_t AcceptorStages = 2; 
     
-    constexpr static std::uint32_t PrincipalRandomLength = 32;
-    constexpr static std::uint32_t SignatureLength = 48;
+    constexpr static std::uint32_t PrincipalRandomSize = 32;
+    constexpr static std::uint32_t SignatureSize = 48;
 
     CStrategy(Role role, Context context);
 
@@ -124,8 +137,9 @@ public:
     virtual Strategy GetStrategyType() const override;
     virtual Role GetRole() const override;
 
-    virtual std::uint32_t SynchronizationStages() const override;
+    virtual std::uint32_t GetSynchronizationStages() const override;
     virtual SynchronizationStatus GetSynchronizationStatus() const override;
+    virtual SynchronizationResult PrepareSynchronization() override;
     virtual SynchronizationResult Synchronize(Buffer const& buffer) override;
 
     virtual OptionalBuffer Encrypt(
@@ -140,16 +154,21 @@ public:
     // } ISecurityStrategy
 
     static void InitializeApplicationContext();
+    static void ShutdownApplicationContext();
 
     std::weak_ptr<CContext> GetSessionContext() const;
     std::uint32_t GetPublicKeySize() const;
 
-private:
-    constexpr static std::string_view KeyEncapsulationSchme = "NTRU-HPS-2048-677";
-    constexpr static std::string_view EncryptionScheme = "AES-256-CTR";
-    constexpr static std::string_view MessageAuthenticationScheme = "SHA384";
+    OptionalBuffer EncapsulateSharedSecret();
+    bool DecapsulateSharedSecret(Buffer const& encapsulation);
+    OptionalBuffer GenerateVerficationData();
+    VerificationStatus VerifyKeyShare(Buffer const& buffer) const;
 
+private:
     // ISecurityStrategy {
+    virtual std::uint32_t Sign(
+        Security::Buffer const& source, Security::Buffer& destination) const override;
+
     virtual OptionalBuffer GenerateSignature(
         std::uint8_t const* pKey,
         std::uint32_t keySize,
@@ -159,22 +178,15 @@ private:
     
     SynchronizationResult HandleInitiatorSynchronization(Buffer const& buffer);
     SynchronizationResult HandleInitiatorInitialization(Buffer const& buffer);
-    SynchronizationResult HandleInitiatorDecapsulation(Buffer const& buffer);
 
     SynchronizationResult HandleAcceptorSynchronization(Buffer const& buffer);
     SynchronizationResult HandleAcceptorInitialization(Buffer const& buffer);
-    SynchronizationResult HandleAcceptorEncapsulation(Buffer const& buffer);
     SynchronizationResult HandleAcceptorVerification(Buffer const& buffer);
 
-    OptionalBuffer EncapsulateSharedSecret();
-    bool DecapsulateSharedSecret(Buffer const& encapsulation);
-
     Role m_role;
-
     CSynchronizationTracker m_synchronization;
 
     static std::shared_ptr<CContext> m_spSharedContext;
-
     std::shared_ptr<CContext> m_spSessionContext;
 
     oqs::KeyEncapsulation m_kem;

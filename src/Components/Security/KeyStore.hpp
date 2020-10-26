@@ -38,7 +38,7 @@ class CSecureBuffer;
 class Security::CKeyStore
 {
 public:
-    constexpr static std::uint32_t VerificationDataSize = 32;
+    constexpr static std::uint32_t VerificationSize = 32;
 
     CKeyStore();
 
@@ -67,6 +67,7 @@ public:
     Security::OptionalBuffer GetVerificationData() const;
 
     bool HasGeneratedKeys() const;
+    void ResetState();
 
 private:
     using OptionalSecureBuffer = std::optional<Security::CSecureBuffer>;

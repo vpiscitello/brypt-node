@@ -17,8 +17,9 @@ public:
     virtual Security::Strategy GetStrategyType() const = 0;
     virtual Security::Role GetRole() const = 0;
 
-    virtual std::uint32_t SynchronizationStages() const = 0;
+    virtual std::uint32_t GetSynchronizationStages() const = 0;
     virtual Security::SynchronizationStatus GetSynchronizationStatus() const = 0;
+    virtual Security::SynchronizationResult PrepareSynchronization() = 0;
     virtual Security::SynchronizationResult Synchronize(Security::Buffer const& buffer) = 0;
 
     virtual Security::OptionalBuffer Encrypt(
@@ -30,6 +31,9 @@ public:
     virtual Security::VerificationStatus Verify(Security::Buffer const& buffer) const = 0;
 
 private: 
+    virtual std::uint32_t Sign(
+        Security::Buffer const& source, Security::Buffer& destination) const = 0;
+
     virtual Security::OptionalBuffer GenerateSignature(
         std::uint8_t const* pKey,
         std::uint32_t keySize,

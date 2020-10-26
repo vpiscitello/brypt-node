@@ -133,8 +133,7 @@ bool Security::CKeyStore::GenerateSessionKeys(
     // Generate verification data based on the last 32 bytes of the derived principal key. 
     m_optVerificationData = local::GenerateVerificationData(
         m_optPrinicpalKey->GetData() + partitioned, 
-        local::VerificationKeySize,
-        VerificationDataSize);
+        local::VerificationKeySize, VerificationSize);
 
     // If for some reason verification data could not be generated the generation of session
     // keys was not successful. 
@@ -214,6 +213,21 @@ Security::OptionalBuffer Security::CKeyStore::GetVerificationData() const
 bool Security::CKeyStore::HasGeneratedKeys() const
 {
     return m_bHasGeneratedKeys;
+}
+
+//------------------------------------------------------------------------------------------------
+
+void Security::CKeyStore::ResetState()
+{
+    m_optPeerPublicKey.reset();
+    m_seed.clear();
+    m_optPrinicpalKey.reset();
+    m_optVerificationData.reset();
+    m_optContentKeyCordons.reset();
+    m_optPeerContentKeyCordons.reset();
+    m_optSignatureKeyCordons.reset();
+    m_optPeerSignatureKeyCordons.reset();
+    m_bHasGeneratedKeys = false;
 }
 
 //------------------------------------------------------------------------------------------------
