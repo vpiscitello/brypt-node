@@ -73,6 +73,13 @@ BryptIdentifier::CContainer const& CHandshakeMessage::GetSourceIdentifier() cons
 
 //------------------------------------------------------------------------------------------------
 
+Message::Destination CHandshakeMessage::GetDestinationType() const
+{
+	return m_header.GetDestinationType();
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::optional<BryptIdentifier::CContainer> const& CHandshakeMessage::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();

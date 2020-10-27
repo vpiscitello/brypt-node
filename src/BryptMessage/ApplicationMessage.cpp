@@ -90,6 +90,13 @@ BryptIdentifier::CContainer const& CApplicationMessage::GetSourceIdentifier() co
 
 //------------------------------------------------------------------------------------------------
 
+Message::Destination CApplicationMessage::GetDestinationType() const
+{
+	return m_header.GetDestinationType();
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::optional<BryptIdentifier::CContainer> const& CApplicationMessage::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();

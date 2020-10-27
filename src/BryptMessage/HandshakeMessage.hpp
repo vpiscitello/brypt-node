@@ -40,7 +40,7 @@ public:
 
 	CMessageHeader const& GetMessageHeader() const;
 	BryptIdentifier::CContainer const& GetSourceIdentifier() const;
-	Message::Destination const& GetDestinationType() const;
+	Message::Destination GetDestinationType() const;
 	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
 	Message::Buffer GetData() const;
 

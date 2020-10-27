@@ -46,7 +46,7 @@ constexpr std::uint32_t Iterations = 10000;
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CAuthorizedProcessorSuite, SingleMessageCollectionTest)
+TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
     CAuthorizedProcessor collector;
 
@@ -111,7 +111,7 @@ TEST(CAuthorizedProcessorSuite, SingleMessageCollectionTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CAuthorizedProcessorSuite, MultipleMessageCollectionTest)
+TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 {
     CAuthorizedProcessor collector;
 
