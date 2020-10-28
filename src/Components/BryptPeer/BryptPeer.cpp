@@ -206,7 +206,6 @@ void CBryptPeer::AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upS
 
 bool CBryptPeer::ScheduleSend(
     CMessageContext const& context,
-    BryptIdentifier::CContainer const& destination,
     std::string_view const& message) const
 {
     std::scoped_lock lock(m_endpointsMutex);
@@ -214,8 +213,8 @@ bool CBryptPeer::ScheduleSend(
         itr != m_endpoints.end()) {
         auto const& [identifier, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
-        if (scheduler) {
-            return scheduler(destination, message);
+        if (m_spBryptIdentifier && scheduler) {
+            return scheduler(*m_spBryptIdentifier, message);
         }
     }
 

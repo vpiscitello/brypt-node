@@ -61,7 +61,6 @@ public:
     
     bool ScheduleSend(
         CMessageContext const& context,
-        BryptIdentifier::CContainer const& destination,
         std::string_view const& message) const;
 
     bool ScheduleReceive(

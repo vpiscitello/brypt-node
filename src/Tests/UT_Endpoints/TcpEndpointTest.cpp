@@ -90,9 +90,7 @@ TEST(CTcpSuite, SingleConnectionTest)
     
     if (auto const spConnectRequestPeer = wpConnectRequestPeer.lock(); spConnectRequestPeer) {
         spConnectRequestPeer->ScheduleSend(
-            optConnectResponse->GetMessageContext(),
-            *test::spClientIdentifier,
-            optConnectResponse->GetPack());
+            optConnectResponse->GetMessageContext(), optConnectResponse->GetPack());
     }
 
     // Wait a period of time to ensure the message has connect response has been sent and received. 
@@ -114,9 +112,7 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     if (auto const spConnectResponsePeer = wpConnectResponsePeer.lock(); spConnectResponsePeer) {
         spConnectResponsePeer->ScheduleSend(
-            optElectionRequest->GetMessageContext(),
-            *test::spServerIdentifier,
-            optElectionRequest->GetPack());
+            optElectionRequest->GetMessageContext(), optElectionRequest->GetPack());
     }
 
     // Wait a period of time to ensure the message has election request has been sent and received. 
@@ -137,9 +133,7 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     if (auto const spElectionRequestPeer = wpElectionRequestPeer.lock(); spElectionRequestPeer) {
         spElectionRequestPeer->ScheduleSend(
-            optElectionResponse->GetMessageContext(),
-            *test::spClientIdentifier,
-            optElectionResponse->GetPack());
+            optElectionResponse->GetMessageContext(), optElectionResponse->GetPack());
     }
 
     // Wait a period of time to ensure the message has election response has been sent and received. 

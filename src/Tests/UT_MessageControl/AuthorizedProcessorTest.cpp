@@ -101,7 +101,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {
         EXPECT_EQ(spClientRequestPeer, spClientPeer);
         spClientRequestPeer->ScheduleSend(
-            optResponse->GetMessageContext(), test::ClientIdentifier, optResponse->GetPack());
+            optResponse->GetMessageContext(), optResponse->GetPack());
     } else {
         ASSERT_FALSE(true);
     }
@@ -168,7 +168,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
         if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {
             EXPECT_EQ(spClientRequestPeer, spClientPeer);
             spClientRequestPeer->ScheduleSend(
-                optResponse->GetMessageContext(), test::ClientIdentifier, optResponse->GetPack());
+                optResponse->GetMessageContext(), optResponse->GetPack());
         } else {
             ASSERT_FALSE(true);
         }
