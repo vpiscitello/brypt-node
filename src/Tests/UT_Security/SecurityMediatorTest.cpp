@@ -19,6 +19,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+class CStrategyStub;
 class CMessageCollector;
 
 //------------------------------------------------------------------------------------------------
@@ -34,6 +35,40 @@ constexpr std::string_view const Message = "Hello World!";
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
+//------------------------------------------------------------------------------------------------
+
+class local::CStrategyStub : public ISecurityStrategy
+{
+public:
+    CStrategyStub();
+
+    virtual Security::Strategy GetStrategyType() const override;
+    virtual Security::Role GetRole() const override;
+
+    virtual std::uint32_t GetSynchronizationStages() const override;
+    virtual Security::SynchronizationStatus GetSynchronizationStatus() const override;
+    virtual Security::SynchronizationResult PrepareSynchronization() override;
+    virtual Security::SynchronizationResult Synchronize(Security::Buffer const&) override;
+
+    virtual Security::OptionalBuffer Encrypt(
+        Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
+    virtual Security::OptionalBuffer Decrypt(
+        Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
+
+    virtual std::uint32_t Sign(Security::Buffer&) const override;
+    virtual Security::VerificationStatus Verify(Security::Buffer const&) const override;
+
+private: 
+    virtual std::uint32_t Sign(
+        Security::Buffer const&, Security::Buffer&) const override;
+
+    virtual Security::OptionalBuffer GenerateSignature(
+        std::uint8_t const*,
+        std::uint32_t,
+        std::uint8_t const*,
+        std::uint32_t) const override;
+};
+
 //------------------------------------------------------------------------------------------------
 
 class local::CMessageCollector : public IMessageSink
@@ -64,9 +99,11 @@ private:
 
 TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 {
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        nullptr, std::weak_ptr<IMessageSink>());
+        std::move(upStrategyStub), std::weak_ptr<IMessageSink>());
+
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
     auto const optMessage = CHandshakeMessage::Builder()
@@ -89,9 +126,12 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 
 TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 {
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto spCollector = std::make_shared<local::CMessageCollector>();
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(nullptr, spCollector);
+    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+        std::move(upStrategyStub), spCollector);
+
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
     auto const optMessage = CHandshakeMessage::Builder()
@@ -119,9 +159,12 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 
 TEST(SecurityMediatorSuite, FailedExchangeTest)
 {
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto spCollector = std::make_shared<local::CMessageCollector>();
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(nullptr, spCollector);
+    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+        std::move(upStrategyStub), spCollector);
+
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
     auto const optMessage = CHandshakeMessage::Builder()
@@ -140,6 +183,110 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Unauthorized);
 
     EXPECT_FALSE(spBryptPeer->ScheduleReceive({}, pack));
+}
+
+//------------------------------------------------------------------------------------------------
+
+local::CStrategyStub::CStrategyStub()
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::Strategy local::CStrategyStub::GetStrategyType() const
+{
+    return Security::Strategy::Invalid;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::Role local::CStrategyStub::GetRole() const
+{
+    return Security::Role::Initiator;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t local::CStrategyStub::GetSynchronizationStages() const
+{
+    return 0;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::SynchronizationStatus local::CStrategyStub::GetSynchronizationStatus() const
+{
+    return Security::SynchronizationStatus::Processing;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::SynchronizationResult local::CStrategyStub::PrepareSynchronization()
+{
+    return { Security::SynchronizationStatus::Processing, {} };
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::SynchronizationResult local::CStrategyStub::Synchronize(Security::Buffer const&)
+{
+    return { Security::SynchronizationStatus::Processing, {} };
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::OptionalBuffer local::CStrategyStub::Encrypt(
+    [[maybe_unused]] Security::Buffer const&,
+    [[maybe_unused]] std::uint32_t,
+    [[maybe_unused]] std::uint64_t) const
+{
+    return {};
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::OptionalBuffer local::CStrategyStub::Decrypt(
+    [[maybe_unused]] Security::Buffer const&,
+    [[maybe_unused]] std::uint32_t,
+    [[maybe_unused]] std::uint64_t) const
+{
+    return {};
+}
+
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t local::CStrategyStub::Sign(
+    [[maybe_unused]] Security::Buffer&) const
+{
+    return 0;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::VerificationStatus local::CStrategyStub::Verify(
+    [[maybe_unused]] Security::Buffer const&) const
+{
+    return Security::VerificationStatus::Failed;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t local::CStrategyStub::Sign(
+    [[maybe_unused]] Security::Buffer const&, [[maybe_unused]] Security::Buffer&) const
+{
+    return 0;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::OptionalBuffer local::CStrategyStub::GenerateSignature(
+    [[maybe_unused]] std::uint8_t const*,
+    [[maybe_unused]] std::uint32_t,
+    [[maybe_unused]] std::uint8_t const*,
+    [[maybe_unused]] std::uint32_t) const
+{
+    return {};
 }
 
 //------------------------------------------------------------------------------------------------
