@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <utility>
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
@@ -28,7 +29,10 @@ class ISecurityStrategy;
 class CExchangeProcessor : public IMessageSink
 {
 public:
+    using PreparationResult = std::pair<bool, std::string>;
+
     CExchangeProcessor(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         IExchangeObserver* const pExchangeObserver,
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
 
@@ -43,10 +47,11 @@ public:
         CMessageContext const& context,
         Message::Buffer const& buffer) override;
     // }IMessageSink
+
+    PreparationResult Prepare();
     
 private:
-    enum class ProcessStage : std::uint8_t {
-        Invalidated, Initialization, KeySharing, Verification, Finalization };
+    enum class ProcessStage : std::uint8_t { Invalid, Synchronization };
 
     constexpr static TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
 
@@ -54,11 +59,16 @@ private:
         std::shared_ptr<CBryptPeer> const& spBryptPeer,
         CHandshakeMessage const& message);
 
+    bool HandleSynchronizationMessage(
+        std::shared_ptr<CBryptPeer> const& spBryptPeer,
+        CHandshakeMessage const& message);
+
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;
 
+    BryptIdentifier::SharedContainer const m_spBryptIdentifier;
     IExchangeObserver* const m_pExchangeObserver;
-    std::unique_ptr<ISecurityStrategy>&& m_upSecurityStrategy;
+    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 
 };
 
