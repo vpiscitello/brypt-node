@@ -3,7 +3,6 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "NISTSecurityLevelThree.hpp"
-#include "../ConnectDefinitions.hpp"
 #include "../SecurityUtils.hpp"
 #include "../../BryptMessage/PackUtils.hpp"
 #include "../../Utilities/TimeUtils.hpp"
