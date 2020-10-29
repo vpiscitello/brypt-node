@@ -3,6 +3,7 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "SecurityUtils.hpp"
+#include "PostQuantum/NISTSecurityLevelThree.hpp"
 //------------------------------------------------------------------------------------------------
 #ifndef __STDC_WANT_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1
@@ -22,6 +23,20 @@ Security::Strategy Security::ConvertToStrategy(std::underlying_type_t<Security::
         default: break;
     }
     return Security::Strategy::Invalid;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
+    Security::Strategy strategy, Security::Role role, Security::Context context)
+{
+    switch (strategy) {
+        case Security::Strategy::PQNISTL3: {
+            return std::make_unique<PQNISTL3::CStrategy>(role, context);
+        }
+        case Security::Strategy::Invalid: 
+        default: return nullptr;
+    }
 }
 
 //------------------------------------------------------------------------------------------------

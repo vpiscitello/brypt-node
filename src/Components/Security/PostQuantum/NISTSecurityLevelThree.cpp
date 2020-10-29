@@ -571,8 +571,9 @@ Security::VerificationStatus Security::PQNISTL3::CStrategy::Verify(Buffer const&
 
 void Security::PQNISTL3::CStrategy::InitializeApplicationContext()
 {
-    CStrategy::m_spSharedContext = std::make_shared<CContext>(
-        KeyEncapsulationSchme);
+    if (!m_spSharedContext) {
+        m_spSharedContext = std::make_shared<CContext>(KeyEncapsulationSchme);
+    }
 }
 
 //------------------------------------------------------------------------------------------------
