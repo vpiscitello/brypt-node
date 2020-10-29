@@ -135,7 +135,8 @@ public:
 
     // ISecurityStrategy {
     virtual Strategy GetStrategyType() const override;
-    virtual Role GetRole() const override;
+    virtual Role GetRoleType() const override;
+    virtual Context GetContextType() const override;
 
     virtual std::uint32_t GetSynchronizationStages() const override;
     virtual SynchronizationStatus GetSynchronizationStatus() const override;
@@ -184,6 +185,7 @@ private:
     SynchronizationResult HandleAcceptorVerification(Buffer const& buffer);
 
     Role m_role;
+    Context m_context;
     CSynchronizationTracker m_synchronization;
 
     static std::shared_ptr<CContext> m_spSharedContext;

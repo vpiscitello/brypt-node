@@ -280,6 +280,7 @@ bool Security::PQNISTL3::CSynchronizationTracker::ResetState()
 
 Security::PQNISTL3::CStrategy::CStrategy(Role role, Context context)
     : m_role(role)
+    , m_context(context)
     , m_synchronization()
     , m_spSessionContext()
     , m_kem(KeyEncapsulationSchme.data())
@@ -320,9 +321,16 @@ Security::Strategy Security::PQNISTL3::CStrategy::GetStrategyType() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::Role Security::PQNISTL3::CStrategy::GetRole() const
+Security::Role Security::PQNISTL3::CStrategy::GetRoleType() const
 {
     return m_role;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::Context Security::PQNISTL3::CStrategy::GetContextType() const
+{
+    return m_context;
 }
 
 //------------------------------------------------------------------------------------------------

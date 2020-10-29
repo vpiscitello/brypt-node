@@ -43,7 +43,8 @@ public:
     CStrategyStub();
 
     virtual Security::Strategy GetStrategyType() const override;
-    virtual Security::Role GetRole() const override;
+    virtual Security::Role GetRoleType() const override;
+    virtual Security::Context GetContextType() const override;
 
     virtual std::uint32_t GetSynchronizationStages() const override;
     virtual Security::SynchronizationStatus GetSynchronizationStatus() const override;
@@ -200,9 +201,16 @@ Security::Strategy local::CStrategyStub::GetStrategyType() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::Role local::CStrategyStub::GetRole() const
+Security::Role local::CStrategyStub::GetRoleType() const
 {
     return Security::Role::Initiator;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Security::Context local::CStrategyStub::GetContextType() const
+{
+    return Security::Context::Unique;
 }
 
 //------------------------------------------------------------------------------------------------
