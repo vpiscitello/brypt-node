@@ -1,9 +1,12 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/HandshakeMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../BryptMessage/MessageDefinitions.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
+#include "../../Components/Endpoints/EndpointIdentifier.hpp"
+#include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/Security/SecurityMediator.hpp"
 #include "../../Interfaces/ExchangeObserver.hpp"
 #include "../../Interfaces/MessageSink.hpp"
@@ -28,9 +31,16 @@ class CMessageCollector;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
+auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
+    
 constexpr std::string_view const Message = "Hello World!";
+
+constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
+constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+CMessageContext const MessageContext(EndpointIdentifier, EndpointTechnology);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -102,13 +112,13 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 {
     auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        std::move(upStrategyStub), std::weak_ptr<IMessageSink>());
+        test::ServerIdentifier, std::move(upStrategyStub), std::weak_ptr<IMessageSink>());
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
     auto const optMessage = CHandshakeMessage::Builder()
-        .SetSource(test::ServerIdentifier)
+        .SetSource(*test::ServerIdentifier)
         .SetData(test::Message)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -130,13 +140,13 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
     auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto spCollector = std::make_shared<local::CMessageCollector>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        std::move(upStrategyStub), spCollector);
+        test::ServerIdentifier, std::move(upStrategyStub), spCollector);
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
     auto const optMessage = CHandshakeMessage::Builder()
-        .SetSource(test::ServerIdentifier)
+        .SetSource(*test::ServerIdentifier)
         .SetData(test::Message)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -163,13 +173,13 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto spCollector = std::make_shared<local::CMessageCollector>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        std::move(upStrategyStub), spCollector);
+        test::ServerIdentifier, std::move(upStrategyStub), spCollector);
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
     auto const optMessage = CHandshakeMessage::Builder()
-        .SetSource(test::ServerIdentifier)
+        .SetSource(*test::ServerIdentifier)
         .SetData(test::Message)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -184,6 +194,93 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Unauthorized);
 
     EXPECT_FALSE(spBryptPeer->ScheduleReceive({}, pack));
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
+{
+    // Declare the server resoucres for the test. 
+    std::shared_ptr<CBryptPeer> spServerPeer;
+    std::unique_ptr<CSecurityMediator> upServerMediator;
+
+    // Declare the client resources for the test. 
+    std::shared_ptr<CBryptPeer> spClientPeer;
+    std::unique_ptr<CSecurityMediator> upClientMediator;
+
+    auto spCollector = std::make_shared<local::CMessageCollector>();
+
+    // Setup the client peer and its mediator
+    {
+        spClientPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
+        spClientPeer->RegisterEndpoint(
+            test::EndpointIdentifier,
+            test::EndpointTechnology,
+            [&spServerPeer] (
+                [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            {
+                EXPECT_TRUE(spServerPeer->ScheduleReceive(test::MessageContext, message));
+                return true;
+            });
+
+        upClientMediator = std::make_unique<CSecurityMediator>(
+            test::ServerIdentifier, Security::Context::Unique, spCollector);
+    }
+
+    // Setup an exchange through the mediator as the initiator.
+    auto const optRequest = upClientMediator->SetupExchangeInitiator(Security::Strategy::PQNISTL3);
+    ASSERT_TRUE(optRequest);
+    upClientMediator->Bind(spClientPeer); // Bind the client mediator to the client peer. 
+
+    // Setup the server peer and its mediator
+    {
+        spServerPeer = std::make_shared<CBryptPeer>(*test::ServerIdentifier);
+        spServerPeer->RegisterEndpoint(
+            test::EndpointIdentifier,
+            test::EndpointTechnology,
+            [&spClientPeer] (
+                [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            {
+                EXPECT_TRUE(spClientPeer->ScheduleReceive(test::MessageContext, message));
+                return true;
+            });
+
+        upServerMediator = std::make_unique<CSecurityMediator>(
+            test::ClientIdentifier, Security::Context::Unique, spCollector);
+    }
+
+    // Setup an exchange through the mediator as the acceptor. 
+    EXPECT_TRUE(upServerMediator->SetupExchangeAcceptor(Security::Strategy::PQNISTL3));
+    upServerMediator->Bind(spServerPeer); // Bind the server mediator to the server peer. 
+
+    EXPECT_TRUE(spServerPeer->ScheduleReceive(test::MessageContext, *optRequest));
+
+    EXPECT_EQ(upClientMediator->GetSecurityState(), Security::State::Authorized);
+    EXPECT_EQ(upServerMediator->GetSecurityState(), Security::State::Authorized);
+
+    auto const optApplicationRequest = CApplicationMessage::Builder()
+        .SetSource(*test::ClientIdentifier)
+        .SetDestination(*test::ServerIdentifier)
+        .SetCommand(Command::Type::Connect, 0)
+        .SetData(test::Message)
+        .ValidatedBuild();
+    ASSERT_TRUE(optApplicationRequest);
+
+    std::string const request = optApplicationRequest->GetPack();
+    EXPECT_TRUE(spClientPeer->ScheduleReceive(test::MessageContext, request));
+    EXPECT_EQ(spCollector->GetCollectedPack(), request);
+
+    auto const optApplicationResponse = CApplicationMessage::Builder()
+        .SetSource(*test::ClientIdentifier)
+        .SetDestination(*test::ServerIdentifier)
+        .SetCommand(Command::Type::Connect, 1)
+        .SetData(test::Message)
+        .ValidatedBuild();
+    ASSERT_TRUE(optApplicationResponse);
+
+    std::string const response = optApplicationResponse->GetPack();
+    EXPECT_TRUE(spServerPeer->ScheduleReceive(test::MessageContext, response));
+    EXPECT_EQ(spCollector->GetCollectedPack(), response);
 }
 
 //------------------------------------------------------------------------------------------------

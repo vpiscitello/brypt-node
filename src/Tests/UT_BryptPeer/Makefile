@@ -28,6 +28,7 @@ BRYPTMESSAGEDIR = ../../BryptMessage
 BRYPTPEERRDIR = ../../Components/BryptPeer
 MESSAGECONTROLDIR = ../../Components/MessageControl
 SECUIRTYDIR = ../../Components/Security
+SECURITYPOSTQUANTUMDIR = ../../Components/Security/PostQuantum
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
@@ -36,6 +37,7 @@ $(BRYPTMESSAGEDIR) \
 $(BRYPTPEERRDIR) \
 $(MESSAGECONTROLDIR) \
 $(SECUIRTYDIR) \
+$(SECURITYPOSTQUANTUMDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))

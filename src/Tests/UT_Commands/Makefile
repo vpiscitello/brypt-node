@@ -35,6 +35,7 @@ CONFIGURATIONDIR = ../../Configuration
 CONTROLDIR = ../../Components/Control
 MESSAGECONTROLDIR = ../../Components/MessageControl
 SECURITYDIR = ../../Components/Security
+SECURITYPOSTQUANTUMDIR = ../../Components/Security/PostQuantum
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
@@ -49,6 +50,7 @@ $(CONFIGURATIONDIR) \
 $(CONTROLDIR) \
 $(MESSAGECONTROLDIR) \
 $(SECURITYDIR) \
+$(SECURITYPOSTQUANTUMDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES), $(filter-out $(sdir)/main.cpp, $(wildcard $(sdir)/*.cpp)))

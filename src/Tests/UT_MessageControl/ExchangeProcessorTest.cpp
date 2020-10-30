@@ -6,6 +6,7 @@
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../Components/MessageControl/ExchangeProcessor.hpp"
 #include "../../Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
+#include "../../Components/Security/SecurityUtils.hpp"
 #include "../../Interfaces/ExchangeObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -96,8 +97,8 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
         upClientObserver = std::make_unique<local::CExchangeObserverStub>();
 
         // Setup a security strategy for the client processor. 
-        upClientStrategy = std::make_unique<Security::PQNISTL3::CStrategy>(
-                Security::Role::Initiator, Security::Context::Unique);
+        upClientStrategy = Security::CreateStrategy(
+            Security::Strategy::PQNISTL3, Security::Role::Initiator, Security::Context::Unique);
 
         // Setup the client processor. 
         upClientProcessor = std::make_unique<CExchangeProcessor>(
@@ -129,8 +130,8 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
         upServerObserver = std::make_unique<local::CExchangeObserverStub>();
 
         // Setup a security strategy for the server processor. 
-        upServerStrategy = std::make_unique<Security::PQNISTL3::CStrategy>(
-                Security::Role::Acceptor, Security::Context::Unique);
+        upServerStrategy = Security::CreateStrategy(
+            Security::Strategy::PQNISTL3, Security::Role::Acceptor, Security::Context::Unique);
 
         // Setup the server processor. 
         upServerProcessor = std::make_unique<CExchangeProcessor>(
