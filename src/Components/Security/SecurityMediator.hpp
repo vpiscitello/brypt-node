@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "SecurityDefinitions.hpp"
 #include "SecurityState.hpp"
 #include "../MessageControl/ExchangeProcessor.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
@@ -25,6 +26,12 @@ class CSecurityMediator : public IExchangeObserver
 {
 public:
     CSecurityMediator(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Security::Context context,
+        std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
+
+    CSecurityMediator(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
         std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
 
@@ -44,13 +51,16 @@ public:
 
     void Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer);
 
-private:
-    void PrepareExchange();
+    std::optional<std::string> SetupExchangeInitiator(Security::Strategy strategy);
+    bool SetupExchangeAcceptor(Security::Strategy strategy);
 
+private:
+    Security::Context m_context;
     Security::State m_state;
 
-    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
+    BryptIdentifier::SharedContainer m_spBryptIdentifier;
     std::shared_ptr<CBryptPeer> m_spBryptPeer;
+    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 
     std::unique_ptr<CExchangeProcessor> m_upExchangeProcessor;
     std::weak_ptr<IMessageSink> m_wpAuthorizedSink;

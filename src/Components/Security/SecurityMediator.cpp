@@ -3,6 +3,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "SecurityMediator.hpp"
+#include "SecurityUtils.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../MessageControl/ExchangeProcessor.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
@@ -14,11 +15,30 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 CSecurityMediator::CSecurityMediator(
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Security::Context context,
+    std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
+    : m_context(context)
+    , m_state(Security::State::Unauthorized)
+    , m_spBryptIdentifier(spBryptIdentifier)
+    , m_spBryptPeer()
+    , m_upSecurityStrategy()
+    , m_upExchangeProcessor()
+    , m_wpAuthorizedSink(wpAuthorizedSink)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+CSecurityMediator::CSecurityMediator(
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
     std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
-    : m_state(Security::State::Unauthorized)
-    , m_upSecurityStrategy(std::move(upSecurityStrategy))
+    : m_context(upSecurityStrategy->GetContextType())
+    , m_state(Security::State::Unauthorized)
+    , m_spBryptIdentifier(spBryptIdentifier)
     , m_spBryptPeer()
+    , m_upSecurityStrategy(std::move(upSecurityStrategy))
     , m_upExchangeProcessor()
     , m_wpAuthorizedSink(wpAuthorizedSink)
 {
@@ -80,6 +100,10 @@ Security::State CSecurityMediator::GetSecurityState() const
 
 void CSecurityMediator::Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 {
+    if (!m_upSecurityStrategy && !m_upExchangeProcessor) {
+        throw std::runtime_error("The Security Mediator has not been setup with a security strategy!");
+    }
+
     // We must be provided a peer to track. 
     if (!spBryptPeer) {
         return; 
@@ -89,23 +113,73 @@ void CSecurityMediator::Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer)
         throw std::runtime_error("The Security Mediator may only be bound to a Brypt Peer once!");
     }
 
-    // Capture the peer that has attached us. 
-    m_spBryptPeer = spBryptPeer;
+    // Make an exchange processor, if one does not exist. This should only be called in test cases
+    // where the security strategy has been provided to us manually. Otherwise, it is expected
+    // that the caller has first called the appriopiate exchange setup method. 
+    if (!m_upExchangeProcessor) {
+        m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
+            spBryptPeer->GetBryptIdentifier(), this, std::move(m_upSecurityStrategy));
+    }
 
-    // Now that we have been attached to a peer, the peer must be prepared for a key exchange.
-    PrepareExchange();
+    // Set the receiver for the provided peer to the exchange processor. 
+    spBryptPeer->SetReceiver(m_upExchangeProcessor.get());
+
+    // Capture the bound peer in order to manage the security process and to ensure the bind 
+    // method is not called multuple times. 
+    m_spBryptPeer = spBryptPeer; 
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityMediator::PrepareExchange()
+std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(Security::Strategy strategy)
 {
-    assert(m_spBryptPeer);  // This function should only be called if a peer has been attached. 
+    // This function should only be called when first creating the mediator, another method 
+    // should be used to resynchronize.
+    if (m_upSecurityStrategy) {
+        return {};
+    }
+
+    // Make a security strategy with the initial role of an initiator.
+    m_upSecurityStrategy = Security::CreateStrategy(strategy, Security::Role::Initiator, m_context);
+
     // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
     // processor will use the security strategy to negiotiate keys and initialize its state.
     m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-        this, std::move(m_upSecurityStrategy));
-    m_spBryptPeer->SetReceiver(m_upExchangeProcessor.get());
+        m_spBryptIdentifier, this, std::move(m_upSecurityStrategy));
+
+    auto const [success, request] = m_upExchangeProcessor->Prepare();
+    if (!success) {
+        return {};
+    }
+
+    // Provide the caller the exchange request to be sent to the peer. 
+    return request;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CSecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
+{
+    // This function should only be called when first creating the mediator, another method 
+    // should be used to resynchronize.
+    if (m_upSecurityStrategy) {
+        return false;
+    }
+
+    // Make a security strategy with the initial role of an acceptor.
+    m_upSecurityStrategy = Security::CreateStrategy(strategy, Security::Role::Acceptor, m_context);
+
+    // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
+    // processor will use the security strategy to negiotiate keys and initialize its state.
+    m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
+        m_spBryptIdentifier, this, std::move(m_upSecurityStrategy));
+
+    auto const [success, request] = m_upExchangeProcessor->Prepare();
+    if (!success) {
+        return false;
+    }
+
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
