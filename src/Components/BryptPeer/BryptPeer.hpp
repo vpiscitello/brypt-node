@@ -8,6 +8,7 @@
 #include "../Endpoints/EndpointIdentifier.hpp"
 #include "../Endpoints/MessageScheduler.hpp"
 #include "../Endpoints/TechnologyType.hpp"
+#include "../Security/SecurityState.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../BryptMessage/MessageTypes.hpp"
@@ -58,6 +59,9 @@ public:
     std::uint32_t RegisteredEndpointCount() const;
 
     void AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator);
+    Security::State GetSecurityState() const;
+    bool IsFlagged() const;
+    bool IsAuthorized() const;
     
     bool ScheduleSend(
         CMessageContext const& context,

@@ -204,6 +204,36 @@ void CBryptPeer::AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upS
 
 //------------------------------------------------------------------------------------------------
 
+Security::State CBryptPeer::GetSecurityState() const
+{
+    if (m_upSecurityMediator) {
+        return m_upSecurityMediator->GetSecurityState();
+    }
+    return Security::State::Unauthorized;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::IsFlagged() const
+{
+    if (m_upSecurityMediator) {
+        return (m_upSecurityMediator->GetSecurityState() == Security::State::Flagged);
+    }
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::IsAuthorized() const
+{
+    if (m_upSecurityMediator) {
+        return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);
+    }
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
 bool CBryptPeer::ScheduleSend(
     CMessageContext const& context,
     std::string_view const& message) const
