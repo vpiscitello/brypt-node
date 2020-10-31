@@ -28,8 +28,11 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
+    virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) override;
+
     virtual std::shared_ptr<CBryptPeer> LinkPeer(
-        BryptIdentifier::CContainer const& identifier) override;
+        BryptIdentifier::CContainer const& identifier,
+        std::string_view uri = "") override;
 
     virtual void DispatchPeerStateChange(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,

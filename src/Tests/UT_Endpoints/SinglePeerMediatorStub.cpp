@@ -26,8 +26,17 @@ void CSinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* 
 
 //------------------------------------------------------------------------------------------------
 
+CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvingPeer(
+    [[maybe_unused]] std::string_view uri)
+{
+    return "";
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::shared_ptr<CBryptPeer> CSinglePeerMediatorStub::LinkPeer(
-    BryptIdentifier::CContainer const& identifier)
+    BryptIdentifier::CContainer const& identifier,
+    [[maybe_unused]] std::string_view uri)
 {
     m_spBryptPeer = std::make_shared<CBryptPeer>(identifier, this);
     m_spBryptPeer->SetReceiver(m_pMessageSink);
@@ -42,7 +51,6 @@ void CSinglePeerMediatorStub::DispatchPeerStateChange(
     [[maybe_unused]] Endpoints::TechnologyType technology,
     [[maybe_unused]] ConnectionState change)
 {
-
 }
 
 //------------------------------------------------------------------------------------------------
