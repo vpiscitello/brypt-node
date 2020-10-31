@@ -5,6 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
+#include "../Security/SecurityMediator.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../Interfaces/PeerCache.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
@@ -26,15 +27,19 @@ class IPeerObserver;
 class CPeerManager : public IPeerMediator, public IPeerCache
 {
 public:
-    explicit CPeerManager(
-        std::weak_ptr<IMessageSink> const& wpMessageProcessor = {});
+    CPeerManager(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        std::weak_ptr<IMessageSink> const& wpPromotedProcessor = {});
 
     // IPeerMediator {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
+    virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) override;
+
     virtual std::shared_ptr<CBryptPeer> LinkPeer(
-        BryptIdentifier::CContainer const& identifier) override;
+        BryptIdentifier::CContainer const& identifier,
+        std::string_view uri = "") override;
 
     virtual void DispatchPeerStateChange(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
@@ -64,6 +69,8 @@ private:
                     BryptIdentifier::Internal::Type,
                     &CBryptPeer::GetInternalIdentifier>>>>;
 
+    using ResolvingPeerMap = std::unordered_map<std::string, std::unique_ptr<CSecurityMediator>>;
+
     std::uint32_t PeerCount(Filter filter) const;
 
     template<typename FunctionType, typename...Args>
@@ -72,13 +79,18 @@ private:
     template<typename FunctionType, typename...Args>
     void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
+    BryptIdentifier::SharedContainer m_spBryptIdentifier;
+    
+    mutable std::mutex m_observersMutex;
+    ObserverSet m_observers;
+
     mutable std::shared_mutex m_peersMutex;
     PeerTrackingMap m_peers;
 
-    mutable std::mutex m_observersMutex;
-    ObserverSet m_observers;
+    mutable std::recursive_mutex m_resolvingMutex;
+    ResolvingPeerMap m_resolving;
     
-    std::weak_ptr<IMessageSink> const m_wpMessageProcessor;
+    std::weak_ptr<IMessageSink> const m_wpPromotedProcessor;
 
 };
 
