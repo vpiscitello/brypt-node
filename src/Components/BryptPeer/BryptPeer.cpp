@@ -16,10 +16,10 @@
 CBryptPeer::CBryptPeer(
     BryptIdentifier::CContainer const& identifier,
     IPeerMediator* const pPeerMediator)
-    : m_pPeerMediator(pPeerMediator)
+    : m_statistics()
+    , m_pPeerMediator(pPeerMediator)
     , m_dataMutex()
     , m_spBryptIdentifier()
-    , m_location()
     , m_mediatorMutex()
     , m_upSecurityMediator()
     , m_endpointsMutex()
@@ -47,6 +47,7 @@ CBryptPeer::~CBryptPeer()
 
 BryptIdentifier::SharedContainer CBryptPeer::GetBryptIdentifier() const
 {
+    std::scoped_lock lock(m_dataMutex);
     return m_spBryptIdentifier;
 }
 
@@ -54,24 +55,25 @@ BryptIdentifier::SharedContainer CBryptPeer::GetBryptIdentifier() const
 
 BryptIdentifier::Internal::Type CBryptPeer::GetInternalIdentifier() const
 {
+    std::scoped_lock lock(m_dataMutex);
     assert(m_spBryptIdentifier);
     return m_spBryptIdentifier->GetInternalRepresentation();
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::string CBryptPeer::GetLocation() const
+std::uint32_t CBryptPeer::GetSentCount() const
 {
     std::scoped_lock lock(m_dataMutex);
-    return m_location;
+    return m_statistics.GetSentCount();
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CBryptPeer::SetLocation(std::string_view location)
+std::uint32_t CBryptPeer::GetReceivedCount() const
 {
     std::scoped_lock lock(m_dataMutex);
-    m_location = location;
+    return m_statistics.GetReceivedCount();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -84,10 +86,61 @@ void CBryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsActive() const
+bool CBryptPeer::ScheduleReceive(CMessageContext const& context, std::string_view const& buffer)
 {
+    {
+        std::scoped_lock lock(m_dataMutex);
+        m_statistics.IncrementReceivedCount();
+    }
+
+    // Forward the message through the message sink/
+    std::scoped_lock lock(m_receiverMutex);
+    if (m_pMessageSink) {
+        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+    }
+
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::ScheduleReceive(CMessageContext const& context, Message::Buffer const& buffer)
+{
+    {
+        std::scoped_lock lock(m_dataMutex);
+        m_statistics.IncrementReceivedCount();
+    }
+
+    // Forward the message through the message sink
+    std::scoped_lock lock(m_receiverMutex);
+    if (m_pMessageSink) {
+        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+    }
+
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::ScheduleSend(
+    CMessageContext const& context, std::string_view const& message) const
+{
+    {
+        std::scoped_lock lock(m_dataMutex);
+        m_statistics.IncrementSentCount();
+    }
+
     std::scoped_lock lock(m_endpointsMutex);
-    return (m_endpoints.size() != 0);
+    if (auto const itr = m_endpoints.find(context.GetEndpointIdentifier());
+        itr != m_endpoints.end()) {
+        auto const& [identifier, endpoint] = *itr;
+        auto const& scheduler = endpoint.GetScheduler();
+        if (m_spBryptIdentifier && scheduler) {
+            return scheduler(*m_spBryptIdentifier, message);
+        }
+    }
+
+    return false;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -138,8 +191,7 @@ void CBryptPeer::RegisterEndpoint(
 //------------------------------------------------------------------------------------------------
 
 void CBryptPeer::WithdrawEndpoint(
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology)
+    Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -152,6 +204,14 @@ void CBryptPeer::WithdrawEndpoint(
         m_pPeerMediator->DispatchPeerStateChange(
             weak_from_this(), identifier, technology, ConnectionState::Disconnected);
     }
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CBryptPeer::IsActive() const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    return (m_endpoints.size() != 0);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -228,49 +288,6 @@ bool CBryptPeer::IsAuthorized() const
 {
     if (m_upSecurityMediator) {
         return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);
-    }
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-bool CBryptPeer::ScheduleSend(
-    CMessageContext const& context,
-    std::string_view const& message) const
-{
-    std::scoped_lock lock(m_endpointsMutex);
-    if (auto const itr = m_endpoints.find(context.GetEndpointIdentifier());
-        itr != m_endpoints.end()) {
-        auto const& [identifier, endpoint] = *itr;
-        auto const& scheduler = endpoint.GetScheduler();
-        if (m_spBryptIdentifier && scheduler) {
-            return scheduler(*m_spBryptIdentifier, message);
-        }
-    }
-
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-bool CBryptPeer::ScheduleReceive(
-    CMessageContext const& context, std::string_view const& buffer)
-{
-    std::scoped_lock lock(m_receiverMutex);
-    if (m_pMessageSink) {
-        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
-    }
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-bool CBryptPeer::ScheduleReceive(
-    CMessageContext const& context, Message::Buffer const& buffer)
-{
-    std::scoped_lock lock(m_receiverMutex);
-    if (m_pMessageSink) {
-        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
     }
     return false;
 }
