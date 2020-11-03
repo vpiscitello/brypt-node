@@ -28,6 +28,7 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 CPeerManager::CPeerManager(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    IConnectProtocol const* const pConnectProtocol,
     std::weak_ptr<IMessageSink> const& wpPromotedProcessor)
     : m_spBryptIdentifier(spBryptIdentifier)
     , m_observersMutex()
@@ -36,6 +37,7 @@ CPeerManager::CPeerManager(
     , m_peers()
     , m_resolvingMutex()
     , m_resolving()
+    , m_pConnectProtocol(pConnectProtocol)
     , m_wpPromotedProcessor(wpPromotedProcessor)
 {
 }
@@ -60,15 +62,20 @@ void CPeerManager::UnpublishObserver(IPeerObserver* const observer)
 
 CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_view uri)
 {
-    // Disallow endpoints from connecting to the same uri. 
+    // Disallow endpoints from connecting to the same uri. The endpoint should only declare a 
+    // a connection once. If it has connection retry logic, the endpoint should store the 
+    // connection request message 
     if (auto const itr = m_resolving.find(uri.data()); itr != m_resolving.end()) {
         return {};
     }
 
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
+        m_spBryptIdentifier,
+        Security::Context::Unique,
+        m_wpPromotedProcessor);
 
-    auto const optRequest = upSecurityMediator->SetupExchangeInitiator(Security::Strategy::PQNISTL3);
+    auto const optRequest = upSecurityMediator->SetupExchangeInitiator(
+        Security::Strategy::PQNISTL3, m_pConnectProtocol);
     
     // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
     // to the full BryptPeer

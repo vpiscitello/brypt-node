@@ -9,10 +9,9 @@
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../BryptMessage/MessageUtils.hpp"
 #include "../../BryptMessage/PackUtils.hpp"
+#include "../../Interfaces/ConnectProtocol.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
 #include "../Security/PostQuantum/NISTSecurityLevelThree.hpp"
-//------------------------------------------------------------------------------------------------
-#include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -32,11 +31,13 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 CExchangeProcessor::CExchangeProcessor(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    IConnectProtocol const* const pConnectProtocol,
     IExchangeObserver* const pExchangeObserver,
     std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
     : m_stage(ProcessStage::Synchronization)
     , m_expiration(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
     , m_spBryptIdentifier(spBryptIdentifier)
+    , m_pConnectProtocol(pConnectProtocol)
     , m_pExchangeObserver(pExchangeObserver)
     , m_upSecurityStrategy(std::move(upSecurityStrategy))
 {
@@ -144,13 +145,22 @@ bool CExchangeProcessor::HandleMessage(
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
-            return HandleSynchronizationMessage(spBryptPeer, message);
-        } break;
-        case ProcessStage::Invalid: return false;
-        default: assert(false); break; // What is this?
+            // If the message handling succeeded, break out of the switch statement. Otherwise,
+            // fallthrough to the error handler. 
+            if (HandleSynchronizationMessage(spBryptPeer, message)) {
+                break;
+            }
+        } [[fallthrough]];
+        case ProcessStage::Invalid:
+        default: {
+            if (m_pExchangeObserver) {
+                m_pExchangeObserver->HandleExchangeClose(ExchangeStatus::Failed);
+            }
+            return false;
+        }
     }
 
-    return false;
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -175,12 +185,14 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
         return false;
     }
 
+    CMessageContext const& context = message.GetMessageContext();
+
     // If synchronization indicated an additional message needs to be transmitted, build 
     // the response and send it through the peer. 
     if (buffer.size() != 0) {
         // Build a response to the message from the synchronization result of the strategy. 
         auto const optResponse = CHandshakeMessage::Builder()
-            .SetMessageContext(message.GetMessageContext())
+            .SetMessageContext(context)
             .SetSource(*m_spBryptIdentifier)
             .SetDestination(message.GetSourceIdentifier())
             .SetData(buffer)
@@ -188,13 +200,22 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
         assert(optResponse);
 
         // Send the exchange message to the peer. 
-        spBryptPeer->ScheduleSend(message.GetMessageContext(), optResponse->GetPack());
+        spBryptPeer->ScheduleSend(context, optResponse->GetPack());
     }
 
     switch (status) {
         // If the synchronization indicated it has completed, notify the observer that 
         // key sharing has completed and application messages can now be completed. 
         case Security::SynchronizationStatus::Ready: {
+            // If we do not interface defining the application connection protocol or if
+            // that protocol fails, return an error
+            if (m_pConnectProtocol && !m_pConnectProtocol->SendRequest(
+                m_spBryptIdentifier, spBryptPeer, context)) {
+                    return false;
+            }
+
+            // If there is an excnage observer, notify the observe that the exchange has 
+            // successfully completed and provide it the prepared security strategy. 
             if (m_pExchangeObserver) {
                 m_pExchangeObserver->HandleExchangeClose(
                     ExchangeStatus::Success, std::move(m_upSecurityStrategy));

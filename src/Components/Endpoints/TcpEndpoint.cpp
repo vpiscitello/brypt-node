@@ -4,7 +4,6 @@
 //------------------------------------------------------------------------------------------------
 #include "TcpEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../Command/CommandDefinitions.hpp"
@@ -509,6 +508,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
 
     socketAddress.sin_family = AF_INET;
     socketAddress.sin_port = htons(port);
+
     // Convert IPv4 and IPv6 addresses from text to binary form
     if (::inet_pton(AF_INET, address.c_str(), &socketAddress.sin_addr) <= 0) {
         return ConnectStatusCode::GenericError;
@@ -519,7 +519,21 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
         return ConnectStatusCode::GenericError;
     }
 
-    if (auto const status = EstablishConnection(descriptor, socketAddress);
+    if (m_pPeerMediator) {
+        return ConnectStatusCode::GenericError;
+    }
+
+    // Get the connection request message from the peer mediator. If we have not been given 
+    // an expected identifier declare a new peer using the peer's URI. Otherwise, declare 
+    // the resolving peer using the expected identifier. If the peer is known through the 
+    // identifier, the mediator will provide us a short circuit handshake request.
+    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(uri);
+
+    if (!optConnectionRequest) {
+        return ConnectStatusCode::GenericError;
+    }
+
+    if (auto const status = EstablishConnection(descriptor, socketAddress, *optConnectionRequest);
         status != ConnectStatusCode::Success) {
         return status;
     }
@@ -568,8 +582,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::IsURIAllowed
 // Description:
 //------------------------------------------------------------------------------------------------
 Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishConnection(
-    SocketDescriptor descriptor, 
-    IPv4SocketAddress address)
+    SocketDescriptor descriptor, IPv4SocketAddress address, std::string_view request)
 {
     std::uint32_t attempts = 0;
     socklen_t size = SocketAddressSize;
@@ -596,9 +609,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishCon
         }
     }
 
-    auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
-    auto const result = PeerBootstrap::SendContactMessage(
-        m_pEndpointMediator, m_identifier, m_technology, m_spBryptIdentifier, sender);
+    auto const result = Send(descriptor, request);
     if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
         return ConnectStatusCode::GenericError;
     }

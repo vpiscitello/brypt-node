@@ -18,6 +18,7 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
+class IConnectProtocol;
 class IMessageSink;
 class IPeerObserver;
 
@@ -29,6 +30,7 @@ class CPeerManager : public IPeerMediator, public IPeerCache
 public:
     CPeerManager(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        IConnectProtocol const* const pConnectProtocol,
         std::weak_ptr<IMessageSink> const& wpPromotedProcessor = {});
 
     // IPeerMediator {
@@ -90,6 +92,7 @@ private:
     mutable std::recursive_mutex m_resolvingMutex;
     ResolvingPeerMap m_resolving;
     
+    IConnectProtocol const* const m_pConnectProtocol;
     std::weak_ptr<IMessageSink> const m_wpPromotedProcessor;
 
 };

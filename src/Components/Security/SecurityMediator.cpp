@@ -6,6 +6,7 @@
 #include "SecurityUtils.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../MessageControl/ExchangeProcessor.hpp"
+#include "../../Interfaces/ConnectProtocol.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -118,7 +119,7 @@ void CSecurityMediator::Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer)
     // that the caller has first called the appriopiate exchange setup method. 
     if (!m_upExchangeProcessor) {
         m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-            spBryptPeer->GetBryptIdentifier(), this, std::move(m_upSecurityStrategy));
+            spBryptPeer->GetBryptIdentifier(), nullptr, this, std::move(m_upSecurityStrategy));
     }
 
     // Set the receiver for the provided peer to the exchange processor. 
@@ -131,7 +132,9 @@ void CSecurityMediator::Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(Security::Strategy strategy)
+std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(
+    Security::Strategy strategy,
+    IConnectProtocol const* const pConnectProtocol)
 {
     // This function should only be called when first creating the mediator, another method 
     // should be used to resynchronize.
@@ -145,7 +148,7 @@ std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(Security::S
     // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
     // processor will use the security strategy to negiotiate keys and initialize its state.
     m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-        m_spBryptIdentifier, this, std::move(m_upSecurityStrategy));
+        m_spBryptIdentifier, pConnectProtocol, this, std::move(m_upSecurityStrategy));
 
     auto const [success, request] = m_upExchangeProcessor->Prepare();
     if (!success) {
@@ -172,7 +175,7 @@ bool CSecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
     // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
     // processor will use the security strategy to negiotiate keys and initialize its state.
     m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-        m_spBryptIdentifier, this, std::move(m_upSecurityStrategy));
+        m_spBryptIdentifier, nullptr, this, std::move(m_upSecurityStrategy));
 
     auto const [success, request] = m_upExchangeProcessor->Prepare();
     if (!success) {

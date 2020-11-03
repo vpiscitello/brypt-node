@@ -15,6 +15,7 @@
 
 class CBryptPeer;
 class CExchangeProcessor;
+class IConnectProtocol;
 class ISecurityStrategy;
 
 //------------------------------------------------------------------------------------------------
@@ -51,7 +52,9 @@ public:
 
     void Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer);
 
-    std::optional<std::string> SetupExchangeInitiator(Security::Strategy strategy);
+    std::optional<std::string> SetupExchangeInitiator(
+        Security::Strategy strategy,
+        IConnectProtocol const* const pConnectProtocol);
     bool SetupExchangeAcceptor(Security::Strategy strategy);
 
 private:

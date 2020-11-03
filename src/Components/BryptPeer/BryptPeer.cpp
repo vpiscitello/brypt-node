@@ -16,10 +16,10 @@
 CBryptPeer::CBryptPeer(
     BryptIdentifier::CContainer const& identifier,
     IPeerMediator* const pPeerMediator)
-    : m_statistics()
-    , m_pPeerMediator(pPeerMediator)
+    : m_pPeerMediator(pPeerMediator)
     , m_dataMutex()
     , m_spBryptIdentifier()
+    , m_statistics()
     , m_mediatorMutex()
     , m_upSecurityMediator()
     , m_endpointsMutex()

@@ -19,6 +19,7 @@
 
 class CBryptPeer;
 class CHandshakeMessage;
+class IConnectProtocol;
 class ISecurityStrategy;
 
 //------------------------------------------------------------------------------------------------
@@ -33,6 +34,7 @@ public:
 
     CExchangeProcessor(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        IConnectProtocol const* const pConnectProtocol,
         IExchangeObserver* const pExchangeObserver,
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
 
@@ -67,6 +69,7 @@ private:
     TimeUtils::Timepoint const m_expiration;
 
     BryptIdentifier::SharedContainer const m_spBryptIdentifier;
+    IConnectProtocol const* const m_pConnectProtocol;
     IExchangeObserver* const m_pExchangeObserver;
     std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 

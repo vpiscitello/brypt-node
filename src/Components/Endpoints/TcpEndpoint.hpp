@@ -60,7 +60,8 @@ struct Tcp::TOutgoingMessageEvent {
         , message(message)
         , retries(retries)
     {
-    };
+    }
+
     std::int32_t descriptor;
     std::string message;
     std::uint8_t retries;
@@ -144,7 +145,7 @@ private:
         IPv4SocketAddress& socketAddress);
     ConnectStatusCode IsURIAllowed(std::string_view uri);
     ConnectStatusCode EstablishConnection(
-        SocketDescriptor descriptor, IPv4SocketAddress address);
+        SocketDescriptor descriptor, IPv4SocketAddress address, std::string_view request);
 
     void ProcessNetworkInstructions(SocketDescriptor* listener = nullptr);
 
