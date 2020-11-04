@@ -22,7 +22,9 @@ class CBryptPeer;
 class CSinglePeerMediatorStub : public IPeerMediator
 {
 public:
-    CSinglePeerMediatorStub(IMessageSink* const pMessageSink);
+    CSinglePeerMediatorStub(
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        IMessageSink* const pMessageSink);
 
     // IPeerMediator {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
@@ -42,6 +44,7 @@ public:
     // } IPeerMediator
 
 private:
+    BryptIdentifier::SharedContainer m_spBryptIdentifier;
     std::shared_ptr<CBryptPeer> m_spBryptPeer;
     IMessageSink* const m_pMessageSink;
 

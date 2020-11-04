@@ -3,11 +3,17 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "SinglePeerMediatorStub.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cassert>
+//------------------------------------------------------------------------------------------------
 
-CSinglePeerMediatorStub::CSinglePeerMediatorStub(IMessageSink* const pMessageSink)
-    : m_spBryptPeer()
+CSinglePeerMediatorStub::CSinglePeerMediatorStub(
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    IMessageSink* const pMessageSink)
+    : m_spBryptIdentifier(spBryptIdentifier)
+    , m_spBryptPeer()
     , m_pMessageSink(pMessageSink)
 {
 }
@@ -29,7 +35,14 @@ void CSinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* 
 CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvingPeer(
     [[maybe_unused]] std::string_view uri)
 {
-    return "";
+    auto const optConnectRequest = CApplicationMessage::Builder()
+        .SetSource(*m_spBryptIdentifier)
+        .SetCommand(Command::Type::Connect, 0)
+        .SetData("Connection Request")
+        .ValidatedBuild();
+    assert(optConnectRequest);
+
+    return optConnectRequest->GetPack();
 }
 
 //------------------------------------------------------------------------------------------------

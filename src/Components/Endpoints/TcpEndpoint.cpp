@@ -519,7 +519,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
         return ConnectStatusCode::GenericError;
     }
 
-    if (m_pPeerMediator) {
+    if (!m_pPeerMediator) {
         return ConnectStatusCode::GenericError;
     }
 

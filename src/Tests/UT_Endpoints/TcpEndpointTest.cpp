@@ -34,9 +34,9 @@ std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpClient(
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-auto const spClientIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
+auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
     BryptIdentifier::Generate());
 
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
@@ -56,8 +56,8 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     // Create stub peer mediators for the server and client endpoints. Each will store a single 
     // peer for the endpoint and set the peer's receiver to the stub collector. 
-    CSinglePeerMediatorStub serverMediator(&collector);
-    CSinglePeerMediatorStub clientMediator(&collector);
+    CSinglePeerMediatorStub serverMediator(test::ServerIdentifier, &collector);
+    CSinglePeerMediatorStub clientMediator(test::ClientIdentifier, &collector);
 
     // Make the server endpoint
     auto upServer = local::MakeTcpServer(&serverMediator);
@@ -82,8 +82,8 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     auto const optConnectResponse = CApplicationMessage::Builder()
         .SetMessageContext(connectRequest.GetMessageContext())
-        .SetSource(*test::spServerIdentifier)
-        .SetDestination(*test::spClientIdentifier)
+        .SetSource(*test::ServerIdentifier)
+        .SetDestination(*test::ClientIdentifier)
         .SetCommand(Command::Type::Connect, 1)
         .SetData("Connection Approved")
         .ValidatedBuild();
@@ -104,8 +104,8 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     auto const optElectionRequest = CApplicationMessage::Builder()
         .SetMessageContext(connectResponse.GetMessageContext())
-        .SetSource(*test::spClientIdentifier)
-        .SetDestination(*test::spServerIdentifier)
+        .SetSource(*test::ClientIdentifier)
+        .SetDestination(*test::ServerIdentifier)
         .SetCommand(Command::Type::Election, 0)
         .SetData("Hello World!")
         .ValidatedBuild();
@@ -125,8 +125,8 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     auto const optElectionResponse = CApplicationMessage::Builder()
         .SetMessageContext(electionRequest.GetMessageContext())
-        .SetSource(*test::spServerIdentifier)
-        .SetDestination(*test::spClientIdentifier)
+        .SetSource(*test::ServerIdentifier)
+        .SetDestination(*test::ClientIdentifier)
         .SetCommand(Command::Type::Election, 1)
         .SetData("Re: Hello World!")
         .ValidatedBuild();
@@ -151,7 +151,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
     IPeerMediator* const mediator)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
-        test::spServerIdentifier,
+        test::ServerIdentifier,
         test::Interface,
         Endpoints::OperationType::Server,
         nullptr,
@@ -164,7 +164,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
     IPeerMediator* const mediator)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
-        test::spClientIdentifier,
+        test::ClientIdentifier,
         test::Interface,
         Endpoints::OperationType::Client,
         nullptr,
