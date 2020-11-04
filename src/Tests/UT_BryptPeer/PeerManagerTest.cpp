@@ -1,11 +1,13 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../Components/BryptPeer/PeerManager.hpp"
 #include "../../Components/Endpoints/ConnectionState.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
+#include "../../Interfaces/ConnectProtocol.hpp"
 #include "../../Interfaces/PeerMediator.hpp"
 #include "../../Interfaces/PeerObserver.hpp"
 //------------------------------------------------------------------------------------------------
@@ -22,6 +24,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+class CConnectProtocolStub;
 class CPeerObserverStub;
 class CMessageCollector;
 
@@ -31,15 +34,39 @@ class CMessageCollector;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
+auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+    BryptIdentifier::Generate());
 auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
     BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
 
 constexpr std::string_view ServerEntry = "127.0.0.1:35216";
+
+constexpr std::string_view const ConnectMessage = "Connection Request";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
+//------------------------------------------------------------------------------------------------
+
+class local::CConnectProtocolStub : public IConnectProtocol
+{
+public:
+    CConnectProtocolStub();
+
+    // IConnectProtocol {
+    virtual bool SendRequest(
+        BryptIdentifier::SharedContainer const& spSourceIdentifier,
+        std::shared_ptr<CBryptPeer> const& spBryptPeer,
+        CMessageContext const& context) const override;
+    // } IConnectProtocol 
+
+    bool CalledOnce() const;
+
+private:
+    mutable std::uint32_t m_count;
+
+};
+
 //------------------------------------------------------------------------------------------------
 
 class local::CPeerObserverStub : public IPeerObserver
@@ -121,13 +148,14 @@ public:
         CMessageContext const& context,
         Message::Buffer const& buffer) override;
     // }IMessageSink
+
 };
 
 //------------------------------------------------------------------------------------------------
 
 TEST(PeerManagerSuite, PeerDeclarationTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::ServerEntry);
@@ -139,7 +167,7 @@ TEST(PeerManagerSuite, PeerDeclarationTest)
 
 TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::ServerEntry);
@@ -154,14 +182,14 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::ServerEntry);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::uint32_t(0));
 
-    auto const spBryptPeer = manager.LinkPeer(test::ClientIdentifier, test::ServerEntry);
+    auto const spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, test::ServerEntry);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -179,10 +207,10 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
-    auto const spBryptPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto const spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -200,10 +228,10 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, ExistingPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
-    auto const spFirstPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -219,7 +247,7 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
     auto const loraIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
 
-    auto const spSecondPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto const spSecondPeer = manager.LinkPeer(*test::ClientIdentifier);
     spSecondPeer->RegisterEndpoint(
         loraIdentifier, Endpoints::TechnologyType::TCP, {}, "915:71");
 
@@ -234,10 +262,10 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
 
 TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
-    auto const spFirstPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -253,7 +281,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
     auto const loraIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
 
-    auto const spSecondPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto const spSecondPeer = manager.LinkPeer(*test::ClientIdentifier);
     spSecondPeer->RegisterEndpoint(
         loraIdentifier, Endpoints::TechnologyType::TCP, {}, "915:71");
 
@@ -262,7 +290,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::uint32_t(2));
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(1));
 
-    auto const spThirdPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto const spThirdPeer = manager.LinkPeer(*test::ClientIdentifier);
     spThirdPeer->RegisterEndpoint(
         loraIdentifier, Endpoints::TechnologyType::TCP, {}, "915:71");
 
@@ -276,10 +304,10 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 
 TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
-    auto spBryptPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -299,10 +327,10 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
-    auto spBryptPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -313,7 +341,7 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     ASSERT_TRUE(spBryptPeer);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(1));
 
-    manager.LinkPeer(test::ClientIdentifier);
+    manager.LinkPeer(*test::ClientIdentifier);
 
     auto const loraIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -336,8 +364,10 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerExchangeSetupTest)
 {
+    auto const upConnectProtocol = std::make_unique<local::CConnectProtocolStub>();
     auto const spMessageCollector = std::make_shared<local::CMessageCollector>();
-    CPeerManager manager(test::ServerIdentifier, spMessageCollector);
+
+    CPeerManager manager(test::ClientIdentifier, upConnectProtocol.get(), spMessageCollector);
     EXPECT_EQ(manager.ObservedPeerCount(), std::uint32_t(0));
 
     // Declare the client and server peers. 
@@ -352,7 +382,7 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     // Simulate the server receiving the connection request. 
-    spClientPeer = manager.LinkPeer(test::ClientIdentifier);
+    spClientPeer = manager.LinkPeer(*test::ClientIdentifier);
     EXPECT_FALSE(spClientPeer->IsAuthorized());
     EXPECT_FALSE(spClientPeer->IsFlagged());
     EXPECT_EQ(manager.ObservedPeerCount(), std::uint32_t(1));
@@ -373,7 +403,7 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
 
     // Simulate the server's endpoint registering itself to the given client peer. 
     spClientPeer->RegisterEndpoint(
-        clientEndpoint, Endpoints::TechnologyType::TCP,
+        clientContext.GetEndpointIdentifier(), clientContext.GetEndpointTechnology(),
         [&spServerPeer, &serverContext] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -390,7 +420,7 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
 
     // Simulate the clients's endpoint registering itself to the given server peer. 
     spServerPeer->RegisterEndpoint(
-        serverEndpoint, Endpoints::TechnologyType::TCP,
+        serverContext.GetEndpointIdentifier(), serverContext.GetEndpointTechnology(),
         [&spClientPeer, &clientContext] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -402,6 +432,7 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
     EXPECT_TRUE(spClientPeer->ScheduleReceive(clientContext, *optRequest));
 
     // Verify the results of the key exchange
+    EXPECT_TRUE(upConnectProtocol->CalledOnce());
     EXPECT_TRUE(spClientPeer->IsAuthorized());
     EXPECT_TRUE(spServerPeer->IsAuthorized());
 }
@@ -410,9 +441,9 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
 
 TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
 
-    auto spBryptPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
 
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
@@ -448,7 +479,7 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -516,7 +547,7 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, PeerCountTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -546,7 +577,7 @@ TEST(PeerManagerSuite, PeerCountTest)
 
 TEST(PeerManagerSuite, SingleObserverTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
     local::CPeerObserverStub observer(&manager);
 
     EXPECT_FALSE(observer.GetBryptPeer());
@@ -555,7 +586,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
 
-    auto spBryptPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
     spBryptPeer->RegisterEndpoint(
         tcpIdentifier, Endpoints::TechnologyType::TCP, {}, test::ServerEntry);
 
@@ -572,7 +603,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
 
 TEST(PeerManagerSuite, MultipleObserverTest)
 {
-    CPeerManager manager(test::ServerIdentifier);
+    CPeerManager manager(test::ServerIdentifier, nullptr);
 
     std::vector<local::CPeerObserverStub> observers;
     for (std::uint32_t idx = 0; idx < 12; ++idx) {
@@ -587,7 +618,7 @@ TEST(PeerManagerSuite, MultipleObserverTest)
     auto const tcpIdentifier = CEndpointIdentifierGenerator::Instance()
         .GetEndpointIdentifier();
 
-    auto spBryptPeer = manager.LinkPeer(test::ClientIdentifier);
+    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
     spBryptPeer->RegisterEndpoint(
         tcpIdentifier, Endpoints::TechnologyType::TCP, {}, test::ServerEntry);
 
@@ -602,6 +633,31 @@ TEST(PeerManagerSuite, MultipleObserverTest)
         EXPECT_FALSE(observer.GetBryptPeer());
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
     }
+}
+
+//------------------------------------------------------------------------------------------------
+
+local::CConnectProtocolStub::CConnectProtocolStub()
+    : m_count(0)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool local::CConnectProtocolStub::SendRequest(
+    [[maybe_unused]] BryptIdentifier::SharedContainer const& spSourceIdentifier,
+    [[maybe_unused]] std::shared_ptr<CBryptPeer> const& spBryptPeer,
+    [[maybe_unused]] CMessageContext const& context) const
+{
+    ++m_count;
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool local::CConnectProtocolStub::CalledOnce() const
+{
+    return (m_count == 1);
 }
 
 //------------------------------------------------------------------------------------------------
