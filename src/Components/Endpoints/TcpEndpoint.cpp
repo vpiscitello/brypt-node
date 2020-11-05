@@ -121,6 +121,52 @@ std::string Endpoints::CTcpEndpoint::GetURI() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+void Endpoints::CTcpEndpoint::Startup()
+{
+    if (m_active) {
+        return; 
+    }
+    Spawn();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+bool Endpoints::CTcpEndpoint::Shutdown()
+{
+    if (!m_active) {
+        return true;
+    }
+
+    NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+      
+    m_terminate = true; // Stop the worker thread from processing the connections
+    m_cv.notify_all(); // Notify the worker that exit conditions have been set
+    
+    if (m_worker.joinable()) {
+        m_worker.join();
+    }
+
+    m_tracker.ReadEachConnection(
+        [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
+        {
+            ::close(descriptor); // Close the connection descriptor
+            return CallbackIteration::Continue;
+        }
+    );
+
+    m_tracker.Clear();
+    
+    return !m_worker.joinable();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
 {
     if (m_operation != OperationType::Server) {
@@ -183,19 +229,6 @@ void Endpoints::CTcpEndpoint::ScheduleConnect(std::string_view entry)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::Startup()
-{
-    if (m_active) {
-        return; 
-    }
-    Spawn();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 bool  Endpoints::CTcpEndpoint::ScheduleSend(
     BryptIdentifier::CContainer const& identifier,
     std::string_view message)
@@ -219,39 +252,6 @@ bool  Endpoints::CTcpEndpoint::ScheduleSend(
     }
 
     return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::Shutdown()
-{
-    if (!m_active) {
-        return true;
-    }
-
-    NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-      
-    m_terminate = true; // Stop the worker thread from processing the connections
-    m_cv.notify_all(); // Notify the worker that exit conditions have been set
-    
-    if (m_worker.joinable()) {
-        m_worker.join();
-    }
-
-    m_tracker.ReadEachConnection(
-        [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
-        {
-            ::close(descriptor); // Close the connection descriptor
-            return CallbackIteration::Continue;
-        }
-    );
-
-    m_tracker.Clear();
-    
-    return !m_worker.joinable();
 }
 
 //------------------------------------------------------------------------------------------------

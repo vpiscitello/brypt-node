@@ -87,15 +87,14 @@ public:
     virtual std::string GetEntry() const = 0;
     virtual std::string GetURI() const = 0;
 
+    virtual void Startup() = 0;
+	virtual bool Shutdown() = 0;
+
     virtual void ScheduleBind(std::string_view binding) = 0;
     virtual void ScheduleConnect(std::string_view entry) = 0;
-    virtual void Startup() = 0;
-
 	virtual bool ScheduleSend(
         BryptIdentifier::CContainer const& destination,
         std::string_view message) = 0;
-    
-	virtual bool Shutdown() = 0;
 
     bool IsActive() const;
     Endpoints::EndpointIdType GetEndpointIdentifier() const;
