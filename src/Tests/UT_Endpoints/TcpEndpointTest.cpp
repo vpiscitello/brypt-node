@@ -85,7 +85,7 @@ TEST(CTcpSuite, SingleConnectionTest)
         .SetSource(*test::ServerIdentifier)
         .SetDestination(*test::ClientIdentifier)
         .SetCommand(Command::Type::Connect, 1)
-        .SetData("Connection Approved")
+        .SetPayload("Connection Approved")
         .ValidatedBuild();
     
     if (auto const spConnectRequestPeer = wpConnectRequestPeer.lock(); spConnectRequestPeer) {
@@ -107,7 +107,7 @@ TEST(CTcpSuite, SingleConnectionTest)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetCommand(Command::Type::Election, 0)
-        .SetData("Hello World!")
+        .SetPayload("Hello World!")
         .ValidatedBuild();
 
     if (auto const spConnectResponsePeer = wpConnectResponsePeer.lock(); spConnectResponsePeer) {
@@ -128,7 +128,7 @@ TEST(CTcpSuite, SingleConnectionTest)
         .SetSource(*test::ServerIdentifier)
         .SetDestination(*test::ClientIdentifier)
         .SetCommand(Command::Type::Election, 1)
-        .SetData("Re: Hello World!")
+        .SetPayload("Re: Hello World!")
         .ValidatedBuild();
 
     if (auto const spElectionRequestPeer = wpElectionRequestPeer.lock(); spElectionRequestPeer) {

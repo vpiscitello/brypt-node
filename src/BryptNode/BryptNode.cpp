@@ -275,7 +275,7 @@ void test::SimulateClient(Command::HandlerMap const& handlers, bool activated)
         .SetSource(source)
         .MakeClusterMessage()
         .SetCommand(command, 0)
-        .SetData(data)
+        .SetPayload(data)
         .ValidatedBuild();
     assert(optRequest);
 

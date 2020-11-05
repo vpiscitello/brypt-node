@@ -18,7 +18,7 @@
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
-class CHandshakeMessage;
+class CNetworkMessage;
 class IConnectProtocol;
 class ISecurityStrategy;
 
@@ -59,11 +59,11 @@ private:
 
     bool HandleMessage(
         std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CHandshakeMessage const& message);
+        CNetworkMessage const& message);
 
     bool HandleSynchronizationMessage(
         std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CHandshakeMessage const& message);
+        CNetworkMessage const& message);
 
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;

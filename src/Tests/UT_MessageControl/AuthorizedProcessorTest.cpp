@@ -76,7 +76,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     collector.CollectMessage(spClientPeer, test::MessageContext, optRequest->GetPack());
@@ -95,7 +95,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {
@@ -142,7 +142,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
             .SetSource(test::ClientIdentifier)
             .SetDestination(*test::spServerIdentifier)
             .SetCommand(test::Command, test::RequestPhase)
-            .SetData(test::Message)
+            .SetPayload(test::Message)
             .ValidatedBuild();
 
         collector.CollectMessage(spClientPeer, test::MessageContext, optRequest->GetPack());
@@ -162,7 +162,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
             .SetSource(*test::spServerIdentifier)
             .SetDestination(test::ClientIdentifier)
             .SetCommand(test::Command, test::ResponsePhase)
-            .SetData(test::Message)
+            .SetPayload(test::Message)
             .ValidatedBuild();
 
         if (auto const spClientRequestPeer = wpClientRequestPeer.lock(); spClientRequestPeer) {

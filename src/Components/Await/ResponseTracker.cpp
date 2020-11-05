@@ -152,7 +152,7 @@ bool Await::CResponseTracker::SendFulfilledResponse()
         .SetSource(*optBryptIdentifier)
         .SetDestination(destination)
         .SetCommand(m_request.GetCommand(), m_request.GetPhase() + 1)
-        .SetData(data)
+        .SetPayload(data)
         .ValidatedBuild();
     assert(optResponse);
 

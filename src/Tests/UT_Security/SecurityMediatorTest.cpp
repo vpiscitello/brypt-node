@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/HandshakeMessage.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../BryptMessage/MessageDefinitions.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
@@ -40,7 +40,7 @@ auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
 auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
     BryptIdentifier::Generate());
     
-constexpr std::string_view const HandshakeMessage = "Handshake Request";
+constexpr std::string_view const NetworkMessage = "Heartbeat Request";
 constexpr std::string_view const ConnectMessage = "Connection Request";
 
 constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
@@ -145,9 +145,10 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
-    auto const optMessage = CHandshakeMessage::Builder()
+    auto const optMessage = CNetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
-        .SetData(test::HandshakeMessage)
+        .MakeHandshakeMessage()
+        .SetPayload(test::NetworkMessage)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
@@ -173,9 +174,10 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
-    auto const optMessage = CHandshakeMessage::Builder()
+    auto const optMessage = CNetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
-        .SetData(test::HandshakeMessage)
+        .MakeHandshakeMessage()
+        .SetPayload(test::NetworkMessage)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
@@ -206,9 +208,10 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->Bind(spBryptPeer);
 
-    auto const optMessage = CHandshakeMessage::Builder()
+    auto const optMessage = CNetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
-        .SetData(test::HandshakeMessage)
+        .MakeHandshakeMessage()
+        .SetPayload(test::NetworkMessage)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
@@ -300,7 +303,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetCommand(Command::Type::Information, 0)
-        .SetData("Information Request")
+        .SetPayload("Information Request")
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationRequest);
 
@@ -312,7 +315,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetCommand(Command::Type::Information, 1)
-        .SetData("Information Response")
+        .SetPayload("Information Response")
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationResponse);
 
@@ -341,7 +344,7 @@ bool local::CConnectProtocolStub::SendRequest(
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetCommand(Command::Type::Connect, 0)
-        .SetData(test::ConnectMessage)
+        .SetPayload(test::ConnectMessage)
         .ValidatedBuild();
     assert(optConnectRequest);
 
@@ -521,7 +524,7 @@ std::string local::CMessageCollector::GetCollectedData() const
         .ValidatedBuild();
     assert(optMessage);
 
-    auto const buffer = optMessage->GetData();
+    auto const buffer = optMessage->GetPayload();
     return std::string(buffer.begin(), buffer.end());
 }
 

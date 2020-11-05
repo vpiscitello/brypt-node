@@ -71,7 +71,7 @@ bool CDiscoveryProtocol::SendRequest(
         .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetCommand(local::Command, local::Phase)
-        .SetData(m_data)
+        .SetPayload(m_data)
         .ValidatedBuild();
     assert(optDiscoveryRequest);
 

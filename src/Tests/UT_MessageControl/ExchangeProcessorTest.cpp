@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/HandshakeMessage.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"

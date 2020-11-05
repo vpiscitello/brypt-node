@@ -43,7 +43,7 @@ TEST(CApplicationMessageSuite, BaseConstructorTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
@@ -55,7 +55,7 @@ TEST(CApplicationMessageSuite, BaseConstructorTest)
     EXPECT_EQ(optMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optMessage->GetTimestamp(), TimeUtils::Timestamp());
 
-    auto const buffer = optMessage->GetData();
+    auto const buffer = optMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
     EXPECT_EQ(data, test::Data);
 
@@ -71,7 +71,7 @@ TEST(CApplicationMessageSuite, PackConstructorTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .ValidatedBuild();
 
     auto const pack = optBaseMessage->GetPack();
@@ -89,9 +89,9 @@ TEST(CApplicationMessageSuite, PackConstructorTest)
     EXPECT_EQ(optPackMessage->GetCommand(), optBaseMessage->GetCommand());
     EXPECT_EQ(optPackMessage->GetPhase(), optBaseMessage->GetPhase());
     EXPECT_EQ(optPackMessage->GetTimestamp(), optBaseMessage->GetTimestamp());
-    EXPECT_EQ(optPackMessage->GetData(), optBaseMessage->GetData());
+    EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
 
-    auto const buffer = optPackMessage->GetData();
+    auto const buffer = optPackMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
     EXPECT_EQ(data, test::Data);
 }
@@ -106,7 +106,7 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optSourceBoundMessage);
@@ -118,7 +118,7 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optSourceBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optSourceBoundMessage->GetTimestamp(), TimeUtils::Timestamp());
 
-    auto const sourceBoundBuffer = optSourceBoundMessage->GetData();
+    auto const sourceBoundBuffer = optSourceBoundMessage->GetPayload();
     std::string const sourceBoundData(sourceBoundBuffer.begin(), sourceBoundBuffer.end());
     EXPECT_EQ(sourceBoundData, test::Data);
 
@@ -129,7 +129,7 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optDestinationBoundMessage);
@@ -141,7 +141,7 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optDestinationBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optDestinationBoundMessage->GetTimestamp(), TimeUtils::Timestamp());
 
-    auto const destinationBoundBuffer = optDestinationBoundMessage->GetData();
+    auto const destinationBoundBuffer = optDestinationBoundMessage->GetPayload();
     std::string const destinationBoundData(destinationBoundBuffer.begin(), destinationBoundBuffer.end());
     EXPECT_EQ(destinationBoundData, test::Data);
 
@@ -159,7 +159,7 @@ TEST(CApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBoundMessage);
@@ -178,9 +178,9 @@ TEST(CApplicationMessageSuite, BoundAwaitPackConstructorTest)
     EXPECT_EQ(optPackMessage->GetCommand(), optBoundMessage->GetCommand());
     EXPECT_EQ(optPackMessage->GetPhase(), optBoundMessage->GetPhase());
     EXPECT_EQ(optPackMessage->GetTimestamp(), optBoundMessage->GetTimestamp());
-    EXPECT_EQ(optPackMessage->GetData(), optBoundMessage->GetData());
+    EXPECT_EQ(optPackMessage->GetPayload(), optBoundMessage->GetPayload());
 
-    auto const buffer = optPackMessage->GetData();
+    auto const buffer = optPackMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
     EXPECT_EQ(data, test::Data);
 }
@@ -193,7 +193,7 @@ TEST(CApplicationMessageSuite, BaseVerificationTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
@@ -221,7 +221,7 @@ TEST(CApplicationMessageSuite, ExtensionVerificationTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
@@ -250,7 +250,7 @@ TEST(CApplicationMessageSuite, AlteredVerificationTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Data)
+        .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);

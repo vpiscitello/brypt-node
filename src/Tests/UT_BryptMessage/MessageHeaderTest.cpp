@@ -2,7 +2,7 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptIdentifier/IdentifierDefinitions.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/HandshakeMessage.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../BryptMessage/MessageUtils.hpp"
 #include "../../BryptMessage/PackUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -87,16 +87,17 @@ TEST(CMessageHeaderSuite, ApplicationPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, HandshakeConstructorTest)
+TEST(CMessageHeaderSuite, NetworkConstructorTest)
 {
-    auto const optMessage = CHandshakeMessage::Builder()
+    auto const optMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
+        .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
     CMessageHeader const header = optMessage->GetMessageHeader();
-    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Handshake);
+    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Network);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(header.GetDestinationIdentifier());
@@ -105,16 +106,17 @@ TEST(CMessageHeaderSuite, HandshakeConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, HandshakePackTest)
+TEST(CMessageHeaderSuite, NetworkPackTest)
 {
-    auto const optBaseMessage = CHandshakeMessage::Builder()
+    auto const optBaseMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
+        .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
     CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
-    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Handshake);
+    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Network);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
@@ -122,7 +124,7 @@ TEST(CMessageHeaderSuite, HandshakePackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CHandshakeMessage::Builder()
+    auto const optPackMessage = CNetworkMessage::Builder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -206,18 +208,19 @@ TEST(CMessageHeaderSuite, ClusterPackTest)
 
 TEST(CMessageHeaderSuite, PeekProtocolTest)
 {
-    auto const optHandshakeMessage = CHandshakeMessage::Builder()
+    auto const optNetworkMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
+        .MakeHandshakeMessage()
         .ValidatedBuild();
-    ASSERT_TRUE(optHandshakeMessage);
+    ASSERT_TRUE(optNetworkMessage);
 
-    auto const handshakeBuffer = PackUtils::Z85Decode(optHandshakeMessage->GetPack());
-    auto const optHandshakeProtocol = Message::PeekProtocol(
-        handshakeBuffer.begin(), handshakeBuffer.end());
+    auto const networkBuffer = PackUtils::Z85Decode(optNetworkMessage->GetPack());
+    auto const optNetworkProtocol = Message::PeekProtocol(
+        networkBuffer.begin(), networkBuffer.end());
 
-    ASSERT_TRUE(optHandshakeProtocol);
-    EXPECT_EQ(*optHandshakeProtocol, Message::Protocol::Handshake);
+    ASSERT_TRUE(optNetworkProtocol);
+    EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Network);
 
     auto const optApplicationMessage = CApplicationMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -265,9 +268,10 @@ TEST(CMessageHeaderSuite, PeekProtocolEmptyBufferTest)
 
 TEST(CMessageHeaderSuite, PeekSourceTest)
 {
-    auto const optMessage = CHandshakeMessage::Builder()
+    auto const optMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
+        .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 

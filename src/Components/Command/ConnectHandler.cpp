@@ -137,7 +137,7 @@ bool Command::CConnectHandler::JoinHandler(CApplicationMessage const& message)
 bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message)
 {
     // Parse the discovery request
-    auto const data = message.GetData();
+    auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
 
     auto request = iod::make_metamap(
@@ -234,7 +234,7 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 bool local::HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& message)
 {
     // Parse the discovery response
-    auto const data = message.GetData();
+    auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
 
     auto response = iod::make_metamap(

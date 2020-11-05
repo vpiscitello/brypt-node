@@ -76,7 +76,7 @@ TEST(CResponseTrackerSuite, SingleResponseTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -93,7 +93,7 @@ TEST(CResponseTrackerSuite, SingleResponseTest)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     EXPECT_EQ(tracker.UpdateResponse(*optResponse), Await::ResponseStatus::Fulfilled);
@@ -139,7 +139,7 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
@@ -164,7 +164,7 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     auto const optPeerOneResponse = CApplicationMessage::Builder()
@@ -172,7 +172,7 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
         .SetSource(*spFirstIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     auto const optPeerTwoResponse = CApplicationMessage::Builder()
@@ -180,7 +180,7 @@ TEST(CResponseTrackerSuite, MultipleResponseTest)
         .SetSource(*spSecondIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
@@ -228,7 +228,7 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -247,7 +247,7 @@ TEST(CResponseTrackerSuite, ExpiredNoResponsesTest)
     EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
     EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Command);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_GT(optFulfilledResponse->GetData().size(), std::uint32_t(0));
+    EXPECT_GT(optFulfilledResponse->GetPayload().size(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
@@ -280,7 +280,7 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
@@ -305,7 +305,7 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     auto const optPeerTwoResponse = CApplicationMessage::Builder()
@@ -313,7 +313,7 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
         .SetSource(*spSecondIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
@@ -330,7 +330,7 @@ TEST(CResponseTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
     EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Command);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
-    EXPECT_GT(optFulfilledResponse->GetData().size(), std::uint32_t(0));
+    EXPECT_GT(optFulfilledResponse->GetPayload().size(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
@@ -363,7 +363,7 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -382,7 +382,7 @@ TEST(CResponseTrackerSuite, ExpiredLateResponsesTest)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     EXPECT_EQ(tracker.UpdateResponse(*optLateResponse), Await::ResponseStatus::Completed);
@@ -419,7 +419,7 @@ TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     Await::CResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
@@ -429,7 +429,7 @@ TEST(CResponseTrackerSuite, UnexpectedResponsesTest)
         .SetSource(0x12345678)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     EXPECT_EQ(tracker.UpdateResponse(*optUnexpectedResponse), Await::ResponseStatus::Unfulfilled);
@@ -470,7 +470,7 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     auto const spFirstIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
@@ -490,7 +490,7 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .BindAwaitTracker(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
 
@@ -499,7 +499,7 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetSource(*spFirstIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .BindAwaitTracker(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
 
@@ -508,7 +508,7 @@ TEST(CTrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetSource(*spSecondIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Command, test::ResponsePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .BindAwaitTracker(Message::AwaitBinding::Destination, key)
         .ValidatedBuild();
     

@@ -5,7 +5,7 @@
 #include "ExchangeProcessor.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/HandshakeMessage.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../BryptMessage/MessageUtils.hpp"
 #include "../../BryptMessage/PackUtils.hpp"
@@ -84,7 +84,7 @@ bool CExchangeProcessor::CollectMessage(
     // The exchange handler may only accept handshake messages.
     switch (*optProtocol) {
         // Only process handshake messages through the exchange processor.
-        case Message::Protocol::Handshake: break;
+        case Message::Protocol::Network: break;
         // Any other messages are should be dropped from processing.
         case Message::Protocol::Application:
         case Message::Protocol::Invalid: {
@@ -93,13 +93,13 @@ bool CExchangeProcessor::CollectMessage(
     }
 
     // Attempt to unpack the buffer into the handshake message.
-    auto const optMessage = CHandshakeMessage::Builder()
+    auto const optMessage = CNetworkMessage::Builder()
         .SetMessageContext(context)
         .FromDecodedPack(buffer)
         .ValidatedBuild();
 
     // If the message could not be unpacked, the message cannot be handled any further. 
-    if (!optMessage) {
+    if (!optMessage || optMessage->GetMessageType() != Message::Network::Type::Handshake) {
         return false;
     }
 
@@ -126,9 +126,10 @@ CExchangeProcessor::PreparationResult CExchangeProcessor::Prepare()
     }
 
     if (buffer.size() != 0) {
-        auto const optRequest = CHandshakeMessage::Builder()
+        auto const optRequest = CNetworkMessage::Builder()
             .SetSource(*m_spBryptIdentifier)
-            .SetData(buffer)
+            .MakeHandshakeMessage()
+            .SetPayload(buffer)
             .ValidatedBuild();
         assert(optRequest);
         return { true, optRequest->GetPack() };
@@ -141,7 +142,7 @@ CExchangeProcessor::PreparationResult CExchangeProcessor::Prepare()
 
 bool CExchangeProcessor::HandleMessage(
     std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    CHandshakeMessage const& message)
+    CNetworkMessage const& message)
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
@@ -167,14 +168,14 @@ bool CExchangeProcessor::HandleMessage(
 
 bool CExchangeProcessor::HandleSynchronizationMessage(
     std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    CHandshakeMessage const& message)
+    CNetworkMessage const& message)
 {
     assert(m_upSecurityStrategy);
     assert(m_spBryptIdentifier);
 
     // Provide the attached SecurityStrategy the synchronization message. 
     // If for some reason, the message could not be handled return an error. 
-    auto const [status, buffer] = m_upSecurityStrategy->Synchronize(message.GetData());
+    auto const [status, buffer] = m_upSecurityStrategy->Synchronize(message.GetPayload());
     if (status == Security::SynchronizationStatus::Error) {
         return false;
     }
@@ -191,11 +192,12 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
     // the response and send it through the peer. 
     if (buffer.size() != 0) {
         // Build a response to the message from the synchronization result of the strategy. 
-        auto const optResponse = CHandshakeMessage::Builder()
+        auto const optResponse = CNetworkMessage::Builder()
             .SetMessageContext(context)
             .SetSource(*m_spBryptIdentifier)
             .SetDestination(message.GetSourceIdentifier())
-            .SetData(buffer)
+            .MakeHandshakeMessage()
+            .SetPayload(buffer)
             .ValidatedBuild();
         assert(optResponse);
 

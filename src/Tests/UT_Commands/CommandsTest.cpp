@@ -78,7 +78,7 @@ TEST(CommandSuite, CommandMatchingTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Connect, test::BasePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     auto const connectCommandItr = commands.find(optConnectRequest->GetCommand());
@@ -92,7 +92,7 @@ TEST(CommandSuite, CommandMatchingTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Election, test::BasePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
 
     auto const electionCommandItr = commands.find(optElectionRequest->GetCommand());
@@ -106,7 +106,7 @@ TEST(CommandSuite, CommandMatchingTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Information, test::BasePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     auto const informationCommandItr = commands.find(optInformationRequest->GetCommand());
@@ -120,7 +120,7 @@ TEST(CommandSuite, CommandMatchingTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Query, test::BasePhase)
-        .SetData(test::Message)
+        .SetPayload(test::Message)
         .ValidatedBuild();
     
     auto const queryCommandItr = commands.find(optQueryRequest->GetCommand());

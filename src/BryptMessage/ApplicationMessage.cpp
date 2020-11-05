@@ -42,7 +42,7 @@ CApplicationMessage::CApplicationMessage()
 	, m_header()
 	, m_command()
 	, m_phase()
-	, m_data()
+	, m_payload()
 	, m_timestamp(TimeUtils::GetSystemTimestamp())
 	, m_optBoundAwaitTracker()
 {
@@ -55,7 +55,7 @@ CApplicationMessage::CApplicationMessage(CApplicationMessage const& other)
 	, m_header(other.m_header)
 	, m_command(other.m_command)
 	, m_phase(other.m_phase)
-	, m_data(other.m_data)
+	, m_payload(other.m_payload)
 	, m_timestamp(other.m_timestamp)
 	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
 {
@@ -118,9 +118,9 @@ std::uint32_t CApplicationMessage::GetPhase() const
 
 //------------------------------------------------------------------------------------------------
 
-Message::Buffer CApplicationMessage::GetData() const
+Message::Buffer CApplicationMessage::GetPayload() const
 {
-	auto const data = MessageSecurity::Decrypt(m_data, m_data.size(), m_timestamp.count());
+	auto const data = MessageSecurity::Decrypt(m_payload, m_payload.size(), m_timestamp.count());
 
 	if (!data) {
 		return {};
@@ -152,7 +152,7 @@ std::uint32_t CApplicationMessage::GetPackSize() const
 {
 	std::uint32_t size = FixedPackSize();
 	size += m_header.GetPackSize();
-	size += m_data.size();
+	size += m_payload.size();
 	if (m_optBoundAwaitTracker) {
 		size += FixedAwaitExtensionSize();
 	}
@@ -187,7 +187,7 @@ std::string CApplicationMessage::GetPack() const
 
 	PackUtils::PackChunk(buffer, m_command);
 	PackUtils::PackChunk(buffer, m_phase);
-	PackUtils::PackChunk(buffer, m_data, sizeof(std::uint32_t));
+	PackUtils::PackChunk(buffer, m_payload, sizeof(std::uint32_t));
 	PackUtils::PackChunk(buffer, m_timestamp);
 
 	// Extension Packing
@@ -359,19 +359,19 @@ CApplicationBuilder& CApplicationBuilder::SetCommand(Command::Type type, std::ui
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::SetData(std::string_view data)
+CApplicationBuilder& CApplicationBuilder::SetPayload(std::string_view data)
 {
-    return SetData({ data.begin(), data.end() });
+    return SetPayload({ data.begin(), data.end() });
 }
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::SetData(Message::Buffer const& buffer)
+CApplicationBuilder& CApplicationBuilder::SetPayload(Message::Buffer const& buffer)
 {
 	auto const optData = MessageSecurity::Encrypt(
         buffer, buffer.size(), m_message.m_timestamp.count());
 	if(optData) {
-		m_message.m_data = *optData;
+		m_message.m_payload = *optData;
 	}
     return *this;
 }
@@ -478,7 +478,7 @@ void CApplicationBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_data, dataSize)) {
+	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, dataSize)) {
 		return;
 	}
 

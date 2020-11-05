@@ -124,7 +124,7 @@ void Command::IHandler::SendResponse(
         .SetSource(*spBryptIdentifier)
         .SetDestination(destination)
         .SetCommand(request.GetCommand(), responsePhase)
-        .SetData(responseData)
+        .SetPayload(responseData)
         .BindAwaitTracker(optBoundAwaitTracker)
         .ValidatedBuild();
     assert(optResponse);
@@ -178,7 +178,7 @@ void Command::IHandler::SendNotice(
                 .SetSource(*spBryptIdentifier)
                 .SetDestination(request.GetSourceIdentifier())
                 .SetCommand(request.GetCommand(), responsePhase)
-                .SetData(*optResponseData)
+                .SetPayload(*optResponseData)
                 .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
                 .ValidatedBuild();
             assert(optNodeResponse);
@@ -192,7 +192,7 @@ void Command::IHandler::SendNotice(
         .SetSource(*spBryptIdentifier)
         .SetCommand(request.GetCommand(), noticePhase)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
-        .SetData(noticeData);
+        .SetPayload(noticeData);
 
     switch (destination) {
         case Message::Destination::Cluster: {

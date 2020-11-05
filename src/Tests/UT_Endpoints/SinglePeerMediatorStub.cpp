@@ -38,7 +38,7 @@ CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvi
     auto const optConnectRequest = CApplicationMessage::Builder()
         .SetSource(*m_spBryptIdentifier)
         .SetCommand(Command::Type::Connect, 0)
-        .SetData("Connection Request")
+        .SetPayload("Connection Request")
         .ValidatedBuild();
     assert(optConnectRequest);
 
