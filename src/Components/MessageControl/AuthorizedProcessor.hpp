@@ -17,6 +17,7 @@
 
 class CBryptPeer;
 class CApplicationMessage;
+class CNetworkMessage;
 class CMessageContext;
 
 //------------------------------------------------------------------------------------------------
@@ -24,9 +25,6 @@ class CMessageContext;
 class CAuthorizedProcessor : public IMessageSink {
 public:
     CAuthorizedProcessor();
-    
-    std::optional<AssociatedMessage> PopIncomingMessage();
-    std::uint32_t QueuedMessageCount() const;
 
     // IMessageSink {
     virtual bool CollectMessage(
@@ -39,12 +37,19 @@ public:
         CMessageContext const& context,
         Message::Buffer const& buffer) override;
     // }IMessageSink
+    
+    std::optional<AssociatedMessage> PopIncomingMessage();
+    std::uint32_t QueuedMessageCount() const;
 
 private:
-    bool CollectMessage(
+    bool QueueMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CApplicationMessage const& message);
 
+    bool HandleMessage(
+        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    	CNetworkMessage const& message);
+        
     mutable std::shared_mutex m_incomingMutex;
     std::queue<AssociatedMessage> m_incoming;
 
