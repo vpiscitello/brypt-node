@@ -26,7 +26,7 @@ constexpr Command::Type Command = Command::Type::Connect;
 constexpr std::uint8_t Phase = static_cast<std::uint8_t>(
     Command::CConnectHandler::Phase::Discovery);
 
-std::string GenerateDiscoveryData(IEndpointMediator const* const pEndpointMediator);
+std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& configurations);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -53,8 +53,9 @@ IOD_SYMBOL(technology)
 
 //------------------------------------------------------------------------------------------------
 
-CDiscoveryProtocol::CDiscoveryProtocol(IEndpointMediator const* const pEndpointMediator)
-    : m_data(local::GenerateDiscoveryData(pEndpointMediator))
+CDiscoveryProtocol::CDiscoveryProtocol(
+    Configuration::EndpointConfigurations const& configurations)
+    : m_data(local::GenerateDiscoveryData(configurations))
 {
 }
 
@@ -80,24 +81,18 @@ bool CDiscoveryProtocol::SendRequest(
 
 //------------------------------------------------------------------------------------------------
 
-std::string local::GenerateDiscoveryData(IEndpointMediator const* const pEndpointMediator)
+std::string local::GenerateDiscoveryData(
+    Configuration::EndpointConfigurations const& configurations)
 {
-    if (!pEndpointMediator) {
-        return {};
-    }
-
     auto request = iod::make_metamap(
         s::entrypoints = {
             iod::make_metamap(
                 s::technology = std::string(), s::entry = std::string()) });
 
-    if (pEndpointMediator) {
-        auto const entries = pEndpointMediator->GetEndpointEntries();
-        for (auto const& [technology, entry]: entries) {
-            auto& entrypoint = request.entrypoints.emplace_back();
-            entrypoint.technology = Endpoints::TechnologyTypeToString(technology);
-            entrypoint.entry = entry;
-        }
+    for (auto const& options: configurations) {
+        auto& entrypoint = request.entrypoints.emplace_back();
+        entrypoint.technology = options.GetTechnologyName();
+        entrypoint.entry = options.GetBinding();
     }
 
     return iod::json_encode(request);

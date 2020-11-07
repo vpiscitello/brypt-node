@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../../Configuration/Configuration.hpp"
 #include "../../Interfaces/ConnectProtocol.hpp"
 #include "../../Interfaces/EndpointMediator.hpp"
 //------------------------------------------------------------------------------------------------
@@ -18,7 +19,7 @@ class CMessageContext;
 class CDiscoveryProtocol : public IConnectProtocol
 {
 public:
-    explicit CDiscoveryProtocol(IEndpointMediator const* const pEndpointMediator);
+    explicit CDiscoveryProtocol(Configuration::EndpointConfigurations const& configurations);
 
     CDiscoveryProtocol(CDiscoveryProtocol&&) = delete;
     CDiscoveryProtocol(CDiscoveryProtocol const&) = delete;
