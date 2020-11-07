@@ -107,7 +107,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     std::unique_ptr<local::CExchangeObserverStub> upServerObserver;
     std::unique_ptr<CExchangeProcessor> upServerProcessor;
 
-    auto const upConnectProtocol = std::make_unique<local::CConnectProtocolStub>();
+    auto const spConnectProtocol = std::make_shared<local::CConnectProtocolStub>();
 
     // Setup the client's view of the exchange.
     {
@@ -132,7 +132,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
         // Setup the client processor. 
         upClientProcessor = std::make_unique<CExchangeProcessor>(
             test::ClientIdentifier,
-            upConnectProtocol.get(),
+            spConnectProtocol,
             upClientObserver.get(),
             std::move(upClientStrategy));
 
@@ -183,20 +183,20 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     EXPECT_TRUE(spClientPeer->ScheduleSend(test::MessageContext, clientPrepareResult.second));
 
     // We expect that the connect protocol has been used once. 
-    EXPECT_TRUE(upConnectProtocol->CalledOnce());
+    EXPECT_TRUE(spConnectProtocol->CalledOnce());
 
     // We expect that the client observer was notified of a successful exchange, the connect 
     // protocol was called by client exchange, and the client peer sent the number of messages
     // required by the server. 
     EXPECT_TRUE(upClientObserver->ExchangeSuccess());
-    EXPECT_TRUE(upConnectProtocol->CalledBy(test::ClientIdentifier));
+    EXPECT_TRUE(spConnectProtocol->CalledBy(test::ClientIdentifier));
     EXPECT_EQ(spClientPeer->GetSentCount(), Security::PQNISTL3::CStrategy::AcceptorStages);
 
     // We expect that the server observer was notified of a successful exchange, the connect 
     // protocol was called by server exchange, and the server peer sent the number of messages
     // required by the client. 
     EXPECT_TRUE(upServerObserver->ExchangeSuccess());
-    EXPECT_FALSE(upConnectProtocol->CalledBy(test::ServerIdentifier));
+    EXPECT_FALSE(spConnectProtocol->CalledBy(test::ServerIdentifier));
     EXPECT_EQ(spServerPeer->GetSentCount(), Security::PQNISTL3::CStrategy::InitiatorStages);
 }
 

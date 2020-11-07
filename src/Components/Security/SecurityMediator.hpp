@@ -54,7 +54,7 @@ public:
 
     std::optional<std::string> SetupExchangeInitiator(
         Security::Strategy strategy,
-        IConnectProtocol const* const pConnectProtocol);
+        std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
     bool SetupExchangeAcceptor(Security::Strategy strategy);
 
 private:

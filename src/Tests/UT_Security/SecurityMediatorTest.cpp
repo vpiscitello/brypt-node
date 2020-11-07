@@ -239,7 +239,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
     std::shared_ptr<CBryptPeer> spClientPeer;
     std::unique_ptr<CSecurityMediator> upClientMediator;
 
-    auto const upConnectProtocol = std::make_unique<local::CConnectProtocolStub>();
+    auto const spConnectProtocol = std::make_shared<local::CConnectProtocolStub>();
     auto const spCollector = std::make_shared<local::CMessageCollector>();
 
     // Setup the client's view of the mediator.
@@ -276,7 +276,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 
     // Setup an exchange through the mediator as the initiator
     auto const optRequest = upClientMediator->SetupExchangeInitiator(
-        Security::Strategy::PQNISTL3, upConnectProtocol.get());
+        Security::Strategy::PQNISTL3, spConnectProtocol);
     ASSERT_TRUE(optRequest);
     upClientMediator->Bind(spClientPeer); // Bind the client mediator to the client peer. 
     
@@ -287,14 +287,14 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
     EXPECT_TRUE(spClientPeer->ScheduleSend(test::MessageContext, *optRequest));
 
     // We expect that the connect protocol has been used once. 
-    EXPECT_TRUE(upConnectProtocol->CalledOnce());
+    EXPECT_TRUE(spConnectProtocol->CalledOnce());
 
     EXPECT_EQ(upClientMediator->GetSecurityState(), Security::State::Authorized);
-    EXPECT_TRUE(upConnectProtocol->CalledBy(test::ClientIdentifier));
+    EXPECT_TRUE(spConnectProtocol->CalledBy(test::ClientIdentifier));
     EXPECT_EQ(spClientPeer->GetSentCount(), Security::PQNISTL3::CStrategy::AcceptorStages + 1);
 
     EXPECT_EQ(upServerMediator->GetSecurityState(), Security::State::Authorized);
-    EXPECT_FALSE(upConnectProtocol->CalledBy(test::ServerIdentifier));
+    EXPECT_FALSE(spConnectProtocol->CalledBy(test::ServerIdentifier));
     EXPECT_EQ(spServerPeer->GetSentCount(), Security::PQNISTL3::CStrategy::InitiatorStages);
 
     EXPECT_EQ(spCollector->GetCollectedData(), test::ConnectMessage);

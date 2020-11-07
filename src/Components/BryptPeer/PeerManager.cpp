@@ -28,7 +28,7 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 CPeerManager::CPeerManager(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    IConnectProtocol const* const pConnectProtocol,
+    std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
     std::weak_ptr<IMessageSink> const& wpPromotedProcessor)
     : m_spBryptIdentifier(spBryptIdentifier)
     , m_observersMutex()
@@ -37,7 +37,7 @@ CPeerManager::CPeerManager(
     , m_peers()
     , m_resolvingMutex()
     , m_resolving()
-    , m_pConnectProtocol(pConnectProtocol)
+    , m_spConnectProtocol(spConnectProtocol)
     , m_wpPromotedProcessor(wpPromotedProcessor)
 {
 }
@@ -75,7 +75,7 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_vie
         m_wpPromotedProcessor);
 
     auto const optRequest = upSecurityMediator->SetupExchangeInitiator(
-        Security::Strategy::PQNISTL3, m_pConnectProtocol);
+        Security::Strategy::PQNISTL3, m_spConnectProtocol);
     
     // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
     // to the full BryptPeer

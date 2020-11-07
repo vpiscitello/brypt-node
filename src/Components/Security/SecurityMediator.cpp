@@ -134,7 +134,7 @@ void CSecurityMediator::Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 
 std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(
     Security::Strategy strategy,
-    IConnectProtocol const* const pConnectProtocol)
+    std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
 {
     // This function should only be called when first creating the mediator, another method 
     // should be used to resynchronize.
@@ -148,7 +148,7 @@ std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(
     // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
     // processor will use the security strategy to negiotiate keys and initialize its state.
     m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-        m_spBryptIdentifier, pConnectProtocol, this, std::move(m_upSecurityStrategy));
+        m_spBryptIdentifier, spConnectProtocol, this, std::move(m_upSecurityStrategy));
 
     auto const [success, request] = m_upExchangeProcessor->Prepare();
     if (!success) {

@@ -34,7 +34,7 @@ public:
 
     CExchangeProcessor(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        IConnectProtocol const* const pConnectProtocol,
+        std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
         IExchangeObserver* const pExchangeObserver,
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
 
@@ -69,7 +69,7 @@ private:
     TimeUtils::Timepoint const m_expiration;
 
     BryptIdentifier::SharedContainer const m_spBryptIdentifier;
-    IConnectProtocol const* const m_pConnectProtocol;
+    std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
     IExchangeObserver* const m_pExchangeObserver;
     std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 

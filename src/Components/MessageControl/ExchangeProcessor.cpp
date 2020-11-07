@@ -31,13 +31,13 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 CExchangeProcessor::CExchangeProcessor(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    IConnectProtocol const* const pConnectProtocol,
+    std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
     IExchangeObserver* const pExchangeObserver,
     std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
     : m_stage(ProcessStage::Synchronization)
     , m_expiration(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
     , m_spBryptIdentifier(spBryptIdentifier)
-    , m_pConnectProtocol(pConnectProtocol)
+    , m_spConnectProtocol(spConnectProtocol)
     , m_pExchangeObserver(pExchangeObserver)
     , m_upSecurityStrategy(std::move(upSecurityStrategy))
 {
@@ -211,7 +211,7 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
         case Security::SynchronizationStatus::Ready: {
             // If we do not interface defining the application connection protocol or if
             // that protocol fails, return an error
-            if (m_pConnectProtocol && !m_pConnectProtocol->SendRequest(
+            if (m_spConnectProtocol && !m_spConnectProtocol->SendRequest(
                 m_spBryptIdentifier, spBryptPeer, context)) {
                     return false;
             }

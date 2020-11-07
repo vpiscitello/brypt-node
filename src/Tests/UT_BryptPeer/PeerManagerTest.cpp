@@ -364,10 +364,10 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerExchangeSetupTest)
 {
-    auto const upConnectProtocol = std::make_unique<local::CConnectProtocolStub>();
+    auto const spConnectProtocol = std::make_shared<local::CConnectProtocolStub>();
     auto const spMessageCollector = std::make_shared<local::CMessageCollector>();
 
-    CPeerManager manager(test::ClientIdentifier, upConnectProtocol.get(), spMessageCollector);
+    CPeerManager manager(test::ClientIdentifier, spConnectProtocol, spMessageCollector);
     EXPECT_EQ(manager.ObservedPeerCount(), std::uint32_t(0));
 
     // Declare the client and server peers. 
@@ -432,7 +432,7 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
     EXPECT_TRUE(spClientPeer->ScheduleReceive(clientContext, *optRequest));
 
     // Verify the results of the key exchange
-    EXPECT_TRUE(upConnectProtocol->CalledOnce());
+    EXPECT_TRUE(spConnectProtocol->CalledOnce());
     EXPECT_TRUE(spClientPeer->IsAuthorized());
     EXPECT_TRUE(spServerPeer->IsAuthorized());
 }
