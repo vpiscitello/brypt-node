@@ -35,10 +35,10 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator)
+    std::shared_ptr<IPeerMediator> const& spPeerMediator)
     : CEndpoint(
         spBryptIdentifier, interface, operation,
-        pEndpointMediator, pPeerMediator, TechnologyType::TCP)
+        pEndpointMediator, spPeerMediator, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_tracker()
@@ -519,15 +519,15 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
         return ConnectStatusCode::GenericError;
     }
 
-    if (!m_pPeerMediator) {
+    if (!m_spPeerMediator) {
         return ConnectStatusCode::GenericError;
     }
 
     // Get the connection request message from the peer mediator. If we have not been given 
     // an expected identifier declare a new peer using the peer's URI. Otherwise, declare 
     // the resolving peer using the expected identifier. If the peer is known through the 
-    // identifier, the mediator will provide us a short circuit handshake request.
-    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(uri);
+    // identifier, the mediator will provide us a heartbeat request to verify the endpoint.
+    std::optional<std::string> optConnectionRequest = m_spPeerMediator->DeclareResolvingPeer(uri);
 
     if (!optConnectionRequest) {
         return ConnectStatusCode::GenericError;

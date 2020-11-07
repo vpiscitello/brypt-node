@@ -109,8 +109,6 @@ private:
 
 TEST(CEndpointManagerSuite, EndpointStartupTest)
 {
-    auto upEndpointManager = std::make_unique<CEndpointManager>();
-
     Configuration::EndpointConfigurations configurations;
     Configuration::TEndpointOptions options(
         Endpoints::TechnologyType::TCP,
@@ -118,11 +116,12 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
         test::ServerBinding);
     configurations.emplace_back(options);
     
-    local::CBootstrapCacheStub cache;
-    cache.AddBootstrap(test::TechnologyType, test::ServerEntry);
+    auto const spPeerCache = std::make_shared<local::CBootstrapCacheStub>();
+    spPeerCache->AddBootstrap(test::TechnologyType, test::ServerEntry);
 
-    upEndpointManager->Initialize(
-        test::spBryptIdentifier, nullptr, configurations, &cache);
+    auto upEndpointManager = std::make_unique<CEndpointManager>(
+        configurations, test::spBryptIdentifier, nullptr, spPeerCache);
+        
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();
     EXPECT_EQ(initialActiveEndpoints, std::uint32_t(0));

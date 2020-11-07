@@ -24,9 +24,9 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpServer(
-    IPeerMediator* const mediator);
+    std::shared_ptr<IPeerMediator> const& spPeerMediator);
 std::unique_ptr<Endpoints::CTcpEndpoint> MakeTcpClient(
-    IPeerMediator* const mediator);
+    std::shared_ptr<IPeerMediator> const& spPeerMediator);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -56,11 +56,13 @@ TEST(CTcpSuite, SingleConnectionTest)
 
     // Create stub peer mediators for the server and client endpoints. Each will store a single 
     // peer for the endpoint and set the peer's receiver to the stub collector. 
-    CSinglePeerMediatorStub serverMediator(test::ServerIdentifier, &collector);
-    CSinglePeerMediatorStub clientMediator(test::ClientIdentifier, &collector);
+    auto const spServerMediator = std::make_shared<CSinglePeerMediatorStub>(
+        test::ServerIdentifier, &collector);
+    auto const spClientMediator = std::make_shared<CSinglePeerMediatorStub>(
+        test::ClientIdentifier, &collector);
 
     // Make the server endpoint
-    auto upServer = local::MakeTcpServer(&serverMediator);
+    auto upServer = local::MakeTcpServer(spServerMediator);
     upServer->ScheduleBind(test::ServerBinding);
     upServer->Startup();
 
@@ -68,7 +70,7 @@ TEST(CTcpSuite, SingleConnectionTest)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     // Make the client endpoint
-    auto upClient = local::MakeTcpClient(&clientMediator);
+    auto upClient = local::MakeTcpClient(spClientMediator);
     upClient->ScheduleConnect(test::ServerEntry);
     upClient->Startup();
 
@@ -148,27 +150,27 @@ TEST(CTcpSuite, SingleConnectionTest)
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
-    IPeerMediator* const mediator)
+    std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
         test::ServerIdentifier,
         test::Interface,
         Endpoints::OperationType::Server,
         nullptr,
-        mediator);
+        spPeerMediator);
 }
 
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
-    IPeerMediator* const mediator)
+    std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     return std::make_unique<Endpoints::CTcpEndpoint>(
         test::ClientIdentifier,
         test::Interface,
         Endpoints::OperationType::Client,
         nullptr,
-        mediator);
+        spPeerMediator);
 }
 
 //------------------------------------------------------------------------------------------------

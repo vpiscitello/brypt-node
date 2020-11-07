@@ -27,18 +27,17 @@ class CEndpointManager : public IEndpointMediator {
 public:
     using SharedEndpoint = std::shared_ptr<CEndpoint>;
 
-    CEndpointManager();
+    CEndpointManager(
+        Configuration::EndpointConfigurations const& configurations,
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        std::shared_ptr<IPeerMediator> const& spPeerMediator,
+        std::shared_ptr<IBootstrapCache> const& spBootstrapCache);
 
     CEndpointManager(CEndpointManager const& other) = delete;
     CEndpointManager& operator=(CEndpointManager const& other) = delete;
 
     ~CEndpointManager();
 
-    void Initialize(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        IPeerMediator* const pPeerMediator,
-        Configuration::EndpointConfigurations const& configurations,
-        IBootstrapCache const* const pBootsrapCache);
     void Startup();
     void Shutdown();
 
@@ -58,11 +57,17 @@ public:
 private:
     using EndpointsMultimap = std::unordered_map<Endpoints::EndpointIdType, SharedEndpoint>;
 
-    void InitializeTCPEndpoints(
+    void Initialize(
+        Configuration::EndpointConfigurations const& configurations,
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        std::shared_ptr<IPeerMediator> const& spPeerMediator,
+        std::shared_ptr<IBootstrapCache> const& spBootstrapCache);
+        
+    void InitializeTCPEndpoints(
         Configuration::TEndpointOptions const& options,
-        IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache);
+        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        std::shared_ptr<IPeerMediator> const& spPeerMediator,
+        std::shared_ptr<IBootstrapCache> const& spBootstrapCache);
 
     EndpointsMultimap m_endpoints;
     Endpoints::TechnologySet m_technologies;

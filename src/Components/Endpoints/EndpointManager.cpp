@@ -13,17 +13,22 @@ namespace local {
 
 void ConnectBootstraps(
     std::shared_ptr<CEndpoint> const& spEndpoint,
-    IBootstrapCache const* const pBootsrapCache);
+    std::shared_ptr<IBootstrapCache> const& spBootstrapCache);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CEndpointManager::CEndpointManager()
+CEndpointManager::CEndpointManager(
+    Configuration::EndpointConfigurations const& configurations,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    std::shared_ptr<IPeerMediator> const& spPeerMediator,
+    std::shared_ptr<IBootstrapCache> const& spBootstrapCache)
     : m_endpoints()
     , m_technologies()
 {
+    Initialize(configurations, spBryptIdentifier, spPeerMediator, spBootstrapCache);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -31,32 +36,6 @@ CEndpointManager::CEndpointManager()
 CEndpointManager::~CEndpointManager()
 {
     Shutdown();
-}
-
-//------------------------------------------------------------------------------------------------
-
-void CEndpointManager::Initialize(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    IPeerMediator* const pPeerMediator,
-    Configuration::EndpointConfigurations const& configurations,
-    IBootstrapCache const* const pBootstrapCache)
-{
-    // Iterate through the provided configurations to setup the endpoints for the given technolgy
-    for (auto const& options: configurations) {
-        auto const technology = options.GetTechnology();
-        // If the technology has not already been configured then continue with the setup. 
-        // This function should only be called once per application run, there shouldn't be a reason
-        // to re-initilize a technology as the endpoints should exist until appliction termination.
-        if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
-            switch (technology) {
-                case Endpoints::TechnologyType::TCP: {
-                    InitializeTCPEndpoints(
-                        spBryptIdentifier, options, pPeerMediator, pBootstrapCache);
-                } break;
-                default: break; // No other technologies have implemented endpoints
-            }
-        }
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -168,18 +147,44 @@ IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::InitializeTCPEndpoints(
+void CEndpointManager::Initialize(
+    Configuration::EndpointConfigurations const& configurations,
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    Configuration::TEndpointOptions const& options,
-    IPeerMediator* const pPeerMediator,
-    IBootstrapCache const* const pBootstrapCache)
+    std::shared_ptr<IPeerMediator> const& spPeerMediator,
+    std::shared_ptr<IBootstrapCache> const& spBootstrapCache)
 {
-    auto const technology = Endpoints::TechnologyType::TCP;
+    // Iterate through the provided configurations to setup the endpoints for the given technolgy
+    for (auto const& options: configurations) {
+        auto const technology = options.GetTechnology();
+        // If the technology has not already been configured then continue with the setup. 
+        // This function should only be called once per application run, there shouldn't be a reason
+        // to re-initilize a technology as the endpoints should exist until appliction termination.
+        if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
+            switch (technology) {
+                case Endpoints::TechnologyType::TCP: {
+                    InitializeTCPEndpoints(
+                        options, spBryptIdentifier, spPeerMediator, spBootstrapCache);
+                } break;
+                default: break; // No other technologies have implemented endpoints
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+void CEndpointManager::InitializeTCPEndpoints(
+    Configuration::TEndpointOptions const& options,
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    std::shared_ptr<IPeerMediator> const& spPeerMediator,
+    std::shared_ptr<IBootstrapCache> const& spBootstrapCache)
+{
+    assert(options.GetTechnology() == Endpoints::TechnologyType::TCP);
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        technology, spBryptIdentifier, options.GetInterface(),
-        Endpoints::OperationType::Server, this, pPeerMediator);
+        spBryptIdentifier, options.GetTechnology(), options.GetInterface(),
+        Endpoints::OperationType::Server, this, spPeerMediator);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -187,36 +192,36 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        technology, spBryptIdentifier, options.GetInterface(),
-        Endpoints::OperationType::Client, this, pPeerMediator);
+        spBryptIdentifier, options.GetTechnology(), options.GetInterface(),
+        Endpoints::OperationType::Client, this, spPeerMediator);
 
-    if (pBootstrapCache) {
-        local::ConnectBootstraps(spClient, pBootstrapCache);
+    if (spBootstrapCache) {
+        local::ConnectBootstraps(spClient, spBootstrapCache);
     }
 
     m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
 
-    m_technologies.emplace(technology);
+    m_technologies.emplace(options.GetTechnology());
 }
 
 //------------------------------------------------------------------------------------------------
 
 void local::ConnectBootstraps(
     std::shared_ptr<CEndpoint> const& spEndpoint,
-    IBootstrapCache const* const pBootstrapCache)
+    std::shared_ptr<IBootstrapCache> const& spBootstrapCache)
 {
     // If the given endpoint id not able to connect to peers, don't do anything.
     if (!spEndpoint || spEndpoint->GetOperation() != Endpoints::OperationType::Client) {
         return;
     }
 
-    if (!pBootstrapCache) {
+    if (!spBootstrapCache) {
         return;
     }
 
     // Iterate through the provided bootstraps for the endpoint and schedule a connect
     // for each peer in the list.
-    pBootstrapCache->ForEachCachedBootstrap(
+    spBootstrapCache->ForEachCachedBootstrap(
         spEndpoint->GetInternalType(), 
         [&spEndpoint] (std::string_view const& bootstrap) -> CallbackIteration {
             spEndpoint->ScheduleConnect(bootstrap);

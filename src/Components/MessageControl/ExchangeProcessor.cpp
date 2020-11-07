@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "ExchangeProcessor.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
+#include "../Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
@@ -11,7 +12,6 @@
 #include "../../BryptMessage/PackUtils.hpp"
 #include "../../Interfaces/ConnectProtocol.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
-#include "../Security/PostQuantum/NISTSecurityLevelThree.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------

@@ -15,21 +15,21 @@
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<CEndpoint> Endpoints::Factory(
-    TechnologyType technology,
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    TechnologyType technology,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator)
+    std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     switch (technology) {
         case TechnologyType::LoRa: {
             return std::make_unique<CLoRaEndpoint>(
-                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
+                spBryptIdentifier, interface, operation, pEndpointMediator, spPeerMediator);
         }
         case TechnologyType::TCP: {
             return std::make_unique<CTcpEndpoint>(
-                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
+                spBryptIdentifier, interface, operation, pEndpointMediator, spPeerMediator);
         }
         case TechnologyType::Invalid: return nullptr;
     }
@@ -67,8 +67,8 @@ std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(BryptIdentifier::CContainer cons
     // link this endpoint with a unified peer identified by the provided Brypt Identifier. 
     // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
     // should only be hit in unit tests of the endpoint. 
-    if(m_pPeerMediator) {
-        spBryptPeer = m_pPeerMediator->LinkPeer(identifier);
+    if(m_spPeerMediator) {
+        spBryptPeer = m_spPeerMediator->LinkPeer(identifier);
     } else {
         spBryptPeer = std::make_shared<CBryptPeer>(identifier);
     }

@@ -8,7 +8,7 @@
 #include "../KeyStore.hpp"
 #include "../SecurityTypes.hpp"
 #include "../SecurityDefinitions.hpp"
-#include "../../Interfaces/SecurityStrategy.hpp"
+#include "../../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <oqscpp/oqs_cpp.h>
 //------------------------------------------------------------------------------------------------

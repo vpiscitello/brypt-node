@@ -83,7 +83,7 @@ public:
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
-        IPeerMediator* const pPeerMediator);
+        std::shared_ptr<IPeerMediator> const& spPeerMediator);
     ~CTcpEndpoint() override;
 
     // CEndpoint{
