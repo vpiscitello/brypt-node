@@ -782,7 +782,7 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
         },
         [this, &optIdentifier, &spBryptPeer] (std::string_view uri) -> ExtendedConnectionDetails
         {
-            spBryptPeer = CEndpoint::LinkPeer(*optIdentifier);
+            spBryptPeer = CEndpoint::LinkPeer(*optIdentifier, uri);
             
             ExtendedConnectionDetails details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Connected);

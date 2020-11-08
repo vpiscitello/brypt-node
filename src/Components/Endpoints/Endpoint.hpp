@@ -101,7 +101,9 @@ public:
     Endpoints::OperationType GetOperation() const;
 
 protected: 
-    std::shared_ptr<CBryptPeer> LinkPeer(BryptIdentifier::CContainer const& identifier) const;
+    std::shared_ptr<CBryptPeer> LinkPeer(
+        BryptIdentifier::CContainer const& identifier,
+        std::string_view uri = "") const;
 
     using EventDeque = std::deque<std::any>;
 

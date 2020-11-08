@@ -59,7 +59,9 @@ Endpoints::OperationType CEndpoint::GetOperation() const
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(BryptIdentifier::CContainer const& identifier) const
+std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(
+    BryptIdentifier::CContainer const& identifier,
+    std::string_view uri) const
 {
     std::shared_ptr<CBryptPeer> spBryptPeer = {};
 
@@ -68,7 +70,7 @@ std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(BryptIdentifier::CContainer cons
     // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
     // should only be hit in unit tests of the endpoint. 
     if(m_spPeerMediator) {
-        spBryptPeer = m_spPeerMediator->LinkPeer(identifier);
+        spBryptPeer = m_spPeerMediator->LinkPeer(identifier, uri);
     } else {
         spBryptPeer = std::make_shared<CBryptPeer>(identifier);
     }
