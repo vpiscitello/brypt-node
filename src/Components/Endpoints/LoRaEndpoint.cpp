@@ -24,10 +24,10 @@ Endpoints::CLoRaEndpoint::CLoRaEndpoint(
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    std::shared_ptr<IPeerMediator> const& spPeerMediator)
+    IPeerMediator* const pPeerMediator)
     : CEndpoint(
         spBryptIdentifier, interface, operation,
-        pEndpointMediator, spPeerMediator, TechnologyType::LoRa)
+        pEndpointMediator, pPeerMediator, TechnologyType::LoRa)
 {
 }
 

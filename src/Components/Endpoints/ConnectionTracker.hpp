@@ -231,7 +231,8 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    void TrackConnection(ConnectionIdType const& connection, ExtendedConnectionDetails const& details)
+    void TrackConnection(
+        ConnectionIdType const& connection, ExtendedConnectionDetails const& details)
     {
         std::scoped_lock lock(m_mutex);
         if (auto const itr = m_connections.find(connection); itr != m_connections.end()) {
@@ -280,7 +281,8 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    bool UpdateOneConnection(ConnectionIdType const& connection, UpdateOneFunction const& updateFunction)
+    bool UpdateOneConnection(
+        ConnectionIdType const& connection, UpdateOneFunction const& updateFunction)
     {
         std::scoped_lock lock(m_mutex);
         if (auto const itr = m_connections.find(connection); itr != m_connections.end()) {
@@ -314,11 +316,14 @@ public:
                     ConnectionEntryType& entry)
                 {
                     auto& optConnectionDetails = entry.GetUpdatableConnectionDetails();
-                    if (optConnectionDetails && optConnectionDetails->IsPeerConnection()) {
-                        promotedConnectionFunction(*optConnectionDetails);
-                        found = true;
-                    } else if (optConnectionDetails && !optConnectionDetails->IsPeerConnection()) {
-                        optConnectionDetails = unpromotedConnectionFunction(optConnectionDetails->GetURI());
+                    if (optConnectionDetails) {
+                        if (optConnectionDetails->HasAssociatedPeer()) {
+                            promotedConnectionFunction(*optConnectionDetails);
+                            found = true;
+                        } else {
+                            optConnectionDetails = unpromotedConnectionFunction(
+                                optConnectionDetails->GetURI());
+                        }
                     } else {
                         optConnectionDetails = unpromotedConnectionFunction("");
                     }
@@ -427,14 +432,14 @@ public:
                     auto& optConnectionDetails = entry.GetUpdatableConnectionDetails();
                     switch (filter) {
                         case PromotionStateFilter::Promoted: {
-                            if (optConnectionDetails && optConnectionDetails->IsPeerConnection()) {
+                            if (optConnectionDetails && optConnectionDetails->HasAssociatedPeer()) {
                                 result = updateFunction(
                                     entry.GetConnectionIdentifier(), optConnectionDetails);
                             }
                         } break;
                         case PromotionStateFilter::Unpromoted: {
                             if (!optConnectionDetails ||
-                                (optConnectionDetails && !optConnectionDetails->IsPeerConnection())) {
+                                (optConnectionDetails && !optConnectionDetails->HasAssociatedPeer())) {
                                 result = updateFunction(
                                     entry.GetConnectionIdentifier(), optConnectionDetails);
                             }
@@ -575,14 +580,14 @@ public:
             auto const& optConnectionDetails = itr->GetConnectionDetails();
             switch (filter) {
                 case PromotionStateFilter::Promoted: {
-                    if (optConnectionDetails && optConnectionDetails->IsPeerConnection()) {
+                    if (optConnectionDetails && optConnectionDetails->HasAssociatedPeer()) {
                         result = readFunction(
                             itr->GetConnectionIdentifier(), optConnectionDetails);
                     }
                 } break;
                 case PromotionStateFilter::Unpromoted: {
                     if (!optConnectionDetails ||
-                        (optConnectionDetails && !optConnectionDetails->IsPeerConnection())) {
+                        (optConnectionDetails && !optConnectionDetails->HasAssociatedPeer())) {
                         result = readFunction(
                             itr->GetConnectionIdentifier(), optConnectionDetails);
                     }

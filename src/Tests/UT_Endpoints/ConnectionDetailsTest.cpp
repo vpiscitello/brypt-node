@@ -59,7 +59,6 @@ TEST(ConnectionDetailsSuite, IdentifierTranslateTest)
         {
             CConnectionDetails<> details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Unknown);
-            details.SetMessagingPhase(MessagingPhase::Response);
             return details;
         }
     );
@@ -83,7 +82,6 @@ TEST(ConnectionTrackerSuite, SingleConnectionTest)
     auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
     CConnectionDetails<> details(spClientPeer);
     details.SetConnectionState(ConnectionState::Unknown);
-    details.SetMessagingPhase(MessagingPhase::Response);
 
     tracker.TrackConnection(clientConnectionId, details);
 
@@ -139,7 +137,6 @@ TEST(ConnectionTrackerSuite, MultipleConnectionsTest)
     auto const spFirstNodeIdentifier = spFirstPeer->GetBryptIdentifier();
     CConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetConnectionState(ConnectionState::Unknown);
-    firstConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
 
     std::string const secondConnectionIdentifier = "2";
     auto const spSecondPeer = std::make_shared<CBryptPeer>(
@@ -147,7 +144,6 @@ TEST(ConnectionTrackerSuite, MultipleConnectionsTest)
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetConnectionState(ConnectionState::Unknown);
-    secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
 
     std::string const thirdConnectionIdentifier = "3";
     auto const spThirdPeer = std::make_shared<CBryptPeer>(
@@ -155,7 +151,6 @@ TEST(ConnectionTrackerSuite, MultipleConnectionsTest)
     auto const spThirdNodeIdentifier = spThirdPeer->GetBryptIdentifier();
     CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetConnectionState(ConnectionState::Unknown);
-    thirdConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
 
     tracker.TrackConnection(firstConnectionIdentifier, firstConnectionDetails);
     tracker.TrackConnection(secondConnectionIdentifier, secondConnectionDetails);
@@ -244,7 +239,6 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
     CConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
-    firstConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
@@ -254,7 +248,6 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
-    secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
@@ -264,7 +257,6 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
     CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
-    thirdConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const fourthConnectionIdentifier = "4";
@@ -324,7 +316,6 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
     CConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
-    firstConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
@@ -334,7 +325,6 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
-    secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
@@ -344,7 +334,6 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
     CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
-    thirdConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const fourthConnectionIdentifier = "4";
@@ -400,7 +389,6 @@ TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
     CConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
-    firstConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
@@ -410,7 +398,6 @@ TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
-    secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
@@ -420,7 +407,6 @@ TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
     CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
-    thirdConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const fourthConnectionIdentifier = "4";
@@ -487,7 +473,6 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     CConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
-    firstConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
@@ -497,7 +482,6 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     CConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
-    secondConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
@@ -507,7 +491,6 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
-    thirdConnectionDetails.SetMessagingPhase(MessagingPhase::Response);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const fourthConnectionIdentifier = "4";

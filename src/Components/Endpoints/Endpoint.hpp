@@ -45,7 +45,7 @@ std::unique_ptr<CEndpoint> Factory(
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    std::shared_ptr<IPeerMediator> const& spPeerMediator);
+    IPeerMediator* const pPeerMediator);
 
 //------------------------------------------------------------------------------------------------
 } // Endpoint namespace
@@ -60,7 +60,7 @@ public:
         std::string_view interface,
         Endpoints::OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
-        std::shared_ptr<IPeerMediator> const& spPeerMediator,
+        IPeerMediator* const pPeerMediator,
         Endpoints::TechnologyType technology = Endpoints::TechnologyType::Invalid)
         : m_mutex()
         , m_identifier(CEndpointIdentifierGenerator::Instance().GetEndpointIdentifier())
@@ -69,7 +69,7 @@ public:
         , m_interface(interface)
         , m_operation(operation)
         , m_pEndpointMediator(pEndpointMediator)
-        , m_spPeerMediator(spPeerMediator)
+        , m_pPeerMediator(pPeerMediator)
         , m_active(false)
         , m_terminate(false)
         , m_cv()
@@ -117,7 +117,7 @@ protected:
 	Endpoints::OperationType const m_operation;
 
     IEndpointMediator const* const m_pEndpointMediator;
-    std::shared_ptr<IPeerMediator> m_spPeerMediator;
+    IPeerMediator* const m_pPeerMediator;
 
 	std::atomic_bool m_active;
     std::atomic_bool m_terminate;

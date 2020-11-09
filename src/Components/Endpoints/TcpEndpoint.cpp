@@ -35,10 +35,10 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    std::shared_ptr<IPeerMediator> const& spPeerMediator)
+    IPeerMediator* const pPeerMediator)
     : CEndpoint(
         spBryptIdentifier, interface, operation,
-        pEndpointMediator, spPeerMediator, TechnologyType::TCP)
+        pEndpointMediator, pPeerMediator, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_tracker()
@@ -519,7 +519,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
         return ConnectStatusCode::GenericError;
     }
 
-    if (!m_spPeerMediator) {
+    if (!m_pPeerMediator) {
         return ConnectStatusCode::GenericError;
     }
 
@@ -527,7 +527,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
     // an expected identifier declare a new peer using the peer's URI. Otherwise, declare 
     // the resolving peer using the expected identifier. If the peer is known through the 
     // identifier, the mediator will provide us a heartbeat request to verify the endpoint.
-    std::optional<std::string> optConnectionRequest = m_spPeerMediator->DeclareResolvingPeer(uri);
+    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(uri);
 
     if (!optConnectionRequest) {
         return ConnectStatusCode::GenericError;
@@ -724,26 +724,7 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
                         default: return {};
                     }
                 }
-                
-                bool bMessageAllowed = true;
-                [[maybe_unused]] bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(descriptor,
-                    [&bMessageAllowed](auto& details) {
-                        // TODO: A generic message filtering service should be used to ensure all connection interfaces
-                        // use the same message allowance scheme. 
-                        MessagingPhase phase = details.GetMessagingPhase();
-                        if (phase != MessagingPhase::Request) {
-                            bMessageAllowed = false;
-                            return;
-                        }
-                        details.SetMessagingPhase(MessagingPhase::Response);
-                    }
-                );
-
-                // If a new request is not allowed from this peer 
-                if (!bMessageAllowed) {
-                    return {};
-                }
-
+ 
                 buffer.resize(received);
                 return buffer;
             }
@@ -786,7 +767,6 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
             
             ExtendedConnectionDetails details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Connected);
-            details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
             
             spBryptPeer->RegisterEndpoint(m_identifier, m_technology, m_scheduler, uri);
@@ -830,21 +810,6 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
     }
 
     for (auto const& [descriptor, message, retries] : outgoing) {
-
-        // Determine if the message being sent is allowed given the current state of communications
-        // with the peer. Brypt networking structure dictates that each request is coupled with a response.
-        MessagingPhase phase = MessagingPhase::Response;
-        m_tracker.ReadOneConnection(descriptor,
-            [&phase] (auto const& details) {
-                phase = details.GetMessagingPhase();
-            }
-        );
-
-        // If the current message is not allowed in the current network context, skip to the next message.
-        if (phase != MessagingPhase::Response) {
-            continue;
-        }
-
         auto const result = Send(descriptor, message);  // Attempt to send the message
         std::visit(TVariantVisitor
             {
@@ -859,7 +824,6 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
                         m_tracker.UpdateOneConnection(descriptor,
                             [] (auto& details) {
                                 details.IncrementMessageSequence();
-                                details.SetMessagingPhase(MessagingPhase::Request);
                             }
                         );
                     } else {

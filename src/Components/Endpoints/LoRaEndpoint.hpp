@@ -26,7 +26,7 @@ public:
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
-        std::shared_ptr<IPeerMediator> const& spPeerMediator);
+        IPeerMediator* const pPeerMediator);
     ~CLoRaEndpoint() override;
 
     // CEndpoint{
