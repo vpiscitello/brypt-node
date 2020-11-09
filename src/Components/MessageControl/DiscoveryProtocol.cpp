@@ -9,6 +9,7 @@
 #include "../Command/ConnectHandler.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
+#include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
 //------------------------------------------------------------------------------------------------
@@ -68,9 +69,15 @@ bool CDiscoveryProtocol::SendRequest(
 {
     assert(m_data.size() != 0);
 
+    auto const spDestination = spBryptPeer->GetBryptIdentifier();
+    if (!spDestination) {
+        return false;
+    }
+
     auto const optDiscoveryRequest = CApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
+        .SetDestination(*spDestination)
         .SetCommand(local::Command, local::Phase)
         .SetPayload(m_data)
         .ValidatedBuild();
@@ -89,10 +96,20 @@ std::string local::GenerateDiscoveryData(
             iod::make_metamap(
                 s::technology = std::string(), s::entry = std::string()) });
 
+    request.entrypoints.clear();
+
     for (auto const& options: configurations) {
         auto& entrypoint = request.entrypoints.emplace_back();
         entrypoint.technology = options.GetTechnologyName();
-        entrypoint.entry = options.GetBinding();
+
+        auto const [primary, secondary] = options.GetBindingComponents();
+        if (primary == "*") {
+            entrypoint.entry.append(NetworkUtils::GetInterfaceAddress(options.GetInterface()));
+        } else {
+            entrypoint.entry.append(primary);
+        }
+        entrypoint.entry.append(NetworkUtils::ComponentSeperator);
+        entrypoint.entry.append(secondary);
     }
 
     return iod::json_encode(request);
