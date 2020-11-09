@@ -134,8 +134,8 @@ bool CAuthorizedProcessor::HandleMessage(
 		// Allow heartbeat requests to be processed. 
 		case Message::Network::Type::HeartbeatRequest:  {
 			optResponse = CNetworkMessage::Builder()
-				.SetSource(message.GetSourceIdentifier())
-				.SetDestination(*optDestination)
+				.SetSource(*optDestination)
+				.SetDestination(message.GetSourceIdentifier())
 				.MakeHeartbeatResponse()
 				.ValidatedBuild();
 			assert(optResponse);
