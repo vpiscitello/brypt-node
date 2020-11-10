@@ -5,6 +5,9 @@
 #include "MessageSinkStub.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/MessageContext.hpp"
+#include "../../BryptMessage/MessageUtils.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
+#include "../../BryptMessage/PackUtils.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 //------------------------------------------------------------------------------------------------
 #include <mutex>
@@ -18,10 +21,49 @@ CMessageSinkStub::CMessageSinkStub()
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageSinkStub::QueuedMessageCount() const
+bool CMessageSinkStub::CollectMessage(
+	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+	CMessageContext const& context,
+	std::string_view buffer)
 {
-	std::shared_lock lock(m_incomingMutex);
-	return m_incoming.size();
+    // Decode the buffer as it is expected to be encoded with Z85.
+    Message::Buffer const decoded = PackUtils::Z85Decode(buffer);
+
+    // Pass on the message collection to the decoded buffer method. 
+    return CollectMessage(wpBryptPeer, context, decoded);
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CMessageSinkStub::CollectMessage(
+	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+	CMessageContext const& context,
+	Message::Buffer const& buffer)
+{
+    // Peek the protocol in the packed buffer. 
+    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    if (!optProtocol) {
+        return false;
+    }
+
+	// Handle the message based on the message protocol indicated by the message.
+    switch (*optProtocol) {
+        case Message::Protocol::Application: {
+			auto const optMessage = CApplicationMessage::Builder()
+				.SetMessageContext(context)
+				.FromDecodedPack(buffer)
+				.ValidatedBuild();
+
+			if (!optMessage) {
+				return false;
+			}
+
+			return QueueMessage(wpBryptPeer, *optMessage);
+		}
+        case Message::Protocol::Network:
+        case Message::Protocol::Invalid:
+		default: return false;
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -41,45 +83,7 @@ std::optional<AssociatedMessage> CMessageSinkStub::PopIncomingMessage()
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageSinkStub::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CMessageContext const& context,
-	std::string_view buffer)
-{
-    auto const optMessage = CApplicationMessage::Builder()
-        .SetMessageContext(context)
-        .FromEncodedPack(buffer)
-        .ValidatedBuild();
-
-    if (!optMessage) {
-        return false;
-    }
-
-	return CollectMessage(wpBryptPeer, *optMessage);
-}
-
-//------------------------------------------------------------------------------------------------
-
-bool CMessageSinkStub::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CMessageContext const& context,
-	Message::Buffer const& buffer)
-{
-    auto const optMessage = CApplicationMessage::Builder()
-        .SetMessageContext(context)
-        .FromDecodedPack(buffer)
-        .ValidatedBuild();
-
-    if (!optMessage) {
-        return false;
-    }
-
-	return CollectMessage(wpBryptPeer, *optMessage);
-}
-
-//------------------------------------------------------------------------------------------------
-
-bool CMessageSinkStub::CollectMessage(
+bool CMessageSinkStub::QueueMessage(
 	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
 	CApplicationMessage const& message)
 {

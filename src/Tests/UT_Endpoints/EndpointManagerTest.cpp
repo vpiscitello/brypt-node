@@ -120,7 +120,7 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
     spPeerCache->AddBootstrap(test::TechnologyType, test::ServerEntry);
 
     auto upEndpointManager = std::make_unique<CEndpointManager>(
-        configurations, test::spBryptIdentifier, nullptr, spPeerCache);
+        configurations, test::spBryptIdentifier, nullptr, spPeerCache.get());
         
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();

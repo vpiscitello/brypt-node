@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "SinglePeerMediatorStub.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -43,6 +44,25 @@ CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvi
     assert(optConnectRequest);
 
     return optConnectRequest->GetPack();
+}
+
+//------------------------------------------------------------------------------------------------
+
+CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvingPeer(
+    BryptIdentifier::SharedContainer const& spIdentifier)
+{
+    if (!spIdentifier) {
+        return {};
+    }
+
+    auto const optHeartbeatRequest = CNetworkMessage::Builder()
+        .SetSource(*m_spBryptIdentifier)
+        .SetDestination(*spIdentifier)
+        .MakeHeartbeatRequest()
+        .ValidatedBuild();
+    assert(optHeartbeatRequest);
+
+    return optHeartbeatRequest->GetPack();
 }
 
 //------------------------------------------------------------------------------------------------

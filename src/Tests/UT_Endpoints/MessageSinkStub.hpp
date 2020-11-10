@@ -26,9 +26,6 @@ class CMessageSinkStub : public IMessageSink {
 public:
     CMessageSinkStub();
     
-    std::optional<AssociatedMessage> PopIncomingMessage();
-    std::uint32_t QueuedMessageCount() const;
-
     // IMessageSink {
     virtual bool CollectMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
@@ -41,8 +38,10 @@ public:
         Message::Buffer const& buffer) override;
     // }IMessageSink
 
+    std::optional<AssociatedMessage> PopIncomingMessage();
+    
 private:
-    bool CollectMessage(
+    bool QueueMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CApplicationMessage const& message);
 

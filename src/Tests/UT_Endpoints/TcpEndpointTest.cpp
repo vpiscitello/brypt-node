@@ -157,7 +157,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
         test::Interface,
         Endpoints::OperationType::Server,
         nullptr,
-        spPeerMediator);
+        spPeerMediator.get());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -170,7 +170,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
         test::Interface,
         Endpoints::OperationType::Client,
         nullptr,
-        spPeerMediator);
+        spPeerMediator.get());
 }
 
 //------------------------------------------------------------------------------------------------
