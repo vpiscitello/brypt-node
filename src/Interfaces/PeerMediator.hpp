@@ -30,6 +30,8 @@ public:
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
     virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) = 0;
+    virtual OptionalRequest DeclareResolvingPeer(
+        BryptIdentifier::SharedContainer const& spIdentifier) = 0;
 
     virtual std::shared_ptr<CBryptPeer> LinkPeer(
         BryptIdentifier::CContainer const& identifier,

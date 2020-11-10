@@ -5,6 +5,8 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
+#include "../Endpoints/EndpointIdentifier.hpp"
+#include "../Endpoints/TechnologyType.hpp"
 #include "../Security/SecurityMediator.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../Interfaces/PeerCache.hpp"
@@ -38,6 +40,8 @@ public:
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
     virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) override;
+    virtual OptionalRequest DeclareResolvingPeer(
+        BryptIdentifier::SharedContainer const& spIdentifier) override;
 
     virtual std::shared_ptr<CBryptPeer> LinkPeer(
         BryptIdentifier::CContainer const& identifier,

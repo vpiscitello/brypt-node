@@ -142,6 +142,17 @@ void Endpoints::CLoRaEndpoint::ScheduleConnect([[maybe_unused]] std::string_view
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+void Endpoints::CLoRaEndpoint::ScheduleConnect(
+    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier,
+    [[maybe_unused]] std::string_view entry)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 bool Endpoints::CLoRaEndpoint::ScheduleSend(
     [[maybe_unused]] BryptIdentifier::CContainer const& identifier,
     [[maybe_unused]] std::string_view message)

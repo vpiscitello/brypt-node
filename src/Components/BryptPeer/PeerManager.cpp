@@ -5,6 +5,7 @@
 #include "PeerManager.hpp"
 #include "../Security/SecurityDefinitions.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Interfaces/PeerObserver.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
@@ -64,15 +65,13 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_vie
 {
     // Disallow endpoints from connecting to the same uri. The endpoint should only declare a 
     // a connection once. If it has connection retry logic, the endpoint should store the 
-    // connection request message 
+    // connection request message. TODO: Handle cleaning up stale declarations. 
     if (auto const itr = m_resolving.find(uri.data()); itr != m_resolving.end()) {
         return {};
     }
 
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        m_spBryptIdentifier,
-        Security::Context::Unique,
-        m_wpPromotedProcessor);
+        m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
     auto const optRequest = upSecurityMediator->SetupExchangeInitiator(
         Security::Strategy::PQNISTL3, m_spConnectProtocol);
@@ -86,6 +85,37 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_vie
 
     // Return the ticket number and the initial connection message
     return optRequest;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(
+    BryptIdentifier::SharedContainer const& spPeerIdentifier)
+{
+    // It is expected that the caller has provided a valid brypt identifier for the peer. 
+    if (!spPeerIdentifier || !spPeerIdentifier->IsValid()) {
+        assert(false);
+        return {};
+    }
+
+    // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
+    {
+        std::scoped_lock peersLock(m_peersMutex);
+        if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalRepresentation());
+            itr == m_peers.end()) {
+            return {};
+        }
+    }
+
+    // Generate the heartbeat request.
+    auto const optRequest = CNetworkMessage::Builder()
+        .SetSource(*m_spBryptIdentifier)
+        .SetDestination(*spPeerIdentifier)
+        .MakeHeartbeatRequest()
+        .ValidatedBuild();
+    assert(optRequest);
+
+    return optRequest->GetPack();
 }
 
 //------------------------------------------------------------------------------------------------

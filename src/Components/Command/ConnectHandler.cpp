@@ -23,7 +23,11 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-bool HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message);
+bool HandleDiscoveryRequest(
+    CBryptNode& instance,
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CApplicationMessage const& message);
+
 std::string BuildDiscoveryResponse(CBryptNode& instance);
 
 bool HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& message);
@@ -110,7 +114,8 @@ bool Command::CConnectHandler::DiscoveryHandler(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CApplicationMessage const& message)
 {
-    bool const status = local::HandleDiscoveryRequest(m_instance, message);
+
+    bool const status = local::HandleDiscoveryRequest(m_instance, wpBryptPeer, message);
     if (!status) {
         return status;
     }
@@ -134,7 +139,10 @@ bool Command::CConnectHandler::JoinHandler(CApplicationMessage const& message)
 
 //------------------------------------------------------------------------------------------------
 
-bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message)
+bool local::HandleDiscoveryRequest(
+    CBryptNode& instance,
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CApplicationMessage const& message)
 {
     // Parse the discovery request
     auto const data = message.GetPayload();
@@ -146,6 +154,11 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage con
                 s::technology = std::string(), s::entry = std::string()) });
 
     iod::json_decode(dataview, request);
+
+    BryptIdentifier::SharedContainer spPeerIdentifier;
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    }
 
     if (!request.entrypoints.empty()) {
         // Get shared_ptrs for the PeerPersitor and EndpointManager
@@ -169,7 +182,7 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage con
                 // If we have an endpoint for the given technology, schedule the connect.
                 if (auto spEndpoint = spEndpointManager->GetEndpoint(
                     technology, Endpoints::OperationType::Client); spEndpoint) {
-                    spEndpoint->ScheduleConnect(entrypoint.entry);
+                    spEndpoint->ScheduleConnect(spPeerIdentifier, entrypoint.entry);
                 }
             }
         }

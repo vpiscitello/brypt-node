@@ -229,6 +229,35 @@ void Endpoints::CTcpEndpoint::ScheduleConnect(std::string_view entry)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+void Endpoints::CTcpEndpoint::ScheduleConnect(
+    BryptIdentifier::SharedContainer const& spIdentifier,
+    std::string_view entry)
+{
+    if (m_operation != OperationType::Client) {
+        throw std::runtime_error("Connect was called a non-client Endpoint!");
+    }
+    
+    auto const [address, sPort] = NetworkUtils::SplitAddressString(entry);
+    if (address.empty() || sPort.empty()) {
+        return;
+    }
+
+    NetworkUtils::PortNumber port = std::stoul(sPort);
+
+    // Schedule the Connect network instruction event
+    {
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            Tcp::TNetworkInstructionEvent(
+                spIdentifier, NetworkInstruction::Connect, address, port));
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 bool  Endpoints::CTcpEndpoint::ScheduleSend(
     BryptIdentifier::CContainer const& identifier,
     std::string_view message)
@@ -493,7 +522,8 @@ void Endpoints::CTcpEndpoint::ClientWorker()
 Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port,
-    IPv4SocketAddress& socketAddress)
+    IPv4SocketAddress& socketAddress,
+    BryptIdentifier::SharedContainer const& spIdentifier)
 {
     std::string uri;
     uri.append(Scheme.data());
@@ -527,7 +557,12 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
     // an expected identifier declare a new peer using the peer's URI. Otherwise, declare 
     // the resolving peer using the expected identifier. If the peer is known through the 
     // identifier, the mediator will provide us a heartbeat request to verify the endpoint.
-    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(uri);
+    std::optional<std::string> optConnectionRequest;
+    if (!spIdentifier) {
+        optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(uri);
+    } else {
+        optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(spIdentifier);
+    }
 
     if (!optConnectionRequest) {
         return ConnectStatusCode::GenericError;
@@ -640,7 +675,7 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
         }
     }
 
-    for (auto const& [type, address, port] : instructions) {
+    for (auto const& [identifier, type, address, port] : instructions) {
         IPv4SocketAddress socketAddress = {}; // Zero initialize the socket address;
         switch (type) {
             case NetworkInstruction::Bind: {
@@ -653,7 +688,7 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
                 }
             } break;
             case NetworkInstruction::Connect: {
-                auto const status = Connect(address, port, socketAddress);
+                auto const status = Connect(address, port, socketAddress, identifier);
                 if (status == ConnectStatusCode::GenericError) {
                     std::string const notification = "[TCP] Connection to " + address + ":"\
                          + std::to_string(port) + " failed.";

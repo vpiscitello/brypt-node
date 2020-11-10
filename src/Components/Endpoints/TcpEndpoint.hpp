@@ -8,6 +8,7 @@
 #include "ConnectionDetails.hpp"
 #include "ConnectionTracker.hpp"
 #include "TechnologyType.hpp"
+#include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../BryptMessage/MessageDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <any>
@@ -39,11 +40,26 @@ struct Tcp::TNetworkInstructionEvent {
         CEndpoint::NetworkInstruction type,
         std::string_view address,
         NetworkUtils::PortNumber port)
-        : type(type)
+        : identifier()
+        , type(type)
         , address(address)
         , port(port)
     {
-    };
+    }
+
+    TNetworkInstructionEvent(
+        BryptIdentifier::SharedContainer const& spPeerIdentifier,
+        CEndpoint::NetworkInstruction type,
+        std::string_view address,
+        NetworkUtils::PortNumber port)
+        : identifier(spPeerIdentifier)
+        , type(type)
+        , address(address)
+        , port(port)
+    {
+    }
+
+    BryptIdentifier::SharedContainer const identifier;
     CEndpoint::NetworkInstruction const type;
     NetworkUtils::NetworkAddress const address;
     NetworkUtils::PortNumber const port;
@@ -97,6 +113,8 @@ public:
 
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;
+    void ScheduleConnect(
+        BryptIdentifier::SharedContainer const& spIdentifier, std::string_view entry) override;
     bool ScheduleSend(
         BryptIdentifier::CContainer const& identifier,
         std::string_view message) override;
@@ -142,7 +160,8 @@ private:
     ConnectStatusCode Connect(
         NetworkUtils::NetworkAddress const& address,
         NetworkUtils::PortNumber port,
-        IPv4SocketAddress& socketAddress);
+        IPv4SocketAddress& socketAddress,
+        BryptIdentifier::SharedContainer const& spIdentifier);
     ConnectStatusCode IsURIAllowed(std::string_view uri);
     ConnectStatusCode EstablishConnection(
         SocketDescriptor descriptor, IPv4SocketAddress address, std::string_view request);

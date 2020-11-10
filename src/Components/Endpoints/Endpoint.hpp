@@ -92,6 +92,8 @@ public:
 
     virtual void ScheduleBind(std::string_view binding) = 0;
     virtual void ScheduleConnect(std::string_view entry) = 0;
+    virtual void ScheduleConnect(
+        BryptIdentifier::SharedContainer const& spIdentifier, std::string_view entry) = 0;
 	virtual bool ScheduleSend(
         BryptIdentifier::CContainer const& destination,
         std::string_view message) = 0;
