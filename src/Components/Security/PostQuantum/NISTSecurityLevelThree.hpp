@@ -137,6 +137,7 @@ public:
     virtual Strategy GetStrategyType() const override;
     virtual Role GetRoleType() const override;
     virtual Context GetContextType() const override;
+    virtual std::uint32_t GetSignatureSize() const override;
 
     virtual std::uint32_t GetSynchronizationStages() const override;
     virtual SynchronizationStatus GetSynchronizationStatus() const override;
@@ -149,7 +150,7 @@ public:
     virtual OptionalBuffer Decrypt(
         Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
 
-    virtual std::uint32_t Sign(Buffer& buffer) const override;
+    virtual std::int32_t Sign(Buffer& buffer) const override;
 
     virtual VerificationStatus Verify(Buffer const& buffer) const override;
     // } ISecurityStrategy
@@ -167,7 +168,7 @@ public:
 
 private:
     // ISecurityStrategy {
-    virtual std::uint32_t Sign(
+    virtual std::int32_t Sign(
         Security::Buffer const& source, Security::Buffer& destination) const override;
 
     virtual OptionalBuffer GenerateSignature(

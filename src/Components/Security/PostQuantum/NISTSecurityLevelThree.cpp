@@ -335,6 +335,13 @@ Security::Context Security::PQNISTL3::CStrategy::GetContextType() const
 
 //------------------------------------------------------------------------------------------------
 
+std::uint32_t Security::PQNISTL3::CStrategy::GetSignatureSize() const
+{
+    return SignatureSize;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::uint32_t Security::PQNISTL3::CStrategy::GetSynchronizationStages() const
 {
     switch (m_role) {
@@ -526,7 +533,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t Security::PQNISTL3::CStrategy::Sign(Buffer& buffer) const
+std::int32_t Security::PQNISTL3::CStrategy::Sign(Buffer& buffer) const
 {
     return Sign(buffer, buffer); // Generate and add the signature to the provided buffer. 
 }
@@ -715,7 +722,7 @@ Security::VerificationStatus Security::PQNISTL3::CStrategy::VerifyKeyShare(Buffe
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t Security::PQNISTL3::CStrategy::Sign(
+std::int32_t Security::PQNISTL3::CStrategy::Sign(
     Security::Buffer const& source, Security::Buffer& destination) const
 {
     // Ensure the caller is able to sign the buffer with generated session keys.
@@ -726,7 +733,7 @@ std::uint32_t Security::PQNISTL3::CStrategy::Sign(
     // Get our signature key to be used when generating the content siganture. .
     auto const optSignatureKey = m_store.GetSignatureKey();
     if (!optSignatureKey) {
-		return 0;
+		return -1;
     }
 
     // Destructure the KeyStore result into meaniful names. 
@@ -736,7 +743,7 @@ std::uint32_t Security::PQNISTL3::CStrategy::Sign(
     // Sign the provided buffer with our signature key .
     OptionalBuffer optSignature = GenerateSignature(pKey, keySize, source.data(), source.size());
     if (!optSignature) {
-        return 0;
+        return -1;
     }
 
     // Insert the signature to create a verifiable buffer. 

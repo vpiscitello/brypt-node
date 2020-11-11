@@ -17,6 +17,7 @@ public:
     virtual Security::Strategy GetStrategyType() const = 0;
     virtual Security::Role GetRoleType() const = 0;
     virtual Security::Context GetContextType() const = 0;
+    virtual std::uint32_t GetSignatureSize() const = 0;
 
     virtual std::uint32_t GetSynchronizationStages() const = 0;
     virtual Security::SynchronizationStatus GetSynchronizationStatus() const = 0;
@@ -28,11 +29,11 @@ public:
     virtual Security::OptionalBuffer Decrypt(
         Security::Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const = 0;
 
-    virtual std::uint32_t Sign(Security::Buffer& buffer) const = 0;
+    virtual std::int32_t Sign(Security::Buffer& buffer) const = 0;
     virtual Security::VerificationStatus Verify(Security::Buffer const& buffer) const = 0;
 
 private: 
-    virtual std::uint32_t Sign(
+    virtual std::int32_t Sign(
         Security::Buffer const& source, Security::Buffer& destination) const = 0;
 
     virtual Security::OptionalBuffer GenerateSignature(

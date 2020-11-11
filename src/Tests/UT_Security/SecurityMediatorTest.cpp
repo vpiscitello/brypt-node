@@ -82,6 +82,7 @@ public:
     virtual Security::Strategy GetStrategyType() const override;
     virtual Security::Role GetRoleType() const override;
     virtual Security::Context GetContextType() const override;
+    virtual std::uint32_t GetSignatureSize() const override;
 
     virtual std::uint32_t GetSynchronizationStages() const override;
     virtual Security::SynchronizationStatus GetSynchronizationStatus() const override;
@@ -93,11 +94,11 @@ public:
     virtual Security::OptionalBuffer Decrypt(
         Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
 
-    virtual std::uint32_t Sign(Security::Buffer&) const override;
+    virtual std::int32_t Sign(Security::Buffer&) const override;
     virtual Security::VerificationStatus Verify(Security::Buffer const&) const override;
 
 private: 
-    virtual std::uint32_t Sign(
+    virtual std::int32_t Sign(
         Security::Buffer const&, Security::Buffer&) const override;
 
     virtual Security::OptionalBuffer GenerateSignature(
@@ -398,6 +399,13 @@ Security::Context local::CStrategyStub::GetContextType() const
 
 //------------------------------------------------------------------------------------------------
 
+std::uint32_t local::CStrategyStub::GetSignatureSize() const
+{
+    return 0;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::uint32_t local::CStrategyStub::GetSynchronizationStages() const
 {
     return 0;
@@ -447,7 +455,7 @@ Security::OptionalBuffer local::CStrategyStub::Decrypt(
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t local::CStrategyStub::Sign(
+std::int32_t local::CStrategyStub::Sign(
     [[maybe_unused]] Security::Buffer&) const
 {
     return 0;
@@ -463,7 +471,7 @@ Security::VerificationStatus local::CStrategyStub::Verify(
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t local::CStrategyStub::Sign(
+std::int32_t local::CStrategyStub::Sign(
     [[maybe_unused]] Security::Buffer const&, [[maybe_unused]] Security::Buffer&) const
 {
     return 0;
