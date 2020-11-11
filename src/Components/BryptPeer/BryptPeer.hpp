@@ -98,6 +98,7 @@ private:
 
     mutable std::recursive_mutex m_receiverMutex;
     IMessageSink* m_pMessageSink;
+    
 };
 
 //------------------------------------------------------------------------------------------------

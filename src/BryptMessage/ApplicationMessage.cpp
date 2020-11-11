@@ -5,7 +5,6 @@
 #include "ApplicationMessage.hpp"
 #include "MessageSecurity.hpp"
 #include "PackUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -60,6 +59,7 @@ CApplicationMessage::CApplicationMessage(CApplicationMessage const& other)
 	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
 {
 }
+
 //------------------------------------------------------------------------------------------------
 
 CApplicationBuilder CApplicationMessage::Builder()

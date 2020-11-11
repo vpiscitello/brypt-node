@@ -33,7 +33,7 @@ ENDPOINTSDIR = Components/Endpoints
 CONFIGURATIONDIR = Configuration
 MESSAGECONTROLDIR = Components/MessageControl
 SECURITYDIR = Components/Security
-NOTIFIERDIR = Components/Notifier
+SECURITYPOSTQUANTUMDIR = Components/Security/PostQuantum
 
 MODULES = $(BRYPTNODEDIR) \
 $(BRYPTIDENTIFIERDIR) \
@@ -45,7 +45,7 @@ $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(MESSAGECONTROLDIR) \
 $(SECURITYDIR) \
-$(NOTIFIERDIR)
+$(SECURITYPOSTQUANTUMDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRCS)))
