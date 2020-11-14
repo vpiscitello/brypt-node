@@ -31,7 +31,7 @@ CBryptPeer::CBryptPeer(
     // the peer. 
     if (!identifier.IsValid() || ReservedIdentifiers::IsIdentifierReserved(identifier)) {
         throw std::runtime_error(
-            "Cannot create a CBryptPeer with an invalid CBryptIdentifier");
+            "Error creating Brypt Peer with an invalid identifier!");
     }
 
     m_spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer const>(identifier);
@@ -86,17 +86,25 @@ void CBryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::ScheduleReceive(CMessageContext const& context, std::string_view const& buffer)
+bool CBryptPeer::ScheduleReceive(
+    Endpoints::EndpointIdType identifier, std::string_view const& buffer)
 {
     {
         std::scoped_lock lock(m_dataMutex);
         m_statistics.IncrementReceivedCount();
     }
 
-    // Forward the message through the message sink/
-    std::scoped_lock lock(m_receiverMutex);
-    if (m_pMessageSink) {
-        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+    std::scoped_lock lock(m_endpointsMutex);
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+        auto const& [key, registration] = *itr;
+        auto const& context = registration.GetMessageContext();
+
+        // Forward the message through the message sink
+        std::scoped_lock lock(m_receiverMutex);
+        if (m_pMessageSink) {
+            return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+        }
+
     }
 
     return false;
@@ -104,17 +112,24 @@ bool CBryptPeer::ScheduleReceive(CMessageContext const& context, std::string_vie
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::ScheduleReceive(CMessageContext const& context, Message::Buffer const& buffer)
+bool CBryptPeer::ScheduleReceive(
+    Endpoints::EndpointIdType identifier, Message::Buffer const& buffer)
 {
     {
         std::scoped_lock lock(m_dataMutex);
         m_statistics.IncrementReceivedCount();
     }
 
-    // Forward the message through the message sink
-    std::scoped_lock lock(m_receiverMutex);
-    if (m_pMessageSink) {
-        return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+    std::scoped_lock lock(m_endpointsMutex);
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+        auto const& [key, registration] = *itr;
+        auto const& context = registration.GetMessageContext();
+
+        // Forward the message through the message sink
+        std::scoped_lock lock(m_receiverMutex);
+        if (m_pMessageSink) {
+            return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+        }
     }
 
     return false;
@@ -123,7 +138,7 @@ bool CBryptPeer::ScheduleReceive(CMessageContext const& context, Message::Buffer
 //------------------------------------------------------------------------------------------------
 
 bool CBryptPeer::ScheduleSend(
-    CMessageContext const& context, std::string_view const& message) const
+    Endpoints::EndpointIdType identifier, std::string_view const& message) const
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -131,9 +146,8 @@ bool CBryptPeer::ScheduleSend(
     }
 
     std::scoped_lock lock(m_endpointsMutex);
-    if (auto const itr = m_endpoints.find(context.GetEndpointIdentifier());
-        itr != m_endpoints.end()) {
-        auto const& [identifier, endpoint] = *itr;
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+        auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
         if (m_spBryptIdentifier && scheduler) {
             return scheduler(*m_spBryptIdentifier, message);
@@ -149,7 +163,9 @@ void CBryptPeer::RegisterEndpoint(CEndpointRegistration const& registration)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
-        m_endpoints.emplace(registration.GetEndpointIdentifier(), registration);
+        auto [itr, result] = m_endpoints.try_emplace(
+            registration.GetEndpointIdentifier(), registration);
+
     }
 
     // When an endpoint registers a connection with this peer, the mediator needs to notify the
@@ -173,7 +189,7 @@ void CBryptPeer::RegisterEndpoint(
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
-        m_endpoints.try_emplace(
+        auto [itr, result] = m_endpoints.try_emplace(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
@@ -234,6 +250,20 @@ std::optional<std::string> CBryptPeer::GetRegisteredEntry(
         if (auto const entry = endpoint.GetEntry(); !entry.empty()) {
             return entry;
         }
+    }
+
+    return {};
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<CMessageContext> CBryptPeer::GetMessageContext(
+    Endpoints::EndpointIdType identifier) const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+        auto const& [key, endpoint] = *itr;
+        return endpoint.GetMessageContext();
     }
 
     return {};

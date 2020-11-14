@@ -47,13 +47,15 @@ public:
 
     // Message Receiving Methods {
     void SetReceiver(IMessageSink* const pMessageSink);
-    bool ScheduleReceive(CMessageContext const& context, std::string_view const& buffer);
-    bool ScheduleReceive(CMessageContext const& context, Message::Buffer const& buffer);
+    bool ScheduleReceive(
+        Endpoints::EndpointIdType identifier, std::string_view const& buffer);
+    bool ScheduleReceive(
+        Endpoints::EndpointIdType identifier, Message::Buffer const& buffer);
     // } Message Receiving Methods
 
     // Message Sending Methods {
     bool ScheduleSend(
-        CMessageContext const& context, std::string_view const& message) const;
+        Endpoints::EndpointIdType identifier, std::string_view const& message) const;
     // } Message Sending Methods
 
     // Endpoint Association Methods {
@@ -70,6 +72,7 @@ public:
     bool IsActive() const;
     bool IsEndpointRegistered(Endpoints::EndpointIdType identifier) const;
     std::optional<std::string> GetRegisteredEntry(Endpoints::EndpointIdType identifier) const;
+    std::optional<CMessageContext> GetMessageContext(Endpoints::EndpointIdType identifier) const;
     std::uint32_t RegisteredEndpointCount() const;
     // } Endpoint Association Methods
 
@@ -98,7 +101,7 @@ private:
 
     mutable std::recursive_mutex m_receiverMutex;
     IMessageSink* m_pMessageSink;
-    
+
 };
 
 //------------------------------------------------------------------------------------------------
