@@ -186,7 +186,7 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
         return false;
     }
 
-    CMessageContext const& context = message.GetMessageContext();
+    CMessageContext const& context = message.GetContext();
 
     // If synchronization indicated an additional message needs to be transmitted, build 
     // the response and send it through the peer. 
@@ -202,25 +202,25 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
         assert(optResponse);
 
         // Send the exchange message to the peer. 
-        spBryptPeer->ScheduleSend(context, optResponse->GetPack());
+        spBryptPeer->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack());
     }
 
     switch (status) {
         // If the synchronization indicated it has completed, notify the observer that 
         // key sharing has completed and application messages can now be completed. 
         case Security::SynchronizationStatus::Ready: {
-            // If we do not interface defining the application connection protocol or if
-            // that protocol fails, return an error
-            if (m_spConnectProtocol && !m_spConnectProtocol->SendRequest(
-                m_spBryptIdentifier, spBryptPeer, context)) {
-                    return false;
-            }
-
             // If there is an excnage observer, notify the observe that the exchange has 
             // successfully completed and provide it the prepared security strategy. 
             if (m_pExchangeObserver) {
                 m_pExchangeObserver->HandleExchangeClose(
                     ExchangeStatus::Success, std::move(m_upSecurityStrategy));
+            }
+            
+            // If we do not interface defining the application connection protocol or if
+            // that protocol fails, return an error
+            if (m_spConnectProtocol && !m_spConnectProtocol->SendRequest(
+                m_spBryptIdentifier, spBryptPeer, context)) {
+                    return false;
             }
         } break;
         // There is no additional handling needed while the exchange is processing. 

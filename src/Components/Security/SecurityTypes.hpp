@@ -27,7 +27,7 @@ using Decryptor = std::function<OptionalBuffer(
     Buffer const& buffer, std::uint32_t size, std::uint64_t nonce)>;
 using Signator = std::function<std::int32_t(Buffer& buffer)>;
 using Verifier = std::function<VerificationStatus(Buffer const& buffer)>;
-using SignatureSizeGetter = std::function<std::int32_t()>;
+using SignatureSizeGetter = std::function<std::uint32_t()>;
 
 //------------------------------------------------------------------------------------------------
 } // Security namespace

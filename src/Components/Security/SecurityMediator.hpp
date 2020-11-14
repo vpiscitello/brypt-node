@@ -11,6 +11,7 @@
 #include "../../Interfaces/ExchangeObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
+#include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
@@ -50,14 +51,18 @@ public:
 
     Security::State GetSecurityState() const;
 
-    void Bind(std::shared_ptr<CBryptPeer> const& spBryptPeer);
+    void BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer);
+    void BindSecurityContext(CMessageContext& context) const;
 
     std::optional<std::string> SetupExchangeInitiator(
         Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
+
     bool SetupExchangeAcceptor(Security::Strategy strategy);
 
 private:
+    mutable std::shared_mutex m_mutex;
+
     Security::Context m_context;
     Security::State m_state;
 

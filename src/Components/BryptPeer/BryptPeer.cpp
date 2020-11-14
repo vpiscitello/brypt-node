@@ -166,6 +166,9 @@ void CBryptPeer::RegisterEndpoint(CEndpointRegistration const& registration)
         auto [itr, result] = m_endpoints.try_emplace(
             registration.GetEndpointIdentifier(), registration);
 
+        if (m_upSecurityMediator) {
+            m_upSecurityMediator->BindSecurityContext(itr->second.GetWritableMessageContext());
+        }     
     }
 
     // When an endpoint registers a connection with this peer, the mediator needs to notify the
@@ -194,6 +197,11 @@ void CBryptPeer::RegisterEndpoint(
             identifier,
             // Registered Endpoint Arguments
             identifier, technology, scheduler, uri);
+            
+        auto& [identifier, registration] = *itr;
+        if (m_upSecurityMediator) {
+            m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
+        }   
     }
 
     // When an endpoint registers a connection with this peer, the mediator needs to notify the
@@ -282,14 +290,24 @@ std::uint32_t CBryptPeer::RegisteredEndpointCount() const
 void CBryptPeer::AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator)
 {
     std::scoped_lock lock(m_mediatorMutex);
+    m_upSecurityMediator = std::move(upSecurityMediator);  // Take ownership of the mediator.
 
-    // Take ownership of the security mediator.
-    m_upSecurityMediator = std::move(upSecurityMediator);
+    if (!m_upSecurityMediator) {
+        return;
+    }
 
-    // Bind ourselves to the SecurityMediator in order to allow it to manage our security state. When
-    // we have been bound to the SecurityMediator it will control our receiver and prepare for
-    // key sharing. 
-    m_upSecurityMediator->Bind(shared_from_this());
+    // Ensure any registered endpoints have their message contexts updated to the new mediator's
+    // security context.
+    {
+        std::scoped_lock lock(m_endpointsMutex);
+        for (auto& [identifier, registration]: m_endpoints) {
+            m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
+        }
+    }
+
+    // Bind ourselves to the mediator in order to allow it to manage our security state. 
+    // The mediator will control our receiver to ensure messages are processed correctly.
+    m_upSecurityMediator->BindPeer(shared_from_this());
 }
 
 //------------------------------------------------------------------------------------------------

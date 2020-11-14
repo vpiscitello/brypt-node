@@ -117,10 +117,10 @@ Security::Verifier::result_type CMessageContext::Verify(Message::Buffer const& b
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t CMessageContext::GetSignatureSize() const
+std::uint32_t CMessageContext::GetSignatureSize() const
 {
 	if (!m_getSignatureSize) {
-		return -1;
+		return 0;
 	}
 	return m_getSignatureSize();
 }

@@ -42,7 +42,7 @@ public:
 		Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const;
 	Security::Signator::result_type Sign(Message::Buffer& buffer) const;
 	Security::Verifier::result_type Verify(Message::Buffer const& buffer) const;
-	std::int32_t GetSignatureSize() const;
+	std::uint32_t GetSignatureSize() const;
 
 private:
 	Endpoints::EndpointIdType m_endpointIdentifier;
