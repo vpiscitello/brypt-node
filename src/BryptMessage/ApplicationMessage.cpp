@@ -3,7 +3,6 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "ApplicationMessage.hpp"
-#include "MessageSecurity.hpp"
 #include "PackUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -69,7 +68,7 @@ CApplicationBuilder CApplicationMessage::Builder()
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CApplicationMessage::GetMessageContext() const
+CMessageContext const& CApplicationMessage::GetContext() const
 {
 	return m_context;
 }
@@ -120,8 +119,8 @@ std::uint32_t CApplicationMessage::GetPhase() const
 
 Message::Buffer CApplicationMessage::GetPayload() const
 {
-	auto const data = MessageSecurity::Decrypt(m_payload, m_payload.size(), m_timestamp.count());
-
+	assert(m_context.HasSecurityHandlers());
+	auto const data = m_context.Decrypt(m_payload, m_timestamp);
 	if (!data) {
 		return {};
 	}
@@ -156,6 +155,9 @@ std::uint32_t CApplicationMessage::GetPackSize() const
 	if (m_optBoundAwaitTracker) {
 		size += FixedAwaitExtensionSize();
 	}
+
+	assert(m_context.HasSecurityHandlers());
+	size += m_context.GetSignatureSize();
 
 	// Account for the ASCII encoding method
 	size += (4 - (size & 3)) & 3;
@@ -207,13 +209,12 @@ std::string CApplicationMessage::GetPack() const
 	Message::Buffer padding(paddingBytesRequired, 0);
 	buffer.insert(buffer.end(), padding.begin(), padding.end());
 
-	// Signature Packing
-	auto const optSignature = MessageSecurity::HMAC(buffer, buffer.size());
-	if (!optSignature) {
+	// Message Signing
+	assert(m_context.HasSecurityHandlers());
+	if (m_context.Sign(buffer) == 0) {
 		return "";
 	}
 
-	buffer.insert(buffer.end(), optSignature->begin(), optSignature->end());
 	return PackUtils::Z85Encode(buffer);
 }
 
@@ -249,7 +250,6 @@ constexpr std::uint32_t CApplicationMessage::FixedPackSize() const
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint64_t); // 8 bytes for message timestamp
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-	size += MessageSecurity::TokenSize; // N bytes for message token
 	return size;
 }
 
@@ -368,8 +368,8 @@ CApplicationBuilder& CApplicationBuilder::SetPayload(std::string_view data)
 
 CApplicationBuilder& CApplicationBuilder::SetPayload(Message::Buffer const& buffer)
 {
-	auto const optData = MessageSecurity::Encrypt(
-        buffer, buffer.size(), m_message.m_timestamp.count());
+	assert(m_message.m_context.HasSecurityHandlers());
+	auto const optData = m_message.m_context.Encrypt(buffer, m_message.m_timestamp);
 	if(optData) {
 		m_message.m_payload = *optData;
 	}
@@ -403,7 +403,8 @@ CApplicationBuilder& CApplicationBuilder::FromDecodedPack(Message::Buffer const&
         return *this;
     }
 
-    if (MessageSecurity::Verify(buffer) != MessageSecurity::VerificationStatus::Success) {
+	assert(m_message.m_context.HasSecurityHandlers());
+    if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
         return *this;
     }
 
@@ -420,7 +421,9 @@ CApplicationBuilder& CApplicationBuilder::FromEncodedPack(std::string_view pack)
     }
     
 	auto const buffer = PackUtils::Z85Decode(pack);
-    if (MessageSecurity::Verify(buffer) != MessageSecurity::VerificationStatus::Success) {
+
+	assert(m_message.m_context.HasSecurityHandlers());
+    if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
         return *this;
     }
 

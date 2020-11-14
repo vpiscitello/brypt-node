@@ -43,7 +43,7 @@ public:
 	static CApplicationBuilder Builder();
 	// } CApplicationBuilder
 
-	CMessageContext const& GetMessageContext() const;
+	CMessageContext const& GetContext() const;
 
 	CMessageHeader const& GetMessageHeader() const;
 	BryptIdentifier::CContainer const& GetSourceIdentifier() const;

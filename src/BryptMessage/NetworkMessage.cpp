@@ -3,7 +3,6 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "NetworkMessage.hpp"
-#include "MessageSecurity.hpp"
 #include "PackUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
@@ -57,7 +56,7 @@ CNetworkBuilder CNetworkMessage::Builder()
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CNetworkMessage::GetMessageContext() const
+CMessageContext const& CNetworkMessage::GetContext() const
 {
 	return m_context;
 }
