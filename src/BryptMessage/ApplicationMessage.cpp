@@ -211,7 +211,7 @@ std::string CApplicationMessage::GetPack() const
 
 	// Message Signing
 	assert(m_context.HasSecurityHandlers());
-	if (m_context.Sign(buffer) == 0) {
+	if (m_context.Sign(buffer) < 0) {
 		return "";
 	}
 
