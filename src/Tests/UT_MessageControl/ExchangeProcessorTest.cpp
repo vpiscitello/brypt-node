@@ -36,12 +36,11 @@ namespace test {
 
 auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
     BryptIdentifier::Generate());
-auto const ServerIdentifier= std::make_shared<BryptIdentifier::CContainer>(
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
     BryptIdentifier::Generate());
 
 constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
 constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
-CMessageContext const MessageContext(EndpointIdentifier, EndpointTechnology);
 
 constexpr std::string_view ExchangeCloseMessage = "Exchange Success!";
 
@@ -119,7 +118,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
             [&spServerPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
-                return spServerPeer->ScheduleReceive(test::MessageContext, message);
+                return spServerPeer->ScheduleReceive(test::EndpointIdentifier, message);
             });
 
         // Setup an observer for the client processor.
@@ -149,7 +148,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
             [&spClientPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
-                return spClientPeer->ScheduleReceive(test::MessageContext, message);
+                return spClientPeer->ScheduleReceive(test::EndpointIdentifier, message);
             });
 
         // Setup an observer for the server processor.
@@ -180,7 +179,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
 
     // Start of the exchange by manually telling the client peer to send the exchange request.
     // This will cause the exchange transaction to occur of the stack. 
-    EXPECT_TRUE(spClientPeer->ScheduleSend(test::MessageContext, clientPrepareResult.second));
+    EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, clientPrepareResult.second));
 
     // We expect that the connect protocol has been used once. 
     EXPECT_TRUE(spConnectProtocol->CalledOnce());
