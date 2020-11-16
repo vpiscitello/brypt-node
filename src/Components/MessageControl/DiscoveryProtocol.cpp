@@ -75,7 +75,6 @@ bool CDiscoveryProtocol::SendRequest(
     }
 
     auto const optDiscoveryRequest = CApplicationMessage::Builder()
-        .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)
         .SetCommand(local::Command, local::Phase)
@@ -83,7 +82,8 @@ bool CDiscoveryProtocol::SendRequest(
         .ValidatedBuild();
     assert(optDiscoveryRequest);
 
-    return spBryptPeer->ScheduleSend(context, optDiscoveryRequest->GetPack());
+    return spBryptPeer->ScheduleSend(
+        context.GetEndpointIdentifier(), optDiscoveryRequest->GetPack());
 }
 
 //------------------------------------------------------------------------------------------------

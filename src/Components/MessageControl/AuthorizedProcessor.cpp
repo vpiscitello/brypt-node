@@ -148,7 +148,8 @@ bool CAuthorizedProcessor::HandleMessage(
 	}
 
 	// Send the build response to the network message. 
-	return spBryptPeer->ScheduleSend(message.GetMessageContext(), optResponse->GetPack());
+	return spBryptPeer->ScheduleSend(
+		message.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
 }
 
 //------------------------------------------------------------------------------------------------

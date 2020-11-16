@@ -810,7 +810,7 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
         }
     );
 
-    spBryptPeer->ScheduleReceive({ m_identifier, m_technology }, decoded);
+    spBryptPeer->ScheduleReceive(m_identifier, decoded);
 }
 
 //------------------------------------------------------------------------------------------------
