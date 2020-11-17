@@ -35,8 +35,7 @@ CSecurityMediator::CSecurityMediator(
 
 CSecurityMediator::CSecurityMediator(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
-    std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
+    std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
     : m_mutex()
     , m_context(upSecurityStrategy->GetContextType())
     , m_state(Security::State::Unauthorized)
@@ -44,7 +43,7 @@ CSecurityMediator::CSecurityMediator(
     , m_spBryptPeer()
     , m_upSecurityStrategy(std::move(upSecurityStrategy))
     , m_upExchangeProcessor()
-    , m_wpAuthorizedSink(wpAuthorizedSink)
+    , m_wpAuthorizedSink()
 {
 }
 
@@ -117,27 +116,21 @@ void CSecurityMediator::BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 
     // We must be provided a peer to track. 
     if (!spBryptPeer) {
-        return; 
+        throw std::runtime_error("The Security Mediator was not bound to a valid peer!");
     }
 
     if (m_spBryptPeer) {
-        throw std::runtime_error("The Security Mediator may only be bound to a Brypt Peer once!");
+        throw std::runtime_error("The Security Mediator may only be bound to a peer once!");
     }
-
-    // Make an exchange processor, if one does not exist. This should only be called in test cases
-    // where the security strategy has been provided to us manually. Otherwise, it is expected
-    // that the caller has first called the appriopiate exchange setup method. 
-    if (!m_upExchangeProcessor) {
-        m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-            spBryptPeer->GetBryptIdentifier(), nullptr, this, std::move(m_upSecurityStrategy));
-    }
-
-    // Set the receiver for the provided peer to the exchange processor. 
-    spBryptPeer->SetReceiver(m_upExchangeProcessor.get());
 
     // Capture the bound peer in order to manage the security process and to ensure the bind 
     // method is not called multuple times. 
-    m_spBryptPeer = spBryptPeer; 
+    m_spBryptPeer = spBryptPeer;
+
+    // If an exchange processor has been setup, set the receiver on the peer to it.
+    if (m_upExchangeProcessor) {
+        spBryptPeer->SetReceiver(m_upExchangeProcessor.get());
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -209,12 +202,14 @@ std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(
     }
 
     // Make a security strategy with the initial role of an initiator.
-    m_upSecurityStrategy = Security::CreateStrategy(strategy, Security::Role::Initiator, m_context);
+    auto upSecurityStrategy = Security::CreateStrategy(
+        strategy, Security::Role::Initiator, m_context);
 
     // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
     // processor will use the security strategy to negiotiate keys and initialize its state.
-    m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-        m_spBryptIdentifier, spConnectProtocol, this, std::move(m_upSecurityStrategy));
+    if (!SetupExchangeProcessor(std::move(upSecurityStrategy), spConnectProtocol)) {
+        return {};
+    }
 
     auto const [success, request] = m_upExchangeProcessor->Prepare();
     if (!success) {
@@ -238,17 +233,35 @@ bool CSecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
     }
 
     // Make a security strategy with the initial role of an acceptor.
-    m_upSecurityStrategy = Security::CreateStrategy(strategy, Security::Role::Acceptor, m_context);
+    auto upSecurityStrategy = Security::CreateStrategy(
+        strategy, Security::Role::Acceptor, m_context);
 
     // Make an ExchangeProcessor for the peer, so handshake messages may be processed. The 
     // processor will use the security strategy to negiotiate keys and initialize its state.
-    m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
-        m_spBryptIdentifier, nullptr, this, std::move(m_upSecurityStrategy));
+    if (!SetupExchangeProcessor(std::move(upSecurityStrategy), nullptr)) {
+        return false;
+    }
 
     auto const [success, request] = m_upExchangeProcessor->Prepare();
     if (!success) {
         return false;
     }
+
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool CSecurityMediator::SetupExchangeProcessor(
+    std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
+    std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
+{
+    if (m_upExchangeProcessor || !upSecurityStrategy) {
+        return false;    
+    }
+
+    m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
+        m_spBryptIdentifier, spConnectProtocol, this, std::move(upSecurityStrategy));
 
     return true;
 }

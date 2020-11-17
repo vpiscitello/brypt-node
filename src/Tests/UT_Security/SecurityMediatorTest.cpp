@@ -143,7 +143,9 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 {
     auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        test::ServerIdentifier, std::move(upStrategyStub), std::weak_ptr<IMessageSink>());
+        test::ServerIdentifier, Security::Context::Unique, std::weak_ptr<IMessageSink>());
+
+    upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr);    
 
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
@@ -177,7 +179,9 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
     auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto spCollector = std::make_shared<local::CMessageCollector>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        test::ServerIdentifier, std::move(upStrategyStub), spCollector);
+        test::ServerIdentifier, Security::Context::Unique, spCollector);
+
+    upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr);
 
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
@@ -216,7 +220,9 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     auto upStrategyStub = std::make_unique<local::CStrategyStub>();
     auto spCollector = std::make_shared<local::CMessageCollector>();
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
-        test::ServerIdentifier, std::move(upStrategyStub), spCollector);
+        test::ServerIdentifier, Security::Context::Unique, spCollector);
+
+    upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr);
 
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);

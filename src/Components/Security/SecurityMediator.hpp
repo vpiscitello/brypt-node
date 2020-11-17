@@ -34,8 +34,7 @@ public:
 
     CSecurityMediator(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
-        std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
+        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
 
     CSecurityMediator(CSecurityMediator&& other) = delete;
     CSecurityMediator(CSecurityMediator const& other) = delete;
@@ -57,8 +56,10 @@ public:
     std::optional<std::string> SetupExchangeInitiator(
         Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
-
     bool SetupExchangeAcceptor(Security::Strategy strategy);
+    bool SetupExchangeProcessor(
+        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
+        std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
 
 private:
     mutable std::shared_mutex m_mutex;
