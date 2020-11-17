@@ -45,6 +45,8 @@ public:
         ConnectionState change) override;
     // } IPeerMediator
 
+    std::shared_ptr<CBryptPeer> GetPeer() const;
+
 private:
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
     std::shared_ptr<CBryptPeer> m_spBryptPeer;

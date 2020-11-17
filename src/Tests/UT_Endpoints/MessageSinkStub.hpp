@@ -5,6 +5,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../BryptMessage/MessageTypes.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Components/MessageControl/AssociatedMessage.hpp"
@@ -24,7 +25,7 @@ class CMessageContext;
 
 class CMessageSinkStub : public IMessageSink {
 public:
-    CMessageSinkStub();
+    explicit CMessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier);
     
     // IMessageSink {
     virtual bool CollectMessage(
@@ -38,15 +39,24 @@ public:
         Message::Buffer const& buffer) override;
     // }IMessageSink
 
-    std::optional<AssociatedMessage> PopIncomingMessage();
+    std::optional<AssociatedMessage> GetNextMessage();
+    bool ReceviedHeartbeatRequest() const;
+    bool ReceviedHeartbeatResponse() const;
+    std::uint32_t InvalidMessageCount() const;
     
 private:
     bool QueueMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CApplicationMessage const& message);
 
-    mutable std::shared_mutex m_incomingMutex;
+    mutable std::shared_mutex m_mutex;
+    
+    BryptIdentifier::SharedContainer m_spBryptIdentifier;
     std::queue<AssociatedMessage> m_incoming;
+
+    bool m_bReceivedHeartbeatRequest;
+    bool m_bReceivedHeartbeatResponse;
+    std::uint32_t m_invalidMessageCount;
 
 };
 

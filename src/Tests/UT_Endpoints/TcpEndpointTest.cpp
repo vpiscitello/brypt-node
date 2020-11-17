@@ -44,6 +44,8 @@ constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35216";
 constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 
+constexpr std::uint32_t Iterations = 100;
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -51,100 +53,123 @@ constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 
 TEST(CTcpSuite, SingleConnectionTest)
 {
-    // Create a stub message collector that endpoints can forward messages into.
-    CMessageSinkStub collector;
-
-    // Create stub peer mediators for the server and client endpoints. Each will store a single 
-    // peer for the endpoint and set the peer's receiver to the stub collector. 
+    // Create the server resources. The peer mediator stub will store a single BryptPeer 
+    // representing the client.
+    auto upServerProcessor = std::make_unique<CMessageSinkStub>(test::ServerIdentifier);
     auto const spServerMediator = std::make_shared<CSinglePeerMediatorStub>(
-        test::ServerIdentifier, &collector);
-    auto const spClientMediator = std::make_shared<CSinglePeerMediatorStub>(
-        test::ClientIdentifier, &collector);
-
-    // Make the server endpoint
-    auto upServer = local::MakeTcpServer(spServerMediator);
-    upServer->ScheduleBind(test::ServerBinding);
-    upServer->Startup();
+        test::ServerIdentifier, upServerProcessor.get());
+    auto upServerEndpoint = local::MakeTcpServer(spServerMediator);
+    EXPECT_EQ(upServerEndpoint->GetInternalType(), Endpoints::TechnologyType::TCP);
+    EXPECT_EQ(upServerEndpoint->GetOperation(), Endpoints::OperationType::Server);
+    EXPECT_EQ(upServerEndpoint->GetEntry(), test::ServerEntry);
 
     // Wait a period of time to ensure the server endpoint is spun up
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     
-    // Make the client endpoint
-    auto upClient = local::MakeTcpClient(spClientMediator);
-    upClient->ScheduleConnect(test::ServerEntry);
-    upClient->Startup();
+    // Create the client resources. The peer mediator stub will store a single BryptPeer 
+    // representing the server.
+    auto upClientProcessor = std::make_unique<CMessageSinkStub>(test::ClientIdentifier);
+    auto const spClientMediator = std::make_shared<CSinglePeerMediatorStub>(
+        test::ClientIdentifier, upClientProcessor.get());
+    auto upClientEndpoint = local::MakeTcpClient(spClientMediator);
+    EXPECT_EQ(upClientEndpoint->GetInternalType(), Endpoints::TechnologyType::TCP);
+    EXPECT_EQ(upClientEndpoint->GetOperation(), Endpoints::OperationType::Client);
 
     // Wait a period of time to ensure the client initiated the connection with the server
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    // We expect there to be a connect request in the incoming collector from the client
-    auto const optAssociatedConnectRequest = collector.PopIncomingMessage();
-    ASSERT_TRUE(optAssociatedConnectRequest);
-    auto const& [wpConnectRequestPeer, connectRequest] = *optAssociatedConnectRequest;
+    // Verify that the client endpoint used the connection declaration method on the mediator.
+    EXPECT_TRUE(upServerProcessor->ReceviedHeartbeatRequest());
+    EXPECT_TRUE(upClientProcessor->ReceviedHeartbeatResponse());
 
-    auto const optConnectResponse = CApplicationMessage::Builder()
-        .SetMessageContext(connectRequest.GetMessageContext())
-        .SetSource(*test::ServerIdentifier)
-        .SetDestination(*test::ClientIdentifier)
-        .SetCommand(Command::Type::Connect, 1)
-        .SetPayload("Connection Approved")
-        .ValidatedBuild();
-    
-    if (auto const spConnectRequestPeer = wpConnectRequestPeer.lock(); spConnectRequestPeer) {
-        spConnectRequestPeer->ScheduleSend(
-            optConnectResponse->GetMessageContext(), optConnectResponse->GetPack());
-    }
+    // Acquire the peer associated with the server endpoint from the perspective of the client.
+    auto const spClientPeer = spClientMediator->GetPeer();
+    ASSERT_TRUE(spClientPeer);
 
-    // Wait a period of time to ensure the message has connect response has been sent and received. 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    
-    auto const optAssociatedConnectResponse = collector.PopIncomingMessage();
-    ASSERT_TRUE(optAssociatedConnectResponse);
-    auto const& [wpConnectResponsePeer, connectResponse] = *optAssociatedConnectResponse;
+    // Acqure the message context for the client peer's endpoint.
+    auto const optClientContext = spClientPeer->GetMessageContext(
+        upClientEndpoint->GetEndpointIdentifier());
+    ASSERT_TRUE(optClientContext);
 
-    EXPECT_EQ(connectResponse.GetPack(), optConnectResponse->GetPack());
-
-    auto const optElectionRequest = CApplicationMessage::Builder()
-        .SetMessageContext(connectResponse.GetMessageContext())
+    // Build an application message to be sent to the server.
+    auto const optQueryRequest = CApplicationMessage::Builder()
+        .SetMessageContext(*optClientContext)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
-        .SetCommand(Command::Type::Election, 0)
-        .SetPayload("Hello World!")
+        .SetCommand(Command::Type::Query, 0)
+        .SetPayload("Query Request")
         .ValidatedBuild();
+    ASSERT_TRUE(optQueryRequest);
 
-    if (auto const spConnectResponsePeer = wpConnectResponsePeer.lock(); spConnectResponsePeer) {
-        spConnectResponsePeer->ScheduleSend(
-            optElectionRequest->GetMessageContext(), optElectionRequest->GetPack());
-    }
+    // Acquire the peer associated with the server endpoint from the perspective of the client.
+    auto const spServerPeer = spServerMediator->GetPeer();
+    ASSERT_TRUE(spServerPeer);
 
-    // Wait a period of time to ensure the message has election request has been sent and received. 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // Acqure the message context for the client peer's endpoint.
+    auto const optServerContext = spServerPeer->GetMessageContext(
+        upServerEndpoint->GetEndpointIdentifier());
+    ASSERT_TRUE(optServerContext);
 
-    auto const optAssociatedElectionRequest = collector.PopIncomingMessage();
-    ASSERT_TRUE(optAssociatedElectionRequest);
-    auto const& [wpElectionRequestPeer, electionRequest] = *optAssociatedElectionRequest;
-    EXPECT_EQ(electionRequest.GetPack(), optElectionRequest->GetPack());
-
-    auto const optElectionResponse = CApplicationMessage::Builder()
-        .SetMessageContext(electionRequest.GetMessageContext())
+    // Build an application message to be sent to the client.
+    auto const optQueryResponse = CApplicationMessage::Builder()
+        .SetMessageContext(*optServerContext)
         .SetSource(*test::ServerIdentifier)
         .SetDestination(*test::ClientIdentifier)
-        .SetCommand(Command::Type::Election, 1)
-        .SetPayload("Re: Hello World!")
+        .SetCommand(Command::Type::Query, 1)
+        .SetPayload("Query Response")
         .ValidatedBuild();
+    ASSERT_TRUE(optQueryResponse);
 
-    if (auto const spElectionRequestPeer = wpElectionRequestPeer.lock(); spElectionRequestPeer) {
-        spElectionRequestPeer->ScheduleSend(
-            optElectionResponse->GetMessageContext(), optElectionResponse->GetPack());
+    std::string const request = optQueryRequest->GetPack();
+    std::string const response = optQueryResponse->GetPack();
+
+    // Send the initial request to the server through the peer.
+    spClientPeer->ScheduleSend(optClientContext->GetEndpointIdentifier(), request);
+
+    // For some number of iterations enter request/response cycle using the peers obtained
+    // from the processors. 
+    for (std::uint32_t iterations = 0; iterations < test::Iterations; ++iterations) {
+        // Wait a period of time to ensure the request has been sent and received. 
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+        // Handle the reciept of a request sent to the server.
+        {
+            auto const optAssociatedRequest = upServerProcessor->GetNextMessage();
+            ASSERT_TRUE(optAssociatedRequest);
+
+            // Verify the received request matches the one that was sent through the client.
+            auto const& [wpRequestPeer, message] = *optAssociatedRequest;
+            EXPECT_EQ(message.GetPack(), request);
+
+            // Send a response to the client
+            if (auto const spRequestPeer = wpRequestPeer.lock(); spRequestPeer) {
+                spRequestPeer->ScheduleSend(
+                    message.GetContext().GetEndpointIdentifier(), response);
+            }
+        }
+
+        // Wait a period of time to ensure the response has been sent and received. 
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+        // Handle the reciept of a response sent to the client.
+        {
+            auto const optAssociatedResponse = upClientProcessor->GetNextMessage();
+            ASSERT_TRUE(optAssociatedResponse);
+
+            // Verify the received response matches the one that was sent through the server.
+            auto const& [wpResponsePeer, message] = *optAssociatedResponse;
+            EXPECT_EQ(message.GetPack(), response);
+
+            // Send a request to the server.
+            if (auto const spResponsePeer = wpResponsePeer.lock(); spResponsePeer) {
+                spResponsePeer->ScheduleSend(
+                    message.GetContext().GetEndpointIdentifier(), request);
+            }
+        }
     }
 
-    // Wait a period of time to ensure the message has election response has been sent and received. 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-    auto const optAssociatedElectionResponse = collector.PopIncomingMessage();
-    ASSERT_TRUE(optAssociatedElectionResponse);
-    auto const& [wpElectionResponsePeer, electionResponse] = *optAssociatedElectionResponse;
-    EXPECT_EQ(electionResponse.GetPack(), optElectionResponse->GetPack());
+    EXPECT_EQ(upServerProcessor->InvalidMessageCount(), std::uint32_t(0));
+    EXPECT_EQ(upClientProcessor->InvalidMessageCount(), std::uint32_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
@@ -152,12 +177,17 @@ TEST(CTcpSuite, SingleConnectionTest)
 std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
     std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
-    return std::make_unique<Endpoints::CTcpEndpoint>(
+    auto upServerEndpoint = std::make_unique<Endpoints::CTcpEndpoint>(
         test::ServerIdentifier,
         test::Interface,
         Endpoints::OperationType::Server,
         nullptr,
         spPeerMediator.get());
+
+    upServerEndpoint->ScheduleBind(test::ServerBinding);
+    upServerEndpoint->Startup();
+
+    return upServerEndpoint;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -165,12 +195,17 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
 std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
     std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
-    return std::make_unique<Endpoints::CTcpEndpoint>(
+    auto upClientEndpoint = std::make_unique<Endpoints::CTcpEndpoint>(
         test::ClientIdentifier,
         test::Interface,
         Endpoints::OperationType::Client,
         nullptr,
         spPeerMediator.get());
+
+    upClientEndpoint->ScheduleConnect(test::ServerEntry);
+    upClientEndpoint->Startup();
+
+    return upClientEndpoint;
 }
 
 //------------------------------------------------------------------------------------------------
