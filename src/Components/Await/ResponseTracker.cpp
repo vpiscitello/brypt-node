@@ -148,7 +148,7 @@ bool Await::CResponseTracker::SendFulfilledResponse()
     auto const& destination = m_request.GetSourceIdentifier();
 
     auto const optResponse = CApplicationMessage::Builder()
-        .SetMessageContext(m_request.GetMessageContext())
+        .SetMessageContext(m_request.GetContext())
         .SetSource(*optBryptIdentifier)
         .SetDestination(destination)
         .SetCommand(m_request.GetCommand(), m_request.GetPhase() + 1)
@@ -163,7 +163,7 @@ bool Await::CResponseTracker::SendFulfilledResponse()
 
     if (auto const spRequestor = m_wpRequestor.lock(); spRequestor) {
         return spRequestor->ScheduleSend(
-            optResponse->GetMessageContext(), optResponse->GetPack());
+            m_request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
     }
 
     return false;

@@ -267,7 +267,7 @@ bool local::HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage co
         //  may not be address, it is dependent on the attached technology. 
         for (auto const& bootstrap: response.bootstraps) {
             auto spEndpoint = spEndpointManager->GetEndpoint(
-                message.GetMessageContext().GetEndpointTechnology(),
+                message.GetContext().GetEndpointTechnology(),
                 Endpoints::OperationType::Client);
 
             if (spEndpoint) {

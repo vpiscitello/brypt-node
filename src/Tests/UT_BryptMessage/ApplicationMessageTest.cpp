@@ -2,7 +2,6 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/PackUtils.hpp"
-#include "../../BryptMessage/MessageSecurity.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
@@ -18,6 +17,8 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+CMessageContext GenerateMessageContext();
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -32,6 +33,9 @@ constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Data = "Hello World!";
 
+constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
+constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -39,7 +43,10 @@ constexpr std::string_view Data = "Hello World!";
 
 TEST(CApplicationMessageSuite, BaseConstructorTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
@@ -67,7 +74,10 @@ TEST(CApplicationMessageSuite, BaseConstructorTest)
 
 TEST(CApplicationMessageSuite, PackConstructorTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optBaseMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
@@ -78,6 +88,7 @@ TEST(CApplicationMessageSuite, PackConstructorTest)
     EXPECT_EQ(pack.size(), optBaseMessage->GetPackSize());
 
     auto const optPackMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -100,9 +111,11 @@ TEST(CApplicationMessageSuite, PackConstructorTest)
 
 TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
     Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     auto const optSourceBoundMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
@@ -126,6 +139,7 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(sourceBoundPack.size(), optSourceBoundMessage->GetPackSize());
 
     auto const optDestinationBoundMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
@@ -153,9 +167,11 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
 
 TEST(CApplicationMessageSuite, BoundAwaitPackConstructorTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
     Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
     auto const optBoundMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::RequestPhase)
@@ -168,6 +184,7 @@ TEST(CApplicationMessageSuite, BoundAwaitPackConstructorTest)
     EXPECT_EQ(pack.size(), optBoundMessage->GetPackSize());
 
     auto const optPackMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -187,85 +204,25 @@ TEST(CApplicationMessageSuite, BoundAwaitPackConstructorTest)
 
 //-----------------------------------------------------------------------------------------------
 
-TEST(CApplicationMessageSuite, BaseVerificationTest)
+CMessageContext local::GenerateMessageContext()
 {
-    auto const optBaseMessage = CApplicationMessage::Builder()
-        .SetSource(test::ClientIdentifier)
-        .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
-        .SetPayload(test::Data)
-        .ValidatedBuild();
-    ASSERT_TRUE(optBaseMessage);
+    CMessageContext context(test::EndpointIdentifier, test::EndpointTechnology);
 
-    auto const baseBuffer = PackUtils::Z85Decode(optBaseMessage->GetPack());
-    auto const baseStatus = MessageSecurity::Verify(baseBuffer);
-    EXPECT_EQ(baseStatus, MessageSecurity::VerificationStatus::Success);
+    context.BindEncryptionHandlers(
+        [] (auto const& buffer, auto, auto) -> Security::Encryptor::result_type 
+            { return buffer; },
+        [] (auto const& buffer, auto, auto) -> Security::Decryptor::result_type 
+            { return buffer; });
 
-    auto const optPackMessage = CApplicationMessage::Builder()
-        .FromEncodedPack(optBaseMessage->GetPack())
-        .ValidatedBuild();
-    ASSERT_TRUE(optPackMessage);
+    context.BindSignatureHandlers(
+        [] (auto&) -> Security::Signator::result_type 
+            { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type 
+            { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type 
+            { return 0; });
 
-    auto const packBuffer = PackUtils::Z85Decode(optPackMessage->GetPack());
-    auto const packStatus = MessageSecurity::Verify(packBuffer);
-    EXPECT_EQ(packStatus, MessageSecurity::VerificationStatus::Success);
+    return context;
 }
 
-//-----------------------------------------------------------------------------------------------
-
-TEST(CApplicationMessageSuite, ExtensionVerificationTest)
-{
-    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
-
-    auto const optBaseMessage = CApplicationMessage::Builder()
-        .SetSource(test::ClientIdentifier)
-        .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
-        .SetPayload(test::Data)
-        .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
-        .ValidatedBuild();
-    ASSERT_TRUE(optBaseMessage);
-
-    auto const baseBuffer = PackUtils::Z85Decode(optBaseMessage->GetPack());
-    auto const baseStatus = MessageSecurity::Verify(baseBuffer);
-    EXPECT_EQ(baseStatus, MessageSecurity::VerificationStatus::Success);
-
-    auto const optPackMessage = CApplicationMessage::Builder()
-        .FromEncodedPack(optBaseMessage->GetPack())
-        .ValidatedBuild();
-    ASSERT_TRUE(optPackMessage);
-
-    auto const packBuffer = PackUtils::Z85Decode(optPackMessage->GetPack());
-    auto const packStatus = MessageSecurity::Verify(packBuffer);
-    EXPECT_EQ(packStatus, MessageSecurity::VerificationStatus::Success);
-}
-
-//-----------------------------------------------------------------------------------------------
-
-TEST(CApplicationMessageSuite, AlteredVerificationTest)
-{
-    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
-
-    auto const optBaseMessage = CApplicationMessage::Builder()
-        .SetSource(test::ClientIdentifier)
-        .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
-        .SetPayload(test::Data)
-        .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
-        .ValidatedBuild();
-    ASSERT_TRUE(optBaseMessage);
-
-    auto pack = optBaseMessage->GetPack();
-    auto const baseBuffer = PackUtils::Z85Decode(pack);
-    auto const baseStatus = MessageSecurity::Verify(baseBuffer);
-    EXPECT_EQ(baseStatus, MessageSecurity::VerificationStatus::Success);
-
-    std::replace(pack.begin(), pack.end(), pack.at(pack.size() / 2), '?');
-
-    auto const optPackMessage = CApplicationMessage::Builder()
-        .FromEncodedPack(pack)
-        .ValidatedBuild();
-    ASSERT_FALSE(optPackMessage);
-}
-
-//-----------------------------------------------------------------------------------------------
+//------------------------------------------------------------------------------------------------

@@ -407,7 +407,8 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
         [&spServerPeer, &serverContext] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            EXPECT_TRUE(spServerPeer->ScheduleReceive(serverContext, message));
+            EXPECT_TRUE(spServerPeer->ScheduleReceive(
+                serverContext.GetEndpointIdentifier(), message));
             return true;
         });
 
@@ -424,12 +425,14 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
         [&spClientPeer, &clientContext] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
-            EXPECT_TRUE(spClientPeer->ScheduleReceive(clientContext, message));
+            EXPECT_TRUE(spClientPeer->ScheduleReceive(
+                clientContext.GetEndpointIdentifier(), message));
             return true;
         });
 
     // Cause the key exchange setup by the peer manager to occur on the stack. 
-    EXPECT_TRUE(spClientPeer->ScheduleReceive(clientContext, *optRequest));
+    EXPECT_TRUE(spClientPeer->ScheduleReceive(
+        clientContext.GetEndpointIdentifier(), *optRequest));
 
     // Verify the results of the key exchange
     EXPECT_TRUE(spConnectProtocol->CalledOnce());

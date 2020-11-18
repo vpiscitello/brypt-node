@@ -25,6 +25,7 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 void SetupCommandHandlerMap(Command::HandlerMap& commands, CBryptNode& node);
+CMessageContext GenerateMessageContext();
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -50,9 +51,8 @@ constexpr std::string_view ClientEntry = "127.0.0.1:35217";
 constexpr std::uint8_t BasePhase = 0;
 constexpr std::string_view Message = "Hello World!";
 
-constexpr Endpoints::EndpointIdType const identifier = 1;
-constexpr Endpoints::TechnologyType const technology = Endpoints::TechnologyType::TCP;
-CMessageContext const context(identifier, technology);
+constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
+constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -70,11 +70,14 @@ TEST(CommandSuite, CommandMatchingTest)
     // commands a node instance and a state.
     CBryptNode node(
         test::spServerIdentifier, nullptr, nullptr, nullptr, nullptr, upConfigurationManager);
+
     Command::HandlerMap commands;
     local::SetupCommandHandlerMap(commands, node);
 
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optConnectRequest = CApplicationMessage::Builder()
-        .SetMessageContext(test::context)
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Connect, test::BasePhase)
@@ -88,7 +91,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(connectCommandReturnType, Command::Type::Connect);
 
     auto const optElectionRequest = CApplicationMessage::Builder()
-        .SetMessageContext(test::context)
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Election, test::BasePhase)
@@ -102,7 +105,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(electionCommandReturnType, Command::Type::Election);
 
     auto const optInformationRequest = CApplicationMessage::Builder()
-        .SetMessageContext(test::context)
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Information, test::BasePhase)
@@ -116,7 +119,7 @@ TEST(CommandSuite, CommandMatchingTest)
     EXPECT_EQ(informationCommandReturnType, Command::Type::Information);
 
     auto const optQueryRequest = CApplicationMessage::Builder()
-        .SetMessageContext(test::context)
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(Command::Type::Query, test::BasePhase)
@@ -177,6 +180,29 @@ void local::SetupCommandHandlerMap(
         Command::Type::Query,
         Command::Factory(Command::Type::Query, node));
 
+}
+
+//------------------------------------------------------------------------------------------------
+
+CMessageContext local::GenerateMessageContext()
+{
+    CMessageContext context(test::EndpointIdentifier, test::EndpointTechnology);
+
+    context.BindEncryptionHandlers(
+        [] (auto const& buffer, auto, auto) -> Security::Encryptor::result_type 
+            { return buffer; },
+        [] (auto const& buffer, auto, auto) -> Security::Decryptor::result_type 
+            { return buffer; });
+
+    context.BindSignatureHandlers(
+        [] (auto&) -> Security::Signator::result_type 
+            { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type 
+            { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type 
+            { return 0; });
+
+    return context;
 }
 
 //------------------------------------------------------------------------------------------------

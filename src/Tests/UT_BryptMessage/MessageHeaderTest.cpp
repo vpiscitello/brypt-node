@@ -18,6 +18,8 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+CMessageContext GenerateMessageContext();
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -30,6 +32,9 @@ BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
 constexpr Command::Type Command = Command::Type::Election;
 constexpr std::uint8_t Phase = 0;
 
+constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
+constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -37,7 +42,10 @@ constexpr std::uint8_t Phase = 0;
 
 TEST(CMessageHeaderSuite, ApplicationConstructorTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::Phase)
@@ -56,7 +64,10 @@ TEST(CMessageHeaderSuite, ApplicationConstructorTest)
 
 TEST(CMessageHeaderSuite, ApplicationPackTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optBaseMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::Phase)
@@ -73,6 +84,7 @@ TEST(CMessageHeaderSuite, ApplicationPackTest)
     auto const pack = optBaseMessage->GetPack();
 
     auto const optPackMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -141,7 +153,10 @@ TEST(CMessageHeaderSuite, NetworkPackTest)
 
 TEST(CMessageHeaderSuite, ClusterDestinationTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetCommand(test::Command, test::Phase)
         .MakeClusterMessage()
@@ -159,7 +174,10 @@ TEST(CMessageHeaderSuite, ClusterDestinationTest)
 
 TEST(CMessageHeaderSuite, NetworkDestinationTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetCommand(test::Command, test::Phase)
         .MakeNetworkMessage()
@@ -177,7 +195,10 @@ TEST(CMessageHeaderSuite, NetworkDestinationTest)
 
 TEST(CMessageHeaderSuite, ClusterPackTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+
     auto const optBaseMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetCommand(test::Command, test::Phase)
         .MakeClusterMessage()
@@ -193,6 +214,7 @@ TEST(CMessageHeaderSuite, ClusterPackTest)
     auto const pack = optBaseMessage->GetPack();
 
     auto const optPackMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -208,6 +230,8 @@ TEST(CMessageHeaderSuite, ClusterPackTest)
 
 TEST(CMessageHeaderSuite, PeekProtocolTest)
 {
+    CMessageContext const context = local::GenerateMessageContext();
+    
     auto const optNetworkMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
@@ -223,6 +247,7 @@ TEST(CMessageHeaderSuite, PeekProtocolTest)
     EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Network);
 
     auto const optApplicationMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetCommand(test::Command, test::Phase)
@@ -334,6 +359,29 @@ TEST(CMessageHeaderSuite, PeekSourceEmptyBufferTest)
     Message::Buffer const buffer;
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
     EXPECT_FALSE(optSource);
+}
+
+//------------------------------------------------------------------------------------------------
+
+CMessageContext local::GenerateMessageContext()
+{
+    CMessageContext context(test::EndpointIdentifier, test::EndpointTechnology);
+
+    context.BindEncryptionHandlers(
+        [] (auto const& buffer, auto, auto) -> Security::Encryptor::result_type 
+            { return buffer; },
+        [] (auto const& buffer, auto, auto) -> Security::Decryptor::result_type 
+            { return buffer; });
+
+    context.BindSignatureHandlers(
+        [] (auto&) -> Security::Signator::result_type 
+            { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type 
+            { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type 
+            { return 0; });
+
+    return context;
 }
 
 //------------------------------------------------------------------------------------------------

@@ -120,7 +120,7 @@ void Command::IHandler::SendResponse(
 
     // Using the information from the node instance generate a discovery response message
     auto const optResponse = CApplicationMessage::Builder()
-        .SetMessageContext(request.GetMessageContext())
+        .SetMessageContext(request.GetContext())
         .SetSource(*spBryptIdentifier)
         .SetDestination(destination)
         .SetCommand(request.GetCommand(), responsePhase)
@@ -130,7 +130,8 @@ void Command::IHandler::SendResponse(
     assert(optResponse);
 
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spBryptPeer->ScheduleSend(optResponse->GetMessageContext(), optResponse->GetPack());
+        spBryptPeer->ScheduleSend(
+            request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
     }
 }
 
@@ -174,7 +175,7 @@ void Command::IHandler::SendNotice(
         if (optResponseData) {
             // Create a reading message
             auto const optNodeResponse = CApplicationMessage::Builder()
-                .SetMessageContext(request.GetMessageContext())
+                .SetMessageContext(request.GetContext())
                 .SetSource(*spBryptIdentifier)
                 .SetDestination(request.GetSourceIdentifier())
                 .SetCommand(request.GetCommand(), responsePhase)
@@ -188,7 +189,7 @@ void Command::IHandler::SendNotice(
 
     // Create a notice message for the network
     auto builder = CApplicationMessage::Builder()
-        .SetMessageContext(request.GetMessageContext())
+        .SetMessageContext(request.GetContext())
         .SetSource(*spBryptIdentifier)
         .SetCommand(request.GetCommand(), noticePhase)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
