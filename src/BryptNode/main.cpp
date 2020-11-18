@@ -8,6 +8,7 @@
 #include "../Components/Endpoints/EndpointTypes.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/MessageControl/AuthorizedProcessor.hpp"
+#include "../Components/MessageControl/DiscoveryProtocol.hpp"
 #include "../Configuration/Configuration.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
@@ -51,19 +52,12 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     auto const status = upConfigurationManager->FetchSettings();
     if (status != Configuration::StatusCode::Success) {
-        NodeUtils::printo(
-            "Node configuration settings could not be parsed!",
-            NodeUtils::PrintType::Node);
-        exit(1);
+        throw std::runtime_error("Error occured parsing settings!");
     }
 
     auto const spBryptIdentifier = upConfigurationManager->GetBryptIdentifier();
     if (!spBryptIdentifier) {
-        NodeUtils::printo(
-            "A Brypt Identifier could not be established based on the specified"\
-            "configuration options!",
-            NodeUtils::PrintType::Node);
-        exit(1);
+        throw std::runtime_error("Error occured establishing a Brypt Identifier!");
     }
 
     NodeUtils::printo(
@@ -72,29 +66,28 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     auto const optEndpointConfigurations = upConfigurationManager->GetEndpointConfigurations();
     if (!optEndpointConfigurations) {
-        NodeUtils::printo(
-            "No endpoint configurations could were parsed from the configuration"\
-            "file!",
-            NodeUtils::PrintType::Node);
-        exit(1);
+        throw std::runtime_error("Error occured parsing endpoint configurations!");
     }
 
     auto const spPeerPersistor = std::make_shared<CPeerPersistor>(
         local::PeersFilename, *optEndpointConfigurations);
 
     if (!spPeerPersistor->FetchBootstraps()) {
-        NodeUtils::printo("Node bootstraps could not be parsed!", NodeUtils::PrintType::Node);
-        exit(1);
+        throw std::runtime_error("Error occured parsing bootstraps!");
     }
+
+    auto const spDiscoveryProtocol = std::make_shared<CDiscoveryProtocol>(
+        *optEndpointConfigurations);
 
     auto const spMessageCollector = std::make_shared<CAuthorizedProcessor>();
 
-    auto const spPeerManager = std::make_shared<CPeerManager>(spMessageCollector);
+    auto const spPeerManager = std::make_shared<CPeerManager>(
+        spBryptIdentifier, spDiscoveryProtocol, spMessageCollector);
+
     spPeerPersistor->SetMediator(spPeerManager.get());
 
-    auto const spEndpointManager = std::make_shared<CEndpointManager>();
-    spEndpointManager->Initialize(
-        spBryptIdentifier, spPeerManager.get(), *optEndpointConfigurations, spPeerPersistor.get());
+    auto const spEndpointManager = std::make_shared<CEndpointManager>(
+        *optEndpointConfigurations, spBryptIdentifier, spPeerManager.get(), spPeerPersistor.get());
 
     CBryptNode alpha(
         spBryptIdentifier, spEndpointManager, spPeerManager, 

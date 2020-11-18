@@ -91,7 +91,6 @@ bool Command::CConnectHandler::HandleMessage(AssociatedMessage const& associated
     auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CConnectHandler::Phase>(message.GetPhase());
     switch (phase) {
-        // TODO: Implement method of authentication before supplying entries
         case Phase::Discovery: {
             status = DiscoveryHandler(wpBryptPeer, message);
         } break;

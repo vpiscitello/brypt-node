@@ -75,6 +75,7 @@ bool CDiscoveryProtocol::SendRequest(
     }
 
     auto const optDiscoveryRequest = CApplicationMessage::Builder()
+        .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)
         .SetCommand(local::Command, local::Phase)

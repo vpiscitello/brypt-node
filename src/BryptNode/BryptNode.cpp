@@ -37,14 +37,6 @@ constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
-//------------------------------------------------------------------------------------------------
-namespace test {
-//------------------------------------------------------------------------------------------------
-
-void SimulateClient(Command::HandlerMap const& handlers, bool activated);
-
-//------------------------------------------------------------------------------------------------
-} // test namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
@@ -216,11 +208,7 @@ void CBryptNode::StartLifecycle()
 
         m_spAwaitManager->ProcessFulfilledRequests();
         ++run;
-
-        //----------------------------------------------------------------------------------------
-        test::SimulateClient(m_handlers, (run % 10000 == 0));
-        //----------------------------------------------------------------------------------------
-
+        
         std::this_thread::sleep_for(local::CycleTimeout);
     } while (true);
 }
@@ -237,51 +225,6 @@ void CBryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessag
     if (auto const itr = m_handlers.find(message.GetCommand()); itr != m_handlers.end()) {
         auto const& [type, handler] = *itr;
         handler->HandleMessage(associatedMessage);
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void test::SimulateClient(Command::HandlerMap const& handlers, bool activated)
-{
-    if(!activated) {
-        return;
-    }
-
-    thread_local std::random_device device;
-    thread_local std::mt19937 generator(device());
-    thread_local std::bernoulli_distribution distribution(0.5);
-
-    Command::Type command = Command::Type::Invalid;
-    std::string data = {};
-
-    bool bUseInformationRequest = distribution(generator);
-    if (bUseInformationRequest) {
-        printo("Simulating node information request", NodeUtils::PrintType::Node); 
-        command = Command::Type::Information;
-        data =  "Request for node information.";
-    } else {
-        printo("Simulating sensor query request", NodeUtils::PrintType::Node);
-        command = Command::Type::Query;
-        data =  "Request for sensor readings.";
-    }
-
-    static auto const source = BryptIdentifier::CContainer(BryptIdentifier::Generate());
-    auto const optRequest = CApplicationMessage::Builder()
-        .SetSource(source)
-        .MakeClusterMessage()
-        .SetCommand(command, 0)
-        .SetPayload(data)
-        .ValidatedBuild();
-    assert(optRequest);
-
-    if (auto const itr = handlers.find(optRequest->GetCommand()); itr != handlers.end()) {
-        auto const& [command, handler] = *itr;
-        handler->HandleMessage(AssociatedMessage{ {}, *optRequest });
     }
 }
 
