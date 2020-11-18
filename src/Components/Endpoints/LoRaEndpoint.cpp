@@ -24,11 +24,10 @@ Endpoints::CLoRaEndpoint::CLoRaEndpoint(
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink)
+    IPeerMediator* const pPeerMediator)
     : CEndpoint(
-        spBryptIdentifier, interface, operation, pEndpointMediator,
-        pPeerMediator, pMessageSink, TechnologyType::LoRa)
+        spBryptIdentifier, interface, operation,
+        pEndpointMediator, pPeerMediator, TechnologyType::LoRa)
 {
 }
 
@@ -89,54 +88,12 @@ std::string Endpoints::CLoRaEndpoint::GetURI() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleBind([[maybe_unused]] std::string_view binding)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 void Endpoints::CLoRaEndpoint::Startup()
 {
     if (m_active) {
         return; 
     }
     Spawn();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CLoRaEndpoint::ScheduleSend([[maybe_unused]] CApplicationMessage const& message)
-{
-    // Forward the message pack to be sent on the socket
-    return ScheduleSend(message.GetDestination(), message.GetPack());
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CLoRaEndpoint::ScheduleSend(
-    [[maybe_unused]] BryptIdentifier::CContainer const& identifier,
-    [[maybe_unused]] std::string_view message)
-{
-    return false;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -160,6 +117,47 @@ bool Endpoints::CLoRaEndpoint::Shutdown()
     }
     
     return !m_worker.joinable();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CLoRaEndpoint::ScheduleBind([[maybe_unused]] std::string_view binding)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CLoRaEndpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Endpoints::CLoRaEndpoint::ScheduleConnect(
+    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier,
+    [[maybe_unused]] std::string_view entry)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+bool Endpoints::CLoRaEndpoint::ScheduleSend(
+    [[maybe_unused]] BryptIdentifier::CContainer const& identifier,
+    [[maybe_unused]] std::string_view message)
+{
+    return false;
 }
 
 //------------------------------------------------------------------------------------------------

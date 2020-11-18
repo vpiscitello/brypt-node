@@ -10,7 +10,6 @@
 enum class ConnectionState : std::uint8_t {
     Connected,
     Disconnected,
-    Flagged,
     Resolving,
     Unknown
 };

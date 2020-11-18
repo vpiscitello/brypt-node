@@ -15,24 +15,21 @@
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<CEndpoint> Endpoints::Factory(
-    TechnologyType technology,
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    TechnologyType technology,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator, 
-    IMessageSink* const pMessageSink)
+    IPeerMediator* const pPeerMediator)
 {
     switch (technology) {
         case TechnologyType::LoRa: {
             return std::make_unique<CLoRaEndpoint>(
-                spBryptIdentifier, interface, operation,
-                pEndpointMediator, pPeerMediator, pMessageSink);
+                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
         }
         case TechnologyType::TCP: {
             return std::make_unique<CTcpEndpoint>(
-                spBryptIdentifier, interface, operation,
-                pEndpointMediator, pPeerMediator, pMessageSink);
+                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
         }
         case TechnologyType::Invalid: return nullptr;
     }
@@ -62,7 +59,9 @@ Endpoints::OperationType CEndpoint::GetOperation() const
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(BryptIdentifier::CContainer const& identifier) const
+std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(
+    BryptIdentifier::CContainer const& identifier,
+    std::string_view uri) const
 {
     std::shared_ptr<CBryptPeer> spBryptPeer = {};
 
@@ -71,7 +70,7 @@ std::shared_ptr<CBryptPeer> CEndpoint::LinkPeer(BryptIdentifier::CContainer cons
     // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
     // should only be hit in unit tests of the endpoint. 
     if(m_pPeerMediator) {
-        spBryptPeer = m_pPeerMediator->LinkPeer(identifier);
+        spBryptPeer = m_pPeerMediator->LinkPeer(identifier, uri);
     } else {
         spBryptPeer = std::make_shared<CBryptPeer>(identifier);
     }

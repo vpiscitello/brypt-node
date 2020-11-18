@@ -23,8 +23,7 @@ CEndpointRegistration::CEndpointRegistration(
     Endpoints::TechnologyType technology,
     MessageScheduler const& scheduler,
     std::string_view uri)
-    : m_identifier(identifier)
-    , m_technology(technology)
+    : m_context(identifier, technology)
     , m_scheduler(scheduler)
     , m_entry(local::ParseEntryFromURI(uri))
 {
@@ -32,16 +31,30 @@ CEndpointRegistration::CEndpointRegistration(
 
 //------------------------------------------------------------------------------------------------
 
+CMessageContext const& CEndpointRegistration::GetMessageContext() const
+{
+    return m_context;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CMessageContext& CEndpointRegistration::GetWritableMessageContext()
+{
+    return m_context;
+}
+
+//------------------------------------------------------------------------------------------------
+
 Endpoints::EndpointIdType CEndpointRegistration::GetEndpointIdentifier() const
 {
-    return m_identifier;
+    return m_context.GetEndpointIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
 Endpoints::TechnologyType CEndpointRegistration::GetEndpointTechnology() const
 {
-    return m_technology;
+    return m_context.GetEndpointTechnology();
 }
 
 //------------------------------------------------------------------------------------------------

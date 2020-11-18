@@ -7,8 +7,8 @@
 #include "../Endpoints/EndpointIdentifier.hpp"
 #include "../Endpoints/MessageScheduler.hpp"
 #include "../Endpoints/TechnologyType.hpp"
+#include "../../BryptMessage/MessageContext.hpp"
 //------------------------------------------------------------------------------------------------
-
 #include <string>
 #include <string_view>
 //------------------------------------------------------------------------------------------------
@@ -22,16 +22,18 @@ public:
         MessageScheduler const& scheduler = {},
         std::string_view uri = {});
 
+    CMessageContext const& GetMessageContext() const;
+    CMessageContext& GetWritableMessageContext();
     Endpoints::EndpointIdType GetEndpointIdentifier() const;
     Endpoints::TechnologyType GetEndpointTechnology() const;
     MessageScheduler const& GetScheduler() const;
     std::string const& GetEntry() const;
 
 private:
-    Endpoints::EndpointIdType const m_identifier;
-    Endpoints::TechnologyType const m_technology;
+    CMessageContext m_context;
     MessageScheduler const m_scheduler;
     std::string const m_entry;
+
 };
 
 //------------------------------------------------------------------------------------------------

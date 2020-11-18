@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "MessageTypes.hpp"
 #include "MessageDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <zmq.h>
@@ -37,7 +38,7 @@ void PackChunk(Message::Buffer& buffer, ChunkType const& chunk)
 //------------------------------------------------------------------------------------------------
 inline void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk, std::uint32_t limit = 0)
 {
-	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit));
+	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit) || limit == 0);
 	switch (limit) {
 		// A limit type of 0 assumes that the buffer length is static for the field and the 
 		// preceeding size is not needed to decode the data. 
@@ -72,7 +73,7 @@ inline void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk, std
 //------------------------------------------------------------------------------------------------
 inline void PackChunk(Message::Buffer& buffer, std::string const& chunk, std::uint32_t limit = 0)
 {
-	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit));
+	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit) || limit == 0);
 	switch (limit) {
 		// A limit type of 0 assumes that the buffer length is static for the field and the 
 		// preceeding size is not needed to decode the data. 
@@ -107,7 +108,7 @@ inline void PackChunk(Message::Buffer& buffer, std::string const& chunk, std::ui
 //------------------------------------------------------------------------------------------------
 inline void PackChunk(Message::Buffer& buffer, std::string_view chunk, std::uint32_t limit = 0)
 {
-	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit));
+	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit) || limit == 0);
 	switch (limit) {
 		// A limit type of 0 assumes that the buffer length is static for the field and the 
 		// preceeding size is not needed to decode the data. 

@@ -5,10 +5,13 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "EndpointRegistration.hpp"
+#include "PeerStatistics.hpp"
 #include "../Endpoints/EndpointIdentifier.hpp"
 #include "../Endpoints/MessageScheduler.hpp"
 #include "../Endpoints/TechnologyType.hpp"
+#include "../Security/SecurityState.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
+#include "../../Interfaces/MessageSink.hpp"
 #include "../../BryptMessage/MessageTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
@@ -19,7 +22,8 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CApplicationMessage;
+class CMessageContext;
+class CSecurityMediator;
 class IPeerMediator;
 
 //------------------------------------------------------------------------------------------------
@@ -27,45 +31,76 @@ class IPeerMediator;
 class CBryptPeer : public std::enable_shared_from_this<CBryptPeer>
 {
 public:
-    explicit CBryptPeer(
+    CBryptPeer(
         BryptIdentifier::CContainer const& identifier,
         IPeerMediator* const pPeerMediator = nullptr);
 
+    ~CBryptPeer();
+
     BryptIdentifier::SharedContainer GetBryptIdentifier() const;
     BryptIdentifier::Internal::Type GetInternalIdentifier() const;
-    std::string GetLocation() const;
 
-    void SetLocation(std::string_view location);
+    // Statistic Methods {
+    std::uint32_t GetSentCount() const;
+    std::uint32_t GetReceivedCount() const;
+    // } Statistic Methods
 
+    // Message Receiving Methods {
+    void SetReceiver(IMessageSink* const pMessageSink);
+    bool ScheduleReceive(
+        Endpoints::EndpointIdType identifier, std::string_view const& buffer);
+    bool ScheduleReceive(
+        Endpoints::EndpointIdType identifier, Message::Buffer const& buffer);
+    // } Message Receiving Methods
+
+    // Message Sending Methods {
+    bool ScheduleSend(
+        Endpoints::EndpointIdType identifier, std::string_view const& message) const;
+    // } Message Sending Methods
+
+    // Endpoint Association Methods {
     void RegisterEndpoint(CEndpointRegistration const& registration);
     void RegisterEndpoint(
         Endpoints::EndpointIdType identifier,
         Endpoints::TechnologyType technology,
         MessageScheduler const& scheduler = {},
         std::string_view uri = {});
-    void WithdrawEndpoint(
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology);
 
-    bool IsEndpointRegistered(Endpoints::EndpointIdType identifier) const;
-    std::optional<std::string> GetRegisteredEntry(Endpoints::EndpointIdType identifier) const;
-    std::uint32_t RegisteredEndpointCount() const;
+    void WithdrawEndpoint(
+        Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology);
 
     bool IsActive() const;
+    bool IsEndpointRegistered(Endpoints::EndpointIdType identifier) const;
+    std::optional<std::string> GetRegisteredEntry(Endpoints::EndpointIdType identifier) const;
+    std::optional<CMessageContext> GetMessageContext(Endpoints::EndpointIdType identifier) const;
+    std::uint32_t RegisteredEndpointCount() const;
+    // } Endpoint Association Methods
 
-    bool ScheduleSend(CApplicationMessage const& message) const;
-
+    // Security Methods {
+    void AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator);
+    Security::State GetSecurityState() const;
+    bool IsFlagged() const;
+    bool IsAuthorized() const;
+    // } Security Methods
+    
 private:
-    using RegisteredEndpoints = std::unordered_map<Endpoints::EndpointIdType, CEndpointRegistration>;
+    using RegisteredEndpoints = std::unordered_map<
+        Endpoints::EndpointIdType, CEndpointRegistration>;
 
     IPeerMediator* const m_pPeerMediator;
 
     mutable std::recursive_mutex m_dataMutex;
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    std::string m_location;
+    mutable CPeerStatistics m_statistics;
+
+    mutable std::recursive_mutex m_mediatorMutex;
+    std::unique_ptr<CSecurityMediator> m_upSecurityMediator;
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;
+
+    mutable std::recursive_mutex m_receiverMutex;
+    IMessageSink* m_pMessageSink;
 
 };
 

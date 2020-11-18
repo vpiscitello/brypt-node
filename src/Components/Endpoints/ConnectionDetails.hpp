@@ -12,13 +12,6 @@
 #include <functional>
 //------------------------------------------------------------------------------------------------
 
-enum class MessagingPhase : std::uint8_t {
-    Request,
-    Response
-};
-
-//------------------------------------------------------------------------------------------------
-
 class CConnectionDetailsBase
 {
 public:
@@ -27,7 +20,6 @@ public:
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
-        , m_messagingPhase(MessagingPhase::Request)
         , m_spBryptPeer()
     {
     }
@@ -37,7 +29,6 @@ public:
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
-        , m_messagingPhase(MessagingPhase::Request)
         , m_spBryptPeer(spBryptPeer)
     {
     }
@@ -46,7 +37,6 @@ public:
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
-    MessagingPhase GetMessagingPhase() const { return m_messagingPhase; }
     std::shared_ptr<CBryptPeer> GetBryptPeer() const { return m_spBryptPeer; }
     BryptIdentifier::SharedContainer GetBryptIdentifier() const
     {
@@ -82,12 +72,6 @@ public:
         Updated();
     }
 
-    void SetMessagingPhase(MessagingPhase phase)
-    {
-        m_messagingPhase = phase;
-        Updated();
-    }
-
     void SetBryptPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer)
     {
         m_spBryptPeer = spBryptPeer;
@@ -98,7 +82,7 @@ public:
         m_updateTimepoint = TimeUtils::GetSystemTimepoint();
     }
 
-    bool IsPeerConnection() const 
+    bool HasAssociatedPeer() const 
     {
         if (!m_spBryptPeer) {
             return false;
@@ -112,7 +96,6 @@ protected:
     TimeUtils::Timepoint m_updateTimepoint;
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
-    MessagingPhase m_messagingPhase;
     
     std::shared_ptr<CBryptPeer> m_spBryptPeer;
 
@@ -126,7 +109,8 @@ class CConnectionDetails;
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
-class CConnectionDetails<ExtensionType, std::enable_if_t<std::is_same_v<ExtensionType, void>>> : public CConnectionDetailsBase
+class CConnectionDetails<ExtensionType, std::enable_if_t<
+    std::is_same_v<ExtensionType, void>>> : public CConnectionDetailsBase
 {
 public:
     using CConnectionDetailsBase::CConnectionDetailsBase;
@@ -136,7 +120,9 @@ public:
 
     CConnectionDetails& operator=(CConnectionDetails const& other)
     {
-        m_uri = other.m_uri;
+        if (other.m_uri.size() != 0) {
+            m_uri = other.m_uri;
+        }
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
@@ -149,7 +135,8 @@ public:
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
-class CConnectionDetails<ExtensionType, std::enable_if_t<std::is_class_v<ExtensionType>>> : public CConnectionDetailsBase
+class CConnectionDetails<ExtensionType, std::enable_if_t<
+    std::is_class_v<ExtensionType>>> : public CConnectionDetailsBase
 {
 public:
     using CConnectionDetailsBase::CConnectionDetailsBase;
@@ -178,7 +165,9 @@ public:
 
     CConnectionDetails& operator=(CConnectionDetails const& other)
     {
-        m_uri = other.m_uri;
+        if (other.m_uri.size() != 0) {
+            m_uri = other.m_uri;
+        }
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
@@ -200,8 +189,8 @@ public:
     }
 
 private:
-    // Each connection must define an extension class/struct that contains information it cares to track
-    // about each node. 
+    // Each connection must define an extension class/struct that contains information 
+    // it cares to track about each node. 
     ExtensionType m_extension;
 
 };

@@ -17,7 +17,7 @@ public:
 
 	// CApplicationBuilder {
 	friend class CApplicationBuilder;
-    friend class CHandshakeBuilder;
+    friend class CNetworkBuilder;
     // } CApplicationBuilder 
 
 	Message::Protocol GetMessageProtocol() const;

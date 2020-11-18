@@ -4,14 +4,17 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
 #include "../Components/Endpoints/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 //------------------------------------------------------------------------------------------------
 
 class CBryptPeer;
-class CEndpointRegistration;
 class IPeerObserver;
 
 //------------------------------------------------------------------------------------------------
@@ -19,13 +22,20 @@ class IPeerObserver;
 class IPeerMediator
 {
 public:
+    using OptionalRequest = std::optional<std::string>;
+
     virtual ~IPeerMediator() = default;
 
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
+    virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) = 0;
+    virtual OptionalRequest DeclareResolvingPeer(
+        BryptIdentifier::SharedContainer const& spIdentifier) = 0;
+
     virtual std::shared_ptr<CBryptPeer> LinkPeer(
-        BryptIdentifier::CContainer const& identifier) = 0;
+        BryptIdentifier::CContainer const& identifier,
+        std::string_view uri = "") = 0;
 
     virtual void DispatchPeerStateChange(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,

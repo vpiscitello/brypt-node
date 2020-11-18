@@ -43,16 +43,16 @@ public:
 	static CApplicationBuilder Builder();
 	// } CApplicationBuilder
 
-	CMessageContext const& GetMessageContext() const;
+	CMessageContext const& GetContext() const;
 
 	CMessageHeader const& GetMessageHeader() const;
 	BryptIdentifier::CContainer const& GetSourceIdentifier() const;
-	Message::Destination const& GetDestinationType() const;
+	Message::Destination GetDestinationType() const;
 	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
 
 	Command::Type GetCommand() const;
 	std::uint32_t GetPhase() const;
-	Message::Buffer GetData() const;
+	Message::Buffer GetPayload() const;
 	TimeUtils::Timestamp const& GetTimestamp() const;
 	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;
 
@@ -69,7 +69,7 @@ private:
 
 	Command::Type m_command; // The application command
 	std::uint8_t m_phase; // The command phase
-	Message::Buffer m_data;	// The command payload
+	Message::Buffer m_payload;	// The command payload
 	TimeUtils::Timestamp m_timestamp; // The message creation timestamp
 
 	// Optional Extension: Allows the sender to associate to the destination's response with a 
@@ -96,8 +96,8 @@ public:
 	CApplicationBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
 	CApplicationBuilder& SetDestination(std::string_view identifier);
 	CApplicationBuilder& SetCommand(Command::Type type, std::uint8_t phase);
-	CApplicationBuilder& SetData(std::string_view data);
-	CApplicationBuilder& SetData(Message::Buffer const& buffer);
+	CApplicationBuilder& SetPayload(std::string_view data);
+	CApplicationBuilder& SetPayload(Message::Buffer const& buffer);
 	CApplicationBuilder& BindAwaitTracker(Message::AwaitBinding binding, Await::TrackerKey key);
 	CApplicationBuilder& BindAwaitTracker(
 		std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker);

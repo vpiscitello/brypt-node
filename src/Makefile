@@ -5,7 +5,10 @@ BINARYNAME = BryptNode
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
+OQS_LIB = -L/usr/local/lib
+
 OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
+OQS_INCLUDE = -I/usr/local/include/oqs
 EXTERNAL_LIBARIES_INCLUDE = -ILibraries
 
 mode = release
@@ -15,8 +18,8 @@ else
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
 endif
 
-CXXINCLUDES = $(OPENSSL_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
-CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
+CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
+CXXLIBS = -lzmq $(OPENSSL_LIB) $(OQS_LIB) -lpthread -lcrypto -loqs -ldl
 
 SRCDIR = .
 
@@ -29,8 +32,8 @@ COMMANDDIR = Components/Command
 ENDPOINTSDIR = Components/Endpoints
 CONFIGURATIONDIR = Configuration
 MESSAGECONTROLDIR = Components/MessageControl
-PEERWATCHERDIR = Components/PeerWatcher
-NOTIFIERDIR = Components/Notifier
+SECURITYDIR = Components/Security
+SECURITYPOSTQUANTUMDIR = Components/Security/PostQuantum
 
 MODULES = $(BRYPTNODEDIR) \
 $(BRYPTIDENTIFIERDIR) \
@@ -41,8 +44,8 @@ $(COMMANDDIR) \
 $(ENDPOINTSDIR) \
 $(CONFIGURATIONDIR) \
 $(MESSAGECONTROLDIR) \
-$(PEERWATCHERDIR) \
-$(NOTIFIERDIR)
+$(SECURITYDIR) \
+$(SECURITYPOSTQUANTUMDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))
 OBJS = $(patsubst %.cpp,$(BUILDDIR)/%.o,$(notdir $(SRCS)))

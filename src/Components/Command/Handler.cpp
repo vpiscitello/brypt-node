@@ -12,7 +12,6 @@
 #include "../Await/TrackingManager.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../BryptPeer/PeerManager.hpp"
-#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NodeState.hpp"
@@ -100,8 +99,7 @@ void Command::IHandler::SendResponse(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CApplicationMessage const& request,
     std::string_view responseData,
-    std::uint8_t responsePhase,
-    std::optional<BryptIdentifier::CContainer> optDestinationOverride)
+    std::uint8_t responsePhase)
 {
     // Get the current Node ID and Cluster ID for this node
     BryptIdentifier::SharedContainer spBryptIdentifier;
@@ -111,10 +109,8 @@ void Command::IHandler::SendResponse(
     }
     assert(spBryptIdentifier);
 
+    // Since we are responding to the request, the destination will point to its source.
     BryptIdentifier::CContainer destination = request.GetSourceIdentifier();
-    if (optDestinationOverride) {
-        destination = *optDestinationOverride;
-    }
 
     std::optional<Message::BoundTrackerKey> optBoundAwaitTracker = {};
     std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitTrackerKey();
@@ -124,17 +120,18 @@ void Command::IHandler::SendResponse(
 
     // Using the information from the node instance generate a discovery response message
     auto const optResponse = CApplicationMessage::Builder()
-        .SetMessageContext(request.GetMessageContext())
+        .SetMessageContext(request.GetContext())
         .SetSource(*spBryptIdentifier)
         .SetDestination(destination)
         .SetCommand(request.GetCommand(), responsePhase)
-        .SetData(responseData)
+        .SetPayload(responseData)
         .BindAwaitTracker(optBoundAwaitTracker)
         .ValidatedBuild();
     assert(optResponse);
 
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spBryptPeer->ScheduleSend(*optResponse);
+        spBryptPeer->ScheduleSend(
+            request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
     }
 }
 
@@ -178,11 +175,11 @@ void Command::IHandler::SendNotice(
         if (optResponseData) {
             // Create a reading message
             auto const optNodeResponse = CApplicationMessage::Builder()
-                .SetMessageContext(request.GetMessageContext())
+                .SetMessageContext(request.GetContext())
                 .SetSource(*spBryptIdentifier)
                 .SetDestination(request.GetSourceIdentifier())
                 .SetCommand(request.GetCommand(), responsePhase)
-                .SetData(*optResponseData)
+                .SetPayload(*optResponseData)
                 .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
                 .ValidatedBuild();
             assert(optNodeResponse);
@@ -192,11 +189,11 @@ void Command::IHandler::SendNotice(
 
     // Create a notice message for the network
     auto builder = CApplicationMessage::Builder()
-        .SetMessageContext(request.GetMessageContext())
+        .SetMessageContext(request.GetContext())
         .SetSource(*spBryptIdentifier)
         .SetCommand(request.GetCommand(), noticePhase)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
-        .SetData(noticeData);
+        .SetPayload(noticeData);
 
     switch (destination) {
         case Message::Destination::Cluster: {

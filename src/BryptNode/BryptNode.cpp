@@ -18,14 +18,14 @@
 #include "../Components/Command/Handler.hpp"
 #include "../Components/Endpoints/EndpointManager.hpp"
 #include "../Components/MessageControl/AssociatedMessage.hpp"
-#include "../Components/MessageControl/MessageCollector.hpp"
-#include "../Components/Security/SecurityManager.hpp"
+#include "../Components/MessageControl/AuthorizedProcessor.hpp"
 #include "../Configuration/ConfigurationManager.hpp"
 #include "../Configuration/PeerPersistor.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <random>
+#include <thread>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -37,14 +37,6 @@ constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
-//------------------------------------------------------------------------------------------------
-namespace test {
-//------------------------------------------------------------------------------------------------
-
-void SimulateClient(Command::HandlerMap const& handlers, bool activated);
-
-//------------------------------------------------------------------------------------------------
-} // test namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
@@ -55,7 +47,7 @@ CBryptNode::CBryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<CEndpointManager> const& spEndpointManager,
     std::shared_ptr<CPeerManager> const& spPeerManager,
-    std::shared_ptr<CMessageCollector> const& spMessageCollector,
+    std::shared_ptr<CAuthorizedProcessor> const& spMessageProcessor,
     std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
     : m_initialized(false)
@@ -67,13 +59,13 @@ CBryptNode::CBryptNode(
     , m_spSensorState()
     , m_spEndpointManager(spEndpointManager)
     , m_spPeerManager(spPeerManager)
-    , m_spMessageCollector(spMessageCollector)
+    , m_spMessageProcessor(spMessageProcessor)
     , m_spAwaitManager(std::make_shared<Await::CTrackingManager>())
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
 {
-    // An Endpoint Manager must be provided to the node in order to to operator 
-    if (!m_spEndpointManager) {
+    // An EndpointManager and PeerManager is required for the node to operate
+    if (!m_spEndpointManager || !m_spPeerManager) {
         return;
     }
 
@@ -126,6 +118,7 @@ void CBryptNode::Startup()
 
 bool CBryptNode::Shutdown()
 {
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -186,13 +179,6 @@ std::weak_ptr<CPeerManager> CBryptNode::GetPeerManager() const
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CMessageCollector> CBryptNode::GetMessageCollector() const
-{
-    return m_spMessageCollector;
-}
-
-//------------------------------------------------------------------------------------------------
-
 std::weak_ptr<Await::CTrackingManager> CBryptNode::GetAwaitManager() const
 {
     return m_spAwaitManager;
@@ -216,17 +202,13 @@ void CBryptNode::StartLifecycle()
     std::uint64_t run = 0;
     // TODO: Implement stopping condition
     do {
-        if (auto const optMessage = m_spMessageCollector->PopIncomingMessage(); optMessage) {
+        if (auto const optMessage = m_spMessageProcessor->PopIncomingMessage(); optMessage) {
             HandleIncomingMessage(*optMessage);
         }
 
         m_spAwaitManager->ProcessFulfilledRequests();
         ++run;
-
-        //----------------------------------------------------------------------------------------
-        test::SimulateClient(m_handlers, (run % 10000 == 0));
-        //----------------------------------------------------------------------------------------
-
+        
         std::this_thread::sleep_for(local::CycleTimeout);
     } while (true);
 }
@@ -243,51 +225,6 @@ void CBryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessag
     if (auto const itr = m_handlers.find(message.GetCommand()); itr != m_handlers.end()) {
         auto const& [type, handler] = *itr;
         handler->HandleMessage(associatedMessage);
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void test::SimulateClient(Command::HandlerMap const& handlers, bool activated)
-{
-    if(!activated) {
-        return;
-    }
-
-    thread_local std::random_device device;
-    thread_local std::mt19937 generator(device());
-    thread_local std::bernoulli_distribution distribution(0.5);
-
-    Command::Type command = Command::Type::Invalid;
-    std::string data = {};
-
-    bool bUseInformationRequest = distribution(generator);
-    if (bUseInformationRequest) {
-        printo("Simulating node information request", NodeUtils::PrintType::Node); 
-        command = Command::Type::Information;
-        data =  "Request for node information.";
-    } else {
-        printo("Simulating sensor query request", NodeUtils::PrintType::Node);
-        command = Command::Type::Query;
-        data =  "Request for sensor readings.";
-    }
-
-    static auto const source = BryptIdentifier::CContainer(BryptIdentifier::Generate());
-    auto const optRequest = CApplicationMessage::Builder()
-        .SetSource(source)
-        .MakeClusterMessage()
-        .SetCommand(command, 0)
-        .SetData(data)
-        .ValidatedBuild();
-    assert(optRequest);
-
-    if (auto const itr = handlers.find(optRequest->GetCommand()); itr != handlers.end()) {
-        auto const& [command, handler] = *itr;
-        handler->HandleMessage(AssociatedMessage{ {}, *optRequest });
     }
 }
 

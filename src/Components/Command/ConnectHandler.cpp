@@ -6,8 +6,6 @@
 //------------------------------------------------------------------------------------------------
 #include "../Endpoints/Endpoint.hpp"
 #include "../Endpoints/EndpointManager.hpp"
-#include "../Endpoints/PeerBootstrap.hpp"
-#include "../MessageControl/MessageCollector.hpp"
 #include "../../BryptNode/BryptNode.hpp"
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptNode/NodeState.hpp"
@@ -15,6 +13,7 @@
 #include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/metajson/metajson.hh"
+//------------------------------------------------------------------------------------------------
 #include <chrono>
 #include <thread>
 //------------------------------------------------------------------------------------------------
@@ -24,28 +23,17 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-bool HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message);
+bool HandleDiscoveryRequest(
+    CBryptNode& instance,
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CApplicationMessage const& message);
+
 std::string BuildDiscoveryResponse(CBryptNode& instance);
 
 bool HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& message);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
-//------------------------------------------------------------------------------------------------
-namespace Json {
-//------------------------------------------------------------------------------------------------
-
-struct TTechnologyEntries
-{
-    std::string name;
-    std::string entries;
-};
-using EncodedTechnologyEntries = std::vector<TTechnologyEntries>;
-
-struct TDiscoveryResponse;
-
-//------------------------------------------------------------------------------------------------
-} // Json namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
@@ -53,43 +41,33 @@ struct TDiscoveryResponse;
 // Description: Symbol loading for JSON encoding
 //------------------------------------------------------------------------------------------------
 
-// {
-//     "cluster": Number,
-//     "technologies": [
+// DiscoveryRequest {
+//     "entrypoints": [
 //     {
-//         "name": String
+//         "technology": String
+//         "entry": String,
+//     },
+//     ...
+//     ],
+// }
+
+// DiscoveryResponse {
+//     "cluster": Number,
+//     "bootstraps": [
+//     {
+//         "technology": String
 //         "entries": [Strings],
 //     },
 //     ...
 //     ],
 // }
 
+IOD_SYMBOL(bootstraps)
 IOD_SYMBOL(cluster)
-IOD_SYMBOL(technologies)
 IOD_SYMBOL(entries)
-// IOD_SYMBOL(name) Note: Name declared in PeerBootstrap.
-
-//------------------------------------------------------------------------------------------------
-
-struct Json::TDiscoveryResponse
-{
-    TDiscoveryResponse()
-        : cluster()
-        , technologies()
-    {
-    }
-
-    TDiscoveryResponse(
-        NodeUtils::ClusterIdType cluster,
-        EncodedTechnologyEntries const& technologies)
-        : cluster(cluster)
-        , technologies(technologies)
-    {
-    }
-
-    NodeUtils::ClusterIdType cluster;
-    EncodedTechnologyEntries technologies;
-};
+IOD_SYMBOL(entry)
+IOD_SYMBOL(entrypoints)
+IOD_SYMBOL(technology)
 
 //------------------------------------------------------------------------------------------------
 
@@ -113,7 +91,6 @@ bool Command::CConnectHandler::HandleMessage(AssociatedMessage const& associated
     auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<CConnectHandler::Phase>(message.GetPhase());
     switch (phase) {
-        // TODO: Implement method of authentication before supplying entries
         case Phase::Discovery: {
             status = DiscoveryHandler(wpBryptPeer, message);
         } break;
@@ -136,7 +113,8 @@ bool Command::CConnectHandler::DiscoveryHandler(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CApplicationMessage const& message)
 {
-    bool const status = local::HandleDiscoveryRequest(m_instance, message);
+
+    bool const status = local::HandleDiscoveryRequest(m_instance, wpBryptPeer, message);
     if (!status) {
         return status;
     }
@@ -160,39 +138,50 @@ bool Command::CConnectHandler::JoinHandler(CApplicationMessage const& message)
 
 //------------------------------------------------------------------------------------------------
 
-bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage const& message)
+bool local::HandleDiscoveryRequest(
+    CBryptNode& instance,
+    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+    CApplicationMessage const& message)
 {
     // Parse the discovery request
-    auto const data = message.GetData();
+    auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
-    PeerBootstrap::Json::TConnectRequest request;
-    iod::json_object(
-        s::entrypoints = iod::json_vector(
-            s::name,
-            s::entry
-    )).decode(dataview, request);
+
+    auto request = iod::make_metamap(
+        s::entrypoints = {
+            iod::make_metamap(
+                s::technology = std::string(), s::entry = std::string()) });
+
+    iod::json_decode(dataview, request);
+
+    BryptIdentifier::SharedContainer spPeerIdentifier;
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    }
 
     if (!request.entrypoints.empty()) {
-        // Get shared_ptrs for the CBryptPeerPersitor and CEndpointManager
+        // Get shared_ptrs for the PeerPersitor and EndpointManager
         auto spPeerPersistor = instance.GetPeerPersistor().lock();
         auto spEndpointManager = instance.GetEndpointManager().lock();
         
         // For each listed entrypoint, handle each entry for the given technology.
-        for (auto const& [name, entry]: request.entrypoints) {
+        for (auto const& entrypoint: request.entrypoints) {
             // Parse the technoloy type from the human readible name.
-            auto const technology = Endpoints::ParseTechnologyType(name);
+            auto const technology = Endpoints::ParseTechnologyType(entrypoint.technology);
+
             if (spPeerPersistor) {
                 // Notify the PeerPersistor of the entry for the technology. By immediately storing the 
                 // entry it may be used in bootstrapping and distribution of entries for technologies
                 // to peers that have different capabilites not accessible by this node. The verification
                 // of entrypoints should be handled by a different module (i.e. the endpoint or security mechanism).
-                spPeerPersistor->AddBootstrapEntry(technology, entry);
+                spPeerPersistor->AddBootstrapEntry(technology, entrypoint.entry);
             }
+
             if (spEndpointManager) {
                 // If we have an endpoint for the given technology, schedule the connect.
                 if (auto spEndpoint = spEndpointManager->GetEndpoint(
                     technology, Endpoints::OperationType::Client); spEndpoint) {
-                    spEndpoint->ScheduleConnect(entry);
+                    spEndpoint->ScheduleConnect(spPeerIdentifier, entrypoint.entry);
                 }
             }
         }
@@ -206,15 +195,20 @@ bool local::HandleDiscoveryRequest(CBryptNode& instance, CApplicationMessage con
 std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 {
     // Make a response message to filled out by the handler
-    Json::TDiscoveryResponse response;
+    auto response = iod::make_metamap(
+        s::cluster = std::uint32_t(),
+        s::bootstraps = {
+            iod::make_metamap(
+                s::technology = std::string(),
+                s::entries = std::vector<std::string>()) });
 
     auto const wpNodeState = instance.GetNodeState();
     if (auto const spNodeState = wpNodeState.lock(); spNodeState) {
         response.cluster = spNodeState->GetCluster();
     }
 
-    using EndpointBootstrapsMap = std::unordered_map<Endpoints::TechnologyType, std::vector<std::string>>;
-    EndpointBootstrapsMap endpoints;
+    using BootstrapsMap = std::unordered_map<Endpoints::TechnologyType, std::vector<std::string>>;
+    BootstrapsMap bootstraps;
     // Get the current known peers of this node. The known peers will be supplied to the requestor
     // such that they may attempt to connect to them.
     auto const wpPeerPersistor = instance.GetPeerPersistor();
@@ -225,11 +219,11 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
         // technology entries vector.
         spPeerPersistor->ForEachCachedBootstrap(
             // Get the entries for the requestor from the cached list of peers
-            [&response, &endpoints] (
+            [&bootstraps] (
                 Endpoints::TechnologyType technology,
                 std::string_view const& bootstrap) -> CallbackIteration
             {
-                endpoints[technology].emplace_back(bootstrap);
+                bootstraps[technology].emplace_back(bootstrap);
                 return CallbackIteration::Continue;
             },
             // Unused cache error handling function
@@ -237,23 +231,14 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
         );
 
         // Encode the peers list for the response
-        for (auto const& [technology, bootstraps]: endpoints) {
-            auto& entry = response.technologies.emplace_back();
-            entry.name = Endpoints::TechnologyTypeToString(technology);
-            // The metajson library can't encode nested vectors, so for now the entries are encoded 
-            // before being placed in the data struct. 
-            entry.entries = iod::json_encode(bootstraps);
+        for (auto& [technology, entries]: bootstraps) {
+            auto& bootstrap = response.bootstraps.emplace_back();
+            bootstrap.technology = Endpoints::TechnologyTypeToString(technology);
+            bootstrap.entries = std::move(entries);
         }
     }
 
-    std::string const encoded = iod::json_object(
-        s::cluster,
-        s::technologies = iod::json_vector(
-            s::name,
-            s::entries
-        )).encode(response);
-
-    return encoded;
+    return iod::json_encode(response);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -261,36 +246,33 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 bool local::HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& message)
 {
     // Parse the discovery response
-    auto const data = message.GetData();
+    auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
-    Json::TDiscoveryResponse response;
-    iod::json_object(
-        s::cluster,
-        s::technologies = iod::json_vector(
-            s::name,
-            s::entries
-    )).decode(dataview, response);
+
+    auto response = iod::make_metamap(
+        s::cluster = std::uint32_t(),
+        s::bootstraps = {
+            iod::make_metamap(
+                s::technology = std::string(),
+                s::entries = std::vector<std::string>()) });
+
+    iod::json_decode(dataview, response);
 
     auto wpEndpointManager = instance.GetEndpointManager();
     if (auto spEndpointManager = wpEndpointManager.lock(); spEndpointManager) {
-        // The provided in the message should contain a series elements containing a technology name and 
-        // vector of endpoint entries. We attempt to get the shared endpoint from the manager and then
-        // schedule a connect event for each provided entry. The entry may or may not be address, it
-        // is dependent on the attached technology. 
-        for (auto const& [name, encoded]: response.technologies) {
-            std::vector<std::string> entries;
-            iod::json_decode(encoded, entries);
-
+        // The provided in the message should contain a series elements containing a technology 
+        // name and vector of endpoint entries. We attempt to get the shared endpoint from the 
+        // manager and then schedule a connect event for each provided entry. The entry may or
+        //  may not be address, it is dependent on the attached technology. 
+        for (auto const& bootstrap: response.bootstraps) {
             auto spEndpoint = spEndpointManager->GetEndpoint(
-                message.GetMessageContext().GetEndpointTechnology(),
+                message.GetContext().GetEndpointTechnology(),
                 Endpoints::OperationType::Client);
 
-            if (!spEndpoint) {
-                continue;
-            }
-
-            for (auto const& entry: entries) {
-                spEndpoint->ScheduleConnect(entry);
+            if (spEndpoint) {
+                for (auto const& entry: bootstrap.entries) {
+                    spEndpoint->ScheduleConnect(entry);
+                }
             }
         }
     }

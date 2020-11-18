@@ -139,10 +139,10 @@ struct Configuration::TEndpointOptions
     }
 
     Endpoints::TechnologyType GetTechnology() const { return type; }
-    std::string GetTechnologyName() const { return technology; }
-    std::string GetInterface() const { return interface; }
-    std::string GetBinding() const { return binding; }
-    std::optional<std::string> GetBootstrap() const { return bootstrap; }
+    std::string const& GetTechnologyName() const { return technology; }
+    std::string const& GetInterface() const { return interface; }
+    std::string const& GetBinding() const { return binding; }
+    std::optional<std::string> const& GetBootstrap() const { return bootstrap; }
 
     NetworkUtils::AddressComponentPair GetBindingComponents() const
     {

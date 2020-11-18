@@ -4,7 +4,6 @@
 //------------------------------------------------------------------------------------------------
 #include "TcpEndpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "PeerBootstrap.hpp"
 #include "EndpointDefinitions.hpp"
 #include "../BryptPeer/BryptPeer.hpp"
 #include "../Command/CommandDefinitions.hpp"
@@ -36,11 +35,10 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator,
-    IMessageSink* const pMessageSink)
+    IPeerMediator* const pPeerMediator)
     : CEndpoint(
-        spBryptIdentifier, interface, operation, pEndpointMediator,
-        pPeerMediator, pMessageSink, TechnologyType::TCP)
+        spBryptIdentifier, interface, operation,
+        pEndpointMediator, pPeerMediator, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_tracker()
@@ -48,7 +46,11 @@ Endpoints::CTcpEndpoint::CTcpEndpoint(
     , m_events()
     , m_scheduler()
 {
-    m_scheduler = [this] (CApplicationMessage const& message) -> bool { return ScheduleSend(message); };
+    m_scheduler = [this] (
+        BryptIdentifier::CContainer const& destination, std::string_view message) -> bool
+        {
+            return ScheduleSend(destination, message);
+        };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -119,6 +121,52 @@ std::string Endpoints::CTcpEndpoint::GetURI() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
+void Endpoints::CTcpEndpoint::Startup()
+{
+    if (m_active) {
+        return; 
+    }
+    Spawn();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+bool Endpoints::CTcpEndpoint::Shutdown()
+{
+    if (!m_active) {
+        return true;
+    }
+
+    NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
+      
+    m_terminate = true; // Stop the worker thread from processing the connections
+    m_cv.notify_all(); // Notify the worker that exit conditions have been set
+    
+    if (m_worker.joinable()) {
+        m_worker.join();
+    }
+
+    m_tracker.ReadEachConnection(
+        [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
+        {
+            ::close(descriptor); // Close the connection descriptor
+            return CallbackIteration::Continue;
+        }
+    );
+
+    m_tracker.Clear();
+    
+    return !m_worker.joinable();
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
 void Endpoints::CTcpEndpoint::ScheduleBind(std::string_view binding)
 {
     if (m_operation != OperationType::Server) {
@@ -181,23 +229,28 @@ void Endpoints::CTcpEndpoint::ScheduleConnect(std::string_view entry)
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CTcpEndpoint::Startup()
+void Endpoints::CTcpEndpoint::ScheduleConnect(
+    BryptIdentifier::SharedContainer const& spIdentifier,
+    std::string_view entry)
 {
-    if (m_active) {
-        return; 
+    if (m_operation != OperationType::Client) {
+        throw std::runtime_error("Connect was called a non-client Endpoint!");
     }
-    Spawn();
-}
+    
+    auto const [address, sPort] = NetworkUtils::SplitAddressString(entry);
+    if (address.empty() || sPort.empty()) {
+        return;
+    }
 
-//------------------------------------------------------------------------------------------------
+    NetworkUtils::PortNumber port = std::stoul(sPort);
 
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::ScheduleSend(CApplicationMessage const& message)
-{
-    // Forward the received message to be sent on the socket
-    return ScheduleSend(message.GetDestination(), message.GetPack());
+    // Schedule the Connect network instruction event
+    {
+        std::scoped_lock lock(m_eventsMutex);
+        m_events.emplace_back(
+            Tcp::TNetworkInstructionEvent(
+                spIdentifier, NetworkInstruction::Connect, address, port));
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -228,39 +281,6 @@ bool  Endpoints::CTcpEndpoint::ScheduleSend(
     }
 
     return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CTcpEndpoint::Shutdown()
-{
-    if (!m_active) {
-        return true;
-    }
-
-    NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-      
-    m_terminate = true; // Stop the worker thread from processing the connections
-    m_cv.notify_all(); // Notify the worker that exit conditions have been set
-    
-    if (m_worker.joinable()) {
-        m_worker.join();
-    }
-
-    m_tracker.ReadEachConnection(
-        [&](auto const& descriptor, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
-        {
-            ::close(descriptor); // Close the connection descriptor
-            return CallbackIteration::Continue;
-        }
-    );
-
-    m_tracker.Clear();
-    
-    return !m_worker.joinable();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -502,7 +522,8 @@ void Endpoints::CTcpEndpoint::ClientWorker()
 Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
     NetworkUtils::NetworkAddress const& address,
     NetworkUtils::PortNumber port,
-    IPv4SocketAddress& socketAddress)
+    IPv4SocketAddress& socketAddress,
+    BryptIdentifier::SharedContainer const& spIdentifier)
 {
     std::string uri;
     uri.append(Scheme.data());
@@ -517,6 +538,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
 
     socketAddress.sin_family = AF_INET;
     socketAddress.sin_port = htons(port);
+
     // Convert IPv4 and IPv6 addresses from text to binary form
     if (::inet_pton(AF_INET, address.c_str(), &socketAddress.sin_addr) <= 0) {
         return ConnectStatusCode::GenericError;
@@ -527,7 +549,26 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::Connect(
         return ConnectStatusCode::GenericError;
     }
 
-    if (auto const status = EstablishConnection(descriptor, socketAddress);
+    if (!m_pPeerMediator) {
+        return ConnectStatusCode::GenericError;
+    }
+
+    // Get the connection request message from the peer mediator. If we have not been given 
+    // an expected identifier declare a new peer using the peer's URI. Otherwise, declare 
+    // the resolving peer using the expected identifier. If the peer is known through the 
+    // identifier, the mediator will provide us a heartbeat request to verify the endpoint.
+    std::optional<std::string> optConnectionRequest;
+    if (!spIdentifier) {
+        optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(uri);
+    } else {
+        optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(spIdentifier);
+    }
+
+    if (!optConnectionRequest) {
+        return ConnectStatusCode::GenericError;
+    }
+
+    if (auto const status = EstablishConnection(descriptor, socketAddress, *optConnectionRequest);
         status != ConnectStatusCode::Success) {
         return status;
     }
@@ -576,8 +617,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::IsURIAllowed
 // Description:
 //------------------------------------------------------------------------------------------------
 Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishConnection(
-    SocketDescriptor descriptor, 
-    IPv4SocketAddress address)
+    SocketDescriptor descriptor, IPv4SocketAddress address, std::string_view request)
 {
     std::uint32_t attempts = 0;
     socklen_t size = SocketAddressSize;
@@ -604,9 +644,7 @@ Endpoints::CTcpEndpoint::ConnectStatusCode Endpoints::CTcpEndpoint::EstablishCon
         }
     }
 
-    auto const sender = std::bind(&CTcpEndpoint::Send, this, descriptor, std::placeholders::_1);
-    auto const result = PeerBootstrap::SendContactMessage(
-        m_pEndpointMediator, m_identifier, m_technology, m_spBryptIdentifier, sender);
+    auto const result = Send(descriptor, request);
     if (auto const pValue = std::get_if<std::int32_t>(&result); pValue == nullptr || *pValue <= 0) {
         return ConnectStatusCode::GenericError;
     }
@@ -627,8 +665,6 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
         std::scoped_lock lock(m_eventsMutex);
 
         // Splice all network instruction events until the first non-instruction event
-        // TODO: Should looping be flagged here? The endpoint could in theory be DOS'd by maniuplating
-        // connect calls, how/why would this happen?
         while (m_events.size() != 0 && 
                m_events.front().type() == typeid(Tcp::TNetworkInstructionEvent)) {
 
@@ -639,7 +675,7 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
         }
     }
 
-    for (auto const& [type, address, port] : instructions) {
+    for (auto const& [identifier, type, address, port] : instructions) {
         IPv4SocketAddress socketAddress = {}; // Zero initialize the socket address;
         switch (type) {
             case NetworkInstruction::Bind: {
@@ -652,7 +688,7 @@ void Endpoints::CTcpEndpoint::ProcessNetworkInstructions(SocketDescriptor* liste
                 }
             } break;
             case NetworkInstruction::Connect: {
-                auto const status = Connect(address, port, socketAddress);
+                auto const status = Connect(address, port, socketAddress, identifier);
                 if (status == ConnectStatusCode::GenericError) {
                     std::string const notification = "[TCP] Connection to " + address + ":"\
                          + std::to_string(port) + " failed.";
@@ -723,28 +759,7 @@ Endpoints::CTcpEndpoint::OptionalReceiveResult Endpoints::CTcpEndpoint::Receive(
                         default: return {};
                     }
                 }
-                
-                bool bMessageAllowed = true;
-                [[maybe_unused]] bool const bConnectionDetailsFound = m_tracker.UpdateOneConnection(descriptor,
-                    [&bMessageAllowed](auto& details) {
-                        // TODO: A generic message filtering service should be used to ensure all connection interfaces
-                        // use the same message allowance scheme. 
-                        // TODO: If the peer is breaking protocol should it be flagged?
-                        ConnectionState state = details.GetConnectionState();
-                        MessagingPhase phase = details.GetMessagingPhase();
-                        if (state != ConnectionState::Flagged && phase != MessagingPhase::Request) {
-                            bMessageAllowed = false;
-                            return;
-                        }
-                        details.SetMessagingPhase(MessagingPhase::Response);
-                    }
-                );
-
-                // If a new request is not allowed from this peer 
-                if (!bMessageAllowed) {
-                    return {};
-                }
-
+ 
                 buffer.resize(received);
                 return buffer;
             }
@@ -783,23 +798,19 @@ void Endpoints::CTcpEndpoint::HandleReceivedData(
         },
         [this, &optIdentifier, &spBryptPeer] (std::string_view uri) -> ExtendedConnectionDetails
         {
-            spBryptPeer = CEndpoint::LinkPeer(*optIdentifier);
+            spBryptPeer = CEndpoint::LinkPeer(*optIdentifier, uri);
             
             ExtendedConnectionDetails details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Connected);
-            details.SetMessagingPhase(MessagingPhase::Response);
             details.IncrementMessageSequence();
             
-            spBryptPeer->RegisterEndpoint(
-                m_identifier, m_technology, m_scheduler, uri);
+            spBryptPeer->RegisterEndpoint(m_identifier, m_technology, m_scheduler, uri);
 
             return details;
         }
     );
 
-    if (m_pMessageSink) {
-        m_pMessageSink->CollectMessage(spBryptPeer, *optRequest);
-    } 
+    spBryptPeer->ScheduleReceive(m_identifier, decoded);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -834,21 +845,6 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
     }
 
     for (auto const& [descriptor, message, retries] : outgoing) {
-
-        // Determine if the message being sent is allowed given the current state of communications
-        // with the peer. Brypt networking structure dictates that each request is coupled with a response.
-        MessagingPhase phase = MessagingPhase::Response;
-        m_tracker.ReadOneConnection(descriptor,
-            [&phase] (auto const& details) {
-                phase = details.GetMessagingPhase();
-            }
-        );
-
-        // If the current message is not allowed in the current network context, skip to the next message.
-        if (phase != MessagingPhase::Response) {
-            continue;
-        }
-
         auto const result = Send(descriptor, message);  // Attempt to send the message
         std::visit(TVariantVisitor
             {
@@ -863,14 +859,11 @@ void Endpoints::CTcpEndpoint::ProcessOutgoingMessages()
                         m_tracker.UpdateOneConnection(descriptor,
                             [] (auto& details) {
                                 details.IncrementMessageSequence();
-                                details.SetMessagingPhase(MessagingPhase::Request);
                             }
                         );
                     } else {
                         // If we have already attempted to send the message three times, drop the message.
                         if (retries == Endpoints::MessageRetryLimit) {
-                            // TODO: Logic is needed to properly handling this condition. Should the peer be flagged?
-                            // Should the response required be flipped?
                             return;
                         }
                         std::uint8_t const attempts = retries + 1;
@@ -939,7 +932,6 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
                         spBryptPeer->WithdrawEndpoint(m_identifier, m_technology);
                     }
                 } break;
-                // Other ConnectionStates are not currently handled for this endpoint
                 default: break;
             }
         }
@@ -949,7 +941,6 @@ void Endpoints::CTcpEndpoint::HandleConnectionStateChange(
         case ConnectionStateChange::Disconnect: {
             m_tracker.UntrackConnection(descriptor);
         } break;
-        // Other ConnectionStateChanges are not currently handled for this endpoint
         default: break;
     }
 }

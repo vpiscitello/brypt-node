@@ -3,18 +3,43 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "PeerManager.hpp"
+#include "../Security/SecurityDefinitions.hpp"
+#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "../../BryptMessage/NetworkMessage.hpp"
+#include "../../Interfaces/MessageSink.hpp"
+#include "../../Interfaces/PeerObserver.hpp"
+#include "../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
+#include <random>
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+namespace {
+namespace local {
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+} // local namespace
+} // namespace
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description: 
 //------------------------------------------------------------------------------------------------
-CPeerManager::CPeerManager()
-    : m_peersMutex()
-    , m_peers()
+CPeerManager::CPeerManager(
+    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
+    std::weak_ptr<IMessageSink> const& wpPromotedProcessor)
+    : m_spBryptIdentifier(spBryptIdentifier)
     , m_observersMutex()
     , m_observers()
+    , m_peersMutex()
+    , m_peers()
+    , m_resolvingMutex()
+    , m_resolving()
+    , m_spConnectProtocol(spConnectProtocol)
+    , m_wpPromotedProcessor(wpPromotedProcessor)
 {
 }
 
@@ -36,13 +61,72 @@ void CPeerManager::UnpublishObserver(IPeerObserver* const observer)
 
 //------------------------------------------------------------------------------------------------
 
+CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_view uri)
+{
+    // Disallow endpoints from connecting to the same uri. The endpoint should only declare a 
+    // a connection once. If it has connection retry logic, the endpoint should store the 
+    // connection request message. TODO: Handle cleaning up stale declarations. 
+    if (auto const itr = m_resolving.find(uri.data()); itr != m_resolving.end()) {
+        return {};
+    }
+
+    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+        m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
+
+    auto const optRequest = upSecurityMediator->SetupExchangeInitiator(
+        Security::Strategy::PQNISTL3, m_spConnectProtocol);
+    
+    // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
+    // to the full BryptPeer
+    if (optRequest) {
+        std::scoped_lock lock(m_resolvingMutex);
+        m_resolving[uri.data()] = std::move(upSecurityMediator);
+    }
+
+    // Return the ticket number and the initial connection message
+    return optRequest;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(
+    BryptIdentifier::SharedContainer const& spPeerIdentifier)
+{
+    // It is expected that the caller has provided a valid brypt identifier for the peer. 
+    if (!spPeerIdentifier || !spPeerIdentifier->IsValid()) {
+        assert(false);
+        return {};
+    }
+
+    // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
+    {
+        std::scoped_lock peersLock(m_peersMutex);
+        if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalRepresentation());
+            itr == m_peers.end()) {
+            return {};
+        }
+    }
+
+    // Generate the heartbeat request.
+    auto const optRequest = CNetworkMessage::Builder()
+        .SetSource(*m_spBryptIdentifier)
+        .SetDestination(*spPeerIdentifier)
+        .MakeHeartbeatRequest()
+        .ValidatedBuild();
+    assert(optRequest);
+
+    return optRequest->GetPack();
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
-    BryptIdentifier::CContainer const& identifier)
+    BryptIdentifier::CContainer const& identifier, std::string_view uri)
 {
     std::shared_ptr<CBryptPeer> spBryptPeer = {};
 
     {
-        std::scoped_lock lock(m_peersMutex);
+        std::scoped_lock peersLock(m_peersMutex);
         // If the provided peer has an identifier that matches an already tracked peer, the 
         // tracked peer needs to be returned to the caller. 
         // Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
@@ -54,7 +138,35 @@ std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
                 spBryptPeer = spTrackedPeer;
             });
         } else {
+            // Make BryptPeer that can be shared with the endpoint. 
             spBryptPeer = std::make_shared<CBryptPeer>(identifier, this);
+
+            // If the endpoint has a resolving ticket it means that we initiated the connection and we need
+            // to move the SecurityStrategy out of the resolving map and give it to the SecurityMediator. 
+            // Otherwise, it is assumed are accepting the connection and we need to make an accepting strategy.
+            std::unique_ptr<CSecurityMediator> upSecurityMediator;
+            if (uri.size() != 0) {
+                std::scoped_lock resolvingLock(m_resolvingMutex);
+                auto itr = m_resolving.find(uri.data());
+                if (itr == m_resolving.end()) {
+                    // Why were we given a ticket if we do not have an associated strategy?
+                    assert(false); return nullptr;
+                }
+                upSecurityMediator = std::move(itr->second);
+                m_resolving.erase(itr);
+            } else {
+                upSecurityMediator = std::make_unique<CSecurityMediator>(
+                    m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
+
+                bool const success = upSecurityMediator->SetupExchangeAcceptor(
+                    Security::Strategy::PQNISTL3);
+                if (!success) {
+                    return {};
+                }
+            }
+            
+            spBryptPeer->AttachSecurityMediator(std::move(upSecurityMediator));
+
             m_peers.emplace(spBryptPeer);
         }
     }

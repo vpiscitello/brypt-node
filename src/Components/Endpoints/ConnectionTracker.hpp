@@ -60,12 +60,12 @@ public:
     BryptIdentifier::Internal::Type GetPeerIdentifier() const
     {
         if (!m_optConnectionDetails) {
-            return ReservedIdentifiers::Internal::Unknown;
+            return ReservedIdentifiers::Internal::Invalid;
         }
 
         auto const spBryptIdentifier = m_optConnectionDetails->GetBryptIdentifier();
         if (!spBryptIdentifier) {
-            return ReservedIdentifiers::Internal::Unknown;
+            return ReservedIdentifiers::Internal::Invalid;
         }
 
         return spBryptIdentifier->GetInternalRepresentation();
@@ -119,7 +119,6 @@ using FilterPredicate = std::conditional_t<
 enum class ConnectionStateFilter : std::uint8_t {
     Connected = MaskLevel(std::uint8_t(0)),
     Disconnected = MaskLevel(std::uint8_t(1)),
-    Flagged = MaskLevel(std::uint8_t(2)),
     Resolving = MaskLevel(std::uint8_t(3)),
     Unknown = MaskLevel(std::uint8_t(4)),
     Invalid = MaskLevel(std::uint8_t(5))
@@ -154,7 +153,6 @@ inline ConnectionStateFilter ConnectionStateToFilter(ConnectionState state)
     {
         { ConnectionState::Connected, ConnectionStateFilter::Connected },
         { ConnectionState::Disconnected, ConnectionStateFilter::Disconnected },
-        { ConnectionState::Flagged, ConnectionStateFilter::Flagged },
         { ConnectionState::Resolving, ConnectionStateFilter::Resolving},
         { ConnectionState::Unknown, ConnectionStateFilter::Unknown }
     };
@@ -233,7 +231,8 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    void TrackConnection(ConnectionIdType const& connection, ExtendedConnectionDetails const& details)
+    void TrackConnection(
+        ConnectionIdType const& connection, ExtendedConnectionDetails const& details)
     {
         std::scoped_lock lock(m_mutex);
         if (auto const itr = m_connections.find(connection); itr != m_connections.end()) {
@@ -282,7 +281,8 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    bool UpdateOneConnection(ConnectionIdType const& connection, UpdateOneFunction const& updateFunction)
+    bool UpdateOneConnection(
+        ConnectionIdType const& connection, UpdateOneFunction const& updateFunction)
     {
         std::scoped_lock lock(m_mutex);
         if (auto const itr = m_connections.find(connection); itr != m_connections.end()) {
@@ -316,11 +316,14 @@ public:
                     ConnectionEntryType& entry)
                 {
                     auto& optConnectionDetails = entry.GetUpdatableConnectionDetails();
-                    if (optConnectionDetails && optConnectionDetails->IsPeerConnection()) {
-                        promotedConnectionFunction(*optConnectionDetails);
-                        found = true;
-                    } else if (optConnectionDetails && !optConnectionDetails->IsPeerConnection()) {
-                        optConnectionDetails = unpromotedConnectionFunction(optConnectionDetails->GetURI());
+                    if (optConnectionDetails) {
+                        if (optConnectionDetails->HasAssociatedPeer()) {
+                            promotedConnectionFunction(*optConnectionDetails);
+                            found = true;
+                        } else {
+                            optConnectionDetails = unpromotedConnectionFunction(
+                                optConnectionDetails->GetURI());
+                        }
                     } else {
                         optConnectionDetails = unpromotedConnectionFunction("");
                     }
@@ -429,14 +432,14 @@ public:
                     auto& optConnectionDetails = entry.GetUpdatableConnectionDetails();
                     switch (filter) {
                         case PromotionStateFilter::Promoted: {
-                            if (optConnectionDetails && optConnectionDetails->IsPeerConnection()) {
+                            if (optConnectionDetails && optConnectionDetails->HasAssociatedPeer()) {
                                 result = updateFunction(
                                     entry.GetConnectionIdentifier(), optConnectionDetails);
                             }
                         } break;
                         case PromotionStateFilter::Unpromoted: {
                             if (!optConnectionDetails ||
-                                (optConnectionDetails && !optConnectionDetails->IsPeerConnection())) {
+                                (optConnectionDetails && !optConnectionDetails->HasAssociatedPeer())) {
                                 result = updateFunction(
                                     entry.GetConnectionIdentifier(), optConnectionDetails);
                             }
@@ -577,14 +580,14 @@ public:
             auto const& optConnectionDetails = itr->GetConnectionDetails();
             switch (filter) {
                 case PromotionStateFilter::Promoted: {
-                    if (optConnectionDetails && optConnectionDetails->IsPeerConnection()) {
+                    if (optConnectionDetails && optConnectionDetails->HasAssociatedPeer()) {
                         result = readFunction(
                             itr->GetConnectionIdentifier(), optConnectionDetails);
                     }
                 } break;
                 case PromotionStateFilter::Unpromoted: {
                     if (!optConnectionDetails ||
-                        (optConnectionDetails && !optConnectionDetails->IsPeerConnection())) {
+                        (optConnectionDetails && !optConnectionDetails->HasAssociatedPeer())) {
                         result = readFunction(
                             itr->GetConnectionIdentifier(), optConnectionDetails);
                     }

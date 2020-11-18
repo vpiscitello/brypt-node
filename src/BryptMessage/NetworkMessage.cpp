@@ -1,17 +1,19 @@
 //------------------------------------------------------------------------------------------------
-// File: HandshakeMessage.cpp
+// File: NetworkMessage.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "HandshakeMessage.hpp"
-#include "MessageSecurity.hpp"
+#include "NetworkMessage.hpp"
 #include "PackUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
+
+Message::Network::Type UnpackMessageType(
+	Message::Buffer::const_iterator& begin,
+    Message::Buffer::const_iterator const& end);
 
 //------------------------------------------------------------------------------------------------
 namespace Extensions {
@@ -28,70 +30,86 @@ enum Types : std::uint8_t { Invalid = 0x00 };
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CHandshakeMessage::CHandshakeMessage()
+CNetworkMessage::CNetworkMessage()
 	: m_context()
 	, m_header()
-	, m_data()
+	, m_type(Message::Network::Type::Invalid)
+	, m_payload()
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeMessage::CHandshakeMessage(CHandshakeMessage const& other)
+CNetworkMessage::CNetworkMessage(CNetworkMessage const& other)
 	: m_context(other.m_context)
 	, m_header(other.m_header)
-	, m_data(other.m_data)
+	, m_type(other.m_type)
+	, m_payload(other.m_payload)
 {
 }
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder CHandshakeMessage::Builder()
+CNetworkBuilder CNetworkMessage::Builder()
 {
-	return CHandshakeBuilder{};
+	return CNetworkBuilder{};
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CHandshakeMessage::GetMessageContext() const
+CMessageContext const& CNetworkMessage::GetContext() const
 {
 	return m_context;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageHeader const& CHandshakeMessage::GetMessageHeader() const
+CMessageHeader const& CNetworkMessage::GetMessageHeader() const
 {
 	return m_header;
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const& CHandshakeMessage::GetSourceIdentifier() const
+BryptIdentifier::CContainer const& CNetworkMessage::GetSourceIdentifier() const
 {
 	return m_header.GetSourceIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> const& CHandshakeMessage::GetDestinationIdentifier() const
+Message::Destination CNetworkMessage::GetDestinationType() const
+{
+	return m_header.GetDestinationType();
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<BryptIdentifier::CContainer> const& CNetworkMessage::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
-Message::Buffer CHandshakeMessage::GetData() const
+Message::Network::Type CNetworkMessage::GetMessageType() const
 {
-	return m_data;
+	return m_type;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CHandshakeMessage::GetPackSize() const
+Message::Buffer const& CNetworkMessage::GetPayload() const
+{
+	return m_payload;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t CNetworkMessage::GetPackSize() const
 {
 	std::uint32_t size = FixedPackSize();
 	size += m_header.GetPackSize();
-	size += m_data.size();
+	size += m_payload.size();
 
 	// Account for the ASCII encoding method
 	size += (4 - (size & 3)) & 3;
@@ -105,19 +123,21 @@ std::uint32_t CHandshakeMessage::GetPackSize() const
 //------------------------------------------------------------------------------------------------
 // Description: Pack the Message class values into a single raw string.
 //------------------------------------------------------------------------------------------------
-std::string CHandshakeMessage::GetPack() const
+std::string CNetworkMessage::GetPack() const
 {
 	Message::Buffer buffer = m_header.GetPackedBuffer();
 	buffer.reserve(GetPackSize());
-    // Handshake Pack Schema: 
-    //  - Section 1 (4 bytes): Handshake Data Size
-    //  - Section 2 (N bytes): Handshake Data
-    //  - Section 3 (1 byte): Extenstions Count
-    //      - Section 3.1 (1 byte): Extension Type      |   Extension Start
-    //      - Section 3.2 (2 bytes): Extension Size     |
-    //      - Section 3.3 (N bytes): Extension Data     |   Extension End
+    // Network Pack Schema: 
+    //  - Section 1 (1 bytes): Network Message Type
+    //  - Section 2 (4 bytes): Network Payload Size
+    //  - Section 3 (N bytes): Network Payload
+    //  - Section 4 (1 byte): Extenstions Count
+    //      - Section 4.1 (1 byte): Extension Type      |   Extension Start
+    //      - Section 4.2 (2 bytes): Extension Size     |
+    //      - Section 4.3 (N bytes): Extension Data     |   Extension End
 
-	PackUtils::PackChunk(buffer, m_data, sizeof(std::uint32_t));
+	PackUtils::PackChunk(buffer, m_type);
+	PackUtils::PackChunk(buffer, m_payload, sizeof(std::uint32_t));
 
 	// Extension Packing
 	PackUtils::PackChunk(buffer, std::uint8_t(0));
@@ -133,10 +153,15 @@ std::string CHandshakeMessage::GetPack() const
 
 //------------------------------------------------------------------------------------------------
 
-Message::ValidationStatus CHandshakeMessage::Validate() const
+Message::ValidationStatus CNetworkMessage::Validate() const
 {	
 	// A message must have a valid header
 	if (!m_header.IsValid()) {
+		return Message::ValidationStatus::Error;
+	}
+
+	// The network message type must not be invalid.
+	if (m_type == Message::Network::Type::Invalid) {
 		return Message::ValidationStatus::Error;
 	}
 
@@ -145,9 +170,10 @@ Message::ValidationStatus CHandshakeMessage::Validate() const
 
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t CHandshakeMessage::FixedPackSize() const
+constexpr std::uint32_t CNetworkMessage::FixedPackSize() const
 {
 	std::uint32_t size = 0;
+	size += sizeof(Message::Network::Type); // 1 byte for network message type
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
 	return size;
@@ -155,15 +181,15 @@ constexpr std::uint32_t CHandshakeMessage::FixedPackSize() const
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder::CHandshakeBuilder()
+CNetworkBuilder::CNetworkBuilder()
     : m_message()
 {
-	m_message.m_header.m_protocol = Message::Protocol::Handshake;
+	m_message.m_header.m_protocol = Message::Protocol::Network;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetMessageContext(CMessageContext const& context)
+CNetworkBuilder& CNetworkBuilder::SetMessageContext(CMessageContext const& context)
 {
 	m_message.m_context = context;
 	return *this;
@@ -171,7 +197,7 @@ CHandshakeBuilder& CHandshakeBuilder::SetMessageContext(CMessageContext const& c
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetSource(BryptIdentifier::CContainer const& identifier)
+CNetworkBuilder& CNetworkBuilder::SetSource(BryptIdentifier::CContainer const& identifier)
 {
 	m_message.m_header.m_source = identifier;
 	return *this;
@@ -179,7 +205,7 @@ CHandshakeBuilder& CHandshakeBuilder::SetSource(BryptIdentifier::CContainer cons
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetSource(
+CNetworkBuilder& CNetworkBuilder::SetSource(
     BryptIdentifier::Internal::Type const& identifier)
 {
 	m_message.m_header.m_source = BryptIdentifier::CContainer(identifier);
@@ -188,7 +214,7 @@ CHandshakeBuilder& CHandshakeBuilder::SetSource(
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetSource(std::string_view identifier)
+CNetworkBuilder& CNetworkBuilder::SetSource(std::string_view identifier)
 {
 	m_message.m_header.m_source = BryptIdentifier::CContainer(identifier);
 	return *this;
@@ -196,7 +222,7 @@ CHandshakeBuilder& CHandshakeBuilder::SetSource(std::string_view identifier)
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetDestination(BryptIdentifier::CContainer const& identifier)
+CNetworkBuilder& CNetworkBuilder::SetDestination(BryptIdentifier::CContainer const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
@@ -204,7 +230,7 @@ CHandshakeBuilder& CHandshakeBuilder::SetDestination(BryptIdentifier::CContainer
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetDestination(
+CNetworkBuilder& CNetworkBuilder::SetDestination(
     BryptIdentifier::Internal::Type const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::CContainer(identifier);
@@ -213,7 +239,7 @@ CHandshakeBuilder& CHandshakeBuilder::SetDestination(
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetDestination(std::string_view identifier)
+CNetworkBuilder& CNetworkBuilder::SetDestination(std::string_view identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::CContainer(identifier);
 	return *this;
@@ -221,22 +247,46 @@ CHandshakeBuilder& CHandshakeBuilder::SetDestination(std::string_view identifier
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetData(std::string_view data)
+CNetworkBuilder& CNetworkBuilder::MakeHandshakeMessage()
 {
-    return SetData({ data.begin(), data.end() });
+	m_message.m_type = Message::Network::Type::Handshake;
+	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::SetData(Message::Buffer const& buffer)
+CNetworkBuilder& CNetworkBuilder::MakeHeartbeatRequest()
 {
-    m_message.m_data = buffer;
+	m_message.m_type = Message::Network::Type::HeartbeatRequest;
+	return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CNetworkBuilder& CNetworkBuilder::MakeHeartbeatResponse()
+{
+	m_message.m_type = Message::Network::Type::HeartbeatResponse;
+	return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+CNetworkBuilder& CNetworkBuilder::SetPayload(std::string_view data)
+{
+    return SetPayload({ data.begin(), data.end() });
+}
+
+//------------------------------------------------------------------------------------------------
+
+CNetworkBuilder& CNetworkBuilder::SetPayload(Message::Buffer const& buffer)
+{
+    m_message.m_payload = buffer;
     return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::FromDecodedPack(Message::Buffer const& buffer)
+CNetworkBuilder& CNetworkBuilder::FromDecodedPack(Message::Buffer const& buffer)
 {
     if (buffer.empty()) {
         return *this;
@@ -249,7 +299,7 @@ CHandshakeBuilder& CHandshakeBuilder::FromDecodedPack(Message::Buffer const& buf
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder& CHandshakeBuilder::FromEncodedPack(std::string_view pack)
+CNetworkBuilder& CNetworkBuilder::FromEncodedPack(std::string_view pack)
 {
     if (pack.empty()) {
         return *this;
@@ -262,14 +312,14 @@ CHandshakeBuilder& CHandshakeBuilder::FromEncodedPack(std::string_view pack)
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeMessage&& CHandshakeBuilder::Build()
+CNetworkMessage&& CNetworkBuilder::Build()
 {
     return std::move(m_message);
 }
 
 //------------------------------------------------------------------------------------------------
 
-CHandshakeBuilder::OptionalMessage CHandshakeBuilder::ValidatedBuild()
+CNetworkBuilder::OptionalMessage CNetworkBuilder::ValidatedBuild()
 {
     if (m_message.Validate() != Message::ValidationStatus::Success) {
         return {};
@@ -282,7 +332,7 @@ CHandshakeBuilder::OptionalMessage CHandshakeBuilder::ValidatedBuild()
 //------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //------------------------------------------------------------------------------------------------
-void CHandshakeBuilder::Unpack(Message::Buffer const& buffer)
+void CNetworkBuilder::Unpack(Message::Buffer const& buffer)
 {
 	Message::Buffer::const_iterator begin = buffer.begin();
 	Message::Buffer::const_iterator end = buffer.end();
@@ -291,8 +341,13 @@ void CHandshakeBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
+	m_message.m_type = local::UnpackMessageType(begin, end);
+	if (m_message.m_type == Message::Network::Type::Invalid) {
+		return;
+	}
+
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_message.m_header.m_protocol != Message::Protocol::Handshake) {
+	if (m_message.m_header.m_protocol != Message::Protocol::Network) {
 		return;
 	}
 
@@ -301,7 +356,7 @@ void CHandshakeBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_data, dataSize)) {
+	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, dataSize)) {
 		return;
 	}
 
@@ -317,7 +372,7 @@ void CHandshakeBuilder::Unpack(Message::Buffer const& buffer)
 
 //------------------------------------------------------------------------------------------------
 
-void CHandshakeBuilder::UnpackExtensions(
+void CNetworkBuilder::UnpackExtensions(
 	Message::Buffer::const_iterator& begin,
 	Message::Buffer::const_iterator const& end)
 {
@@ -326,11 +381,32 @@ void CHandshakeBuilder::UnpackExtensions(
 		ExtensionType extension = 0;
 		PackUtils::UnpackChunk(begin, end, extension);
 
-		switch (extension)
-		{				
+		switch (extension) {				
 			default: return;
 		}
 	}
+}
+
+//------------------------------------------------------------------------------------------------
+
+Message::Network::Type local::UnpackMessageType(
+	Message::Buffer::const_iterator& begin,
+    Message::Buffer::const_iterator const& end)
+{
+	using namespace Message::Network;
+
+	using NetworkType = std::underlying_type_t<Type>;
+	NetworkType type = 0;
+    PackUtils::UnpackChunk(begin, end, type);
+
+    switch (type) {
+        case static_cast<NetworkType>(Type::Handshake):
+        case static_cast<NetworkType>(Type::HeartbeatRequest):
+        case static_cast<NetworkType>(Type::HeartbeatResponse): {
+            return static_cast<Type>(type);
+        }
+        default: return Type::Invalid;
+    }
 }
 
 //------------------------------------------------------------------------------------------------

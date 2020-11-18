@@ -34,8 +34,8 @@ auto const spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer cons
 
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35222";
-constexpr std::string_view ClientEntry = "127.0.0.1:35223";
+constexpr std::string_view ServerBinding = "*:35216";
+constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 
 //------------------------------------------------------------------------------------------------
 } // test namespace
@@ -109,8 +109,6 @@ private:
 
 TEST(CEndpointManagerSuite, EndpointStartupTest)
 {
-    auto upEndpointManager = std::make_unique<CEndpointManager>();
-
     Configuration::EndpointConfigurations configurations;
     Configuration::TEndpointOptions options(
         Endpoints::TechnologyType::TCP,
@@ -118,11 +116,12 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
         test::ServerBinding);
     configurations.emplace_back(options);
     
-    local::CBootstrapCacheStub cache;
-    cache.AddBootstrap(test::TechnologyType, test::ClientEntry);
+    auto const spPeerCache = std::make_shared<local::CBootstrapCacheStub>();
+    spPeerCache->AddBootstrap(test::TechnologyType, test::ServerEntry);
 
-    upEndpointManager->Initialize(
-        test::spBryptIdentifier, nullptr, nullptr, configurations, &cache);
+    auto upEndpointManager = std::make_unique<CEndpointManager>(
+        configurations, test::spBryptIdentifier, nullptr, spPeerCache.get());
+        
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();
     EXPECT_EQ(initialActiveEndpoints, std::uint32_t(0));

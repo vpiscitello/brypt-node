@@ -137,17 +137,22 @@ bool Await::CResponseTracker::SendFulfilledResponse()
 
     std::string data = iod::json_vector(s::identifier, s::pack).encode(responsesVector);
 
-    auto const optDestination = m_request.GetDestinationIdentifier();
-    if (!optDestination) {
+    // Note: The destination of the stored request should always represent to the current
+    // node's Brypt Identifier. 
+    auto const& optBryptIdentifier = m_request.GetDestinationIdentifier();
+    if (!optBryptIdentifier) {
         return false;
     }
 
+    // Since we are responding to the request, the destination will point to its source.
+    auto const& destination = m_request.GetSourceIdentifier();
+
     auto const optResponse = CApplicationMessage::Builder()
-        .SetMessageContext(m_request.GetMessageContext())
-        .SetSource(*optDestination)
-        .SetDestination(m_request.GetSourceIdentifier())
+        .SetMessageContext(m_request.GetContext())
+        .SetSource(*optBryptIdentifier)
+        .SetDestination(destination)
         .SetCommand(m_request.GetCommand(), m_request.GetPhase() + 1)
-        .SetData(data)
+        .SetPayload(data)
         .ValidatedBuild();
     assert(optResponse);
 
@@ -157,7 +162,8 @@ bool Await::CResponseTracker::SendFulfilledResponse()
     m_status = ResponseStatus::Completed;
 
     if (auto const spRequestor = m_wpRequestor.lock(); spRequestor) {
-        return spRequestor->ScheduleSend(*optResponse);
+        return spRequestor->ScheduleSend(
+            m_request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
     }
 
     return false;

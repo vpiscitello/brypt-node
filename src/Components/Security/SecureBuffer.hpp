@@ -1,29 +1,33 @@
 //------------------------------------------------------------------------------------------------
-// File: TransformHandler.hpp
-// Description:
+// File: SecureBuffer.hpp
+// Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "Handler.hpp"
+#include "SecurityTypes.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Transforming Node type
+namespace Security {
 //------------------------------------------------------------------------------------------------
-class Command::CTransformHandler : public Command::IHandler {
+
+class CSecureBuffer;
+
+//------------------------------------------------------------------------------------------------
+} // Security namespace
+//------------------------------------------------------------------------------------------------
+
+class Security::CSecureBuffer
+{
 public:
-    enum class Phase { Information, Host, Connect, Close };
+    CSecureBuffer(Security::Buffer&& buffer);
+    ~CSecureBuffer();
 
-    explicit CTransformHandler(CBryptNode& instance);
-
-    // IHandler{
-    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
-    // }IHandler
-
-    bool InfoHandler();
-    bool HostHandler();
-    bool ConnectHandler();
-    bool CloseHandler();
+    std::uint8_t const* GetData() const;
+    std::uint32_t GetSize() const;
+    
+private:
+    Security::Buffer m_buffer;
 
 };
 

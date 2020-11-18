@@ -8,8 +8,6 @@
 #include "ResponseTracker.hpp"
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
-#include <openssl/md5.h>
-//------------------------------------------------------------------------------------------------
 #include <set>
 #include <string_view>
 #include <unordered_map>

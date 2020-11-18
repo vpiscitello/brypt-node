@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: HandshakeMessage.hpp
+// File: NetworkMessage.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -16,33 +16,39 @@
 
 //------------------------------------------------------------------------------------------------
 namespace Message {
+namespace Network {
 //------------------------------------------------------------------------------------------------
 
+enum class Type : std::uint8_t {
+	Invalid, Handshake, HeartbeatRequest, HeartbeatResponse };
+
 //------------------------------------------------------------------------------------------------
+} // Network namespace 
 } // Message namespace
 //------------------------------------------------------------------------------------------------
 
-class CHandshakeBuilder;
+class CNetworkBuilder;
 
 //------------------------------------------------------------------------------------------------
 
-class CHandshakeMessage {
+class CNetworkMessage {
 public:
-	CHandshakeMessage();
-	CHandshakeMessage(CHandshakeMessage const& other);
+	CNetworkMessage();
+	CNetworkMessage(CNetworkMessage const& other);
 
-	// CHandshakeBuilder {
-	friend class CHandshakeBuilder;
-	static CHandshakeBuilder Builder();
-	// } CHandshakeBuilder
+	// CNetworkBuilder {
+	friend class CNetworkBuilder;
+	static CNetworkBuilder Builder();
+	// } CNetworkBuilder
 
-	CMessageContext const& GetMessageContext() const;
+	CMessageContext const& GetContext() const;
 
 	CMessageHeader const& GetMessageHeader() const;
 	BryptIdentifier::CContainer const& GetSourceIdentifier() const;
-	Message::Destination const& GetDestinationType() const;
+	Message::Destination GetDestinationType() const;
 	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
-	Message::Buffer GetData() const;
+	Message::Network::Type GetMessageType() const;
+	Message::Buffer const& GetPayload() const;
 
     std::uint32_t GetPackSize() const;
 	std::string GetPack() const;
@@ -54,32 +60,36 @@ private:
 	CMessageContext m_context; // The internal message context of the message
 	CMessageHeader m_header; // The required message header 
 
-	Message::Buffer m_data;	// The command payload
+	Message::Network::Type m_type;
+	Message::Buffer m_payload;
 
 };
 
 //------------------------------------------------------------------------------------------------
 
-class CHandshakeBuilder {
+class CNetworkBuilder {
 public:
-	using OptionalMessage = std::optional<CHandshakeMessage>;
+	using OptionalMessage = std::optional<CNetworkMessage>;
 
-	CHandshakeBuilder();
+	CNetworkBuilder();
 
-	CHandshakeBuilder& SetMessageContext(CMessageContext const& context);
-	CHandshakeBuilder& SetSource(BryptIdentifier::CContainer const& identifier);
-	CHandshakeBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
-	CHandshakeBuilder& SetSource(std::string_view identifier);
-	CHandshakeBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
-	CHandshakeBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
-	CHandshakeBuilder& SetDestination(std::string_view identifier);
-	CHandshakeBuilder& SetData(std::string_view data);
-	CHandshakeBuilder& SetData(Message::Buffer const& buffer);
+	CNetworkBuilder& SetMessageContext(CMessageContext const& context);
+	CNetworkBuilder& SetSource(BryptIdentifier::CContainer const& identifier);
+	CNetworkBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
+	CNetworkBuilder& SetSource(std::string_view identifier);
+	CNetworkBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
+	CNetworkBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
+	CNetworkBuilder& SetDestination(std::string_view identifier);
+	CNetworkBuilder& MakeHandshakeMessage();
+	CNetworkBuilder& MakeHeartbeatRequest();
+	CNetworkBuilder& MakeHeartbeatResponse();
+	CNetworkBuilder& SetPayload(std::string_view data);
+	CNetworkBuilder& SetPayload(Message::Buffer const& buffer);
 
-	CHandshakeBuilder& FromDecodedPack(Message::Buffer const& buffer);
-	CHandshakeBuilder& FromEncodedPack(std::string_view pack);
+	CNetworkBuilder& FromDecodedPack(Message::Buffer const& buffer);
+	CNetworkBuilder& FromEncodedPack(std::string_view pack);
 
-    CHandshakeMessage&& Build();
+    CNetworkMessage&& Build();
     OptionalMessage ValidatedBuild();
 
 private:
@@ -88,7 +98,7 @@ private:
         Message::Buffer::const_iterator& begin,
         Message::Buffer::const_iterator const& end);
 
-    CHandshakeMessage m_message;
+    CNetworkMessage m_message;
 
 };
 

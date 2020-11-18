@@ -26,8 +26,7 @@ public:
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
-        IPeerMediator* const pPeerMediator,
-        IMessageSink* const pMessageSink);
+        IPeerMediator* const pPeerMediator);
     ~CLoRaEndpoint() override;
 
     // CEndpoint{
@@ -36,16 +35,17 @@ public:
     std::string GetEntry() const override;
     std::string GetURI() const override;
 
+    void Startup() override;
+    bool Shutdown() override;
+    
     void ScheduleBind(std::string_view binding) override;
     void ScheduleConnect(std::string_view entry) override;
-    void Startup() override;
-
-    bool ScheduleSend(CApplicationMessage const& message) override;
+    void ScheduleConnect(
+        BryptIdentifier::SharedContainer const& spIdentifier, std::string_view entry) override;
     bool ScheduleSend(
         BryptIdentifier::CContainer const& identifier,
         std::string_view message) override;
 
-    bool Shutdown() override;
     // }CEndpoint
 
 private:

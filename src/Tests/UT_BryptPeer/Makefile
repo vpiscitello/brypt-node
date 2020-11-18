@@ -5,7 +5,10 @@ BINARYNAME = UT_BryptPeer
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
+OQS_LIB = -L/usr/local/lib
+
 OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
+OQS_INCLUDE = -I/usr/local/include/oqs
 GTEST_INCLUDE = -I../../Libraries/googletest/include
 
 mode = release
@@ -16,19 +19,25 @@ CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pt
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(GTEST_INCLUDE)
-CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
+CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -loqs -ldl
 
 SRCDIR = .
 
 BRYPTIDENTIFIERDIR = ../../BryptIdentifier
 BRYPTMESSAGEDIR = ../../BryptMessage
 BRYPTPEERRDIR = ../../Components/BryptPeer
+MESSAGECONTROLDIR = ../../Components/MessageControl
+SECUIRTYDIR = ../../Components/Security
+SECURITYPOSTQUANTUMDIR = ../../Components/Security/PostQuantum
 GTESTDIR = ../../Libraries/googletest
 
 MODULES = $(SRCDIR) \
 $(BRYPTIDENTIFIERDIR) \
 $(BRYPTMESSAGEDIR) \
 $(BRYPTPEERRDIR) \
+$(MESSAGECONTROLDIR) \
+$(SECUIRTYDIR) \
+$(SECURITYPOSTQUANTUMDIR) \
 $(GTESTDIR)
 
 SRCS = $(foreach sdir,$(MODULES),$(wildcard $(sdir)/*.cpp))

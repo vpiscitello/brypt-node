@@ -3,9 +3,7 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "ApplicationMessage.hpp"
-#include "MessageSecurity.hpp"
 #include "PackUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -42,7 +40,7 @@ CApplicationMessage::CApplicationMessage()
 	, m_header()
 	, m_command()
 	, m_phase()
-	, m_data()
+	, m_payload()
 	, m_timestamp(TimeUtils::GetSystemTimestamp())
 	, m_optBoundAwaitTracker()
 {
@@ -55,11 +53,12 @@ CApplicationMessage::CApplicationMessage(CApplicationMessage const& other)
 	, m_header(other.m_header)
 	, m_command(other.m_command)
 	, m_phase(other.m_phase)
-	, m_data(other.m_data)
+	, m_payload(other.m_payload)
 	, m_timestamp(other.m_timestamp)
 	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
 {
 }
+
 //------------------------------------------------------------------------------------------------
 
 CApplicationBuilder CApplicationMessage::Builder()
@@ -69,7 +68,7 @@ CApplicationBuilder CApplicationMessage::Builder()
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CApplicationMessage::GetMessageContext() const
+CMessageContext const& CApplicationMessage::GetContext() const
 {
 	return m_context;
 }
@@ -86,6 +85,13 @@ CMessageHeader const& CApplicationMessage::GetMessageHeader() const
 BryptIdentifier::CContainer const& CApplicationMessage::GetSourceIdentifier() const
 {
 	return m_header.GetSourceIdentifier();
+}
+
+//------------------------------------------------------------------------------------------------
+
+Message::Destination CApplicationMessage::GetDestinationType() const
+{
+	return m_header.GetDestinationType();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -111,10 +117,10 @@ std::uint32_t CApplicationMessage::GetPhase() const
 
 //------------------------------------------------------------------------------------------------
 
-Message::Buffer CApplicationMessage::GetData() const
+Message::Buffer CApplicationMessage::GetPayload() const
 {
-	auto const data = MessageSecurity::Decrypt(m_data, m_data.size(), m_timestamp.count());
-
+	assert(m_context.HasSecurityHandlers());
+	auto const data = m_context.Decrypt(m_payload, m_timestamp);
 	if (!data) {
 		return {};
 	}
@@ -145,10 +151,13 @@ std::uint32_t CApplicationMessage::GetPackSize() const
 {
 	std::uint32_t size = FixedPackSize();
 	size += m_header.GetPackSize();
-	size += m_data.size();
+	size += m_payload.size();
 	if (m_optBoundAwaitTracker) {
 		size += FixedAwaitExtensionSize();
 	}
+
+	assert(m_context.HasSecurityHandlers());
+	size += m_context.GetSignatureSize();
 
 	// Account for the ASCII encoding method
 	size += (4 - (size & 3)) & 3;
@@ -180,7 +189,7 @@ std::string CApplicationMessage::GetPack() const
 
 	PackUtils::PackChunk(buffer, m_command);
 	PackUtils::PackChunk(buffer, m_phase);
-	PackUtils::PackChunk(buffer, m_data, sizeof(std::uint32_t));
+	PackUtils::PackChunk(buffer, m_payload, sizeof(std::uint32_t));
 	PackUtils::PackChunk(buffer, m_timestamp);
 
 	// Extension Packing
@@ -200,13 +209,12 @@ std::string CApplicationMessage::GetPack() const
 	Message::Buffer padding(paddingBytesRequired, 0);
 	buffer.insert(buffer.end(), padding.begin(), padding.end());
 
-	// Signature Packing
-	auto const optSignature = MessageSecurity::HMAC(buffer, buffer.size());
-	if (!optSignature) {
+	// Message Signing
+	assert(m_context.HasSecurityHandlers());
+	if (m_context.Sign(buffer) < 0) {
 		return "";
 	}
 
-	buffer.insert(buffer.end(), optSignature->begin(), optSignature->end());
 	return PackUtils::Z85Encode(buffer);
 }
 
@@ -242,7 +250,6 @@ constexpr std::uint32_t CApplicationMessage::FixedPackSize() const
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint64_t); // 8 bytes for message timestamp
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-	size += MessageSecurity::TokenSize; // N bytes for message token
 	return size;
 }
 
@@ -352,19 +359,19 @@ CApplicationBuilder& CApplicationBuilder::SetCommand(Command::Type type, std::ui
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::SetData(std::string_view data)
+CApplicationBuilder& CApplicationBuilder::SetPayload(std::string_view data)
 {
-    return SetData({ data.begin(), data.end() });
+    return SetPayload({ data.begin(), data.end() });
 }
 
 //------------------------------------------------------------------------------------------------
 
-CApplicationBuilder& CApplicationBuilder::SetData(Message::Buffer const& buffer)
+CApplicationBuilder& CApplicationBuilder::SetPayload(Message::Buffer const& buffer)
 {
-	auto const optData = MessageSecurity::Encrypt(
-        buffer, buffer.size(), m_message.m_timestamp.count());
+	assert(m_message.m_context.HasSecurityHandlers());
+	auto const optData = m_message.m_context.Encrypt(buffer, m_message.m_timestamp);
 	if(optData) {
-		m_message.m_data = *optData;
+		m_message.m_payload = *optData;
 	}
     return *this;
 }
@@ -396,7 +403,8 @@ CApplicationBuilder& CApplicationBuilder::FromDecodedPack(Message::Buffer const&
         return *this;
     }
 
-    if (MessageSecurity::Verify(buffer) != MessageSecurity::VerificationStatus::Success) {
+	assert(m_message.m_context.HasSecurityHandlers());
+    if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
         return *this;
     }
 
@@ -413,7 +421,9 @@ CApplicationBuilder& CApplicationBuilder::FromEncodedPack(std::string_view pack)
     }
     
 	auto const buffer = PackUtils::Z85Decode(pack);
-    if (MessageSecurity::Verify(buffer) != MessageSecurity::VerificationStatus::Success) {
+
+	assert(m_message.m_context.HasSecurityHandlers());
+    if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
         return *this;
     }
 
@@ -471,7 +481,7 @@ void CApplicationBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_data, dataSize)) {
+	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, dataSize)) {
 		return;
 	}
 
