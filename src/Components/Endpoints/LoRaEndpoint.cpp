@@ -20,14 +20,11 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CLoRaEndpoint::CLoRaEndpoint(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     Endpoints::OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator)
-    : CEndpoint(
-        spBryptIdentifier, interface, operation,
-        pEndpointMediator, pPeerMediator, TechnologyType::LoRa)
+    : CEndpoint(interface, operation, pEndpointMediator, pPeerMediator, TechnologyType::LoRa)
 {
 }
 

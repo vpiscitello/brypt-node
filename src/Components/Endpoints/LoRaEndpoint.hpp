@@ -22,7 +22,6 @@ public:
     constexpr static TechnologyType InternalType = TechnologyType::LoRa;
 
     CLoRaEndpoint(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,

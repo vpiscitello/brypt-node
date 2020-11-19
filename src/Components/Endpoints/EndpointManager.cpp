@@ -22,13 +22,12 @@ void ConnectBootstraps(
 
 CEndpointManager::CEndpointManager(
     Configuration::EndpointConfigurations const& configurations,
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
     : m_endpoints()
     , m_technologies()
 {
-    Initialize(configurations, spBryptIdentifier, pPeerMediator, pBootstrapCache);
+    Initialize(configurations, pPeerMediator, pBootstrapCache);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -149,7 +148,6 @@ IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
 
 void CEndpointManager::Initialize(
     Configuration::EndpointConfigurations const& configurations,
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
@@ -162,8 +160,7 @@ void CEndpointManager::Initialize(
         if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
             switch (technology) {
                 case Endpoints::TechnologyType::TCP: {
-                    InitializeTCPEndpoints(
-                        options, spBryptIdentifier, pPeerMediator, pBootstrapCache);
+                    InitializeTCPEndpoints(options, pPeerMediator, pBootstrapCache);
                 } break;
                 default: break; // No other technologies have implemented endpoints
             }
@@ -175,7 +172,6 @@ void CEndpointManager::Initialize(
 
 void CEndpointManager::InitializeTCPEndpoints(
     Configuration::TEndpointOptions const& options,
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
@@ -183,7 +179,7 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     // Add the server based endpoint
     std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        spBryptIdentifier, options.GetTechnology(), options.GetInterface(),
+        options.GetTechnology(), options.GetInterface(),
         Endpoints::OperationType::Server, this, pPeerMediator);
 
     spServer->ScheduleBind(options.GetBinding());
@@ -192,7 +188,7 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     // Add the client based endpoint
     std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        spBryptIdentifier, options.GetTechnology(), options.GetInterface(),
+        options.GetTechnology(), options.GetInterface(),
         Endpoints::OperationType::Client, this, pPeerMediator);
 
     if (pBootstrapCache) {

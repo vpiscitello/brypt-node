@@ -178,11 +178,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpServer(
     std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     auto upServerEndpoint = std::make_unique<Endpoints::CTcpEndpoint>(
-        test::ServerIdentifier,
-        test::Interface,
-        Endpoints::OperationType::Server,
-        nullptr,
-        spPeerMediator.get());
+        test::Interface, Endpoints::OperationType::Server, nullptr, spPeerMediator.get());
 
     upServerEndpoint->ScheduleBind(test::ServerBinding);
     upServerEndpoint->Startup();
@@ -196,11 +192,7 @@ std::unique_ptr<Endpoints::CTcpEndpoint> local::MakeTcpClient(
     std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     auto upClientEndpoint = std::make_unique<Endpoints::CTcpEndpoint>(
-        test::ClientIdentifier,
-        test::Interface,
-        Endpoints::OperationType::Client,
-        nullptr,
-        spPeerMediator.get());
+        test::Interface, Endpoints::OperationType::Client, nullptr, spPeerMediator.get());
 
     upClientEndpoint->ScheduleConnect(test::ServerEntry);
     upClientEndpoint->Startup();

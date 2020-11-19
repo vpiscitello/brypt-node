@@ -29,9 +29,6 @@ class CBootstrapCacheStub;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-auto const spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer const>(
-    BryptIdentifier::Generate());
-
 constexpr Endpoints::TechnologyType TechnologyType = Endpoints::TechnologyType::TCP;
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35216";
@@ -120,7 +117,7 @@ TEST(CEndpointManagerSuite, EndpointStartupTest)
     spPeerCache->AddBootstrap(test::TechnologyType, test::ServerEntry);
 
     auto upEndpointManager = std::make_unique<CEndpointManager>(
-        configurations, test::spBryptIdentifier, nullptr, spPeerCache.get());
+        configurations, nullptr, spPeerCache.get());
         
     std::uint32_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
     std::uint32_t const initialActiveTechnologiesCount = upEndpointManager->ActiveTechnologyCount();

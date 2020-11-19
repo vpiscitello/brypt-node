@@ -31,14 +31,11 @@ constexpr std::uint8_t DisabledOption = 0;
 //------------------------------------------------------------------------------------------------
 
 Endpoints::CTcpEndpoint::CTcpEndpoint(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::string_view interface,
     OperationType operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator)
-    : CEndpoint(
-        spBryptIdentifier, interface, operation,
-        pEndpointMediator, pPeerMediator, TechnologyType::TCP)
+    : CEndpoint(interface, operation, pEndpointMediator, pPeerMediator, TechnologyType::TCP)
     , m_address()
     , m_port(0)
     , m_tracker()

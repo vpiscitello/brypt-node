@@ -95,7 +95,6 @@ public:
     constexpr static TechnologyType InternalType = TechnologyType::TCP;
 
     CTcpEndpoint(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view interface,
         OperationType operation,
         IEndpointMediator const* const pEndpointMediator,

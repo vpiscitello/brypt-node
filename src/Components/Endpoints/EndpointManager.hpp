@@ -30,7 +30,6 @@ public:
 
     CEndpointManager(
         Configuration::EndpointConfigurations const& configurations,
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
 
@@ -60,13 +59,11 @@ private:
 
     void Initialize(
         Configuration::EndpointConfigurations const& configurations,
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
         
     void InitializeTCPEndpoints(
         Configuration::TEndpointOptions const& options,
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
 

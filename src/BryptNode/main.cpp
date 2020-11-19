@@ -87,7 +87,7 @@ std::int32_t main(std::int32_t argc, char** argv)
     spPeerPersistor->SetMediator(spPeerManager.get());
 
     auto const spEndpointManager = std::make_shared<CEndpointManager>(
-        *optEndpointConfigurations, spBryptIdentifier, spPeerManager.get(), spPeerPersistor.get());
+        *optEndpointConfigurations, spPeerManager.get(), spPeerPersistor.get());
 
     CBryptNode alpha(
         spBryptIdentifier, spEndpointManager, spPeerManager, 

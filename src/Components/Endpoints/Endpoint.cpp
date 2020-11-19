@@ -15,7 +15,6 @@
 //------------------------------------------------------------------------------------------------
 
 std::unique_ptr<CEndpoint> Endpoints::Factory(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     TechnologyType technology,
     std::string_view interface,
     Endpoints::OperationType operation,
@@ -25,11 +24,11 @@ std::unique_ptr<CEndpoint> Endpoints::Factory(
     switch (technology) {
         case TechnologyType::LoRa: {
             return std::make_unique<CLoRaEndpoint>(
-                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
+                interface, operation, pEndpointMediator, pPeerMediator);
         }
         case TechnologyType::TCP: {
             return std::make_unique<CTcpEndpoint>(
-                spBryptIdentifier, interface, operation, pEndpointMediator, pPeerMediator);
+                interface, operation, pEndpointMediator, pPeerMediator);
         }
         case TechnologyType::Invalid: return nullptr;
     }

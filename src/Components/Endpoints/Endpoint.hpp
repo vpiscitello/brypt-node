@@ -40,7 +40,6 @@ class CLoRaEndpoint;
 class CTcpEndpoint;
 
 std::unique_ptr<CEndpoint> Factory(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
     TechnologyType technology,
     std::string_view interface,
     Endpoints::OperationType operation,
@@ -56,7 +55,6 @@ public:
     enum class NetworkInstruction : std::uint8_t { Bind, Connect };
 
     CEndpoint(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view interface,
         Endpoints::OperationType operation,
         IEndpointMediator const* const pEndpointMediator,
@@ -65,7 +63,6 @@ public:
         : m_mutex()
         , m_identifier(CEndpointIdentifierGenerator::Instance().GetEndpointIdentifier())
         , m_technology(technology)
-        , m_spBryptIdentifier(spBryptIdentifier) 
         , m_interface(interface)
         , m_operation(operation)
         , m_pEndpointMediator(pEndpointMediator)
@@ -114,7 +111,6 @@ protected:
     Endpoints::EndpointIdType const m_identifier;
     Endpoints::TechnologyType const m_technology;
 
-	BryptIdentifier::SharedContainer const m_spBryptIdentifier;
     std::string m_interface;
 	Endpoints::OperationType const m_operation;
 
