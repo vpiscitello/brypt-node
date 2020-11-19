@@ -4,7 +4,6 @@
 //------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
 //------------------------------------------------------------------------------------------------
-#include "AuthorityState.hpp"
 #include "CoordinatorState.hpp"
 #include "NetworkState.hpp"
 #include "NodeState.hpp"
@@ -52,7 +51,6 @@ CBryptNode::CBryptNode(
     std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
     : m_initialized(false)
     , m_spNodeState()
-    , m_spAuthorityState()
     , m_spCoordinatorState()
     , m_spNetworkState()
     , m_spSecurityState()
@@ -70,11 +68,13 @@ CBryptNode::CBryptNode(
     }
 
     // Initialize state from settings.
-    m_spAuthorityState = std::make_shared<CAuthorityState>(upConfigurationManager->GetCentralAuthority());
     m_spCoordinatorState = std::make_shared<CCoordinatorState>();
     m_spNetworkState = std::make_shared<CNetworkState>();
-    m_spSecurityState = std::make_shared<CSecurityState>(upConfigurationManager->GetSecurityStandard());
-    m_spNodeState = std::make_shared<CNodeState>(spBryptIdentifier, m_spEndpointManager->GetEndpointTechnologies());
+    m_spSecurityState = std::make_shared<CSecurityState>(
+        upConfigurationManager->GetSecurityStrategy(),
+        upConfigurationManager->GetCentralAuthority());
+    m_spNodeState = std::make_shared<CNodeState>(
+        spBryptIdentifier, m_spEndpointManager->GetEndpointTechnologies());
     m_spSensorState = std::make_shared<CSensorState>();
 
     m_handlers.emplace(
@@ -126,13 +126,6 @@ bool CBryptNode::Shutdown()
 std::weak_ptr<CNodeState> CBryptNode::GetNodeState() const
 {
     return m_spNodeState;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::weak_ptr<CAuthorityState> CBryptNode::GetAuthorityState() const
-{
-    return m_spAuthorityState;
 }
 
 //------------------------------------------------------------------------------------------------

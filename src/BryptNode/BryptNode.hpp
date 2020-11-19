@@ -65,7 +65,6 @@ public:
 
     // Getter Functions
     std::weak_ptr<CNodeState> GetNodeState() const;
-    std::weak_ptr<CAuthorityState> GetAuthorityState() const;
     std::weak_ptr<CCoordinatorState> GetCoordinatorState() const;
     std::weak_ptr<CNetworkState> GetNetworkState() const;
     std::weak_ptr<CSecurityState> GetSecurityState() const;
@@ -86,7 +85,6 @@ private:
     bool m_initialized;
 
     std::shared_ptr<CNodeState> m_spNodeState;
-    std::shared_ptr<CAuthorityState> m_spAuthorityState;
     std::shared_ptr<CCoordinatorState> m_spCoordinatorState;
     std::shared_ptr<CNetworkState> m_spNetworkState;
     std::shared_ptr<CSecurityState> m_spSecurityState;

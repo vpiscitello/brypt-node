@@ -1,22 +1,31 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "../Components/Security/SecurityDefinitions.hpp"
+//------------------------------------------------------------------------------------------------
 #include <string>
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
 class CSecurityState {
 public:
-    CSecurityState();
-    explicit CSecurityState(std::string_view const& protocol);
+    CSecurityState(Security::Strategy strategy, std::string_view authority);
 
-    std::string GetProtocol() const;
+    Security::Strategy GetStrategy() const;
+    std::string GetAuthority() const;
+    std::string GetToken() const;
 
-    void SetProtocol(std::string const& protocol);
+    void SetStrategy(Security::Strategy strategy);
+    void SetAuthority(std::string_view authority);
+    void SetToken(std::string_view token);
 
 private:
     mutable std::shared_mutex m_mutex;
-    std::string m_standard;
+
+    Security::Strategy m_strategy;
+    std::string m_authority;
+    std::string m_token;
+
 };
 
 //------------------------------------------------------------------------------------------------
