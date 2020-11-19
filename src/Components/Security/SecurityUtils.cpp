@@ -27,6 +27,25 @@ Security::Strategy Security::ConvertToStrategy(std::underlying_type_t<Security::
 
 //------------------------------------------------------------------------------------------------
 
+Security::Strategy Security::ConvertToStrategy(std::string strategy)
+{
+    static std::unordered_map<std::string, Strategy> const strategies = {
+        {"PQNISTL3", Strategy::PQNISTL3},
+    };
+
+    std::transform(strategy.begin(), strategy.end(), strategy.begin(),
+    [](unsigned char c){
+        return std::toupper(c);
+    });
+
+    if(auto const itr = strategies.find(strategy.data()); itr != strategies.end()) {
+        return itr->second;
+    }
+    return Strategy::Invalid;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
     Security::Strategy strategy, Security::Role role, Security::Context context)
 {

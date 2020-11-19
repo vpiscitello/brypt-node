@@ -6,6 +6,8 @@
 //------------------------------------------------------------------------------------------------
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../Components/Endpoints/TechnologyType.hpp"
+#include "../Components/Security/SecurityDefinitions.hpp"
+#include "../Components/Security/SecurityUtils.hpp"
 #include "../Utilities/NetworkUtils.hpp"
 #include "../Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
@@ -122,7 +124,7 @@ struct Configuration::TEndpointOptions
         , binding(binding)
         , bootstrap()
     {
-        type = Endpoints::ParseTechnologyType(technology.data());
+        type = Endpoints::ParseTechnologyType({technology.data(), technology.size()});
     }
 
     TEndpointOptions(
@@ -171,23 +173,27 @@ struct Configuration::TEndpointOptions
 struct Configuration::TSecurityOptions
 {
     TSecurityOptions()
-        : standard()
+        : type(Security::Strategy::Invalid)
+        , strategy()
         , token()
         , authority()
     {
     }
 
     TSecurityOptions(
-        std::string_view standard,
+        std::string_view strategy,
         std::string_view token,
         std::string_view authority)
-        : standard(standard)
+        : type(Security::Strategy::Invalid)
+        , strategy(strategy)
         , token(token)
         , authority(authority)
     {
+        type = Security::ConvertToStrategy({strategy.data(), strategy.size()});
     }
 
-    std::string standard;
+    Security::Strategy type;
+    std::string strategy;
     std::string token;
     std::string authority;
 };

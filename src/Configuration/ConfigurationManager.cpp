@@ -10,6 +10,7 @@
 #include "../Utilities/NodeUtils.hpp"
 //-----------------------------------------------------------------------------------------------
 #include "../Libraries/metajson/metajson.hh"
+//-----------------------------------------------------------------------------------------------
 #include <array>
 #include <cstdlib>
 #include <iostream>
@@ -62,8 +63,8 @@ constexpr std::string_view TcpBindingAddress = "*:35216";
 constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
 constexpr std::string_view LoRaBindingAddress = "915:71";
 
-constexpr std::string_view EncryptionStandard = "AES-256-CTR";
-constexpr std::string_view NetworkToken = "01234567890123456789012345678901";
+constexpr std::string_view SecurityStrategy = "PQNISTL3";
+constexpr std::string_view NetworkToken = "";
 constexpr std::string_view CentralAutority = "https://bridge.brypt.com";
 
 //------------------------------------------------------------------------------------------------
@@ -77,9 +78,13 @@ std::array<std::string_view, 2> IdentifierTypes = {
     "Persistent"
 };
 
-std::array<std::string_view, 4> EndpointTypes = {
+std::array<std::string_view, 2> EndpointTypes = {
     "LoRa",
     "TCP"
+};
+
+std::array<std::string_view, 1> StrategyTypes = {
+    "PQNISTL3",
 };
 
 template <typename ArrayType, std::size_t ArraySize>
@@ -152,7 +157,7 @@ IOD_SYMBOL(endpoints)
 
 IOD_SYMBOL(security)
 // "security": {
-//     "standard": String,
+//     "strategy": String,
 //     "token": String,
 //     "authority": String
 // }
@@ -164,7 +169,7 @@ IOD_SYMBOL(description)
 IOD_SYMBOL(interface)
 IOD_SYMBOL(location)
 IOD_SYMBOL(name)
-IOD_SYMBOL(standard)
+IOD_SYMBOL(strategy)
 IOD_SYMBOL(technology)
 IOD_SYMBOL(token)
 IOD_SYMBOL(type)
@@ -368,12 +373,12 @@ std::optional<Configuration::EndpointConfigurations> Configuration::CManager::Ge
 
 //-----------------------------------------------------------------------------------------------
 
-std::string Configuration::CManager::GetSecurityStandard() const
+Security::Strategy Configuration::CManager::GetSecurityStrategy() const
 {
     if (!m_validated) {
-        return {};
+        return Security::Strategy::Invalid;
     }
-    return m_settings.security.standard;
+    return m_settings.security.type;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -408,6 +413,10 @@ Configuration::StatusCode Configuration::CManager::ValidateSettings()
                 return StatusCode::DecodeError;
             }
         }
+    }
+
+    if (!allowable::IfAllowableGetValue(allowable::StrategyTypes, m_settings.security.strategy)) {
+        return StatusCode::DecodeError;
     }
 
     m_validated = true;
@@ -454,7 +463,7 @@ Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
             s::binding,
             s::bootstrap),
         s::security = iod::json_object(
-            s::standard,
+            s::strategy,
             s::token,
             s::authority)
         ).decode(json, m_settings);
@@ -567,7 +576,7 @@ void local::SerializeSecurityOptions(
     std::ofstream& out)
 {
     out << "\t\"security\": {\n";
-    out << "\t\t\"standard\": \"" << options.standard << "\",\n";
+    out << "\t\t\"strategy\": \"" << options.strategy << "\",\n";
     out << "\t\t\"token\": \"" << options.token << "\",\n";
     out << "\t\t\"authority\": \"" << options.authority << "\"\n";
     out << "\t}\n";
@@ -649,7 +658,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 
         // Get the desired primary technology type for the node
         bool bAllowableEndpointType = true;
-        std::string technology(defaults::EndpointType);
+        std::string technology = "";
         std::cout << "EndpointType: (" << defaults::EndpointType << ") " << std::flush;
         std::getline(std::cin, technology);
         if (!technology.empty()) {
@@ -665,7 +674,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 
         if (bAllowableEndpointType) {
             // Get the network interface that the node will be bound too
-            std::string interface(defaults::NetworkInterface);
+            std::string interface = "";
             std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
             std::getline(std::cin, interface);
             if (!interface.empty()) {
@@ -675,7 +684,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
             // Get the primary and secondary network address components
             // Currently, this may be the IP and port for TCP/IP based nodes
             // or frequency and channel for LoRa.
-            std::string binding(defaults::TcpBindingAddress);
+            std::string binding = "";
             std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
             bindingOutputMessage.append(defaults::TcpBindingAddress.data());
             if (options.type == Endpoints::TechnologyType::LoRa) {
@@ -693,10 +702,14 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 
             // Get the default bootstrap entry for the technology
             if (options.type != Endpoints::TechnologyType::LoRa) {
-                std::string bootstrap(defaults::TcpBootstrapEntry);
+                options.bootstrap = defaults::TcpBootstrapEntry;
+
+                std::string bootstrap = "";
                 std::cout << "Default Bootstrap Entry: (" << defaults::TcpBootstrapEntry << ") " << std::flush;
                 std::getline(std::cin, bootstrap);
-                options.bootstrap = bootstrap;
+                if (!bootstrap.empty()) {
+                    options.bootstrap = bootstrap;
+                }
             }
 
             configurations.emplace_back(options);
@@ -717,26 +730,49 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 Configuration::TSecurityOptions local::GetSecurityOptionsFromUser()
 {
     Configuration::TSecurityOptions options(
-        defaults::EncryptionStandard,
+        defaults::SecurityStrategy,
         defaults::NetworkToken,
         defaults::CentralAutority
     );
     
-    std::string token = "";
-    std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
-    std::getline(std::cin, token);
-    if (!token.empty()) {
-        options.token = token;
-    }
+    bool bAllowableStrategyType;
+    do {
+        // Ensure the loop condition is initialized for the exit condition.
+        bAllowableStrategyType = true;
 
-    std::string authority = "";
-    std::cout << "Central Authority: (" << defaults::CentralAutority << ") " << std::flush;
-    std::getline(std::cin, authority);
-    if (!authority.empty()) {
-        options.authority = authority;
-    }
+        // Get the desired security strategy from the user.
+        std::string strategy(defaults::SecurityStrategy);
+        std::cout << "Security Strategy: (" << defaults::SecurityStrategy << ") " << std::flush;
+        std::getline(std::cin, strategy);
+        if (!strategy.empty()) {
+            if (auto const optValue = allowable::IfAllowableGetValue(allowable::StrategyTypes, strategy); optValue) {
+                options.strategy = strategy;
+                options.type = Security::ConvertToStrategy(strategy);
+            } else {
+                std::cout << "Specified strategy is not allowed! Allowable types include: ";
+                allowable::OutputValues(allowable::StrategyTypes);
+                bAllowableStrategyType = false;
+            }
+        }
 
-    std::cout << "\n";
+        if (bAllowableStrategyType) {
+            std::string token(defaults::NetworkToken);
+            std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
+            std::getline(std::cin, token);
+            if (!token.empty()) {
+                options.token = token;
+            }
+
+            std::string authority(defaults::CentralAutority);
+            std::cout << "Central Authority: (" << defaults::CentralAutority << ") " << std::flush;
+            std::getline(std::cin, authority);
+            if (!authority.empty()) {
+                options.authority = authority;
+            }
+        }
+
+        std::cout << "\n";
+    } while(!bAllowableStrategyType);
 
     return options;
 }

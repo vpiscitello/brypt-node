@@ -12,7 +12,7 @@
 		}
 	],
 	"security": {
-		"standard": "AES-256-CTR",
+		"strategy": "PQNISTL3",
 		"": "",
 		"central_authority": ""
 }

@@ -16,7 +16,7 @@
 		}
 	],
 	"security": {
-		"standard": "AES-256-CTR",
+		"strategy": "PQNISTL3",
 		"token": "",
 		"authority": ""
 	}

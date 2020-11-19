@@ -5,6 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "StatusCode.hpp"
+#include "../Components/Security/SecurityDefinitions.hpp"
 #include "../BryptIdentifier/IdentifierTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <filesystem>
@@ -43,7 +44,7 @@ public:
 
     std::optional<Configuration::EndpointConfigurations> GetEndpointConfigurations() const;
 
-    std::string GetSecurityStandard() const;
+    Security::Strategy GetSecurityStrategy() const;
     std::string GetCentralAuthority() const;
 
 private:

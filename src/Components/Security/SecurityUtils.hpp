@@ -17,6 +17,7 @@ namespace Security {
 //------------------------------------------------------------------------------------------------
 
 Security::Strategy ConvertToStrategy(std::underlying_type_t<Security::Strategy> strategy);
+Security::Strategy ConvertToStrategy(std::string strategy);
 std::unique_ptr<ISecurityStrategy> CreateStrategy(
     Security::Strategy strategy, Security::Role role, Security::Context context);
 
