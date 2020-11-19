@@ -46,6 +46,7 @@ Configuration::TSecurityOptions GetSecurityOptionsFromUser();
 
 void InitializeIdentifierOptions(Configuration::TIdentifierOptions& options);
 void InitializeEndpointConfigurations(Configuration::EndpointConfigurations& configurations);
+void InitializeSecurityOptions(Configuration::TSecurityOptions& options);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -499,6 +500,7 @@ void Configuration::CManager::InitializeSettings()
 {
     local::InitializeIdentifierOptions(m_settings.identifier);
     local::InitializeEndpointConfigurations(m_settings.endpoints);
+    local::InitializeSecurityOptions(m_settings.security);
 
     // Update the configuration file as the initialization of options may create new values 
     // for certain options. Currently, this only caused by the generation of Brypt Identifiers.
@@ -823,6 +825,13 @@ void  local::InitializeEndpointConfigurations(Configuration::EndpointConfigurati
             endpoint.type = Endpoints::ParseTechnologyType(endpoint.technology);
         }
     );
+}
+
+//-----------------------------------------------------------------------------------------------
+
+void local::InitializeSecurityOptions(Configuration::TSecurityOptions& options)
+{
+    options.type = Security::ConvertToStrategy(options.strategy);
 }
 
 //-----------------------------------------------------------------------------------------------

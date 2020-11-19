@@ -155,7 +155,7 @@ public:
 
 TEST(PeerManagerSuite, PeerDeclarationTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::ServerEntry);
@@ -167,7 +167,7 @@ TEST(PeerManagerSuite, PeerDeclarationTest)
 
 TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::ServerEntry);
@@ -182,7 +182,7 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::ServerEntry);
@@ -207,7 +207,7 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
@@ -228,7 +228,7 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, ExistingPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier);
@@ -262,7 +262,7 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
 
 TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier);
@@ -304,7 +304,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 
 TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
@@ -327,7 +327,7 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::uint32_t(0));
 
     auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
@@ -362,12 +362,13 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(PeerManagerSuite, PeerExchangeSetupTest)
+TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 {
     auto const spConnectProtocol = std::make_shared<local::CConnectProtocolStub>();
     auto const spMessageCollector = std::make_shared<local::CMessageCollector>();
 
-    CPeerManager manager(test::ClientIdentifier, spConnectProtocol, spMessageCollector);
+    CPeerManager manager(
+        test::ClientIdentifier, Security::Strategy::PQNISTL3, spConnectProtocol, spMessageCollector);
     EXPECT_EQ(manager.ObservedPeerCount(), std::uint32_t(0));
 
     // Declare the client and server peers. 
@@ -444,7 +445,7 @@ TEST(PeerManagerSuite, PeerExchangeSetupTest)
 
 TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier);
 
@@ -482,7 +483,7 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -550,7 +551,7 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, PeerCountTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -580,7 +581,7 @@ TEST(PeerManagerSuite, PeerCountTest)
 
 TEST(PeerManagerSuite, SingleObserverTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     local::CPeerObserverStub observer(&manager);
 
     EXPECT_FALSE(observer.GetBryptPeer());
@@ -606,7 +607,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
 
 TEST(PeerManagerSuite, MultipleObserverTest)
 {
-    CPeerManager manager(test::ServerIdentifier, nullptr);
+    CPeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     std::vector<local::CPeerObserverStub> observers;
     for (std::uint32_t idx = 0; idx < 12; ++idx) {

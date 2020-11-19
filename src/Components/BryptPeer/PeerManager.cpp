@@ -29,9 +29,11 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 CPeerManager::CPeerManager(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Security::Strategy strategy,
     std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
     std::weak_ptr<IMessageSink> const& wpPromotedProcessor)
     : m_spBryptIdentifier(spBryptIdentifier)
+    , m_strategyType(strategy)
     , m_observersMutex()
     , m_observers()
     , m_peersMutex()
@@ -41,6 +43,9 @@ CPeerManager::CPeerManager(
     , m_spConnectProtocol(spConnectProtocol)
     , m_wpPromotedProcessor(wpPromotedProcessor)
 {
+    if (m_strategyType == Security::Strategy::Invalid) {
+        throw std::runtime_error("Peer Manager was not provided a valid security strategy type!");
+    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -74,7 +79,7 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_vie
         m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
     auto const optRequest = upSecurityMediator->SetupExchangeInitiator(
-        Security::Strategy::PQNISTL3, m_spConnectProtocol);
+        m_strategyType, m_spConnectProtocol);
     
     // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
     // to the full BryptPeer
@@ -158,8 +163,7 @@ std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
                 upSecurityMediator = std::make_unique<CSecurityMediator>(
                     m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
-                bool const success = upSecurityMediator->SetupExchangeAcceptor(
-                    Security::Strategy::PQNISTL3);
+                bool const success = upSecurityMediator->SetupExchangeAcceptor(m_strategyType);
                 if (!success) {
                     return {};
                 }

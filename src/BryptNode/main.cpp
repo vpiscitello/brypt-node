@@ -82,7 +82,8 @@ std::int32_t main(std::int32_t argc, char** argv)
     auto const spMessageCollector = std::make_shared<CAuthorizedProcessor>();
 
     auto const spPeerManager = std::make_shared<CPeerManager>(
-        spBryptIdentifier, spDiscoveryProtocol, spMessageCollector);
+        spBryptIdentifier, upConfigurationManager->GetSecurityStrategy(),
+        spDiscoveryProtocol, spMessageCollector);
 
     spPeerPersistor->SetMediator(spPeerManager.get());
 

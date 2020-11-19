@@ -7,6 +7,7 @@
 #include "BryptPeer.hpp"
 #include "../Endpoints/EndpointIdentifier.hpp"
 #include "../Endpoints/TechnologyType.hpp"
+#include "../Security/SecurityDefinitions.hpp"
 #include "../Security/SecurityMediator.hpp"
 #include "../../BryptIdentifier/IdentifierTypes.hpp"
 #include "../../Interfaces/PeerCache.hpp"
@@ -32,6 +33,7 @@ class CPeerManager : public IPeerMediator, public IPeerCache
 public:
     CPeerManager(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
         std::weak_ptr<IMessageSink> const& wpPromotedProcessor = {});
 
@@ -86,6 +88,7 @@ private:
     void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
+    Security::Strategy m_strategyType;
     
     mutable std::mutex m_observersMutex;
     ObserverSet m_observers;
