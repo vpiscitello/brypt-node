@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageUtils.hpp"
 #include "MessageHeader.hpp"
+#include "PackUtils.hpp"
 #include "../BryptIdentifier/BryptIdentifier.hpp"
 #include "../BryptIdentifier/IdentifierDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
@@ -31,9 +32,7 @@ std::optional<Message::Protocol> Message::PeekProtocol(
     Message::Buffer::const_iterator const& begin,
     Message::Buffer::const_iterator const& end)
 {
-    if (begin == end) {
-        return {};
-    }
+    if (begin == end) { return {}; }
 
     if (auto const size = std::distance(begin, end); size < 1) {
         return {};
@@ -41,11 +40,33 @@ std::optional<Message::Protocol> Message::PeekProtocol(
 
     // The protocol type should be the first byte in the provided message buffer. 
     Message::Protocol protocol = ConvertToProtocol(*begin);
-    if (protocol == Message::Protocol::Invalid) {
-        return {};
-    }
+    if (protocol == Message::Protocol::Invalid) { return {}; }
 
     return protocol;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<std::uint32_t> Message::PeekSize(
+    Message::Buffer::const_iterator const& begin,
+    Message::Buffer::const_iterator const& end)
+{
+    if (begin == end) { return {}; }
+
+    // The messagesize section begins after protocol type and version of the message.
+    auto start = begin +
+        sizeof(Message::Protocol) + 
+        sizeof(Message::Version::first) + 
+        sizeof(Message::Version::second);
+
+    std::uint32_t size = 0;
+    
+    // The provided buffer must be large enough to contain the identifier's size
+    if (std::uint32_t const bytes = std::distance(start, end); bytes < 1) { return {}; }
+
+    if (!PackUtils::UnpackChunk(start, end, size) || size == 0) { return {}; }
+
+    return size;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -54,49 +75,38 @@ std::optional<BryptIdentifier::CContainer> Message::PeekSource(
     Message::Buffer::const_iterator const& begin,
     Message::Buffer::const_iterator const& end)
 {
-    if (begin == end) {
-        return {};
-    }
+    if (begin == end) { return {}; }
 
-    // The source identifier section begins after protocol type and version of the message.
-    auto const start = sizeof(Message::Protocol) + 
+    // The source identifier section begins after protocol type, version, and size of the message.
+    auto start = begin +
+        sizeof(Message::Protocol) + 
         sizeof(Message::Version::first) + 
-        sizeof(Message::Version::second);
-
-    auto identifierStart = begin + start;
+        sizeof(Message::Version::second) +
+        sizeof(std::uint32_t);
 
     // The provided buffer must be large enough to contain the identifier's size
-    if (std::uint32_t const size = std::distance(identifierStart, end); size < 1) {
-        return {};
-    }
+    if (std::uint32_t const size = std::distance(start, end); size < 1) { return {}; }
     
     // Capture the provided identifier size.
-    std::uint8_t const identifierSize = *identifierStart;
+    std::uint8_t const size = *start;
         
     // The provided size must not be smaller the smallest possible brypt identifier
-    if (identifierSize < BryptIdentifier::Network::MinimumLength) {
-        return {};
-    }
+    if (size < BryptIdentifier::Network::MinimumLength) { return {}; }
     // The provided size must not be larger than the maximum possible brypt identifier
-    if (identifierSize > BryptIdentifier::Network::MaximumLength) {
-        return {};
-    }
+    if (size > BryptIdentifier::Network::MaximumLength) { return {}; }
 
-    ++identifierStart;  // Move to the start of the source identifier field. 
+    ++start;  // Move to the start of the source identifier field. 
     
     // The provided buffer must be large enough to contain the data specified by the identifier size
-    if (std::uint32_t const size = std::distance(identifierStart, end); size < identifierSize) {
+    if (std::uint32_t const bytes = std::distance(start, end); bytes < size) {
         return {};
     }
 
-    auto const identifierEnd = identifierStart + identifierSize;
-
+    auto const stop = start + size;
     auto const identifier = BryptIdentifier::CContainer(
-        { identifierStart, identifierEnd }, BryptIdentifier::BufferContentType::Network);
+        { start, stop }, BryptIdentifier::BufferContentType::Network);
     
-    if (!identifier.IsValid()) {
-        return {};
-    }
+    if (!identifier.IsValid()) { return {}; }
 
     return identifier;
 }

@@ -18,6 +18,10 @@ std::optional<Message::Protocol> PeekProtocol(
     Message::Buffer::const_iterator const& begin,
     Message::Buffer::const_iterator const& end);
 
+std::optional<std::uint32_t> PeekSize(
+    Message::Buffer::const_iterator const& begin,
+    Message::Buffer::const_iterator const& end);
+
 std::optional<BryptIdentifier::CContainer> PeekSource(
     Message::Buffer::const_iterator const& begin,
     Message::Buffer::const_iterator const& end);
