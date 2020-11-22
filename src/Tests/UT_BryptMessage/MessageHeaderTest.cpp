@@ -40,7 +40,7 @@ constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::Techno
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ApplicationConstructorTest)
+TEST(MessageHeaderSuite, ApplicationConstructorTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -62,7 +62,7 @@ TEST(CMessageHeaderSuite, ApplicationConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ApplicationPackTest)
+TEST(MessageHeaderSuite, ApplicationPackTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -99,7 +99,7 @@ TEST(CMessageHeaderSuite, ApplicationPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, NetworkConstructorTest)
+TEST(MessageHeaderSuite, NetworkConstructorTest)
 {
     auto const optMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -118,7 +118,7 @@ TEST(CMessageHeaderSuite, NetworkConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, NetworkPackTest)
+TEST(MessageHeaderSuite, NetworkPackTest)
 {
     auto const optBaseMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -151,7 +151,7 @@ TEST(CMessageHeaderSuite, NetworkPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ClusterDestinationTest)
+TEST(MessageHeaderSuite, ClusterDestinationTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -172,7 +172,7 @@ TEST(CMessageHeaderSuite, ClusterDestinationTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, NetworkDestinationTest)
+TEST(MessageHeaderSuite, NetworkDestinationTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -193,7 +193,7 @@ TEST(CMessageHeaderSuite, NetworkDestinationTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ClusterPackTest)
+TEST(MessageHeaderSuite, ClusterPackTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -228,7 +228,7 @@ TEST(CMessageHeaderSuite, ClusterPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolTest)
+TEST(MessageHeaderSuite, PeekProtocolTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
     
@@ -264,7 +264,7 @@ TEST(CMessageHeaderSuite, PeekProtocolTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolNullBytesTest)
+TEST(MessageHeaderSuite, PeekProtocolNullBytesTest)
 {
     Message::Buffer const buffer(12, 0x00);
     auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
@@ -273,7 +273,7 @@ TEST(CMessageHeaderSuite, PeekProtocolNullBytesTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
+TEST(MessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
 {
     Message::Buffer const buffer(12, 0xF0);
     auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
@@ -282,7 +282,7 @@ TEST(CMessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolEmptyBufferTest)
+TEST(MessageHeaderSuite, PeekProtocolEmptyBufferTest)
 {
     Message::Buffer const buffer;
     auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
@@ -291,7 +291,61 @@ TEST(CMessageHeaderSuite, PeekProtocolEmptyBufferTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceTest)
+TEST(MessageHeaderSuite, PeekSizeTest)
+{
+    CMessageContext const context = local::GenerateMessageContext();
+    
+    auto const optNetworkMessage = CNetworkMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .MakeHandshakeMessage()
+        .ValidatedBuild();
+    ASSERT_TRUE(optNetworkMessage);
+
+    auto const networkBuffer = PackUtils::Z85Decode(optNetworkMessage->GetPack());
+    auto const optNetworkSize = Message::PeekSize(
+        networkBuffer.begin(), networkBuffer.end());
+
+    ASSERT_TRUE(optNetworkSize);
+    EXPECT_EQ(*optNetworkSize, optNetworkMessage->GetPack().size());
+
+    auto const optApplicationMessage = CApplicationMessage::Builder()
+        .SetMessageContext(context)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetCommand(test::Command, test::Phase)
+        .ValidatedBuild();
+    ASSERT_TRUE(optApplicationMessage);
+
+    auto const applicationBuffer = PackUtils::Z85Decode(optApplicationMessage->GetPack());
+    auto const optApplicationSize = Message::PeekSize(
+        applicationBuffer.begin(), applicationBuffer.end());
+
+    ASSERT_TRUE(optApplicationSize);
+    EXPECT_EQ(*optApplicationSize, optApplicationMessage->GetPack().size());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(MessageHeaderSuite, PeekSizeNullBytesTest)
+{
+    Message::Buffer const buffer(12, 0x00);
+    auto const optProtocol = Message::PeekSize(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optProtocol);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(MessageHeaderSuite, PeekSizeEmptyBufferTest)
+{
+    Message::Buffer const buffer;
+    auto const optProtocol = Message::PeekSize(buffer.begin(), buffer.end());
+    EXPECT_FALSE(optProtocol);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(MessageHeaderSuite, PeekSourceTest)
 {
     auto const optMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -309,7 +363,7 @@ TEST(CMessageHeaderSuite, PeekSourceTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceNullBytesTest)
+TEST(MessageHeaderSuite, PeekSourceNullBytesTest)
 {
     Message::Buffer const buffer(128, 0x00);
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
@@ -318,7 +372,7 @@ TEST(CMessageHeaderSuite, PeekSourceNullBytesTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceInvalidIdentifierTest)
+TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength);
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
@@ -327,7 +381,7 @@ TEST(CMessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceSmallBufferTest)
+TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 {
     Message::Buffer const buffer(12, BryptIdentifier::Network::MinimumLength);
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
@@ -336,7 +390,7 @@ TEST(CMessageHeaderSuite, PeekSourceSmallBufferTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
+TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MaximumLength + 1);
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
@@ -345,7 +399,7 @@ TEST(CMessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
+TEST(MessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength - 1);
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
@@ -354,7 +408,7 @@ TEST(CMessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceEmptyBufferTest)
+TEST(MessageHeaderSuite, PeekSourceEmptyBufferTest)
 {
     Message::Buffer const buffer;
     auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());

@@ -30,7 +30,7 @@ constexpr std::string_view Data = "Hello World!";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HandshakeConstructorTest)
+TEST(NetworkMessageSuite, HandshakeConstructorTest)
 {
     auto const optMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -55,7 +55,7 @@ TEST(CNetworkMessageSuite, HandshakeConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatRequestConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatRequestConstructorTest)
 {
     auto const optRequest = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -75,7 +75,7 @@ TEST(CNetworkMessageSuite, HeartbeatRequestConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatResponseConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatResponseConstructorTest)
 {
     auto const optResponse = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -95,7 +95,7 @@ TEST(CNetworkMessageSuite, HeartbeatResponseConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HandshakePackConstructorTest)
+TEST(NetworkMessageSuite, HandshakePackConstructorTest)
 {
     auto const optBaseMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -125,7 +125,7 @@ TEST(CNetworkMessageSuite, HandshakePackConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatRequestPackConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 {
     auto const optBaseMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
@@ -149,7 +149,7 @@ TEST(CNetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatResponsePackConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatResponsePackConstructorTest)
 {
     auto const optBaseMessage = CNetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)

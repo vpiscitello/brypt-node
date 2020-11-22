@@ -41,7 +41,7 @@ constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::Techno
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CApplicationMessageSuite, BaseConstructorTest)
+TEST(ApplicationMessageSuite, BaseConstructorTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -72,7 +72,7 @@ TEST(CApplicationMessageSuite, BaseConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CApplicationMessageSuite, PackConstructorTest)
+TEST(ApplicationMessageSuite, PackConstructorTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
 
@@ -109,7 +109,7 @@ TEST(CApplicationMessageSuite, PackConstructorTest)
 
 //-----------------------------------------------------------------------------------------------
 
-TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
+TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
     Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
@@ -165,7 +165,7 @@ TEST(CApplicationMessageSuite, BoundAwaitConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CApplicationMessageSuite, BoundAwaitPackConstructorTest)
+TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 {
     CMessageContext const context = local::GenerateMessageContext();
     Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
