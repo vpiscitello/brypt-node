@@ -34,6 +34,7 @@ Message::Destination UnpackDestination(
 CMessageHeader::CMessageHeader()
     : m_protocol(Message::Protocol::Invalid)
     , m_version()
+    , m_size(0)
     , m_source()
     , m_destination(Message::Destination::Node)
     , m_optDestinationIdentifier()
@@ -52,6 +53,13 @@ Message::Protocol CMessageHeader::GetMessageProtocol() const
 Message::Version const& CMessageHeader::GetVersion() const
 {
     return m_version;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::uint32_t CMessageHeader::GetMessageSize() const
+{
+    return m_size;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -97,9 +105,10 @@ Message::Buffer CMessageHeader::GetPackedBuffer() const
     // Header Byte Pack Schema: 
     //  - Section 1 (1 byte): Message Protocol Type
     //  - Section 2 (2 bytes): Message Version (Major, Minor)
-    //  - Section 3 (1 byte): Source Identifier Size
-    //  - Section 4 (N bytes): Source Identifier
-    //  - Section 5 (1 byte): Destination Type
+    //  - Section 3 (4 bytes): Message Size
+    //  - Section 4 (1 byte): Source Identifier Size
+    //  - Section 5 (N bytes): Source Identifier
+    //  - Section 6 (1 byte): Destination Type
     //      - (Optional) Section 6.1 (1 byte): Destination Identifier Size
     //      - (Optional) Section 6.2 (N bytes): Destination Identifier
     //  - Section 7 (1 byte): Extenstions Count
@@ -110,6 +119,7 @@ Message::Buffer CMessageHeader::GetPackedBuffer() const
     PackUtils::PackChunk(buffer, m_protocol);
     PackUtils::PackChunk(buffer, m_version.first);
     PackUtils::PackChunk(buffer, m_version.second);
+    PackUtils::PackChunk(buffer, m_size);
 	PackUtils::PackChunk(
 		buffer, m_source.GetNetworkRepresentation(), sizeof(std::uint8_t));
     PackUtils::PackChunk(buffer, m_destination);
@@ -138,10 +148,11 @@ bool CMessageHeader::IsValid() const
 		return false;
 	}
 
+    // A header must contain the size of the message. This msut be non-zero.
+	if (m_size == 0) { return false; }
+
 	// A header must have a valid brypt source identifier attached
-	if (!m_source.IsValid()) {
-		return false;
-	}
+	if (!m_source.IsValid()) { return false; }
 
 	return true;
 }
@@ -154,6 +165,7 @@ constexpr std::uint32_t CMessageHeader::FixedPackSize() const
 	size += sizeof(m_protocol); // 1 byte for message protocol type 
 	size += sizeof(m_version.first); // 1 byte for major version
 	size += sizeof(m_version.second); // 1 byte for minor version
+	size += sizeof(m_size); // 4 bytes for message size
     size += sizeof(std::uint8_t); // 1 byte for source identifier size
     size += sizeof(std::uint8_t); // 1 byte for destination type
     size += sizeof(std::uint8_t); // 1 byte for destination identifier size
@@ -175,23 +187,18 @@ bool CMessageHeader::ParseBuffer(
     // Unpack the message protocol
     m_protocol = local::UnpackProtocol(begin, end);
     // If the unpacked message protocol is invalid there is no need to contianue
-    if (m_protocol == Message::Protocol::Invalid) {
-        return false;
-    }
+    if (m_protocol == Message::Protocol::Invalid) { return false; }
 
     // Unpack the message major and minor version numbers
-    if (!PackUtils::UnpackChunk(begin, end, m_version.first)) {
-        return false;
-    }
-    if (!PackUtils::UnpackChunk(begin, end, m_version.second)) {
-        return false;
-    }
-    
+    if (!PackUtils::UnpackChunk(begin, end, m_version.first)) { return false; }
+    if (!PackUtils::UnpackChunk(begin, end, m_version.second)) { return false; }
+
+    // Unpack the message size
+    if (!PackUtils::UnpackChunk(begin, end, m_size)) { return false; }
+
     // Unpack the source identifier
     auto const optSource = local::UnpackIdentifier(begin, end);
-    if (!optSource) {
-        return false;
-    }
+    if (!optSource) {  return false; }
     m_source = *optSource;
 
     if (m_destination = local::UnpackDestination(begin, end);
@@ -203,9 +210,7 @@ bool CMessageHeader::ParseBuffer(
 
     // Unpack the number of extensions. 
     std::uint8_t extensions = 0;
-    if (!PackUtils::UnpackChunk(begin, end, extensions)) {
-        return false;
-    }
+    if (!PackUtils::UnpackChunk(begin, end, extensions)) { return false; }
 
     return true;
 }
@@ -230,18 +235,14 @@ std::optional<BryptIdentifier::CContainer> local::UnpackIdentifier(
     Message::Buffer::const_iterator const& end)
 {
     std::uint8_t size = 0; 
-    if (!PackUtils::UnpackChunk(begin, end, size)) {
-        return {};
-    }
+    if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
 
     if (size < BryptIdentifier::Network::MinimumLength || size > BryptIdentifier::Network::MaximumLength) {
         return {};
     }
 
     BryptIdentifier::BufferType buffer;
-    if (!PackUtils::UnpackChunk(begin, end, buffer, size)) {
-        return {};
-    }
+    if (!PackUtils::UnpackChunk(begin, end, buffer, size)) { return {}; }
 
     return BryptIdentifier::CContainer(
         buffer, BryptIdentifier::BufferContentType::Network);

@@ -174,7 +174,7 @@ std::uint32_t CApplicationMessage::GetPackSize() const
 std::string CApplicationMessage::GetPack() const
 {
 	Message::Buffer buffer = m_header.GetPackedBuffer();
-	buffer.reserve(GetPackSize());
+	buffer.reserve(m_header.GetMessageSize());
     // Application Pack Schema: 
     //  - Section 1 (1 byte): Command Type
     //  - Section 2 (1 bytes): Command Phase
@@ -435,6 +435,8 @@ CApplicationBuilder& CApplicationBuilder::FromEncodedPack(std::string_view pack)
 
 CApplicationMessage&& CApplicationBuilder::Build()
 {
+	m_message.m_header.m_size = m_message.GetPackSize();
+
     return std::move(m_message);
 }
 
@@ -442,6 +444,8 @@ CApplicationMessage&& CApplicationBuilder::Build()
 
 CApplicationBuilder::OptionalMessage CApplicationBuilder::ValidatedBuild()
 {
+	m_message.m_header.m_size = m_message.GetPackSize();
+
     if (m_message.Validate() != Message::ValidationStatus::Success) {
         return {};
     }

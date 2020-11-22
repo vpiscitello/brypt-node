@@ -126,7 +126,7 @@ std::uint32_t CNetworkMessage::GetPackSize() const
 std::string CNetworkMessage::GetPack() const
 {
 	Message::Buffer buffer = m_header.GetPackedBuffer();
-	buffer.reserve(GetPackSize());
+	buffer.reserve(m_header.GetMessageSize());
     // Network Pack Schema: 
     //  - Section 1 (1 bytes): Network Message Type
     //  - Section 2 (4 bytes): Network Payload Size
@@ -314,6 +314,8 @@ CNetworkBuilder& CNetworkBuilder::FromEncodedPack(std::string_view pack)
 
 CNetworkMessage&& CNetworkBuilder::Build()
 {
+	m_message.m_header.m_size = m_message.GetPackSize();
+
     return std::move(m_message);
 }
 
@@ -321,6 +323,8 @@ CNetworkMessage&& CNetworkBuilder::Build()
 
 CNetworkBuilder::OptionalMessage CNetworkBuilder::ValidatedBuild()
 {
+	m_message.m_header.m_size = m_message.GetPackSize();
+
     if (m_message.Validate() != Message::ValidationStatus::Success) {
         return {};
     }

@@ -22,11 +22,10 @@ public:
 
 	Message::Protocol GetMessageProtocol() const;
     Message::Version const& GetVersion() const;
+    std::uint32_t GetMessageSize() const;
     BryptIdentifier::CContainer const& GetSourceIdentifier() const;
-
     Message::Destination GetDestinationType() const;
     std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
-
 
     std::uint32_t GetPackSize() const;
 	Message::Buffer GetPackedBuffer() const;
@@ -42,6 +41,7 @@ private:
 
     Message::Protocol m_protocol;
     Message::Version m_version;
+    std::uint32_t m_size;
     BryptIdentifier::CContainer m_source;
     Message::Destination m_destination;
 
