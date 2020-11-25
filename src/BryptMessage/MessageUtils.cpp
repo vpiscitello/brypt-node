@@ -62,7 +62,7 @@ std::optional<std::uint32_t> Message::PeekSize(
     std::uint32_t size = 0;
     
     // The provided buffer must be large enough to contain the identifier's size
-    if (std::uint32_t const bytes = std::distance(start, end); bytes < 1) { return {}; }
+    if (auto const bytes = std::distance(start, end); bytes < 1) { return {}; }
 
     if (!PackUtils::UnpackChunk(start, end, size) || size == 0) { return {}; }
 
@@ -85,7 +85,7 @@ std::optional<BryptIdentifier::CContainer> Message::PeekSource(
         sizeof(std::uint32_t);
 
     // The provided buffer must be large enough to contain the identifier's size
-    if (std::uint32_t const size = std::distance(start, end); size < 1) { return {}; }
+    if (auto const size = std::distance(start, end); size < 1) { return {}; }
     
     // Capture the provided identifier size.
     std::uint8_t const size = *start;
@@ -98,7 +98,7 @@ std::optional<BryptIdentifier::CContainer> Message::PeekSource(
     ++start;  // Move to the start of the source identifier field. 
     
     // The provided buffer must be large enough to contain the data specified by the identifier size
-    if (std::uint32_t const bytes = std::distance(start, end); bytes < size) {
+    if (auto const bytes = std::distance(start, end); bytes < size) {
         return {};
     }
 
