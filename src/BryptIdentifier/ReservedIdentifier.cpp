@@ -15,7 +15,7 @@
 #include <vector>
 //------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::BufferType const& buffer)
+bool ReservedIdentifiers::IsIdentifierReserved(std::vector<std::uint8_t> const& buffer)
 {
     if (buffer.size() != BryptIdentifier::Internal::PayloadSize) {
         return true;

@@ -7,14 +7,16 @@
 #include "BryptIdentifier.hpp"
 #include "IdentifierTypes.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cstdint>
 #include <limits>
+#include <vector>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace ReservedIdentifiers {
 //------------------------------------------------------------------------------------------------
 
-bool IsIdentifierReserved(BryptIdentifier::BufferType const& buffer);
+bool IsIdentifierReserved(std::vector<std::uint8_t> const& buffer);
 bool IsIdentifierReserved(BryptIdentifier::Internal::Type const& identifier);
 bool IsIdentifierReserved(std::string_view identifier);
 bool IsIdentifierReserved(BryptIdentifier::CContainer const& identifier);

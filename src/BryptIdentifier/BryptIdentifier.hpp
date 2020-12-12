@@ -18,18 +18,19 @@
 namespace BryptIdentifier {
 //------------------------------------------------------------------------------------------------
 
-using BufferType = std::vector<std::uint8_t>;
 enum class BufferContentType : std::uint8_t { Internal, Network };
 
 struct Hasher;
 
 std::string Generate();
 
-std::optional<Internal::Type> ConvertToInternalRepresentation(BufferType const& buffer);
+std::optional<Internal::Type> ConvertToInternalRepresentation(
+    std::vector<std::uint8_t> const& buffer);
 std::optional<Internal::Type> ConvertToInternalRepresentation(std::string_view identifier);
 
 std::optional<Network::Type> ConvertToNetworkRepresentation(Internal::Type const& identifier);
-std::optional<Network::Type> ConvertToNetworkRepresentation(BufferType const& identifier);
+std::optional<Network::Type> ConvertToNetworkRepresentation(
+    std::vector<std::uint8_t> const& identifier);
 
 std::ostream& operator<<(
     std::ostream& stream, BryptIdentifier::CContainer const& identifier);
@@ -50,7 +51,7 @@ public:
     CContainer();
     explicit CContainer(Internal::Type const& identifier);
     explicit CContainer(std::string_view identifier);
-    explicit CContainer(BufferType const& buffer, BufferContentType type);
+    explicit CContainer(std::vector<std::uint8_t> const& buffer, BufferContentType type);
 
     CContainer(CContainer const&) = default;
     CContainer(CContainer&&) = default;
