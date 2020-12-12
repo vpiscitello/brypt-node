@@ -1,4 +1,4 @@
-CXX = g++-9
+CXX = g++-10
 BUILDDIR = build
 BINARYDIR = bin
 BINARYNAME = BryptNode
@@ -13,9 +13,9 @@ EXTERNAL_LIBARIES_INCLUDE = -ILibraries
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread  -MMD -MP
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines -MMD -MP
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread -MMD -MP
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines -MMD -MP
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)

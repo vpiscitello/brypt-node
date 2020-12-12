@@ -1,4 +1,4 @@
-CXX = g++-9
+CXX = g++10
 BUILDDIR = ../../build
 BINARYDIR = ../../bin
 BINARYNAME = UT_MessageControl
@@ -13,9 +13,9 @@ GTEST_INCLUDE = -I../../Libraries/googletest/include
 
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++17 -Wno-vla -pthread
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(GTEST_INCLUDE)
