@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "ApplicationMessage.hpp"
 #include "PackUtils.hpp"
+#include "../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -159,11 +160,7 @@ std::uint32_t CApplicationMessage::GetPackSize() const
 	assert(m_context.HasSecurityHandlers());
 	size += m_context.GetSignatureSize();
 
-	// Account for the ASCII encoding method
-	size += (4 - (size & 3)) & 3;
-	size *= PackUtils::Z85Multiplier;
-
-	return size;
+	return Z85::EncodedSize(size);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -187,20 +184,20 @@ std::string CApplicationMessage::GetPack() const
     //      - Section 6.3 (N bytes): Extension Data     |   Extension End
     //  - Section 7 (N bytse): Authentication Token (Strategy Specific)
 
-	PackUtils::PackChunk(buffer, m_command);
-	PackUtils::PackChunk(buffer, m_phase);
-	PackUtils::PackChunk(buffer, m_payload, sizeof(std::uint32_t));
-	PackUtils::PackChunk(buffer, m_timestamp);
+	PackUtils::PackChunk(m_command, buffer);
+	PackUtils::PackChunk(m_phase, buffer);
+	PackUtils::PackChunk<std::uint32_t>(m_payload, buffer);
+	PackUtils::PackChunk(m_timestamp, buffer);
 
 	// Extension Packing
-	PackUtils::PackChunk(buffer, std::uint8_t(0));
+	PackUtils::PackChunk(std::uint8_t(0), buffer);
 	auto& extensionCountByte = buffer.back();
 	if (m_optBoundAwaitTracker) {
 		++extensionCountByte;
-		PackUtils::PackChunk(buffer, local::Extensions::AwaitTracker);
-		PackUtils::PackChunk(buffer, FixedAwaitExtensionSize());
-		PackUtils::PackChunk(buffer, m_optBoundAwaitTracker->first);
-		PackUtils::PackChunk(buffer, m_optBoundAwaitTracker->second);
+		PackUtils::PackChunk(local::Extensions::AwaitTracker, buffer);
+		PackUtils::PackChunk(FixedAwaitExtensionSize(), buffer);
+		PackUtils::PackChunk(m_optBoundAwaitTracker->first, buffer);
+		PackUtils::PackChunk(m_optBoundAwaitTracker->second, buffer);
 	}
 	
 	// Calculate the number of bytes needed to pad to next 4 byte boundary
@@ -215,7 +212,7 @@ std::string CApplicationMessage::GetPack() const
 		return "";
 	}
 
-	return PackUtils::Z85Encode(buffer);
+	return Z85::Encode(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -361,7 +358,7 @@ CApplicationBuilder& CApplicationBuilder::SetCommand(Command::Type type, std::ui
 
 CApplicationBuilder& CApplicationBuilder::SetPayload(std::string_view data)
 {
-    return SetPayload({ data.begin(), data.end() });
+    return SetPayload(Message::Buffer{ data.begin(), data.end() });
 }
 
 //------------------------------------------------------------------------------------------------
@@ -420,8 +417,7 @@ CApplicationBuilder& CApplicationBuilder::FromEncodedPack(std::string_view pack)
         return *this;
     }
     
-	auto const buffer = PackUtils::Z85Decode(pack);
-
+	auto const buffer = Z85::Decode(pack);
 	assert(m_message.m_context.HasSecurityHandlers());
     if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
         return *this;
@@ -485,7 +481,8 @@ void CApplicationBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, dataSize)) {
+	m_message.m_payload.reserve(dataSize);
+	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload)) {
 		return;
 	}
 

@@ -4,7 +4,7 @@
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../BryptMessage/NetworkMessage.hpp"
 #include "../../BryptMessage/MessageUtils.hpp"
-#include "../../BryptMessage/PackUtils.hpp"
+#include "../../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -239,9 +239,8 @@ TEST(MessageHeaderSuite, PeekProtocolTest)
         .ValidatedBuild();
     ASSERT_TRUE(optNetworkMessage);
 
-    auto const networkBuffer = PackUtils::Z85Decode(optNetworkMessage->GetPack());
-    auto const optNetworkProtocol = Message::PeekProtocol(
-        networkBuffer.begin(), networkBuffer.end());
+    auto const networkBuffer = Z85::Decode(optNetworkMessage->GetPack());
+    auto const optNetworkProtocol = Message::PeekProtocol(networkBuffer);
 
     ASSERT_TRUE(optNetworkProtocol);
     EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Network);
@@ -254,9 +253,8 @@ TEST(MessageHeaderSuite, PeekProtocolTest)
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationMessage);
 
-    auto const applicationBuffer = PackUtils::Z85Decode(optApplicationMessage->GetPack());
-    auto const optApplicationProtocol = Message::PeekProtocol(
-        applicationBuffer.begin(), applicationBuffer.end());
+    auto const applicationBuffer = Z85::Decode(optApplicationMessage->GetPack());
+    auto const optApplicationProtocol = Message::PeekProtocol(applicationBuffer);
 
     ASSERT_TRUE(optApplicationProtocol);
     EXPECT_EQ(*optApplicationProtocol, Message::Protocol::Application);
@@ -267,7 +265,7 @@ TEST(MessageHeaderSuite, PeekProtocolTest)
 TEST(MessageHeaderSuite, PeekProtocolNullBytesTest)
 {
     Message::Buffer const buffer(12, 0x00);
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     EXPECT_FALSE(optProtocol);
 }
 
@@ -276,7 +274,7 @@ TEST(MessageHeaderSuite, PeekProtocolNullBytesTest)
 TEST(MessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
 {
     Message::Buffer const buffer(12, 0xF0);
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     EXPECT_FALSE(optProtocol);
 }
 
@@ -285,7 +283,7 @@ TEST(MessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
 TEST(MessageHeaderSuite, PeekProtocolEmptyBufferTest)
 {
     Message::Buffer const buffer;
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     EXPECT_FALSE(optProtocol);
 }
 
@@ -302,9 +300,8 @@ TEST(MessageHeaderSuite, PeekSizeTest)
         .ValidatedBuild();
     ASSERT_TRUE(optNetworkMessage);
 
-    auto const networkBuffer = PackUtils::Z85Decode(optNetworkMessage->GetPack());
-    auto const optNetworkSize = Message::PeekSize(
-        networkBuffer.begin(), networkBuffer.end());
+    auto const networkBuffer = Z85::Decode(optNetworkMessage->GetPack());
+    auto const optNetworkSize = Message::PeekSize(networkBuffer);
 
     ASSERT_TRUE(optNetworkSize);
     EXPECT_EQ(*optNetworkSize, optNetworkMessage->GetPack().size());
@@ -317,9 +314,8 @@ TEST(MessageHeaderSuite, PeekSizeTest)
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationMessage);
 
-    auto const applicationBuffer = PackUtils::Z85Decode(optApplicationMessage->GetPack());
-    auto const optApplicationSize = Message::PeekSize(
-        applicationBuffer.begin(), applicationBuffer.end());
+    auto const applicationBuffer = Z85::Decode(optApplicationMessage->GetPack());
+    auto const optApplicationSize = Message::PeekSize(applicationBuffer);
 
     ASSERT_TRUE(optApplicationSize);
     EXPECT_EQ(*optApplicationSize, optApplicationMessage->GetPack().size());
@@ -330,8 +326,8 @@ TEST(MessageHeaderSuite, PeekSizeTest)
 TEST(MessageHeaderSuite, PeekSizeNullBytesTest)
 {
     Message::Buffer const buffer(12, 0x00);
-    auto const optProtocol = Message::PeekSize(buffer.begin(), buffer.end());
-    EXPECT_FALSE(optProtocol);
+    auto const optMessageSize = Message::PeekSize(buffer);
+    EXPECT_FALSE(optMessageSize);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -339,8 +335,8 @@ TEST(MessageHeaderSuite, PeekSizeNullBytesTest)
 TEST(MessageHeaderSuite, PeekSizeEmptyBufferTest)
 {
     Message::Buffer const buffer;
-    auto const optProtocol = Message::PeekSize(buffer.begin(), buffer.end());
-    EXPECT_FALSE(optProtocol);
+    auto const optMessageSize = Message::PeekSize(buffer);
+    EXPECT_FALSE(optMessageSize);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -354,8 +350,8 @@ TEST(MessageHeaderSuite, PeekSourceTest)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    auto const buffer = PackUtils::Z85Decode(optMessage->GetPack());
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const buffer = Z85::Decode(optMessage->GetPack());
+    auto const optSource = Message::PeekSource(buffer);
 
     ASSERT_TRUE(optSource);
     EXPECT_EQ(*optSource, test::ClientIdentifier);
@@ -366,7 +362,7 @@ TEST(MessageHeaderSuite, PeekSourceTest)
 TEST(MessageHeaderSuite, PeekSourceNullBytesTest)
 {
     Message::Buffer const buffer(128, 0x00);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
@@ -375,7 +371,7 @@ TEST(MessageHeaderSuite, PeekSourceNullBytesTest)
 TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
@@ -384,7 +380,7 @@ TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 {
     Message::Buffer const buffer(12, BryptIdentifier::Network::MinimumLength);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
@@ -393,7 +389,7 @@ TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MaximumLength + 1);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
@@ -402,7 +398,7 @@ TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 TEST(MessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength - 1);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
@@ -411,7 +407,7 @@ TEST(MessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 TEST(MessageHeaderSuite, PeekSourceEmptyBufferTest)
 {
     Message::Buffer const buffer;
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 

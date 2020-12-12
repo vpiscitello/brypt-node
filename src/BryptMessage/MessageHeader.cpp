@@ -4,9 +4,6 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageHeader.hpp"
 #include "MessageUtils.hpp"
-#include "PackUtils.hpp"
-#include "../BryptIdentifier/IdentifierDefinitions.hpp"
-#include "../BryptIdentifier/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -116,25 +113,24 @@ Message::Buffer CMessageHeader::GetPackedBuffer() const
     //      - Section 7.2 (2 bytes): Extension Size     |
     //      - Section 7.3 (N bytes): Extension Data     |   End Repetition
 
-    PackUtils::PackChunk(buffer, m_protocol);
-    PackUtils::PackChunk(buffer, m_version.first);
-    PackUtils::PackChunk(buffer, m_version.second);
-    PackUtils::PackChunk(buffer, m_size);
-	PackUtils::PackChunk(
-		buffer, m_source.GetNetworkRepresentation(), sizeof(std::uint8_t));
-    PackUtils::PackChunk(buffer, m_destination);
+    PackUtils::PackChunk(m_protocol, buffer);
+    PackUtils::PackChunk(m_version.first, buffer);
+    PackUtils::PackChunk(m_version.second, buffer);
+    PackUtils::PackChunk(m_size, buffer);
+	PackUtils::PackChunk<std::uint8_t>(m_source.GetNetworkRepresentation(), buffer);
+    PackUtils::PackChunk(m_destination, buffer);
 
     // If a destination as been set pack the size and the identifier. 
     // Otherwise, indicate there is no destination identifier.
     if (m_optDestinationIdentifier) {
-        PackUtils::PackChunk(
-            buffer, m_optDestinationIdentifier->GetNetworkRepresentation(), sizeof(std::uint8_t));
+        PackUtils::PackChunk<std::uint8_t>(
+            m_optDestinationIdentifier->GetNetworkRepresentation(), buffer);
     } else {
-        PackUtils::PackChunk(buffer, std::uint8_t(0));
+        PackUtils::PackChunk(std::uint8_t(0), buffer);
     }
     
     // Extension Packing: Currently, there are no supported extensions of the header. 
-    PackUtils::PackChunk(buffer, std::uint8_t(0));
+    PackUtils::PackChunk(std::uint8_t(0), buffer);
 
     return buffer;
 }
@@ -155,22 +151,6 @@ bool CMessageHeader::IsValid() const
 	if (!m_source.IsValid()) { return false; }
 
 	return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-constexpr std::uint32_t CMessageHeader::FixedPackSize() const
-{
-	std::uint32_t size = 0;
-	size += sizeof(m_protocol); // 1 byte for message protocol type 
-	size += sizeof(m_version.first); // 1 byte for major version
-	size += sizeof(m_version.second); // 1 byte for minor version
-	size += sizeof(m_size); // 4 bytes for message size
-    size += sizeof(std::uint8_t); // 1 byte for source identifier size
-    size += sizeof(std::uint8_t); // 1 byte for destination type
-    size += sizeof(std::uint8_t); // 1 byte for destination identifier size
-    size += sizeof(std::uint8_t); // 1 bytes for header extension size
-	return size;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -241,8 +221,9 @@ std::optional<BryptIdentifier::CContainer> local::UnpackIdentifier(
         return {};
     }
 
-    BryptIdentifier::BufferType buffer;
-    if (!PackUtils::UnpackChunk(begin, end, buffer, size)) { return {}; }
+    std::vector<std::uint8_t> buffer;
+    buffer.reserve(size);
+    if (!PackUtils::UnpackChunk(begin, end, buffer)) { return {}; }
 
     return BryptIdentifier::CContainer(
         buffer, BryptIdentifier::BufferContentType::Network);

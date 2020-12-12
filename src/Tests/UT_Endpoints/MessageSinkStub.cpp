@@ -7,8 +7,8 @@
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../BryptMessage/MessageUtils.hpp"
 #include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../BryptMessage/PackUtils.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
+#include "../../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include <mutex>
 //------------------------------------------------------------------------------------------------
@@ -32,7 +32,7 @@ bool CMessageSinkStub::CollectMessage(
 	std::string_view buffer)
 {
     // Decode the buffer as it is expected to be encoded with Z85.
-    Message::Buffer const decoded = PackUtils::Z85Decode(buffer);
+    Message::Buffer const decoded = Z85::Decode(buffer);
 
     // Pass on the message collection to the decoded buffer method. 
     return CollectMessage(wpBryptPeer, context, decoded);
@@ -46,7 +46,7 @@ bool CMessageSinkStub::CollectMessage(
 	Message::Buffer const& buffer)
 {
     // Peek the protocol in the packed buffer. 
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     if (!optProtocol) {
         return false;
     }

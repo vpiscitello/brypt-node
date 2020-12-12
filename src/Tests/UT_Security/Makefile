@@ -1,4 +1,4 @@
-CXX = g++10
+CXX = g++-10
 BUILDDIR = ../../build
 BINARYDIR = ../../bin
 BINARYNAME = UT_Security

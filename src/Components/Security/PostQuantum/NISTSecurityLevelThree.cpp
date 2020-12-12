@@ -946,8 +946,8 @@ Security::OptionalBuffer Initiator::GenerateInitializationRequest(
     Security::Buffer request;
     request.reserve(size);
 
-    PackUtils::PackChunk(request, CStrategy::Type); // Pack the strategy type.
-    PackUtils::PackChunk(request, *optPrincipalSeed);
+    PackUtils::PackChunk(CStrategy::Type, request); // Pack the strategy type.
+    PackUtils::PackChunk(*optPrincipalSeed, request);
     if (std::uint32_t fetched = context.GetPublicKey(request); fetched == 0) {
         return {};
     }
@@ -989,8 +989,7 @@ bool Initiator::HandleInitializationResponse(
     {
         Security::Buffer seed;
         seed.reserve(CStrategy::PrincipalRandomSize);
-
-        if (!PackUtils::UnpackChunk(begin, end, seed, CStrategy::PrincipalRandomSize)) {
+        if (!PackUtils::UnpackChunk(begin, end, seed)) {
             return false;
         }
 
@@ -1002,8 +1001,7 @@ bool Initiator::HandleInitializationResponse(
     {
         Security::Buffer encapsulation;
         encapsulation.reserve(CContext::EncapsulationSize);
-
-        if (!PackUtils::UnpackChunk(begin, end, encapsulation, CContext::EncapsulationSize)) {
+        if (!PackUtils::UnpackChunk(begin, end, encapsulation)) {
             return false;
         }
 
@@ -1018,8 +1016,7 @@ bool Initiator::HandleInitializationResponse(
     {
         Security::Buffer verification;
         verification.reserve(Security::CKeyStore::VerificationSize);
-
-        if (!PackUtils::UnpackChunk(begin, end, verification, Security::CKeyStore::VerificationSize)) {
+        if (!PackUtils::UnpackChunk(begin, end, verification)) {
             return false;
         }
 
@@ -1065,8 +1062,8 @@ Security::OptionalBuffer Initiator::GeneratVerificationRequest(
     Security::Buffer request;
     request.reserve(size);
 
-    PackUtils::PackChunk(request, CStrategy::Type);
-    PackUtils::PackChunk(request, *optVerification);
+    PackUtils::PackChunk(CStrategy::Type, request);
+    PackUtils::PackChunk(*optVerification, request);
 
     // If for some reason we cannot sign the verification data it is an error. 
     if (pStrategy->Sign(request) == 0) {
@@ -1107,8 +1104,7 @@ bool Acceptor::HandleInitializationRequest(
     {
         Security::Buffer seed;
         seed.reserve(CStrategy::PrincipalRandomSize);
-
-        if (!PackUtils::UnpackChunk(begin, end, seed, CStrategy::PrincipalRandomSize)) {
+        if (!PackUtils::UnpackChunk(begin, end, seed)) {
             return false;
         }
 
@@ -1121,8 +1117,7 @@ bool Acceptor::HandleInitializationRequest(
         Security::Buffer key;
         std::uint32_t const size = context.GetPublicKeySize();
         key.reserve(size);
-
-        if (!PackUtils::UnpackChunk(begin, end, key, size)) {
+        if (!PackUtils::UnpackChunk(begin, end, key)) {
             return false;
         }
         
@@ -1175,10 +1170,10 @@ Security::OptionalBuffer Acceptor::GenerateInitializationResponse(
     Security::Buffer response; 
     response.reserve(size);
 
-    PackUtils::PackChunk(response, CStrategy::Type);
-    PackUtils::PackChunk(response, *optPrincipalSeed);
-	PackUtils::PackChunk(response, *optEncapsulation);
-	PackUtils::PackChunk(response, *optVerification);
+    PackUtils::PackChunk(CStrategy::Type, response);
+    PackUtils::PackChunk(*optPrincipalSeed, response);
+	PackUtils::PackChunk(*optEncapsulation, response);
+	PackUtils::PackChunk(*optVerification, response);
 
     synchronization.SetStage(CStrategy::AcceptorStage::Verification);
     if (!synchronization.SignTransaction(response)) {
@@ -1224,8 +1219,7 @@ bool Acceptor::HandleVerificationRequest(
     {
         Security::Buffer verification;
         verification.reserve(Security::CKeyStore::VerificationSize);
-
-        if (!PackUtils::UnpackChunk(begin, end, verification, Security::CKeyStore::VerificationSize)) {
+        if (!PackUtils::UnpackChunk(begin, end, verification)) {
             return false;
         }
 

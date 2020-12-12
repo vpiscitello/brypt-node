@@ -5,7 +5,6 @@
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../BryptMessage/MessageDefinitions.hpp"
 #include "../../BryptMessage/MessageUtils.hpp"
-#include "../../BryptMessage/PackUtils.hpp"
 #include "../../Components/BryptPeer/BryptPeer.hpp"
 #include "../../Components/Endpoints/EndpointIdentifier.hpp"
 #include "../../Components/Endpoints/TechnologyType.hpp"
@@ -15,6 +14,7 @@
 #include "../../Interfaces/ExchangeObserver.hpp"
 #include "../../Interfaces/MessageSink.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
+#include "../../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include "../../Libraries/googletest/include/gtest/gtest.h"
 //------------------------------------------------------------------------------------------------
@@ -550,8 +550,8 @@ bool local::CMessageCollector::CollectMessage(
 {
     m_pack = std::string(buffer.begin(), buffer.end());
 
-    auto decoded = PackUtils::Z85Decode(buffer);
-    auto const optProtocol = Message::PeekProtocol(decoded.begin(), decoded.end());
+    auto decoded = Z85::Decode(buffer);
+    auto const optProtocol = Message::PeekProtocol(decoded);
     if (!optProtocol) {
         return false;
     }

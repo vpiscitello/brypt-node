@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "NetworkMessage.hpp"
 #include "PackUtils.hpp"
+#include "../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -111,11 +112,7 @@ std::uint32_t CNetworkMessage::GetPackSize() const
 	size += m_header.GetPackSize();
 	size += m_payload.size();
 
-	// Account for the ASCII encoding method
-	size += (4 - (size & 3)) & 3;
-	size *= PackUtils::Z85Multiplier;
-
-	return size;
+	return Z85::EncodedSize(size);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -136,11 +133,11 @@ std::string CNetworkMessage::GetPack() const
     //      - Section 4.2 (2 bytes): Extension Size     |
     //      - Section 4.3 (N bytes): Extension Data     |   Extension End
 
-	PackUtils::PackChunk(buffer, m_type);
-	PackUtils::PackChunk(buffer, m_payload, sizeof(std::uint32_t));
+	PackUtils::PackChunk(m_type, buffer);
+	PackUtils::PackChunk<std::uint32_t>(m_payload, buffer);
 
 	// Extension Packing
-	PackUtils::PackChunk(buffer, std::uint8_t(0));
+	PackUtils::PackChunk(std::uint8_t(0), buffer);
 
 	// Calculate the number of bytes needed to pad to next 4 byte boundary
 	auto const paddingBytesRequired = (4 - (buffer.size() & 3)) & 3;
@@ -148,7 +145,7 @@ std::string CNetworkMessage::GetPack() const
 	Message::Buffer padding(paddingBytesRequired, 0);
 	buffer.insert(buffer.end(), padding.begin(), padding.end());
 
-	return PackUtils::Z85Encode(buffer);
+	return Z85::Encode(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -273,7 +270,7 @@ CNetworkBuilder& CNetworkBuilder::MakeHeartbeatResponse()
 
 CNetworkBuilder& CNetworkBuilder::SetPayload(std::string_view data)
 {
-    return SetPayload({ data.begin(), data.end() });
+    return SetPayload(Message::Buffer{ data.begin(), data.end() });
 }
 
 //------------------------------------------------------------------------------------------------
@@ -305,7 +302,7 @@ CNetworkBuilder& CNetworkBuilder::FromEncodedPack(std::string_view pack)
         return *this;
     }
 
-	Unpack(PackUtils::Z85Decode(pack));
+	Unpack(Z85::Decode(pack));
     
     return *this;
 }
@@ -360,7 +357,8 @@ void CNetworkBuilder::Unpack(Message::Buffer const& buffer)
 		return;
 	}
 
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, dataSize)) {
+	m_message.m_payload.reserve(dataSize);
+	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload)) {
 		return;
 	}
 

@@ -11,7 +11,10 @@
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wtype-limits"
 #include "../../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic pop
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <string_view>
