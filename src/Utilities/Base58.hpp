@@ -2,7 +2,7 @@
 // File: Base58.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/BryptIdentifier.hpp"
+#pragma once
 //------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <array>
@@ -14,11 +14,9 @@
 namespace Base58 {
 //------------------------------------------------------------------------------------------------
 
-using BufferType = std::vector<std::uint8_t>;
+constexpr std::uint32_t CharacterSpace = 58;
 
-constexpr std::uint32_t const CharacterSpace = 58;
-
-constexpr const std::array<std::uint8_t, CharacterSpace> CharacterSet = {
+constexpr std::array<std::uint8_t, CharacterSpace> EncodeMapping = {
   '1', '2', '3', '4', '5', '6', '7', '8', '9',
   'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J',
   'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T',
@@ -28,7 +26,7 @@ constexpr const std::array<std::uint8_t, CharacterSpace> CharacterSet = {
   'w', 'x', 'y', 'z'
 };
 
-constexpr const std::array<std::uint8_t, 128> AlphaMap = {
+constexpr std::array<std::uint8_t, 128> DecodeMapping = {
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -47,24 +45,33 @@ constexpr const std::array<std::uint8_t, 128> AlphaMap = {
   0x37, 0x38, 0x39, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-void Encode(BryptIdentifier::BufferType const& source, std::string& destination);
-BryptIdentifier::BufferType Decode(std::string_view source);
+[[nodiscard]] constexpr std::uint32_t ResultSize(std::uint32_t size);
+
+void Encode(std::vector<std::uint8_t> const& source, std::string& destination);
+[[nodiscard]] std::vector<std::uint8_t> Decode(std::string_view source);
 
 //------------------------------------------------------------------------------------------------
 } // Base58 namespace
 //------------------------------------------------------------------------------------------------
 
-inline void Base58::Encode(BufferType const& source, std::string& destination)
+inline constexpr std::uint32_t Base58::ResultSize(std::uint32_t size)
 {
-    std::uint32_t const size = (((source.size() * 138) / 100) + 1);
-    BufferType indicies(size, 0);
+    return ((size * 138) / 100) + 1;
+}
+
+//------------------------------------------------------------------------------------------------
+
+inline void Base58::Encode(std::vector<std::uint8_t> const& source, std::string& destination)
+{
+    std::uint32_t const size = ResultSize(source.size());
+    std::vector<std::uint8_t> indicies(size, 0x00);
     std::uint32_t length = 1;
 
-    for (std::uint32_t idx = 0; idx < source.size(); ++idx) {
-        std::uint32_t carry = static_cast<std::uint32_t>(source[idx]);
-        for (std::uint32_t jdx = 0; jdx < length; ++jdx) {
-            carry = carry + static_cast<std::uint32_t>(indicies[jdx] << 8);
-            indicies[jdx] = static_cast<std::uint8_t>(carry % CharacterSpace);
+    for (auto const& decoded : source) {
+        std::uint32_t carry = static_cast<std::uint32_t>(decoded);
+        for (std::uint32_t idx = 0; idx < length; ++idx) {
+            carry = carry + static_cast<std::uint32_t>(indicies[idx] << 8);
+            indicies[idx] = static_cast<std::uint8_t>(carry % CharacterSpace);
             carry /= CharacterSpace;
         }
 
@@ -74,28 +81,30 @@ inline void Base58::Encode(BufferType const& source, std::string& destination)
         }
     }
 
+    destination.reserve(length);
     for (std::uint32_t idx = 0; idx < (source.size() - 1) && !source[idx]; ++idx) {
-        destination.push_back(CharacterSet[0]);
+        destination.push_back(EncodeMapping[0]);
     }
 
     for (std::uint32_t idx = 0; idx < length; ++idx) {
-        destination.push_back(CharacterSet[indicies[length - idx - 1]]);
+        destination.push_back(EncodeMapping[indicies[length - idx - 1]]);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-inline Base58::BufferType Base58::Decode(std::string_view source)
+inline std::vector<std::uint8_t> Base58::Decode(std::string_view source)
 {
-    std::uint32_t const size = (((source.size() * 138) / 100) + 1);
-    BufferType decoded(size, 0);
+    std::uint32_t const size = ResultSize(source.size());
+    std::vector<std::uint8_t> decoded(size, 0x00);
     std::uint32_t length = 1;
 
-    for (std::uint32_t idx = 0; idx < source.size(); ++idx) {
-        std::uint32_t carry = static_cast<std::uint32_t>(AlphaMap[source[idx] & 0x7f]);
-        for (std::uint32_t jdx = 0; jdx < length; ++jdx) {
-            carry += static_cast<std::uint32_t>(decoded[jdx] * CharacterSpace);
-            decoded[jdx] = static_cast<std::uint8_t>(carry);
+
+    for (auto const& encoded : source) {
+        std::uint32_t carry = static_cast<std::uint32_t>(DecodeMapping[encoded & 0x7f]);
+        for (std::uint32_t idx = 0; idx < length; ++idx) {
+            carry += static_cast<std::uint32_t>(decoded[idx] * CharacterSpace);
+            decoded[idx] = static_cast<std::uint8_t>(carry);
             carry >>= 8;
         }
 
@@ -107,7 +116,7 @@ inline Base58::BufferType Base58::Decode(std::string_view source)
 
     decoded.resize(length);
 
-    for (std::uint32_t idx = 0; idx < (source.size() - 1) && source[idx] == CharacterSet[0]; ++idx) {
+    for (std::uint32_t idx = 0; idx < (source.size() - 1) && source[idx] == EncodeMapping[0]; ++idx) {
         decoded.push_back(0);
     }
 

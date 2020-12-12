@@ -16,7 +16,7 @@ CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pt
 endif
 
 CXXINCLUDES = $(OPENSSL_INCLUDE) $(GTEST_INCLUDE)
-CXXLIBS = -lzmq $(OPENSSL_LIB) -lpthread -lcrypto -ldl
+CXXLIBS = $(OPENSSL_LIB) -lpthread -lcrypto -ldl
 
 SRCDIR = .
 
