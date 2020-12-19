@@ -108,7 +108,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
         EXPECT_EQ(spAssociatedPeer, spBryptPeer);
         
         // Send a message through the peer to further verify that it is correct.
-        spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack());
+        EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
     }
 
     // Verify that the response passed through the capturing endpoint and matches the correct
@@ -183,7 +183,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
             EXPECT_EQ(spAssociatedPeer, spBryptPeer);
             
             // Send a message through the peer to further verify that it is correct.
-            spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack());
+            EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
         }
 
         // Verify that the response passed through the capturing endpoint and matches the correct
@@ -204,8 +204,7 @@ CEndpointRegistration local::GenerateCaptureRegistration(
     CEndpointRegistration registration(
         test::EndpointIdentifier,
         test::EndpointTechnology,
-        [&registration, &optCapturedMessage] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&registration, &optCapturedMessage] (auto const&, auto message) -> bool
         {
             auto const optMessage = CApplicationMessage::Builder()
                 .SetMessageContext(registration.GetMessageContext())
@@ -217,30 +216,18 @@ CEndpointRegistration local::GenerateCaptureRegistration(
         });
     
     registration.GetWritableMessageContext().BindEncryptionHandlers(
-        [] (auto const& buffer, [[maybe_unused]] auto size, [[maybe_unused]] auto nonce)
-            -> Security::Encryptor::result_type
-        {
-            return buffer;
-        },
-        [] (auto const& buffer, [[maybe_unused]] auto size, [[maybe_unused]] auto nonce)
-            -> Security::Decryptor::result_type
-        {
-            return buffer;
-        });
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type
+            {  return Security::Buffer(buffer.begin(), buffer.end()); },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type
+            { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     registration.GetWritableMessageContext().BindSignatureHandlers(
-        [] ([[maybe_unused]] auto& buffer) -> Security::Signator::result_type
-        {
-            return 0;
-        },
-        [] ([[maybe_unused]] auto const& buffer) -> Security::Verifier::result_type
-        {
-            return Security::VerificationStatus::Success;
-        },
+        [] (auto&) -> Security::Signator::result_type
+            {  return 0; },
+        [] (auto const&) -> Security::Verifier::result_type
+            { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type
-        {
-            return 0;
-        });
+            { return 0; });
 
     return registration;
 }

@@ -39,7 +39,7 @@ public:
     // }IMessageSink
     
     std::optional<AssociatedMessage> PopIncomingMessage();
-    std::uint32_t QueuedMessageCount() const;
+    std::size_t QueuedMessageCount() const;
 
 private:
     bool QueueMessage(

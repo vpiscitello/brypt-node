@@ -78,10 +78,7 @@ void CMessageContext::BindSignatureHandlers(
 Security::Encryptor::result_type CMessageContext::Encrypt(
 	Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const
 {
-	if (!m_encryptor) {
-		return {};
-	}
-	return m_encryptor(buffer, buffer.size(), timestamp.count());
+	return m_encryptor(buffer, timestamp.count());
 }
 
 //------------------------------------------------------------------------------------------------
@@ -89,19 +86,13 @@ Security::Encryptor::result_type CMessageContext::Encrypt(
 Security::Decryptor::result_type CMessageContext::Decrypt(
 	Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const
 {
-	if (!m_decryptor) {
-		return {};
-	}
-	return m_decryptor(buffer, buffer.size(), timestamp.count());
+	return m_decryptor(buffer, timestamp.count());
 }
 
 //------------------------------------------------------------------------------------------------
 
 Security::Signator::result_type CMessageContext::Sign(Message::Buffer& buffer) const
 {
-	if (!m_signator) {
-		return -1;
-	}
 	return m_signator(buffer);
 }
 
@@ -109,19 +100,13 @@ Security::Signator::result_type CMessageContext::Sign(Message::Buffer& buffer) c
 
 Security::Verifier::result_type CMessageContext::Verify(Message::Buffer const& buffer) const
 {
-	if (!m_verifier) {
-		return Security::VerificationStatus::Failed;
-	}
 	return m_verifier(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageContext::GetSignatureSize() const
+std::size_t CMessageContext::GetSignatureSize() const
 {
-	if (!m_getSignatureSize) {
-		return 0;
-	}
 	return m_getSignatureSize();
 }
 

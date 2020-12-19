@@ -209,10 +209,10 @@ CMessageContext local::GenerateMessageContext()
     CMessageContext context(test::EndpointIdentifier, test::EndpointTechnology);
 
     context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto, auto) -> Security::Encryptor::result_type 
-            { return buffer; },
-        [] (auto const& buffer, auto, auto) -> Security::Decryptor::result_type 
-            { return buffer; });
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
+            { return Security::Buffer(buffer.begin(), buffer.end()); },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
+            { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     context.BindSignatureHandlers(
         [] (auto&) -> Security::Signator::result_type 

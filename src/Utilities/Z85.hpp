@@ -25,6 +25,7 @@ using WritableView = std::span<std::uint8_t, std::dynamic_extent>;
 
 constexpr double Multiplier = 1.25;
 constexpr std::uint32_t CharacterSpace = 85;
+constexpr std::uint8_t CharacterOffset = 32;
 constexpr std::uint32_t EncodedBlockSize = 5;
 constexpr std::uint32_t DecodedBlockSize = 4;
 constexpr std::uint32_t EncodeDivisor = 85 * 85 * 85 * 85;
@@ -56,9 +57,9 @@ constexpr std::array<std::uint8_t, 96> DecodeMapping = {
     0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20,
     0x21, 0x22, 0x23, 0x4F, 0xFF, 0x50, 0xFF, 0xFF };
 
-[[nodiscard]] constexpr std::uint32_t EncodedSize(std::uint32_t size);
-[[nodiscard]] constexpr std::uint32_t DecodedSize(std::uint32_t size);
-[[nodiscard]] constexpr std::uint32_t PaddingBytes(std::uint32_t size);
+[[nodiscard]] constexpr std::size_t EncodedSize(std::size_t size);
+[[nodiscard]] constexpr std::size_t DecodedSize(std::size_t size);
+[[nodiscard]] constexpr std::size_t PaddingBytes(std::size_t size);
 
 [[nodiscard]] bool Encode(ReadableView source, WritableView destination);
 [[nodiscard]] std::string Encode(ReadableView source);
@@ -72,7 +73,7 @@ constexpr std::array<std::uint8_t, 96> DecodeMapping = {
 } // Base58 namespace
 //------------------------------------------------------------------------------------------------
 
-inline constexpr std::uint32_t Z85::EncodedSize(std::uint32_t size)
+inline constexpr std::size_t Z85::EncodedSize(std::size_t size)
 {
     size += PaddingBytes(size); 
     return size * EncodedBlockSize / DecodedBlockSize;
@@ -80,14 +81,14 @@ inline constexpr std::uint32_t Z85::EncodedSize(std::uint32_t size)
 
 //------------------------------------------------------------------------------------------------
 
-inline constexpr std::uint32_t Z85::DecodedSize(std::uint32_t size)
+inline constexpr std::size_t Z85::DecodedSize(std::size_t size)
 {
     return size * DecodedBlockSize / EncodedBlockSize;
 }
 
 //------------------------------------------------------------------------------------------------
 
-inline constexpr std::uint32_t Z85::PaddingBytes(std::uint32_t size)
+inline constexpr std::size_t Z85::PaddingBytes(std::size_t size)
 {
     return (4 - (size & 3)) & 3;
 }
@@ -98,8 +99,8 @@ inline bool Z85::Encode(ReadableView source, WritableView destination)
 {
     std::uint32_t index = 0;
     std::uint32_t value = 0;
-    std::uint32_t size = source.size();
-    std::uint32_t padding = PaddingBytes(size);
+    std::size_t size = source.size();
+    std::size_t padding = PaddingBytes(size);
     auto writable = destination.data();
 
     if (destination.size() != EncodedSize(source.size())) { return false; }
@@ -155,12 +156,10 @@ inline bool Z85::Decode(std::string_view source, WritableView destination)
 {
     std::uint32_t index = 0;
     std::uint32_t value = 0;
-    std::uint32_t size = source.size();
+    std::size_t size = source.size();
     auto writable = destination.data();
 
-    assert(destination.size() == DecodedSize(size) &&
-           destination.size() % DecodedBlockSize == 0);
-
+    assert(destination.size() == DecodedSize(size) && destination.size() % DecodedBlockSize == 0);
     assert(size >= EncodedBlockSize && size % EncodedBlockSize == 0);
 
     if (size < EncodedBlockSize || size % EncodedBlockSize != 0) { return false; }
@@ -180,7 +179,7 @@ inline bool Z85::Decode(std::string_view source, WritableView destination)
     for (auto const& encoded : source) {
         value *= CharacterSpace;
 
-        std::uint8_t const mapping = encoded - 32;
+        std::uint8_t const mapping = static_cast<std::uint8_t>(encoded - CharacterOffset);
         if (mapping >= IndexUpperBound) { return false; };
 
         std::uint32_t const DecodedUpperBound = DecodedBlockMaximum - value;

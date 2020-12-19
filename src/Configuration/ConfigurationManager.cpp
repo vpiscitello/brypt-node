@@ -9,7 +9,11 @@
 #include "../Utilities/FileUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //-----------------------------------------------------------------------------------------------
-#include "../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wconversion"
+#include "../../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic pop
 //-----------------------------------------------------------------------------------------------
 #include <array>
 #include <cstdlib>

@@ -17,19 +17,18 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t MinimumKeySize = 16;
+constexpr std::size_t MinimumKeySize = 16;
 
 constexpr std::string_view BaseExpansionSeed = "expansion-seed";
 
 constexpr std::string_view VerificationData = "verify";
-constexpr std::uint32_t VerificationKeySize = 32;
+constexpr std::size_t VerificationKeySize = 32;
 
 using DigestContext = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
 
-bool DeriveSecureKey(Security::Buffer& key, std::uint32_t size);
+bool DeriveSecureKey(Security::Buffer& key, std::size_t size);
 
-Security::OptionalBuffer GenerateVerificationData(
-    std::uint8_t const* key, std::uint32_t keySize, std::uint32_t dataSize);
+Security::OptionalBuffer GenerateVerificationData(Security::ReadableView key, std::size_t size);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -69,8 +68,8 @@ void Security::CKeyStore::ExpandSessionSeed(Security::Buffer const& buffer)
 bool Security::CKeyStore::GenerateSessionKeys(
     Security::Role role,
     Security::Buffer&& buffer,
-    std::uint32_t contentKeyBytes,
-    std::uint32_t signatureKeyBytes)
+    std::size_t contentKeyBytes,
+    std::size_t signatureKeyBytes)
 {
     // Ensure the caller is generating keys that offer at least 128 bits of security. 
     if (contentKeyBytes < local::MinimumKeySize || signatureKeyBytes < local::MinimumKeySize) {
@@ -79,11 +78,11 @@ bool Security::CKeyStore::GenerateSessionKeys(
     
     // Calculate the number of bytes needed to generate the keys required for the security
     // strategy.
-    std::uint32_t const principalKeyBytes = (2 * contentKeyBytes) + (2 * signatureKeyBytes);
+    std::size_t const principalKeyBytes = (2 * contentKeyBytes) + (2 * signatureKeyBytes);
 
     // We additional bytes than the caller specifies to generate verification bytes the 
     // strategy can use to verify key sharing was successful. 
-    std::uint32_t const totalDerivationBytes = principalKeyBytes + local::VerificationKeySize;
+    std::size_t const totalDerivationBytes = principalKeyBytes + local::VerificationKeySize;
 
     // Take ownership of the provided shared secret in order to manager its lifetime. 
     Security::Buffer derivation = std::move(buffer);
@@ -115,7 +114,7 @@ bool Security::CKeyStore::GenerateSessionKeys(
     //     4.) Acceptor Signature Key. 
     // To keep the key interfaces in sync, the cordons need to be set based on the role 
     // of the calling strategy. 
-    std::uint32_t partitioned = 0;
+    std::size_t partitioned = 0;
     switch (role) {
         case Security::Role::Initiator: {
             partitioned = SetInitiatorKeyCordons(contentKeyBytes, signatureKeyBytes);
@@ -132,17 +131,13 @@ bool Security::CKeyStore::GenerateSessionKeys(
 
     // Generate verification data based on the last 32 bytes of the derived principal key. 
     m_optVerificationData = local::GenerateVerificationData(
-        m_optPrinicpalKey->GetData() + partitioned, 
-        local::VerificationKeySize, VerificationSize);
+        m_optPrinicpalKey->GetCordon(partitioned, local::VerificationKeySize), VerificationSize);
 
     // If for some reason verification data could not be generated the generation of session
     // keys was not successful. 
-    if (!m_optVerificationData) {
-        return false;
-    }
+    if (!m_optVerificationData) { return false; }
 
     m_bHasGeneratedKeys = true;
-
     return true;
 }
 
@@ -155,50 +150,30 @@ Security::OptionalBuffer Security::CKeyStore::GetPeerPublicKey() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyResult Security::CKeyStore::GetContentKey() const
+Security::OptionalKeyCordons Security::CKeyStore::GetContentKey() const
 {
-    if (!m_optPrinicpalKey || !m_optContentKeyCordons) {
-        return {};
-    }
-
-    auto const& [begin, end] = *m_optContentKeyCordons;
-    return Security::KeyResult{ m_optPrinicpalKey->GetData() + begin, std::uint32_t(end - begin) };
+    return m_optContentKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyResult Security::CKeyStore::GetPeerContentKey() const
+Security::OptionalKeyCordons Security::CKeyStore::GetPeerContentKey() const
 {
-    if (!m_optPrinicpalKey || !m_optPeerContentKeyCordons) {
-        return {};
-    }
-
-    auto const& [begin, end] = *m_optPeerContentKeyCordons;
-    return Security::KeyResult{ m_optPrinicpalKey->GetData() + begin, std::uint32_t(end - begin) };
+    return m_optPeerContentKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyResult Security::CKeyStore::GetSignatureKey() const
+Security::OptionalKeyCordons Security::CKeyStore::GetSignatureKey() const
 {
-    if (!m_optPrinicpalKey || !m_optSignatureKeyCordons) {
-        return {};
-    }
-
-    auto const& [begin, end] = *m_optSignatureKeyCordons;
-    return Security::KeyResult{ m_optPrinicpalKey->GetData() + begin, std::uint32_t(end - begin) };
+    return m_optSignatureKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyResult Security::CKeyStore::GetPeerSignatureKey() const
+Security::OptionalKeyCordons Security::CKeyStore::GetPeerSignatureKey() const
 {
-    if (!m_optPrinicpalKey || !m_optPeerSignatureKeyCordons) {
-        return {};
-    }
-
-    auto const& [begin, end] = *m_optPeerSignatureKeyCordons;
-    return Security::KeyResult{ m_optPrinicpalKey->GetData() + begin, std::uint32_t(end - begin) };
+    return m_optPeerSignatureKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -232,39 +207,43 @@ void Security::CKeyStore::ResetState()
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t Security::CKeyStore::SetInitiatorKeyCordons(
-    std::uint32_t contentKeyBytes, std::uint32_t signatureKeyBytes)
+std::size_t Security::CKeyStore::SetInitiatorKeyCordons(
+    std::size_t contentKeyBytes, std::size_t signatureKeyBytes)
 {
-    std::uint32_t begin = 0;
-    std::uint32_t end = contentKeyBytes;
-
-    m_optContentKeyCordons = { begin, end }; begin = end; end += contentKeyBytes;
-    m_optPeerContentKeyCordons = { begin, end }; begin = end; end += signatureKeyBytes;
-    m_optSignatureKeyCordons = { begin, end }; begin = end; end += signatureKeyBytes;
-    m_optPeerSignatureKeyCordons = { begin, end };
-
-    return end;
+    assert(m_optPrinicpalKey);
+    std::size_t offset = 0;
+    m_optContentKeyCordons = m_optPrinicpalKey->GetCordon(offset, contentKeyBytes);
+    offset += contentKeyBytes;
+    m_optPeerContentKeyCordons = m_optPrinicpalKey->GetCordon(offset, contentKeyBytes);
+    offset += contentKeyBytes;
+    m_optSignatureKeyCordons = m_optPrinicpalKey->GetCordon(offset, signatureKeyBytes);
+    offset += signatureKeyBytes;
+    m_optPeerSignatureKeyCordons = m_optPrinicpalKey->GetCordon(offset, signatureKeyBytes);
+    offset += signatureKeyBytes;
+    return offset;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t Security::CKeyStore::SetAcceptorKeyCordons(
-    std::uint32_t contentKeyBytes, std::uint32_t signatureKeyBytes)
+std::size_t Security::CKeyStore::SetAcceptorKeyCordons(
+    std::size_t contentKeyBytes, std::size_t signatureKeyBytes)
 {
-    std::uint32_t begin = 0;
-    std::uint32_t end = contentKeyBytes;
-
-    m_optPeerContentKeyCordons = { begin, end }; begin = end; end += contentKeyBytes;
-    m_optContentKeyCordons = { begin, end }; begin = end; end += signatureKeyBytes;
-    m_optPeerSignatureKeyCordons = { begin, end }; begin = end; end += signatureKeyBytes;
-    m_optSignatureKeyCordons = { begin, end };
-
-    return end;
+    assert(m_optPrinicpalKey);
+    std::size_t offset = 0;
+    m_optPeerContentKeyCordons = m_optPrinicpalKey->GetCordon(offset, contentKeyBytes);
+    offset += contentKeyBytes;
+    m_optContentKeyCordons = m_optPrinicpalKey->GetCordon(offset, contentKeyBytes);
+    offset += contentKeyBytes;
+    m_optPeerSignatureKeyCordons = m_optPrinicpalKey->GetCordon(offset, signatureKeyBytes);
+    offset += signatureKeyBytes;
+    m_optSignatureKeyCordons = m_optPrinicpalKey->GetCordon(offset, signatureKeyBytes);
+    offset += signatureKeyBytes;
+    return offset;
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool local::DeriveSecureKey(Security::Buffer& key, std::uint32_t size)
+bool local::DeriveSecureKey(Security::Buffer& key, std::size_t size)
 { 
     local::DigestContext upDigestContext(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
 	if (ERR_get_error() != 0 || upDigestContext == nullptr) {
@@ -290,21 +269,17 @@ bool local::DeriveSecureKey(Security::Buffer& key, std::uint32_t size)
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::GenerateVerificationData(
-    std::uint8_t const* key, std::uint32_t keySize, std::uint32_t dataSize)
+Security::OptionalBuffer local::GenerateVerificationData(Security::ReadableView key, std::size_t size)
 {
     local::DigestContext upDigestContext(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
-	if (ERR_get_error() != 0 || upDigestContext == nullptr) {
-        return {};
-	}
-
+	if (ERR_get_error() != 0 || upDigestContext == nullptr) { return {}; }
     if (EVP_DigestInit_ex(upDigestContext.get(), EVP_shake256(), nullptr) != 1 || ERR_get_error() != 0) {
         return {};
     }
 
     // Make a verification data buffer to hash the verification key and a verification seed. 
-    Security::Buffer data(&key[0], &key[keySize]);
-    data.reserve(dataSize);
+    Security::Buffer data(key.begin(), key.end());
+    data.reserve(size);
     data.insert(data.end(), local::VerificationData.begin(), local::VerificationData.end());
 
     // If for some reason the buffer could not be loaded into OpenSSL, the buffer data should be wiped. 
@@ -313,10 +288,10 @@ Security::OptionalBuffer local::GenerateVerificationData(
         return {};
     }
 
-    data.resize(dataSize);  // Expand the key buffer such that data can be written. 
+    data.resize(size);  // Ensure the key buffer is the correct size and can be written to.  
 
     // If for some reason the verification data could not be written, the buffer data should be wiped. 
-    if (EVP_DigestFinalXOF(upDigestContext.get(), data.data(), dataSize) != 1 || ERR_get_error() != 0) {
+    if (EVP_DigestFinalXOF(upDigestContext.get(), data.data(), data.size()) != 1 || ERR_get_error() != 0) {
         Security::EraseMemory(data.data(), data.size());
         return {};
     }

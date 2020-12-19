@@ -83,30 +83,27 @@ public:
     virtual Security::Strategy GetStrategyType() const override;
     virtual Security::Role GetRoleType() const override;
     virtual Security::Context GetContextType() const override;
-    virtual std::uint32_t GetSignatureSize() const override;
+    virtual std::size_t GetSignatureSize() const override;
 
     virtual std::uint32_t GetSynchronizationStages() const override;
     virtual Security::SynchronizationStatus GetSynchronizationStatus() const override;
     virtual Security::SynchronizationResult PrepareSynchronization() override;
-    virtual Security::SynchronizationResult Synchronize(Security::Buffer const&) override;
+    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override;
 
     virtual Security::OptionalBuffer Encrypt(
-        Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
+        Security::ReadableView, std::uint64_t) const override;
     virtual Security::OptionalBuffer Decrypt(
-        Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
+        Security::ReadableView, std::uint64_t) const override;
 
     virtual std::int32_t Sign(Security::Buffer&) const override;
-    virtual Security::VerificationStatus Verify(Security::Buffer const&) const override;
+    virtual Security::VerificationStatus Verify(Security::ReadableView) const override;
 
 private: 
     virtual std::int32_t Sign(
-        Security::Buffer const&, Security::Buffer&) const override;
+        Security::ReadableView, Security::Buffer&) const override;
 
     virtual Security::OptionalBuffer GenerateSignature(
-        std::uint8_t const*,
-        std::uint32_t,
-        std::uint8_t const*,
-        std::uint32_t) const override;
+        Security::ReadableView, Security::ReadableView) const override;
 };
 
 //------------------------------------------------------------------------------------------------
@@ -145,7 +142,7 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
         test::ServerIdentifier, Security::Context::Unique, std::weak_ptr<IMessageSink>());
 
-    upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr);    
+    EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));    
 
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
@@ -181,7 +178,7 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
         test::ServerIdentifier, Security::Context::Unique, spCollector);
 
-    upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr);
+    EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));
 
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
@@ -204,7 +201,7 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 
     // Verify the peer's receiver has been swapped to the stub message sink when the 
     // mediator is notified of a sucessful exchange. 
-    upSecurityMediator->HandleExchangeClose(ExchangeStatus::Success);
+    upSecurityMediator->OnExchangeClose(ExchangeStatus::Success);
     EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Authorized);
 
     EXPECT_TRUE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
@@ -222,7 +219,7 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
     auto upSecurityMediator = std::make_unique<CSecurityMediator>(
         test::ServerIdentifier, Security::Context::Unique, spCollector);
 
-    upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr);
+    EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));
 
     auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
@@ -245,7 +242,7 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
 
     // Verify the peer receiver has been dropped when the tracker has been notified of a failed
     // exchange. 
-    upSecurityMediator->HandleExchangeClose(ExchangeStatus::Failed);
+    upSecurityMediator->OnExchangeClose(ExchangeStatus::Failed);
     EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Unauthorized);
 
     EXPECT_FALSE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
@@ -444,7 +441,7 @@ Security::Context local::CStrategyStub::GetContextType() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t local::CStrategyStub::GetSignatureSize() const
+std::size_t local::CStrategyStub::GetSignatureSize() const
 {
     return 0;
 }
@@ -472,7 +469,8 @@ Security::SynchronizationResult local::CStrategyStub::PrepareSynchronization()
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult local::CStrategyStub::Synchronize(Security::Buffer const&)
+Security::SynchronizationResult local::CStrategyStub::Synchronize(
+   [[maybe_unused]]  Security::ReadableView)
 {
     return { Security::SynchronizationStatus::Processing, {} };
 }
@@ -480,8 +478,7 @@ Security::SynchronizationResult local::CStrategyStub::Synchronize(Security::Buff
 //------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer local::CStrategyStub::Encrypt(
-    [[maybe_unused]] Security::Buffer const&,
-    [[maybe_unused]] std::uint32_t,
+    [[maybe_unused]] Security::ReadableView,
     [[maybe_unused]] std::uint64_t) const
 {
     return {};
@@ -490,8 +487,7 @@ Security::OptionalBuffer local::CStrategyStub::Encrypt(
 //------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer local::CStrategyStub::Decrypt(
-    [[maybe_unused]] Security::Buffer const&,
-    [[maybe_unused]] std::uint32_t,
+    [[maybe_unused]] Security::ReadableView,
     [[maybe_unused]] std::uint64_t) const
 {
     return {};
@@ -509,7 +505,7 @@ std::int32_t local::CStrategyStub::Sign(
 //------------------------------------------------------------------------------------------------
 
 Security::VerificationStatus local::CStrategyStub::Verify(
-    [[maybe_unused]] Security::Buffer const&) const
+    [[maybe_unused]] Security::ReadableView) const
 {
     return Security::VerificationStatus::Failed;
 }
@@ -517,7 +513,7 @@ Security::VerificationStatus local::CStrategyStub::Verify(
 //------------------------------------------------------------------------------------------------
 
 std::int32_t local::CStrategyStub::Sign(
-    [[maybe_unused]] Security::Buffer const&, [[maybe_unused]] Security::Buffer&) const
+    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::Buffer&) const
 {
     return 0;
 }
@@ -525,10 +521,8 @@ std::int32_t local::CStrategyStub::Sign(
 //------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer local::CStrategyStub::GenerateSignature(
-    [[maybe_unused]] std::uint8_t const*,
-    [[maybe_unused]] std::uint32_t,
-    [[maybe_unused]] std::uint8_t const*,
-    [[maybe_unused]] std::uint32_t) const
+    [[maybe_unused]] Security::ReadableView,
+    [[maybe_unused]] Security::ReadableView) const
 {
     return {};
 }

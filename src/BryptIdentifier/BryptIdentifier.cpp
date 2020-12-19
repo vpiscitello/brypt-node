@@ -233,7 +233,7 @@ BryptIdentifier::Network::Type BryptIdentifier::CContainer::GetNetworkRepresenta
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t BryptIdentifier::CContainer::NetworkRepresentationSize() const
+std::size_t BryptIdentifier::CContainer::NetworkRepresentationSize() const
 {
     return m_networkRepresentation.size();
 }

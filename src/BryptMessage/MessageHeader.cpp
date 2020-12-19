@@ -84,12 +84,12 @@ std::optional<BryptIdentifier::CContainer> const& CMessageHeader::GetDestination
 
 std::uint32_t CMessageHeader::GetPackSize() const
 {
-    std::uint32_t size = FixedPackSize();
+    std::size_t size = FixedPackSize();
     size += m_source.NetworkRepresentationSize();
     if (m_optDestinationIdentifier) {
         size += m_optDestinationIdentifier->NetworkRepresentationSize();
     }
-    return size;
+    return static_cast<std::uint32_t>(size);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -156,11 +156,10 @@ bool CMessageHeader::IsValid() const
 //------------------------------------------------------------------------------------------------
 
 bool CMessageHeader::ParseBuffer(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end)
+    Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end)
 {
     // The buffer must contain at least the minimum bytes packed by a header.
-    if (auto const size = std::distance(begin, end); size < FixedPackSize()) {
+    if (std::cmp_less(std::distance(begin, end), FixedPackSize())) {
         return false;
     }
 

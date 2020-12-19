@@ -13,7 +13,12 @@
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wconversion"
 #include "../../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic pop
+//------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
 

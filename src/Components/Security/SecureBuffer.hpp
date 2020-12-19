@@ -22,13 +22,13 @@ class Security::CSecureBuffer
 public:
     CSecureBuffer(Security::Buffer&& buffer);
     ~CSecureBuffer();
-
-    std::uint8_t const* GetData() const;
-    std::uint32_t GetSize() const;
+    
+    [[nodiscard]] Security::ReadableView GetData() const;
+    [[nodiscard]] Security::ReadableView GetCordon(std::size_t offset, std::size_t size) const;
+    [[nodiscard]] std::size_t GetSize() const;
     
 private:
     Security::Buffer m_buffer;
-
 };
 
 //------------------------------------------------------------------------------------------------

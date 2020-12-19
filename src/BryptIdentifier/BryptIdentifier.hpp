@@ -75,7 +75,7 @@ public:
     Internal::Type GetInternalRepresentation() const;
     Network::Type GetNetworkRepresentation() const;
 
-    std::uint32_t NetworkRepresentationSize() const;
+    std::size_t NetworkRepresentationSize() const;
     bool IsValid() const;
 
 private:

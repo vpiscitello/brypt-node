@@ -111,7 +111,7 @@ Command::Type CApplicationMessage::GetCommand() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CApplicationMessage::GetPhase() const
+std::uint8_t CApplicationMessage::GetPhase() const
 {
 	return m_phase;
 }
@@ -150,7 +150,7 @@ std::optional<Await::TrackerKey> CApplicationMessage::GetAwaitTrackerKey() const
 
 std::uint32_t CApplicationMessage::GetPackSize() const
 {
-	std::uint32_t size = FixedPackSize();
+	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
 	size += m_payload.size();
 	if (m_optBoundAwaitTracker) {
@@ -160,7 +160,9 @@ std::uint32_t CApplicationMessage::GetPackSize() const
 	assert(m_context.HasSecurityHandlers());
 	size += m_context.GetSignatureSize();
 
-	return Z85::EncodedSize(size);
+	auto const encoded = Z85::EncodedSize(size);
+	assert(encoded < std::numeric_limits<std::uint32_t>::max());
+	return static_cast<std::uint32_t>(encoded);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -241,25 +243,25 @@ Message::ValidationStatus CApplicationMessage::Validate() const
 
 constexpr std::uint32_t CApplicationMessage::FixedPackSize() const
 {
-	std::uint32_t size = 0;
+	std::size_t size = 0;
 	size += sizeof(m_command); // 1 byte for command type
 	size += sizeof(m_phase); // 1 byte for command phase
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint64_t); // 8 bytes for message timestamp
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-	return size;
+	return static_cast<std::uint32_t>(size);
 }
 
 //------------------------------------------------------------------------------------------------
 
 constexpr std::uint16_t CApplicationMessage::FixedAwaitExtensionSize() const
 {
-	std::uint16_t size = 0;
+	std::size_t size = 0;
 	size += sizeof(local::Extensions::AwaitTracker); // 1 byte for the extension type
 	size += sizeof(std::uint16_t); // 2 bytes for the extension size
 	size += sizeof(m_optBoundAwaitTracker->first); // 1 byte for await tracker binding
 	size += sizeof(m_optBoundAwaitTracker->second); // 4 bytes for await tracker key
-	return size;
+	return static_cast<std::uint16_t>(size);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -445,6 +447,7 @@ CApplicationBuilder::OptionalMessage CApplicationBuilder::ValidatedBuild()
     if (m_message.Validate() != Message::ValidationStatus::Success) {
         return {};
     }
+
     return std::move(m_message);
 }
 

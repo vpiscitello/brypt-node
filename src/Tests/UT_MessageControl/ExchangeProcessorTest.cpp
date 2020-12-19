@@ -77,9 +77,8 @@ public:
     CExchangeObserverStub();
 
     // IExchangeObserver {
-    virtual void HandleExchangeClose(
-        ExchangeStatus status,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy = nullptr) override;
+    virtual void OnExchangeClose(ExchangeStatus status) override;
+    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) override;
     // } IExchangeObserver 
 
     bool ExchangeSuccess() const;
@@ -245,12 +244,17 @@ local::CExchangeObserverStub::CExchangeObserverStub()
 
 //------------------------------------------------------------------------------------------------
 
-void local::CExchangeObserverStub::HandleExchangeClose(
-    ExchangeStatus status,
-    std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
+void local::CExchangeObserverStub::OnExchangeClose(ExchangeStatus status)
 {
     m_status = status;
-    m_upSecurityStrategy = std::move(upSecurityStrategy);
+}
+
+//------------------------------------------------------------------------------------------------
+
+void local::CExchangeObserverStub::OnFulfilledStrategy(
+    std::unique_ptr<ISecurityStrategy>&& upStrategy)
+{
+    m_upSecurityStrategy = std::move(upStrategy);
 }
 
 //------------------------------------------------------------------------------------------------

@@ -23,10 +23,10 @@ public:
 	CMessageContext();
 	CMessageContext(Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology);
 
-	Endpoints::EndpointIdType GetEndpointIdentifier() const;
-	Endpoints::TechnologyType GetEndpointTechnology() const;
+	[[nodiscard]] Endpoints::EndpointIdType GetEndpointIdentifier() const;
+	[[nodiscard]] Endpoints::TechnologyType GetEndpointTechnology() const;
 
-	bool HasSecurityHandlers() const;
+	[[nodiscard]] bool HasSecurityHandlers() const;
 
 	void BindEncryptionHandlers(
 		Security::Encryptor const& encryptor, Security::Decryptor const& decryptor);
@@ -36,13 +36,13 @@ public:
 		Security::Verifier const& verifier,
 		Security::SignatureSizeGetter const& getter);
 
-	Security::Encryptor::result_type Encrypt(
+	[[nodiscard]] Security::Encryptor::result_type Encrypt(
 		Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const;
-	Security::Decryptor::result_type Decrypt(
+	[[nodiscard]] Security::Decryptor::result_type Decrypt(
 		Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const;
-	Security::Signator::result_type Sign(Message::Buffer& buffer) const;
-	Security::Verifier::result_type Verify(Message::Buffer const& buffer) const;
-	std::uint32_t GetSignatureSize() const;
+	[[nodiscard]] Security::Signator::result_type Sign(Message::Buffer& buffer) const;
+	[[nodiscard]] Security::Verifier::result_type Verify(Message::Buffer const& buffer) const;
+	[[nodiscard]] std::size_t GetSignatureSize() const;
 
 private:
 	Endpoints::EndpointIdType m_endpointIdentifier;

@@ -7,7 +7,12 @@
 #include "../BryptIdentifier/ReservedIdentifiers.hpp"
 #include "../Utilities/FileUtils.hpp"
 //-----------------------------------------------------------------------------------------------
-#include "../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wconversion"
+#include "../../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic pop
+//------------------------------------------------------------------------------------------------
 #include <cstdlib>
 #include <iostream>
 #include <fstream>

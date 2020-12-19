@@ -108,11 +108,13 @@ Message::Buffer const& CNetworkMessage::GetPayload() const
 
 std::uint32_t CNetworkMessage::GetPackSize() const
 {
-	std::uint32_t size = FixedPackSize();
+	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
 	size += m_payload.size();
 
-	return Z85::EncodedSize(size);
+	auto const encoded = Z85::EncodedSize(size);
+	assert(encoded < std::numeric_limits<std::uint32_t>::max());
+	return static_cast<std::uint32_t>(encoded);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -169,11 +171,11 @@ Message::ValidationStatus CNetworkMessage::Validate() const
 
 constexpr std::uint32_t CNetworkMessage::FixedPackSize() const
 {
-	std::uint32_t size = 0;
+	std::size_t size = 0;
 	size += sizeof(Message::Network::Type); // 1 byte for network message type
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-	return size;
+	return static_cast<std::uint32_t>(size);
 }
 
 //------------------------------------------------------------------------------------------------

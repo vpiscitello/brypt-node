@@ -34,7 +34,7 @@ public:
 
     CSecurityMediator(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
+        std::unique_ptr<ISecurityStrategy>&& upStrategy);
 
     CSecurityMediator(CSecurityMediator&& other) = delete;
     CSecurityMediator(CSecurityMediator const& other) = delete;
@@ -43,22 +43,21 @@ public:
     ~CSecurityMediator();
 
     // IExchangeObserver {
-    virtual void HandleExchangeClose(
-        ExchangeStatus status,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy = nullptr) override;
+    virtual void OnExchangeClose(ExchangeStatus status) override;
+    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) override;
     // } IExchangeObserver
 
-    Security::State GetSecurityState() const;
+    [[nodiscard]] Security::State GetSecurityState() const;
 
     void BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer);
     void BindSecurityContext(CMessageContext& context) const;
 
-    std::optional<std::string> SetupExchangeInitiator(
+    [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
         Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
-    bool SetupExchangeAcceptor(Security::Strategy strategy);
-    bool SetupExchangeProcessor(
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
+    [[nodiscard]] bool SetupExchangeAcceptor(Security::Strategy strategy);
+    [[nodiscard]] bool SetupExchangeProcessor(
+        std::unique_ptr<ISecurityStrategy>&& upStrategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
 
 private:
@@ -69,11 +68,12 @@ private:
 
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
     std::shared_ptr<CBryptPeer> m_spBryptPeer;
-    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
+    std::unique_ptr<ISecurityStrategy> m_upStrategy;
 
     std::unique_ptr<CExchangeProcessor> m_upExchangeProcessor;
     std::weak_ptr<IMessageSink> m_wpAuthorizedSink;
 
+    std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
 };
 
 //------------------------------------------------------------------------------------------------

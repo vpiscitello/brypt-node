@@ -45,7 +45,7 @@ constexpr std::array<std::uint8_t, 128> DecodeMapping = {
   0x37, 0x38, 0x39, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-[[nodiscard]] constexpr std::uint32_t ResultSize(std::uint32_t size);
+[[nodiscard]] constexpr std::size_t ResultSize(std::size_t size);
 
 void Encode(std::vector<std::uint8_t> const& source, std::string& destination);
 [[nodiscard]] std::vector<std::uint8_t> Decode(std::string_view source);
@@ -54,7 +54,7 @@ void Encode(std::vector<std::uint8_t> const& source, std::string& destination);
 } // Base58 namespace
 //------------------------------------------------------------------------------------------------
 
-inline constexpr std::uint32_t Base58::ResultSize(std::uint32_t size)
+inline constexpr std::size_t Base58::ResultSize(std::size_t size)
 {
     return ((size * 138) / 100) + 1;
 }
@@ -63,7 +63,7 @@ inline constexpr std::uint32_t Base58::ResultSize(std::uint32_t size)
 
 inline void Base58::Encode(std::vector<std::uint8_t> const& source, std::string& destination)
 {
-    std::uint32_t const size = ResultSize(source.size());
+    std::size_t const size = ResultSize(source.size());
     std::vector<std::uint8_t> indicies(size, 0x00);
     std::uint32_t length = 1;
 
@@ -95,7 +95,7 @@ inline void Base58::Encode(std::vector<std::uint8_t> const& source, std::string&
 
 inline std::vector<std::uint8_t> Base58::Decode(std::string_view source)
 {
-    std::uint32_t const size = ResultSize(source.size());
+    std::size_t const size = ResultSize(source.size());
     std::vector<std::uint8_t> decoded(size, 0x00);
     std::uint32_t length = 1;
 

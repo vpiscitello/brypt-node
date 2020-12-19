@@ -79,7 +79,7 @@ bool CAuthorizedProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CAuthorizedProcessor::QueuedMessageCount() const
+std::size_t CAuthorizedProcessor::QueuedMessageCount() const
 {
 	std::shared_lock lock(m_incomingMutex);
 	return m_incoming.size();

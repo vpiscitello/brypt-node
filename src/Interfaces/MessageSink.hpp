@@ -24,12 +24,12 @@ class IMessageSink
 public:
     virtual ~IMessageSink() = default;
 
-    virtual bool CollectMessage(
+    [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessageContext const& context,
         std::string_view buffer) = 0;
         
-    virtual bool CollectMessage(
+    [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessageContext const& context,
         Message::Buffer const& buffer) = 0;

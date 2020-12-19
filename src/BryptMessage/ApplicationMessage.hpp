@@ -51,7 +51,7 @@ public:
 	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
 
 	Command::Type GetCommand() const;
-	std::uint32_t GetPhase() const;
+	std::uint8_t GetPhase() const;
 	Message::Buffer GetPayload() const;
 	TimeUtils::Timestamp const& GetTimestamp() const;
 	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;

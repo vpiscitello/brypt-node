@@ -39,12 +39,12 @@ public:
         std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
 
     // IMessageSink {
-    virtual bool CollectMessage(
+    [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessageContext const& context,
         std::string_view buffer) override;
         
-    virtual bool CollectMessage(
+    [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<CBryptPeer> const& wpBryptPeer,
         CMessageContext const& context,
         Message::Buffer const& buffer) override;
@@ -57,13 +57,11 @@ private:
 
     constexpr static TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
 
-    bool HandleMessage(
-        std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CNetworkMessage const& message);
+    [[nodiscard]] bool HandleMessage(
+        std::shared_ptr<CBryptPeer> const& spBryptPeer, CNetworkMessage const& message);
 
-    bool HandleSynchronizationMessage(
-        std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CNetworkMessage const& message);
+    [[nodiscard]] bool HandleSynchronizationMessage(
+        std::shared_ptr<CBryptPeer> const& spBryptPeer, CNetworkMessage const& message);
 
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;

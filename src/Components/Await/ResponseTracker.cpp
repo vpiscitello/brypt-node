@@ -7,7 +7,11 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
+#pragma GCC diagnostic push 
+#pragma GCC diagnostic ignored "-Wtype-limits"
+#pragma GCC diagnostic ignored "-Wconversion"
 #include "../../Libraries/metajson/metajson.hh"
+#pragma GCC diagnostic pop
 //------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cassert>
@@ -47,7 +51,7 @@ Await::CResponseTracker::CResponseTracker(
     CApplicationMessage const& request,
     std::set<BryptIdentifier::SharedContainer> const& identifiers)
     : m_status(ResponseStatus::Unfulfilled)
-    , m_expected(identifiers.size())
+    , m_expected(std::uint32_t(identifiers.size()))
     , m_received(0)
     , m_wpRequestor(wpRequestor)
     , m_request(request)
@@ -151,7 +155,7 @@ bool Await::CResponseTracker::SendFulfilledResponse()
         .SetMessageContext(m_request.GetContext())
         .SetSource(*optBryptIdentifier)
         .SetDestination(destination)
-        .SetCommand(m_request.GetCommand(), m_request.GetPhase() + 1)
+        .SetCommand(m_request.GetCommand(), m_request.GetPhase() + std::uint8_t(1))
         .SetPayload(data)
         .ValidatedBuild();
     assert(optResponse);

@@ -60,7 +60,7 @@ std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
 
 //------------------------------------------------------------------------------------------------
 
-void Security::EraseMemory(void* begin, std::uint32_t size)
+void Security::EraseMemory(void* begin, std::size_t size)
 {
 #if defined(__STDC_LIB_EXT1__)
     std::memset_s(begin, size, 0, size);

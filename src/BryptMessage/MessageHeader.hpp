@@ -37,7 +37,7 @@ public:
 
 	constexpr static std::uint32_t FixedPackSize()
     {
-        std::uint32_t size = 0;
+        std::size_t size = 0;
         size += sizeof(m_protocol); // 1 byte for message protocol type 
         size += sizeof(m_version.first); // 1 byte for major version
         size += sizeof(m_version.second); // 1 byte for minor version
@@ -46,30 +46,28 @@ public:
         size += sizeof(std::uint8_t); // 1 byte for destination type
         size += sizeof(std::uint8_t); // 1 byte for destination identifier size
         size += sizeof(std::uint8_t); // 1 bytes for header extension size
-        return size;
+        return static_cast<std::uint32_t>(size);
     }
 
     constexpr static std::uint32_t PeekableEncodedSize()
     {
-        std::uint32_t size = 0;
+        std::size_t size = 0;
         size += sizeof(m_protocol); // 1 byte for message protocol type 
         size += sizeof(m_version.first); // 1 byte for major version
         size += sizeof(m_version.second); // 1 byte for minor version
         size += sizeof(m_size); // 4 bytes for message size
         size += sizeof(std::uint8_t); // 1 byte for source identifier size
-        return Z85::EncodedSize(size);
+        return static_cast<std::uint32_t>(Z85::EncodedSize(size));
     }
 
     constexpr static std::uint32_t MaximumEncodedSize()
     {
         // Base the peekable encoded size 
-        std::uint32_t size = FixedPackSize();
-
+        std::size_t size = FixedPackSize();
         // Account for the maximum possible sizes of the source and destination sizes.
         size += BryptIdentifier::Network::MaximumLength;
         size += BryptIdentifier::Network::MaximumLength;
-
-        return Z85::EncodedSize(size);
+        return static_cast<std::uint32_t>(Z85::EncodedSize(size));
     }
 
 private:

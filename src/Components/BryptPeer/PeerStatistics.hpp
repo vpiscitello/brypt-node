@@ -12,8 +12,8 @@ class CPeerStatistics
 public:
     CPeerStatistics();
 
-    std::uint32_t GetSentCount() const;
-    std::uint32_t GetReceivedCount() const;
+    [[nodiscard]] std::uint32_t GetSentCount() const;
+    [[nodiscard]] std::uint32_t GetReceivedCount() const;
 
     void IncrementSentCount();
     void IncrementReceivedCount();
@@ -21,7 +21,6 @@ public:
 private:
     std::uint32_t m_sent;
     std::uint32_t m_received;
-
 };
 
 //------------------------------------------------------------------------------------------------

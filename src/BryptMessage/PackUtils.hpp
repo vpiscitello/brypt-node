@@ -29,7 +29,7 @@ template<typename Source>
 		(sizeof(Source) > 0 && sizeof(Source) < 9)	
 void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 {
-	constexpr std::uint32_t SourceBytes = sizeof(Source);
+	constexpr std::size_t SourceBytes = sizeof(Source);
 	if constexpr (std::endian::native == std::endian::little) {
 		auto const size = destination.size();
 		auto const begin = destination.data() + size;
@@ -58,7 +58,7 @@ inline void PackChunk(
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
-		constexpr std::uint32_t FieldLimit = sizeof(SizeField);
+		constexpr std::size_t FieldLimit = sizeof(SizeField);
 		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
 		auto const size = static_cast<SizeField>(source.size());
 		PackChunk(size, destination);
@@ -82,7 +82,7 @@ inline void PackChunk(
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
-		constexpr std::uint32_t FieldLimit = sizeof(SizeField);
+		constexpr std::size_t FieldLimit = sizeof(SizeField);
 		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
 		auto const size = static_cast<SizeField>(source.size());
 		PackChunk(size, destination);
@@ -98,12 +98,10 @@ template<std::input_iterator Source, typename Destination>
 		std::indirectly_copyable<Source, std::uint8_t*>
 bool UnpackChunk(Source& begin, Source const& end, Destination& destination)
 {
-    constexpr std::uint32_t DestinationBytes = sizeof(destination);
+    constexpr std::size_t DestinationBytes = sizeof(destination);
 
 	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
-	if (auto const available = std::distance(begin, end); available < DestinationBytes) {
-		return false;
-	}
+	if (std::cmp_less(std::distance(begin, end), DestinationBytes)) { return false; }
 
 	std::copy_n(begin, DestinationBytes, reinterpret_cast<std::uint8_t*>(&destination));
 	if constexpr (std::endian::native == std::endian::little) {
@@ -126,12 +124,10 @@ template<std::input_iterator Source>
 bool UnpackChunk(
 	Source& begin, Source const& end, std::vector<std::uint8_t>& destination)
 {
-	std::uint32_t const capacity = destination.capacity();
+	std::size_t const capacity = destination.capacity();
 
 	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
-	if (auto const available = std::distance(begin, end); available < capacity) {
-		return false;
-	}
+	if (std::cmp_less(std::distance(begin, end), capacity)) { return false; }
 
 	// Insert the buffer section into the destination
 	destination.insert(destination.begin(), begin, begin + capacity);
