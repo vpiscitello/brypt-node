@@ -4,22 +4,25 @@ BINARYDIR = ../../bin
 BINARYNAME = UT_Endpoints
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
+GTEST_INCLUDES = -isystem ../../Libraries/googletest -isystem ../../Libraries/googletest/include
+LIJSON_INCLUDE = -isystem ../../Libraries/lithium
+OPENSSL_INCLUDE = -isystem /usr/local/opt/openssl@1.1/include/openssl
+OQS_INCLUDE = -isystem /usr/local/include/oqs
+
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
 OQS_LIB = -L/usr/local/lib
 
-OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
-OQS_INCLUDE = -I/usr/local/include/oqs
-GTEST_INCLUDE = -I../../Libraries/googletest/include
-
 mode = release
 ifeq ($(mode),debug)
-CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines
+CXXFLAGS = -g3 -ggdb3 -pedantic -Wall -Wextra -Wextra-semi -Wformat-security -Wnull-dereference\
+ -Wduplicated-branches -Wduplicated-cond -Wconversion -fsanitize=undefined -fsanitize=thread\
+ -fcoroutines -pthread -std=c++20 
 else
-CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines
+CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -Wno-vla -pthread -fcoroutines -std=c++20
 endif
 
-CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(GTEST_INCLUDE)
-CXXLIBS = $(OPENSSL_LIB) $(OQS_LIB) -lpthread -lcrypto -loqs -ldl
+CXXINCLUDES = $(GTEST_INCLUDES) $(LIJSON_INCLUDE) $(OPENSSL_INCLUDE) $(OQS_INCLUDE)
+CXXLIBS = $(OPENSSL_LIB) $(OQS_LIB) -lpthread -lcrypto -lboost_system -loqs -ldl
 
 SRCDIR = .
 
@@ -53,7 +56,7 @@ vpath %.cpp $(MODULES)
 define cxx-command
 $1/%.o: %.cpp
 	@echo Compiling $$<...
-	$(CXX) -isystem $(GTEST_INCLUDE) -I$(GTESTDIR) -c $$< -o $$@ $(CXXINCLUDES) $(CXXFLAGS)
+	$(CXX) $(CXXFLAGS) $(CXXINCLUDES) -c $$< -o $$@
 	@echo
 endef
 
@@ -64,12 +67,12 @@ all: introduction $(TARGET)
 rebuild: clean all
 
 $(BUILDDIR)/gtest-all.o: $(GTESTDIR)/src/gtest-all.cc
-	$(CXX) -isystem $(GTEST_INCLUDE) -I$(GTESTDIR) $(CXXINCLUDES) $(CXXFLAGS) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) $(CXXINCLUDES) -c -o $@ $<
 
 $(TARGET): $(OBJS)
 	@echo Building $(BINARYNAME) binary...
 	@mkdir -p $(BINARYDIR)
-	$(CXX) -isystem $(GTEST_INCLUDE) $^ -o $@ $(CXXINCLUDES) $(CXXFLAGS) $(CXXLIBS)
+	$(CXX) $(CXXFLAGS) $(CXXINCLUDES) $^ -o $@ $(CXXLIBS)
 	@echo
 ifdef cleanup
 	@echo Removing temporary build directory...

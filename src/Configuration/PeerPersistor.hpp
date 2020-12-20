@@ -30,8 +30,8 @@ public:
     using BootstrapSet = std::unordered_set<std::string>;
     using UniqueBootstrapSet = std::unique_ptr<BootstrapSet>;
 
-    using EndpointBootstrapMap = std::unordered_map<Endpoints::TechnologyType, UniqueBootstrapSet>;
-    using UniqueEndpointBootstrapMap = std::unique_ptr<EndpointBootstrapMap>;
+    using TechnologiesMap = std::unordered_map<Endpoints::TechnologyType, UniqueBootstrapSet>;
+    using UniqueTechnologiesMap = std::unique_ptr<TechnologiesMap>;
 
     using DefaultBootstrapMap = std::unordered_map<Endpoints::TechnologyType, std::string>;
 
@@ -84,8 +84,8 @@ public:
         Endpoints::TechnologyType technology,
         OneEndpointBootstrapReadFunction const& callback) const override;
 
-    std::uint32_t CachedBootstrapCount() const override;
-    std::uint32_t CachedBootstrapCount(Endpoints::TechnologyType technology) const override;
+    std::size_t CachedBootstrapCount() const override;
+    std::size_t CachedBootstrapCount(Endpoints::TechnologyType technology) const override;
     // } IBootstrapCache
     
 private:
@@ -94,8 +94,8 @@ private:
     mutable std::mutex m_fileMutex;
     std::filesystem::path m_filepath;
     
-    mutable std::mutex m_endpointBootstrapsMutex;
-    UniqueEndpointBootstrapMap m_upEndpointBootstraps;
+    mutable std::mutex m_technologiessMutex;
+    UniqueTechnologiesMap m_upTechnologies;
 
     DefaultBootstrapMap m_defaults;
 };

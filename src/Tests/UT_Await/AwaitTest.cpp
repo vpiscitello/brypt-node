@@ -8,7 +8,7 @@
 #include "../../Components/Endpoints/TechnologyType.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <string_view>

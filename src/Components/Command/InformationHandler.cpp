@@ -13,11 +13,7 @@
 #include "../../BryptNode/NetworkState.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push 
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-Wconversion"
-#include "../../Libraries/metajson/metajson.hh"
-#pragma GCC diagnostic pop
+#include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -47,13 +43,34 @@ struct TNodeInfo;
 //------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding
 //------------------------------------------------------------------------------------------------
-IOD_SYMBOL(identifier)
-IOD_SYMBOL(cluster)
-IOD_SYMBOL(coordinator)
-IOD_SYMBOL(neighbor_count)
-IOD_SYMBOL(designation)
-IOD_SYMBOL(technologies)
-IOD_SYMBOL(update_timestamp)
+#ifndef LI_SYMBOL_identifier
+#define LI_SYMBOL_identifier
+LI_SYMBOL(identifier)
+#endif
+#ifndef LI_SYMBOL_cluster
+#define LI_SYMBOL_cluster
+LI_SYMBOL(cluster)
+#endif
+#ifndef LI_SYMBOL_coordinator
+#define LI_SYMBOL_coordinator
+LI_SYMBOL(coordinator)
+#endif
+#ifndef LI_SYMBOL_neighbor_count
+#define LI_SYMBOL_neighbor_count
+LI_SYMBOL(neighbor_count)
+#endif
+#ifndef LI_SYMBOL_designation
+#define LI_SYMBOL_designation
+LI_SYMBOL(designation)
+#endif
+#ifndef LI_SYMBOL_technologies
+#define LI_SYMBOL_technologies
+LI_SYMBOL(technologies)
+#endif
+#ifndef LI_SYMBOL_update_timestamp
+#define LI_SYMBOL_update_timestamp
+LI_SYMBOL(update_timestamp)
+#endif
 //------------------------------------------------------------------------------------------------
 
 struct Json::TNodeInfo
@@ -213,7 +230,7 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
         }
     } */
 
-    std::string const data = iod::json_vector(
+    std::string const data = li::json_vector(
         s::identifier, s::cluster, s::coordinator, s::neighbor_count,
         s::designation, s::technologies, s::update_timestamp).encode(nodesInfo);
 

@@ -13,7 +13,7 @@ Brypt is an exploration into creating a secure distributed network and applicati
 - Boost 1.74
 - liboqs 0.3.0
 - liboqs-cpp 0.3.0
-- metajson 0.2
+- lithium_json 0.0
 - Google Test 1.10
   
 ### Build Process

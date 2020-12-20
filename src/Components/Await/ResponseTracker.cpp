@@ -7,18 +7,20 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push 
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-Wconversion"
-#include "../../Libraries/metajson/metajson.hh"
-#pragma GCC diagnostic pop
+#include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cassert>
 //------------------------------------------------------------------------------------------------
 
-IOD_SYMBOL(identifier)
-IOD_SYMBOL(pack)
+#ifndef LI_SYMBOL_identifier
+#define LI_SYMBOL_identifier
+LI_SYMBOL(identifier)
+#endif
+#ifndef LI_SYMBOL_pack
+#define LI_SYMBOL_pack
+LI_SYMBOL(pack)
+#endif
 
 //------------------------------------------------------------------------------------------------
 // Description: Intended for a single peer
@@ -139,7 +141,7 @@ bool Await::CResponseTracker::SendFulfilledResponse()
             return entry;
         });
 
-    std::string data = iod::json_vector(s::identifier, s::pack).encode(responsesVector);
+    std::string data = li::json_vector(s::identifier, s::pack).encode(responsesVector);
 
     // Note: The destination of the stored request should always represent to the current
     // node's Brypt Identifier. 

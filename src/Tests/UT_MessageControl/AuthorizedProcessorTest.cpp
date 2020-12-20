@@ -7,7 +7,7 @@
 #include "../../Components/MessageControl/AssociatedMessage.hpp"
 #include "../../Components/MessageControl/AuthorizedProcessor.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <optional>

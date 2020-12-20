@@ -4,12 +4,12 @@ BINARYDIR = bin
 BINARYNAME = BryptNode
 TARGET = $(BINARYDIR)/$(BINARYNAME)
 
+LIJSON_INCLUDE = -isystem ../Libraries/lithium
+OPENSSL_INCLUDE = -isystem /usr/local/opt/openssl@1.1/include/openssl
+OQS_INCLUDE = -isystem /usr/local/include/oqs
+
 OPENSSL_LIB = -L/usr/local/opt/openssl@1.1/lib
 OQS_LIB = -L/usr/local/lib
-
-OPENSSL_INCLUDE = -I/usr/local/opt/openssl@1.1/include/openssl
-OQS_INCLUDE = -I/usr/local/include/oqs
-EXTERNAL_LIBARIES_INCLUDE = -ILibraries
 
 mode = release
 ifeq ($(mode),debug)
@@ -18,7 +18,7 @@ else
 CXXFLAGS = -O2 -pedantic -Wall -Wextra -Wformat-security -std=c++20 -Wno-vla -pthread -fcoroutines -MMD -MP
 endif
 
-CXXINCLUDES = $(OPENSSL_INCLUDE) $(OQS_INCLUDE) $(EXTERNAL_LIBARIES_INCLUDE)
+CXXINCLUDES = $(LIJSON_INCLUDE) $(OPENSSL_INCLUDE) $(OQS_INCLUDE)
 CXXLIBS = $(OPENSSL_LIB) $(OQS_LIB) -lpthread -lcrypto -loqs -ldl
 
 SRCDIR = .
@@ -60,7 +60,7 @@ vpath %.cpp $(MODULES)
 define cxx-command
 $1/%.o: %.cpp
 	@echo Compiling $$<...
-	$(CXX) -c $$< -o $$@ $(CXXINCLUDES) $(CXXFLAGS)
+	$(CXX) $(CXXFLAGS) $(CXXINCLUDES) -c $$< -o $$@
 	@echo
 endef
 
@@ -73,7 +73,7 @@ rebuild: clean all
 $(TARGET): $(OBJS)
 	@echo Building $(BINARYNAME) binary...
 	@mkdir -p $(BINARYDIR)
-	$(CXX) $^ -o $@ $(CXXINCLUDES) $(CXXFLAGS) $(CXXLIBS)
+	$(CXX) $(CXXFLAGS) $(CXXINCLUDES) $^ -o $@ $(CXXLIBS)
 	@echo
 ifdef cleanup
 	@echo Removing temporary build directory...

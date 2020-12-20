@@ -10,7 +10,7 @@
 #include "../../Interfaces/ConnectProtocol.hpp"
 #include "../../Interfaces/ExchangeObserver.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cstdint>

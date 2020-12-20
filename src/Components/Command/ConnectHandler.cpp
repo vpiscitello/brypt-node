@@ -12,11 +12,7 @@
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push 
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-Wconversion"
-#include "../../Libraries/metajson/metajson.hh"
-#pragma GCC diagnostic pop
+#include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
 #include <chrono>
 #include <thread>
@@ -66,12 +62,30 @@ bool HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage const& me
 //     ],
 // }
 
-IOD_SYMBOL(bootstraps)
-IOD_SYMBOL(cluster)
-IOD_SYMBOL(entries)
-IOD_SYMBOL(entry)
-IOD_SYMBOL(entrypoints)
-IOD_SYMBOL(technology)
+#ifndef LI_SYMBOL_bootstraps
+#define LI_SYMBOL_bootstraps
+LI_SYMBOL(bootstraps)
+#endif
+#ifndef LI_SYMBOL_cluster
+#define LI_SYMBOL_cluster
+LI_SYMBOL(cluster)
+#endif
+#ifndef LI_SYMBOL_entries
+#define LI_SYMBOL_entries
+LI_SYMBOL(entries)
+#endif
+#ifndef LI_SYMBOL_entrypoints
+#define LI_SYMBOL_entrypoints
+LI_SYMBOL(entrypoints)
+#endif
+#ifndef LI_SYMBOL_entry
+#define LI_SYMBOL_entry
+LI_SYMBOL(entry)
+#endif
+#ifndef LI_SYMBOL_technology
+#define LI_SYMBOL_technology
+LI_SYMBOL(technology)
+#endif
 
 //------------------------------------------------------------------------------------------------
 
@@ -117,11 +131,8 @@ bool Command::CConnectHandler::DiscoveryHandler(
     std::weak_ptr<CBryptPeer> const& wpBryptPeer,
     CApplicationMessage const& message)
 {
-
     bool const status = local::HandleDiscoveryRequest(m_instance, wpBryptPeer, message);
-    if (!status) {
-        return status;
-    }
+    if (!status) { return status; }
 
     auto const response = local::BuildDiscoveryResponse(m_instance);
     IHandler::SendResponse(wpBryptPeer, message, response, static_cast<std::uint8_t>(Phase::Join));
@@ -150,13 +161,13 @@ bool local::HandleDiscoveryRequest(
     // Parse the discovery request
     auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
-
-    auto request = iod::make_metamap(
+    
+    auto request = li::mmm(
         s::entrypoints = {
-            iod::make_metamap(
+            li::mmm(
                 s::technology = std::string(), s::entry = std::string()) });
 
-    iod::json_decode(dataview, request);
+    auto err = li::json_decode(dataview, request);
 
     BryptIdentifier::SharedContainer spPeerIdentifier;
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
@@ -199,10 +210,10 @@ bool local::HandleDiscoveryRequest(
 std::string local::BuildDiscoveryResponse(CBryptNode& instance)
 {
     // Make a response message to filled out by the handler
-    auto response = iod::make_metamap(
+    auto response = li::mmm(
         s::cluster = std::uint32_t(),
         s::bootstraps = {
-            iod::make_metamap(
+            li::mmm(
                 s::technology = std::string(),
                 s::entries = std::vector<std::string>()) });
 
@@ -242,7 +253,7 @@ std::string local::BuildDiscoveryResponse(CBryptNode& instance)
         }
     }
 
-    return iod::json_encode(response);
+    return li::json_encode(response);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -253,14 +264,14 @@ bool local::HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage co
     auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
 
-    auto response = iod::make_metamap(
+    auto response = li::mmm(
         s::cluster = std::uint32_t(),
         s::bootstraps = {
-            iod::make_metamap(
+            li::mmm(
                 s::technology = std::string(),
                 s::entries = std::vector<std::string>()) });
 
-    iod::json_decode(dataview, response);
+    auto err = li::json_decode(dataview, response);
 
     auto wpEndpointManager = instance.GetEndpointManager();
     if (auto spEndpointManager = wpEndpointManager.lock(); spEndpointManager) {
@@ -274,9 +285,7 @@ bool local::HandleDiscoveryResponse(CBryptNode& instance, CApplicationMessage co
                 Endpoints::OperationType::Client);
 
             if (spEndpoint) {
-                for (auto const& entry: bootstrap.entries) {
-                    spEndpoint->ScheduleConnect(entry);
-                }
+                for (auto const& entry: bootstrap.entries) { spEndpoint->ScheduleConnect(entry); }
             }
         }
     }

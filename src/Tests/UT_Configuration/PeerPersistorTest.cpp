@@ -7,7 +7,7 @@
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <chrono>
@@ -69,16 +69,16 @@ TEST(PeerPersistorSuite, DefualtBootstrapTest)
     CPeerPersistor persistor(filepath.c_str(), configurations);
     auto const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
-    EXPECT_EQ(persistor.CachedBootstrapCount(), std::uint32_t(2));
-    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::LoRa), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(), std::size_t(2));
+    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::size_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(Endpoints::TechnologyType::LoRa), std::size_t(1));
 
     CPeerPersistor checkPersistor(filepath.c_str(), configurations);
     auto const bCheckParsed = checkPersistor.FetchBootstraps();
     ASSERT_TRUE(bCheckParsed);
-    EXPECT_EQ(checkPersistor.CachedBootstrapCount(), std::uint32_t(2));
-    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::uint32_t(1));
-    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::LoRa), std::uint32_t(1));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(), std::size_t(2));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::TCP), std::size_t(1));
+    EXPECT_EQ(checkPersistor.CachedBootstrapCount(Endpoints::TechnologyType::LoRa), std::size_t(1));
 
     std::filesystem::remove(filepath);
 }
@@ -91,8 +91,8 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
     CPeerPersistor persistor(filepath.c_str());
     auto const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
-    EXPECT_EQ(persistor.CachedBootstrapCount(), std::uint32_t(1));
-    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(), std::size_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::size_t(1));
 
     persistor.ForEachCachedBootstrap(
         test::PeerTechnology,
@@ -121,9 +121,9 @@ TEST(PeerPersistorSuite, ParseMissingPeersFileTest)
     std::filesystem::path const filepath = "./Tests/UT_Configuration/files/missing/peers.json";
     CPeerPersistor persistor(filepath.c_str());
     bool const bParsed = persistor.FetchBootstraps();
-    std::uint32_t const count = persistor.CachedBootstrapCount(test::PeerTechnology);
+    std::size_t const count = persistor.CachedBootstrapCount(test::PeerTechnology);
     EXPECT_TRUE(bParsed);
-    EXPECT_EQ(count, std::uint32_t(0));
+    EXPECT_EQ(count, std::size_t(0));
 }
 
 //------------------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     // Check the initial state of the cached peers
     bool const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
-    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::size_t(1));
 
     // Create a new peer and notify the persistor
     auto const spBryptPeer = std::make_shared<CBryptPeer>(
@@ -148,7 +148,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         spBryptPeer, test::EndpointIdentifier, test::PeerTechnology, ConnectionState::Connected);
 
     // Verify the new peer has been added to the current persistor
-    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(2));
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::size_t(2));
     
     bool bFoundConnectedBootstrap;
     persistor.ForEachCachedBootstrap(
@@ -169,7 +169,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         auto checkPersistor = std::make_unique<CPeerPersistor>(filepath.c_str());
         bool const bCheckParsed = checkPersistor->FetchBootstraps();
         ASSERT_TRUE(bCheckParsed);
-        EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(2));
+        EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::size_t(2));
 
         bool bFoundCheckBootstrap;
         persistor.ForEachCachedBootstrap(
@@ -193,7 +193,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     spBryptPeer->WithdrawEndpoint(test::EndpointIdentifier, test::PeerTechnology);
 
     persistor.FetchBootstraps(); // Force the persitor to re-query the persistor file
-    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::uint32_t(1));
+    EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerTechnology), std::size_t(1));
 
     // Verify the peer added from this test has been removed
     bool bFoundDisconnectedBootstrap = false;

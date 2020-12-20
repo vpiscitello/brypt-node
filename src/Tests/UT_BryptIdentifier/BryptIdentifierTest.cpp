@@ -2,7 +2,7 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptIdentifier/ReservedIdentifiers.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <iostream>
 #include <cstdint>

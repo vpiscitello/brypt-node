@@ -7,7 +7,7 @@
 #include "../../Configuration/PeerPersistor.hpp"
 #include "../../Interfaces/BootstrapCache.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <chrono>

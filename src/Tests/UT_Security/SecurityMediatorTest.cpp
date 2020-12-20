@@ -16,7 +16,7 @@
 #include "../../Interfaces/SecurityStrategy.hpp"
 #include "../../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <memory>

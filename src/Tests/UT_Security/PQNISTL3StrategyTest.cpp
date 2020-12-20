@@ -2,7 +2,7 @@
 #include "../../Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "../../Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <memory>
 //------------------------------------------------------------------------------------------------

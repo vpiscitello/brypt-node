@@ -11,11 +11,7 @@
 #include "../../BryptMessage/MessageContext.hpp"
 #include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push 
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-Wconversion"
-#include "../../Libraries/metajson/metajson.hh"
-#pragma GCC diagnostic pop
+#include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <string_view>
@@ -52,9 +48,18 @@ std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& c
 //     ],
 // }
 
-IOD_SYMBOL(entrypoints)
-IOD_SYMBOL(entry)
-IOD_SYMBOL(technology)
+#ifndef LI_SYMBOL_entrypoints
+#define LI_SYMBOL_entrypoints
+LI_SYMBOL(entrypoints)
+#endif
+#ifndef LI_SYMBOL_entry
+#define LI_SYMBOL_entry
+LI_SYMBOL(entry)
+#endif
+#ifndef LI_SYMBOL_technology
+#define LI_SYMBOL_technology
+LI_SYMBOL(technology)
+#endif
 
 //------------------------------------------------------------------------------------------------
 
@@ -96,10 +101,9 @@ bool CDiscoveryProtocol::SendRequest(
 std::string local::GenerateDiscoveryData(
     Configuration::EndpointConfigurations const& configurations)
 {
-    auto request = iod::make_metamap(
+    auto request = li::mmm(
         s::entrypoints = {
-            iod::make_metamap(
-                s::technology = std::string(), s::entry = std::string()) });
+            li::mmm(s::technology = std::string(), s::entry = std::string()) });
 
     request.entrypoints.clear();
 
@@ -117,7 +121,7 @@ std::string local::GenerateDiscoveryData(
         entrypoint.entry.append(secondary);
     }
 
-    return iod::json_encode(request);
+    return li::json_encode(request);
 }
 
 //------------------------------------------------------------------------------------------------

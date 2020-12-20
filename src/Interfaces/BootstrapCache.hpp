@@ -35,8 +35,8 @@ public:
         Endpoints::TechnologyType technology,
         OneEndpointBootstrapReadFunction const& callback) const = 0;
 
-    virtual std::uint32_t CachedBootstrapCount() const = 0;
-    virtual std::uint32_t CachedBootstrapCount(Endpoints::TechnologyType technology) const = 0;
+    virtual std::size_t CachedBootstrapCount() const = 0;
+    virtual std::size_t CachedBootstrapCount(Endpoints::TechnologyType technology) const = 0;
 };
 
 //------------------------------------------------------------------------------------------------

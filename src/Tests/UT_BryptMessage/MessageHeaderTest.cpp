@@ -6,7 +6,7 @@
 #include "../../BryptMessage/MessageUtils.hpp"
 #include "../../Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <string>

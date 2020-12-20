@@ -9,11 +9,7 @@
 #include "../Utilities/FileUtils.hpp"
 #include "../Utilities/NodeUtils.hpp"
 //-----------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push 
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-Wconversion"
-#include "../../Libraries/metajson/metajson.hh"
-#pragma GCC diagnostic pop
+#include <lithium_json.hh>
 //-----------------------------------------------------------------------------------------------
 #include <array>
 #include <cstdlib>
@@ -136,23 +132,35 @@ void OutputValues(std::array<ArrayType, ArraySize> const& values)
 // the struct. However, initalization is needed to fill out the other parts of the configuration
 // after decoding the file.
 //------------------------------------------------------------------------------------------------
-IOD_SYMBOL(version)
+#ifndef LI_SYMBOL_version
+#define LI_SYMBOL_version
+LI_SYMBOL(version)
+#endif
 // "version": String
 
-IOD_SYMBOL(identifier)
+#ifndef LI_SYMBOL_identifier
+#define LI_SYMBOL_identifier
+LI_SYMBOL(identifier)
+#endif
 // "identifier": {
 //     "value": Optional String,
 //     "type": String,
 // }
 
-IOD_SYMBOL(details)
+#ifndef LI_SYMBOL_details
+#define LI_SYMBOL_details
+LI_SYMBOL(details)
+#endif
 // "details": {
 //     "name": String,
 //     "description": String,
 //     "location": String
 // }
 
-IOD_SYMBOL(endpoints)
+#ifndef LI_SYMBOL_endpoints
+#define LI_SYMBOL_endpoints
+LI_SYMBOL(endpoints)
+#endif
 // "endpoints": [{
 //     "type": String,
 //     "interface": String,
@@ -160,25 +168,64 @@ IOD_SYMBOL(endpoints)
 //     "bootstrap": Optional String
 // }]
 
-IOD_SYMBOL(security)
+#ifndef LI_SYMBOL_security
+#define LI_SYMBOL_security
+LI_SYMBOL(security)
+#endif
 // "security": {
 //     "strategy": String,
 //     "token": String,
 //     "authority": String
 // }
 
-IOD_SYMBOL(authority)
-IOD_SYMBOL(binding)
-IOD_SYMBOL(bootstrap)
-IOD_SYMBOL(description)
-IOD_SYMBOL(interface)
-IOD_SYMBOL(location)
-IOD_SYMBOL(name)
-IOD_SYMBOL(strategy)
-IOD_SYMBOL(technology)
-IOD_SYMBOL(token)
-IOD_SYMBOL(type)
-IOD_SYMBOL(value)
+#ifndef LI_SYMBOL_authority
+#define LI_SYMBOL_authority
+LI_SYMBOL(authority)
+#endif
+#ifndef LI_SYMBOL_binding
+#define LI_SYMBOL_binding
+LI_SYMBOL(binding)
+#endif
+#ifndef LI_SYMBOL_bootstrap
+#define LI_SYMBOL_bootstrap
+LI_SYMBOL(bootstrap)
+#endif
+#ifndef LI_SYMBOL_description
+#define LI_SYMBOL_description
+LI_SYMBOL(description)
+#endif
+#ifndef LI_SYMBOL_interface
+#define LI_SYMBOL_interface
+LI_SYMBOL(interface)
+#endif
+#ifndef LI_SYMBOL_location
+#define LI_SYMBOL_location
+LI_SYMBOL(location)
+#endif
+#ifndef LI_SYMBOL_name
+#define LI_SYMBOL_name
+LI_SYMBOL(name)
+#endif
+#ifndef LI_SYMBOL_strategy
+#define LI_SYMBOL_strategy
+LI_SYMBOL(strategy)
+#endif
+#ifndef LI_SYMBOL_technology
+#define LI_SYMBOL_technology
+LI_SYMBOL(technology)
+#endif
+#ifndef LI_SYMBOL_tokenLI_SYMBOL_token
+#define LI_SYMBOL_tokenLI_SYMBOL_token
+LI_SYMBOL(token)
+#endif
+#ifndef LI_SYMBOL_type
+#define LI_SYMBOL_type
+LI_SYMBOL(type)
+#endif
+#ifndef LI_SYMBOL_value
+#define LI_SYMBOL_value
+LI_SYMBOL(value)
+#endif
 
 //------------------------------------------------------------------------------------------------
 
@@ -453,21 +500,21 @@ Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
     json.erase(std::remove_if(json.begin(), json.end(), &FileUtils::IsNewlineOrTab), json.end());
 
     // Decode the JSON string into the configuration struct
-    iod::json_object(
+    li::json_object(
         s::version,
-        s::identifier = iod::json_object(
+        s::identifier = li::json_object(
             s::value,
             s::type),
-        s::details = iod::json_object(
+        s::details = li::json_object(
             s::name,
             s::description,
             s::location),
-        s::endpoints = iod::json_vector(
+        s::endpoints = li::json_vector(
             s::technology,
             s::interface,
             s::binding,
             s::bootstrap),
-        s::security = iod::json_object(
+        s::security = li::json_object(
             s::strategy,
             s::token,
             s::authority)

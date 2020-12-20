@@ -2,7 +2,7 @@
 #include "../../BryptIdentifier/BryptIdentifier.hpp"
 #include "../../BryptMessage/NetworkMessage.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <string>

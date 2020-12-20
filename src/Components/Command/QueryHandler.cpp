@@ -12,11 +12,7 @@
 #include "../../BryptMessage/ApplicationMessage.hpp"
 #include "../../Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push 
-#pragma GCC diagnostic ignored "-Wtype-limits"
-#pragma GCC diagnostic ignored "-Wconversion"
-#include "../../Libraries/metajson/metajson.hh"
-#pragma GCC diagnostic pop
+#include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
 #include <set>
 //------------------------------------------------------------------------------------------------
@@ -46,8 +42,14 @@ struct TReading;
 //------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding
 //------------------------------------------------------------------------------------------------
-IOD_SYMBOL(reading)
-IOD_SYMBOL(timestamp)
+#ifndef LI_SYMBOL_reading
+#define LI_SYMBOL_reading
+LI_SYMBOL(reading)
+#endif
+#ifndef LI_SYMBOL_timestamp
+#define LI_SYMBOL_timestamp
+LI_SYMBOL(timestamp)
+#endif
 //------------------------------------------------------------------------------------------------
 
 struct Json::TReading
@@ -183,7 +185,7 @@ std::string local::GenerateReading()
 {
     std::int32_t const value = rand() % ( 74 - 68 ) + 68;
     Json::TReading const reading(value, TimeUtils::GetSystemTimestamp());
-    return iod::json_object(s::reading, s::timestamp).encode(reading);
+    return li::json_object(s::reading, s::timestamp).encode(reading);
 }
 
 //------------------------------------------------------------------------------------------------
