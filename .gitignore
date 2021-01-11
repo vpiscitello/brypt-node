@@ -8,7 +8,8 @@
 *.pipe
 .vscode
 
-src/tmp/*
+src/temp/*
+src/external/*
 src/build/*
 src/bin/*
 
