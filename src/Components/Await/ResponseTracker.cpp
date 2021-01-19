@@ -25,9 +25,9 @@ LI_SYMBOL(pack)
 //------------------------------------------------------------------------------------------------
 // Description: Intended for a single peer
 //------------------------------------------------------------------------------------------------
-Await::CResponseTracker::CResponseTracker(
-    std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CApplicationMessage const& request,
+Await::ResponseTracker::ResponseTracker(
+    std::weak_ptr<BryptPeer> const& wpRequestor,
+    ApplicationMessage const& request,
     BryptIdentifier::SharedContainer const& spPeerIdentifier)
     : m_status(ResponseStatus::Unfulfilled)
     , m_expected(1)
@@ -38,7 +38,7 @@ Await::CResponseTracker::CResponseTracker(
     , m_expire(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
 {
     if (spPeerIdentifier) {
-        TResponseEntry entry = { spPeerIdentifier, {} };
+        ResponseEntry entry = { spPeerIdentifier, {} };
         m_responses.emplace(entry);
     }
 }
@@ -48,9 +48,9 @@ Await::CResponseTracker::CResponseTracker(
 //------------------------------------------------------------------------------------------------
 // Description: Intended for multiple peers with responses from each
 //------------------------------------------------------------------------------------------------
-Await::CResponseTracker::CResponseTracker(
-    std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CApplicationMessage const& request,
+Await::ResponseTracker::ResponseTracker(
+    std::weak_ptr<BryptPeer> const& wpRequestor,
+    ApplicationMessage const& request,
     std::set<BryptIdentifier::SharedContainer> const& identifiers)
     : m_status(ResponseStatus::Unfulfilled)
     , m_expected(std::uint32_t(identifiers.size()))
@@ -60,12 +60,12 @@ Await::CResponseTracker::CResponseTracker(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
 {
-    BryptIdentifier::CContainer const& source = m_request.GetSourceIdentifier();
+    BryptIdentifier::Container const& source = m_request.GetSourceIdentifier();
     for (auto const& spBryptPeerIdentifier: identifiers) {
         if (!spBryptPeerIdentifier || *spBryptPeerIdentifier == source) {
             continue;
         }
-        TResponseEntry entry = { spBryptPeerIdentifier, {} };
+        ResponseEntry entry = { spBryptPeerIdentifier, {} };
         m_responses.emplace(entry);
     }
 }
@@ -76,7 +76,7 @@ Await::CResponseTracker::CResponseTracker(
 // Description: This places a response message into the aggregate object for this await object.
 // Returns: true if the await object is fulfilled, false otherwise.
 //------------------------------------------------------------------------------------------------
-Await::ResponseStatus Await::CResponseTracker::UpdateResponse(CApplicationMessage const& response)
+Await::ResponseStatus Await::ResponseTracker::UpdateResponse(ApplicationMessage const& response)
 {
     auto const itr = m_responses.find(response.GetSourceIdentifier().GetInternalRepresentation());
     if(itr == m_responses.end() || !itr->pack.empty()) {
@@ -84,7 +84,7 @@ Await::ResponseStatus Await::CResponseTracker::UpdateResponse(CApplicationMessag
         return m_status;
     }
 
-    m_responses.modify(itr, [&response](TResponseEntry& entry)
+    m_responses.modify(itr, [&response](ResponseEntry& entry)
     {
         entry.pack = response.GetPack();
     });
@@ -103,7 +103,7 @@ Await::ResponseStatus Await::CResponseTracker::UpdateResponse(CApplicationMessag
 // m_received all responses requested, or it has timed-out.
 // Returns: true if the object is ready and false otherwise.
 //------------------------------------------------------------------------------------------------
-Await::ResponseStatus Await::CResponseTracker::CheckResponseStatus()
+Await::ResponseStatus Await::ResponseTracker::CheckResponseStatus()
 {
     if (m_received == m_expected || m_expire < TimeUtils::GetSystemTimepoint()) {
         m_status = ResponseStatus::Fulfilled;
@@ -117,7 +117,7 @@ Await::ResponseStatus Await::CResponseTracker::CheckResponseStatus()
 //------------------------------------------------------------------------------------------------
 // Description: Returns the number of received responses
 //------------------------------------------------------------------------------------------------
-std::uint32_t Await::CResponseTracker::GetResponseCount() const
+std::uint32_t Await::ResponseTracker::GetResponseCount() const
 {
     return m_received;
 }
@@ -128,15 +128,15 @@ std::uint32_t Await::CResponseTracker::GetResponseCount() const
 // Description: Gathers information from the aggregate object and packages it into a new message.
 // Returns: The aggregate message.
 //------------------------------------------------------------------------------------------------
-bool Await::CResponseTracker::SendFulfilledResponse()
+bool Await::ResponseTracker::SendFulfilledResponse()
 {
     if (CheckResponseStatus() != ResponseStatus::Fulfilled) {
         return false;
     }
 
-    std::vector<TResponseEntry> responsesVector;
+    std::vector<ResponseEntry> responsesVector;
     std::transform(m_responses.begin(), m_responses.end(), std::back_inserter(responsesVector), 
-        [](auto const& entry) -> TResponseEntry
+        [](auto const& entry) -> ResponseEntry
         { 
             return entry;
         });
@@ -153,7 +153,7 @@ bool Await::CResponseTracker::SendFulfilledResponse()
     // Since we are responding to the request, the destination will point to its source.
     auto const& destination = m_request.GetSourceIdentifier();
 
-    auto const optResponse = CApplicationMessage::Builder()
+    auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(m_request.GetContext())
         .SetSource(*optBryptIdentifier)
         .SetDestination(destination)

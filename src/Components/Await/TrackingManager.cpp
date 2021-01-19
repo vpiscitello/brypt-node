@@ -16,15 +16,15 @@
 // ResponseTracker (Single peer) into the AwaitMap for this container
 // Returns: the key for the AwaitMap
 //------------------------------------------------------------------------------------------------
-Await::TrackerKey Await::CTrackingManager::PushRequest(
-    std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CApplicationMessage const& message,
+Await::TrackerKey Await::TrackingManager::PushRequest(
+    std::weak_ptr<BryptPeer> const& wpRequestor,
+    ApplicationMessage const& message,
     BryptIdentifier::SharedContainer const& spBryptPeerIdentifier)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
     NodeUtils::printo(
         "Pushing ResponseTracker with key: " + std::to_string(key), NodeUtils::PrintType::Await);
-    m_awaiting.emplace(key, CResponseTracker(wpRequestor, message, spBryptPeerIdentifier));
+    m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, spBryptPeerIdentifier));
     return key;
 }
 
@@ -35,15 +35,15 @@ Await::TrackerKey Await::CTrackingManager::PushRequest(
 // ResponseTracker (Multiple peers) into the AwaitMap for this container
 // Returns: the key for the AwaitMap
 //------------------------------------------------------------------------------------------------
-Await::TrackerKey Await::CTrackingManager::PushRequest(
-    std::weak_ptr<CBryptPeer> const& wpRequestor,
-    CApplicationMessage const& message,
+Await::TrackerKey Await::TrackingManager::PushRequest(
+    std::weak_ptr<BryptPeer> const& wpRequestor,
+    ApplicationMessage const& message,
     std::set<BryptIdentifier::SharedContainer> const& identifiers)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
     NodeUtils::printo(
         "Pushing ResponseTracker with key: " + std::to_string(key), NodeUtils::PrintType::Await);
-    m_awaiting.emplace(key, CResponseTracker(wpRequestor, message, identifiers));
+    m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, identifiers));
     return key;
 }
 
@@ -54,7 +54,7 @@ Await::TrackerKey Await::CTrackingManager::PushRequest(
 // await ID
 // Returns: boolean indicating success or not
 //------------------------------------------------------------------------------------------------
-bool Await::CTrackingManager::PushResponse(CApplicationMessage const& message)
+bool Await::TrackingManager::PushResponse(ApplicationMessage const& message)
 {
     // Try to get an await object ID from the message
     auto const& optKey = message.GetAwaitTrackerKey();
@@ -88,7 +88,7 @@ bool Await::CTrackingManager::PushResponse(CApplicationMessage const& message)
 //------------------------------------------------------------------------------------------------
 // Description: 
 //------------------------------------------------------------------------------------------------
-void Await::CTrackingManager::ProcessFulfilledRequests()
+void Await::TrackingManager::ProcessFulfilledRequests()
 {
     for (auto itr = m_awaiting.begin(); itr != m_awaiting.end();) {
         auto& [key, tracker] = *itr;
@@ -109,7 +109,7 @@ void Await::CTrackingManager::ProcessFulfilledRequests()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Await::TrackerKey Await::CTrackingManager::KeyGenerator(std::string_view pack) const
+Await::TrackerKey Await::TrackingManager::KeyGenerator(std::string_view pack) const
 {
     std::array<std::uint8_t, MD5_DIGEST_LENGTH> digest;
 

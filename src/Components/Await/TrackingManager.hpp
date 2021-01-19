@@ -14,14 +14,14 @@
 #include <vector>
 //------------------------------------------------------------------------------------------------
 
-class CApplicationMessage;
-class CBryptPeer;
+class ApplicationMessage;
+class BryptPeer;
 
 //------------------------------------------------------------------------------------------------
 namespace Await {
 //------------------------------------------------------------------------------------------------
 
-class CTrackingManager;
+class TrackingManager;
 
 //------------------------------------------------------------------------------------------------
 } // Await namespace
@@ -30,24 +30,24 @@ class CTrackingManager;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class Await::CTrackingManager
+class Await::TrackingManager
 {
 public:
     TrackerKey PushRequest(
-        std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CApplicationMessage const& message,
+        std::weak_ptr<BryptPeer> const& wpRequestor,
+        ApplicationMessage const& message,
         BryptIdentifier::SharedContainer const& spBryptPeerIdentifier);
 
     TrackerKey PushRequest(
-        std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CApplicationMessage const& message,
+        std::weak_ptr<BryptPeer> const& wpRequestor,
+        ApplicationMessage const& message,
         std::set<BryptIdentifier::SharedContainer> const& spBryptPeerIdentifier);
 
-    bool PushResponse(CApplicationMessage const& message);
+    bool PushResponse(ApplicationMessage const& message);
     void ProcessFulfilledRequests();
 
 private:
-    using ResponseTrackingMap = std::unordered_map<TrackerKey, CResponseTracker>;
+    using ResponseTrackingMap = std::unordered_map<TrackerKey, ResponseTracker>;
 
     TrackerKey KeyGenerator(std::string_view pack) const;
 

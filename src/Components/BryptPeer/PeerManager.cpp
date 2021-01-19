@@ -27,7 +27,7 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 // Description: 
 //------------------------------------------------------------------------------------------------
-CPeerManager::CPeerManager(
+PeerManager::PeerManager(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Security::Strategy strategy,
     std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
@@ -50,7 +50,7 @@ CPeerManager::CPeerManager(
 
 //------------------------------------------------------------------------------------------------
 
-void CPeerManager::RegisterObserver(IPeerObserver* const observer)
+void PeerManager::RegisterObserver(IPeerObserver* const observer)
 {
     std::scoped_lock lock(m_observersMutex);
     m_observers.emplace(observer);
@@ -58,7 +58,7 @@ void CPeerManager::RegisterObserver(IPeerObserver* const observer)
 
 //------------------------------------------------------------------------------------------------
 
-void CPeerManager::UnpublishObserver(IPeerObserver* const observer)
+void PeerManager::UnpublishObserver(IPeerObserver* const observer)
 {
     std::scoped_lock lock(m_observersMutex);
     m_observers.erase(observer);
@@ -66,7 +66,7 @@ void CPeerManager::UnpublishObserver(IPeerObserver* const observer)
 
 //------------------------------------------------------------------------------------------------
 
-CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_view uri)
+PeerManager::OptionalRequest PeerManager::DeclareResolvingPeer(std::string_view uri)
 {
     // Disallow endpoints from connecting to the same uri. The endpoint should only declare a 
     // a connection once. If it has connection retry logic, the endpoint should store the 
@@ -75,7 +75,7 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_vie
         return {};
     }
 
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+    auto upSecurityMediator = std::make_unique<SecurityMediator>(
         m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
     auto const optRequest = upSecurityMediator->SetupExchangeInitiator(
@@ -94,7 +94,7 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(std::string_vie
 
 //------------------------------------------------------------------------------------------------
 
-CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(
+PeerManager::OptionalRequest PeerManager::DeclareResolvingPeer(
     BryptIdentifier::SharedContainer const& spPeerIdentifier)
 {
     // It is expected that the caller has provided a valid brypt identifier for the peer. 
@@ -113,7 +113,7 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(
     }
 
     // Generate the heartbeat request.
-    auto const optRequest = CNetworkMessage::Builder()
+    auto const optRequest = NetworkMessage::Builder()
         .SetSource(*m_spBryptIdentifier)
         .SetDestination(*spPeerIdentifier)
         .MakeHeartbeatRequest()
@@ -125,10 +125,10 @@ CPeerManager::OptionalRequest CPeerManager::DeclareResolvingPeer(
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
-    BryptIdentifier::CContainer const& identifier, std::string_view uri)
+std::shared_ptr<BryptPeer> PeerManager::LinkPeer(
+    BryptIdentifier::Container const& identifier, std::string_view uri)
 {
-    std::shared_ptr<CBryptPeer> spBryptPeer = {};
+    std::shared_ptr<BryptPeer> spBryptPeer = {};
 
     {
         std::scoped_lock peersLock(m_peersMutex);
@@ -137,19 +137,19 @@ std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
         // Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
         if(auto const itr = m_peers.find(identifier.GetInternalRepresentation());itr != m_peers.end()) {
             m_peers.modify(itr, [&spBryptPeer](
-                std::shared_ptr<CBryptPeer>& spTrackedPeer)
+                std::shared_ptr<BryptPeer>& spTrackedPeer)
             {
                 assert(spTrackedPeer);  // The tracked peer should always exist while in the container. 
                 spBryptPeer = spTrackedPeer;
             });
         } else {
             // Make BryptPeer that can be shared with the endpoint. 
-            spBryptPeer = std::make_shared<CBryptPeer>(identifier, this);
+            spBryptPeer = std::make_shared<BryptPeer>(identifier, this);
 
             // If the endpoint has a resolving ticket it means that we initiated the connection and we need
             // to move the SecurityStrategy out of the resolving map and give it to the SecurityMediator. 
             // Otherwise, it is assumed are accepting the connection and we need to make an accepting strategy.
-            std::unique_ptr<CSecurityMediator> upSecurityMediator;
+            std::unique_ptr<SecurityMediator> upSecurityMediator;
             if (uri.size() != 0) {
                 std::scoped_lock resolvingLock(m_resolvingMutex);
                 auto itr = m_resolving.find(uri.data());
@@ -160,7 +160,7 @@ std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
                 upSecurityMediator = std::move(itr->second);
                 m_resolving.erase(itr);
             } else {
-                upSecurityMediator = std::make_unique<CSecurityMediator>(
+                upSecurityMediator = std::make_unique<SecurityMediator>(
                     m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
                 bool const success = upSecurityMediator->SetupExchangeAcceptor(m_strategyType);
@@ -180,8 +180,8 @@ std::shared_ptr<CBryptPeer> CPeerManager::LinkPeer(
 
 //------------------------------------------------------------------------------------------------
 
-void CPeerManager::DispatchPeerStateChange(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+void PeerManager::DispatchPeerStateChange(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
     ConnectionState change)
@@ -193,7 +193,7 @@ void CPeerManager::DispatchPeerStateChange(
 
 //------------------------------------------------------------------------------------------------
 
-bool CPeerManager::ForEachCachedIdentifier(
+bool PeerManager::ForEachCachedIdentifier(
     IdentifierReadFunction const& callback, Filter filter) const
 {
     std::shared_lock lock(m_peersMutex);
@@ -224,28 +224,28 @@ bool CPeerManager::ForEachCachedIdentifier(
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerManager::ActivePeerCount() const
+std::uint32_t PeerManager::ActivePeerCount() const
 {
     return PeerCount(Filter::Active);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerManager::InactivePeerCount() const
+std::uint32_t PeerManager::InactivePeerCount() const
 {
     return PeerCount(Filter::Inactive);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerManager::ObservedPeerCount() const
+std::uint32_t PeerManager::ObservedPeerCount() const
 {
     return PeerCount(Filter::None);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerManager::PeerCount(Filter filter) const
+bool PeerManager::ForEachPeer(ForEachPeerFunction const& callback, Filter filter) const
 {
     std::uint32_t count = 0;
 
@@ -276,7 +276,7 @@ std::uint32_t CPeerManager::PeerCount(Filter filter) const
 //-----------------------------------------------------------------------------------------------
 
 template<typename FunctionType, typename...Args>
-void CPeerManager::NotifyObservers(FunctionType const& function, Args&&...args)
+void PeerManager::NotifyObservers(FunctionType const& function, Args&&...args)
 {
     for (auto itr = m_observers.cbegin(); itr != m_observers.cend();) {
         auto const& observer = *itr; // Get a refernce to the current observer pointer
@@ -295,7 +295,7 @@ void CPeerManager::NotifyObservers(FunctionType const& function, Args&&...args)
 //------------------------------------------------------------------------------------------------
 
 template<typename FunctionType, typename...Args>
-void CPeerManager::NotifyObserversConst(FunctionType const& function, Args&&...args) const
+void PeerManager::NotifyObserversConst(FunctionType const& function, Args&&...args) const
 {
     for (auto const& observer: m_observers) {
         auto const binder = std::bind(function, observer, std::forward<Args>(args)...);

@@ -14,8 +14,8 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CExchangeProcessor;
+class BryptPeer;
+class ExchangeProcessor;
 class IConnectProtocol;
 class ISecurityStrategy;
 
@@ -24,23 +24,23 @@ class ISecurityStrategy;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class CSecurityMediator : public IExchangeObserver
+class SecurityMediator : public IExchangeObserver
 {
 public:
-    CSecurityMediator(
+    SecurityMediator(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Security::Context context,
         std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
 
-    CSecurityMediator(
+    SecurityMediator(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::unique_ptr<ISecurityStrategy>&& upStrategy);
 
-    CSecurityMediator(CSecurityMediator&& other) = delete;
-    CSecurityMediator(CSecurityMediator const& other) = delete;
-    CSecurityMediator& operator=(CSecurityMediator const& other) = delete;
+    SecurityMediator(SecurityMediator&& other) = delete;
+    SecurityMediator(SecurityMediator const& other) = delete;
+    SecurityMediator& operator=(SecurityMediator const& other) = delete;
 
-    ~CSecurityMediator();
+    ~SecurityMediator();
 
     // IExchangeObserver {
     virtual void OnExchangeClose(ExchangeStatus status) override;
@@ -49,8 +49,8 @@ public:
 
     [[nodiscard]] Security::State GetSecurityState() const;
 
-    void BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer);
-    void BindSecurityContext(CMessageContext& context) const;
+    void BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer);
+    void BindSecurityContext(MessageContext& context) const;
 
     [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
         Security::Strategy strategy,
@@ -67,10 +67,10 @@ private:
     Security::State m_state;
 
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    std::shared_ptr<CBryptPeer> m_spBryptPeer;
+    std::shared_ptr<BryptPeer> m_spBryptPeer;
     std::unique_ptr<ISecurityStrategy> m_upStrategy;
 
-    std::unique_ptr<CExchangeProcessor> m_upExchangeProcessor;
+    std::unique_ptr<ExchangeProcessor> m_upExchangeProcessor;
     std::weak_ptr<IMessageSink> m_wpAuthorizedSink;
 
     std::shared_ptr<IConnectProtocol> m_spConnectProtocol;

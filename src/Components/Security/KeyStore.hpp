@@ -27,23 +27,23 @@ namespace Security {
 
 using OptionalKeyCordons = std::optional<Security::ReadableView>;
 
-class CKeyStore;
-class CSecureBuffer;
+class KeyStore;
+class SecureBuffer;
 
 //------------------------------------------------------------------------------------------------
 } // Security namespace
 //------------------------------------------------------------------------------------------------
 
-class Security::CKeyStore
+class Security::KeyStore
 {
 public:
     constexpr static std::size_t VerificationSize = 32;
 
-    CKeyStore();
+    KeyStore();
 
-    CKeyStore(CKeyStore&& other) = delete;
-    CKeyStore(CKeyStore const& other) = delete;
-    CKeyStore& operator=(CKeyStore const& other) = delete;
+    KeyStore(KeyStore&& other) = delete;
+    KeyStore(KeyStore const& other) = delete;
+    KeyStore& operator=(KeyStore const& other) = delete;
 
     void SetPublicKey(Security::Buffer&& buffer);
     void SetPeerPublicKey(Security::Buffer&& buffer);
@@ -70,7 +70,7 @@ public:
     void ResetState();
 
 private:
-    using OptionalSecureBuffer = std::optional<Security::CSecureBuffer>;
+    using OptionalSecureBuffer = std::optional<Security::SecureBuffer>;
 
     [[nodiscard]] std::size_t SetInitiatorKeyCordons(
         std::size_t contentKeyBytes, std::size_t signatureKeyBytes);

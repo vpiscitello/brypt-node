@@ -13,10 +13,10 @@
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
-class CEndpointRegistration
+class EndpointRegistration
 {
 public:
-    CEndpointRegistration(
+    EndpointRegistration(
         Endpoints::EndpointIdType identifier,
         Endpoints::TechnologyType technology,
         MessageScheduler const& scheduler = {},
@@ -30,7 +30,7 @@ public:
     [[nodiscard]] std::string const& GetEntry() const;
 
 private:
-    CMessageContext m_context;
+    MessageContext m_context;
     MessageScheduler const m_scheduler;
     std::string const m_entry;
 };

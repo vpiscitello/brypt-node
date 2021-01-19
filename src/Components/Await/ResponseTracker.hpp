@@ -20,15 +20,15 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
+class BryptPeer;
 
 //------------------------------------------------------------------------------------------------
 namespace Await {
 //------------------------------------------------------------------------------------------------
 
-struct TResponseEntry;
+struct ResponseEntry;
 
-class CResponseTracker;
+class ResponseTracker;
 
 //------------------------------------------------------------------------------------------------
 } // Await namespace
@@ -38,9 +38,9 @@ class CResponseTracker;
 // Description:
 //------------------------------------------------------------------------------------------------
 
-struct Await::TResponseEntry
+struct Await::ResponseEntry
 {
-    TResponseEntry(
+    ResponseEntry(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::string_view pack)
         : identifier(spBryptIdentifier)
@@ -63,44 +63,44 @@ struct Await::TResponseEntry
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class Await::CResponseTracker
+class Await::ResponseTracker
 {
 public:
     constexpr static auto const ExpirationPeriod = std::chrono::milliseconds(1500);
 
-    CResponseTracker(
-        std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CApplicationMessage const& request,
+    ResponseTracker(
+        std::weak_ptr<BryptPeer> const& wpRequestor,
+        ApplicationMessage const& request,
         BryptIdentifier::SharedContainer const& spPeerIdentifier);
 
-    CResponseTracker(
-        std::weak_ptr<CBryptPeer> const& wpRequestor,
-        CApplicationMessage const& request,
+    ResponseTracker(
+        std::weak_ptr<BryptPeer> const& wpRequestor,
+        ApplicationMessage const& request,
         std::set<BryptIdentifier::SharedContainer> const& identifiers);
 
-    Await::ResponseStatus UpdateResponse(CApplicationMessage const& response);
+    Await::ResponseStatus UpdateResponse(ApplicationMessage const& response);
     Await::ResponseStatus CheckResponseStatus();
     std::uint32_t GetResponseCount() const;
 
     bool SendFulfilledResponse();
 
 private:
-    using ResponseTracker = boost::multi_index_container<
-        TResponseEntry,
+    using ResponseContainer = boost::multi_index_container<
+        ResponseEntry,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
-                    TResponseEntry,
+                    ResponseEntry,
                     BryptIdentifier::Internal::Type,
-                    &TResponseEntry::GetPeerIdentifier>>>>;
+                    &ResponseEntry::GetPeerIdentifier>>>>;
 
     Await::ResponseStatus m_status;
     std::uint32_t m_expected;
     std::uint32_t m_received;
 
-    std::weak_ptr<CBryptPeer> m_wpRequestor;
-    CApplicationMessage const m_request;
-    ResponseTracker m_responses;
+    std::weak_ptr<BryptPeer> m_wpRequestor;
+    ApplicationMessage const m_request;
+    ResponseContainer m_responses;
 
     TimeUtils::Timepoint const m_expire;
 };

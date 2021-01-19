@@ -7,9 +7,9 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CSecurityState {
+class SecurityState {
 public:
-    CSecurityState(Security::Strategy strategy, std::string_view authority);
+    SecurityState(Security::Strategy strategy, std::string_view authority);
 
     Security::Strategy GetStrategy() const;
     std::string GetAuthority() const;
@@ -25,7 +25,6 @@ private:
     Security::Strategy m_strategy;
     std::string m_authority;
     std::string m_token;
-
 };
 
 //------------------------------------------------------------------------------------------------

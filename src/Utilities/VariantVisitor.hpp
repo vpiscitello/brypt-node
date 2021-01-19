@@ -6,10 +6,10 @@
 //------------------------------------------------------------------------------------------------
 
 template<typename... Types>
-struct TVariantVisitor : Types... 
+struct VariantVisitor : Types... 
 { 
     using Types::operator()...;
 };
-template<typename... Types> TVariantVisitor(Types...) -> TVariantVisitor<Types...>;
+template<typename... Types> VariantVisitor(Types...) -> VariantVisitor<Types...>;
 
 //------------------------------------------------------------------------------------------------

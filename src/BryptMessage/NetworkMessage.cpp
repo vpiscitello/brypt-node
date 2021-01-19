@@ -13,8 +13,8 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 Message::Network::Type UnpackMessageType(
-	Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end);
+	std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end);
 
 //------------------------------------------------------------------------------------------------
 namespace Extensions {
@@ -31,7 +31,7 @@ enum Types : std::uint8_t { Invalid = 0x00 };
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CNetworkMessage::CNetworkMessage()
+NetworkMessage::NetworkMessage()
 	: m_context()
 	, m_header()
 	, m_type(Message::Network::Type::Invalid)
@@ -41,7 +41,7 @@ CNetworkMessage::CNetworkMessage()
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkMessage::CNetworkMessage(CNetworkMessage const& other)
+NetworkMessage::NetworkMessage(NetworkMessage const& other)
 	: m_context(other.m_context)
 	, m_header(other.m_header)
 	, m_type(other.m_type)
@@ -50,63 +50,63 @@ CNetworkMessage::CNetworkMessage(CNetworkMessage const& other)
 }
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder CNetworkMessage::Builder()
+NetworkBuilder NetworkMessage::Builder()
 {
-	return CNetworkBuilder{};
+	return NetworkBuilder{};
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CNetworkMessage::GetContext() const
+MessageContext const& NetworkMessage::GetContext() const
 {
 	return m_context;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageHeader const& CNetworkMessage::GetMessageHeader() const
+MessageHeader const& NetworkMessage::GetMessageHeader() const
 {
 	return m_header;
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const& CNetworkMessage::GetSourceIdentifier() const
+BryptIdentifier::Container const& NetworkMessage::GetSourceIdentifier() const
 {
 	return m_header.GetSourceIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
-Message::Destination CNetworkMessage::GetDestinationType() const
+Message::Destination NetworkMessage::GetDestinationType() const
 {
 	return m_header.GetDestinationType();
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> const& CNetworkMessage::GetDestinationIdentifier() const
+std::optional<BryptIdentifier::Container> const& NetworkMessage::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
-Message::Network::Type CNetworkMessage::GetMessageType() const
+Message::Network::Type NetworkMessage::GetMessageType() const
 {
 	return m_type;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Message::Buffer const& CNetworkMessage::GetPayload() const
+Message::Buffer const& NetworkMessage::GetPayload() const
 {
 	return m_payload;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CNetworkMessage::GetPackSize() const
+std::uint32_t NetworkMessage::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
@@ -122,7 +122,7 @@ std::uint32_t CNetworkMessage::GetPackSize() const
 //------------------------------------------------------------------------------------------------
 // Description: Pack the Message class values into a single raw string.
 //------------------------------------------------------------------------------------------------
-std::string CNetworkMessage::GetPack() const
+std::string NetworkMessage::GetPack() const
 {
 	Message::Buffer buffer = m_header.GetPackedBuffer();
 	buffer.reserve(m_header.GetMessageSize());
@@ -152,7 +152,7 @@ std::string CNetworkMessage::GetPack() const
 
 //------------------------------------------------------------------------------------------------
 
-Message::ValidationStatus CNetworkMessage::Validate() const
+Message::ValidationStatus NetworkMessage::Validate() const
 {	
 	// A message must have a valid header
 	if (!m_header.IsValid()) {
@@ -169,7 +169,7 @@ Message::ValidationStatus CNetworkMessage::Validate() const
 
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t CNetworkMessage::FixedPackSize() const
+constexpr std::uint32_t NetworkMessage::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(Message::Network::Type); // 1 byte for network message type
@@ -180,7 +180,7 @@ constexpr std::uint32_t CNetworkMessage::FixedPackSize() const
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder::CNetworkBuilder()
+NetworkBuilder::NetworkBuilder()
     : m_message()
 {
 	m_message.m_header.m_protocol = Message::Protocol::Network;
@@ -188,7 +188,7 @@ CNetworkBuilder::CNetworkBuilder()
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetMessageContext(CMessageContext const& context)
+NetworkBuilder& NetworkBuilder::SetMessageContext(MessageContext const& context)
 {
 	m_message.m_context = context;
 	return *this;
@@ -196,7 +196,7 @@ CNetworkBuilder& CNetworkBuilder::SetMessageContext(CMessageContext const& conte
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetSource(BryptIdentifier::CContainer const& identifier)
+NetworkBuilder& NetworkBuilder::SetSource(BryptIdentifier::Container const& identifier)
 {
 	m_message.m_header.m_source = identifier;
 	return *this;
@@ -204,24 +204,24 @@ CNetworkBuilder& CNetworkBuilder::SetSource(BryptIdentifier::CContainer const& i
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetSource(
+NetworkBuilder& NetworkBuilder::SetSource(
     BryptIdentifier::Internal::Type const& identifier)
 {
-	m_message.m_header.m_source = BryptIdentifier::CContainer(identifier);
+	m_message.m_header.m_source = BryptIdentifier::Container(identifier);
 	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetSource(std::string_view identifier)
+NetworkBuilder& NetworkBuilder::SetSource(std::string_view identifier)
 {
-	m_message.m_header.m_source = BryptIdentifier::CContainer(identifier);
+	m_message.m_header.m_source = BryptIdentifier::Container(identifier);
 	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetDestination(BryptIdentifier::CContainer const& identifier)
+NetworkBuilder& NetworkBuilder::SetDestination(BryptIdentifier::Container const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
@@ -229,24 +229,24 @@ CNetworkBuilder& CNetworkBuilder::SetDestination(BryptIdentifier::CContainer con
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetDestination(
+NetworkBuilder& NetworkBuilder::SetDestination(
     BryptIdentifier::Internal::Type const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::CContainer(identifier);
+	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::Container(identifier);
 	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetDestination(std::string_view identifier)
+NetworkBuilder& NetworkBuilder::SetDestination(std::string_view identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::CContainer(identifier);
+	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::Container(identifier);
 	return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::MakeHandshakeMessage()
+NetworkBuilder& NetworkBuilder::MakeHandshakeMessage()
 {
 	m_message.m_type = Message::Network::Type::Handshake;
 	return *this;
@@ -254,7 +254,7 @@ CNetworkBuilder& CNetworkBuilder::MakeHandshakeMessage()
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::MakeHeartbeatRequest()
+NetworkBuilder& NetworkBuilder::MakeHeartbeatRequest()
 {
 	m_message.m_type = Message::Network::Type::HeartbeatRequest;
 	return *this;
@@ -262,7 +262,7 @@ CNetworkBuilder& CNetworkBuilder::MakeHeartbeatRequest()
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::MakeHeartbeatResponse()
+NetworkBuilder& NetworkBuilder::MakeHeartbeatResponse()
 {
 	m_message.m_type = Message::Network::Type::HeartbeatResponse;
 	return *this;
@@ -270,26 +270,24 @@ CNetworkBuilder& CNetworkBuilder::MakeHeartbeatResponse()
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetPayload(std::string_view data)
+NetworkBuilder& NetworkBuilder::SetPayload(std::string_view buffer)
 {
-    return SetPayload(Message::Buffer{ data.begin(), data.end() });
+    return SetPayload({ reinterpret_cast<std::uint8_t const*>(buffer.data()), buffer.size() });
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::SetPayload(Message::Buffer const& buffer)
+NetworkBuilder& NetworkBuilder::SetPayload(std::span<std::uint8_t const> buffer)
 {
-    m_message.m_payload = buffer;
+    m_message.m_payload = Message::Buffer(buffer.begin(), buffer.end());
     return *this;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::FromDecodedPack(Message::Buffer const& buffer)
+NetworkBuilder& NetworkBuilder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
-    if (buffer.empty()) {
-        return *this;
-    }
+    if (buffer.empty()) { return *this; }
 
 	Unpack(buffer);
     
@@ -298,7 +296,7 @@ CNetworkBuilder& CNetworkBuilder::FromDecodedPack(Message::Buffer const& buffer)
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder& CNetworkBuilder::FromEncodedPack(std::string_view pack)
+NetworkBuilder& NetworkBuilder::FromEncodedPack(std::string_view pack)
 {
     if (pack.empty()) {
         return *this;
@@ -311,7 +309,7 @@ CNetworkBuilder& CNetworkBuilder::FromEncodedPack(std::string_view pack)
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkMessage&& CNetworkBuilder::Build()
+NetworkMessage&& NetworkBuilder::Build()
 {
 	m_message.m_header.m_size = m_message.GetPackSize();
 
@@ -320,7 +318,7 @@ CNetworkMessage&& CNetworkBuilder::Build()
 
 //------------------------------------------------------------------------------------------------
 
-CNetworkBuilder::OptionalMessage CNetworkBuilder::ValidatedBuild()
+NetworkBuilder::OptionalMessage NetworkBuilder::ValidatedBuild()
 {
 	m_message.m_header.m_size = m_message.GetPackSize();
 
@@ -335,10 +333,10 @@ CNetworkBuilder::OptionalMessage CNetworkBuilder::ValidatedBuild()
 //------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //------------------------------------------------------------------------------------------------
-void CNetworkBuilder::Unpack(Message::Buffer const& buffer)
+void NetworkBuilder::Unpack(std::span<std::uint8_t const> buffer)
 {
-	Message::Buffer::const_iterator begin = buffer.begin();
-	Message::Buffer::const_iterator end = buffer.end();
+	auto begin = buffer.begin();
+	auto end = buffer.end();
 
 	if (!m_message.m_header.ParseBuffer(begin, end)) {
 		return;
@@ -376,9 +374,9 @@ void CNetworkBuilder::Unpack(Message::Buffer const& buffer)
 
 //------------------------------------------------------------------------------------------------
 
-void CNetworkBuilder::UnpackExtensions(
-	Message::Buffer::const_iterator& begin,
-	Message::Buffer::const_iterator const& end)
+void NetworkBuilder::UnpackExtensions(
+	std::span<std::uint8_t const>::iterator& begin,
+	std::span<std::uint8_t const>::iterator const& end)
 {
 	while (begin != end) {
 		using ExtensionType = std::underlying_type_t<local::Extensions::Types>;
@@ -394,8 +392,8 @@ void CNetworkBuilder::UnpackExtensions(
 //------------------------------------------------------------------------------------------------
 
 Message::Network::Type local::UnpackMessageType(
-	Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end)
+	std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end)
 {
 	using namespace Message::Network;
 

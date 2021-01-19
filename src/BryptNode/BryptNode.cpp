@@ -42,13 +42,13 @@ constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-CBryptNode::CBryptNode(
+BryptNode::BryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    std::shared_ptr<CEndpointManager> const& spEndpointManager,
-    std::shared_ptr<CPeerManager> const& spPeerManager,
-    std::shared_ptr<CAuthorizedProcessor> const& spMessageProcessor,
-    std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
-    std::unique_ptr<Configuration::CManager> const& upConfigurationManager)
+    std::shared_ptr<EndpointManager> const& spEndpointManager,
+    std::shared_ptr<PeerManager> const& spPeerManager,
+    std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
+    std::shared_ptr<PeerPersistor> const& spPeerPersistor,
+    std::unique_ptr<Configuration::Manager> const& upConfigurationManager)
     : m_initialized(false)
     , m_spNodeState()
     , m_spCoordinatorState()
@@ -58,7 +58,7 @@ CBryptNode::CBryptNode(
     , m_spEndpointManager(spEndpointManager)
     , m_spPeerManager(spPeerManager)
     , m_spMessageProcessor(spMessageProcessor)
-    , m_spAwaitManager(std::make_shared<Await::CTrackingManager>())
+    , m_spAwaitManager(std::make_shared<Await::TrackingManager>())
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
 {
@@ -68,14 +68,14 @@ CBryptNode::CBryptNode(
     }
 
     // Initialize state from settings.
-    m_spCoordinatorState = std::make_shared<CCoordinatorState>();
-    m_spNetworkState = std::make_shared<CNetworkState>();
-    m_spSecurityState = std::make_shared<CSecurityState>(
+    m_spCoordinatorState = std::make_shared<CoordinatorState>();
+    m_spNetworkState = std::make_shared<NetworkState>();
+    m_spSecurityState = std::make_shared<SecurityState>(
         upConfigurationManager->GetSecurityStrategy(),
         upConfigurationManager->GetCentralAuthority());
-    m_spNodeState = std::make_shared<CNodeState>(
+    m_spNodeState = std::make_shared<NodeState>(
         spBryptIdentifier, m_spEndpointManager->GetEndpointTechnologies());
-    m_spSensorState = std::make_shared<CSensorState>();
+    m_spSensorState = std::make_shared<SensorState>();
 
     m_handlers.emplace(
         Command::Type::Information,
@@ -101,7 +101,7 @@ CBryptNode::CBryptNode(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void CBryptNode::Startup()
+void BryptNode::Startup()
 {
     if (m_initialized == false) {
         throw std::runtime_error("Invalid Brypt Node instance!");
@@ -116,70 +116,70 @@ void CBryptNode::Startup()
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptNode::Shutdown()
+bool BryptNode::Shutdown()
 {
     return true;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CNodeState> CBryptNode::GetNodeState() const
+std::weak_ptr<NodeState> BryptNode::GetNodeState() const
 {
     return m_spNodeState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CCoordinatorState> CBryptNode::GetCoordinatorState() const
+std::weak_ptr<CoordinatorState> BryptNode::GetCoordinatorState() const
 {
     return m_spCoordinatorState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CNetworkState> CBryptNode::GetNetworkState() const
+std::weak_ptr<NetworkState> BryptNode::GetNetworkState() const
 {
     return m_spNetworkState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CSecurityState> CBryptNode::GetSecurityState() const
+std::weak_ptr<SecurityState> BryptNode::GetSecurityState() const
 {
     return m_spSecurityState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CSensorState> CBryptNode::GetSensorState() const
+std::weak_ptr<SensorState> BryptNode::GetSensorState() const
 {
     return m_spSensorState;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CEndpointManager> CBryptNode::GetEndpointManager() const
+std::weak_ptr<EndpointManager> BryptNode::GetEndpointManager() const
 {
     return m_spEndpointManager;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CPeerManager> CBryptNode::GetPeerManager() const
+std::weak_ptr<PeerManager> BryptNode::GetPeerManager() const
 {
     return m_spPeerManager;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Await::CTrackingManager> CBryptNode::GetAwaitManager() const
+std::weak_ptr<Await::TrackingManager> BryptNode::GetAwaitManager() const
 {
     return m_spAwaitManager;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CPeerPersistor> CBryptNode::GetPeerPersistor() const
+std::weak_ptr<PeerPersistor> BryptNode::GetPeerPersistor() const
 {
     return m_spPeerPersistor;
 }
@@ -190,7 +190,7 @@ std::weak_ptr<CPeerPersistor> CBryptNode::GetPeerPersistor() const
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CBryptNode::StartLifecycle()
+void BryptNode::StartLifecycle()
 {
     std::uint64_t run = 0;
     // TODO: Implement stopping condition
@@ -212,7 +212,7 @@ void CBryptNode::StartLifecycle()
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-void CBryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessage)
+void BryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessage)
 { 
     auto& [spBryptPeer, message] = associatedMessage;
     if (auto const itr = m_handlers.find(message.GetCommand()); itr != m_handlers.end()) {

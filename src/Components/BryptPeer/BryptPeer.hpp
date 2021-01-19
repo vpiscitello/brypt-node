@@ -17,25 +17,26 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CMessageContext;
-class CSecurityMediator;
+class MessageContext;
+class SecurityMediator;
 class IPeerMediator;
 
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer : public std::enable_shared_from_this<CBryptPeer>
+class BryptPeer : public std::enable_shared_from_this<BryptPeer>
 {
 public:
-    CBryptPeer(
-        BryptIdentifier::CContainer const& identifier,
+    BryptPeer(
+        BryptIdentifier::Container const& identifier,
         IPeerMediator* const pPeerMediator = nullptr);
 
-    ~CBryptPeer();
+    ~BryptPeer();
 
     [[nodiscard]] BryptIdentifier::SharedContainer GetBryptIdentifier() const;
     [[nodiscard]] BryptIdentifier::Internal::Type GetInternalIdentifier() const;
@@ -79,7 +80,7 @@ public:
     // } Endpoint Association Methods
 
     // Security Methods {
-    void AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator);
+    void AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSecurityMediator);
     [[nodiscard]] Security::State GetSecurityState() const;
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;
@@ -93,10 +94,10 @@ private:
 
     mutable std::recursive_mutex m_dataMutex;
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    mutable CPeerStatistics m_statistics;
+    mutable PeerStatistics m_statistics;
 
     mutable std::recursive_mutex m_mediatorMutex;
-    std::unique_ptr<CSecurityMediator> m_upSecurityMediator;
+    std::unique_ptr<SecurityMediator> m_upSecurityMediator;
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;

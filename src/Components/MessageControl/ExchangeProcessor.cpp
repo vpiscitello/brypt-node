@@ -29,7 +29,7 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 // Description: 
 //------------------------------------------------------------------------------------------------
-CExchangeProcessor::CExchangeProcessor(
+ExchangeProcessor::ExchangeProcessor(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
     IExchangeObserver* const pExchangeObserver,
@@ -46,9 +46,9 @@ CExchangeProcessor::CExchangeProcessor(
 
 //------------------------------------------------------------------------------------------------
 
-bool CExchangeProcessor::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessageContext const& context,
+bool ExchangeProcessor::CollectMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    MessageContext const& context,
 	std::string_view buffer)
 {
     // If the exchange has been invalidated do not process the message.
@@ -63,10 +63,10 @@ bool CExchangeProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool CExchangeProcessor::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessageContext const& context,
-	Message::Buffer const& buffer)
+bool ExchangeProcessor::CollectMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    MessageContext const& context,
+	std::span<std::uint8_t const> buffer)
 {
     // If the exchange has been invalidated do not process the message.
     if (m_stage == ProcessStage::Invalid) { return false; }
@@ -87,7 +87,7 @@ bool CExchangeProcessor::CollectMessage(
     }
 
     // Attempt to unpack the buffer into the handshake message.
-    auto const optMessage = CNetworkMessage::Builder()
+    auto const optMessage = NetworkMessage::Builder()
         .SetMessageContext(context)
         .FromDecodedPack(buffer)
         .ValidatedBuild();
@@ -107,7 +107,7 @@ bool CExchangeProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-CExchangeProcessor::PreparationResult CExchangeProcessor::Prepare()
+ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 {
     auto const [status, buffer] = m_upSecurityStrategy->PrepareSynchronization();
 
@@ -120,7 +120,7 @@ CExchangeProcessor::PreparationResult CExchangeProcessor::Prepare()
     }
 
     if (buffer.size() != 0) {
-        auto const optRequest = CNetworkMessage::Builder()
+        auto const optRequest = NetworkMessage::Builder()
             .SetSource(*m_spBryptIdentifier)
             .MakeHandshakeMessage()
             .SetPayload(buffer)
@@ -134,8 +134,8 @@ CExchangeProcessor::PreparationResult CExchangeProcessor::Prepare()
 
 //------------------------------------------------------------------------------------------------
 
-bool CExchangeProcessor::HandleMessage(
-    std::shared_ptr<CBryptPeer> const& spBryptPeer, CNetworkMessage const& message)
+bool ExchangeProcessor::HandleMessage(
+    std::shared_ptr<BryptPeer> const& spBryptPeer, NetworkMessage const& message)
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
@@ -156,10 +156,13 @@ bool CExchangeProcessor::HandleMessage(
 }
 
 //------------------------------------------------------------------------------------------------
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wattributes"
+//------------------------------------------------------------------------------------------------
 
-bool CExchangeProcessor::HandleSynchronizationMessage(
-    std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    CNetworkMessage const& message)
+bool ExchangeProcessor::HandleSynchronizationMessage(
+    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    NetworkMessage const& message)
 {
     assert(m_upSecurityStrategy);
     assert(m_spBryptIdentifier);
@@ -173,13 +176,13 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
     // or the type is not a node destination return an error. 
     if (message.GetDestinationType() != Message::Destination::Node) { return false; }
 
-    CMessageContext const& context = message.GetContext();
+    MessageContext const& context = message.GetContext();
 
     // If synchronization indicated an additional message needs to be transmitted, build 
     // the response and send it through the peer. 
     if (buffer.size() != 0) {
         // Build a response to the message from the synchronization result of the strategy. 
-        auto const optResponse = CNetworkMessage::Builder()
+        auto const optResponse = NetworkMessage::Builder()
             .SetMessageContext(context)
             .SetSource(*m_spBryptIdentifier)
             .SetDestination(message.GetSourceIdentifier())
@@ -228,4 +231,6 @@ bool CExchangeProcessor::HandleSynchronizationMessage(
     return true;
 }
 
+//------------------------------------------------------------------------------------------------
+#pragma GCC diagnostic pop
 //------------------------------------------------------------------------------------------------

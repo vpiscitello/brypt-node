@@ -25,17 +25,16 @@ namespace Security {
 namespace PQNISTL3 {
 //------------------------------------------------------------------------------------------------
 
-class CContext;
-class CSynchronizationTracker;
-
-class CStrategy;
+class Context;
+class SynchronizationTracker;
+class Strategy;
 
 //------------------------------------------------------------------------------------------------
 } // PQNISTL3 namespace
 } // Security namespace
 //------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::CContext
+class Security::PQNISTL3::Context
 {
 public:
     // A callback providing the caller the encapsulation and the shared secret. The caller may 
@@ -45,7 +44,7 @@ public:
     constexpr static std::size_t PublicKeySize = 930;
     constexpr static std::size_t EncapsulationSize = 930;
 
-    CContext(std::string_view kem);
+    Context(std::string_view kem);
 
     [[nodiscard]] std::size_t GetPublicKeySize() const;
     [[nodiscard]] Buffer GetPublicKey() const;
@@ -56,9 +55,9 @@ public:
     [[nodiscard]] bool DecapsulateSecret(
         Buffer const& encapsulation, Buffer& decapsulation) const;
 
-    CContext(CContext const&) = delete;
-    CContext(CContext&&) = delete;
-    void operator=(CContext const&) = delete;
+    Context(Context const&) = delete;
+    Context(Context&&) = delete;
+    void operator=(Context const&) = delete;
 
 private:
     mutable std::shared_mutex m_kemMutex;
@@ -70,13 +69,13 @@ private:
 
 //------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::CSynchronizationTracker
+class Security::PQNISTL3::SynchronizationTracker
 {
 public:
     using TransactionSignator = std::function<std::size_t(Buffer const&, Buffer&)>;
     using TransactionVerifier = std::function<VerificationStatus(Buffer const& buffer)>;
 
-    CSynchronizationTracker();
+    SynchronizationTracker();
 
     SynchronizationStatus GetStatus() const;
     void SetError();
@@ -109,9 +108,9 @@ private:
 
 //------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::CStrategy : public ISecurityStrategy {
+class Security::PQNISTL3::Strategy : public ISecurityStrategy {
 public:
-    constexpr static Strategy Type = Strategy::PQNISTL3;
+    constexpr static Security::Strategy Type = Security::Strategy::PQNISTL3;
 
     constexpr static std::string_view KeyEncapsulationSchme = "NTRU-HPS-2048-677";
     constexpr static std::string_view EncryptionScheme = "AES-256-CTR";
@@ -125,16 +124,16 @@ public:
     constexpr static std::size_t PrincipalRandomSize = 32;
     constexpr static std::size_t SignatureSize = 48;
 
-    CStrategy(Role role, Context context);
+    Strategy(Role role, Security::Context context);
 
-    CStrategy(CStrategy&& other) = delete;
-    CStrategy(CStrategy const& other) = delete;
-    CStrategy& operator=(CStrategy const& other) = delete;
+    Strategy(Strategy&& other) = delete;
+    Strategy(Strategy const& other) = delete;
+    Strategy& operator=(Strategy const& other) = delete;
 
     // ISecurityStrategy {
-    [[nodiscard]] virtual Strategy GetStrategyType() const override;
+    [[nodiscard]] virtual Security::Strategy GetStrategyType() const override;
     [[nodiscard]] virtual Role GetRoleType() const override;
-    [[nodiscard]] virtual Context GetContextType() const override;
+    [[nodiscard]] virtual Security::Context GetContextType() const override;
     [[nodiscard]] virtual std::size_t GetSignatureSize() const override;
 
     [[nodiscard]] virtual std::uint32_t GetSynchronizationStages() const override;
@@ -154,7 +153,7 @@ public:
     static void InitializeApplicationContext();
     static void ShutdownApplicationContext();
 
-    [[nodiscard]] std::weak_ptr<CContext> GetSessionContext() const;
+    [[nodiscard]] std::weak_ptr<Context> GetSessionContext() const;
     [[nodiscard]] std::size_t GetPublicKeySize() const;
 
     [[nodiscard]] OptionalBuffer EncapsulateSharedSecret();
@@ -178,14 +177,14 @@ private:
     [[nodiscard]] SynchronizationResult HandleAcceptorVerification(ReadableView buffer);
  
     Role m_role;
-    Context m_context;
-    CSynchronizationTracker m_synchronization;
+    Security::Context m_context;
+    SynchronizationTracker m_synchronization;
 
-    static std::shared_ptr<CContext> m_spSharedContext;
-    std::shared_ptr<CContext> m_spSessionContext;
+    static std::shared_ptr<Context> m_spSharedContext;
+    std::shared_ptr<Context> m_spSessionContext;
 
     oqs::KeyEncapsulation m_kem;
-    Security::CKeyStore m_store;
+    Security::KeyStore m_store;
 
 };
 

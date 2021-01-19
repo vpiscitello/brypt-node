@@ -40,11 +40,11 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     local::ParseArguments(argc, argv);
 
-    std::unique_ptr<Configuration::CManager> upConfigurationManager;
+    std::unique_ptr<Configuration::Manager> upConfigurationManager;
     if (local::ConfigurationFilename.empty()) {
-        upConfigurationManager = std::make_unique<Configuration::CManager>();
+        upConfigurationManager = std::make_unique<Configuration::Manager>();
     } else {
-        upConfigurationManager = std::make_unique<Configuration::CManager>(
+        upConfigurationManager = std::make_unique<Configuration::Manager>(
             local::ConfigurationFilename);
     }
 
@@ -67,28 +67,28 @@ std::int32_t main(std::int32_t argc, char** argv)
         throw std::runtime_error("Error occured parsing endpoint configurations!");
     }
 
-    auto const spPeerPersistor = std::make_shared<CPeerPersistor>(
+    auto const spPeerPersistor = std::make_shared<PeerPersistor>(
         local::PeersFilename, *optEndpointConfigurations);
 
     if (!spPeerPersistor->FetchBootstraps()) {
         throw std::runtime_error("Error occured parsing bootstraps!");
     }
 
-    auto const spDiscoveryProtocol = std::make_shared<CDiscoveryProtocol>(
+    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(
         *optEndpointConfigurations);
 
-    auto const spMessageCollector = std::make_shared<CAuthorizedProcessor>();
+    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>();
 
-    auto const spPeerManager = std::make_shared<CPeerManager>(
+    auto const spPeerManager = std::make_shared<PeerManager>(
         spBryptIdentifier, upConfigurationManager->GetSecurityStrategy(),
         spDiscoveryProtocol, spMessageCollector);
 
     spPeerPersistor->SetMediator(spPeerManager.get());
 
-    auto const spEndpointManager = std::make_shared<CEndpointManager>(
+    auto const spEndpointManager = std::make_shared<EndpointManager>(
         *optEndpointConfigurations, spPeerManager.get(), spPeerPersistor.get());
 
-    CBryptNode alpha(
+    BryptNode alpha(
         spBryptIdentifier, spEndpointManager, spPeerManager, 
         spMessageCollector, spPeerPersistor, upConfigurationManager);
 

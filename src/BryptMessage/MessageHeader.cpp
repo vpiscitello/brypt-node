@@ -12,23 +12,23 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 Message::Protocol UnpackProtocol(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end);
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end);
 
-std::optional<BryptIdentifier::CContainer> UnpackIdentifier(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end);
+std::optional<BryptIdentifier::Container> UnpackIdentifier(
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end);
 
 Message::Destination UnpackDestination(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end);
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CMessageHeader::CMessageHeader()
+MessageHeader::MessageHeader()
     : m_protocol(Message::Protocol::Invalid)
     , m_version()
     , m_size(0)
@@ -40,49 +40,49 @@ CMessageHeader::CMessageHeader()
 
 //------------------------------------------------------------------------------------------------
 
-Message::Protocol CMessageHeader::GetMessageProtocol() const
+Message::Protocol MessageHeader::GetMessageProtocol() const
 {
     return m_protocol;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Message::Version const& CMessageHeader::GetVersion() const
+Message::Version const& MessageHeader::GetVersion() const
 {
     return m_version;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageHeader::GetMessageSize() const
+std::uint32_t MessageHeader::GetMessageSize() const
 {
     return m_size;
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const& CMessageHeader::GetSourceIdentifier() const
+BryptIdentifier::Container const& MessageHeader::GetSourceIdentifier() const
 {
     return m_source;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Message::Destination CMessageHeader::GetDestinationType() const
+Message::Destination MessageHeader::GetDestinationType() const
 {
     return m_destination;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> const& CMessageHeader::GetDestinationIdentifier() const
+std::optional<BryptIdentifier::Container> const& MessageHeader::GetDestinationIdentifier() const
 {
     return m_optDestinationIdentifier;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageHeader::GetPackSize() const
+std::uint32_t MessageHeader::GetPackSize() const
 {
     std::size_t size = FixedPackSize();
     size += m_source.NetworkRepresentationSize();
@@ -94,7 +94,7 @@ std::uint32_t CMessageHeader::GetPackSize() const
 
 //------------------------------------------------------------------------------------------------
 
-Message::Buffer CMessageHeader::GetPackedBuffer() const
+Message::Buffer MessageHeader::GetPackedBuffer() const
 {
 	Message::Buffer buffer;
 	buffer.reserve(GetPackSize());
@@ -137,10 +137,10 @@ Message::Buffer CMessageHeader::GetPackedBuffer() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageHeader::IsValid() const
+bool MessageHeader::IsValid() const
 {	
 	// A header must identify a valid message protocol
-	if (m_protocol == static_cast<Message::Protocol>(Message::Protocol::Invalid)) {
+	if (m_protocol == Message::Protocol::Invalid) {
 		return false;
 	}
 
@@ -155,8 +155,9 @@ bool CMessageHeader::IsValid() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageHeader::ParseBuffer(
-    Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end)
+bool MessageHeader::ParseBuffer(
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end)
 {
     // The buffer must contain at least the minimum bytes packed by a header.
     if (std::cmp_less(std::distance(begin, end), FixedPackSize())) {
@@ -197,8 +198,8 @@ bool CMessageHeader::ParseBuffer(
 //------------------------------------------------------------------------------------------------
 
 Message::Protocol local::UnpackProtocol(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end)
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end)
 {
     using ProtocolType = std::underlying_type_t<Message::Protocol>;
 
@@ -209,9 +210,9 @@ Message::Protocol local::UnpackProtocol(
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> local::UnpackIdentifier(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end)
+std::optional<BryptIdentifier::Container> local::UnpackIdentifier(
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end)
 {
     std::uint8_t size = 0; 
     if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
@@ -224,15 +225,15 @@ std::optional<BryptIdentifier::CContainer> local::UnpackIdentifier(
     buffer.reserve(size);
     if (!PackUtils::UnpackChunk(begin, end, buffer)) { return {}; }
 
-    return BryptIdentifier::CContainer(
+    return BryptIdentifier::Container(
         buffer, BryptIdentifier::BufferContentType::Network);
 }
 
 //------------------------------------------------------------------------------------------------
 
 Message::Destination local::UnpackDestination(
-    Message::Buffer::const_iterator& begin,
-    Message::Buffer::const_iterator const& end)
+    std::span<std::uint8_t const>::iterator& begin,
+    std::span<std::uint8_t const>::iterator const& end)
 {
     using DestinationType = std::underlying_type_t<Message::Destination>;
 

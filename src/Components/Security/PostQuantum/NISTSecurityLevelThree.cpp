@@ -48,19 +48,19 @@ namespace Initiator {
 //------------------------------------------------------------------------------------------------
 
 [[nodiscard]] Security::OptionalBuffer GenerateInitializationRequest(
-    Security::PQNISTL3::CContext const& context,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization);
+    Security::PQNISTL3::Context const& context,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization);
 
 [[nodiscard]] bool HandleInitializationResponse(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization,
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request);
 
 [[nodiscard]] Security::OptionalBuffer GeneratVerificationRequest(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization);
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::PQNISTL3::SynchronizationTracker& synchronization);
 
 //------------------------------------------------------------------------------------------------
 } // Initiator namespace
@@ -71,19 +71,19 @@ namespace Acceptor {
 using OptionalInitializationResult = std::optional<std::pair<Security::Buffer, Security::Buffer>>;
 
 [[nodiscard]] bool HandleInitializationRequest(
-    Security::PQNISTL3::CContext const& context,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization,
+    Security::PQNISTL3::Context const& context,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request);
 
 [[nodiscard]] Security::OptionalBuffer GenerateInitializationResponse(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization);
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization);
 
 [[nodiscard]] bool HandleVerificationRequest(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization,
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request);
 
 //------------------------------------------------------------------------------------------------
@@ -95,11 +95,11 @@ using OptionalInitializationResult = std::optional<std::pair<Security::Buffer, S
 // Declare the static shared context the strategy may use in a shared application context. 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<Security::PQNISTL3::CContext> Security::PQNISTL3::CStrategy::m_spSharedContext = nullptr;
+std::shared_ptr<Security::PQNISTL3::Context> Security::PQNISTL3::Strategy::m_spSharedContext = nullptr;
 
 //------------------------------------------------------------------------------------------------
 
-Security::PQNISTL3::CContext::CContext(std::string_view kem)
+Security::PQNISTL3::Context::Context(std::string_view kem)
     : m_kemMutex()
     , m_kem(kem.data())
     , m_publicKeyMutex()
@@ -114,7 +114,7 @@ Security::PQNISTL3::CContext::CContext(std::string_view kem)
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t Security::PQNISTL3::CContext::GetPublicKeySize() const
+std::size_t Security::PQNISTL3::Context::GetPublicKeySize() const
 {
     assert(PublicKeySize == m_kem.get_details().length_public_key);
     return PublicKeySize;
@@ -122,14 +122,14 @@ std::size_t Security::PQNISTL3::CContext::GetPublicKeySize() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::Buffer Security::PQNISTL3::CContext::GetPublicKey() const
+Security::Buffer Security::PQNISTL3::Context::GetPublicKey() const
 {
     return m_publicKey;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t Security::PQNISTL3::CContext::GetPublicKey(Buffer& buffer) const
+std::size_t Security::PQNISTL3::Context::GetPublicKey(Buffer& buffer) const
 {
     std::shared_lock lock(m_publicKeyMutex);
     buffer.insert(buffer.end(), m_publicKey.begin(), m_publicKey.end());
@@ -138,7 +138,7 @@ std::size_t Security::PQNISTL3::CContext::GetPublicKey(Buffer& buffer) const
 
 //------------------------------------------------------------------------------------------------
 
-bool Security::PQNISTL3::CContext::GenerateEncapsulatedSecret(
+bool Security::PQNISTL3::Context::GenerateEncapsulatedSecret(
     Buffer const& publicKey, EncapsulationCallback const& callback) const
 {
     std::shared_lock lock(m_kemMutex);
@@ -153,7 +153,7 @@ bool Security::PQNISTL3::CContext::GenerateEncapsulatedSecret(
 
 //------------------------------------------------------------------------------------------------
 
-bool Security::PQNISTL3::CContext::DecapsulateSecret(
+bool Security::PQNISTL3::Context::DecapsulateSecret(
     Buffer const& encapsulation, Buffer& decapsulation) const
 {
     // Try to generate and decapsulate the shared secret. If the OQS method throws an error,
@@ -169,7 +169,7 @@ bool Security::PQNISTL3::CContext::DecapsulateSecret(
 
 //------------------------------------------------------------------------------------------------
 
-Security::PQNISTL3::CSynchronizationTracker::CSynchronizationTracker()
+Security::PQNISTL3::SynchronizationTracker::SynchronizationTracker()
     : m_status(SynchronizationStatus::Processing)
     , m_stage(0)
     , m_transaction()
@@ -180,14 +180,14 @@ Security::PQNISTL3::CSynchronizationTracker::CSynchronizationTracker()
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus Security::PQNISTL3::CSynchronizationTracker::GetStatus() const
+Security::SynchronizationStatus Security::PQNISTL3::SynchronizationTracker::GetStatus() const
 {
     return m_status;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CSynchronizationTracker::SetError()
+void Security::PQNISTL3::SynchronizationTracker::SetError()
 {
     m_status = SynchronizationStatus::Error;
 }
@@ -195,7 +195,7 @@ void Security::PQNISTL3::CSynchronizationTracker::SetError()
 //------------------------------------------------------------------------------------------------
 
 template <typename EnumType>
-EnumType Security::PQNISTL3::CSynchronizationTracker::GetStage() const
+EnumType Security::PQNISTL3::SynchronizationTracker::GetStage() const
 {
     return static_cast<EnumType>(m_stage);
 }
@@ -203,7 +203,7 @@ EnumType Security::PQNISTL3::CSynchronizationTracker::GetStage() const
 //------------------------------------------------------------------------------------------------
 
 template <typename EnumType>
-void Security::PQNISTL3::CSynchronizationTracker::SetStage(EnumType type)
+void Security::PQNISTL3::SynchronizationTracker::SetStage(EnumType type)
 {
     assert(sizeof(type) == sizeof(m_stage));
     m_stage = static_cast<decltype(m_stage)>(type);
@@ -211,28 +211,28 @@ void Security::PQNISTL3::CSynchronizationTracker::SetStage(EnumType type)
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CSynchronizationTracker::SetSignator(TransactionSignator const& signator)
+void Security::PQNISTL3::SynchronizationTracker::SetSignator(TransactionSignator const& signator)
 {
     m_signator = signator;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CSynchronizationTracker::SetVerifier(TransactionVerifier const& verifier)
+void Security::PQNISTL3::SynchronizationTracker::SetVerifier(TransactionVerifier const& verifier)
 {
     m_verifier = verifier;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CSynchronizationTracker::UpdateTransaction(ReadableView buffer)
+void Security::PQNISTL3::SynchronizationTracker::UpdateTransaction(ReadableView buffer)
 {
     m_transaction.insert(m_transaction.end(), buffer.begin(), buffer.end());
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool Security::PQNISTL3::CSynchronizationTracker::SignTransaction(Buffer& message)
+bool Security::PQNISTL3::SynchronizationTracker::SignTransaction(Buffer& message)
 {
     assert(m_signator); // The strategy should always have provided us a signator. 
     UpdateTransaction(message); // The transaction needs to be updated with the current message. 
@@ -244,7 +244,7 @@ bool Security::PQNISTL3::CSynchronizationTracker::SignTransaction(Buffer& messag
 
 //------------------------------------------------------------------------------------------------
 
-Security::VerificationStatus Security::PQNISTL3::CSynchronizationTracker::VerifyTransaction()
+Security::VerificationStatus Security::PQNISTL3::SynchronizationTracker::VerifyTransaction()
 {
     assert(m_verifier); // The strategy should always have provided us a verifier. 
     return m_verifier(m_transaction);
@@ -253,7 +253,7 @@ Security::VerificationStatus Security::PQNISTL3::CSynchronizationTracker::Verify
 //------------------------------------------------------------------------------------------------
 
 template<typename EnumType>
-void Security::PQNISTL3::CSynchronizationTracker::Finalize(EnumType stage)
+void Security::PQNISTL3::SynchronizationTracker::Finalize(EnumType stage)
 {
     m_status = SynchronizationStatus::Ready;
     m_transaction.clear();
@@ -262,7 +262,7 @@ void Security::PQNISTL3::CSynchronizationTracker::Finalize(EnumType stage)
 
 //------------------------------------------------------------------------------------------------
 
-bool Security::PQNISTL3::CSynchronizationTracker::ResetState()
+bool Security::PQNISTL3::SynchronizationTracker::ResetState()
 {
     m_status = SynchronizationStatus::Processing;
     m_stage = 0;
@@ -272,7 +272,7 @@ bool Security::PQNISTL3::CSynchronizationTracker::ResetState()
 
 //------------------------------------------------------------------------------------------------
 
-Security::PQNISTL3::CStrategy::CStrategy(Role role, Context context)
+Security::PQNISTL3::Strategy::Strategy(Role role, Security::Context context)
     : m_role(role)
     , m_context(context)
     , m_synchronization()
@@ -281,10 +281,10 @@ Security::PQNISTL3::CStrategy::CStrategy(Role role, Context context)
     , m_store()
 {
     switch (context) {
-        case Context::Unique: {
-            m_spSessionContext = std::make_shared<CContext>(KeyEncapsulationSchme);
+        case Security::Context::Unique: {
+            m_spSessionContext = std::make_shared<Context>(KeyEncapsulationSchme);
         } break;
-        case Context::Application: {
+        case Security::Context::Application: {
             if (!m_spSharedContext) [[unlikely]] {
                 throw std::runtime_error("Shared Application Context has not been initialized!");
             }
@@ -304,35 +304,35 @@ Security::PQNISTL3::CStrategy::CStrategy(Role role, Context context)
 
 //------------------------------------------------------------------------------------------------
 
-Security::Strategy Security::PQNISTL3::CStrategy::GetStrategyType() const
+Security::Strategy Security::PQNISTL3::Strategy::GetStrategyType() const
 {
     return Type;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Role Security::PQNISTL3::CStrategy::GetRoleType() const
+Security::Role Security::PQNISTL3::Strategy::GetRoleType() const
 {
     return m_role;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Context Security::PQNISTL3::CStrategy::GetContextType() const
+Security::Context Security::PQNISTL3::Strategy::GetContextType() const
 {
     return m_context;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t Security::PQNISTL3::CStrategy::GetSignatureSize() const
+std::size_t Security::PQNISTL3::Strategy::GetSignatureSize() const
 {
     return SignatureSize;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t Security::PQNISTL3::CStrategy::GetSynchronizationStages() const
+std::uint32_t Security::PQNISTL3::Strategy::GetSynchronizationStages() const
 {
     switch (m_role) {
         case Security::Role::Initiator: return InitiatorStages;
@@ -343,14 +343,14 @@ std::uint32_t Security::PQNISTL3::CStrategy::GetSynchronizationStages() const
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus Security::PQNISTL3::CStrategy::GetSynchronizationStatus() const
+Security::SynchronizationStatus Security::PQNISTL3::Strategy::GetSynchronizationStatus() const
 {
     return m_synchronization.GetStatus();
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::PrepareSynchronization()
+Security::SynchronizationResult Security::PQNISTL3::Strategy::PrepareSynchronization()
 {
     // Reset the state of any previous synchronizations. 
     if (!m_synchronization.ResetState()) { return { SynchronizationStatus::Error, {} }; }
@@ -382,18 +382,19 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::PrepareSynchroniz
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::Synchronize(ReadableView buffer)
+Security::SynchronizationResult Security::PQNISTL3::Strategy::Synchronize(ReadableView buffer)
 {
     switch (m_role) {
         case Role::Initiator: return HandleInitiatorSynchronization(buffer);
         case Role::Acceptor: return HandleAcceptorSynchronization(buffer);
         default: assert(false); break; // What is this?
     }
+    return { SynchronizationStatus::Error, {} };
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
+Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(
     ReadableView buffer, std::uint64_t nonce) const
 {
     // Ensure the caller is able to encrypt the buffer with generated session keys. 
@@ -429,8 +430,8 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
     assert(std::int32_t(iv.size()) == EVP_CIPHER_CTX_iv_length(upCipherContext.get()));
 
 	Buffer ciphertext(buffer.size(), 0x00); // Create a buffer to store the encrypted data. 
-	auto pCiphertext = reinterpret_cast<std::uint8_t*>(ciphertext.data());
-	auto const pPlaintext = reinterpret_cast<std::uint8_t const*>(buffer.data());
+	auto pCiphertext = ciphertext.data();
+	auto const pPlaintext = buffer.data();
 
     // Encrypt the plaintext into the ciphertext buffer.
     constexpr std::size_t MaximumBlockSize = static_cast<std::size_t>(
@@ -457,7 +458,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Encrypt(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
+Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(
     ReadableView buffer, std::uint64_t nonce) const
 {
     // Ensure the caller is able to decrypt the buffer with generated session keys.
@@ -493,8 +494,8 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
     assert(std::int32_t(iv.size()) == EVP_CIPHER_CTX_iv_length(upCipherContext.get()));
 
 	Buffer plaintext(buffer.size(), 0x00); // Create a buffer to store the decrypted data. 
-	auto pPlaintext = reinterpret_cast<std::uint8_t*>(plaintext.data());
-	auto const pCiphertext = reinterpret_cast<std::uint8_t const*>(buffer.data());
+	auto pPlaintext = plaintext.data();
+	auto const pCiphertext = buffer.data();
 
     // Decrypt the ciphertext into the plaintext buffer.
     constexpr std::size_t MaximumBlockSize = static_cast<std::size_t>(
@@ -521,14 +522,14 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::Decrypt(
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t Security::PQNISTL3::CStrategy::Sign(Buffer& buffer) const
+std::int32_t Security::PQNISTL3::Strategy::Sign(Buffer& buffer) const
 {
     return Sign(buffer, buffer); // Generate and add the signature to the provided buffer. 
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::VerificationStatus Security::PQNISTL3::CStrategy::Verify(ReadableView buffer) const
+Security::VerificationStatus Security::PQNISTL3::Strategy::Verify(ReadableView buffer) const
 {
     // Ensure the caller is able to verify the buffer with generated session keys.
     if (!m_store.HasGeneratedKeys()) {
@@ -562,30 +563,30 @@ Security::VerificationStatus Security::PQNISTL3::CStrategy::Verify(ReadableView 
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CStrategy::InitializeApplicationContext()
+void Security::PQNISTL3::Strategy::InitializeApplicationContext()
 {
     if (!m_spSharedContext) {
-        m_spSharedContext = std::make_shared<CContext>(KeyEncapsulationSchme);
+        m_spSharedContext = std::make_shared<Context>(KeyEncapsulationSchme);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::CStrategy::ShutdownApplicationContext()
+void Security::PQNISTL3::Strategy::ShutdownApplicationContext()
 {
-    CStrategy::m_spSharedContext.reset();
+    Strategy::m_spSharedContext.reset();
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Security::PQNISTL3::CContext> Security::PQNISTL3::CStrategy::GetSessionContext() const
+std::weak_ptr<Security::PQNISTL3::Context> Security::PQNISTL3::Strategy::GetSessionContext() const
 {
     return m_spSessionContext;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t Security::PQNISTL3::CStrategy::GetPublicKeySize() const
+std::size_t Security::PQNISTL3::Strategy::GetPublicKeySize() const
 {
     return m_spSessionContext->GetPublicKeySize();
 }
@@ -597,7 +598,7 @@ std::size_t Security::PQNISTL3::CStrategy::GetPublicKeySize() const
 // caller is provided the encapsulated shared secret to provide the peer. If an error is 
 // encountered nullopt is provided instead. 
 //------------------------------------------------------------------------------------------------
-Security::OptionalBuffer Security::PQNISTL3::CStrategy::EncapsulateSharedSecret()
+Security::OptionalBuffer Security::PQNISTL3::Strategy::EncapsulateSharedSecret()
 {
     // A shared secret cannot be generated and encapsulated without the peer's public key. 
     auto const& optPeerPublicKey = m_store.GetPeerPublicKey();
@@ -632,7 +633,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::EncapsulateSharedSecret(
 // Description: Decapsulates an ephemeral session key using NTRU-HPS-2048-677 from the provided
 // encapsulated ciphertext. 
 //------------------------------------------------------------------------------------------------
-bool Security::PQNISTL3::CStrategy::DecapsulateSharedSecret(Buffer const& encapsulation)
+bool Security::PQNISTL3::Strategy::DecapsulateSharedSecret(Buffer const& encapsulation)
 {
     // The session context should always exist after the constructor is called. 
     assert(m_spSessionContext);
@@ -646,7 +647,7 @@ bool Security::PQNISTL3::CStrategy::DecapsulateSharedSecret(Buffer const& encaps
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::PQNISTL3::CStrategy::GenerateVerficationData()
+Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateVerficationData()
 {
     assert(m_store.HasGeneratedKeys());
 
@@ -670,7 +671,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::GenerateVerficationData(
 
 //------------------------------------------------------------------------------------------------
 
-Security::VerificationStatus Security::PQNISTL3::CStrategy::VerifyKeyShare(Buffer const& buffer) const
+Security::VerificationStatus Security::PQNISTL3::Strategy::VerifyKeyShare(Buffer const& buffer) const
 {
     // Get our own verification data to verify the provided encrypted data. 
     auto const& optVerificationData = m_store.GetVerificationData();
@@ -691,7 +692,7 @@ Security::VerificationStatus Security::PQNISTL3::CStrategy::VerifyKeyShare(Buffe
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t Security::PQNISTL3::CStrategy::Sign(
+std::int32_t Security::PQNISTL3::Strategy::Sign(
     ReadableView source, Security::Buffer& destination) const
 {
     // Ensure the caller is able to sign the buffer with generated session keys.
@@ -715,7 +716,7 @@ std::int32_t Security::PQNISTL3::CStrategy::Sign(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::PQNISTL3::CStrategy::GenerateSignature(
+Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateSignature(
     ReadableView key, ReadableView data) const
 {
     // If there is no data to be signed, there is nothing to do. 
@@ -735,7 +736,7 @@ Security::OptionalBuffer Security::PQNISTL3::CStrategy::GenerateSignature(
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorSynchronization(
+Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorSynchronization(
     ReadableView buffer)
 {
     switch (m_synchronization.GetStage<InitiatorStage>())
@@ -755,7 +756,7 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorSy
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorInitialization(
+Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorInitialization(
     ReadableView buffer)
 {
     // Handle the acceptor's resposne to the initialization message. The post conditions for 
@@ -784,7 +785,7 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleInitiatorIn
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorSynchronization(
+Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorSynchronization(
     ReadableView buffer)
 {
     switch (m_synchronization.GetStage<AcceptorStage>())
@@ -807,7 +808,7 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorSyn
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorInitialization(
+Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorInitialization(
     ReadableView buffer)
 {
     // The session context should always exist after the constructor is called. 
@@ -841,7 +842,7 @@ Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorIni
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult Security::PQNISTL3::CStrategy::HandleAcceptorVerification(
+Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorVerification(
     ReadableView buffer)
 {
     // Handle the initiator's verification request. As post condition the synchronization will
@@ -884,26 +885,26 @@ Security::OptionalBuffer local::GenerateRandomData(std::size_t size)
 //------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Initiator::GenerateInitializationRequest(
-    Security::PQNISTL3::CContext const& context,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization)
+    Security::PQNISTL3::Context const& context,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization)
 {
     using namespace Security::PQNISTL3;
 
     // Generate our prinicpal seed for the session. 
-    auto const optPrincipalSeed = local::GenerateRandomData(CStrategy::PrincipalRandomSize);
+    auto const optPrincipalSeed = local::GenerateRandomData(Strategy::PrincipalRandomSize);
     if (!optPrincipalSeed) { return {}; }
 
     // Expand the KeyStore's deriviation seed. 
     store.ExpandSessionSeed(*optPrincipalSeed);
 
     constexpr std::size_t RequestSize = 
-        sizeof(CStrategy::Type) + CStrategy::PrincipalRandomSize + CContext::PublicKeySize;
+        sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::PublicKeySize;
 
     Security::Buffer request;
     request.reserve(RequestSize);
 
-    PackUtils::PackChunk(CStrategy::Type, request); // Pack the strategy type.
+    PackUtils::PackChunk(Strategy::Type, request); // Pack the strategy type.
     PackUtils::PackChunk(*optPrincipalSeed, request);
     if (std::size_t fetched = context.GetPublicKey(request); fetched == 0) { return {}; }
 
@@ -916,9 +917,9 @@ Security::OptionalBuffer Initiator::GenerateInitializationRequest(
 //------------------------------------------------------------------------------------------------
 
 bool Initiator::HandleInitializationResponse(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization,
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request)
 {
     using namespace Security::PQNISTL3;
@@ -929,17 +930,17 @@ bool Initiator::HandleInitializationResponse(
 	auto const end = request.end();
 
     Security::Strategy strategy = local::UnpackStrategy(begin, end);
-    if (strategy != CStrategy::Type) { return {}; }
+    if (strategy != Strategy::Type) { return {}; }
 
     constexpr std::size_t ExpectedRequestSize = 
-        sizeof(CStrategy::Type) + CStrategy::PrincipalRandomSize + CContext::EncapsulationSize +
-        Security::CKeyStore::VerificationSize + CStrategy::SignatureSize;
+        sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::EncapsulationSize +
+        Security::KeyStore::VerificationSize + Strategy::SignatureSize;
     if (request.size() != ExpectedRequestSize) { return false; }
 
     // Handle the peer's packed prinicpal random seed. 
     {
         Security::Buffer seed;
-        seed.reserve(CStrategy::PrincipalRandomSize);
+        seed.reserve(Strategy::PrincipalRandomSize);
         if (!PackUtils::UnpackChunk(begin, end, seed)) { return false; }
 
         // Expand the key store's deriviation seed with the provided data. 
@@ -949,7 +950,7 @@ bool Initiator::HandleInitializationResponse(
     // Handle the peer's packed encapsulation data. 
     {
         Security::Buffer encapsulation;
-        encapsulation.reserve(CContext::EncapsulationSize);
+        encapsulation.reserve(Context::EncapsulationSize);
         if (!PackUtils::UnpackChunk(begin, end, encapsulation)) { return false; }
 
         // Attempt to decapsulate the shared secret. If the shared secret could not be decapsulated
@@ -960,7 +961,7 @@ bool Initiator::HandleInitializationResponse(
     // Handle the peer's verification data.
     {
         Security::Buffer verification;
-        verification.reserve(Security::CKeyStore::VerificationSize);
+        verification.reserve(Security::KeyStore::VerificationSize);
         if (!PackUtils::UnpackChunk(begin, end, verification)) { return false; }
 
         if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) {
@@ -986,8 +987,8 @@ bool Initiator::HandleInitializationResponse(
 //------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Initiator::GeneratVerificationRequest(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization)
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::PQNISTL3::SynchronizationTracker& synchronization)
 {
     using namespace Security::PQNISTL3;
 
@@ -997,20 +998,20 @@ Security::OptionalBuffer Initiator::GeneratVerificationRequest(
     if (!optVerification) { return {}; }
 
     constexpr std::size_t RequestSize  = 
-        sizeof(CStrategy::Type) + Security::CKeyStore::VerificationSize +
-        CStrategy::SignatureSize;
+        sizeof(Strategy::Type) + Security::KeyStore::VerificationSize +
+        Strategy::SignatureSize;
 
     Security::Buffer request;
     request.reserve(RequestSize);
 
-    PackUtils::PackChunk(CStrategy::Type, request);
+    PackUtils::PackChunk(Strategy::Type, request);
     PackUtils::PackChunk(*optVerification, request);
 
     // If for some reason we cannot sign the verification data it is an error. 
     if (pStrategy->Sign(request) == 0) { return {}; }
 
     // The synchronization process is now complete.
-    synchronization.Finalize(CStrategy::InitiatorStage::Complete);
+    synchronization.Finalize(Strategy::InitiatorStage::Complete);
 
     return request;
 }
@@ -1018,9 +1019,9 @@ Security::OptionalBuffer Initiator::GeneratVerificationRequest(
 //------------------------------------------------------------------------------------------------
 
 bool Acceptor::HandleInitializationRequest(
-    Security::PQNISTL3::CContext const& context,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization,
+    Security::PQNISTL3::Context const& context,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request)
 {
     using namespace Security::PQNISTL3;
@@ -1029,16 +1030,16 @@ bool Acceptor::HandleInitializationRequest(
 	auto const end = request.end();
 
     Security::Strategy strategy = local::UnpackStrategy(begin, end);
-    if (strategy != CStrategy::Type) { return false; }
+    if (strategy != Strategy::Type) { return false; }
 
     constexpr std::size_t ExpectedRequestSize = 
-        sizeof(CStrategy::Type) + CStrategy::PrincipalRandomSize + CContext::PublicKeySize;
+        sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::PublicKeySize;
     if (request.size() != ExpectedRequestSize) { return false; }
 
     // Handle the peer's packed prinicpal random seed. 
     {
         Security::Buffer seed;
-        seed.reserve(CStrategy::PrincipalRandomSize);
+        seed.reserve(Strategy::PrincipalRandomSize);
         if (!PackUtils::UnpackChunk(begin, end, seed)) { return false; }
 
         // Expand the key store's deriviation seed with the provided data. 
@@ -1064,16 +1065,16 @@ bool Acceptor::HandleInitializationRequest(
 //------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Acceptor::GenerateInitializationResponse(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::CKeyStore& store,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization)
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::KeyStore& store,
+    Security::PQNISTL3::SynchronizationTracker& synchronization)
 {
     using namespace Security::PQNISTL3;
 
     assert(pStrategy);
 
     // Generate random data to be used to generate the session keys. 
-    auto const optPrincipalSeed = local::GenerateRandomData(CStrategy::PrincipalRandomSize);
+    auto const optPrincipalSeed = local::GenerateRandomData(Strategy::PrincipalRandomSize);
     if (!optPrincipalSeed) { return {}; }
 
     // Add the prinicpal random data to the store in order to use it when generating session keys. 
@@ -1089,18 +1090,18 @@ Security::OptionalBuffer Acceptor::GenerateInitializationResponse(
     if (!optVerification) { return {}; }
 
     constexpr std::size_t ResponseSize  = 
-        sizeof(CStrategy::Type) + CStrategy::PrincipalRandomSize + CContext::EncapsulationSize +
-        Security::CKeyStore::VerificationSize + CStrategy::SignatureSize;
+        sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::EncapsulationSize +
+        Security::KeyStore::VerificationSize + Strategy::SignatureSize;
 
     Security::Buffer response; 
     response.reserve(ResponseSize);
 
-    PackUtils::PackChunk(CStrategy::Type, response);
+    PackUtils::PackChunk(Strategy::Type, response);
     PackUtils::PackChunk(*optPrincipalSeed, response);
 	PackUtils::PackChunk(*optEncapsulation, response);
 	PackUtils::PackChunk(*optVerification, response);
 
-    synchronization.SetStage(CStrategy::AcceptorStage::Verification);
+    synchronization.SetStage(Strategy::AcceptorStage::Verification);
     if (!synchronization.SignTransaction(response)) { return {}; }
 
     return response;
@@ -1109,8 +1110,8 @@ Security::OptionalBuffer Acceptor::GenerateInitializationResponse(
 //------------------------------------------------------------------------------------------------
 
 bool Acceptor::HandleVerificationRequest(
-    Security::PQNISTL3::CStrategy* const pStrategy,
-    Security::PQNISTL3::CSynchronizationTracker& synchronization,
+    Security::PQNISTL3::Strategy* const pStrategy,
+    Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request)
 {
     using namespace Security::PQNISTL3;
@@ -1127,17 +1128,17 @@ bool Acceptor::HandleVerificationRequest(
 	auto const end = request.end();
 
     Security::Strategy strategy = local::UnpackStrategy(begin, end);
-    if (strategy != CStrategy::Type) { return {}; }
+    if (strategy != Strategy::Type) { return {}; }
 
     constexpr std::size_t ExpectedRequestSize  = 
-        sizeof(CStrategy::Type) + Security::CKeyStore::VerificationSize +
-        CStrategy::SignatureSize;
+        sizeof(Strategy::Type) + Security::KeyStore::VerificationSize +
+        Strategy::SignatureSize;
     if (request.size() != ExpectedRequestSize) { return false; }
 
     // Handle the peer's verification data.
     {
         Security::Buffer verification;
-        verification.reserve(Security::CKeyStore::VerificationSize);
+        verification.reserve(Security::KeyStore::VerificationSize);
         if (!PackUtils::UnpackChunk(begin, end, verification)) { return false; }
 
         // Verify the packed and encrypted verification data. 
@@ -1147,7 +1148,7 @@ bool Acceptor::HandleVerificationRequest(
     }
 
     // The synchronization process is now complete.
-    synchronization.Finalize(CStrategy::AcceptorStage::Complete);
+    synchronization.Finalize(Strategy::AcceptorStage::Complete);
 
     return true;
 }

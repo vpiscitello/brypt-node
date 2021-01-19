@@ -144,7 +144,7 @@ std::optional<BryptIdentifier::Network::Type> BryptIdentifier::ConvertToNetworkR
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer::CContainer()
+BryptIdentifier::Container::Container()
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
     , m_networkRepresentation(ReservedIdentifiers::Network::Invalid)
     , m_valid(false)
@@ -153,7 +153,7 @@ BryptIdentifier::CContainer::CContainer()
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer::CContainer(Internal::Type const& identifier)
+BryptIdentifier::Container::Container(Internal::Type const& identifier)
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
     , m_networkRepresentation(ReservedIdentifiers::Network::Invalid)
     , m_valid(false)
@@ -163,7 +163,7 @@ BryptIdentifier::CContainer::CContainer(Internal::Type const& identifier)
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer::CContainer(std::string_view identifier)
+BryptIdentifier::Container::Container(std::string_view identifier)
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
     , m_networkRepresentation(ReservedIdentifiers::Network::Invalid)
     , m_valid(false)
@@ -173,7 +173,7 @@ BryptIdentifier::CContainer::CContainer(std::string_view identifier)
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer::CContainer(local::Buffer const& buffer, BufferContentType type)
+BryptIdentifier::Container::Container(local::Buffer const& buffer, BufferContentType type)
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
     , m_networkRepresentation(ReservedIdentifiers::Network::Invalid)
     , m_valid(false)
@@ -194,14 +194,14 @@ BryptIdentifier::CContainer::CContainer(local::Buffer const& buffer, BufferConte
 
 //------------------------------------------------------------------------------------------------
 
-bool BryptIdentifier::CContainer::operator<(CContainer const& other) const
+bool BryptIdentifier::Container::operator<(Container const& other) const
 {
     return (m_internalRepresentation < other.m_internalRepresentation);
 }
 
 //------------------------------------------------------------------------------------------------
  
-bool BryptIdentifier::CContainer::operator==(CContainer const& other) const
+bool BryptIdentifier::Container::operator==(Container const& other) const
 {
     if (m_internalRepresentation != other.m_internalRepresentation) {
         return false;
@@ -212,42 +212,42 @@ bool BryptIdentifier::CContainer::operator==(CContainer const& other) const
 
 //------------------------------------------------------------------------------------------------
 
-bool BryptIdentifier::CContainer::operator!=(CContainer const& other) const
+bool BryptIdentifier::Container::operator!=(Container const& other) const
 {
     return !operator==(other);
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Internal::Type BryptIdentifier::CContainer::GetInternalRepresentation() const
+BryptIdentifier::Internal::Type BryptIdentifier::Container::GetInternalRepresentation() const
 {
     return m_internalRepresentation;
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Network::Type BryptIdentifier::CContainer::GetNetworkRepresentation() const
+BryptIdentifier::Network::Type BryptIdentifier::Container::GetNetworkRepresentation() const
 {
     return m_networkRepresentation;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t BryptIdentifier::CContainer::NetworkRepresentationSize() const
+std::size_t BryptIdentifier::Container::NetworkRepresentationSize() const
 {
     return m_networkRepresentation.size();
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool BryptIdentifier::CContainer::IsValid() const
+bool BryptIdentifier::Container::IsValid() const
 {
     return m_valid;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void BryptIdentifier::CContainer::SetupFromInternalRepresentation(Internal::Type const& identifier)
+void BryptIdentifier::Container::SetupFromInternalRepresentation(Internal::Type const& identifier)
 {
     if (!ReservedIdentifiers::IsIdentifierAllowed(identifier)) {
         return;
@@ -263,7 +263,7 @@ void BryptIdentifier::CContainer::SetupFromInternalRepresentation(Internal::Type
 
 //------------------------------------------------------------------------------------------------
 
-void BryptIdentifier::CContainer::SetupFromNetworkRepresentation(std::string_view identifier)
+void BryptIdentifier::Container::SetupFromNetworkRepresentation(std::string_view identifier)
 {
     if (!ReservedIdentifiers::IsIdentifierAllowed(identifier)) {
         return;
@@ -281,7 +281,7 @@ void BryptIdentifier::CContainer::SetupFromNetworkRepresentation(std::string_vie
 
 std::ostream& BryptIdentifier::operator<<(
     std::ostream& stream,
-    BryptIdentifier::CContainer const& identifier)
+    BryptIdentifier::Container const& identifier)
 {
     stream << identifier.m_networkRepresentation;
     return stream;
@@ -291,7 +291,7 @@ std::ostream& BryptIdentifier::operator<<(
 
 std::stringstream& BryptIdentifier::operator<<(
     std::stringstream& stream,
-    BryptIdentifier::CContainer const& identifier)
+    BryptIdentifier::Container const& identifier)
 {
     stream << identifier.m_networkRepresentation;
     return stream;

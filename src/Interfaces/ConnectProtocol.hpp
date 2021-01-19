@@ -9,8 +9,8 @@
 #include <memory>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CMessageContext;
+class BryptPeer;
+class MessageContext;
 
 //------------------------------------------------------------------------------------------------
 
@@ -21,8 +21,8 @@ public:
 
     virtual bool SendRequest(
         BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CMessageContext const& context) const = 0;
+        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        MessageContext const& context) const = 0;
 };
 
 //------------------------------------------------------------------------------------------------

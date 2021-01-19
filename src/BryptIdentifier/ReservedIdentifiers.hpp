@@ -19,11 +19,11 @@ namespace ReservedIdentifiers {
 bool IsIdentifierReserved(std::vector<std::uint8_t> const& buffer);
 bool IsIdentifierReserved(BryptIdentifier::Internal::Type const& identifier);
 bool IsIdentifierReserved(std::string_view identifier);
-bool IsIdentifierReserved(BryptIdentifier::CContainer const& identifier);
+bool IsIdentifierReserved(BryptIdentifier::Container const& identifier);
 
 bool IsIdentifierAllowed(BryptIdentifier::Internal::Type const& identifier);
 bool IsIdentifierAllowed(std::string_view identifier);
-bool IsIdentifierAllowed(BryptIdentifier::CContainer const& identifier);
+bool IsIdentifierAllowed(BryptIdentifier::Container const& identifier);
 
 //------------------------------------------------------------------------------------------------
 namespace Internal {

@@ -13,29 +13,31 @@
 #include <optional>
 #include <queue>
 #include <shared_mutex>
+#include <span>
+#include <string_view>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CApplicationMessage;
-class CNetworkMessage;
-class CMessageContext;
+class BryptPeer;
+class ApplicationMessage;
+class NetworkMessage;
+class MessageContext;
 
 //------------------------------------------------------------------------------------------------
 
-class CAuthorizedProcessor : public IMessageSink {
+class AuthorizedProcessor : public IMessageSink {
 public:
-    CAuthorizedProcessor();
+    AuthorizedProcessor();
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
-        Message::Buffer const& buffer) override;
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
+        std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
     std::optional<AssociatedMessage> PopIncomingMessage();
@@ -43,16 +45,15 @@ public:
 
 private:
     bool QueueMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CApplicationMessage const& message);
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        ApplicationMessage const& message);
 
     bool HandleMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    	CNetworkMessage const& message);
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    	NetworkMessage const& message);
         
     mutable std::shared_mutex m_incomingMutex;
     std::queue<AssociatedMessage> m_incoming;
-
 };
 
 //------------------------------------------------------------------------------------------------

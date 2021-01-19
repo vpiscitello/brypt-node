@@ -2,7 +2,7 @@
 #include "SecurityState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CSecurityState::CSecurityState(Security::Strategy strategy, std::string_view authority)
+SecurityState::SecurityState(Security::Strategy strategy, std::string_view authority)
     : m_mutex()
     , m_strategy(strategy)
     , m_authority(authority)
@@ -12,7 +12,7 @@ CSecurityState::CSecurityState(Security::Strategy strategy, std::string_view aut
 
 //------------------------------------------------------------------------------------------------
 
-Security::Strategy CSecurityState::GetStrategy() const
+Security::Strategy SecurityState::GetStrategy() const
 {
     std::shared_lock lock(m_mutex);
     return m_strategy;
@@ -20,7 +20,7 @@ Security::Strategy CSecurityState::GetStrategy() const
 
 //------------------------------------------------------------------------------------------------
 
-std::string CSecurityState::GetAuthority() const 
+std::string SecurityState::GetAuthority() const 
 {
     std::shared_lock lock(m_mutex);
     return m_authority;
@@ -28,7 +28,7 @@ std::string CSecurityState::GetAuthority() const
 
 //------------------------------------------------------------------------------------------------
 
-std::string CSecurityState::GetToken() const
+std::string SecurityState::GetToken() const
 {
     std::shared_lock lock(m_mutex);
     return m_token;
@@ -36,7 +36,7 @@ std::string CSecurityState::GetToken() const
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityState::SetStrategy(Security::Strategy strategy)
+void SecurityState::SetStrategy(Security::Strategy strategy)
 {
     std::unique_lock lock(m_mutex);
     m_strategy = strategy;
@@ -44,7 +44,7 @@ void CSecurityState::SetStrategy(Security::Strategy strategy)
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityState::SetAuthority(std::string_view authority)
+void SecurityState::SetAuthority(std::string_view authority)
 {
     std::unique_lock lock(m_mutex);
     m_authority = authority;
@@ -52,7 +52,7 @@ void CSecurityState::SetAuthority(std::string_view authority)
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityState::SetToken(std::string_view token)
+void SecurityState::SetToken(std::string_view token)
 {
     std::unique_lock lock(m_mutex);
     m_token = token;

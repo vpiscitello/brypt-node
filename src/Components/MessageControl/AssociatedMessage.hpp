@@ -10,11 +10,10 @@
 #include <memory>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CApplicationMessage;
+class BryptPeer;
 
 //------------------------------------------------------------------------------------------------
 
-using AssociatedMessage = std::pair<std::weak_ptr<CBryptPeer>, CApplicationMessage>;
+using AssociatedMessage = std::pair<std::weak_ptr<BryptPeer>, ApplicationMessage>;
 
 //------------------------------------------------------------------------------------------------

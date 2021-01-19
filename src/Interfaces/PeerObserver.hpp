@@ -9,7 +9,7 @@
 #include <memory>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
+class BryptPeer;
 
 //------------------------------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ public:
     virtual ~IPeerObserver() = default;
 
     virtual void HandlePeerStateChange(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
         Endpoints::EndpointIdType identifier,
         Endpoints::TechnologyType technology,
         ConnectionState change) = 0;

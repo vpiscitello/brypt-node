@@ -4,8 +4,10 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageContext.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cassert>
+//------------------------------------------------------------------------------------------------
 
-CMessageContext::CMessageContext()
+MessageContext::MessageContext()
 	: m_endpointIdentifier(Endpoints::InvalidEndpointIdentifier)
 	, m_endpointTechnology(Endpoints::TechnologyType::Invalid)
 	, m_encryptor()
@@ -18,7 +20,7 @@ CMessageContext::CMessageContext()
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext::CMessageContext(
+MessageContext::MessageContext(
 	Endpoints::EndpointIdType identifier,
 	Endpoints::TechnologyType technology)
 	: m_endpointIdentifier(identifier)
@@ -47,14 +49,14 @@ Endpoints::TechnologyType CMessageContext::GetEndpointTechnology() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageContext::HasSecurityHandlers() const
+bool MessageContext::HasSecurityHandlers() const
 {
 	return (m_encryptor && m_decryptor && m_signator && m_verifier && m_getSignatureSize);
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CMessageContext::BindEncryptionHandlers(
+void MessageContext::BindEncryptionHandlers(
 	Security::Encryptor const& encryptor, Security::Decryptor const& decryptor)
 {
 	m_encryptor = encryptor;
@@ -63,7 +65,7 @@ void CMessageContext::BindEncryptionHandlers(
 
 //------------------------------------------------------------------------------------------------
 
-void CMessageContext::BindSignatureHandlers(
+void MessageContext::BindSignatureHandlers(
 	Security::Signator const& signator,
 	Security::Verifier const& verifier,
 	Security::SignatureSizeGetter const& getter)
@@ -75,37 +77,38 @@ void CMessageContext::BindSignatureHandlers(
 
 //------------------------------------------------------------------------------------------------
 
-Security::Encryptor::result_type CMessageContext::Encrypt(
-	Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const
+Security::Encryptor::result_type MessageContext::Encrypt(
+	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
 {
 	return m_encryptor(buffer, timestamp.count());
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Decryptor::result_type CMessageContext::Decrypt(
-	Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const
+Security::Decryptor::result_type MessageContext::Decrypt(
+	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
 {
 	return m_decryptor(buffer, timestamp.count());
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Signator::result_type CMessageContext::Sign(Message::Buffer& buffer) const
+Security::Signator::result_type MessageContext::Sign(Message::Buffer& buffer) const
 {
 	return m_signator(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Verifier::result_type CMessageContext::Verify(Message::Buffer const& buffer) const
+Security::Verifier::result_type MessageContext::Verify(
+	std::span<std::uint8_t const> buffer) const
 {
 	return m_verifier(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t CMessageContext::GetSignatureSize() const
+std::size_t MessageContext::GetSignatureSize() const
 {
 	return m_getSignatureSize();
 }

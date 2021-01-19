@@ -18,7 +18,7 @@ std::string ParseEntryFromURI(std::string_view uri);
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CEndpointRegistration::CEndpointRegistration(
+EndpointRegistration::EndpointRegistration(
     Endpoints::EndpointIdType identifier,
     Endpoints::TechnologyType technology,
     MessageScheduler const& scheduler,
@@ -31,14 +31,14 @@ CEndpointRegistration::CEndpointRegistration(
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CEndpointRegistration::GetMessageContext() const
+MessageContext const& EndpointRegistration::GetMessageContext() const
 {
     return m_context;
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext& CEndpointRegistration::GetWritableMessageContext()
+MessageContext& EndpointRegistration::GetWritableMessageContext()
 {
     return m_context;
 }
@@ -59,14 +59,14 @@ Endpoints::TechnologyType CEndpointRegistration::GetEndpointTechnology() const
 
 //------------------------------------------------------------------------------------------------
 
-MessageScheduler const& CEndpointRegistration::GetScheduler() const
+MessageScheduler const& EndpointRegistration::GetScheduler() const
 {
     return m_scheduler;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::string const& CEndpointRegistration::GetEntry() const
+std::string const& EndpointRegistration::GetEntry() const
 {
     return m_entry;
 }

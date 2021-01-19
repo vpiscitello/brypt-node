@@ -10,6 +10,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 //------------------------------------------------------------------------------------------------
@@ -27,26 +28,26 @@ enum class Type : std::uint8_t {
 } // Message namespace
 //------------------------------------------------------------------------------------------------
 
-class CNetworkBuilder;
+class NetworkBuilder;
 
 //------------------------------------------------------------------------------------------------
 
-class CNetworkMessage {
+class NetworkMessage {
 public:
-	CNetworkMessage();
-	CNetworkMessage(CNetworkMessage const& other);
+	NetworkMessage();
+	NetworkMessage(NetworkMessage const& other);
 
-	// CNetworkBuilder {
-	friend class CNetworkBuilder;
-	static CNetworkBuilder Builder();
-	// } CNetworkBuilder
+	// NetworkBuilder {
+	friend class NetworkBuilder;
+	static NetworkBuilder Builder();
+	// } NetworkBuilder
 
-	CMessageContext const& GetContext() const;
+	MessageContext const& GetContext() const;
 
-	CMessageHeader const& GetMessageHeader() const;
-	BryptIdentifier::CContainer const& GetSourceIdentifier() const;
+	MessageHeader const& GetMessageHeader() const;
+	BryptIdentifier::Container const& GetSourceIdentifier() const;
 	Message::Destination GetDestinationType() const;
-	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
+	std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
 	Message::Network::Type GetMessageType() const;
 	Message::Buffer const& GetPayload() const;
 
@@ -57,49 +58,47 @@ public:
 private:
 	constexpr std::uint32_t FixedPackSize() const;
 
-	CMessageContext m_context; // The internal message context of the message
-	CMessageHeader m_header; // The required message header 
+	MessageContext m_context; // The internal message context of the message
+	MessageHeader m_header; // The required message header 
 
 	Message::Network::Type m_type;
 	Message::Buffer m_payload;
-
 };
 
 //------------------------------------------------------------------------------------------------
 
-class CNetworkBuilder {
+class NetworkBuilder {
 public:
-	using OptionalMessage = std::optional<CNetworkMessage>;
+	using OptionalMessage = std::optional<NetworkMessage>;
 
-	CNetworkBuilder();
+	NetworkBuilder();
 
-	CNetworkBuilder& SetMessageContext(CMessageContext const& context);
-	CNetworkBuilder& SetSource(BryptIdentifier::CContainer const& identifier);
-	CNetworkBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
-	CNetworkBuilder& SetSource(std::string_view identifier);
-	CNetworkBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
-	CNetworkBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
-	CNetworkBuilder& SetDestination(std::string_view identifier);
-	CNetworkBuilder& MakeHandshakeMessage();
-	CNetworkBuilder& MakeHeartbeatRequest();
-	CNetworkBuilder& MakeHeartbeatResponse();
-	CNetworkBuilder& SetPayload(std::string_view data);
-	CNetworkBuilder& SetPayload(Message::Buffer const& buffer);
+	NetworkBuilder& SetMessageContext(MessageContext const& context);
+	NetworkBuilder& SetSource(BryptIdentifier::Container const& identifier);
+	NetworkBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
+	NetworkBuilder& SetSource(std::string_view identifier);
+	NetworkBuilder& SetDestination(BryptIdentifier::Container const& identifier);
+	NetworkBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
+	NetworkBuilder& SetDestination(std::string_view identifier);
+	NetworkBuilder& MakeHandshakeMessage();
+	NetworkBuilder& MakeHeartbeatRequest();
+	NetworkBuilder& MakeHeartbeatResponse();
+	NetworkBuilder& SetPayload(std::string_view buffer);
+	NetworkBuilder& SetPayload(std::span<std::uint8_t const> buffer);
 
-	CNetworkBuilder& FromDecodedPack(Message::Buffer const& buffer);
-	CNetworkBuilder& FromEncodedPack(std::string_view pack);
+	NetworkBuilder& FromDecodedPack(std::span<std::uint8_t const> buffer);
+	NetworkBuilder& FromEncodedPack(std::string_view pack);
 
-    CNetworkMessage&& Build();
+    NetworkMessage&& Build();
     OptionalMessage ValidatedBuild();
 
 private:
-	void Unpack(Message::Buffer const& buffer);
+	void Unpack(std::span<std::uint8_t const> buffer);
 	void UnpackExtensions(
-        Message::Buffer::const_iterator& begin,
-        Message::Buffer::const_iterator const& end);
+        std::span<std::uint8_t const>::iterator& begin,
+        std::span<std::uint8_t const>::iterator const& end);
 
-    CNetworkMessage m_message;
-
+    NetworkMessage m_message;
 };
 
 //------------------------------------------------------------------------------------------------

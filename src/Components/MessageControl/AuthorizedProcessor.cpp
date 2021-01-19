@@ -13,7 +13,7 @@
 #include <mutex>
 //------------------------------------------------------------------------------------------------
 
-CAuthorizedProcessor::CAuthorizedProcessor()
+AuthorizedProcessor::AuthorizedProcessor()
 	: m_incomingMutex()
 	, m_incoming()
 {
@@ -21,9 +21,9 @@ CAuthorizedProcessor::CAuthorizedProcessor()
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthorizedProcessor::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CMessageContext const& context,
+bool AuthorizedProcessor::CollectMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	MessageContext const& context,
 	std::string_view buffer)
 {
     // Decode the buffer as it is expected to be encoded with Z85.
@@ -35,10 +35,10 @@ bool CAuthorizedProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthorizedProcessor::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CMessageContext const& context,
-	Message::Buffer const& buffer)
+bool AuthorizedProcessor::CollectMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	MessageContext const& context,
+	std::span<std::uint8_t const> buffer)
 {
     // Peek the protocol in the packed buffer. 
     auto const optProtocol = Message::PeekProtocol(buffer);
@@ -49,7 +49,7 @@ bool CAuthorizedProcessor::CollectMessage(
 	// Handle the message based on the message protocol indicated by the message.
     switch (*optProtocol) {
         case Message::Protocol::Network: {
-			auto const optMessage = CNetworkMessage::Builder()
+			auto const optMessage = NetworkMessage::Builder()
 				.SetMessageContext(context)
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
@@ -61,7 +61,7 @@ bool CAuthorizedProcessor::CollectMessage(
 			return HandleMessage(wpBryptPeer, *optMessage);
 		} 
         case Message::Protocol::Application: {
-			auto const optMessage = CApplicationMessage::Builder()
+			auto const optMessage = ApplicationMessage::Builder()
 				.SetMessageContext(context)
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
@@ -79,7 +79,7 @@ bool CAuthorizedProcessor::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t CAuthorizedProcessor::QueuedMessageCount() const
+std::size_t AuthorizedProcessor::QueuedMessageCount() const
 {
 	std::shared_lock lock(m_incomingMutex);
 	return m_incoming.size();
@@ -87,7 +87,7 @@ std::size_t CAuthorizedProcessor::QueuedMessageCount() const
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<AssociatedMessage> CAuthorizedProcessor::PopIncomingMessage()
+std::optional<AssociatedMessage> AuthorizedProcessor::PopIncomingMessage()
 {
 	std::scoped_lock lock(m_incomingMutex);
 	if (m_incoming.empty()) {
@@ -102,9 +102,9 @@ std::optional<AssociatedMessage> CAuthorizedProcessor::PopIncomingMessage()
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthorizedProcessor::QueueMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CApplicationMessage const& message)
+bool AuthorizedProcessor::QueueMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	ApplicationMessage const& message)
 {
 	std::scoped_lock lock(m_incomingMutex);
 	m_incoming.emplace(AssociatedMessage{ wpBryptPeer, message });
@@ -113,9 +113,9 @@ bool CAuthorizedProcessor::QueueMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool CAuthorizedProcessor::HandleMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CNetworkMessage const& message)
+bool AuthorizedProcessor::HandleMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	NetworkMessage const& message)
 {
 	auto const& optDestination = message.GetDestinationIdentifier();
 	if (!optDestination || message.GetDestinationType() != Message::Destination::Node) {
@@ -129,11 +129,11 @@ bool CAuthorizedProcessor::HandleMessage(
 
 	Message::Network::Type type = message.GetMessageType();
 
-	CNetworkBuilder::OptionalMessage optResponse;
+	NetworkBuilder::OptionalMessage optResponse;
 	switch (type) {
 		// Allow heartbeat requests to be processed. 
 		case Message::Network::Type::HeartbeatRequest:  {
-			optResponse = CNetworkMessage::Builder()
+			optResponse = NetworkMessage::Builder()
 				.SetSource(*optDestination)
 				.SetDestination(message.GetSourceIdentifier())
 				.MakeHeartbeatResponse()

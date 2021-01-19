@@ -5,7 +5,7 @@
 #include "PeerStatistics.hpp"
 //------------------------------------------------------------------------------------------------
 
-CPeerStatistics::CPeerStatistics()
+PeerStatistics::PeerStatistics()
     : m_sent(0)
     , m_received(0)
 {
@@ -13,28 +13,28 @@ CPeerStatistics::CPeerStatistics()
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerStatistics::GetSentCount() const
+std::uint32_t PeerStatistics::GetSentCount() const
 {
     return m_sent;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CPeerStatistics::GetReceivedCount() const
+std::uint32_t PeerStatistics::GetReceivedCount() const
 {
     return m_received;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CPeerStatistics::IncrementSentCount()
+void PeerStatistics::IncrementSentCount()
 {
     ++m_sent;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CPeerStatistics::IncrementReceivedCount()
+void PeerStatistics::IncrementReceivedCount()
 {
     ++m_received;
 }

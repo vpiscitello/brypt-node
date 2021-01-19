@@ -63,7 +63,7 @@ LI_SYMBOL(technology)
 
 //------------------------------------------------------------------------------------------------
 
-CDiscoveryProtocol::CDiscoveryProtocol(
+DiscoveryProtocol::DiscoveryProtocol(
     Configuration::EndpointConfigurations const& configurations)
     : m_data(local::GenerateDiscoveryData(configurations))
 {
@@ -71,10 +71,10 @@ CDiscoveryProtocol::CDiscoveryProtocol(
 
 //------------------------------------------------------------------------------------------------
 
-bool CDiscoveryProtocol::SendRequest(
+bool DiscoveryProtocol::SendRequest(
     BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    CMessageContext const& context) const
+    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    MessageContext const& context) const
 {
     assert(m_data.size() != 0);
 
@@ -83,7 +83,7 @@ bool CDiscoveryProtocol::SendRequest(
         return false;
     }
 
-    auto const optDiscoveryRequest = CApplicationMessage::Builder()
+    auto const optDiscoveryRequest = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)

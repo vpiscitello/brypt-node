@@ -35,7 +35,7 @@ Security::OptionalBuffer GenerateVerificationData(Security::ReadableView key, st
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-Security::CKeyStore::CKeyStore()
+Security::KeyStore::KeyStore()
     : m_optPeerPublicKey()
     , m_seed(local::BaseExpansionSeed.begin(), local::BaseExpansionSeed.end())
     , m_optPrinicpalKey()
@@ -51,21 +51,21 @@ Security::CKeyStore::CKeyStore()
 
 //------------------------------------------------------------------------------------------------
 
-void Security::CKeyStore::SetPeerPublicKey(Security::Buffer&& buffer)
+void Security::KeyStore::SetPeerPublicKey(Security::Buffer&& buffer)
 {
     m_optPeerPublicKey = std::move(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Security::CKeyStore::ExpandSessionSeed(Security::Buffer const& buffer)
+void Security::KeyStore::ExpandSessionSeed(Security::Buffer const& buffer)
 {
     m_seed.insert(m_seed.end(), buffer.begin(), buffer.end());
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool Security::CKeyStore::GenerateSessionKeys(
+bool Security::KeyStore::GenerateSessionKeys(
     Security::Role role,
     Security::Buffer&& buffer,
     std::size_t contentKeyBytes,
@@ -103,7 +103,7 @@ bool Security::CKeyStore::GenerateSessionKeys(
 
     // Capture the derived principal key buffer into a SecurityBuffer that will ensure the 
     // bytes are wiped at the end of the store's lifetime. 
-    m_optPrinicpalKey = Security::CSecureBuffer(std::move(derivation));
+    m_optPrinicpalKey = Security::SecureBuffer(std::move(derivation));
     assert(m_optPrinicpalKey->GetSize() == totalDerivationBytes);
 
     // The princial key sectors that correspond to each key remain fixed between roles. 
@@ -143,56 +143,56 @@ bool Security::CKeyStore::GenerateSessionKeys(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::CKeyStore::GetPeerPublicKey() const
+Security::OptionalBuffer Security::KeyStore::GetPeerPublicKey() const
 {
     return m_optPeerPublicKey;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyCordons Security::CKeyStore::GetContentKey() const
+Security::OptionalKeyCordons Security::KeyStore::GetContentKey() const
 {
     return m_optContentKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyCordons Security::CKeyStore::GetPeerContentKey() const
+Security::OptionalKeyCordons Security::KeyStore::GetPeerContentKey() const
 {
     return m_optPeerContentKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyCordons Security::CKeyStore::GetSignatureKey() const
+Security::OptionalKeyCordons Security::KeyStore::GetSignatureKey() const
 {
     return m_optSignatureKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalKeyCordons Security::CKeyStore::GetPeerSignatureKey() const
+Security::OptionalKeyCordons Security::KeyStore::GetPeerSignatureKey() const
 {
     return m_optPeerSignatureKeyCordons;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::CKeyStore::GetVerificationData() const
+Security::OptionalBuffer Security::KeyStore::GetVerificationData() const
 {
     return m_optVerificationData;
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool Security::CKeyStore::HasGeneratedKeys() const
+bool Security::KeyStore::HasGeneratedKeys() const
 {
     return m_bHasGeneratedKeys;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Security::CKeyStore::ResetState()
+void Security::KeyStore::ResetState()
 {
     m_optPeerPublicKey.reset();
     m_seed.clear();
@@ -207,7 +207,7 @@ void Security::CKeyStore::ResetState()
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t Security::CKeyStore::SetInitiatorKeyCordons(
+std::size_t Security::KeyStore::SetInitiatorKeyCordons(
     std::size_t contentKeyBytes, std::size_t signatureKeyBytes)
 {
     assert(m_optPrinicpalKey);
@@ -225,7 +225,7 @@ std::size_t Security::CKeyStore::SetInitiatorKeyCordons(
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t Security::CKeyStore::SetAcceptorKeyCordons(
+std::size_t Security::KeyStore::SetAcceptorKeyCordons(
     std::size_t contentKeyBytes, std::size_t signatureKeyBytes)
 {
     assert(m_optPrinicpalKey);

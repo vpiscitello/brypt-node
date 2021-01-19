@@ -28,10 +28,13 @@ class IPeerObserver;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class CPeerManager : public IPeerMediator, public IPeerCache
+class PeerManager : public IPeerMediator, public IPeerCache
 {
 public:
-    CPeerManager(
+    using ForEachPeerFunction = std::function<CallbackIteration(
+        std::shared_ptr<BryptPeer> const)>;
+
+    PeerManager(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
@@ -45,12 +48,12 @@ public:
     virtual OptionalRequest DeclareResolvingPeer(
         BryptIdentifier::SharedContainer const& spIdentifier) override;
 
-    virtual std::shared_ptr<CBryptPeer> LinkPeer(
-        BryptIdentifier::CContainer const& identifier,
+    virtual std::shared_ptr<BryptPeer> LinkPeer(
+        BryptIdentifier::Container const& identifier,
         std::string_view uri = "") override;
 
     virtual void DispatchPeerStateChange(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
         Endpoints::EndpointIdType identifier,
         Endpoints::TechnologyType technology,
         ConnectionState change) override;
@@ -65,19 +68,21 @@ public:
     virtual std::uint32_t ObservedPeerCount() const override;
     // } IPeerCache
 
+    bool ForEachPeer(ForEachPeerFunction const& callback, Filter filter = Filter::Active) const;
+
 private:
     using ObserverSet = std::set<IPeerObserver*>;
 
     using PeerTrackingMap = boost::multi_index_container<
-        std::shared_ptr<CBryptPeer>,
+        std::shared_ptr<BryptPeer>,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
-                    CBryptPeer,
+                    BryptPeer,
                     BryptIdentifier::Internal::Type,
-                    &CBryptPeer::GetInternalIdentifier>>>>;
+                    &BryptPeer::GetInternalIdentifier>>>>;
 
-    using ResolvingPeerMap = std::unordered_map<std::string, std::unique_ptr<CSecurityMediator>>;
+    using ResolvingPeerMap = std::unordered_map<std::string, std::unique_ptr<SecurityMediator>>;
 
     std::uint32_t PeerCount(Filter filter) const;
 

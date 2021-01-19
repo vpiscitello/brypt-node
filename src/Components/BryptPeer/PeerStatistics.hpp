@@ -7,10 +7,10 @@
 #include <cstdint>
 //------------------------------------------------------------------------------------------------
 
-class CPeerStatistics
+class PeerStatistics
 {
 public:
-    CPeerStatistics();
+    PeerStatistics();
 
     [[nodiscard]] std::uint32_t GetSentCount() const;
     [[nodiscard]] std::uint32_t GetReceivedCount() const;

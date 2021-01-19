@@ -11,10 +11,10 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CNodeState {
+class NodeState {
 public:
-    explicit CNodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier);
-    CNodeState(
+    explicit NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    NodeState(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Endpoints::TechnologySet const& technologies);
 

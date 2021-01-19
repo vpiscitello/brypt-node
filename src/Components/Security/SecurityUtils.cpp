@@ -51,7 +51,7 @@ std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
 {
     switch (strategy) {
         case Security::Strategy::PQNISTL3: {
-            return std::make_unique<PQNISTL3::CStrategy>(role, context);
+            return std::make_unique<PQNISTL3::Strategy>(role, context);
         }
         case Security::Strategy::Invalid: 
         default: return nullptr;

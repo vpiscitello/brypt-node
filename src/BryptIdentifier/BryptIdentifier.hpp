@@ -33,10 +33,10 @@ std::optional<Network::Type> ConvertToNetworkRepresentation(
     std::vector<std::uint8_t> const& identifier);
 
 std::ostream& operator<<(
-    std::ostream& stream, BryptIdentifier::CContainer const& identifier);
+    std::ostream& stream, BryptIdentifier::Container const& identifier);
         
 std::stringstream& operator<<(
-    std::stringstream& stream, BryptIdentifier::CContainer const& identifier);
+    std::stringstream& stream, BryptIdentifier::Container const& identifier);
 
 std::stringstream& operator<<(
     std::stringstream& stream, BryptIdentifier::SharedContainer const& spIdentifier);
@@ -45,29 +45,29 @@ std::stringstream& operator<<(
 } // BryptIdentifier namespace
 //------------------------------------------------------------------------------------------------
 
-class BryptIdentifier::CContainer 
+class BryptIdentifier::Container 
 {
 public:
-    CContainer();
-    explicit CContainer(Internal::Type const& identifier);
-    explicit CContainer(std::string_view identifier);
-    explicit CContainer(std::vector<std::uint8_t> const& buffer, BufferContentType type);
+    Container();
+    explicit Container(Internal::Type const& identifier);
+    explicit Container(std::string_view identifier);
+    explicit Container(std::vector<std::uint8_t> const& buffer, BufferContentType type);
 
-    CContainer(CContainer const&) = default;
-    CContainer(CContainer&&) = default;
-    CContainer& operator=(CContainer const&) = default;
-    CContainer& operator=(CContainer&&) = default;
+    Container(Container const&) = default;
+    Container(Container&&) = default;
+    Container& operator=(Container const&) = default;
+    Container& operator=(Container&&) = default;
 
-    bool operator<(CContainer const& other) const;
-    bool operator==(CContainer const& other) const;
-    bool operator!=(CContainer const& other) const;
+    bool operator<(Container const& other) const;
+    bool operator==(Container const& other) const;
+    bool operator!=(Container const& other) const;
 
     friend std::ostream& operator<<(
         std::ostream& stream,
-        CContainer const& identifier);
+        Container const& identifier);
     friend std::stringstream& operator<<(
         std::stringstream& stream,
-        CContainer const& identifier);
+        Container const& identifier);
     friend std::stringstream& operator<<(
         std::stringstream& stream,
         SharedContainer const& spIdentifier);
@@ -91,7 +91,7 @@ private:
 //------------------------------------------------------------------------------------------------
 
 struct BryptIdentifier::Hasher  {
-    std::size_t operator()(CContainer const& identifier) const
+    std::size_t operator()(Container const& identifier) const
     {
         return std::hash<Internal::Type>()(identifier.GetInternalRepresentation());
     }

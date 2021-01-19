@@ -14,7 +14,7 @@
 #include <string>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
+class BryptPeer;
 class IPeerObserver;
 
 //------------------------------------------------------------------------------------------------
@@ -33,14 +33,14 @@ public:
     virtual OptionalRequest DeclareResolvingPeer(
         BryptIdentifier::SharedContainer const& spIdentifier) = 0;
 
-    virtual std::shared_ptr<CBryptPeer> LinkPeer(
-        BryptIdentifier::CContainer const& identifier,
+    virtual std::shared_ptr<BryptPeer> LinkPeer(
+        BryptIdentifier::Container const& identifier,
         std::string_view uri = "") = 0;
 
     virtual void DispatchPeerStateChange(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
         ConnectionState change) = 0;
 };
 

@@ -8,9 +8,9 @@
 #include <string>
 //------------------------------------------------------------------------------------------------
 
-class CNetworkState {
+class NetworkState {
 public:
-    CNetworkState();
+    NetworkState();
 
     TimeUtils::Timestamp GetUptimeCount() const;
     TimeUtils::Timepoint GetRegisteredTimepoint() const;

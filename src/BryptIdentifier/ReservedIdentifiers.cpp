@@ -49,7 +49,7 @@ bool ReservedIdentifiers::IsIdentifierReserved(std::string_view identifier)
 
 //------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::CContainer const& identifier)
+bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::Container const& identifier)
 {
     return IsIdentifierReserved(identifier.GetInternalRepresentation());
 }
@@ -79,7 +79,7 @@ bool ReservedIdentifiers::IsIdentifierAllowed(std::string_view identifier)
 //------------------------------------------------------------------------------------------------
 
 
-bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::CContainer const& identifier)
+bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Container const& identifier)
 {
     return IsIdentifierAllowed(identifier.GetInternalRepresentation());
 }

@@ -64,7 +64,7 @@ std::optional<std::uint32_t> Message::PeekSize(std::span<std::uint8_t const> buf
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> Message::PeekSource(
+std::optional<BryptIdentifier::Container> Message::PeekSource(
     std::span<std::uint8_t const> buffer)
 {
     // The source identifier section begins after protocol type, version, and size of the message.
@@ -94,7 +94,7 @@ std::optional<BryptIdentifier::CContainer> Message::PeekSource(
 
     auto const start = buffer.begin() + ExpectedPosition;
     auto const stop = buffer.begin() + ExpectedPosition + size;
-    auto const identifier = BryptIdentifier::CContainer(
+    auto const identifier = BryptIdentifier::Container(
         { start, stop }, BryptIdentifier::BufferContentType::Network);
     
     if (!identifier.IsValid()) { return {}; }

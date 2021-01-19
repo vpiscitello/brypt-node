@@ -13,9 +13,9 @@
 //------------------------------------------------------------------------------------------------
 namespace BryptIdentifier {
 
-class CContainer;
-using SharedContainer = std::shared_ptr<CContainer const>;
-using WeakContainer = std::weak_ptr<CContainer const>;
+class Container;
+using SharedContainer = std::shared_ptr<Container const>;
+using WeakContainer = std::weak_ptr<Container const>;
 
 namespace Internal {
 //------------------------------------------------------------------------------------------------

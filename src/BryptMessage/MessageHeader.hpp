@@ -11,24 +11,25 @@
 #include "Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <span>
 #include <utility>
 //------------------------------------------------------------------------------------------------
 
-class CMessageHeader {
+class MessageHeader {
 public:
-	CMessageHeader();
+	MessageHeader();
 
-	// CApplicationBuilder {
-	friend class CApplicationBuilder;
-    friend class CNetworkBuilder;
-    // } CApplicationBuilder 
+	// ApplicationBuilder {
+	friend class ApplicationBuilder;
+    friend class NetworkBuilder;
+    // } ApplicationBuilder 
 
 	Message::Protocol GetMessageProtocol() const;
     Message::Version const& GetVersion() const;
     std::uint32_t GetMessageSize() const;
-    BryptIdentifier::CContainer const& GetSourceIdentifier() const;
+    BryptIdentifier::Container const& GetSourceIdentifier() const;
     Message::Destination GetDestinationType() const;
-    std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
+    std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
 
     std::uint32_t GetPackSize() const;
 	Message::Buffer GetPackedBuffer() const;
@@ -71,18 +72,17 @@ public:
     }
 
 private:
-    bool ParseBuffer(
-        Message::Buffer::const_iterator& begin,
-        Message::Buffer::const_iterator const& end);
+    [[nodiscard]] bool ParseBuffer(
+        std::span<std::uint8_t const>::iterator& begin,
+        std::span<std::uint8_t const>::iterator const& end);
 
     Message::Protocol m_protocol;
     Message::Version m_version;
     std::uint32_t m_size;
-    BryptIdentifier::CContainer m_source;
+    BryptIdentifier::Container m_source;
     Message::Destination m_destination;
 
-    std::optional<BryptIdentifier::CContainer> m_optDestinationIdentifier;
-
+    std::optional<BryptIdentifier::Container> m_optDestinationIdentifier;
 };
 
 //------------------------------------------------------------------------------------------------

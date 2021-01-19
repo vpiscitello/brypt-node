@@ -14,25 +14,25 @@
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <span>
+#include <string_view>
 #include <utility>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CNetworkMessage;
+class BryptPeer;
+class NetworkMessage;
 class IConnectProtocol;
 class ISecurityStrategy;
 
 //------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class CExchangeProcessor : public IMessageSink
+class ExchangeProcessor : public IMessageSink
 {
 public:
     using PreparationResult = std::pair<bool, std::string>;
 
-    CExchangeProcessor(
+    ExchangeProcessor(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
         IExchangeObserver* const pExchangeObserver,
@@ -40,14 +40,14 @@ public:
 
     // IMessageSink {
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
         std::string_view buffer) override;
         
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
-        Message::Buffer const& buffer) override;
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
+        std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
 
     PreparationResult Prepare();
@@ -58,10 +58,10 @@ private:
     constexpr static TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
 
     [[nodiscard]] bool HandleMessage(
-        std::shared_ptr<CBryptPeer> const& spBryptPeer, CNetworkMessage const& message);
+        std::shared_ptr<BryptPeer> const& spBryptPeer, NetworkMessage const& message);
 
     [[nodiscard]] bool HandleSynchronizationMessage(
-        std::shared_ptr<CBryptPeer> const& spBryptPeer, CNetworkMessage const& message);
+        std::shared_ptr<BryptPeer> const& spBryptPeer, NetworkMessage const& message);
 
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;

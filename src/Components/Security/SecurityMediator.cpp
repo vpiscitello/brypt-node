@@ -16,7 +16,7 @@
 //------------------------------------------------------------------------------------------------
 // Description: 
 //------------------------------------------------------------------------------------------------
-CSecurityMediator::CSecurityMediator(
+SecurityMediator::SecurityMediator(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Security::Context context,
     std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
@@ -33,7 +33,7 @@ CSecurityMediator::CSecurityMediator(
 
 //------------------------------------------------------------------------------------------------
 
-CSecurityMediator::CSecurityMediator(
+SecurityMediator::SecurityMediator(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::unique_ptr<ISecurityStrategy>&& upStrategy)
     : m_mutex()
@@ -49,18 +49,18 @@ CSecurityMediator::CSecurityMediator(
 
 //------------------------------------------------------------------------------------------------
 
-CSecurityMediator::~CSecurityMediator()
+SecurityMediator::~SecurityMediator()
 {
     // If the unauthorized sink is still active for the peer, we must unset the peer's receiver
     // to ensure the receiver does not point to invalid memory. Note: the process of acquiring the 
-    // receiver mutex in CBryptPeer should ensure that the sink is not destructed while it is 
+    // receiver mutex in BryptPeer should ensure that the sink is not destructed while it is 
     // actively processing a message. 
     if (m_spBryptPeer && m_upExchangeProcessor) { m_spBryptPeer->SetReceiver(nullptr); }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityMediator::OnExchangeClose(ExchangeStatus status)
+void SecurityMediator::OnExchangeClose(ExchangeStatus status)
 {
     std::scoped_lock lock(m_mutex);
     if (!m_spBryptPeer) [[unlikely]] { return; }   
@@ -88,7 +88,7 @@ void CSecurityMediator::OnExchangeClose(ExchangeStatus status)
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy)
+void SecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy)
 {
     std::scoped_lock lock(m_mutex);
     m_upStrategy = std::move(upStrategy);
@@ -96,7 +96,7 @@ void CSecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&&
 
 //------------------------------------------------------------------------------------------------
 
-Security::State CSecurityMediator::GetSecurityState() const
+Security::State SecurityMediator::GetSecurityState() const
 {
     std::shared_lock lock(m_mutex);
     return m_state;
@@ -104,7 +104,7 @@ Security::State CSecurityMediator::GetSecurityState() const
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityMediator::BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer)
+void SecurityMediator::BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
 {
     std::scoped_lock lock(m_mutex);
 
@@ -133,7 +133,7 @@ void CSecurityMediator::BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer)
 
 //------------------------------------------------------------------------------------------------
 
-void CSecurityMediator::BindSecurityContext(CMessageContext& context) const
+void SecurityMediator::BindSecurityContext(MessageContext& context) const
 {
     auto& mutex = m_mutex;
     auto const& upStrategy = m_upStrategy;
@@ -175,7 +175,7 @@ void CSecurityMediator::BindSecurityContext(CMessageContext& context) const
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(
+std::optional<std::string> SecurityMediator::SetupExchangeInitiator(
     Security::Strategy strategy, std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
 {
     std::scoped_lock lock(m_mutex);
@@ -200,7 +200,7 @@ std::optional<std::string> CSecurityMediator::SetupExchangeInitiator(
 
 //------------------------------------------------------------------------------------------------
 
-bool CSecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
+bool SecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
 {
     std::scoped_lock lock(m_mutex);
 
@@ -223,13 +223,13 @@ bool CSecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
 
 //------------------------------------------------------------------------------------------------
 
-bool CSecurityMediator::SetupExchangeProcessor(
+bool SecurityMediator::SetupExchangeProcessor(
     std::unique_ptr<ISecurityStrategy>&& upStrategy,
     std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
 {
     if (m_upExchangeProcessor || !upStrategy) [[unlikely]] { return false; }
 
-    m_upExchangeProcessor = std::make_unique<CExchangeProcessor>(
+    m_upExchangeProcessor = std::make_unique<ExchangeProcessor>(
         m_spBryptIdentifier, spConnectProtocol, this, std::move(upStrategy));
 
     return true;
