@@ -10,7 +10,7 @@
 	},
 	"endpoints": [
 		{
-			"technology": "TCP",
+			"protocol": "TCP",
 			"interface": "lo",
 			"binding": "*:35216"
 		}

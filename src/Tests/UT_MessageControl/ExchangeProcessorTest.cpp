@@ -25,7 +25,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-class CConnectProtocolStub;
+class ConnectProtocolStub;
 class CExchangeObserverStub;
 
 //------------------------------------------------------------------------------------------------
@@ -34,13 +34,13 @@ class CExchangeObserverStub;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const ClientIdentifier = std::make_shared<BryptIdentifier::Container>(
     BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container>(
     BryptIdentifier::Generate());
 
-constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
-constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
+constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 constexpr std::string_view ExchangeCloseMessage = "Exchange Success!";
 
@@ -49,16 +49,16 @@ constexpr std::string_view ExchangeCloseMessage = "Exchange Success!";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-class local::CConnectProtocolStub : public IConnectProtocol
+class local::ConnectProtocolStub : public IConnectProtocol
 {
 public:
-    CConnectProtocolStub();
+    ConnectProtocolStub();
 
     // IConnectProtocol {
     virtual bool SendRequest(
         BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CMessageContext const& context) const override;
+        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        MessageContext const& context) const override;
     // } IConnectProtocol 
 
     bool CalledBy(BryptIdentifier::SharedContainer const& spBryptIdentifier) const;
@@ -94,26 +94,26 @@ private:
 TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
 {
     // Declare the client resources for the test. 
-    std::shared_ptr<CBryptPeer> spClientPeer;
+    std::shared_ptr<BryptPeer> spClientPeer;
     std::unique_ptr<ISecurityStrategy> upClientStrategy;
     std::unique_ptr<local::CExchangeObserverStub> upClientObserver;
-    std::unique_ptr<CExchangeProcessor> upClientProcessor;
+    std::unique_ptr<ExchangeProcessor> upClientProcessor;
 
     // Declare the server resoucres for the test. 
-    std::shared_ptr<CBryptPeer> spServerPeer;
+    std::shared_ptr<BryptPeer> spServerPeer;
     std::unique_ptr<ISecurityStrategy> upServerStrategy;
     std::unique_ptr<local::CExchangeObserverStub> upServerObserver;
-    std::unique_ptr<CExchangeProcessor> upServerProcessor;
+    std::unique_ptr<ExchangeProcessor> upServerProcessor;
 
-    auto const spConnectProtocol = std::make_shared<local::CConnectProtocolStub>();
+    auto const spConnectProtocol = std::make_shared<local::ConnectProtocolStub>();
 
     // Setup the client's view of the exchange.
     {
         // Make the client peer and register a mock endpoint to handle exchange messages.
-        spClientPeer = std::make_shared<CBryptPeer>(*test::ServerIdentifier);
+        spClientPeer = std::make_shared<BryptPeer>(*test::ServerIdentifier);
         spClientPeer->RegisterEndpoint(
             test::EndpointIdentifier,
-            test::EndpointTechnology,
+            test::EndpointProtocol,
             [&spServerPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
@@ -128,7 +128,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
             Security::Strategy::PQNISTL3, Security::Role::Initiator, Security::Context::Unique);
 
         // Setup the client processor. 
-        upClientProcessor = std::make_unique<CExchangeProcessor>(
+        upClientProcessor = std::make_unique<ExchangeProcessor>(
             test::ClientIdentifier,
             spConnectProtocol,
             upClientObserver.get(),
@@ -140,10 +140,10 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     // Setup the server's view of the exchange.
     {
         // Make the server peer and register a mock endpoint to handle exchange messages.
-        spServerPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
+        spServerPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
         spServerPeer->RegisterEndpoint(
             test::EndpointIdentifier,
-            test::EndpointTechnology,
+            test::EndpointProtocol,
             [&spClientPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
@@ -158,7 +158,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
             Security::Strategy::PQNISTL3, Security::Role::Acceptor, Security::Context::Unique);
 
         // Setup the server processor. 
-        upServerProcessor = std::make_unique<CExchangeProcessor>(
+        upServerProcessor = std::make_unique<ExchangeProcessor>(
             test::ServerIdentifier, nullptr, upServerObserver.get(), std::move(upServerStrategy));
 
         spServerPeer->SetReceiver(upServerProcessor.get());
@@ -188,29 +188,29 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     // required by the server. 
     EXPECT_TRUE(upClientObserver->ExchangeSuccess());
     EXPECT_TRUE(spConnectProtocol->CalledBy(test::ClientIdentifier));
-    EXPECT_EQ(spClientPeer->GetSentCount(), Security::PQNISTL3::CStrategy::AcceptorStages);
+    EXPECT_EQ(spClientPeer->GetSentCount(), Security::PQNISTL3::Strategy::AcceptorStages);
 
     // We expect that the server observer was notified of a successful exchange, the connect 
     // protocol was called by server exchange, and the server peer sent the number of messages
     // required by the client. 
     EXPECT_TRUE(upServerObserver->ExchangeSuccess());
     EXPECT_FALSE(spConnectProtocol->CalledBy(test::ServerIdentifier));
-    EXPECT_EQ(spServerPeer->GetSentCount(), Security::PQNISTL3::CStrategy::InitiatorStages);
+    EXPECT_EQ(spServerPeer->GetSentCount(), Security::PQNISTL3::Strategy::InitiatorStages);
 }
 
 //------------------------------------------------------------------------------------------------
 
-local::CConnectProtocolStub::CConnectProtocolStub()
+local::ConnectProtocolStub::ConnectProtocolStub()
     : m_callers(0)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CConnectProtocolStub::SendRequest(
+bool local::ConnectProtocolStub::SendRequest(
     BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    [[maybe_unused]] std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    [[maybe_unused]] CMessageContext const& context) const
+    [[maybe_unused]] std::shared_ptr<BryptPeer> const& spBryptPeer,
+    [[maybe_unused]] MessageContext const& context) const
 {
     m_callers.emplace_back(spSourceIdentifier->GetInternalRepresentation());
     return true;
@@ -218,7 +218,7 @@ bool local::CConnectProtocolStub::SendRequest(
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CConnectProtocolStub::CalledBy(
+bool local::ConnectProtocolStub::CalledBy(
     BryptIdentifier::SharedContainer const& spBryptIdentifier) const
 {
     auto const itr = std::find(
@@ -229,7 +229,7 @@ bool local::CConnectProtocolStub::CalledBy(
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CConnectProtocolStub::CalledOnce() const
+bool local::ConnectProtocolStub::CalledOnce() const
 {
     return m_callers.size();
 }

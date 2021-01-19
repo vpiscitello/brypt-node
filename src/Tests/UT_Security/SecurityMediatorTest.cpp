@@ -27,9 +27,9 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-class CConnectProtocolStub;
-class CStrategyStub;
-class CMessageCollector;
+class ConnectProtocolStub;
+class StrategyStub;
+class MessageCollector;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -37,32 +37,32 @@ class CMessageCollector;
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const ClientIdentifier = std::make_shared<BryptIdentifier::Container>(
     BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::CContainer>(
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container>(
     BryptIdentifier::Generate());
     
 constexpr std::string_view const HandshakeMessage = "Handshake Request";
 constexpr std::string_view const ConnectMessage = "Connection Request";
 
-constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
-constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
+constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-class local::CConnectProtocolStub : public IConnectProtocol
+class local::ConnectProtocolStub : public IConnectProtocol
 {
 public:
-    CConnectProtocolStub();
+    ConnectProtocolStub();
 
     // IConnectProtocol {
     virtual bool SendRequest(
         BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CMessageContext const& context) const override;
+        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        MessageContext const& context) const override;
     // } IConnectProtocol 
 
     bool CalledBy(BryptIdentifier::SharedContainer const& spBryptIdentifier) const;
@@ -75,10 +75,10 @@ private:
 
 //------------------------------------------------------------------------------------------------
 
-class local::CStrategyStub : public ISecurityStrategy
+class local::StrategyStub : public ISecurityStrategy
 {
 public:
-    CStrategyStub();
+    StrategyStub();
 
     virtual Security::Strategy GetStrategyType() const override;
     virtual Security::Role GetRoleType() const override;
@@ -108,21 +108,21 @@ private:
 
 //------------------------------------------------------------------------------------------------
 
-class local::CMessageCollector : public IMessageSink
+class local::MessageCollector : public IMessageSink
 {
 public:
-    CMessageCollector();
+    MessageCollector();
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
-        Message::Buffer const& buffer) override;
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
+        std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
     std::string GetCollectedPack() const;
@@ -138,21 +138,21 @@ private:
 
 TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 {
-    auto upStrategyStub = std::make_unique<local::CStrategyStub>();
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+    auto upStrategyStub = std::make_unique<local::StrategyStub>();
+    auto upSecurityMediator = std::make_unique<SecurityMediator>(
         test::ServerIdentifier, Security::Context::Unique, std::weak_ptr<IMessageSink>());
 
     EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));    
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
 
-    CEndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointTechnology, {});
+    EndpointRegistration registration(
+        test::EndpointIdentifier, test::EndpointProtocol, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
     spBryptPeer->RegisterEndpoint(registration);
 
-    auto const optMessage = CNetworkMessage::Builder()
+    auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -164,7 +164,7 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
     EXPECT_TRUE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
 
     // Verify the node can't forward a message through the receiver, because it has been 
-    // unset by the CSecurityMediator. 
+    // unset by the SecurityMediator. 
     upSecurityMediator.reset();
     EXPECT_FALSE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
 }
@@ -173,22 +173,22 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 
 TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 {
-    auto upStrategyStub = std::make_unique<local::CStrategyStub>();
-    auto spCollector = std::make_shared<local::CMessageCollector>();
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+    auto upStrategyStub = std::make_unique<local::StrategyStub>();
+    auto spCollector = std::make_shared<local::MessageCollector>();
+    auto upSecurityMediator = std::make_unique<SecurityMediator>(
         test::ServerIdentifier, Security::Context::Unique, spCollector);
 
     EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
 
-    CEndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointTechnology, {});
+    EndpointRegistration registration(
+        test::EndpointIdentifier, test::EndpointProtocol, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
     spBryptPeer->RegisterEndpoint(registration);
 
-    auto const optMessage = CNetworkMessage::Builder()
+    auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -214,22 +214,22 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 
 TEST(SecurityMediatorSuite, FailedExchangeTest)
 {
-    auto upStrategyStub = std::make_unique<local::CStrategyStub>();
-    auto spCollector = std::make_shared<local::CMessageCollector>();
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+    auto upStrategyStub = std::make_unique<local::StrategyStub>();
+    auto spCollector = std::make_shared<local::MessageCollector>();
+    auto upSecurityMediator = std::make_unique<SecurityMediator>(
         test::ServerIdentifier, Security::Context::Unique, spCollector);
 
     EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
     upSecurityMediator->BindPeer(spBryptPeer);
 
-    CEndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointTechnology, {});
+    EndpointRegistration registration(
+        test::EndpointIdentifier, test::EndpointProtocol, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
     spBryptPeer->RegisterEndpoint(registration);
     
-    auto const optMessage = CNetworkMessage::Builder()
+    auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -253,26 +253,26 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
 TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 {
     // Declare the server resoucres for the test. 
-    std::shared_ptr<CBryptPeer> spServerPeer;
-    std::unique_ptr<CSecurityMediator> upServerMediator;
+    std::shared_ptr<BryptPeer> spServerPeer;
+    std::unique_ptr<SecurityMediator> upServerMediator;
 
     // Declare the client resources for the test. 
-    std::shared_ptr<CBryptPeer> spClientPeer;
-    std::unique_ptr<CSecurityMediator> upClientMediator;
+    std::shared_ptr<BryptPeer> spClientPeer;
+    std::unique_ptr<SecurityMediator> upClientMediator;
 
-    auto const spConnectProtocol = std::make_shared<local::CConnectProtocolStub>();
-    auto const spCollector = std::make_shared<local::CMessageCollector>();
+    auto const spConnectProtocol = std::make_shared<local::ConnectProtocolStub>();
+    auto const spCollector = std::make_shared<local::MessageCollector>();
 
     // Setup the client's view of the mediator.
     {
-        upClientMediator = std::make_unique<CSecurityMediator>(
+        upClientMediator = std::make_unique<SecurityMediator>(
             test::ClientIdentifier, Security::Context::Unique, spCollector);
 
-        spClientPeer = std::make_shared<CBryptPeer>(*test::ServerIdentifier);
+        spClientPeer = std::make_shared<BryptPeer>(*test::ServerIdentifier);
 
-        CEndpointRegistration registration(
+        EndpointRegistration registration(
             test::EndpointIdentifier,
-            test::EndpointTechnology,
+            test::EndpointProtocol,
             [&spServerPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
@@ -285,14 +285,14 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 
     // Setup the servers's view of the exchange.
     {
-        upServerMediator = std::make_unique<CSecurityMediator>(
+        upServerMediator = std::make_unique<SecurityMediator>(
             test::ServerIdentifier, Security::Context::Unique, spCollector);
 
-        spServerPeer = std::make_shared<CBryptPeer>(*test::ClientIdentifier);
+        spServerPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
 
-        CEndpointRegistration registration(
+        EndpointRegistration registration(
             test::EndpointIdentifier,
-            test::EndpointTechnology,
+            test::EndpointProtocol,
             [&spClientPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
@@ -320,22 +320,22 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 
     EXPECT_EQ(upClientMediator->GetSecurityState(), Security::State::Authorized);
     EXPECT_TRUE(spConnectProtocol->CalledBy(test::ClientIdentifier));
-    EXPECT_EQ(spClientPeer->GetSentCount(), Security::PQNISTL3::CStrategy::AcceptorStages + 1);
+    EXPECT_EQ(spClientPeer->GetSentCount(), Security::PQNISTL3::Strategy::AcceptorStages + 1);
 
     EXPECT_EQ(upServerMediator->GetSecurityState(), Security::State::Authorized);
     EXPECT_FALSE(spConnectProtocol->CalledBy(test::ServerIdentifier));
-    EXPECT_EQ(spServerPeer->GetSentCount(), Security::PQNISTL3::CStrategy::InitiatorStages);
+    EXPECT_EQ(spServerPeer->GetSentCount(), Security::PQNISTL3::Strategy::InitiatorStages);
 
     EXPECT_EQ(spCollector->GetCollectedData(), test::ConnectMessage);
 
     auto const optClientContext = spClientPeer->GetMessageContext(test::EndpointIdentifier);
     ASSERT_TRUE(optClientContext);
 
-    auto const optApplicationRequest = CApplicationMessage::Builder()
+    auto const optApplicationRequest = ApplicationMessage::Builder()
         .SetMessageContext(*optClientContext)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
-        .SetCommand(Command::Type::Information, 0)
+        .SetCommand(Handler::Type::Information, 0)
         .SetPayload("Information Request")
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationRequest);
@@ -347,11 +347,11 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
     auto const optServerContext = spServerPeer->GetMessageContext(test::EndpointIdentifier);
     ASSERT_TRUE(optServerContext);
 
-    auto const optApplicationResponse = CApplicationMessage::Builder()
+    auto const optApplicationResponse = ApplicationMessage::Builder()
         .SetMessageContext(*optServerContext)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
-        .SetCommand(Command::Type::Information, 1)
+        .SetCommand(Handler::Type::Information, 1)
         .SetPayload("Information Response")
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationResponse);
@@ -363,17 +363,17 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 
 //------------------------------------------------------------------------------------------------
 
-local::CConnectProtocolStub::CConnectProtocolStub()
+local::ConnectProtocolStub::ConnectProtocolStub()
     : m_callers()
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CConnectProtocolStub::SendRequest(
+bool local::ConnectProtocolStub::SendRequest(
     BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    CMessageContext const& context) const
+    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    MessageContext const& context) const
 {
     if (!spSourceIdentifier || !spBryptPeer) {
         return false;
@@ -381,11 +381,11 @@ bool local::CConnectProtocolStub::SendRequest(
 
     m_callers.emplace_back(spSourceIdentifier->GetInternalRepresentation());
 
-    auto const optConnectRequest = CApplicationMessage::Builder()
+    auto const optConnectRequest = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
-        .SetCommand(Command::Type::Connect, 0)
+        .SetCommand(Handler::Type::Connect, 0)
         .SetPayload(test::ConnectMessage)
         .ValidatedBuild();
     assert(optConnectRequest);
@@ -396,7 +396,7 @@ bool local::CConnectProtocolStub::SendRequest(
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CConnectProtocolStub::CalledBy(
+bool local::ConnectProtocolStub::CalledBy(
     BryptIdentifier::SharedContainer const& spBryptIdentifier) const
 {
     auto const itr = std::find(
@@ -407,69 +407,69 @@ bool local::CConnectProtocolStub::CalledBy(
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CConnectProtocolStub::CalledOnce() const
+bool local::ConnectProtocolStub::CalledOnce() const
 {
     return m_callers.size();
 }
 
 //------------------------------------------------------------------------------------------------
 
-local::CStrategyStub::CStrategyStub()
+local::StrategyStub::StrategyStub()
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Strategy local::CStrategyStub::GetStrategyType() const
+Security::Strategy local::StrategyStub::GetStrategyType() const
 {
     return Security::Strategy::Invalid;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Role local::CStrategyStub::GetRoleType() const
+Security::Role local::StrategyStub::GetRoleType() const
 {
     return Security::Role::Initiator;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Context local::CStrategyStub::GetContextType() const
+Security::Context local::StrategyStub::GetContextType() const
 {
     return Security::Context::Unique;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::size_t local::CStrategyStub::GetSignatureSize() const
+std::size_t local::StrategyStub::GetSignatureSize() const
 {
     return 0;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t local::CStrategyStub::GetSynchronizationStages() const
+std::uint32_t local::StrategyStub::GetSynchronizationStages() const
 {
     return 0;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus local::CStrategyStub::GetSynchronizationStatus() const
+Security::SynchronizationStatus local::StrategyStub::GetSynchronizationStatus() const
 {
     return Security::SynchronizationStatus::Processing;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult local::CStrategyStub::PrepareSynchronization()
+Security::SynchronizationResult local::StrategyStub::PrepareSynchronization()
 {
     return { Security::SynchronizationStatus::Processing, {} };
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult local::CStrategyStub::Synchronize(
+Security::SynchronizationResult local::StrategyStub::Synchronize(
    [[maybe_unused]]  Security::ReadableView)
 {
     return { Security::SynchronizationStatus::Processing, {} };
@@ -477,7 +477,7 @@ Security::SynchronizationResult local::CStrategyStub::Synchronize(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::CStrategyStub::Encrypt(
+Security::OptionalBuffer local::StrategyStub::Encrypt(
     [[maybe_unused]] Security::ReadableView,
     [[maybe_unused]] std::uint64_t) const
 {
@@ -486,7 +486,7 @@ Security::OptionalBuffer local::CStrategyStub::Encrypt(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::CStrategyStub::Decrypt(
+Security::OptionalBuffer local::StrategyStub::Decrypt(
     [[maybe_unused]] Security::ReadableView,
     [[maybe_unused]] std::uint64_t) const
 {
@@ -496,7 +496,7 @@ Security::OptionalBuffer local::CStrategyStub::Decrypt(
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t local::CStrategyStub::Sign(
+std::int32_t local::StrategyStub::Sign(
     [[maybe_unused]] Security::Buffer&) const
 {
     return 0;
@@ -504,7 +504,7 @@ std::int32_t local::CStrategyStub::Sign(
 
 //------------------------------------------------------------------------------------------------
 
-Security::VerificationStatus local::CStrategyStub::Verify(
+Security::VerificationStatus local::StrategyStub::Verify(
     [[maybe_unused]] Security::ReadableView) const
 {
     return Security::VerificationStatus::Failed;
@@ -512,7 +512,7 @@ Security::VerificationStatus local::CStrategyStub::Verify(
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t local::CStrategyStub::Sign(
+std::int32_t local::StrategyStub::Sign(
     [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::Buffer&) const
 {
     return 0;
@@ -520,7 +520,7 @@ std::int32_t local::CStrategyStub::Sign(
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::CStrategyStub::GenerateSignature(
+Security::OptionalBuffer local::StrategyStub::GenerateSignature(
     [[maybe_unused]] Security::ReadableView,
     [[maybe_unused]] Security::ReadableView) const
 {
@@ -529,7 +529,7 @@ Security::OptionalBuffer local::CStrategyStub::GenerateSignature(
 
 //------------------------------------------------------------------------------------------------
 
-local::CMessageCollector::CMessageCollector()
+local::MessageCollector::MessageCollector()
     : m_pack()
     , m_data()
 {
@@ -537,9 +537,9 @@ local::CMessageCollector::CMessageCollector()
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CMessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CMessageContext const& context,
+bool local::MessageCollector::CollectMessage(
+    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    MessageContext const& context,
     std::string_view buffer)
 {
     m_pack = std::string(buffer.begin(), buffer.end());
@@ -552,7 +552,7 @@ bool local::CMessageCollector::CollectMessage(
 
     switch (*optProtocol) {
         case Message::Protocol::Application: {
-            auto const optMessage = CApplicationMessage::Builder()
+            auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
                 .FromDecodedPack(decoded)
                 .ValidatedBuild();
@@ -569,24 +569,24 @@ bool local::CMessageCollector::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool local::CMessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    [[maybe_unused]] CMessageContext const& context,
-    [[maybe_unused]] Message::Buffer const& buffer)
+bool local::MessageCollector::CollectMessage(
+    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] MessageContext const& context,
+    [[maybe_unused]] std::span<std::uint8_t const> buffer)
 {
     return false;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::string local::CMessageCollector::GetCollectedPack() const
+std::string local::MessageCollector::GetCollectedPack() const
 {
     return m_pack;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::string local::CMessageCollector::GetCollectedData() const
+std::string local::MessageCollector::GetCollectedData() const
 {
     return m_data;
 }

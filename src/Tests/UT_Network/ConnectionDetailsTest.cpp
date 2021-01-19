@@ -1,9 +1,9 @@
 
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Utilities/NodeUtils.hpp"
-#include "../../Utilities/TimeUtils.hpp"
-#include "../../Components/Endpoints/ConnectionTracker.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Utilities/NodeUtils.hpp"
+#include "Utilities/TimeUtils.hpp"
+#include "Components/Network/ConnectionTracker.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
@@ -16,10 +16,10 @@ namespace {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
 
-constexpr std::string_view TechnologyName = "TCP";
+constexpr std::string_view ProtocolName = "TCP";
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view ServerBinding = "*:35222";
 constexpr std::string_view ClientBinding = "*:35223";
@@ -35,7 +35,7 @@ constexpr std::string_view ClientEntry = "127.0.0.1:35223";
 
 TEST(ConnectionDetailsSuite, IdentifierTranslateTest)
 {
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
     
     std::string const connection = "1";
     tracker.TrackConnection(connection);
@@ -43,51 +43,50 @@ TEST(ConnectionDetailsSuite, IdentifierTranslateTest)
     auto const spFirstBryptIdentifier = tracker.Translate(connection);
     EXPECT_FALSE(spFirstBryptIdentifier);
 
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spBryptPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spBryptIdentifier = spBryptPeer->GetBryptIdentifier();
 
-    auto const optFirstConnectionIdentifier = tracker.Translate(*spBryptIdentifier);
-    EXPECT_FALSE(optFirstConnectionIdentifier);
+    auto const firstConnectionIdentifier = tracker.Translate(*spBryptIdentifier);
+    EXPECT_TRUE(firstConnectionIdentifier.empty());
 
     tracker.UpdateOneConnection(connection,
         [] ([[maybe_unused]] auto& details) {
             ASSERT_FALSE(true);
         },
         [this, &spBryptPeer] (
-            [[maybe_unused]] std::string_view uri) -> CConnectionDetails<>
+            [[maybe_unused]] std::string_view uri) -> ConnectionDetails<>
         {
-            CConnectionDetails<> details(spBryptPeer);
+            ConnectionDetails<> details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Unknown);
             return details;
         }
     );
     
     auto const spSecondBryptIdentifier = tracker.Translate(connection);
-    auto const optSecondConnectionIdentifier = tracker.Translate(*spBryptIdentifier);
+    auto const secondConnectionIdentifier = tracker.Translate(*spBryptIdentifier);
     EXPECT_EQ(spBryptIdentifier, spSecondBryptIdentifier);
     EXPECT_EQ(
         spBryptIdentifier->GetInternalRepresentation(),
         spSecondBryptIdentifier->GetInternalRepresentation());
-    EXPECT_EQ(connection, *optSecondConnectionIdentifier);
+    EXPECT_EQ(connection, secondConnectionIdentifier);
 }
 
 //------------------------------------------------------------------------------------------------
 
 TEST(ConnectionTrackerSuite, SingleConnectionTest)
 {
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
     
     std::string const clientConnectionId = "1";
-    auto const spClientPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
-    CConnectionDetails<> details(spClientPeer);
+    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    ConnectionDetails<> details(spClientPeer);
     details.SetConnectionState(ConnectionState::Unknown);
 
     tracker.TrackConnection(clientConnectionId, details);
 
-    auto const optConnectionId = tracker.Translate(test::ClientIdentifier);
-    ASSERT_TRUE(optConnectionId);
-    EXPECT_EQ(*optConnectionId, clientConnectionId);
+    auto const connectionIdentifier = tracker.Translate(test::ClientIdentifier);
+    EXPECT_EQ(connectionIdentifier, clientConnectionId);
 
     auto const spNodeIdentifier = tracker.Translate(clientConnectionId);
     ASSERT_TRUE(spNodeIdentifier);
@@ -129,36 +128,35 @@ TEST(ConnectionTrackerSuite, SingleConnectionTest)
 
 TEST(ConnectionTrackerSuite, MultipleConnectionsTest)
 {
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
     
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spFirstPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetBryptIdentifier();
-    CConnectionDetails<> firstConnectionDetails(spFirstPeer);
+    ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetConnectionState(ConnectionState::Unknown);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spSecondPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
-    CConnectionDetails<> secondConnectionDetails(spSecondPeer);
+    ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetConnectionState(ConnectionState::Unknown);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spThirdPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetBryptIdentifier();
-    CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
+    ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetConnectionState(ConnectionState::Unknown);
 
     tracker.TrackConnection(firstConnectionIdentifier, firstConnectionDetails);
     tracker.TrackConnection(secondConnectionIdentifier, secondConnectionDetails);
     tracker.TrackConnection(thirdConnectionIdentifier, thirdConnectionDetails);
 
-    auto const optConnectionIdentifier = tracker.Translate(*spSecondNodeIdentifier);
-    ASSERT_TRUE(optConnectionIdentifier);
-    EXPECT_EQ(*optConnectionIdentifier, secondConnectionIdentifier);
+    auto const connectionIdentifier = tracker.Translate(*spSecondNodeIdentifier);
+    EXPECT_EQ(connectionIdentifier, secondConnectionIdentifier);
 
     auto const spNodeIdentifier = tracker.Translate(firstConnectionIdentifier);
     ASSERT_TRUE(spNodeIdentifier);
@@ -228,33 +226,33 @@ TEST(ConnectionTrackerSuite, MultipleConnectionsTest)
 TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
 {
     using namespace std::chrono_literals;
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
 
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spFirstPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetBryptIdentifier();
-    CConnectionDetails<> firstConnectionDetails(spFirstPeer);
+    ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spSecondPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
-    CConnectionDetails<> secondConnectionDetails(spSecondPeer);
+    ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spThirdPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetBryptIdentifier();
-    CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
+    ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
@@ -305,33 +303,33 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
 TEST(ConnectionTrackerSuite, PromotionFilterTest)
 {
     using namespace std::chrono_literals;
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spFirstPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetBryptIdentifier();
-    CConnectionDetails<> firstConnectionDetails(spFirstPeer);
+    ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spSecondPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
-    CConnectionDetails<> secondConnectionDetails(spSecondPeer);
+    ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spThirdPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetBryptIdentifier();
-    CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
+    ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
@@ -378,33 +376,33 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
 TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
 {
     using namespace std::chrono_literals;
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spFirstPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetBryptIdentifier();
-    CConnectionDetails<> firstConnectionDetails(spFirstPeer);
+    ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spSecondPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
-    CConnectionDetails<> secondConnectionDetails(spSecondPeer);
+    ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spThirdPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetBryptIdentifier();
-    CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
+    ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
@@ -462,33 +460,33 @@ TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
 TEST(ConnectionTrackerSuite, TimepointFilterTest)
 {
     using namespace std::chrono_literals;
-    CConnectionTracker<std::string> tracker;
+    ConnectionTracker<std::string> tracker;
 
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spFirstPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetBryptIdentifier();
-    CConnectionDetails<> firstConnectionDetails(spFirstPeer);
+    ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spSecondPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetBryptIdentifier();
-    CConnectionDetails<> secondConnectionDetails(spSecondPeer);
+    ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<CBryptPeer>(
-        BryptIdentifier::CContainer{ BryptIdentifier::Generate() });
+    auto const spThirdPeer = std::make_shared<BryptPeer>(
+        BryptIdentifier::Container{ BryptIdentifier::Generate() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetBryptIdentifier();
-    CConnectionDetails<> thirdConnectionDetails(spThirdPeer);
+    ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);

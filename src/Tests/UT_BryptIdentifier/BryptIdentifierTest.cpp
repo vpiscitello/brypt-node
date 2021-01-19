@@ -51,7 +51,7 @@ TEST(BryptIdentifierSuite, ContainerFromInternalConstructorTest)
         auto const optInternal = BryptIdentifier::ConvertToInternalRepresentation(network);
         ASSERT_TRUE(optInternal);
 
-        BryptIdentifier::CContainer identifier(*optInternal);
+        BryptIdentifier::Container identifier(*optInternal);
         auto const checkInternal = identifier.GetInternalRepresentation();
         auto const checkNetwork = identifier.GetNetworkRepresentation();
         EXPECT_EQ(*optInternal, checkInternal);
@@ -69,7 +69,7 @@ TEST(BryptIdentifierSuite, ContainerFromNetworkConstructorTest)
         auto const optInternal = BryptIdentifier::ConvertToInternalRepresentation(network);
         ASSERT_TRUE(optInternal);
 
-        BryptIdentifier::CContainer identifier(network);
+        BryptIdentifier::Container identifier(network);
         auto const checkInternal = identifier.GetInternalRepresentation();
         auto const checkNetwork = identifier.GetNetworkRepresentation();
         EXPECT_EQ(*optInternal, checkInternal);

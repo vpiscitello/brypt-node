@@ -6,7 +6,7 @@
 		 location": "44.5638° N, 123.2794° W"
 	"endpoints": [
 		{
-			"technology_name": "TCP",
+			"protocol_name": "TCP",
 			"interface": "lo"
 			"binding": "*:35216"
 		}

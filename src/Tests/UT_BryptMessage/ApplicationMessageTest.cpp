@@ -17,7 +17,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-CMessageContext GenerateMessageContext();
+MessageContext GenerateMessageContext();
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -25,16 +25,16 @@ CMessageContext GenerateMessageContext();
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
 
-constexpr Command::Type Command = Command::Type::Election;
+constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Data = "Hello World!";
 
-constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
-constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
+constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -43,13 +43,13 @@ constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::Techno
 
 TEST(ApplicationMessageSuite, BaseConstructorTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optMessage = CApplicationMessage::Builder()
+    auto const optMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
+        .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Data)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -58,7 +58,7 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
     ASSERT_TRUE(optMessage->GetDestinationIdentifier());
     EXPECT_EQ(*optMessage->GetDestinationIdentifier(), test::ServerIdentifier);
     EXPECT_FALSE(optMessage->GetAwaitTrackerKey());
-    EXPECT_EQ(optMessage->GetCommand(), test::Command);
+    EXPECT_EQ(optMessage->GetCommand(), test::Handler);
     EXPECT_EQ(optMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optMessage->GetTimestamp(), TimeUtils::Timestamp());
 
@@ -74,20 +74,20 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
 
 TEST(ApplicationMessageSuite, PackConstructorTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optBaseMessage = CApplicationMessage::Builder()
+    auto const optBaseMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
+        .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Data)
         .ValidatedBuild();
 
     auto const pack = optBaseMessage->GetPack();
     EXPECT_EQ(pack.size(), optBaseMessage->GetPackSize());
 
-    auto const optPackMessage = CApplicationMessage::Builder()
+    auto const optPackMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
@@ -111,14 +111,14 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
 
 TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
     Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
-    auto const optSourceBoundMessage = CApplicationMessage::Builder()
+    auto const optSourceBoundMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
+        .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
@@ -127,7 +127,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optSourceBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(optSourceBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
     EXPECT_EQ(optSourceBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
-    EXPECT_EQ(optSourceBoundMessage->GetCommand(), test::Command);
+    EXPECT_EQ(optSourceBoundMessage->GetCommand(), test::Handler);
     EXPECT_EQ(optSourceBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optSourceBoundMessage->GetTimestamp(), TimeUtils::Timestamp());
 
@@ -138,11 +138,11 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
     auto const sourceBoundPack = optSourceBoundMessage->GetPack();
     EXPECT_EQ(sourceBoundPack.size(), optSourceBoundMessage->GetPackSize());
 
-    auto const optDestinationBoundMessage = CApplicationMessage::Builder()
+    auto const optDestinationBoundMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
+        .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
@@ -151,7 +151,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optDestinationBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(optDestinationBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
     EXPECT_EQ(optDestinationBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
-    EXPECT_EQ(optDestinationBoundMessage->GetCommand(), test::Command);
+    EXPECT_EQ(optDestinationBoundMessage->GetCommand(), test::Handler);
     EXPECT_EQ(optDestinationBoundMessage->GetPhase(), test::RequestPhase);
     EXPECT_GT(optDestinationBoundMessage->GetTimestamp(), TimeUtils::Timestamp());
 
@@ -167,14 +167,14 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 
 TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
     Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
 
-    auto const optBoundMessage = CApplicationMessage::Builder()
+    auto const optBoundMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
+        .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
@@ -183,7 +183,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
     auto const pack = optBoundMessage->GetPack();
     EXPECT_EQ(pack.size(), optBoundMessage->GetPackSize());
 
-    auto const optPackMessage = CApplicationMessage::Builder()
+    auto const optPackMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
@@ -204,9 +204,9 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 
 //-----------------------------------------------------------------------------------------------
 
-CMessageContext local::GenerateMessageContext()
+MessageContext local::GenerateMessageContext()
 {
-    CMessageContext context(test::EndpointIdentifier, test::EndpointTechnology);
+    MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [] (auto const& buffer, auto) -> Security::Encryptor::result_type 

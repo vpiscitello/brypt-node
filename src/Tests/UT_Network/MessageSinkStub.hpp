@@ -5,10 +5,10 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../BryptMessage/MessageTypes.hpp"
-#include "../../Interfaces/MessageSink.hpp"
-#include "../../Components/MessageControl/AssociatedMessage.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/MessageTypes.hpp"
+#include "Components/MessageControl/AssociatedMessage.hpp"
+#include "Interfaces/MessageSink.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -17,26 +17,26 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CApplicationMessage;
-class CMessageContext;
+class BryptPeer;
+class ApplicationMessage;
+class MessageContext;
 
 //------------------------------------------------------------------------------------------------
 
-class CMessageSinkStub : public IMessageSink {
+class MessageSinkStub : public IMessageSink {
 public:
-    explicit CMessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    explicit MessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier);
     
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CMessageContext const& context,
-        Message::Buffer const& buffer) override;
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        MessageContext const& context,
+        std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
 
     std::optional<AssociatedMessage> GetNextMessage();
@@ -46,8 +46,8 @@ public:
     
 private:
     bool QueueMessage(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CApplicationMessage const& message);
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        ApplicationMessage const& message);
 
     mutable std::shared_mutex m_mutex;
     
@@ -57,7 +57,6 @@ private:
     bool m_bReceivedHeartbeatRequest;
     bool m_bReceivedHeartbeatResponse;
     std::uint32_t m_invalidMessageCount;
-
 };
 
 //------------------------------------------------------------------------------------------------

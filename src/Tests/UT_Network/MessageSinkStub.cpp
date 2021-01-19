@@ -3,17 +3,17 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "MessageSinkStub.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../BryptMessage/MessageUtils.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Utilities/Z85.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "BryptMessage/MessageUtils.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include <mutex>
 //------------------------------------------------------------------------------------------------
 
-CMessageSinkStub::CMessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+MessageSinkStub::MessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 	: m_mutex()
 	, m_spBryptIdentifier(spBryptIdentifier)
 	, m_incoming()
@@ -26,9 +26,9 @@ CMessageSinkStub::CMessageSinkStub(BryptIdentifier::SharedContainer const& spBry
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageSinkStub::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CMessageContext const& context,
+bool MessageSinkStub::CollectMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	MessageContext const& context,
 	std::string_view buffer)
 {
     // Decode the buffer as it is expected to be encoded with Z85.
@@ -40,10 +40,10 @@ bool CMessageSinkStub::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageSinkStub::CollectMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CMessageContext const& context,
-	Message::Buffer const& buffer)
+bool MessageSinkStub::CollectMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	MessageContext const& context,
+	std::span<std::uint8_t const> buffer)
 {
     // Peek the protocol in the packed buffer. 
     auto const optProtocol = Message::PeekProtocol(buffer);
@@ -57,7 +57,7 @@ bool CMessageSinkStub::CollectMessage(
 		// the queue if it is valid. 
         case Message::Protocol::Application: {
 			// Build the application message.
-			auto const optMessage = CApplicationMessage::Builder()
+			auto const optMessage = ApplicationMessage::Builder()
 				.SetMessageContext(context)
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
@@ -72,7 +72,7 @@ bool CMessageSinkStub::CollectMessage(
 		}
 		// In the case of the network protocol, build a network message and process the message.
         case Message::Protocol::Network: {
-			auto const optRequest = CNetworkMessage::Builder()
+			auto const optRequest = NetworkMessage::Builder()
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
@@ -91,7 +91,7 @@ bool CMessageSinkStub::CollectMessage(
 					m_bReceivedHeartbeatRequest = true;	
 
 					// Build the heartbeat response.
-					auto const optResponse = CNetworkMessage::Builder()
+					auto const optResponse = NetworkMessage::Builder()
 						.MakeHeartbeatResponse()
 						.SetSource(*m_spBryptIdentifier)
 						.SetDestination(optRequest->GetSourceIdentifier())
@@ -123,7 +123,7 @@ bool CMessageSinkStub::CollectMessage(
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<AssociatedMessage> CMessageSinkStub::GetNextMessage()
+std::optional<AssociatedMessage> MessageSinkStub::GetNextMessage()
 {
 	std::scoped_lock lock(m_mutex);
 	if (m_incoming.empty()) {
@@ -138,7 +138,7 @@ std::optional<AssociatedMessage> CMessageSinkStub::GetNextMessage()
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageSinkStub::ReceviedHeartbeatRequest() const
+bool MessageSinkStub::ReceviedHeartbeatRequest() const
 {
 	std::scoped_lock lock(m_mutex);
 	return m_bReceivedHeartbeatRequest;
@@ -146,7 +146,7 @@ bool CMessageSinkStub::ReceviedHeartbeatRequest() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageSinkStub::ReceviedHeartbeatResponse() const
+bool MessageSinkStub::ReceviedHeartbeatResponse() const
 {
 	std::scoped_lock lock(m_mutex);
 	return m_bReceivedHeartbeatResponse;
@@ -154,7 +154,7 @@ bool CMessageSinkStub::ReceviedHeartbeatResponse() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageSinkStub::InvalidMessageCount() const
+std::uint32_t MessageSinkStub::InvalidMessageCount() const
 {
 	std::scoped_lock lock(m_mutex);
 	return m_invalidMessageCount;
@@ -162,9 +162,9 @@ std::uint32_t CMessageSinkStub::InvalidMessageCount() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageSinkStub::QueueMessage(
-	std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-	CApplicationMessage const& message)
+bool MessageSinkStub::QueueMessage(
+	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	ApplicationMessage const& message)
 {
 	std::scoped_lock lock(m_mutex);
 	m_incoming.emplace(AssociatedMessage{ wpBryptPeer, message });

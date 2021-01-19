@@ -3,11 +3,11 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "SinglePeerMediatorStub.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Components/Security/SecurityMediator.hpp"
-#include "../../Components/Security/SecurityDefinitions.hpp"
-#include "../../Interfaces/SecurityStrategy.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Security/SecurityMediator.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -17,50 +17,46 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-class CSecurityStrategyStub;
+class SecurityStrategyStub;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-class local::CSecurityStrategyStub : public ISecurityStrategy
+class local::SecurityStrategyStub : public ISecurityStrategy
 {
 public:
-    CSecurityStrategyStub();
+    SecurityStrategyStub();
 
     virtual Security::Strategy GetStrategyType() const override;
     virtual Security::Role GetRoleType() const override;
     virtual Security::Context GetContextType() const override;
-    virtual std::uint32_t GetSignatureSize() const override;
+    virtual std::size_t GetSignatureSize() const override;
 
     virtual std::uint32_t GetSynchronizationStages() const override;
     virtual Security::SynchronizationStatus GetSynchronizationStatus() const override;
     virtual Security::SynchronizationResult PrepareSynchronization() override;
-    virtual Security::SynchronizationResult Synchronize(Security::Buffer const&) override;
+    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override;
 
     virtual Security::OptionalBuffer Encrypt(
-        Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
+        Security::ReadableView, std::uint64_t) const override;
     virtual Security::OptionalBuffer Decrypt(
-        Security::Buffer const&, std::uint32_t, std::uint64_t) const override;
+        Security::ReadableView, std::uint64_t) const override;
 
     virtual std::int32_t Sign(Security::Buffer&) const override;
-    virtual Security::VerificationStatus Verify(Security::Buffer const&) const override;
+    virtual Security::VerificationStatus Verify(Security::ReadableView) const override;
 
 private: 
-    virtual std::int32_t Sign(
-        Security::Buffer const&, Security::Buffer&) const override;
+    virtual std::int32_t Sign( Security::ReadableView, Security::Buffer&) const override;
 
     virtual Security::OptionalBuffer GenerateSignature(
-        std::uint8_t const*,
-        std::uint32_t,
-        std::uint8_t const*,
-        std::uint32_t) const override;
+        Security::ReadableView, Security::ReadableView) const override;
 };
 
 //------------------------------------------------------------------------------------------------
 
-CSinglePeerMediatorStub::CSinglePeerMediatorStub(
+SinglePeerMediatorStub::SinglePeerMediatorStub(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     IMessageSink* const pMessageSink)
     : m_spBryptIdentifier(spBryptIdentifier)
@@ -71,22 +67,22 @@ CSinglePeerMediatorStub::CSinglePeerMediatorStub(
 
 //------------------------------------------------------------------------------------------------
 
-void CSinglePeerMediatorStub::RegisterObserver([[maybe_unused]] IPeerObserver* const observer)
+void SinglePeerMediatorStub::RegisterObserver([[maybe_unused]] IPeerObserver* const observer)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CSinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* const observer)
+void SinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* const observer)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvingPeer(
+SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolvingPeer(
     [[maybe_unused]] std::string_view uri)
 {
-    auto const optHeartbeatRequest = CNetworkMessage::Builder()
+    auto const optHeartbeatRequest = NetworkMessage::Builder()
         .MakeHeartbeatRequest()
         .SetSource(*m_spBryptIdentifier)
         .ValidatedBuild();
@@ -97,14 +93,14 @@ CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvi
 
 //------------------------------------------------------------------------------------------------
 
-CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvingPeer(
+SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolvingPeer(
     BryptIdentifier::SharedContainer const& spIdentifier)
 {
     if (!spIdentifier) {
         return {};
     }
 
-    auto const optHeartbeatRequest = CNetworkMessage::Builder()
+    auto const optHeartbeatRequest = NetworkMessage::Builder()
         .SetSource(*m_spBryptIdentifier)
         .SetDestination(*spIdentifier)
         .MakeHeartbeatRequest()
@@ -116,14 +112,14 @@ CSinglePeerMediatorStub::OptionalRequest CSinglePeerMediatorStub::DeclareResolvi
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CBryptPeer> CSinglePeerMediatorStub::LinkPeer(
-    BryptIdentifier::CContainer const& identifier,
+std::shared_ptr<BryptPeer> SinglePeerMediatorStub::LinkPeer(
+    BryptIdentifier::Container const& identifier,
     [[maybe_unused]] std::string_view uri)
 {
-    m_spBryptPeer = std::make_shared<CBryptPeer>(identifier, this);
+    m_spBryptPeer = std::make_shared<BryptPeer>(identifier, this);
 
-    auto upSecurityStrategy = std::make_unique<local::CSecurityStrategyStub>();
-    auto upSecurityMediator = std::make_unique<CSecurityMediator>(
+    auto upSecurityStrategy = std::make_unique<local::SecurityStrategyStub>();
+    auto upSecurityMediator = std::make_unique<SecurityMediator>(
             m_spBryptIdentifier, std::move(upSecurityStrategy));
 
     m_spBryptPeer->AttachSecurityMediator(std::move(upSecurityMediator));
@@ -135,17 +131,17 @@ std::shared_ptr<CBryptPeer> CSinglePeerMediatorStub::LinkPeer(
 
 //------------------------------------------------------------------------------------------------
 
-void CSinglePeerMediatorStub::DispatchPeerStateChange(
-    [[maybe_unused]] std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    [[maybe_unused]] Endpoints::EndpointIdType identifier,
-    [[maybe_unused]] Endpoints::TechnologyType technology,
+void SinglePeerMediatorStub::DispatchPeerStateChange(
+    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] Network::Endpoint::Identifier identifier,
+    [[maybe_unused]] Network::Protocol protocol,
     [[maybe_unused]] ConnectionState change)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::shared_ptr<CBryptPeer> CSinglePeerMediatorStub::GetPeer() const
+std::shared_ptr<BryptPeer> SinglePeerMediatorStub::GetPeer() const
 {
     return m_spBryptPeer;
 }
@@ -153,118 +149,110 @@ std::shared_ptr<CBryptPeer> CSinglePeerMediatorStub::GetPeer() const
 //------------------------------------------------------------------------------------------------
 
 
-local::CSecurityStrategyStub::CSecurityStrategyStub()
+local::SecurityStrategyStub::SecurityStrategyStub()
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Strategy local::CSecurityStrategyStub::GetStrategyType() const
+Security::Strategy local::SecurityStrategyStub::GetStrategyType() const
 {
     return Security::Strategy::Invalid;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Role local::CSecurityStrategyStub::GetRoleType() const
+Security::Role local::SecurityStrategyStub::GetRoleType() const
 {
     return Security::Role::Initiator;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Context local::CSecurityStrategyStub::GetContextType() const
+Security::Context local::SecurityStrategyStub::GetContextType() const
 {
     return Security::Context::Unique;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t local::CSecurityStrategyStub::GetSignatureSize() const
+std::size_t local::SecurityStrategyStub::GetSignatureSize() const
 {
     return 0;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t local::CSecurityStrategyStub::GetSynchronizationStages() const
+std::uint32_t local::SecurityStrategyStub::GetSynchronizationStages() const
 {
     return 0;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus local::CSecurityStrategyStub::GetSynchronizationStatus() const
+Security::SynchronizationStatus local::SecurityStrategyStub::GetSynchronizationStatus() const
 {
     return Security::SynchronizationStatus::Processing;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult local::CSecurityStrategyStub::PrepareSynchronization()
+Security::SynchronizationResult local::SecurityStrategyStub::PrepareSynchronization()
 {
     return { Security::SynchronizationStatus::Processing, {} };
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::SynchronizationResult local::CSecurityStrategyStub::Synchronize(Security::Buffer const&)
+Security::SynchronizationResult local::SecurityStrategyStub::Synchronize(Security::ReadableView)
 {
     return { Security::SynchronizationStatus::Processing, {} };
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::CSecurityStrategyStub::Encrypt(
-    Security::Buffer const& buffer,
-    [[maybe_unused]] std::uint32_t,
-    [[maybe_unused]] std::uint64_t) const
+Security::OptionalBuffer local::SecurityStrategyStub::Encrypt(
+    Security::ReadableView buffer, [[maybe_unused]] std::uint64_t) const
 {
-    return buffer;
+    return Security::Buffer(buffer.begin(), buffer.end());
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::CSecurityStrategyStub::Decrypt(
-    Security::Buffer const& buffer,
-    [[maybe_unused]] std::uint32_t,
-    [[maybe_unused]] std::uint64_t) const
+Security::OptionalBuffer local::SecurityStrategyStub::Decrypt(
+    Security::ReadableView buffer, [[maybe_unused]] std::uint64_t) const
 {
-    return buffer;
+    return Security::Buffer(buffer.begin(), buffer.end());
 }
 
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t local::CSecurityStrategyStub::Sign(
-    [[maybe_unused]] Security::Buffer&) const
+std::int32_t local::SecurityStrategyStub::Sign([[maybe_unused]] Security::Buffer&) const
 {
     return 0;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::VerificationStatus local::CSecurityStrategyStub::Verify(
-    [[maybe_unused]] Security::Buffer const&) const
+Security::VerificationStatus local::SecurityStrategyStub::Verify(
+    [[maybe_unused]] Security::ReadableView) const
 {
     return Security::VerificationStatus::Success;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::int32_t local::CSecurityStrategyStub::Sign(
-    [[maybe_unused]] Security::Buffer const&, [[maybe_unused]] Security::Buffer&) const
+std::int32_t local::SecurityStrategyStub::Sign(
+    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::Buffer&) const
 {
     return 0;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer local::CSecurityStrategyStub::GenerateSignature(
-    [[maybe_unused]] std::uint8_t const*,
-    [[maybe_unused]] std::uint32_t,
-    [[maybe_unused]] std::uint8_t const*,
-    [[maybe_unused]] std::uint32_t) const
+Security::OptionalBuffer local::SecurityStrategyStub::GenerateSignature(
+    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::ReadableView) const
 {
     return {};
 }

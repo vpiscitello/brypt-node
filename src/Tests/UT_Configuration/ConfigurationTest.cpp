@@ -1,7 +1,7 @@
 //------------------------------------------------------------------------------------------------
-#include "../../Configuration/Configuration.hpp"
-#include "../../Configuration/ConfigurationManager.hpp"
-#include "../../Utilities/NodeUtils.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
@@ -41,8 +41,8 @@ TEST(ConfigurationManagerSuite, GenerateConfigurationFilepathTest)
 
 TEST(ConfigurationManagerSuite, ParseGoodFileTest)
 {
-    std::filesystem::path const filepath = "./Tests/UT_Configuration/files/good/config.json";
-    Configuration::CManager manager(filepath.c_str());
+    std::filesystem::path const filepath = "files/good/config.json";
+    Configuration::Manager manager(filepath.c_str());
     auto const status = manager.FetchSettings();
     EXPECT_EQ(status, Configuration::StatusCode::Success);
 }
@@ -51,8 +51,8 @@ TEST(ConfigurationManagerSuite, ParseGoodFileTest)
 
 TEST(ConfigurationManagerSuite, ParseMalformedFileTest)
 {
-    std::filesystem::path const filepath = "./Tests/UT_Configuration/files/malformed/config.json";
-    Configuration::CManager manager(filepath.c_str());
+    std::filesystem::path const filepath = "files/malformed/config.json";
+    Configuration::Manager manager(filepath.c_str());
     auto const status = manager.FetchSettings();
     EXPECT_NE(status, Configuration::StatusCode::Success);
 }
