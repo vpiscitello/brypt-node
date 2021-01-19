@@ -21,8 +21,8 @@
 namespace NetworkUtils {
 //------------------------------------------------------------------------------------------------
 
-using NetworkAddress = std::string;
-using PortNumber = std::uint16_t;
+using Address = std::string;
+using Port = std::uint16_t;
 
 constexpr std::string_view Wildcard = "*"; 
 constexpr std::string_view ComponentSeperator = ":";
@@ -31,7 +31,7 @@ constexpr std::string_view SchemeSeperator = "://";
 using AddressComponentPair = std::pair<std::string, std::string>;
 
 AddressComponentPair SplitAddressString(std::string_view str);
-NetworkAddress GetInterfaceAddress(std::string_view interface);
+Address GetInterfaceAddress(std::string_view interface);
 
 //------------------------------------------------------------------------------------------------
 } // NetworkUtils namespace
@@ -41,9 +41,9 @@ NetworkAddress GetInterfaceAddress(std::string_view interface);
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-inline NetworkUtils::NetworkAddress NetworkUtils::GetInterfaceAddress(std::string_view interface)
+inline NetworkUtils::Address NetworkUtils::GetInterfaceAddress(std::string_view interface)
 {
-    NetworkAddress address;
+    Address address;
 
     struct ifaddrs* ifAddrStruct = nullptr;
     struct ifaddrs* ifa = nullptr;

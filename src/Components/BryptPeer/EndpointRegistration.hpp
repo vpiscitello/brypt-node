@@ -17,15 +17,15 @@ class EndpointRegistration
 {
 public:
     EndpointRegistration(
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
         MessageScheduler const& scheduler = {},
         std::string_view uri = {});
 
-    [[nodiscard]] CMessageContext const& GetMessageContext() const;
-    [[nodiscard]] CMessageContext& GetWritableMessageContext();
-    [[nodiscard]] Endpoints::EndpointIdType GetEndpointIdentifier() const;
-    [[nodiscard]] Endpoints::TechnologyType GetEndpointTechnology() const;
+    [[nodiscard]] MessageContext const& GetMessageContext() const;
+    [[nodiscard]] MessageContext& GetWritableMessageContext();
+    [[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
+    [[nodiscard]] Network::Protocol GetEndpointProtocol() const;
     [[nodiscard]] MessageScheduler const& GetScheduler() const;
     [[nodiscard]] std::string const& GetEntry() const;
 

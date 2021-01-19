@@ -41,7 +41,7 @@ std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& c
 // DiscoveryRequest {
 //     "entrypoints": [
 //     {
-//         "technology": String
+//         "protocol": String
 //         "entry": String,
 //     },
 //     ...
@@ -56,9 +56,9 @@ LI_SYMBOL(entrypoints)
 #define LI_SYMBOL_entry
 LI_SYMBOL(entry)
 #endif
-#ifndef LI_SYMBOL_technology
-#define LI_SYMBOL_technology
-LI_SYMBOL(technology)
+#ifndef LI_SYMBOL_protocol
+#define LI_SYMBOL_protocol
+LI_SYMBOL(protocol)
 #endif
 
 //------------------------------------------------------------------------------------------------
@@ -103,13 +103,13 @@ std::string local::GenerateDiscoveryData(
 {
     auto request = li::mmm(
         s::entrypoints = {
-            li::mmm(s::technology = std::string(), s::entry = std::string()) });
+            li::mmm(s::protocol = std::string(), s::entry = std::string()) });
 
     request.entrypoints.clear();
 
     for (auto const& options: configurations) {
         auto& entrypoint = request.entrypoints.emplace_back();
-        entrypoint.technology = options.GetTechnologyName();
+        entrypoint.protocol = options.GetProtocolName();
 
         auto const [primary, secondary] = options.GetBindingComponents();
         if (primary == "*") {

@@ -8,8 +8,8 @@
 //------------------------------------------------------------------------------------------------
 
 MessageContext::MessageContext()
-	: m_endpointIdentifier(Endpoints::InvalidEndpointIdentifier)
-	, m_endpointTechnology(Endpoints::TechnologyType::Invalid)
+	: m_endpointIdentifier(Network::Endpoint::InvalidIdentifier)
+	, m_endpointProtocol(Network::Protocol::Invalid)
 	, m_encryptor()
 	, m_decryptor()
 	, m_signator()
@@ -21,10 +21,10 @@ MessageContext::MessageContext()
 //------------------------------------------------------------------------------------------------
 
 MessageContext::MessageContext(
-	Endpoints::EndpointIdType identifier,
-	Endpoints::TechnologyType technology)
+	Network::Endpoint::Identifier identifier,
+	Network::Protocol protocol)
 	: m_endpointIdentifier(identifier)
-	, m_endpointTechnology(technology)
+	, m_endpointProtocol(protocol)
 	, m_encryptor()
 	, m_decryptor()
 	, m_signator()
@@ -35,16 +35,16 @@ MessageContext::MessageContext(
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::EndpointIdType CMessageContext::GetEndpointIdentifier() const
+Network::Endpoint::Identifier MessageContext::GetEndpointIdentifier() const
 {
 	return m_endpointIdentifier;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::TechnologyType CMessageContext::GetEndpointTechnology() const
+Network::Protocol MessageContext::GetEndpointProtocol() const
 {
-	return m_endpointTechnology;
+	return m_endpointProtocol;
 }
 
 //------------------------------------------------------------------------------------------------

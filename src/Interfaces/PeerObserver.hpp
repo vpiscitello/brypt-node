@@ -20,8 +20,8 @@ public:
 
     virtual void HandlePeerStateChange(
         std::weak_ptr<BryptPeer> const& wpBryptPeer,
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
         ConnectionState change) = 0;
 };
 

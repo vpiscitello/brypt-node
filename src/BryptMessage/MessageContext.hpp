@@ -25,8 +25,8 @@ public:
 	MessageContext();
 	MessageContext(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
-	[[nodiscard]] Endpoints::EndpointIdType GetEndpointIdentifier() const;
-	[[nodiscard]] Endpoints::TechnologyType GetEndpointTechnology() const;
+	[[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
+	[[nodiscard]] Network::Protocol GetEndpointProtocol() const;
 
 	[[nodiscard]] bool HasSecurityHandlers() const;
 
@@ -48,8 +48,8 @@ public:
 	[[nodiscard]] std::size_t GetSignatureSize() const;
 
 private:
-	Endpoints::EndpointIdType m_endpointIdentifier;
-	Endpoints::TechnologyType m_endpointTechnology;
+	Network::Endpoint::Identifier m_endpointIdentifier;
+	Network::Protocol m_endpointProtocol;
 
 	Security::Encryptor m_encryptor;
 	Security::Decryptor m_decryptor;

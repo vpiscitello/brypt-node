@@ -113,7 +113,7 @@ bool BryptPeer::ScheduleReceive(
 //------------------------------------------------------------------------------------------------
 
 bool BryptPeer::ScheduleReceive(
-    Endpoints::EndpointIdType identifier, Message::Buffer const& buffer)
+    Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -138,7 +138,7 @@ bool BryptPeer::ScheduleReceive(
 //------------------------------------------------------------------------------------------------
 
 bool BryptPeer::ScheduleSend(
-    Endpoints::EndpointIdType identifier, std::string_view const& message) const
+    Network::Endpoint::Identifier identifier, std::string_view message) const
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -177,7 +177,7 @@ void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
         m_pPeerMediator->DispatchPeerStateChange(
             weak_from_this(),
             registration.GetEndpointIdentifier(),
-            registration.GetEndpointTechnology(),
+            registration.GetEndpointProtocol(),
             ConnectionState::Connected);
     }
 }
@@ -185,8 +185,8 @@ void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
 //------------------------------------------------------------------------------------------------
 
 void BryptPeer::RegisterEndpoint(
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology,
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
     MessageScheduler const& scheduler,
     std::string_view uri)
 {
@@ -196,7 +196,7 @@ void BryptPeer::RegisterEndpoint(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
-            identifier, technology, scheduler, uri);
+            identifier, protocol, scheduler, uri);
             
         auto& [identifier, registration] = *itr;
         if (m_upSecurityMediator) [[likely]] {
@@ -208,14 +208,14 @@ void BryptPeer::RegisterEndpoint(
     // observers that this peer has been connected to a new endpoint. 
     if (m_pPeerMediator) [[likely]] {
         m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(), identifier, technology, ConnectionState::Connected);
+            weak_from_this(), identifier, protocol, ConnectionState::Connected);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
 void BryptPeer::WithdrawEndpoint(
-    Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology)
+    Network::Endpoint::Identifier identifier, Network::Protocol protocol)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -226,7 +226,7 @@ void BryptPeer::WithdrawEndpoint(
     // observer's that peer has been disconnected from that endpoint. 
     if (m_pPeerMediator) [[likely]] {
         m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(), identifier, technology, ConnectionState::Disconnected);
+            weak_from_this(), identifier, protocol, ConnectionState::Disconnected);
     }
 }
 
@@ -240,7 +240,7 @@ bool BryptPeer::IsActive() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsEndpointRegistered(Endpoints::EndpointIdType identifier) const
+bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     auto const itr = m_endpoints.find(identifier);
@@ -250,7 +250,7 @@ bool CBryptPeer::IsEndpointRegistered(Endpoints::EndpointIdType identifier) cons
 //------------------------------------------------------------------------------------------------
 
 std::optional<std::string> BryptPeer::GetRegisteredEntry(
-    Endpoints::EndpointIdType identifier) const
+    Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
@@ -266,7 +266,7 @@ std::optional<std::string> BryptPeer::GetRegisteredEntry(
 //------------------------------------------------------------------------------------------------
 
 std::optional<MessageContext> BryptPeer::GetMessageContext(
-    Endpoints::EndpointIdType identifier) const
+    Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {

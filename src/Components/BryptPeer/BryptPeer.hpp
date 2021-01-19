@@ -49,33 +49,33 @@ public:
     // Message Receiving Methods {
     void SetReceiver(IMessageSink* const pMessageSink);
     [[nodiscard]] bool ScheduleReceive(
-        Endpoints::EndpointIdType identifier, std::string_view const& buffer);
+        Network::Endpoint::Identifier identifier, std::string_view buffer);
     [[nodiscard]] bool ScheduleReceive(
-        Endpoints::EndpointIdType identifier, Message::Buffer const& buffer);
+        Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer);
     // } Message Receiving Methods
 
     // Message Sending Methods {
     [[nodiscard]] bool ScheduleSend(
-        Endpoints::EndpointIdType identifier, std::string_view const& message) const;
+        Network::Endpoint::Identifier identifier, std::string_view message) const;
     // } Message Sending Methods
 
     // Endpoint Association Methods {
-    void RegisterEndpoint(CEndpointRegistration const& registration);
+    void RegisterEndpoint(EndpointRegistration const& registration);
     void RegisterEndpoint(
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
         MessageScheduler const& scheduler = {},
         std::string_view uri = {});
 
     void WithdrawEndpoint(
-        Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology);
+        Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
     [[nodiscard]] bool IsActive() const;
-    [[nodiscard]] bool IsEndpointRegistered(Endpoints::EndpointIdType identifier) const;
+    [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::optional<std::string> GetRegisteredEntry(
-        Endpoints::EndpointIdType identifier) const;
-    [[nodiscard]] std::optional<CMessageContext> GetMessageContext(
-        Endpoints::EndpointIdType identifier) const;
+        Network::Endpoint::Identifier identifier) const;
+    [[nodiscard]] std::optional<MessageContext> GetMessageContext(
+        Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t RegisteredEndpointCount() const;
     // } Endpoint Association Methods
 
@@ -88,7 +88,7 @@ public:
     
 private:
     using RegisteredEndpoints = std::unordered_map<
-        Endpoints::EndpointIdType, CEndpointRegistration>;
+        Network::Endpoint::Identifier, EndpointRegistration>;
 
     IPeerMediator* const m_pPeerMediator;
 

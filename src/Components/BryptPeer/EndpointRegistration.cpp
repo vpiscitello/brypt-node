@@ -19,11 +19,11 @@ std::string ParseEntryFromURI(std::string_view uri);
 //------------------------------------------------------------------------------------------------
 
 EndpointRegistration::EndpointRegistration(
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology,
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
     MessageScheduler const& scheduler,
     std::string_view uri)
-    : m_context(identifier, technology)
+    : m_context(identifier, protocol)
     , m_scheduler(scheduler)
     , m_entry(local::ParseEntryFromURI(uri))
 {
@@ -45,16 +45,16 @@ MessageContext& EndpointRegistration::GetWritableMessageContext()
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::EndpointIdType CEndpointRegistration::GetEndpointIdentifier() const
+Network::Endpoint::Identifier EndpointRegistration::GetEndpointIdentifier() const
 {
     return m_context.GetEndpointIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::TechnologyType CEndpointRegistration::GetEndpointTechnology() const
+Network::Protocol EndpointRegistration::GetEndpointProtocol() const
 {
-    return m_context.GetEndpointTechnology();
+    return m_context.GetEndpointProtocol();
 }
 
 //------------------------------------------------------------------------------------------------

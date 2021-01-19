@@ -22,21 +22,21 @@ class IBootstrapCache
 public:
     virtual ~IBootstrapCache() = default;
 
-    using AllEndpointBootstrapReadFunction = std::function<
-        CallbackIteration(Endpoints::TechnologyType, std::string_view const& bootstrap)>;
-    using AllEndpointBootstrapErrorFunction = std::function<void(Endpoints::TechnologyType)>;
-    using OneEndpointBootstrapReadFunction = std::function<
+    using AllProtocolsReadFunction = std::function<
+        CallbackIteration(Network::Protocol, std::string_view const& bootstrap)>;
+    using AllProtocolsErrorFunction = std::function<void(Network::Protocol)>;
+    using OneProtocolReadFunction = std::function<
         CallbackIteration(std::string_view const& bootstrap)>;
 
     virtual bool ForEachCachedBootstrap(
-        AllEndpointBootstrapReadFunction const& callback,
-        AllEndpointBootstrapErrorFunction const& error) const = 0;
+        AllProtocolsReadFunction const& callback,
+        AllProtocolsErrorFunction const& error) const = 0;
     virtual bool ForEachCachedBootstrap(
-        Endpoints::TechnologyType technology,
-        OneEndpointBootstrapReadFunction const& callback) const = 0;
+        Network::Protocol protocol,
+        OneProtocolReadFunction const& callback) const = 0;
 
     virtual std::size_t CachedBootstrapCount() const = 0;
-    virtual std::size_t CachedBootstrapCount(Endpoints::TechnologyType technology) const = 0;
+    virtual std::size_t CachedBootstrapCount(Network::Protocol protocol) const = 0;
 };
 
 //------------------------------------------------------------------------------------------------

@@ -182,13 +182,13 @@ std::shared_ptr<BryptPeer> PeerManager::LinkPeer(
 
 void PeerManager::DispatchPeerStateChange(
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology,
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
     ConnectionState change)
 {
     NotifyObservers(
         &IPeerObserver::HandlePeerStateChange,
-        wpBryptPeer, identifier, technology, change);
+        wpBryptPeer, identifier, protocol, change);
 }
 
 //------------------------------------------------------------------------------------------------

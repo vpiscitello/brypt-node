@@ -33,7 +33,7 @@ public:
     IdentifierGenerator(IdentifierGenerator const&) = delete;
     void operator=(IdentifierGenerator const&) = delete;
 
-    Endpoint::Identifier GetEndpointIdentifier() { return ++m_identifier; }
+    Endpoint::Identifier Generate() { return ++m_identifier; }
     
 private:
     IdentifierGenerator()
