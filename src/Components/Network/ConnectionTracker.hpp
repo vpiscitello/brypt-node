@@ -7,11 +7,11 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "ConnectionDetails.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../../Utilities/CallbackIteration.hpp"
-#include "../../Utilities/EnumMaskUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "Utilities/CallbackIteration.hpp"
+#include "Utilities/EnumMaskUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -27,19 +27,19 @@
 //------------------------------------------------------------------------------------------------
 
 template <typename ConnectionIdType, typename ExtensionType = void>
-class CConnectionEntry
+class ConnectionEntry
 {
 public:
-    using ExtendedConnectionDetails = CConnectionDetails<ExtensionType>;
+    using ExtendedConnectionDetails = ConnectionDetails<ExtensionType>;
     using OptionalConnectionDetails = std::optional<ExtendedConnectionDetails>;
 
-    explicit CConnectionEntry(ConnectionIdType const& connection)
+    explicit ConnectionEntry(ConnectionIdType const& connection)
         : m_connection(connection)
         , m_optConnectionDetails()
     {
     }
 
-    CConnectionEntry(
+    ConnectionEntry(
         ConnectionIdType const& connection,
         OptionalConnectionDetails const& optConnectionDetails)
         : m_connection(connection)
@@ -167,11 +167,11 @@ inline ConnectionStateFilter ConnectionStateToFilter(ConnectionState state)
 //------------------------------------------------------------------------------------------------
 
 template <typename ConnectionIdType, typename ExtensionType = void>
-class CConnectionTracker
+class ConnectionTracker
 {
 public:
-    using ConnectionEntryType = CConnectionEntry<ConnectionIdType, ExtensionType>;
-    using ExtendedConnectionDetails = CConnectionDetails<ExtensionType>;
+    using ConnectionEntryType = ConnectionEntry<ConnectionIdType, ExtensionType>;
+    using ExtendedConnectionDetails = ConnectionDetails<ExtensionType>;
     using OptionalConnectionDetails = std::optional<ExtendedConnectionDetails>;
     
     using ForEachFunction = std::function<CallbackIteration(ConnectionIdType const&)>;
@@ -186,11 +186,11 @@ public:
     using ReadMultipleFunction = std::function<
         CallbackIteration(ConnectionIdType const&, OptionalConnectionDetails const&)>;
 
-    struct TConnectionIndex {};
-    struct TIdentifierIndex {};
-    struct TURIIndex {};
+    struct ConnectionIndex {};
+    struct IdentifierIndex {};
+    struct UriIndex {};
 
-    CConnectionTracker()
+    ConnectionTracker()
         : m_mutex()
         , m_connections()
     {
@@ -644,10 +644,10 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    std::optional<ConnectionIdType> Translate(BryptIdentifier::CContainer const& identifier)
+    ConnectionIdType Translate(BryptIdentifier::Container const& identifier)
     {
         std::scoped_lock lock(m_mutex);
-        auto const& index = m_connections.template get<TIdentifierIndex>();
+        auto const& index = m_connections.template get<IdentifierIndex>();
         if (auto const itr = index.find(identifier.GetInternalRepresentation()); itr != index.end()) {
             return itr->GetConnectionIdentifier();
         }
@@ -659,7 +659,7 @@ public:
     bool IsURITracked(std::string_view uri) const
     {
         std::scoped_lock lock(m_mutex);
-        auto const& index = m_connections.template get<TURIIndex>();
+        auto const& index = m_connections.template get<UriIndex>();
         if (auto const itr = index.find(uri.data()); itr != index.end()) {
             return true;
         }
@@ -668,7 +668,7 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    std::uint32_t Size() const
+    std::size_t GetSize() const
     {
         std::scoped_lock lock(m_mutex);
         return m_connections.size();
@@ -676,10 +676,21 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    void Clear()
+    bool IsEmpty() const
     {
         std::scoped_lock lock(m_mutex);
-        m_connections.clear();
+        return m_connections.empty();
+    }
+
+    //------------------------------------------------------------------------------------------------
+
+    void ResetConnections(UpdateMultipleFunction callback = {})
+    {
+        if (callback) { UpdateEachConnection(callback); }
+        {
+            std::scoped_lock lock(m_mutex);
+            m_connections.clear();
+        }
     }
 
     //------------------------------------------------------------------------------------------------
@@ -689,18 +700,19 @@ private:
         ConnectionEntryType,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
+                boost::multi_index::tag<ConnectionIndex>,
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
                     ConnectionIdType,
                     &ConnectionEntryType::GetConnectionIdentifier>>,
             boost::multi_index::hashed_non_unique<
-                boost::multi_index::tag<TIdentifierIndex>,
+                boost::multi_index::tag<IdentifierIndex>,
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
                     BryptIdentifier::Internal::Type,
                     &ConnectionEntryType::GetPeerIdentifier>>,
             boost::multi_index::hashed_non_unique<
-                boost::multi_index::tag<TURIIndex>,
+                boost::multi_index::tag<UriIndex>,
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
                     std::string,

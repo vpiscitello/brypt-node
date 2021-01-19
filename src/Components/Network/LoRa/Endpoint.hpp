@@ -4,52 +4,48 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "Endpoint.hpp"
-#include "TechnologyType.hpp"
+#include "Components/Network/Endpoint.hpp"
+#include "Components/Network/Protocol.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-namespace LoRa {
-//------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------
-} // CLoRa namespace
+namespace Network::LoRa {
 //------------------------------------------------------------------------------------------------
 
-class Endpoints::CLoRaEndpoint : public CEndpoint {
+class Endpoint;
+
+//------------------------------------------------------------------------------------------------
+} // LoRa namespace
+//------------------------------------------------------------------------------------------------
+
+class Network::LoRa::Endpoint : public Network::IEndpoint
+{
 public:
     constexpr static std::string_view Scheme = "lora://";
-    constexpr static std::string_view ProtocolType = "LoRa";
-    constexpr static TechnologyType InternalType = TechnologyType::LoRa;
+    constexpr static Protocol ProtocolType = Protocol::LoRa;
+    constexpr static std::string_view ProtocolString = "LoRa";
 
-    CLoRaEndpoint(
-        std::string_view interface,
-        OperationType operation,
-        IEndpointMediator const* const pEndpointMediator,
-        IPeerMediator* const pPeerMediator);
-    ~CLoRaEndpoint() override;
+    Endpoint(std::string_view interface, Operation operation);
+    ~Endpoint() override;
 
-    // CEndpoint{
-    TechnologyType GetInternalType() const override;
-    std::string GetProtocolType() const override;
-    std::string GetEntry() const override;
-    std::string GetURI() const override;
+    // IEndpoint{
+    virtual Protocol GetProtocol() const override;
+    virtual std::string GetProtocolString() const override;
+    virtual std::string GetEntry() const override;
+    virtual std::string GetURI() const override;
+    virtual bool IsActive() const override;
 
-    void Startup() override;
-    bool Shutdown() override;
+    virtual void Startup() override;
+    virtual bool Shutdown() override;
     
-    void ScheduleBind(std::string_view binding) override;
-    void ScheduleConnect(std::string_view entry) override;
-    void ScheduleConnect(
+    virtual void ScheduleBind(std::string_view binding) override;
+    virtual void ScheduleConnect(std::string_view entry) override;
+    virtual void ScheduleConnect(
         BryptIdentifier::SharedContainer const& spIdentifier, std::string_view entry) override;
-    bool ScheduleSend(
-        BryptIdentifier::CContainer const& identifier,
+    virtual bool ScheduleSend(
+        BryptIdentifier::Container const& identifier,
         std::string_view message) override;
-
-    // }CEndpoint
-
-private:
-    void Spawn();
-
+    // } IEndpoint
 };
 
 //------------------------------------------------------------------------------------------------

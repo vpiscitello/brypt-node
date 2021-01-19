@@ -5,17 +5,17 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "ConnectionState.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Utilities/TimeUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 //------------------------------------------------------------------------------------------------
 
-class CConnectionDetailsBase
+class ConnectionDetailsBase
 {
 public:
-    explicit CConnectionDetailsBase(std::string_view uri)
+    explicit ConnectionDetailsBase(std::string_view uri)
         : m_uri(uri)
         , m_updateTimepoint()
         , m_sequenceNumber(0)
@@ -24,7 +24,7 @@ public:
     {
     }
 
-    explicit CConnectionDetailsBase(std::shared_ptr<CBryptPeer> const& spBryptPeer)
+    explicit ConnectionDetailsBase(std::shared_ptr<BryptPeer> const& spBryptPeer)
         : m_uri()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
@@ -37,7 +37,7 @@ public:
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
-    std::shared_ptr<CBryptPeer> GetBryptPeer() const { return m_spBryptPeer; }
+    std::shared_ptr<BryptPeer> GetBryptPeer() const { return m_spBryptPeer; }
     BryptIdentifier::SharedContainer GetBryptIdentifier() const
     {
         if (!m_spBryptPeer) {
@@ -72,7 +72,7 @@ public:
         Updated();
     }
 
-    void SetBryptPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer)
+    void SetBryptPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
     {
         m_spBryptPeer = spBryptPeer;
     }
@@ -97,28 +97,28 @@ protected:
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
     
-    std::shared_ptr<CBryptPeer> m_spBryptPeer;
+    std::shared_ptr<BryptPeer> m_spBryptPeer;
 
 };
 
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType = void, typename Enabled = void>
-class CConnectionDetails;
+class ConnectionDetails;
 
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
-class CConnectionDetails<ExtensionType, std::enable_if_t<
-    std::is_same_v<ExtensionType, void>>> : public CConnectionDetailsBase
+class ConnectionDetails<ExtensionType, std::enable_if_t<
+    std::is_same_v<ExtensionType, void>>> : public ConnectionDetailsBase
 {
 public:
-    using CConnectionDetailsBase::CConnectionDetailsBase;
+    using ConnectionDetailsBase::ConnectionDetailsBase;
 
-    CConnectionDetails(CConnectionDetails const& other) = default;
-    CConnectionDetails(CConnectionDetails&& other) = default;
+    ConnectionDetails(ConnectionDetails const& other) = default;
+    ConnectionDetails(ConnectionDetails&& other) = default;
 
-    CConnectionDetails& operator=(CConnectionDetails const& other)
+    ConnectionDetails& operator=(ConnectionDetails const& other)
     {
         if (other.m_uri.size() != 0) {
             m_uri = other.m_uri;
@@ -135,35 +135,35 @@ public:
 //------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
-class CConnectionDetails<ExtensionType, std::enable_if_t<
-    std::is_class_v<ExtensionType>>> : public CConnectionDetailsBase
+class ConnectionDetails<ExtensionType, std::enable_if_t<
+    std::is_class_v<ExtensionType>>> : public ConnectionDetailsBase
 {
 public:
-    using CConnectionDetailsBase::CConnectionDetailsBase;
+    using ConnectionDetailsBase::ConnectionDetailsBase;
 
     using ReadExtensionFunction = std::function<void(ExtensionType const&)>;
     using UpdateExtensionFunction = std::function<void(ExtensionType&)>;
 
-    CConnectionDetails(
+    ConnectionDetails(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         ExtensionType const& extension)
-        : CConnectionDetailsBase(spBryptIdentifier)
+        : ConnectionDetailsBase(spBryptIdentifier)
         , m_extension(extension)
     {
     }
 
-    CConnectionDetails(
+    ConnectionDetails(
         std::string_view uri,
         ExtensionType const& extension)
-        : CConnectionDetailsBase(uri)
+        : ConnectionDetailsBase(uri)
         , m_extension(extension)
     {
     }
 
-    CConnectionDetails(CConnectionDetails const& other) = default;
-    CConnectionDetails(CConnectionDetails&& other) = default;
+    ConnectionDetails(ConnectionDetails const& other) = default;
+    ConnectionDetails(ConnectionDetails&& other) = default;
 
-    CConnectionDetails& operator=(CConnectionDetails const& other)
+    ConnectionDetails& operator=(ConnectionDetails const& other)
     {
         if (other.m_uri.size() != 0) {
             m_uri = other.m_uri;

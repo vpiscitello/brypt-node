@@ -2,8 +2,10 @@
 // File: EndpointManager.cpp
 // Description: 
 //------------------------------------------------------------------------------------------------
-#include "EndpointManager.hpp"
 #include "Endpoint.hpp"
+#include "EndpointManager.hpp"
+#include "Components/Network/LoRa/Endpoint.hpp"
+#include "Components/Network/TCP/Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -12,117 +14,39 @@ namespace local {
 //------------------------------------------------------------------------------------------------
 
 void ConnectBootstraps(
-    std::shared_ptr<CEndpoint> const& spEndpoint,
-    IBootstrapCache const* const pBootstrapCache);
+    EndpointManager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-CEndpointManager::CEndpointManager(
+EndpointManager::EndpointManager(
     Configuration::EndpointConfigurations const& configurations,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
     : m_endpoints()
-    , m_technologies()
+    , m_protocols()
 {
     Initialize(configurations, pPeerMediator, pBootstrapCache);
 }
 
 //------------------------------------------------------------------------------------------------
 
-CEndpointManager::~CEndpointManager()
+EndpointManager::~EndpointManager()
 {
     Shutdown();
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::Startup()
-{
-    for (auto const& [identifier, spEndpoint]: m_endpoints) {
-        spEndpoint->Startup();
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
-void CEndpointManager::Shutdown()
-{
-    for (auto const& [identifier, spEndpoint]: m_endpoints) {
-        if (spEndpoint) {
-            [[maybe_unused]] bool const bStopped = spEndpoint->Shutdown();
-        }
-    }
-}
-
-//------------------------------------------------------------------------------------------------
-
-CEndpointManager::SharedEndpoint CEndpointManager::GetEndpoint(Endpoints::EndpointIdType identifier) const
-{
-    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
-        return itr->second;
-    }
-    return nullptr;
-}
-
-//------------------------------------------------------------------------------------------------
-
-CEndpointManager::SharedEndpoint CEndpointManager::GetEndpoint(
-    Endpoints::TechnologyType technology,
-    Endpoints::OperationType operation) const
-{
-    for (auto const [identifier, spEndpoint]: m_endpoints) {
-        if (technology == spEndpoint->GetInternalType() && operation == spEndpoint->GetOperation()) {
-            return spEndpoint;
-        }
-    }
-    return nullptr;
-}
-
-//------------------------------------------------------------------------------------------------
-
-Endpoints::TechnologySet CEndpointManager::GetEndpointTechnologies() const
-{
-    return m_technologies;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::uint32_t CEndpointManager::ActiveEndpointCount() const
-{
-    std::uint32_t count = 0;
-    for (auto const& [identifier, spEndpoint] : m_endpoints) {
-        if (spEndpoint && spEndpoint->IsActive()) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::uint32_t CEndpointManager::ActiveTechnologyCount() const
-{
-    Endpoints::TechnologySet technologies;
-    for (auto const& [identifier, spEndpoint] : m_endpoints) {
-        if (spEndpoint && spEndpoint->IsActive()) {
-            technologies.emplace(spEndpoint->GetInternalType());
-        }
-    }
-    return technologies.size();
-}
-
-//------------------------------------------------------------------------------------------------
-
-IEndpointMediator::EndpointEntryMap CEndpointManager::GetEndpointEntries() const
+EndpointManager::EndpointEntryMap EndpointManager::GetEndpointEntries() const
 {
     EndpointEntryMap entries;
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
         if (spEndpoint) {
             if (auto const entry = spEndpoint->GetEntry(); !entry.empty()) {
-                entries.emplace(spEndpoint->GetInternalType(), entry);
+                entries.emplace(spEndpoint->GetProtocol(), entry);
             }
         }
     }
@@ -131,7 +55,7 @@ IEndpointMediator::EndpointEntryMap CEndpointManager::GetEndpointEntries() const
 
 //------------------------------------------------------------------------------------------------
 
-IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
+EndpointManager::EndpointURISet EndpointManager::GetEndpointURIs() const
 {
     EndpointURISet uris;
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
@@ -146,23 +70,99 @@ IEndpointMediator::EndpointURISet CEndpointManager::GetEndpointURIs() const
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::Initialize(
+void EndpointManager::Startup()
+{
+    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+        spEndpoint->Startup();
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+void EndpointManager::Shutdown()
+{
+    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+        if (spEndpoint) {
+            [[maybe_unused]] bool const bStopped = spEndpoint->Shutdown();
+        }
+    }
+}
+
+//------------------------------------------------------------------------------------------------
+
+EndpointManager::SharedEndpoint EndpointManager::GetEndpoint(
+    Network::Endpoint::Identifier identifier) const
+{
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+        return itr->second;
+    }
+    return nullptr;
+}
+
+//------------------------------------------------------------------------------------------------
+
+EndpointManager::SharedEndpoint EndpointManager::GetEndpoint(
+    Network::Protocol protocol,
+    Network::Operation operation) const
+{
+    for (auto const [identifier, spEndpoint]: m_endpoints) {
+        if (protocol == spEndpoint->GetProtocol() && operation == spEndpoint->GetOperation()) {
+            return spEndpoint;
+        }
+    }
+    return nullptr;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Network::ProtocolSet EndpointManager::GetEndpointProtocols() const
+{
+    return m_protocols;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::size_t EndpointManager::ActiveEndpointCount() const
+{
+    std::uint32_t count = 0;
+    for (auto const& [identifier, spEndpoint] : m_endpoints) {
+        if (spEndpoint && spEndpoint->IsActive()) { ++count; }
+    }
+    return count;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::size_t EndpointManager::ActiveProtocolCount() const
+{
+    Network::ProtocolSet protocols;
+    for (auto const& [identifier, spEndpoint] : m_endpoints) {
+        if (spEndpoint && spEndpoint->IsActive()) {
+            protocols.emplace(spEndpoint->GetProtocol());
+        }
+    }
+    return protocols.size();
+}
+
+//------------------------------------------------------------------------------------------------
+
+void EndpointManager::Initialize(
     Configuration::EndpointConfigurations const& configurations,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
     for (auto const& options: configurations) {
-        auto const technology = options.GetTechnology();
-        // If the technology has not already been configured then continue with the setup. 
+        auto const protocol = options.GetProtocol();
+        // If the protocol has not already been configured then continue with the setup. 
         // This function should only be called once per application run, there shouldn't be a reason
-        // to re-initilize a technology as the endpoints should exist until appliction termination.
-        if (auto const itr = m_technologies.find(technology); itr == m_technologies.end()) {         
-            switch (technology) {
-                case Endpoints::TechnologyType::TCP: {
+        // to re-initilize a protocol as the endpoints should exist until appliction termination.
+        if (auto const itr = m_protocols.find(protocol); itr == m_protocols.end()) {         
+            switch (protocol) {
+                case Network::Protocol::TCP: {
                     InitializeTCPEndpoints(options, pPeerMediator, pBootstrapCache);
                 } break;
-                default: break; // No other technologies have implemented endpoints
+                default: break; // No other protocols have implemented endpoints
             }
         }
     }
@@ -170,26 +170,26 @@ void CEndpointManager::Initialize(
 
 //------------------------------------------------------------------------------------------------
 
-void CEndpointManager::InitializeTCPEndpoints(
-    Configuration::TEndpointOptions const& options,
+void EndpointManager::InitializeTCPEndpoints(
+    Configuration::EndpointOptions const& options,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
-    assert(options.GetTechnology() == Endpoints::TechnologyType::TCP);
+    assert(options.GetProtocol() == Network::Protocol::TCP);
 
     // Add the server based endpoint
-    std::shared_ptr<CEndpoint> spServer = Endpoints::Factory(
-        options.GetTechnology(), options.GetInterface(),
-        Endpoints::OperationType::Server, this, pPeerMediator);
+    SharedEndpoint spServer = Network::Endpoint::Factory(
+        options.GetProtocol(), options.GetInterface(),
+        Network::Operation::Server, this, pPeerMediator);
 
     spServer->ScheduleBind(options.GetBinding());
 
     m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
 
     // Add the client based endpoint
-    std::shared_ptr<CEndpoint> spClient = Endpoints::Factory(
-        options.GetTechnology(), options.GetInterface(),
-        Endpoints::OperationType::Client, this, pPeerMediator);
+    SharedEndpoint spClient = Network::Endpoint::Factory(
+        options.GetProtocol(), options.GetInterface(),
+        Network::Operation::Client, this, pPeerMediator);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);
@@ -197,29 +197,24 @@ void CEndpointManager::InitializeTCPEndpoints(
 
     m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
 
-    m_technologies.emplace(options.GetTechnology());
+    m_protocols.emplace(options.GetProtocol());
 }
 
 //------------------------------------------------------------------------------------------------
 
 void local::ConnectBootstraps(
-    std::shared_ptr<CEndpoint> const& spEndpoint,
-    IBootstrapCache const* const pBootstrapCache)
+    EndpointManager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache)
 {
-    // If the given endpoint id not able to connect to peers, don't do anything.
-    if (!spEndpoint || spEndpoint->GetOperation() != Endpoints::OperationType::Client) {
-        return;
-    }
-
-    if (!pBootstrapCache) {
-        return;
-    }
+    using namespace Network;
+    assert(spEndpoint && spEndpoint->GetOperation() == Operation::Client);
+    assert(pCache);
 
     // Iterate through the provided bootstraps for the endpoint and schedule a connect
     // for each peer in the list.
-    pBootstrapCache->ForEachCachedBootstrap(
-        spEndpoint->GetInternalType(), 
-        [&spEndpoint] (std::string_view const& bootstrap) -> CallbackIteration {
+    pCache->ForEachCachedBootstrap(
+        spEndpoint->GetProtocol(), 
+        [&spEndpoint] (std::string_view const& bootstrap) -> CallbackIteration
+        {
             spEndpoint->ScheduleConnect(bootstrap);
             return CallbackIteration::Continue;
         });

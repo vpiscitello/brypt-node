@@ -5,13 +5,13 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 //------------------------------------------------------------------------------------------------
 
 using MessageScheduler = std::function<bool(
-    BryptIdentifier::CContainer const& destination,
+    BryptIdentifier::Container const& destination,
     std::string_view message)>;
 
 //------------------------------------------------------------------------------------------------

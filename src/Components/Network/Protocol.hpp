@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-// File: TechnologyType.hpp
-// Description: Defines an enum describing the types of Endpoints avaulable
+// File: Protocol.hpp
+// Description: Defines an enum describing the types of network protocols available.
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
@@ -12,49 +12,49 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-namespace Endpoints {
+namespace Network {
 //------------------------------------------------------------------------------------------------
 
-enum class TechnologyType : std::uint8_t { LoRa, TCP, Invalid };
+enum class Protocol : std::uint8_t { LoRa, TCP, Invalid };
 
-using TechnologySet = std::set<Endpoints::TechnologyType>;
+using ProtocolSet = std::set<Network::Protocol>;
 
-TechnologyType ParseTechnologyType(std::string name);
-std::string TechnologyTypeToString(TechnologyType technology);
+Protocol ParseProtocol(std::string name);
+std::string ProtocolToString(Protocol protocol);
 
 //------------------------------------------------------------------------------------------------
 } // Endpoint namespace
 //------------------------------------------------------------------------------------------------
 
-inline Endpoints::TechnologyType Endpoints::ParseTechnologyType(std::string name)
+inline Network::Protocol Network::ParseProtocol(std::string name)
 {
-    static std::unordered_map<std::string, TechnologyType> const technologyMap = {
-        {"lora", TechnologyType::LoRa},
-        {"tcp", TechnologyType::TCP},
+    static std::unordered_map<std::string, Protocol> const protocolMap = {
+        {"lora", Protocol::LoRa},
+        {"tcp", Protocol::TCP},
     };
 
-    // Adjust the provided technology name to lowercase
+    // Adjust the provided protocol name to lowercase
     std::transform(name.begin(), name.end(), name.begin(),
     [](unsigned char c){
         return std::tolower(c);
     });
 
-    if(auto const itr = technologyMap.find(name.data()); itr != technologyMap.end()) {
+    if(auto const itr = protocolMap.find(name.data()); itr != protocolMap.end()) {
         return itr->second;
     }
-    return TechnologyType::Invalid;
+    return Protocol::Invalid;
 }
 
 //------------------------------------------------------------------------------------------------
 
-inline std::string Endpoints::TechnologyTypeToString(TechnologyType technology)
+inline std::string Network::ProtocolToString(Protocol protocol)
 {
-    static std::unordered_map<TechnologyType, std::string> const technologyMap = {
-        {TechnologyType::LoRa, "LoRa"},
-        {TechnologyType::TCP, "TCP"},
+    static std::unordered_map<Protocol, std::string> const protocolMap = {
+        {Protocol::LoRa, "LoRa"},
+        {Protocol::TCP, "TCP"},
     };
 
-    if(auto const itr = technologyMap.find(technology); itr != technologyMap.end()) {
+    if(auto const itr = protocolMap.find(protocol); itr != protocolMap.end()) {
         return itr->second;
     }
     return {};

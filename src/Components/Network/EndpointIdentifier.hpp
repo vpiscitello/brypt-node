@@ -9,37 +9,39 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-namespace Endpoints {
+namespace Network::Endpoint {
 //------------------------------------------------------------------------------------------------
 
-using EndpointIdType = std::int32_t;
+using Identifier = std::int32_t;
 
-constexpr EndpointIdType InvalidEndpointIdentifier = std::numeric_limits<EndpointIdType>::min();
+constexpr Identifier InvalidIdentifier = std::numeric_limits<Identifier>::min();
+
+class IdentifierGenerator;
 
 //------------------------------------------------------------------------------------------------
-} // Endpoints namespace
+} // Network::Endpoint namespace
 //------------------------------------------------------------------------------------------------
 
-class CEndpointIdentifierGenerator
+class Network::Endpoint::IdentifierGenerator
 {
 public:
-    static CEndpointIdentifierGenerator& Instance() {
-        static CEndpointIdentifierGenerator instance;
+    static IdentifierGenerator& Instance() {
+        static IdentifierGenerator instance;
         return instance;
     }
 
-    CEndpointIdentifierGenerator(CEndpointIdentifierGenerator const&) = delete;
-    void operator=(CEndpointIdentifierGenerator const&) = delete;
+    IdentifierGenerator(IdentifierGenerator const&) = delete;
+    void operator=(IdentifierGenerator const&) = delete;
 
-    Endpoints::EndpointIdType GetEndpointIdentifier() { return ++m_identifier; }
+    Endpoint::Identifier GetEndpointIdentifier() { return ++m_identifier; }
     
 private:
-    CEndpointIdentifierGenerator()
+    IdentifierGenerator()
         : m_identifier(0)
     {
     }
 
-    Endpoints::EndpointIdType m_identifier;
+    Identifier m_identifier;
 };
 
 //------------------------------------------------------------------------------------------------

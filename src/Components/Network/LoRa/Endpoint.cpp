@@ -2,40 +2,22 @@
 // File: LoRaEndpoint.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "LoRaEndpoint.hpp"
+#include "Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
-#include "EndpointDefinitions.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-namespace {
-//------------------------------------------------------------------------------------------------
-namespace local {
-//------------------------------------------------------------------------------------------------
-//------------------------------------------------------------------------------------------------
-} // local namespace
-//------------------------------------------------------------------------------------------------
-} // namespace
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Network/EndpointDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 
-Endpoints::CLoRaEndpoint::CLoRaEndpoint(
-    std::string_view interface,
-    Endpoints::OperationType operation,
-    IEndpointMediator const* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator)
-    : CEndpoint(interface, operation, pEndpointMediator, pPeerMediator, TechnologyType::LoRa)
+Network::LoRa::Endpoint::Endpoint(
+    std::string_view interface, Operation operation)
+    : IEndpoint(interface, operation, Protocol::LoRa)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::CLoRaEndpoint::~CLoRaEndpoint()
+Network::LoRa::Endpoint::~Endpoint()
 {
-    bool const success = Shutdown();
-    if (!success) {
-        m_worker.detach();
-    }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -43,9 +25,9 @@ Endpoints::CLoRaEndpoint::~CLoRaEndpoint()
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Endpoints::TechnologyType Endpoints::CLoRaEndpoint::GetInternalType() const
+Network::Protocol Network::LoRa::Endpoint::GetProtocol() const
 {
-    return InternalType;
+    return ProtocolType;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -53,9 +35,9 @@ Endpoints::TechnologyType Endpoints::CLoRaEndpoint::GetInternalType() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-std::string Endpoints::CLoRaEndpoint::GetProtocolType() const
+std::string Network::LoRa::Endpoint::GetProtocolString() const
 {
-    return ProtocolType.data();
+    return ProtocolString.data();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -64,7 +46,7 @@ std::string Endpoints::CLoRaEndpoint::GetProtocolType() const
 // Description:
 // Returns:
 //------------------------------------------------------------------------------------------------
-std::string Endpoints::CLoRaEndpoint::GetEntry() const
+std::string Network::LoRa::Endpoint::GetEntry() const
 {
     return "";
 }
@@ -75,7 +57,7 @@ std::string Endpoints::CLoRaEndpoint::GetEntry() const
 // Description:
 // Returns:
 //------------------------------------------------------------------------------------------------
-std::string Endpoints::CLoRaEndpoint::GetURI() const
+std::string Network::LoRa::Endpoint::GetURI() const
 {
     return Scheme.data() + GetEntry();
 }
@@ -85,43 +67,7 @@ std::string Endpoints::CLoRaEndpoint::GetURI() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::Startup()
-{
-    if (m_active) {
-        return; 
-    }
-    Spawn();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-bool Endpoints::CLoRaEndpoint::Shutdown()
-{
-    if (!m_active) {
-        return true;
-    }
-
-    NodeUtils::printo("[LoRa] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-
-    m_terminate = true; // Stop the worker thread from processing the connections
-    m_cv.notify_all(); // Notify the worker that exit conditions have been set
-    
-    if (m_worker.joinable()) {
-        m_worker.join();
-    }
-    
-    return !m_worker.joinable();
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleBind([[maybe_unused]] std::string_view binding)
+void Network::LoRa::Endpoint::Startup()
 {
 }
 
@@ -130,7 +76,28 @@ void Endpoints::CLoRaEndpoint::ScheduleBind([[maybe_unused]] std::string_view bi
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
+bool Network::LoRa::Endpoint::Shutdown()
+{
+    return true;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+
+bool Network::LoRa::Endpoint::IsActive() const
+{
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] std::string_view binding)
 {
 }
 
@@ -139,7 +106,16 @@ void Endpoints::CLoRaEndpoint::ScheduleConnect([[maybe_unused]] std::string_view
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::ScheduleConnect(
+void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
+{
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Network::LoRa::Endpoint::ScheduleConnect(
     [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier,
     [[maybe_unused]] std::string_view entry)
 {
@@ -150,21 +126,11 @@ void Endpoints::CLoRaEndpoint::ScheduleConnect(
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-bool Endpoints::CLoRaEndpoint::ScheduleSend(
-    [[maybe_unused]] BryptIdentifier::CContainer const& identifier,
+bool Network::LoRa::Endpoint::ScheduleSend(
+    [[maybe_unused]] BryptIdentifier::Container const& identifier,
     [[maybe_unused]] std::string_view message)
 {
     return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void Endpoints::CLoRaEndpoint::Spawn()
-{
-    printo("[LoRa] Spawning endpoint thread", NodeUtils::PrintType::Endpoint);
 }
 
 //------------------------------------------------------------------------------------------------
