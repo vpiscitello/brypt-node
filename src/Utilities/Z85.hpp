@@ -159,7 +159,8 @@ inline bool Z85::Decode(std::string_view source, WritableView destination)
     std::size_t size = source.size();
     auto writable = destination.data();
 
-    assert(destination.size() == DecodedSize(size) && destination.size() % DecodedBlockSize == 0);
+    assert(destination.size() == DecodedSize(size));
+    assert(destination.size() % DecodedBlockSize == 0);
     assert(size >= EncodedBlockSize && size % EncodedBlockSize == 0);
 
     if (size < EncodedBlockSize || size % EncodedBlockSize != 0) { return false; }

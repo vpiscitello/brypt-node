@@ -87,7 +87,8 @@ inline void Base58::Encode(std::vector<std::uint8_t> const& source, std::string&
     }
 
     for (std::uint32_t idx = 0; idx < length; ++idx) {
-        destination.push_back(EncodeMapping[indicies[length - idx - 1]]);
+        destination.push_back(
+            static_cast<char>(EncodeMapping[indicies[length - idx - 1]]));
     }
 }
 
@@ -99,11 +100,10 @@ inline std::vector<std::uint8_t> Base58::Decode(std::string_view source)
     std::vector<std::uint8_t> decoded(size, 0x00);
     std::uint32_t length = 1;
 
-
     for (auto const& encoded : source) {
         std::uint32_t carry = static_cast<std::uint32_t>(DecodeMapping[encoded & 0x7f]);
         for (std::uint32_t idx = 0; idx < length; ++idx) {
-            carry += static_cast<std::uint32_t>(decoded[idx] * CharacterSpace);
+            carry += decoded[idx] * CharacterSpace;
             decoded[idx] = static_cast<std::uint8_t>(carry);
             carry >>= 8;
         }

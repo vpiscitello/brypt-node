@@ -80,7 +80,8 @@ void MessageContext::BindSignatureHandlers(
 Security::Encryptor::result_type MessageContext::Encrypt(
 	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
 {
-	return m_encryptor(buffer, timestamp.count());
+    assert(timestamp.count() >= 0);
+	return m_encryptor(buffer, static_cast<std::uint64_t>(timestamp.count()));
 }
 
 //------------------------------------------------------------------------------------------------
@@ -88,7 +89,8 @@ Security::Encryptor::result_type MessageContext::Encrypt(
 Security::Decryptor::result_type MessageContext::Decrypt(
 	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
 {
-	return m_decryptor(buffer, timestamp.count());
+    assert(timestamp.count() >= 0);
+	return m_decryptor(buffer, static_cast<std::uint64_t>(timestamp.count()));
 }
 
 //------------------------------------------------------------------------------------------------

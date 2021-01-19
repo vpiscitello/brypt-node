@@ -58,7 +58,7 @@ inline void PackChunk(
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
-		constexpr std::size_t FieldLimit = sizeof(SizeField);
+		[[maybe_unused]] constexpr std::size_t FieldLimit = sizeof(SizeField);
 		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
 		auto const size = static_cast<SizeField>(source.size());
 		PackChunk(size, destination);
@@ -82,7 +82,7 @@ inline void PackChunk(
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
-		constexpr std::size_t FieldLimit = sizeof(SizeField);
+		[[maybe_unused]] constexpr std::size_t FieldLimit = sizeof(SizeField);
 		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
 		auto const size = static_cast<SizeField>(source.size());
 		PackChunk(size, destination);
@@ -130,10 +130,12 @@ bool UnpackChunk(
 	if (std::cmp_less(std::distance(begin, end), capacity)) { return false; }
 
 	// Insert the buffer section into the destination
-	destination.insert(destination.begin(), begin, begin + capacity);
+    auto boundary = begin;
+    std::advance(boundary, capacity);
+	destination.insert(destination.begin(), begin, boundary);
 	assert(destination.size() == capacity);
 
-	begin += capacity;
+	std::advance(begin, capacity);
 	return true;
 }
 
