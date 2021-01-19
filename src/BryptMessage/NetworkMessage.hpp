@@ -7,7 +7,7 @@
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 #include <optional>
 #include <string>

@@ -4,8 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Utilities/CallbackIteration.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <functional>

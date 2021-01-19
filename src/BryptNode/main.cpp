@@ -3,18 +3,16 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Components/BryptPeer/PeerManager.hpp"
-#include "../Components/Endpoints/EndpointTypes.hpp"
-#include "../Components/Endpoints/EndpointManager.hpp"
-#include "../Components/MessageControl/AuthorizedProcessor.hpp"
-#include "../Components/MessageControl/DiscoveryProtocol.hpp"
-#include "../Configuration/Configuration.hpp"
-#include "../Configuration/ConfigurationManager.hpp"
-#include "../Configuration/PeerPersistor.hpp"
-#include "../Utilities/NodeUtils.hpp"
-//------------------------------------------------------------------------------------------------
-#include "../Libraries/spdlog/spdlog.h"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/BryptPeer/PeerManager.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/MessageControl/AuthorizedProcessor.hpp"
+#include "Components/MessageControl/DiscoveryProtocol.hpp"
+#include "Components/Network/EndpointTypes.hpp"
+#include "Components/Network/EndpointManager.hpp"
+#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <optional>

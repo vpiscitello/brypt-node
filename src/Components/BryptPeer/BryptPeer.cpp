@@ -3,14 +3,14 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
-#include "../Security/SecurityState.hpp"
-#include "../Security/SecurityMediator.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
-#include "../../Utilities/NetworkUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/Security/SecurityState.hpp"
+#include "Components/Security/SecurityMediator.hpp"
+#include "Interfaces/PeerMediator.hpp"
+#include "Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 CBryptPeer::CBryptPeer(

@@ -3,9 +3,9 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "ResponseTracker.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Utilities/NodeUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------

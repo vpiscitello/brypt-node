@@ -5,13 +5,13 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
-#include "../Endpoints/EndpointIdentifier.hpp"
-#include "../Endpoints/TechnologyType.hpp"
-#include "../Security/SecurityDefinitions.hpp"
-#include "../Security/SecurityMediator.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../Interfaces/PeerCache.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Components/Security/SecurityMediator.hpp"
+#include "Interfaces/PeerCache.hpp"
+#include "Interfaces/PeerMediator.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>

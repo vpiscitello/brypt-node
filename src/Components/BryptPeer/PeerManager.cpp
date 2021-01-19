@@ -3,12 +3,12 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "PeerManager.hpp"
-#include "../Security/SecurityDefinitions.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../Interfaces/MessageSink.hpp"
-#include "../../Interfaces/PeerObserver.hpp"
-#include "../../Interfaces/SecurityStrategy.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Interfaces/MessageSink.hpp"
+#include "Interfaces/PeerObserver.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <random>

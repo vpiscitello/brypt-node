@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/IdentifierTypes.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Utilities/CallbackIteration.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <functional>

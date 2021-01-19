@@ -5,10 +5,10 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../KeyStore.hpp"
-#include "../SecurityTypes.hpp"
-#include "../SecurityDefinitions.hpp"
-#include "../../../Interfaces/SecurityStrategy.hpp"
+#include "Components/Security/KeyStore.hpp"
+#include "Components/Security/SecurityTypes.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <oqscpp/oqs_cpp.h>
 //------------------------------------------------------------------------------------------------

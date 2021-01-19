@@ -6,13 +6,13 @@
 //------------------------------------------------------------------------------------------------
 #include "EndpointRegistration.hpp"
 #include "PeerStatistics.hpp"
-#include "../Endpoints/EndpointIdentifier.hpp"
-#include "../Endpoints/MessageScheduler.hpp"
-#include "../Endpoints/TechnologyType.hpp"
-#include "../Security/SecurityState.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../Interfaces/MessageSink.hpp"
-#include "../../BryptMessage/MessageTypes.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/MessageTypes.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/MessageScheduler.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Security/SecurityState.hpp"
+#include "Interfaces/MessageSink.hpp"
 //------------------------------------------------------------------------------------------------
 #include <functional>
 #include <memory>

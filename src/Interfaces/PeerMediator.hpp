@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Components/Endpoints/ConnectionState.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Network/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>

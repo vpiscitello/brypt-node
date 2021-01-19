@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../Configuration/Configuration.hpp"
-#include "../../Interfaces/ConnectProtocol.hpp"
-#include "../../Interfaces/EndpointMediator.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
+#include "Interfaces/EndpointMediator.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 //------------------------------------------------------------------------------------------------

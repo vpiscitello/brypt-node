@@ -6,9 +6,9 @@
 //------------------------------------------------------------------------------------------------
 #include "SecurityDefinitions.hpp"
 #include "SecurityState.hpp"
-#include "../MessageControl/ExchangeProcessor.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../Interfaces/ExchangeObserver.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/MessageControl/ExchangeProcessor.hpp"
+#include "Interfaces/ExchangeObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 #include <shared_mutex>

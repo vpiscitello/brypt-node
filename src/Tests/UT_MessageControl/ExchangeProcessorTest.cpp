@@ -1,14 +1,14 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageControl/ExchangeProcessor.hpp"
-#include "../../Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
-#include "../../Components/Security/SecurityUtils.hpp"
-#include "../../Interfaces/ConnectProtocol.hpp"
-#include "../../Interfaces/ExchangeObserver.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/MessageControl/ExchangeProcessor.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Security/SecurityUtils.hpp"
+#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
+#include "Interfaces/ExchangeObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

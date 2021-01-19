@@ -1,10 +1,10 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptIdentifier/IdentifierDefinitions.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../BryptMessage/MessageUtils.hpp"
-#include "../../Utilities/Z85.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/IdentifierDefinitions.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/MessageUtils.hpp"
+#include "Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

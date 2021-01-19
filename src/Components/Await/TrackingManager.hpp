@@ -6,7 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "AwaitDefinitions.hpp"
 #include "ResponseTracker.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
 //------------------------------------------------------------------------------------------------
 #include <set>
 #include <string_view>

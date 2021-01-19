@@ -5,7 +5,7 @@
 #include "BryptIdentifier.hpp"
 #include "IdentifierDefinitions.hpp"
 #include "ReservedIdentifiers.hpp"
-#include "../Utilities/Base58.hpp"
+#include "Utilities/Base58.hpp"
 //------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <array>

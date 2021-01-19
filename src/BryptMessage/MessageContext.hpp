@@ -5,10 +5,10 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "MessageTypes.hpp"
-#include "../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Components/Security/SecurityTypes.hpp"
-#include "../Utilities/TimeUtils.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Security/SecurityTypes.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------

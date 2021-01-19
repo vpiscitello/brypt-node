@@ -4,12 +4,12 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Security/SecurityState.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../BryptMessage/MessageTypes.hpp"
-#include "../../Interfaces/ExchangeObserver.hpp"
-#include "../../Interfaces/MessageSink.hpp"
-#include "../../Utilities/TimeUtils.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/MessageTypes.hpp"
+#include "Components/Security/SecurityState.hpp"
+#include "Interfaces/ExchangeObserver.hpp"
+#include "Interfaces/MessageSink.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <chrono>

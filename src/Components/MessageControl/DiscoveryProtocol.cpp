@@ -4,12 +4,12 @@
 // after an exchange successfully completes. 
 //------------------------------------------------------------------------------------------------
 #include "DiscoveryProtocol.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../Command/CommandDefinitions.hpp"
-#include "../Command/ConnectHandler.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../Utilities/NetworkUtils.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Handler/HandlerDefinitions.hpp"
+#include "Components/Handler/Connect.hpp"
+#include "Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------

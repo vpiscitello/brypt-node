@@ -3,7 +3,7 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "SecurityUtils.hpp"
-#include "PostQuantum/NISTSecurityLevelThree.hpp"
+#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 //------------------------------------------------------------------------------------------------
 #ifndef __STDC_WANT_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1

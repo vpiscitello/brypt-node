@@ -4,11 +4,11 @@
 //------------------------------------------------------------------------------------------------
 #include "SecurityMediator.hpp"
 #include "SecurityUtils.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../MessageControl/ExchangeProcessor.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../Interfaces/ConnectProtocol.hpp"
-#include "../../Interfaces/SecurityStrategy.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/MessageControl/ExchangeProcessor.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------

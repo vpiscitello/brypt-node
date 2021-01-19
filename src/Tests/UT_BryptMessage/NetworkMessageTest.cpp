@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

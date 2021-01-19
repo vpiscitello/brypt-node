@@ -4,9 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../Utilities/TimeUtils.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>

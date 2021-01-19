@@ -4,12 +4,11 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/IdentifierTypes.hpp"
-#include "../Components/BryptPeer/BryptPeer.hpp"
-#include "../Components/Command/Handler.hpp"
-#include "../Components/Endpoints/EndpointTypes.hpp"
-#include "../Configuration/Configuration.hpp"
-#include "../BryptMessage/ApplicationMessage.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Components/Handler/Handler.hpp"
+#include "Components/Network/EndpointTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdio>
 #include <cstdlib>

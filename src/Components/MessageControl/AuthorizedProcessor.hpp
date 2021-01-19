@@ -5,8 +5,8 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "AssociatedMessage.hpp"
-#include "../../BryptMessage/MessageTypes.hpp"
-#include "../../Interfaces/MessageSink.hpp"
+#include "BryptMessage/MessageTypes.hpp"
+#include "Interfaces/MessageSink.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>

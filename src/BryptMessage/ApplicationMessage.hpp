@@ -7,10 +7,10 @@
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Utilities/TimeUtils.hpp"
-#include "../Components/Await/AwaitDefinitions.hpp"
-#include "../Components/Command/CommandDefinitions.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Await/AwaitDefinitions.hpp"
+#include "Components/Handler/HandlerDefinitions.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <optional>
 #include <string>

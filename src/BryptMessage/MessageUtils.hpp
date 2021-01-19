@@ -5,7 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "MessageDefinitions.hpp"
-#include "../BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <optional>

@@ -6,9 +6,9 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageTypes.hpp"
 #include "PackUtils.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../BryptIdentifier/IdentifierDefinitions.hpp"
-#include "../Utilities/Z85.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/IdentifierDefinitions.hpp"
+#include "Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <utility>

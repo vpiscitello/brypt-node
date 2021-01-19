@@ -3,9 +3,9 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "NISTSecurityLevelThree.hpp"
-#include "../SecurityUtils.hpp"
-#include "../../../BryptMessage/PackUtils.hpp"
-#include "../../../Utilities/TimeUtils.hpp"
+#include "BryptMessage/PackUtils.hpp"
+#include "Components/Security/SecurityUtils.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <openssl/conf.h>
 #include <openssl/crypto.h>

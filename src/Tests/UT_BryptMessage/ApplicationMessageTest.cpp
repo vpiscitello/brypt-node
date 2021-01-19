@@ -1,8 +1,8 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/PackUtils.hpp"
-#include "../../Utilities/TimeUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/PackUtils.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

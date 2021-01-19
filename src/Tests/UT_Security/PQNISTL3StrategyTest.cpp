@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------------------------
-#include "../../Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
-#include "../../Interfaces/SecurityStrategy.hpp"
+#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

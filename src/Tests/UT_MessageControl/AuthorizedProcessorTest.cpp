@@ -1,11 +1,11 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageControl/AssociatedMessage.hpp"
-#include "../../Components/MessageControl/AuthorizedProcessor.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/MessageControl/AssociatedMessage.hpp"
+#include "Components/MessageControl/AuthorizedProcessor.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

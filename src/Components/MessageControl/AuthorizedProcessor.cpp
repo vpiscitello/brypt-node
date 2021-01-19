@@ -3,12 +3,12 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "AuthorizedProcessor.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../BryptMessage/MessageUtils.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../Utilities/Z85.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "BryptMessage/MessageUtils.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
 #include <mutex>
 //------------------------------------------------------------------------------------------------

@@ -1,9 +1,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Utilities/NodeUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 #include <cstdint>

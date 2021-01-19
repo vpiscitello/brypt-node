@@ -1,12 +1,12 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../Components/Await/AwaitDefinitions.hpp"
-#include "../../Components/Await/ResponseTracker.hpp"
-#include "../../Components/Await/TrackingManager.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Await/AwaitDefinitions.hpp"
+#include "Components/Await/ResponseTracker.hpp"
+#include "Components/Await/TrackingManager.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

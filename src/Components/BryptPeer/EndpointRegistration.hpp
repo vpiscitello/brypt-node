@@ -4,10 +4,10 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Endpoints/EndpointIdentifier.hpp"
-#include "../Endpoints/MessageScheduler.hpp"
-#include "../Endpoints/TechnologyType.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/MessageScheduler.hpp"
+#include "Components/Network/Protocol.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 #include <string_view>

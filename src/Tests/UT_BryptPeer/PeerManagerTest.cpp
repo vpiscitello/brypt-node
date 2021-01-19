@@ -1,15 +1,15 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../Components/BryptPeer/PeerManager.hpp"
-#include "../../Components/Endpoints/ConnectionState.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Interfaces/ConnectProtocol.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
-#include "../../Interfaces/PeerObserver.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/BryptPeer/PeerManager.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Network/ConnectionState.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
+#include "Interfaces/PeerMediator.hpp"
+#include "Interfaces/PeerObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------

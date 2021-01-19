@@ -4,8 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Security/SecurityTypes.hpp"
-#include "../Components/Security/SecurityDefinitions.hpp"
+#include "Components/Security/SecurityTypes.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 //------------------------------------------------------------------------------------------------
