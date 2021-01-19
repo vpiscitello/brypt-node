@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: ConnectHandler.hpp
+// File: Query.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -8,22 +8,22 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Connecting to a new network or peer
+// Description: Handle Requests regarding Sensor readings
 //------------------------------------------------------------------------------------------------
-class Command::CConnectHandler : public Command::IHandler {
+class Handler::Query : public Handler::IHandler {
 public:
-    enum class Phase : std::uint8_t { Discovery, Join, };
-
-    explicit CConnectHandler(CBryptNode& instance);
+    enum class Phase { Flood, Respond, Aggregate, Close };
+    
+    explicit Query(BryptNode& instance);
 
     // IHandler{
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool DiscoveryHandler(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
-        
-    bool JoinHandler(CApplicationMessage const& message);    
+    bool FloodHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool RespondHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool AggregateHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool CloseHandler();
 };
 
 //------------------------------------------------------------------------------------------------

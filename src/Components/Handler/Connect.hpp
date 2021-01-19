@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: InformationHandler.hpp
+// File: Connect.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -8,22 +8,22 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the flood phase for the Information type command
+// Description: Handle Requests regarding Connecting to a new network or peer
 //------------------------------------------------------------------------------------------------
-class Command::CInformationHandler : public Command::IHandler {
+class Handler::Connect : public Handler::IHandler {
 public:
-    enum class Phase { Flood, Respond, Close };
+    enum class Phase : std::uint8_t { Discovery, Join, };
 
-    explicit CInformationHandler(CBryptNode& instance);
+    explicit Connect(BryptNode& instance);
 
     // IHandler{
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
-    bool RespondHandler();
-    bool CloseHandler();
-
+    bool DiscoveryHandler(
+        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+        
+    bool JoinHandler(ApplicationMessage const& message);    
 };
 
 //------------------------------------------------------------------------------------------------

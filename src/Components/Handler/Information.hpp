@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: QueryHandler.hpp
+// File: Information.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -8,23 +8,21 @@
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Sensor readings
+// Description: Handles the flood phase for the Information type handler
 //------------------------------------------------------------------------------------------------
-class Command::CQueryHandler : public Command::IHandler {
+class Handler::Information : public Handler::IHandler {
 public:
-    enum class Phase { Flood, Respond, Aggregate, Close };
-    
-    explicit CQueryHandler(CBryptNode& instance);
+    enum class Phase { Flood, Respond, Close };
+
+    explicit Information(BryptNode& instance);
 
     // IHandler{
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool FloodHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
-    bool RespondHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
-    bool AggregateHandler(std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message);
+    bool FloodHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool RespondHandler();
     bool CloseHandler();
-
 };
 
 //------------------------------------------------------------------------------------------------

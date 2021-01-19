@@ -23,9 +23,9 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-constexpr Command::Type Command = Command::Type::Connect;
+constexpr Handler::Type Handler = Handler::Type::Connect;
 constexpr std::uint8_t Phase = static_cast<std::uint8_t>(
-    Command::CConnectHandler::Phase::Discovery);
+    Handler::Connect::Phase::Discovery);
 
 std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& configurations);
 
@@ -87,7 +87,7 @@ bool DiscoveryProtocol::SendRequest(
         .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)
-        .SetCommand(local::Command, local::Phase)
+        .SetCommand(local::Handler, local::Phase)
         .SetPayload(m_data)
         .ValidatedBuild();
     assert(optDiscoveryRequest);

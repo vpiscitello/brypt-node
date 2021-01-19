@@ -1,14 +1,14 @@
 //------------------------------------------------------------------------------------------------
 // File: Handler.hpp
-// Description: Defines a set of command types for messages and the appropriate responses based
+// Description: Defines a set of handler types for messages and the appropriate responses based
 // on the phase that the communication is currently in.
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "CommandDefinitions.hpp"
-#include "../MessageControl/AssociatedMessage.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/MessageDefinitions.hpp"
+#include "HandlerDefinitions.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/MessageDefinitions.hpp"
+#include "Components/MessageControl/AssociatedMessage.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -17,75 +17,75 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
-class CBryptNode;
-class CBryptPeer;
-class CApplicationMessage;
+class BryptNode;
+class BryptPeer;
+class ApplicationMessage;
 
 //------------------------------------------------------------------------------------------------
-namespace Command {
+namespace Handler {
 //------------------------------------------------------------------------------------------------
+
 class IHandler;
 
-class CConnectHandler;
-class CElectionHandler;
-class CInformationHandler;
-class CQueryHandler;
-class CTransformHandler;
+class Connect;
+class Election;
+class Information;
+class Query;
 
 std::unique_ptr<IHandler> Factory(
-    Command::Type commandType,
-    CBryptNode& instance);
+    Handler::Type handlerType,
+    BryptNode& instance);
 
-using HandlerMap = std::unordered_map<Command::Type, std::unique_ptr<IHandler>>;
+using HandlerMap = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
 
 //------------------------------------------------------------------------------------------------
-} // Command namespace
+} // Handler namespace
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class Command::IHandler {
+class Handler::IHandler {
 public:
     IHandler(
-        Command::Type type,
-        CBryptNode& instance);
+        Handler::Type type,
+        BryptNode& instance);
     virtual ~IHandler() = default;
     
-    virtual Command::Type GetType() const final;
+    virtual Handler::Type GetType() const final;
 
     virtual bool HandleMessage(AssociatedMessage const& message) = 0;
 
 protected:
     virtual void SendClusterNotice(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CApplicationMessage const& request,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        ApplicationMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
         std::uint8_t responsePhase,
         std::optional<std::string> optResponseData) final;
 
     virtual void SendNetworkNotice(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CApplicationMessage const& request,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        ApplicationMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
         std::uint8_t responsePhase,
         std::optional<std::string> optResponseData) final;
 
     virtual void SendResponse(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CApplicationMessage const& request,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        ApplicationMessage const& request,
         std::string_view responseData,
         std::uint8_t responsePhase) final;
         
-    Command::Type m_type;
-    CBryptNode& m_instance;
+    Handler::Type m_type;
+    BryptNode& m_instance;
 
 private: 
     virtual void SendNotice(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        CApplicationMessage const& request,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        ApplicationMessage const& request,
         Message::Destination destination,
         std::string_view noticeData,
         std::uint8_t noticePhase,

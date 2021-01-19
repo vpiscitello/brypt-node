@@ -1,16 +1,16 @@
 //------------------------------------------------------------------------------------------------
-// File: QueryHandler.cpp
+// File: Query.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "QueryHandler.hpp"
+#include "Query.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Await/TrackingManager.hpp"
-#include "../Endpoints/Endpoint.hpp"
-#include "../../BryptNode/BryptNode.hpp"
-#include "../../BryptNode/NodeState.hpp"
-#include "../../BryptNode/NetworkState.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../Utilities/TimeUtils.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptNode/BryptNode.hpp"
+#include "BryptNode/NodeState.hpp"
+#include "BryptNode/NetworkState.hpp"
+#include "Components/Await/TrackingManager.hpp"
+#include "Components/Network/Endpoint.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ std::string GenerateReading();
 namespace Json {
 //------------------------------------------------------------------------------------------------
 
-struct TReading;
+struct Reading;
 
 //------------------------------------------------------------------------------------------------
 } // Json namespace
@@ -52,9 +52,9 @@ LI_SYMBOL(timestamp)
 #endif
 //------------------------------------------------------------------------------------------------
 
-struct Json::TReading
+struct Json::Reading
 {
-    TReading(
+    Reading(
         std::uint32_t reading,
         TimeUtils::Timestamp const& timestamp)
         : reading(reading)
@@ -70,8 +70,8 @@ struct Json::TReading
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Command::CQueryHandler::CQueryHandler(CBryptNode& instance)
-    : IHandler(Command::Type::Query, instance)
+Handler::Query::Query(BryptNode& instance)
+    : IHandler(Handler::Type::Query, instance)
 {
 }
 
@@ -81,23 +81,23 @@ Command::CQueryHandler::CQueryHandler(CBryptNode& instance)
 // Description: Information message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::HandleMessage(AssociatedMessage const& associatedMessage)
+bool Handler::Query::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
 
     auto& [wpBryptPeer, message] = associatedMessage;
-    auto const phase = static_cast<CQueryHandler::Phase>(message.GetPhase());
+    auto const phase = static_cast<Query::Phase>(message.GetPhase());
     switch (phase) {
-        case CQueryHandler::Phase::Flood: {
+        case Query::Phase::Flood: {
             status = FloodHandler(wpBryptPeer, message);
         } break;
-        case CQueryHandler::Phase::Respond: {
+        case Query::Phase::Respond: {
             status = RespondHandler(wpBryptPeer, message);
         } break;
-        case CQueryHandler::Phase::Aggregate: {
+        case Query::Phase::Aggregate: {
             status = AggregateHandler(wpBryptPeer, message);
         } break;
-        case CQueryHandler::Phase::Close: {
+        case Query::Phase::Close: {
             status = CloseHandler();
         } break;
         default: break;
@@ -109,14 +109,14 @@ bool Command::CQueryHandler::HandleMessage(AssociatedMessage const& associatedMe
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the flood phase for the Query type command
+// Description: Handles the flood phase for the Query type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::FloodHandler(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& message)
+bool Handler::Query::FloodHandler(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& message)
 {
-    printo("Sending notification for Query request", NodeUtils::PrintType::Command);
+    printo("Sending notification for Query request", NodeUtils::PrintType::Handler);
 
     IHandler::SendClusterNotice(
         wpBryptPeer, message,
@@ -131,14 +131,14 @@ bool Command::CQueryHandler::FloodHandler(
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the respond phase for the Query type command
+// Description: Handles the respond phase for the Query type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::RespondHandler(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& message)
+bool Handler::Query::RespondHandler(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& message)
 {
-    printo("Building response for Query request", NodeUtils::PrintType::Command);
+    printo("Building response for Query request", NodeUtils::PrintType::Handler);
     IHandler::SendResponse(
         wpBryptPeer, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
     return true;
@@ -147,14 +147,14 @@ bool Command::CQueryHandler::RespondHandler(
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the aggregate phase for the Query type command
+// Description: Handles the aggregate phase for the Query type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::AggregateHandler(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& message)
+bool Handler::Query::AggregateHandler(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& message)
 {
-    printo("Pushing response to ResponseTracker", NodeUtils::PrintType::Command);
+    printo("Pushing response to ResponseTracker", NodeUtils::PrintType::Handler);
     if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {
         spAwaitManager->PushResponse(message);
     }
@@ -167,10 +167,10 @@ bool Command::CQueryHandler::AggregateHandler(
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the close phase for the Query type command
+// Description: Handles the close phase for the Query type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CQueryHandler::CloseHandler()
+bool Handler::Query::CloseHandler()
 {
     return false;
 }
@@ -184,7 +184,7 @@ bool Command::CQueryHandler::CloseHandler()
 std::string local::GenerateReading()
 {
     std::int32_t const value = rand() % ( 74 - 68 ) + 68;
-    Json::TReading const reading(value, TimeUtils::GetSystemTimestamp());
+    Json::Reading const reading(value, TimeUtils::GetSystemTimestamp());
     return li::json_object(s::reading, s::timestamp).encode(reading);
 }
 

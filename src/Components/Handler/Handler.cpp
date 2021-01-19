@@ -4,41 +4,40 @@
 //------------------------------------------------------------------------------------------------
 #include "Handler.hpp"
 //------------------------------------------------------------------------------------------------
-#include "ConnectHandler.hpp"
-#include "ElectionHandler.hpp"
-#include "InformationHandler.hpp"
-#include "QueryHandler.hpp"
-#include "../Await/AwaitDefinitions.hpp"
-#include "../Await/TrackingManager.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../BryptPeer/PeerManager.hpp"
-#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../../BryptNode/BryptNode.hpp"
-#include "../../BryptNode/NodeState.hpp"
-#include "../../BryptNode/NetworkState.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
+#include "Connect.hpp"
+#include "Election.hpp"
+#include "Information.hpp"
+#include "Query.hpp"
+#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptNode/BryptNode.hpp"
+#include "BryptNode/NodeState.hpp"
+#include "BryptNode/NetworkState.hpp"
+#include "Components/Await/AwaitDefinitions.hpp"
+#include "Components/Await/TrackingManager.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/BryptPeer/PeerManager.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Command::IHandler> Command::Factory(
-    Command::Type commandType,
-    CBryptNode& instance)
+std::unique_ptr<Handler::IHandler> Handler::Factory(
+    Handler::Type handlerType, BryptNode& instance)
 {
-    switch (commandType) {
-        case Command::Type::Connect:
-            return std::make_unique<CConnectHandler>(instance);
+    switch (handlerType) {
+        case Handler::Type::Connect:
+            return std::make_unique<Connect>(instance);
 
-        case Command::Type::Election:
-            return std::make_unique<CElectionHandler>(instance);
+        case Handler::Type::Election:
+            return std::make_unique<Election>(instance);
 
-        case Command::Type::Information:
-            return std::make_unique<CInformationHandler>(instance);
+        case Handler::Type::Information:
+            return std::make_unique<Information>(instance);
 
-        case Command::Type::Query:
-            return std::make_unique<CQueryHandler>(instance);
+        case Handler::Type::Query:
+            return std::make_unique<Query>(instance);
 
-        case Command::Type::Invalid:
+        case Handler::Type::Invalid:
         default:
             return {};
     }
@@ -48,9 +47,8 @@ std::unique_ptr<Command::IHandler> Command::Factory(
 // IHandler implementation
 //------------------------------------------------------------------------------------------------
 
-Command::IHandler::IHandler(
-    Command::Type type,
-    CBryptNode& instance)
+Handler::IHandler::IHandler(
+    Handler::Type type, BryptNode& instance)
     : m_type(type)
     , m_instance(instance)
 {
@@ -58,16 +56,16 @@ Command::IHandler::IHandler(
 
 //------------------------------------------------------------------------------------------------
 
-Command::Type Command::IHandler::GetType() const
+Handler::Type Handler::IHandler::GetType() const
 {
     return m_type;
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Command::IHandler::SendClusterNotice(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& request,
+void Handler::IHandler::SendClusterNotice(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
     std::uint8_t responsePhase,
@@ -80,9 +78,9 @@ void Command::IHandler::SendClusterNotice(
 
 //------------------------------------------------------------------------------------------------
 
-void Command::IHandler::SendNetworkNotice(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& request,
+void Handler::IHandler::SendNetworkNotice(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
     std::uint8_t responsePhase,
@@ -95,9 +93,9 @@ void Command::IHandler::SendNetworkNotice(
 
 //------------------------------------------------------------------------------------------------
 
-void Command::IHandler::SendResponse(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& request,
+void Handler::IHandler::SendResponse(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& request,
     std::string_view responseData,
     std::uint8_t responsePhase)
 {
@@ -110,7 +108,7 @@ void Command::IHandler::SendResponse(
     assert(spBryptIdentifier);
 
     // Since we are responding to the request, the destination will point to its source.
-    BryptIdentifier::CContainer destination = request.GetSourceIdentifier();
+    BryptIdentifier::Container destination = request.GetSourceIdentifier();
 
     std::optional<Message::BoundTrackerKey> optBoundAwaitTracker = {};
     std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitTrackerKey();
@@ -119,7 +117,7 @@ void Command::IHandler::SendResponse(
     }
 
     // Using the information from the node instance generate a discovery response message
-    auto const optResponse = CApplicationMessage::Builder()
+    auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(request.GetContext())
         .SetSource(*spBryptIdentifier)
         .SetDestination(destination)
@@ -130,16 +128,17 @@ void Command::IHandler::SendResponse(
     assert(optResponse);
 
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spBryptPeer->ScheduleSend(
+        [[maybe_unused]] bool const success = spBryptPeer->ScheduleSend(
             request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
+        assert(success);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void Command::IHandler::SendNotice(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    CApplicationMessage const& request,
+void Handler::IHandler::SendNotice(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& request,
     Message::Destination destination,
     std::string_view noticeData,
     std::uint8_t noticePhase,
@@ -174,7 +173,7 @@ void Command::IHandler::SendNotice(
 
         if (optResponseData) {
             // Create a reading message
-            auto const optNodeResponse = CApplicationMessage::Builder()
+            auto const optNodeResponse = ApplicationMessage::Builder()
                 .SetMessageContext(request.GetContext())
                 .SetSource(*spBryptIdentifier)
                 .SetDestination(request.GetSourceIdentifier())
@@ -188,7 +187,7 @@ void Command::IHandler::SendNotice(
     }
 
     // Create a notice message for the network
-    auto builder = CApplicationMessage::Builder()
+    auto builder = ApplicationMessage::Builder()
         .SetMessageContext(request.GetContext())
         .SetSource(*spBryptIdentifier)
         .SetCommand(request.GetCommand(), noticePhase)

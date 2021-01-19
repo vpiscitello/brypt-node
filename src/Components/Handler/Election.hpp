@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: ElectionHandler.hpp
+// File: Election.hpp
 // Description:
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -10,11 +10,11 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Elections
 //------------------------------------------------------------------------------------------------
-class Command::CElectionHandler : public Command::IHandler {
+class Handler::Election : public Handler::IHandler {
 public:
     enum class Phase { Probe, Precommit, Vote, Abort, Results, Close };
     
-    explicit CElectionHandler(CBryptNode& instance);
+    explicit Election(BryptNode& instance);
 
     // IHandler{
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;
@@ -26,7 +26,6 @@ public:
     bool AbortHandler();
     bool ResultsHandler();
     bool CloseHandler();
-
 };
 
 //------------------------------------------------------------------------------------------------

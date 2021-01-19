@@ -74,24 +74,24 @@ BryptNode::BryptNode(
         upConfigurationManager->GetSecurityStrategy(),
         upConfigurationManager->GetCentralAuthority());
     m_spNodeState = std::make_shared<NodeState>(
-        spBryptIdentifier, m_spEndpointManager->GetEndpointTechnologies());
+        spBryptIdentifier, m_spEndpointManager->GetEndpointProtocols());
     m_spSensorState = std::make_shared<SensorState>();
 
     m_handlers.emplace(
-        Command::Type::Information,
-        Command::Factory(Command::Type::Information, *this));
+        Handler::Type::Information,
+        Handler::Factory(Handler::Type::Information, *this));
 
     m_handlers.emplace(
-        Command::Type::Query,
-        Command::Factory(Command::Type::Query, *this));
+        Handler::Type::Query,
+        Handler::Factory(Handler::Type::Query, *this));
 
     m_handlers.emplace(
-        Command::Type::Election,
-        Command::Factory(Command::Type::Election, *this));
+        Handler::Type::Election,
+        Handler::Factory(Handler::Type::Election, *this));
 
     m_handlers.emplace(
-        Command::Type::Connect,
-        Command::Factory(Command::Type::Connect, *this));
+        Handler::Type::Connect,
+        Handler::Factory(Handler::Type::Connect, *this));
 
     m_initialized = true;
 }

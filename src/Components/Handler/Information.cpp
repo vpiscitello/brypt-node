@@ -1,17 +1,17 @@
 //------------------------------------------------------------------------------------------------
-// File: InformationHandler.cpp
+// File: Information.cpp
 // Description:
 //------------------------------------------------------------------------------------------------
-#include "InformationHandler.hpp"
+#include "Information.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../Endpoints/Endpoint.hpp"
-#include "../BryptPeer/PeerManager.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptNode/BryptNode.hpp"
-#include "../../BryptNode/NodeState.hpp"
-#include "../../BryptNode/CoordinatorState.hpp"
-#include "../../BryptNode/NetworkState.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptNode/BryptNode.hpp"
+#include "BryptNode/NodeState.hpp"
+#include "BryptNode/CoordinatorState.hpp"
+#include "BryptNode/NetworkState.hpp"
+#include "Components/BryptPeer/PeerManager.hpp"
+#include "Components/Network/Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -24,7 +24,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-std::string GenerateNodeInfo(CBryptNode const& node);
+std::string GenerateNodeInfo(BryptNode const& node);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -32,7 +32,7 @@ std::string GenerateNodeInfo(CBryptNode const& node);
 namespace Json {
 //------------------------------------------------------------------------------------------------
 
-struct TNodeInfo;
+struct NodeInfo;
 
 //------------------------------------------------------------------------------------------------
 } // Json namespace
@@ -63,9 +63,9 @@ LI_SYMBOL(neighbor_count)
 #define LI_SYMBOL_designation
 LI_SYMBOL(designation)
 #endif
-#ifndef LI_SYMBOL_technologies
-#define LI_SYMBOL_technologies
-LI_SYMBOL(technologies)
+#ifndef LI_SYMBOL_protocols
+#define LI_SYMBOL_protocols
+LI_SYMBOL(protocols)
 #endif
 #ifndef LI_SYMBOL_update_timestamp
 #define LI_SYMBOL_update_timestamp
@@ -73,22 +73,22 @@ LI_SYMBOL(update_timestamp)
 #endif
 //------------------------------------------------------------------------------------------------
 
-struct Json::TNodeInfo
+struct Json::NodeInfo
 {
-    TNodeInfo(
+    NodeInfo(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         NodeUtils::ClusterIdType cluster,
         BryptIdentifier::SharedContainer const& spCoordinatorIdentifier,
         std::size_t neighbor_count,
         std::string const& designation,
-        std::string const& technologies,
+        std::string const& protocols,
         TimeUtils::Timestamp const& update_timestamp)
         : identifier(spBryptIdentifier)
         , cluster(cluster)
         , coordinator(spCoordinatorIdentifier)
         , neighbor_count(neighbor_count)
         , designation(designation)
-        , technologies(technologies)
+        , protocols(protocols)
         , update_timestamp(update_timestamp.count())
     {
     }
@@ -97,7 +97,7 @@ struct Json::TNodeInfo
     BryptIdentifier::SharedContainer const coordinator;
     std::size_t const neighbor_count;
     std::string const designation;
-    std::string const technologies;
+    std::string const protocols;
     std::uint64_t const update_timestamp;
 };
 
@@ -106,8 +106,8 @@ struct Json::TNodeInfo
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-Command::CInformationHandler::CInformationHandler(CBryptNode& instance)
-    : IHandler(Command::Type::Information, instance)
+Handler::Information::Information(BryptNode& instance)
+    : IHandler(Handler::Type::Information, instance)
 {
 }
 
@@ -117,12 +117,12 @@ Command::CInformationHandler::CInformationHandler(CBryptNode& instance)
 // Description: Information message handler, drives each of the message responses based on the phase
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::HandleMessage(AssociatedMessage const& associatedMessage)
+bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
 
     auto& [wpBryptPeer, message] = associatedMessage;
-    auto const phase = static_cast<CInformationHandler::Phase>(message.GetPhase());
+    auto const phase = static_cast<Information::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Flood: {
             status = FloodHandler(wpBryptPeer, message);
@@ -142,13 +142,13 @@ bool Command::CInformationHandler::HandleMessage(AssociatedMessage const& associ
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the flood phase for the Information type command
+// Description: Handles the flood phase for the Information type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::FloodHandler(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer, CApplicationMessage const& message)
+bool Handler::Information::FloodHandler(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
 {
-    printo("Building response for Information request", NodeUtils::PrintType::Command);
+    printo("Building response for Information request", NodeUtils::PrintType::Handler);
     
     IHandler::SendClusterNotice(
         wpBryptPeer, message,
@@ -163,10 +163,10 @@ bool Command::CInformationHandler::FloodHandler(
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the respond phase for the Information type command
+// Description: Handles the respond phase for the Information type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::RespondHandler()
+bool Handler::Information::RespondHandler()
 {
     return false;
 }
@@ -174,10 +174,10 @@ bool Command::CInformationHandler::RespondHandler()
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Description: Handles the close phase for the Information type command
+// Description: Handles the close phase for the Information type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Command::CInformationHandler::CloseHandler()
+bool Handler::Information::CloseHandler()
 {
     return false;
 }
@@ -188,7 +188,7 @@ bool Command::CInformationHandler::CloseHandler()
 // Description: This constructs a JSON object for each of the messages from each of the endpoints.
 // Returns: The JSON structure as a string.
 //------------------------------------------------------------------------------------------------
-std::string local::GenerateNodeInfo(CBryptNode const& instance)
+std::string local::GenerateNodeInfo(BryptNode const& instance)
 {
     // Get the information pertaining to the node itself
     BryptIdentifier::SharedContainer spBryptIdentifier; 
@@ -213,7 +213,7 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
         neighbors = spPeerManager->ActivePeerCount();
     }
 
-    std::vector<Json::TNodeInfo> nodesInfo;
+    std::vector<Json::NodeInfo> nodesInfo;
     nodesInfo.emplace_back(
         spBryptIdentifier, cluster, spCoordinatorIdentifier,
         neighbors, NodeUtils::GetDesignation(operation), 
@@ -226,13 +226,13 @@ std::string local::GenerateNodeInfo(CBryptNode const& instance)
             std::string const timestamp = TimeUtils::TimepointToString(endpoint.GetUpdateClock());
             nodesInfo.emplace_back(
                 spConnection->GetPeerName(), cluster, id, 0,
-                "node", spConnection->GetProtocolType(), timestamp);
+                "node", spConnection->GetProtocolString(), timestamp);
         }
     } */
 
     std::string const data = li::json_vector(
         s::identifier, s::cluster, s::coordinator, s::neighbor_count,
-        s::designation, s::technologies, s::update_timestamp).encode(nodesInfo);
+        s::designation, s::protocols, s::update_timestamp).encode(nodesInfo);
 
     return data;
 }
