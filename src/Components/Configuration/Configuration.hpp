@@ -4,12 +4,12 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Components/Security/SecurityDefinitions.hpp"
-#include "../Components/Security/SecurityUtils.hpp"
-#include "../Utilities/NetworkUtils.hpp"
-#include "../Utilities/Version.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Components/Security/SecurityUtils.hpp"
+#include "Utilities/NetworkUtils.hpp"
+#include "Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <cstring>
@@ -24,13 +24,13 @@
 namespace Configuration {
 //------------------------------------------------------------------------------------------------
 
-struct TSettings;
-struct TIdentifierOptions;
-struct TDetailsOptions;
-struct TEndpointOptions;
-struct TSecurityOptions;
+struct Settings;
+struct IdentifierOptions;
+struct DetailsOptions;
+struct EndpointOptions;
+struct SecurityOptions;
 
-using EndpointConfigurations = std::vector<TEndpointOptions>;
+using EndpointConfigurations = std::vector<EndpointOptions>;
 
 std::filesystem::path const DefaultBryptFolder = "/brypt/";
 std::filesystem::path const DefaultConfigurationFilename = "config.json";
@@ -44,23 +44,23 @@ std::filesystem::path GetDefaultPeersFilepath();
 } // Configuration namespace
 //------------------------------------------------------------------------------------------------
 
-struct Configuration::TIdentifierOptions
+struct Configuration::IdentifierOptions
 {
-    TIdentifierOptions()
+    IdentifierOptions()
         : value()
         , type()
         , container()
     {
     }
 
-    TIdentifierOptions(std::string_view type)
+    IdentifierOptions(std::string_view type)
         : value()
         , type(type)
         , container()
     {
     }
 
-    TIdentifierOptions(
+    IdentifierOptions(
         std::string_view value,
         std::string_view type)
         : value(value)
@@ -77,16 +77,16 @@ struct Configuration::TIdentifierOptions
 
 //------------------------------------------------------------------------------------------------
 
-struct Configuration::TDetailsOptions
+struct Configuration::DetailsOptions
 {
-    TDetailsOptions()
+    DetailsOptions()
         : name()
         , description()
         , location()
     {
     }
 
-    TDetailsOptions(
+    DetailsOptions(
         std::string_view name,
         std::string_view description = "",
         std::string_view location = "")
@@ -103,45 +103,45 @@ struct Configuration::TDetailsOptions
 
 //------------------------------------------------------------------------------------------------
 
-struct Configuration::TEndpointOptions
+struct Configuration::EndpointOptions
 {
-    TEndpointOptions()
-        : type(Endpoints::TechnologyType::Invalid)
-        , technology()
+    EndpointOptions()
+        : type(Network::Protocol::Invalid)
+        , protocol()
         , interface()
         , binding()
         , bootstrap()
     {
     }
 
-    TEndpointOptions(
-        std::string_view technology,
+    EndpointOptions(
+        std::string_view protocol,
         std::string_view interface,
         std::string_view binding)
-        : type(Endpoints::TechnologyType::Invalid)
-        , technology(technology)
+        : type(Network::Protocol::Invalid)
+        , protocol(protocol)
         , interface(interface)
         , binding(binding)
         , bootstrap()
     {
-        type = Endpoints::ParseTechnologyType({technology.data(), technology.size()});
+        type = Network::ParseProtocol({protocol.data(), protocol.size()});
     }
 
-    TEndpointOptions(
-        Endpoints::TechnologyType type,
+    EndpointOptions(
+        Network::Protocol type,
         std::string_view interface,
         std::string_view binding)
         : type(type)
-        , technology()
+        , protocol()
         , interface(interface)
         , binding(binding)
         , bootstrap()
     {
-        technology = Endpoints::TechnologyTypeToString(type);
+        protocol = Network::ProtocolToString(type);
     }
 
-    Endpoints::TechnologyType GetTechnology() const { return type; }
-    std::string const& GetTechnologyName() const { return technology; }
+    Network::Protocol GetProtocol() const { return type; }
+    std::string const& GetProtocolName() const { return protocol; }
     std::string const& GetInterface() const { return interface; }
     std::string const& GetBinding() const { return binding; }
     std::optional<std::string> const& GetBootstrap() const { return bootstrap; }
@@ -150,7 +150,7 @@ struct Configuration::TEndpointOptions
     {
         auto components = NetworkUtils::SplitAddressString(binding);
         switch (type) {
-            case Endpoints::TechnologyType::TCP: {
+            case Network::Protocol::TCP: {
                 if (auto const found = components.first.find(NetworkUtils::Wildcard); found != std::string::npos) {
                     components.first = NetworkUtils::GetInterfaceAddress(interface);
                 }
@@ -161,8 +161,8 @@ struct Configuration::TEndpointOptions
         return components;
     }
 
-    Endpoints::TechnologyType type;
-    std::string technology;
+    Network::Protocol type;
+    std::string protocol;
     std::string interface;
     std::string binding;
     std::optional<std::string> bootstrap;
@@ -170,9 +170,9 @@ struct Configuration::TEndpointOptions
 
 //------------------------------------------------------------------------------------------------
 
-struct Configuration::TSecurityOptions
+struct Configuration::SecurityOptions
 {
-    TSecurityOptions()
+    SecurityOptions()
         : type(Security::Strategy::Invalid)
         , strategy()
         , token()
@@ -180,7 +180,7 @@ struct Configuration::TSecurityOptions
     {
     }
 
-    TSecurityOptions(
+    SecurityOptions(
         std::string_view strategy,
         std::string_view token,
         std::string_view authority)
@@ -200,9 +200,9 @@ struct Configuration::TSecurityOptions
 
 //------------------------------------------------------------------------------------------------
 
-struct Configuration::TSettings
+struct Configuration::Settings
 {
-    TSettings()
+    Settings()
         : version(Brypt::Version)
         , details()
         , endpoints()
@@ -210,24 +210,24 @@ struct Configuration::TSettings
     {
     }
 
-    TSettings(
-        TDetailsOptions const& detailsOptions,
+    Settings(
+        DetailsOptions const& detailsOptions,
         EndpointConfigurations const& endpointsConfigurations,
-        TSecurityOptions const& securityOptions)
+        SecurityOptions const& securityOptions)
         : details(detailsOptions)
         , endpoints(endpointsConfigurations)
         , security(securityOptions)
     {
     }
 
-    TSettings(TSettings const& other)
+    Settings(Settings const& other)
         : details(other.details)
         , endpoints(other.endpoints)
         , security(other.security)
     {
     }
 
-    TSettings& operator=(TSettings const& other)
+    Settings& operator=(Settings const& other)
     {
         details = other.details;
         endpoints = other.endpoints;
@@ -240,12 +240,12 @@ struct Configuration::TSettings
         return version;
     }
 
-    TIdentifierOptions const& GetIdentifierOptions()
+    IdentifierOptions const& GetIdentifierOptions()
     {
         return identifier;
     }
 
-    TDetailsOptions const& GetDetailsOptions()
+    DetailsOptions const& GetDetailsOptions()
     {
         return details;
     }
@@ -255,16 +255,16 @@ struct Configuration::TSettings
         return endpoints;
     }
 
-    TSecurityOptions const& GetSecurityOptions()
+    SecurityOptions const& GetSecurityOptions()
     {
         return security;
     }
 
     std::string version;
-    TIdentifierOptions identifier;
-    TDetailsOptions details;
+    IdentifierOptions identifier;
+    DetailsOptions details;
     EndpointConfigurations endpoints;
-    TSecurityOptions security;
+    SecurityOptions security;
 };
 
 //------------------------------------------------------------------------------------------------

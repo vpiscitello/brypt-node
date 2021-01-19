@@ -5,8 +5,8 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "StatusCode.hpp"
-#include "../Components/Security/SecurityDefinitions.hpp"
-#include "../BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 #include <filesystem>
 #include <optional>
@@ -17,24 +17,24 @@
 namespace Configuration {
 //------------------------------------------------------------------------------------------------
 
-class CManager;
+class Manager;
 
 //------------------------------------------------------------------------------------------------
 } // Configuration namespace
 //------------------------------------------------------------------------------------------------
 
-class Configuration::CManager  {
+class Configuration::Manager  {
 public:
-    CManager();
-    explicit CManager(std::string_view filepath);
-    explicit CManager(TSettings const& settings);
+    Manager();
+    explicit Manager(std::string_view filepath);
+    explicit Manager(Settings const& settings);
 
     StatusCode FetchSettings();
     StatusCode Serialize();
 
     StatusCode GenerateConfigurationFile();
 
-    std::optional<Configuration::TSettings> GetSettings() const;
+    std::optional<Configuration::Settings> GetSettings() const;
 
     BryptIdentifier::SharedContainer GetBryptIdentifier() const;
 
@@ -55,7 +55,7 @@ private:
     void InitializeSettings();
 
     std::filesystem::path m_filepath;
-    TSettings m_settings;
+    Settings m_settings;
     bool m_validated;
 };
 

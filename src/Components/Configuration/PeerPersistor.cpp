@@ -3,9 +3,9 @@
 // Description:
 //-----------------------------------------------------------------------------------------------
 #include "PeerPersistor.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../Utilities/FileUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "Utilities/FileUtils.hpp"
 //-----------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -21,19 +21,19 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-struct TBootstrapEntry;
-struct TEndpointEntry;
+struct BootstrapEntry;
+struct EndpointEntry;
 
-using BootstrapVector = std::vector<TBootstrapEntry>;
-using EndpointEntriesVector = std::vector<TEndpointEntry>;
+using BootstrapVector = std::vector<BootstrapEntry>;
+using EndpointEntriesVector = std::vector<EndpointEntry>;
 
 void ParseDefaultBootstraps(
     Configuration::EndpointConfigurations const& configurations, 
-    CPeerPersistor::DefaultBootstrapMap& defaults);
+    PeerPersistor::DefaultBootstrapMap& defaults);
 void FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target);
 
 void WriteEndpointPeers(
-    CPeerPersistor::UniqueTechnologiesMap const& endpoints,
+    PeerPersistor::UniqueProtocolMap const& endpoints,
     std::ofstream& out);
 
 //------------------------------------------------------------------------------------------------
@@ -54,7 +54,7 @@ constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the peers files to 12KB
 //------------------------------------------------------------------------------------------------
 // [
 //  {
-//     "technology": String,
+//     "protocol": String,
 //     "bootstraps": [
 //         "target": String,
 //     ...
@@ -72,20 +72,20 @@ LI_SYMBOL(bootstraps)
 #define LI_SYMBOL_target
 LI_SYMBOL(target)
 #endif
-#ifndef LI_SYMBOL_technology
-#define LI_SYMBOL_technology
-LI_SYMBOL(technology)
+#ifndef LI_SYMBOL_protocol
+#define LI_SYMBOL_protocol
+LI_SYMBOL(protocol)
 #endif
 
 //------------------------------------------------------------------------------------------------
 
-struct local::TBootstrapEntry
+struct local::BootstrapEntry
 {
-    TBootstrapEntry()
+    BootstrapEntry()
         : target()
     {
     }
-    TBootstrapEntry(std::string_view target)
+    BootstrapEntry(std::string_view target)
         : target(target)
     {
     }
@@ -95,34 +95,34 @@ struct local::TBootstrapEntry
 
 //------------------------------------------------------------------------------------------------
 
-struct local::TEndpointEntry
+struct local::EndpointEntry
 {
-    TEndpointEntry()
-        : technology()
+    EndpointEntry()
+        : protocol()
         , bootstraps()
     {
     }
 
-    TEndpointEntry(
-        std::string_view technology,
+    EndpointEntry(
+        std::string_view protocol,
         BootstrapVector const& bootstraps)
-        : technology(technology)
+        : protocol(protocol)
         , bootstraps(bootstraps)
     {
     }
 
-    std::string technology;
+    std::string protocol;
     BootstrapVector bootstraps;
 };
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::CPeerPersistor()
+PeerPersistor::PeerPersistor()
     : m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath()
-    , m_technologiessMutex()
-    , m_upTechnologies()
+    , m_protocolsMutex()
+    , m_upProtocols()
     , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
@@ -131,12 +131,12 @@ CPeerPersistor::CPeerPersistor()
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::CPeerPersistor(std::string_view filepath)
+PeerPersistor::PeerPersistor(std::string_view filepath)
     : m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath(filepath)
-    , m_technologiessMutex()
-    , m_upTechnologies()
+    , m_protocolsMutex()
+    , m_upProtocols()
     , m_defaults()
 {
     // If the filepath does not have a filename, attach the default config.json
@@ -154,12 +154,12 @@ CPeerPersistor::CPeerPersistor(std::string_view filepath)
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::CPeerPersistor(Configuration::EndpointConfigurations const& configurations)
+PeerPersistor::PeerPersistor(Configuration::EndpointConfigurations const& configurations)
     : m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath()
-    , m_technologiessMutex()
-    , m_upTechnologies()
+    , m_protocolsMutex()
+    , m_upProtocols()
     , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
@@ -170,14 +170,14 @@ CPeerPersistor::CPeerPersistor(Configuration::EndpointConfigurations const& conf
 
 //-----------------------------------------------------------------------------------------------
 
-CPeerPersistor::CPeerPersistor(
+PeerPersistor::PeerPersistor(
     std::string_view filepath,
     Configuration::EndpointConfigurations const& configurations)
     : m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath(filepath)
-    , m_technologiessMutex()
-    , m_upTechnologies()
+    , m_protocolsMutex()
+    , m_upProtocols()
     , m_defaults()
 {
     // If the filepath does not have a filename, attach the default config.json
@@ -197,7 +197,7 @@ CPeerPersistor::CPeerPersistor(
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::SetMediator(IPeerMediator* const mediator)
+void PeerPersistor::SetMediator(IPeerMediator* const mediator)
 {
     // If there already a mediator attached to the persistor, unpublish the persistor
     // from the previous mediator.
@@ -217,7 +217,7 @@ void CPeerPersistor::SetMediator(IPeerMediator* const mediator)
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::FetchBootstraps()
+bool PeerPersistor::FetchBootstraps()
 {
     Configuration::StatusCode status = Configuration::StatusCode::DecodeError;
     if (std::filesystem::exists(m_filepath)) {
@@ -229,7 +229,7 @@ bool CPeerPersistor::FetchBootstraps()
         status = SetupPeersFile();
     }
 
-    if (!m_upTechnologies || status != Configuration::StatusCode::Success) {
+    if (!m_upProtocols || status != Configuration::StatusCode::Success) {
         NodeUtils::printo(
             "Failed to decode peers file at: " + m_filepath.string(),
             NodeUtils::PrintType::Node);
@@ -241,11 +241,11 @@ bool CPeerPersistor::FetchBootstraps()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::StatusCode CPeerPersistor::Serialize()
+Configuration::StatusCode PeerPersistor::Serialize()
 {
     std::scoped_lock lock(m_fileMutex);
     
-    if (!m_upTechnologies) {
+    if (!m_upProtocols) {
         return Configuration::StatusCode::InputError;
     }
 
@@ -258,7 +258,7 @@ Configuration::StatusCode CPeerPersistor::Serialize()
         return Configuration::StatusCode::FileError;
     }
 
-    local::WriteEndpointPeers(m_upTechnologies, out);
+    local::WriteEndpointPeers(m_upProtocols, out);
 
     out.close();
 
@@ -267,7 +267,7 @@ Configuration::StatusCode CPeerPersistor::Serialize()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::StatusCode CPeerPersistor::DecodePeersFile()
+Configuration::StatusCode PeerPersistor::DecodePeersFile()
 {
     // Determine the size of the file about to be read. Do not read a file
     // that is above the given treshold. 
@@ -293,20 +293,20 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
 
     // Decode the JSON string into the configuration struct
     li::json_vector(
-        s::technology,
+        s::protocol,
         s::bootstraps = li::json_vector(s::target)).decode(json, endpoints);
 
-    auto upTechnologies = std::make_unique<TechnologiesMap>();
-    upTechnologies->reserve(endpoints.size());
+    auto upProtocols = std::make_unique<ProtocolMap>();
+    upProtocols->reserve(endpoints.size());
 
     std::for_each(
         endpoints.begin(), endpoints.end(),
-        [&] (local::TEndpointEntry& endpoint)
+        [&] (local::EndpointEntry& endpoint)
         {
-            // Parse the technology name from the entry, if it is not a valid name continue to 
+            // Parse the protocol name from the entry, if it is not a valid name continue to 
             // the next endpoint entry.
-            auto const technology = Endpoints::ParseTechnologyType(endpoint.technology);
-            if (technology == Endpoints::TechnologyType::Invalid) {
+            auto const protocol = Network::ParseProtocol(endpoint.protocol);
+            if (protocol == Network::Protocol::Invalid) {
                 return;
             }
 
@@ -316,7 +316,7 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
             upBootstraps->reserve(bootstraps.size());
 
             if (bootstraps.empty()) {
-                if (auto const itr = m_defaults.find(technology); itr != m_defaults.end()) {
+                if (auto const itr = m_defaults.find(protocol); itr != m_defaults.end()) {
                     auto const& [key, defaultBootstrap] = *itr;
                     local::FillDefaultBootstrap(bootstraps, defaultBootstrap);
                 }
@@ -325,7 +325,7 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
             // Insert any valid peers into the endpoint map
             std::for_each(
                 bootstraps.begin(), bootstraps.end(),
-                [&technology, &upBootstraps] (local::TBootstrapEntry const& bootstrap)
+                [&protocol, &upBootstraps] (local::BootstrapEntry const& bootstrap)
                 {
                     if (bootstrap.target.empty()) {
                         return;
@@ -335,35 +335,35 @@ Configuration::StatusCode CPeerPersistor::DecodePeersFile()
                 }
             );
             
-            upTechnologies->emplace(technology, std::move(upBootstraps));
+            upProtocols->emplace(protocol, std::move(upBootstraps));
         }
     );
 
-    if (upTechnologies->empty()) {
+    if (upProtocols->empty()) {
         return Configuration::StatusCode::DecodeError;
     }
 
-    m_upTechnologies = std::move(upTechnologies);
+    m_upProtocols = std::move(upProtocols);
     return Configuration::StatusCode::Success;
 }
 
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------
-// Description: Generates a new configuration file based on user command line arguements or
+// Description: Generates a new configuration file based on user handler line arguements or
 // from user input.
 //-----------------------------------------------------------------------------------------------
-Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
+Configuration::StatusCode PeerPersistor::SerializeEndpointPeers()
 {
-    if (!m_upTechnologies) {
+    if (!m_upProtocols) {
         return Configuration::StatusCode::DecodeError;
     }
 
-    for (auto const& [endpoint, upBootstraps] : *m_upTechnologies) {
+    for (auto const& [endpoint, upBootstraps] : *m_upProtocols) {
         if (upBootstraps->empty()) {
-            auto const technology = Endpoints::TechnologyTypeToString(endpoint);
+            auto const protocol = Network::ProtocolToString(endpoint);
             NodeUtils::printo(
-                "Warning: " + technology + " has no attached bootstrap peers!",
+                "Warning: " + protocol + " has no attached bootstrap peers!",
                 NodeUtils::PrintType::Node);
         }
     }
@@ -381,18 +381,18 @@ Configuration::StatusCode CPeerPersistor::SerializeEndpointPeers()
 //-----------------------------------------------------------------------------------------------
 // Description: Initializes and saves a peer file.
 //-----------------------------------------------------------------------------------------------
-Configuration::StatusCode CPeerPersistor::SetupPeersFile()
+Configuration::StatusCode PeerPersistor::SetupPeersFile()
 {
-    if (!m_upTechnologies) {
-        m_upTechnologies = std::make_unique<TechnologiesMap>();
+    if (!m_upProtocols) {
+        m_upProtocols = std::make_unique<ProtocolMap>();
     }
 
-    for (auto const& [technology, bootstrap] : m_defaults) {
+    for (auto const& [protocol, bootstrap] : m_defaults) {
         auto upBootstraps = std::make_unique<BootstrapSet>();
         if (!bootstrap.empty()) {
             upBootstraps->emplace(bootstrap);
         }
-        m_upTechnologies->emplace(technology, std::move(upBootstraps));
+        m_upProtocols->emplace(protocol, std::move(upBootstraps));
     }
 
     Configuration::StatusCode const status = Serialize();
@@ -405,21 +405,21 @@ Configuration::StatusCode CPeerPersistor::SetupPeersFile()
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::AddBootstrapEntry(
-    std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology)
+void PeerPersistor::AddBootstrapEntry(
+    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol)
 {
     // Get the entry from the peer, if there is no entry there is nothing to store. 
     if (auto const optBootstrap = spBryptPeer->GetRegisteredEntry(identifier); optBootstrap) {
-        AddBootstrapEntry(technology, *optBootstrap);
+        AddBootstrapEntry(protocol, *optBootstrap);
     }
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::AddBootstrapEntry(
-    Endpoints::TechnologyType technology,
+void PeerPersistor::AddBootstrapEntry(
+    Network::Protocol protocol,
     std::string_view bootstrap)
 {
     if (bootstrap.empty()) {
@@ -427,10 +427,10 @@ void CPeerPersistor::AddBootstrapEntry(
     }
 
     {
-        std::scoped_lock lock(m_technologiessMutex);
+        std::scoped_lock lock(m_protocolsMutex);
         // Since we always want ensure the peer can be tracked, we use emplace to either
         // insert a new entry for the technolgoy type or get the existing entry.
-        if (auto const [itr, emplaced] = m_upTechnologies->try_emplace(technology); itr != m_upTechnologies->end()) {
+        if (auto const [itr, emplaced] = m_upProtocols->try_emplace(protocol); itr != m_upProtocols->end()) {
             auto const& [key, upBootstraps] = *itr;
             if (upBootstraps) {
                 upBootstraps->emplace(bootstrap);
@@ -444,21 +444,21 @@ void CPeerPersistor::AddBootstrapEntry(
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::DeleteBootstrapEntry(
-    std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology)
+void PeerPersistor::DeleteBootstrapEntry(
+    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol)
 {
     // Get the entry from the peer, if there is no entry there is nothing to delete. 
     if (auto const optBootstrap = spBryptPeer->GetRegisteredEntry(identifier); optBootstrap) {
-        DeleteBootstrapEntry(technology, *optBootstrap);
+        DeleteBootstrapEntry(protocol, *optBootstrap);
     }
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::DeleteBootstrapEntry(
-    Endpoints::TechnologyType technology,
+void PeerPersistor::DeleteBootstrapEntry(
+    Network::Protocol protocol,
     std::string_view bootstrap)
 {
     if (bootstrap.empty()) {
@@ -466,11 +466,11 @@ void CPeerPersistor::DeleteBootstrapEntry(
     }
 
     {
-        std::scoped_lock lock(m_technologiessMutex);
+        std::scoped_lock lock(m_protocolsMutex);
         // Since we always want ensure the peer can be tracked, we use emplace to either
         // insert a new entry for the technolgoy type or get the existing entry.
-        if (auto const [itr, emplaced] = m_upTechnologies->try_emplace(technology);
-            itr != m_upTechnologies->end()) {
+        if (auto const [itr, emplaced] = m_upProtocols->try_emplace(protocol);
+            itr != m_upProtocols->end()) {
             auto const& [key, upBootstraps] = *itr;
             upBootstraps->erase(bootstrap.data());
         }
@@ -482,24 +482,24 @@ void CPeerPersistor::DeleteBootstrapEntry(
 
 //-----------------------------------------------------------------------------------------------
 
-void CPeerPersistor::HandlePeerStateChange(
-    std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology,
+void PeerPersistor::HandlePeerStateChange(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
     ConnectionState change)
 {
     // If the persistor peers have not yet been intialized, simply return
-    if (!m_upTechnologies) {
+    if (!m_upProtocols) {
         return; 
     }
 
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
         switch (change) {
             case ConnectionState::Connected: {
-                AddBootstrapEntry(spBryptPeer, identifier, technology);
+                AddBootstrapEntry(spBryptPeer, identifier, protocol);
             } break;
             case ConnectionState::Disconnected:{
-                DeleteBootstrapEntry(spBryptPeer, identifier, technology);
+                DeleteBootstrapEntry(spBryptPeer, identifier, protocol);
             } break;
             default: return; // Currently, we don't persist information for other state changes.
         }
@@ -508,25 +508,25 @@ void CPeerPersistor::HandlePeerStateChange(
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::ForEachCachedBootstrap(
-    AllEndpointBootstrapReadFunction const& callback,
-    AllEndpointBootstrapErrorFunction const& error) const
+bool PeerPersistor::ForEachCachedBootstrap(
+    AllProtocolsReadFunction const& callback,
+    AllProtocolsErrorFunction const& error) const
 {
-    std::scoped_lock lock(m_technologiessMutex);
-    if (!m_upTechnologies) {
+    std::scoped_lock lock(m_protocolsMutex);
+    if (!m_upProtocols) {
         return false;
     }
 
-    for (auto const& [technology, upBootstraps]: *m_upTechnologies) {
+    for (auto const& [protocol, upBootstraps]: *m_upProtocols) {
         if (!upBootstraps) {
-            // Notify the caller that there are no listed peers for an endpoint of a given technology
-            error(technology);
+            // Notify the caller that there are no listed peers for an endpoint of a given protocol
+            error(protocol);
             continue;
         }
 
         CallbackIteration result;
         for (auto const& bootstrap: *upBootstraps) {
-            result = callback(technology, bootstrap);
+            result = callback(protocol, bootstrap);
             if (result != CallbackIteration::Continue) {
                 break;
             }
@@ -541,17 +541,17 @@ bool CPeerPersistor::ForEachCachedBootstrap(
 
 //-----------------------------------------------------------------------------------------------
 
-bool CPeerPersistor::ForEachCachedBootstrap(
-    Endpoints::TechnologyType technology,
-    OneEndpointBootstrapReadFunction const& callback) const
+bool PeerPersistor::ForEachCachedBootstrap(
+    Network::Protocol protocol,
+    OneProtocolReadFunction const& callback) const
 {
-    std::scoped_lock lock(m_technologiessMutex);
-    if (!m_upTechnologies) {
+    std::scoped_lock lock(m_protocolsMutex);
+    if (!m_upProtocols) {
         return false;
     }
 
-    auto const itr = m_upTechnologies->find(technology);
-    if (itr == m_upTechnologies->end()) {
+    auto const itr = m_upProtocols->find(protocol);
+    if (itr == m_upProtocols->end()) {
         return false;
     }   
 
@@ -568,15 +568,15 @@ bool CPeerPersistor::ForEachCachedBootstrap(
 
 //-----------------------------------------------------------------------------------------------
 
-std::size_t CPeerPersistor::CachedBootstrapCount() const
+std::size_t PeerPersistor::CachedBootstrapCount() const
 {
-    std::scoped_lock lock(m_technologiessMutex);
-    if (!m_upTechnologies) {
+    std::scoped_lock lock(m_protocolsMutex);
+    if (!m_upProtocols) {
         return 0;
     }
 
     std::size_t count = 0;
-    for (auto const& [technology, upBootstraps]: *m_upTechnologies) {
+    for (auto const& [protocol, upBootstraps]: *m_upProtocols) {
         if (upBootstraps) {
             count += upBootstraps->size();
         }
@@ -587,15 +587,15 @@ std::size_t CPeerPersistor::CachedBootstrapCount() const
 
 //-----------------------------------------------------------------------------------------------
 
-std::size_t CPeerPersistor::CachedBootstrapCount(Endpoints::TechnologyType technology) const
+std::size_t PeerPersistor::CachedBootstrapCount(Network::Protocol protocol) const
 {
-    std::scoped_lock lock(m_technologiessMutex);
-    if (!m_upTechnologies) {
+    std::scoped_lock lock(m_protocolsMutex);
+    if (!m_upProtocols) {
         return 0;
     }
 
-    if (auto const itr = m_upTechnologies->find(technology); itr != m_upTechnologies->end()) {
-        auto const& [technology, upBootstraps] = *itr;
+    if (auto const itr = m_upProtocols->find(protocol); itr != m_upProtocols->end()) {
+        auto const& [protocol, upBootstraps] = *itr;
         if (upBootstraps) {
             return upBootstraps->size();
         }
@@ -607,7 +607,7 @@ std::size_t CPeerPersistor::CachedBootstrapCount(Endpoints::TechnologyType techn
 
 void local::ParseDefaultBootstraps(
     Configuration::EndpointConfigurations const& configurations, 
-    CPeerPersistor::DefaultBootstrapMap& defaults)
+    PeerPersistor::DefaultBootstrapMap& defaults)
 {
     for (auto const& options: configurations) {
         if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {
@@ -630,24 +630,24 @@ void local::FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view t
 //-----------------------------------------------------------------------------------------------
 
 void local::WriteEndpointPeers(
-    CPeerPersistor::UniqueTechnologiesMap const& upTechnologies,
+    PeerPersistor::UniqueProtocolMap const& upProtocols,
     std::ofstream& out)
 {
     // If the provided endpoint peers are empty, ther is nothing to do
-    if (!upTechnologies) {
+    if (!upProtocols) {
         return;
     }
 
     std::size_t endpointsWritten = 0;
-    std::size_t const endpointSize = upTechnologies->size();
+    std::size_t const endpointSize = upProtocols->size();
     out << "[\n";
-    for (auto const& [technology, upBootstraps]: *upTechnologies) {
-        if (technology == Endpoints::TechnologyType::Invalid){
+    for (auto const& [protocol, upBootstraps]: *upProtocols) {
+        if (protocol == Network::Protocol::Invalid){
             continue;
         }
         
         out << "\t{\n";
-        out << "\t\t\"technology\": \"" << Endpoints::TechnologyTypeToString(technology) << "\",\n";
+        out << "\t\t\"protocol\": \"" << Network::ProtocolToString(protocol) << "\",\n";
         out << "\t\t\"bootstraps\": [\n";
 
         std::size_t peersWritten = 0;

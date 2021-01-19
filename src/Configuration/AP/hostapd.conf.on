@@ -1,3 +1,0 @@
-interface=wlan0
-driver=nl80211
-channel=7

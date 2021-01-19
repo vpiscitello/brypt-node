@@ -4,11 +4,12 @@
 //-----------------------------------------------------------------------------------------------
 #include "Configuration.hpp"
 #include "ConfigurationManager.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Utilities/FileUtils.hpp"
-#include "../Utilities/NodeUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/FileUtils.hpp"
+#include "Utilities/NodeUtils.hpp"
 //-----------------------------------------------------------------------------------------------
+#include <boost/algorithm/string.hpp>
 #include <lithium_json.hh>
 //-----------------------------------------------------------------------------------------------
 #include <array>
@@ -17,7 +18,6 @@
 #include <fstream>
 #include <memory>
 #include <string>
-#include <boost/algorithm/string.hpp>
 //-----------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -27,26 +27,26 @@ namespace local {
 
 void SerializeVersion(std::ofstream& out);
 void SerializeIdentifierOptions(
-    Configuration::TIdentifierOptions const& options,
+    Configuration::IdentifierOptions const& options,
     std::ofstream& out);
 void SerializeNodeOptions(
-    Configuration::TDetailsOptions const& options,
+    Configuration::DetailsOptions const& options,
     std::ofstream& out);
 void SerializeEndpointConfigurations(
     Configuration::EndpointConfigurations const& configurations,
     std::ofstream& out);
 void SerializeSecurityOptions(
-    Configuration::TSecurityOptions const& options,
+    Configuration::SecurityOptions const& options,
     std::ofstream& out);
 
-Configuration::TIdentifierOptions GetIdentifierOptionsFromUser();
-Configuration::TDetailsOptions GetDetailsOptionsFromUser();
+Configuration::IdentifierOptions GetIdentifierOptionsFromUser();
+Configuration::DetailsOptions GetDetailsOptionsFromUser();
 Configuration::EndpointConfigurations GetEndpointConfigurationsFromUser();
-Configuration::TSecurityOptions GetSecurityOptionsFromUser();
+Configuration::SecurityOptions GetSecurityOptionsFromUser();
 
-void InitializeIdentifierOptions(Configuration::TIdentifierOptions& options);
+void InitializeIdentifierOptions(Configuration::IdentifierOptions& options);
 void InitializeEndpointConfigurations(Configuration::EndpointConfigurations& configurations);
-void InitializeSecurityOptions(Configuration::TSecurityOptions& options);
+void InitializeSecurityOptions(Configuration::SecurityOptions& options);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -127,7 +127,7 @@ void OutputValues(std::array<ArrayType, ArraySize> const& values)
 
 //------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding. 
-// Note: Only select portions of the Configuration::TSettings object will be encoded and decoded
+// Note: Only select portions of the Configuration::Settings object will be encoded and decoded
 // into the JSON configuration file. Meaning using metajson it is possible to omit sections of 
 // the struct. However, initalization is needed to fill out the other parts of the configuration
 // after decoding the file.
@@ -210,9 +210,9 @@ LI_SYMBOL(name)
 #define LI_SYMBOL_strategy
 LI_SYMBOL(strategy)
 #endif
-#ifndef LI_SYMBOL_technology
-#define LI_SYMBOL_technology
-LI_SYMBOL(technology)
+#ifndef LI_SYMBOL_protocol
+#define LI_SYMBOL_protocol
+LI_SYMBOL(protocol)
 #endif
 #ifndef LI_SYMBOL_tokenLI_SYMBOL_token
 #define LI_SYMBOL_tokenLI_SYMBOL_token
@@ -229,7 +229,7 @@ LI_SYMBOL(value)
 
 //------------------------------------------------------------------------------------------------
 
-Configuration::CManager::CManager()
+Configuration::Manager::Manager()
     : m_filepath()
     , m_settings()
     , m_validated(false)
@@ -240,7 +240,7 @@ Configuration::CManager::CManager()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::CManager::CManager(std::string_view filepath)
+Configuration::Manager::Manager(std::string_view filepath)
     : m_filepath(filepath)
     , m_settings()
     , m_validated(false)
@@ -260,7 +260,7 @@ Configuration::CManager::CManager(std::string_view filepath)
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::CManager::CManager(TSettings const& settings)
+Configuration::Manager::Manager(Settings const& settings)
     : m_filepath()
     , m_settings(settings)
     , m_validated(false)
@@ -272,7 +272,7 @@ Configuration::CManager::CManager(TSettings const& settings)
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::CManager::FetchSettings()
+Configuration::StatusCode Configuration::Manager::FetchSettings()
 {
     StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
@@ -298,7 +298,7 @@ Configuration::StatusCode Configuration::CManager::FetchSettings()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::CManager::Serialize()
+Configuration::StatusCode Configuration::Manager::Serialize()
 {
     if (!m_validated) {
         return StatusCode::InputError;
@@ -331,10 +331,10 @@ Configuration::StatusCode Configuration::CManager::Serialize()
 //-----------------------------------------------------------------------------------------------
 
 //-----------------------------------------------------------------------------------------------
-// Description: Generates a new configuration file based on user command line arguements or
+// Description: Generates a new configuration file based on user handler line arguements or
 // from user input.
 //-----------------------------------------------------------------------------------------------
-Configuration::StatusCode Configuration::CManager::GenerateConfigurationFile()
+Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 {
     // If the configuration has not been provided to the Configuration Manager
     // generate a configuration object from user input
@@ -356,7 +356,7 @@ Configuration::StatusCode Configuration::CManager::GenerateConfigurationFile()
 
 //-----------------------------------------------------------------------------------------------
 
-std::optional<Configuration::TSettings> Configuration::CManager::GetSettings() const
+std::optional<Configuration::Settings> Configuration::Manager::GetSettings() const
 {
     if (!m_validated) {
         return {};
@@ -366,7 +366,7 @@ std::optional<Configuration::TSettings> Configuration::CManager::GetSettings() c
 
 //-----------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer Configuration::CManager::GetBryptIdentifier() const
+BryptIdentifier::SharedContainer Configuration::Manager::GetBryptIdentifier() const
 {
     if (!m_validated) {
         return {};
@@ -382,7 +382,7 @@ BryptIdentifier::SharedContainer Configuration::CManager::GetBryptIdentifier() c
 
 //-----------------------------------------------------------------------------------------------
 
-std::string Configuration::CManager::GetNodeName() const
+std::string Configuration::Manager::GetNodeName() const
 {
     if (!m_validated) {
         return {};
@@ -393,7 +393,7 @@ std::string Configuration::CManager::GetNodeName() const
 
 //-----------------------------------------------------------------------------------------------
 
-std::string Configuration::CManager::GetNodeDescription() const
+std::string Configuration::Manager::GetNodeDescription() const
 {
     if (!m_validated) {
         return {};
@@ -404,7 +404,7 @@ std::string Configuration::CManager::GetNodeDescription() const
 
 //-----------------------------------------------------------------------------------------------
 
-std::string Configuration::CManager::GetNodeLocation() const
+std::string Configuration::Manager::GetNodeLocation() const
 {
     if (!m_validated) {
         return {};
@@ -415,7 +415,7 @@ std::string Configuration::CManager::GetNodeLocation() const
 
 //-----------------------------------------------------------------------------------------------
     
-std::optional<Configuration::EndpointConfigurations> Configuration::CManager::GetEndpointConfigurations() const
+std::optional<Configuration::EndpointConfigurations> Configuration::Manager::GetEndpointConfigurations() const
 {
     if (!m_validated) {
         return {};
@@ -425,7 +425,7 @@ std::optional<Configuration::EndpointConfigurations> Configuration::CManager::Ge
 
 //-----------------------------------------------------------------------------------------------
 
-Security::Strategy Configuration::CManager::GetSecurityStrategy() const
+Security::Strategy Configuration::Manager::GetSecurityStrategy() const
 {
     if (!m_validated) {
         return Security::Strategy::Invalid;
@@ -435,7 +435,7 @@ Security::Strategy Configuration::CManager::GetSecurityStrategy() const
 
 //-----------------------------------------------------------------------------------------------
 
-std::string Configuration::CManager::GetCentralAuthority() const
+std::string Configuration::Manager::GetCentralAuthority() const
 {
     if (!m_validated) {
         return {};
@@ -445,7 +445,7 @@ std::string Configuration::CManager::GetCentralAuthority() const
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::CManager::ValidateSettings()
+Configuration::StatusCode Configuration::Manager::ValidateSettings()
 {
     m_validated = false;
 
@@ -461,7 +461,7 @@ Configuration::StatusCode Configuration::CManager::ValidateSettings()
         return StatusCode::DecodeError;
     } else {
         for (auto const& endpoint: m_settings.endpoints) {
-            if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.technology)) {
+            if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) {
                 return StatusCode::DecodeError;
             }
         }
@@ -477,7 +477,7 @@ Configuration::StatusCode Configuration::CManager::ValidateSettings()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
+Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
 {
     // Determine the size of the file about to be read. Do not read a file
     // that is above the given treshold. 
@@ -510,7 +510,7 @@ Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
             s::description,
             s::location),
         s::endpoints = li::json_vector(
-            s::technology,
+            s::protocol,
             s::interface,
             s::binding,
             s::bootstrap),
@@ -526,7 +526,7 @@ Configuration::StatusCode Configuration::CManager::DecodeConfigurationFile()
 
 //-----------------------------------------------------------------------------------------------
 
-void Configuration::CManager::GetConfigurationOptionsFromUser()
+void Configuration::Manager::GetConfigurationOptionsFromUser()
 {
     std::cout << "Generating Brypt Node Configuration Settings." << std::endl; 
     std::cout << "Please Enter your Desired Network Options.\n" << std::endl;
@@ -534,10 +534,10 @@ void Configuration::CManager::GetConfigurationOptionsFromUser()
     // Clear the cin stream 
     std::cin.clear(); std::cin.sync();
 
-    TIdentifierOptions const identifierOptions = local::GetIdentifierOptionsFromUser();
-    TDetailsOptions const detailsOptions = local::GetDetailsOptionsFromUser();
+    IdentifierOptions const identifierOptions = local::GetIdentifierOptionsFromUser();
+    DetailsOptions const detailsOptions = local::GetDetailsOptionsFromUser();
     EndpointConfigurations const endpointConfigurations = local::GetEndpointConfigurationsFromUser();
-    Configuration::TSecurityOptions const securityOptions =  local::GetSecurityOptionsFromUser();
+    Configuration::SecurityOptions const securityOptions =  local::GetSecurityOptionsFromUser();
 
     m_settings.identifier = identifierOptions;
     m_settings.details = detailsOptions;
@@ -547,7 +547,7 @@ void Configuration::CManager::GetConfigurationOptionsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-void Configuration::CManager::InitializeSettings()
+void Configuration::Manager::InitializeSettings()
 {
     local::InitializeIdentifierOptions(m_settings.identifier);
     local::InitializeEndpointConfigurations(m_settings.endpoints);
@@ -573,7 +573,7 @@ void local::SerializeVersion(std::ofstream& out)
 //-----------------------------------------------------------------------------------------------
 
 void local::SerializeIdentifierOptions(
-    Configuration::TIdentifierOptions const& options,
+    Configuration::IdentifierOptions const& options,
     std::ofstream& out)
 {
     out << "\t\"identifier\": {\n";
@@ -587,7 +587,7 @@ void local::SerializeIdentifierOptions(
 //-----------------------------------------------------------------------------------------------
 
 void local::SerializeNodeOptions(
-    Configuration::TDetailsOptions const& options,
+    Configuration::DetailsOptions const& options,
     std::ofstream& out)
 {
     out << "\t\"details\": {\n";
@@ -606,7 +606,7 @@ void local::SerializeEndpointConfigurations(
     out << "\t\"endpoints\": [\n";
     for (auto const& options: configurations) {
         out << "\t\t{\n";
-        out << "\t\t\t\"technology\": \"" << options.technology << "\",\n";
+        out << "\t\t\t\"protocol\": \"" << options.protocol << "\",\n";
         out << "\t\t\t\"interface\": \"" << options.interface << "\",\n";
         out << "\t\t\t\"binding\": \"" << options.binding;
         if (options.bootstrap) {
@@ -622,10 +622,10 @@ void local::SerializeEndpointConfigurations(
     out << "\n\t],\n";
 }
 
-//-----------------------------------------------------TDetailsOptions------------------------------------------
+//-----------------------------------------------------------------------------------------------
 
 void local::SerializeSecurityOptions(
-    Configuration::TSecurityOptions const& options,
+    Configuration::SecurityOptions const& options,
     std::ofstream& out)
 {
     out << "\t\"security\": {\n";
@@ -637,9 +637,9 @@ void local::SerializeSecurityOptions(
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::TIdentifierOptions local::GetIdentifierOptionsFromUser()
+Configuration::IdentifierOptions local::GetIdentifierOptionsFromUser()
 {
-    Configuration::TIdentifierOptions options(
+    Configuration::IdentifierOptions options(
         defaults::IdentifierType
     );
 
@@ -664,9 +664,9 @@ Configuration::TIdentifierOptions local::GetIdentifierOptionsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::TDetailsOptions local::GetDetailsOptionsFromUser()
+Configuration::DetailsOptions local::GetDetailsOptionsFromUser()
 {
-    Configuration::TDetailsOptions options;
+    Configuration::DetailsOptions options;
     
     std::string name = "";
     std::cout << "Node Name: " << std::flush;
@@ -704,20 +704,20 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 
     bool bAddEndpointOption = false;
     do {
-        Configuration::TEndpointOptions options(
+        Configuration::EndpointOptions options(
             defaults::EndpointType,
             defaults::NetworkInterface,
             defaults::TcpBindingAddress);
 
-        // Get the desired primary technology type for the node
+        // Get the desired primary protocol type for the node
         bool bAllowableEndpointType = true;
-        std::string technology = "";
+        std::string protocol = "";
         std::cout << "EndpointType: (" << defaults::EndpointType << ") " << std::flush;
-        std::getline(std::cin, technology);
-        if (!technology.empty()) {
-            if (auto const optValue = allowable::IfAllowableGetValue(allowable::EndpointTypes, technology); optValue) {
-                options.technology = *optValue;
-                options.type = Endpoints::ParseTechnologyType(*optValue);
+        std::getline(std::cin, protocol);
+        if (!protocol.empty()) {
+            if (auto const optValue = allowable::IfAllowableGetValue(allowable::EndpointTypes, protocol); optValue) {
+                options.protocol = *optValue;
+                options.type = Network::ParseProtocol(*optValue);
             } else {
                 std::cout << "Specified endpoint type is not allowed! Allowable types include: ";
                 allowable::OutputValues(allowable::EndpointTypes);
@@ -740,7 +740,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
             std::string binding = "";
             std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
             bindingOutputMessage.append(defaults::TcpBindingAddress.data());
-            if (options.type == Endpoints::TechnologyType::LoRa) {
+            if (options.type == Network::Protocol::LoRa) {
                 bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
                 bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
                 options.binding = defaults::LoRaBindingAddress;
@@ -753,8 +753,8 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
                 options.binding = binding;
             }
 
-            // Get the default bootstrap entry for the technology
-            if (options.type != Endpoints::TechnologyType::LoRa) {
+            // Get the default bootstrap entry for the protocol
+            if (options.type != Network::Protocol::LoRa) {
                 options.bootstrap = defaults::TcpBootstrapEntry;
 
                 std::string bootstrap = "";
@@ -780,9 +780,9 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::TSecurityOptions local::GetSecurityOptionsFromUser()
+Configuration::SecurityOptions local::GetSecurityOptionsFromUser()
 {
-    Configuration::TSecurityOptions options(
+    Configuration::SecurityOptions options(
         defaults::SecurityStrategy,
         defaults::NetworkToken,
         defaults::CentralAutority
@@ -832,14 +832,14 @@ Configuration::TSecurityOptions local::GetSecurityOptionsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-void local::InitializeIdentifierOptions(Configuration::TIdentifierOptions& options)
+void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& options)
 {
     // If the identifier type is Ephemeral, then a new identifier should be generated. 
     // If the identifier type is Persistent, the we shall attempt to use provided value.
     // Would should never hit this function before the the options have been validated.
     if (options.type == "Ephemeral") {
         // Generate a new Brypt Identifier and store the network representation as the value.
-        options.container = std::make_shared<BryptIdentifier::CContainer const>(
+        options.container = std::make_shared<BryptIdentifier::Container const>(
             BryptIdentifier::Generate());
         assert(options.container);
         options.value = options.container->GetNetworkRepresentation();
@@ -849,14 +849,14 @@ void local::InitializeIdentifierOptions(Configuration::TIdentifierOptions& optio
         // value was properly formatted. 
         // Otherwise, a new Brypt Identifier must be be generated. 
         if (options.value) {
-            options.container = std::make_shared<BryptIdentifier::CContainer const>(
+            options.container = std::make_shared<BryptIdentifier::Container const>(
                 *options.value);
             assert(options.container);
             if (!options.container->IsValid()) {
                 options.value.reset();
             }
         } else {
-            options.container = std::make_shared<BryptIdentifier::CContainer const>(
+            options.container = std::make_shared<BryptIdentifier::Container const>(
                 BryptIdentifier::Generate());
             assert(options.container);
             options.value = options.container->GetNetworkRepresentation();  
@@ -873,14 +873,14 @@ void  local::InitializeEndpointConfigurations(Configuration::EndpointConfigurati
     std::for_each(configurations.begin(), configurations.end(),
     [] (auto& endpoint)
         {
-            endpoint.type = Endpoints::ParseTechnologyType(endpoint.technology);
+            endpoint.type = Network::ParseProtocol(endpoint.protocol);
         }
     );
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void local::InitializeSecurityOptions(Configuration::TSecurityOptions& options)
+void local::InitializeSecurityOptions(Configuration::SecurityOptions& options)
 {
     options.type = Security::ConvertToStrategy(options.strategy);
 }
