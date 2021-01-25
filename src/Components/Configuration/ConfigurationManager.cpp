@@ -7,12 +7,13 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/FileUtils.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //-----------------------------------------------------------------------------------------------
 #include <boost/algorithm/string.hpp>
 #include <lithium_json.hh>
 //-----------------------------------------------------------------------------------------------
 #include <array>
+#include <cassert>
 #include <cstdlib>
 #include <iostream>
 #include <fstream>
@@ -230,21 +231,27 @@ LI_SYMBOL(value)
 //------------------------------------------------------------------------------------------------
 
 Configuration::Manager::Manager()
-    : m_filepath()
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_filepath()
     , m_settings()
     , m_validated(false)
 {
+    assert(m_spLogger);
     m_filepath = GetDefaultConfigurationFilepath();
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
 
 Configuration::Manager::Manager(std::string_view filepath)
-    : m_filepath(filepath)
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_filepath(filepath)
     , m_settings()
     , m_validated(false)
 {
+    assert(m_spLogger);
     // If the filepath does not have a filename, attach the default config.json
     if (!m_filepath.has_filename()) {
         m_filepath = m_filepath / DefaultConfigurationFilename;
@@ -255,18 +262,25 @@ Configuration::Manager::Manager(std::string_view filepath)
         m_filepath = GetDefaultBryptFolder() / m_filepath;
     }
     
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
 
 Configuration::Manager::Manager(Settings const& settings)
-    : m_filepath()
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_filepath()
     , m_settings(settings)
     , m_validated(false)
 {
+    assert(m_spLogger);
     m_filepath = GetDefaultConfigurationFilepath();
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+        return;
+    }
     ValidateSettings();
 }
 
@@ -276,14 +290,12 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
 {
     StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
-        NodeUtils::printo(
-            "Reading configuration file at: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+        m_spLogger->info("Reading configuration file at: {}.", m_filepath.string());
         status = DecodeConfigurationFile();
     } else {
-        NodeUtils::printo(
-            "No configuration file exists! Generating file at: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+        m_spLogger->warn(
+            "No configuration file exists. Launching configuration file setup for: {}.",
+            m_filepath.string());
         status = GenerateConfigurationFile();
     }
 
@@ -346,9 +358,7 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 
     StatusCode const status = Serialize();
     if (status != StatusCode::Success) {
-        NodeUtils::printo(
-            "Failed to save configuration settings to: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+        m_spLogger->error("Failed to save configuration settings to: {}!", m_filepath.string());
     }
 
     return status;
@@ -557,9 +567,7 @@ void Configuration::Manager::InitializeSettings()
     // for certain options. Currently, this only caused by the generation of Brypt Identifiers.
     auto const status = Serialize();
     if (status != StatusCode::Success) {
-        NodeUtils::printo(
-            "Failed to update configuration file at: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+        m_spLogger->error("Failed to update configuration file at: {}!", m_filepath.string());
     }
 }
 

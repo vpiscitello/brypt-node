@@ -1,5 +1,5 @@
 //------------------------------------------------------------------------------------------------
-// File: NetworkUtils.hpp
+// File: FileUtils.hpp
 // Description: 
 //------------------------------------------------------------------------------------------------
 #pragma once
@@ -13,7 +13,7 @@
 namespace FileUtils {
 //------------------------------------------------------------------------------------------------
 
-void CreateFolderIfNoneExist(std::filesystem::path const& path);
+bool CreateFolderIfNoneExist(std::filesystem::path const& path);
 bool IsNewlineOrTab(char c);
 
 //------------------------------------------------------------------------------------------------
@@ -24,26 +24,22 @@ bool IsNewlineOrTab(char c);
 // Function:
 // Description:
 //------------------------------------------------------------------------------------------------
-inline void FileUtils::CreateFolderIfNoneExist(std::filesystem::path const& path)
+inline bool FileUtils::CreateFolderIfNoneExist(std::filesystem::path const& path)
 {
     auto const filename = (path.has_filename()) ? path.filename() : "";
     auto const base = (!filename.empty()) ? path.parent_path() : path;
 
-    // Create configuration directories if they do not yet exist on the system
-    if (!std::filesystem::exists(base)) {
-        // Create directories in the base path that do not exist
-        bool const status = std::filesystem::create_directories(base);
-        if (!status) {
-            NodeUtils::printo(
-                "There was an error creating the folder: " + base.string(),
-                NodeUtils::PrintType::Node);
-            return;
-        }
-
+    // If the directories exist, there is nothing to do.
+    if (std::filesystem::exists(base)) { return true; }
+    
+    // Create directories in the base path that do not exist
+    bool const success = std::filesystem::create_directories(base);
+    if (success) {
         // Set the permissions on the brypt conffiguration folder such that only the 
         // user can read, write, and execute
         std::filesystem::permissions(base, std::filesystem::perms::owner_all);
     }
+    return success;
 }
 
 //-----------------------------------------------------------------------------------------------

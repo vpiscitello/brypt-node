@@ -30,11 +30,12 @@ set(INTERNAL_LIBRARIES
     BryptMessage
     BryptIdentifier)
 
-# Exported include dependencies
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC  {Boost_INCLUDE_DIRS})
+# Internal include dependencies
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${spdlog_INCLUDE_DIRS})
 
 # Exported library dependencies
 target_link_libraries(${PROJECT_NAME} PUBLIC ${INTERNAL_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${spdlog_LIBRARIES})
 
 # Compilier options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

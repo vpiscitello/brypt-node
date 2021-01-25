@@ -12,7 +12,7 @@
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/EndpointManager.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <optional>
@@ -35,10 +35,12 @@ void ParseArguments(std::int32_t argc, char** argv);
 
 std::int32_t main(std::int32_t argc, char** argv)
 {
-    std::cout << std::endl;
-    NodeUtils::printo("Welcome to the Brypt Network", NodeUtils::PrintType::Node);
-
     local::ParseArguments(argc, argv);
+    LogUtils::InitializeLoggers();
+
+    auto const spCoreLogger = spdlog::get(LogUtils::Name::Core.data());  
+    spCoreLogger->set_level(spdlog::level::debug);
+    spCoreLogger->info("Welcome to the Brypt Network!");
 
     std::unique_ptr<Configuration::Manager> upConfigurationManager;
     if (local::ConfigurationFilename.empty()) {
@@ -50,28 +52,31 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     auto const status = upConfigurationManager->FetchSettings();
     if (status != Configuration::StatusCode::Success) {
-        throw std::runtime_error("Error occured parsing settings!");
+        spCoreLogger->critical("Error occured parsing settings!");
+        exit(1);
     }
 
     auto const spBryptIdentifier = upConfigurationManager->GetBryptIdentifier();
     if (!spBryptIdentifier) {
-        throw std::runtime_error("Error occured establishing a Brypt Identifier!");
+        spCoreLogger->critical("Error occured establishing a Brypt Identifier!");
+        exit(1);
     }
 
-    NodeUtils::printo(
-        "Brypt Identifier: " + spBryptIdentifier->GetNetworkRepresentation(),
-        NodeUtils::PrintType::Node);
+    spCoreLogger->info(
+        "Brypt Identifier: {}", spBryptIdentifier->GetNetworkRepresentation());
 
     auto const optEndpointConfigurations = upConfigurationManager->GetEndpointConfigurations();
     if (!optEndpointConfigurations) {
-        throw std::runtime_error("Error occured parsing endpoint configurations!");
+        spCoreLogger->critical("Error occured parsing endpoint configurations!");
+        exit(1);
     }
 
     auto const spPeerPersistor = std::make_shared<PeerPersistor>(
         local::PeersFilename, *optEndpointConfigurations);
 
     if (!spPeerPersistor->FetchBootstraps()) {
-        throw std::runtime_error("Error occured parsing bootstraps!");
+        spCoreLogger->critical("Error occured parsing bootstraps!");
+        exit(1);
     }
 
     auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(

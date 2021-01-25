@@ -13,7 +13,6 @@
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Utilities/NetworkUtils.hpp"
-#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 #include <string>
@@ -77,7 +76,7 @@ protected:
     std::shared_ptr<BryptPeer> LinkPeer(
         BryptIdentifier::Container const& identifier,
         std::string_view uri = "") const;
-
+    
     Network::Endpoint::Identifier const m_identifier;
     std::string m_interface;
 	Operation const m_operation;

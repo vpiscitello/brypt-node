@@ -27,7 +27,6 @@ namespace Await {
 //------------------------------------------------------------------------------------------------
 
 struct ResponseEntry;
-
 class ResponseTracker;
 
 //------------------------------------------------------------------------------------------------
@@ -78,7 +77,8 @@ public:
         ApplicationMessage const& request,
         std::set<BryptIdentifier::SharedContainer> const& identifiers);
 
-    Await::ResponseStatus UpdateResponse(ApplicationMessage const& response);
+    BryptIdentifier::Container GetSource() const;
+    Await::UpdateStatus UpdateResponse(ApplicationMessage const& response);
     Await::ResponseStatus CheckResponseStatus();
     std::uint32_t GetResponseCount() const;
 

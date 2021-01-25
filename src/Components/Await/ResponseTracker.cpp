@@ -5,7 +5,6 @@
 #include "ResponseTracker.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
-#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -72,28 +71,38 @@ Await::ResponseTracker::ResponseTracker(
 
 //------------------------------------------------------------------------------------------------
 
+BryptIdentifier::Container Await::ResponseTracker::GetSource() const
+{
+    return m_request.GetSourceIdentifier();
+}
+
 //------------------------------------------------------------------------------------------------
-// Description: This places a response message into the aggregate object for this await object.
-// Returns: true if the await object is fulfilled, false otherwise.
+
 //------------------------------------------------------------------------------------------------
-Await::ResponseStatus Await::ResponseTracker::UpdateResponse(ApplicationMessage const& response)
+// Description: This places a response message into the aggregate object for this await object. 
+// Will return an UpdateStatus to indicate a success or failure. On successful update the it 
+// indicates a success, however, if the request becomes fulfilled that will take precendence. 
+// On failure, the type of error will be determined and returned to the caller. 
+//------------------------------------------------------------------------------------------------
+Await::UpdateStatus Await::ResponseTracker::UpdateResponse(ApplicationMessage const& response)
 {
     auto const itr = m_responses.find(response.GetSourceIdentifier().GetInternalRepresentation());
     if(itr == m_responses.end() || !itr->pack.empty()) {
-        NodeUtils::printo("Unexpected node response", NodeUtils::PrintType::Await);
-        return m_status;
+        if (m_expire < TimeUtils::GetSystemTimepoint()) { return UpdateStatus::Expired; }
+        return UpdateStatus::Unexpected;
     }
 
-    m_responses.modify(itr, [&response](ResponseEntry& entry)
+    m_responses.modify(itr, [&response] (ResponseEntry& entry)
     {
         entry.pack = response.GetPack();
     });
 
     if (++m_received >= m_expected) {
         m_status = ResponseStatus::Fulfilled;
+        return UpdateStatus::Fulfilled;
     }
 
-    return m_status;
+    return UpdateStatus::Success;
 }
 
 //------------------------------------------------------------------------------------------------

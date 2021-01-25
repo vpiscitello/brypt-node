@@ -291,11 +291,11 @@ if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.so)
     endif()
 endif()
 
-set(OQS_INCLUDE_DIR ${OQS_DIRECTORY}/include)
-set(OQS_LIBRARY ${OQS_DIRECTORY}/lib/liboqs.so)    
+set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/include)
+set(OQS_LIBRARIES ${OQS_DIRECTORY}/lib/liboqs.so)    
 
-message(DEBUG "OQS_INCLUDE_DIR: ${OQS_INCLUDE_DIR}")
-message(DEBUG "OQS_LIBRARY: ${OQS_LIBRARY}")
+message(DEBUG "OQS_INCLUDE_DIRS: ${OQS_INCLUDE_DIRS}")
+message(DEBUG "OQS_LIBRARIES: ${OQS_LIBRARIES}")
 
 #------------------------------------------------------------------------------------------------
 
@@ -328,8 +328,60 @@ if (NOT EXISTS ${OQSCPP_DIRECTORY})
     message(STATUS "Open Quantum Safe (liboqs-cpp) downloaded to ${OQSCPP_DIRECTORY}")
 endif()
 
-set(OQSCPP_INCLUDE_DIR ${OQSCPP_DIRECTORY}/include)
+set(OQSCPP_INCLUDE_DIRS ${OQSCPP_DIRECTORY}/include)
 
-message(DEBUG "OQSCPP_INCLUDE_DIR: ${OQSCPP_INCLUDE_DIR}")
+message(DEBUG "OQSCPP_INCLUDE_DIRS: ${OQSCPP_INCLUDE_DIRS}")
+
+#------------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------------
+# OQS Dependency
+#------------------------------------------------------------------------------------------------
+set(SPDLOG_VERSION "1.8.2")
+set(SPDLOG_URL "https://github.com/gabime/spdlog/archive/v${SPDLOG_VERSION}.tar.gz")
+set(SPDLOG_HASH "SHA256=e20e6bd8f57e866eaf25a5417f0a38a116e537f1a77ac7b5409ca2b180cec0d5")
+set(SPDLOG_DIRECTORY ${DEPENDENCY_DIRECTORY}/spdlog/${SPDLOG_VERSION})
+set(SPDLOG_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/spdlog/${SPDLOG_VERSION})
+
+if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY})
+    message(STATUS "spdlog was not found. Downloading now...")
+
+    FetchContent_Declare(
+        spdlog
+        URL ${SPDLOG_URL}
+        URL_HASH ${SPDLOG_HASH}
+        TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
+        DOWNLOAD_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
+        SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY})
+
+    if(NOT spdlog_POPULATED)
+        FetchContent_Populate(spdlog)
+    endif()
+    
+    message(STATUS "spdlog downloaded to ${SPDLOG_DIRECTORY}")
+endif()
+    
+if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.so)
+    set(SPDLOG_CONFIGURE_PARAMS -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY})
+    
+    ExternalProject_Add(
+        spdlog
+        PREFIX ${SPDLOG_DOWNLOAD_DIRECTORY}
+        SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
+        BUILD_IN_SOURCE true
+        URL ""
+        DOWNLOAD_DIR ""
+        DOWNLOAD_COMMAND ""
+        UPDATE_COMMAND ""
+        PATCH_COMMAND ""
+        CMAKE_ARGS ${SPDLOG_CONFIGURE_PARAMS}
+        INSTALL_DIR ${SPDLOG_DIRECTORY})
+endif()
+
+set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/include)
+set(spdlog_LIBRARIES ${SPDLOG_DIRECTORY}/lib/libspdlog.a)
+
+message(DEBUG "spdlog_INCLUDE_DIRS: ${spdlog_INCLUDE_DIRS}")
+message(DEBUG "spdlog_LIBRARIES: ${spdlog_LIBRARIES}")
 
 #------------------------------------------------------------------------------------------------

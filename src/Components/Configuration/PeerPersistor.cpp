@@ -6,6 +6,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "Utilities/FileUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //-----------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -118,7 +119,8 @@ struct local::EndpointEntry
 //-----------------------------------------------------------------------------------------------
 
 PeerPersistor::PeerPersistor()
-    : m_mediator(nullptr)
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath()
     , m_protocolsMutex()
@@ -126,13 +128,16 @@ PeerPersistor::PeerPersistor()
     , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
 
 PeerPersistor::PeerPersistor(std::string_view filepath)
-    : m_mediator(nullptr)
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath(filepath)
     , m_protocolsMutex()
@@ -149,13 +154,16 @@ PeerPersistor::PeerPersistor(std::string_view filepath)
         m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath;
     }
 
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
 
 PeerPersistor::PeerPersistor(Configuration::EndpointConfigurations const& configurations)
-    : m_mediator(nullptr)
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath()
     , m_protocolsMutex()
@@ -163,7 +171,10 @@ PeerPersistor::PeerPersistor(Configuration::EndpointConfigurations const& config
     , m_defaults()
 {
     m_filepath = Configuration::GetDefaultPeersFilepath();
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+        return;
+    }
 
     local::ParseDefaultBootstraps(configurations, m_defaults);
 }
@@ -173,7 +184,8 @@ PeerPersistor::PeerPersistor(Configuration::EndpointConfigurations const& config
 PeerPersistor::PeerPersistor(
     std::string_view filepath,
     Configuration::EndpointConfigurations const& configurations)
-    : m_mediator(nullptr)
+    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_mediator(nullptr)
     , m_fileMutex()
     , m_filepath(filepath)
     , m_protocolsMutex()
@@ -190,7 +202,10 @@ PeerPersistor::PeerPersistor(
         m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath;
     }
 
-    FileUtils::CreateFolderIfNoneExist(m_filepath);
+    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+        return;
+    }
 
     local::ParseDefaultBootstraps(configurations, m_defaults);
 }
@@ -221,18 +236,14 @@ bool PeerPersistor::FetchBootstraps()
 {
     Configuration::StatusCode status = Configuration::StatusCode::DecodeError;
     if (std::filesystem::exists(m_filepath)) {
-        NodeUtils::printo(
-            "Reading peers file at: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+        m_spLogger->info("Reading peers file at: {}.", m_filepath.string());
         status = DecodePeersFile();
     } else {
         status = SetupPeersFile();
     }
 
     if (!m_upProtocols || status != Configuration::StatusCode::Success) {
-        NodeUtils::printo(
-            "Failed to decode peers file at: " + m_filepath.string(),
-            NodeUtils::PrintType::Node);
+        m_spLogger->error("Failed to decode peers file at: {}!", m_filepath.string());
         return false;
     }
 
@@ -362,15 +373,13 @@ Configuration::StatusCode PeerPersistor::SerializeEndpointPeers()
     for (auto const& [endpoint, upBootstraps] : *m_upProtocols) {
         if (upBootstraps->empty()) {
             auto const protocol = Network::ProtocolToString(endpoint);
-            NodeUtils::printo(
-                "Warning: " + protocol + " has no attached bootstrap peers!",
-                NodeUtils::PrintType::Node);
+            m_spLogger->warn("{} has no attached bootstrap peers.", protocol);
         }
     }
 
     Configuration::StatusCode const status = Serialize();
     if (status != Configuration::StatusCode::Success) {
-        NodeUtils::printo("Warning: Filed to serialize peers!", NodeUtils::PrintType::Node);
+        m_spLogger->error("Failed to serialize peers!");
     }
 
     return status;
@@ -397,7 +406,7 @@ Configuration::StatusCode PeerPersistor::SetupPeersFile()
 
     Configuration::StatusCode const status = Serialize();
     if (status != Configuration::StatusCode::Success) {
-        NodeUtils::printo("Warning: Filed to serialize peers!", NodeUtils::PrintType::Node);
+        m_spLogger->error("Failed to serialize peers!");
     }
 
     return status;

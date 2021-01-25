@@ -13,7 +13,6 @@
 #include "Interfaces/BootstrapCache.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
-#include "Utilities/NodeUtils.hpp"
 #include "Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
 #include <filesystem>
@@ -23,6 +22,10 @@
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+//------------------------------------------------------------------------------------------------
+
+namespace spdlog { class logger; }
+
 //------------------------------------------------------------------------------------------------
 
 class PeerPersistor : public IPeerObserver, public IBootstrapCache {
@@ -89,6 +92,8 @@ public:
     // } IBootstrapCache
     
 private:
+    std::shared_ptr<spdlog::logger> m_spLogger;
+    
     IPeerMediator* m_mediator;
 
     mutable std::mutex m_fileMutex;

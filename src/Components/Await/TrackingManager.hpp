@@ -14,6 +14,8 @@
 #include <vector>
 //------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
 class ApplicationMessage;
 class BryptPeer;
 
@@ -33,6 +35,8 @@ class TrackingManager;
 class Await::TrackingManager
 {
 public:
+    TrackingManager();
+
     TrackerKey PushRequest(
         std::weak_ptr<BryptPeer> const& wpRequestor,
         ApplicationMessage const& message,
@@ -52,6 +56,7 @@ private:
     TrackerKey KeyGenerator(std::string_view pack) const;
 
     ResponseTrackingMap m_awaiting;
+    std::shared_ptr<spdlog::logger> m_spLogger;
 };
 
 //------------------------------------------------------------------------------------------------

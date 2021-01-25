@@ -11,6 +11,7 @@
 #include "Components/Await/TrackingManager.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Utilities/TimeUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -116,7 +117,9 @@ bool Handler::Query::FloodHandler(
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
     ApplicationMessage const& message)
 {
-    printo("Sending notification for Query request", NodeUtils::PrintType::Handler);
+    m_spLogger->debug(
+        "Flooding query request in service for {}",
+        message.GetSourceIdentifier().GetNetworkRepresentation());
 
     IHandler::SendClusterNotice(
         wpBryptPeer, message,
@@ -138,7 +141,9 @@ bool Handler::Query::RespondHandler(
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
     ApplicationMessage const& message)
 {
-    printo("Building response for Query request", NodeUtils::PrintType::Handler);
+    m_spLogger->debug(
+        "Building response for the Query request from {}.",
+        message.GetSourceIdentifier().GetNetworkRepresentation());
     IHandler::SendResponse(
         wpBryptPeer, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
     return true;
@@ -154,7 +159,6 @@ bool Handler::Query::AggregateHandler(
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
     ApplicationMessage const& message)
 {
-    printo("Pushing response to ResponseTracker", NodeUtils::PrintType::Handler);
     if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {
         spAwaitManager->PushResponse(message);
     }

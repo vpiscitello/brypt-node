@@ -25,6 +25,8 @@
 // Forward Declarations
 //------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
 namespace Await {
     class ResponseTracker;
     class TrackingManager;
@@ -82,6 +84,7 @@ private:
     void HandleIncomingMessage(AssociatedMessage const& associatedMessage);
 
     bool m_initialized;
+    std::shared_ptr<spdlog::logger> m_spLogger;
 
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<CoordinatorState> m_spCoordinatorState;

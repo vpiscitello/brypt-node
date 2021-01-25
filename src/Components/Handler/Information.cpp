@@ -12,6 +12,7 @@
 #include "BryptNode/NetworkState.hpp"
 #include "Components/BryptPeer/PeerManager.hpp"
 #include "Components/Network/Endpoint.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -148,8 +149,10 @@ bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMess
 bool Handler::Information::FloodHandler(
     std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
 {
-    printo("Building response for Information request", NodeUtils::PrintType::Handler);
-    
+    m_spLogger->debug(
+        "Building response for the Information request from {}.",
+        message.GetSourceIdentifier().GetNetworkRepresentation());
+
     IHandler::SendClusterNotice(
         wpBryptPeer, message,
         "Request for Node Information.",

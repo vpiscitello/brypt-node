@@ -7,7 +7,7 @@
 #include "Session.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/connect.hpp>
@@ -47,7 +47,15 @@ Network::TCP::Endpoint::Endpoint(std::string_view interface, Operation operation
     , m_processors()
     , m_tracker()
     , m_scheduler()
+    , m_spLogger()
 {
+    switch (m_operation) {
+        case Operation::Client: m_spLogger = spdlog::get(LogUtils::Name::TcpClient.data()); break;
+        case Operation::Server: m_spLogger = spdlog::get(LogUtils::Name::TcpServer.data()); break;
+        default: assert(false); break;
+    }
+    assert(m_spLogger);
+
     m_processors = {
         { 
             std::type_index(typeid(InstructionEvent)),
@@ -78,9 +86,7 @@ Network::TCP::Endpoint::Endpoint(std::string_view interface, Operation operation
 Network::TCP::Endpoint::~Endpoint()
 {
     if (!Shutdown()) {
-        std::ostringstream notification;
-        notification << "[TCP] An unexpected error occured during endpoint shutdown";
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+        m_spLogger->error("An unexpected error occured during endpoint shutdown!");
     }
 }
 
@@ -142,9 +148,7 @@ void Network::TCP::Endpoint::Startup()
 
 bool Network::TCP::Endpoint::Shutdown()
 {
-    {
-        NodeUtils::printo("[TCP] Shutting down endpoint", NodeUtils::PrintType::Endpoint);
-    }
+    m_spLogger->info("Shutting down endpoint.");
 
     // Shutdown worker resources. The worker must be stopped first to ensure new data and 
     // sessions are generated as we process the endpoint's shutdown procedure. 
@@ -191,7 +195,8 @@ bool Network::TCP::Endpoint::IsActive() const
 void Network::TCP::Endpoint::ScheduleBind(std::string_view binding)
 {
     if (m_operation != Operation::Server) {
-        throw std::runtime_error("Bind was called a non-listening Endpoint!");
+        m_spLogger->critical("Bind was called a non-listening endpoint!");
+        throw std::runtime_error("Invalid argument.");
     }
 
     TCP::InstructionEvent event;
@@ -202,9 +207,8 @@ void Network::TCP::Endpoint::ScheduleBind(std::string_view binding)
         event.address = std::move(address);
         event.port = boost::lexical_cast<std::uint16_t>(port);
     } catch (...) {
-        std::ostringstream notification;
-        notification << "[TCP] Error occured attempting to schedule a bind to " << binding << "!";
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+        m_spLogger->error("Unable to parse an endpoint binding for {}!", binding);
+        throw std::runtime_error("Invalid argument.");
     }
 
     if (auto const found = event.address.find(NetworkUtils::Wildcard); found != std::string::npos) {
@@ -223,7 +227,8 @@ void Network::TCP::Endpoint::ScheduleBind(std::string_view binding)
 void Network::TCP::Endpoint::ScheduleConnect(std::string_view entry)
 {
     if (m_operation != Operation::Client) {
-        throw std::runtime_error("Connect was called a non-client Endpoint!");
+        m_spLogger->critical("Connect was called on a non-client endpoint!");
+        throw std::runtime_error("Invalid argument.");
     }
     
     TCP::InstructionEvent event;
@@ -234,9 +239,7 @@ void Network::TCP::Endpoint::ScheduleConnect(std::string_view entry)
         event.address = std::move(address);
         event.port = boost::lexical_cast<std::uint16_t>(port);
     } catch (...) {
-        std::ostringstream notification;
-        notification << "[TCP] Error occured attempting to schedule a connection to " << entry << "!";
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+        m_spLogger->warn("Failed to parse {} while scheduling a connection.", entry);
     }
 
     // Schedule the Connect network instruction event
@@ -253,7 +256,8 @@ void Network::TCP::Endpoint::ScheduleConnect(
     std::string_view entry)
 {
     if (m_operation != Operation::Client) {
-        throw std::runtime_error("Connect was called a non-client Endpoint!");
+        m_spLogger->critical("Connect was called on a non-client endpoint!");
+        throw std::runtime_error("Invalid argument.");
     }
 
     TCP::InstructionEvent event;
@@ -265,9 +269,7 @@ void Network::TCP::Endpoint::ScheduleConnect(
         event.address = std::move(address);
         event.port = boost::lexical_cast<std::uint16_t>(port);
     } catch (...) {
-        std::ostringstream notification;
-        notification << "[TCP] Error occured attempting to schedule a connection to " << entry << "!";
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+        m_spLogger->warn("Failed to parse {} while scheduling a connection.", entry);
     }
 
     // Schedule the Connect network instruction event
@@ -309,10 +311,7 @@ void Network::TCP::Endpoint::ServerWorker(std::stop_token token)
         {
             bool const error = (exception || origin == TCP::CompletionOrigin::Error);
             if (error) [[unlikely]] {
-                std::ostringstream notification;
-                notification << "[TCP] An error caused the server on " << m_entry;
-                notification  << " to shutdown!";
-                NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+                m_spLogger->error("An error caused the listener on {} to shutdown!", m_entry);
                 m_active = false;
             }
         });
@@ -381,17 +380,18 @@ void Network::TCP::Endpoint::ProcessNetworkInstruction(
     }
 
     if (!success) {
-        std::ostringstream notification;
-        notification << "[TCP] ";
         switch (event.instruction) {
-            case Instruction::Bind: notification << "Bind to "; break;
-            case Instruction::Connect: notification << "Connection to "; break;
+            case Instruction::Bind: {
+                m_spLogger->error(
+                    "A listener on {}:{} could not be established!", event.address, event.port);
+            } break;
+            case Instruction::Connect: {
+                m_spLogger->warn(
+                    "A connection with {}:{} could not be established.",
+                    event.address, event.port);
+            } break;
             default: assert(false); break; // What is this? 
         }
-        notification << event.address << NetworkUtils::ComponentSeperator;
-        notification << event.port << " failed.";
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
-        notification.clear();
     }
 }
 
@@ -409,7 +409,7 @@ void Network::TCP::Endpoint::ProcessOutgoingMessage(DispatchEvent const& event)
 
 std::shared_ptr<Network::TCP::Session> Network::TCP::Endpoint::CreateSession()
 {
-    auto spSession = std::make_shared<Network::TCP::Session>(m_context);
+    auto spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
 
     spSession->OnMessageDispatched(
         [this] (auto const& spSession) { OnMessageDispatched(spSession); });
@@ -436,11 +436,7 @@ bool Network::TCP::Endpoint::Bind(
         return false;
     };
 
-    {
-        std::ostringstream notification;
-        notification << "[TCP] Opening TCP Server on: " << entry.str();
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
-    }
+    m_spLogger->info("Opening endpoint on {}.", entry.str());
 
     if (m_acceptor.is_open()) { m_acceptor.cancel(); }
 
@@ -493,9 +489,9 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Listen()
             // indicate an operational error has occured. 
             if (IsInducedError(error)) { co_return TCP::CompletionOrigin::Self; }
 
-            std::ostringstream notification;
-            notification << "[TCP] Error occured accepting connection!";
-            NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+            m_spLogger->error(
+                "An unexpected error occured while accepting a connection on {}!", m_entry);
+
             co_return TCP::CompletionOrigin::Error;
         }
 
@@ -521,24 +517,28 @@ Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
     uri.append(std::to_string(port));
 
     auto const status = local::IsAllowableUri(uri, m_pEndpointMediator, m_tracker);
-    if (status != ConnectStatusCode::Success) { return status; }
-
-    {
-        std::ostringstream notification;
-        notification << "[TCP] Connecting to " << uri;
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+    if (status != ConnectStatusCode::Success) {
+        switch (status) {
+            case ConnectStatusCode::DuplicateError: {
+                m_spLogger->warn("Ignoring duplicate connection attempt to {}.", uri);
+            } break;
+            case ConnectStatusCode::ReflectionError: {
+                m_spLogger->warn("Ignoring reflective connection attempt to {}.", uri);
+            } break;
+            default: assert(false); break;
+        }
+        return status;
     }
 
+    m_spLogger->info("Attempting a connection with {}.", uri);
+    
     boost::asio::co_spawn(
         m_context, Connect(uri, address, port, spIdentifier),
-        [uri] (std::exception_ptr exception, TCP::CompletionOrigin origin)
+        [spLogger = m_spLogger, uri] (std::exception_ptr exception, TCP::CompletionOrigin origin)
         {
             bool const error = (exception || origin == TCP::CompletionOrigin::Error);
             if (error) {
-                std::ostringstream notification;
-                notification << "[TCP] An error caused the conncection attempt to " << uri;
-                notification << " to fail!";
-                NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+                spLogger->warn("Connection attempt to {} failed.", uri);
             }
         });
 
@@ -558,12 +558,9 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Connect(
     auto const endpoints = co_await m_resolver.async_resolve(
         { address, std::to_string(port) },
         boost::asio::redirect_error(boost::asio::use_awaitable, error));
-
     if (error) {
-        std::ostringstream notification;
-        notification << "[TCP] An endpoint could not be resolved for " << address;
-        notification << NetworkUtils::ComponentSeperator << port << "!";
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+        m_spLogger->warn(
+            "Unable to resolve an endpoint for {}:{}", address, port);
         co_return TCP::CompletionOrigin::Error;
     }
 
@@ -576,10 +573,8 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Connect(
                           m_pPeerMediator->DeclareResolvingPeer(spIdentifier);
 
     if (!optConnectionRequest) {
-        std::ostringstream notification;
-        notification << "[TCP] The initial connection request could not be determined for";
-        notification << address << NetworkUtils::ComponentSeperator << port << "!";;
-        NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
+        m_spLogger->warn(
+            "Unable to determine the handshake request for {}:{}", address, port);
         co_return TCP::CompletionOrigin::Error;
     }
 
@@ -614,11 +609,6 @@ void Network::TCP::Endpoint::OnSessionStarted(std::shared_ptr<Session> const& sp
 
     // Start the session handlers. 
     spSession->Start();
-
-    // Log that a new session has started with a new peer. 
-    std::ostringstream notification;
-    notification << "[TCP] Session started with " << spSession->GetURI();
-    NodeUtils::printo(notification.str(), NodeUtils::PrintType::Endpoint);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -707,9 +697,6 @@ Network::TCP::ConnectStatusCode local::IsAllowableUri(
     // If the URI matches a currently connected or resolving peer. The connection
     // should not be allowed as it break a valid connection. 
     if (bool const tracked = tracker.IsURITracked(uri); tracked) {
-        std::ostringstream oss;
-        oss << "[TCP] Duplicate connection to " << uri;
-        NodeUtils::printo(oss.str(), NodeUtils::PrintType::Endpoint);
         return ConnectStatusCode::DuplicateError;
     }
 

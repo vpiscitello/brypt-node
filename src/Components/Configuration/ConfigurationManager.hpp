@@ -13,6 +13,8 @@
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
 //------------------------------------------------------------------------------------------------
 namespace Configuration {
 //------------------------------------------------------------------------------------------------
@@ -53,6 +55,8 @@ private:
 
     void GetConfigurationOptionsFromUser();
     void InitializeSettings();
+    
+    std::shared_ptr<spdlog::logger> m_spLogger;
 
     std::filesystem::path m_filepath;
     Settings m_settings;

@@ -17,6 +17,8 @@
 #include <unordered_map>
 //------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
 class BryptNode;
 class BryptPeer;
 class ApplicationMessage;
@@ -81,6 +83,7 @@ protected:
         
     Handler::Type m_type;
     BryptNode& m_instance;
+    std::shared_ptr<spdlog::logger> m_spLogger;
 
 private: 
     virtual void SendNotice(

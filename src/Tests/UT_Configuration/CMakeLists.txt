@@ -15,7 +15,8 @@ target_sources(
     PeerPersistorTest.cpp
     UT_Configuration.cpp)
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     BryptPeer Security Configuration MessageControl BryptMessage BryptIdentifier 

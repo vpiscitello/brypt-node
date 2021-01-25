@@ -17,6 +17,7 @@
 #include "Components/Await/TrackingManager.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/BryptPeer/PeerManager.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 //------------------------------------------------------------------------------------------------
@@ -51,6 +52,7 @@ Handler::IHandler::IHandler(
     Handler::Type type, BryptNode& instance)
     : m_type(type)
     , m_instance(instance)
+    , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
 {
 }
 

@@ -98,7 +98,7 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
     
-    EXPECT_EQ(tracker.UpdateResponse(*optResponse), Await::ResponseStatus::Fulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optResponse), Await::UpdateStatus::Fulfilled);
 
     bool const bUpdateSendSuccess = tracker.SendFulfilledResponse();
     EXPECT_TRUE(bUpdateSendSuccess);
@@ -188,9 +188,9 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
-    EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
-    EXPECT_EQ(tracker.UpdateResponse(*optPeerOneResponse), Await::ResponseStatus::Unfulfilled);
-    EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::ResponseStatus::Fulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::UpdateStatus::Success);
+    EXPECT_EQ(tracker.UpdateResponse(*optPeerOneResponse), Await::UpdateStatus::Success);
+    EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::UpdateStatus::Fulfilled);
 
     bool const bUpdateSendSuccess = tracker.SendFulfilledResponse();
     EXPECT_TRUE(bUpdateSendSuccess);
@@ -327,8 +327,8 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
-    EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::ResponseStatus::Unfulfilled);
-    EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::ResponseStatus::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optServerResponse), Await::UpdateStatus::Success);
+    EXPECT_EQ(tracker.UpdateResponse(*optPeerTwoResponse), Await::UpdateStatus::Success);
 
     std::this_thread::sleep_for(Await::ResponseTracker::ExpirationPeriod + 1ms);
 
@@ -399,7 +399,7 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
     
-    EXPECT_EQ(tracker.UpdateResponse(*optLateResponse), Await::ResponseStatus::Completed);
+    EXPECT_EQ(tracker.UpdateResponse(*optLateResponse), Await::UpdateStatus::Expired);
     EXPECT_EQ(tracker.GetResponseCount(), std::uint32_t(0));
 }
 
@@ -449,7 +449,7 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
     
-    EXPECT_EQ(tracker.UpdateResponse(*optUnexpectedResponse), Await::ResponseStatus::Unfulfilled);
+    EXPECT_EQ(tracker.UpdateResponse(*optUnexpectedResponse), Await::UpdateStatus::Unexpected);
     EXPECT_EQ(tracker.GetResponseCount(), std::uint32_t(0));
 
     auto const bUpdateSendSuccess = tracker.SendFulfilledResponse();

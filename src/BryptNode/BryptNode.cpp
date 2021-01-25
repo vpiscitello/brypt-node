@@ -20,7 +20,7 @@
 #include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/EndpointManager.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <random>
@@ -50,6 +50,7 @@ BryptNode::BryptNode(
     std::shared_ptr<PeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::Manager> const& upConfigurationManager)
     : m_initialized(false)
+    , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_spNodeState()
     , m_spCoordinatorState()
     , m_spNetworkState()
@@ -62,6 +63,8 @@ BryptNode::BryptNode(
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
 {
+    assert(m_spLogger);
+
     // An EndpointManager and PeerManager is required for the node to operate
     if (!m_spEndpointManager || !m_spPeerManager) {
         return;
@@ -103,14 +106,9 @@ BryptNode::BryptNode(
 //------------------------------------------------------------------------------------------------
 void BryptNode::Startup()
 {
-    if (m_initialized == false) {
-        throw std::runtime_error("Invalid Brypt Node instance!");
-    }
-
-    printo("Starting up Brypt Node", NodeUtils::PrintType::Node);
-
+    assert(m_initialized);
+    m_spLogger->info("Starting up brypt node instance.");
     m_spEndpointManager->Startup();
-
     StartLifecycle();
 }
 

@@ -3,12 +3,21 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "TrackingManager.hpp"
-#include "Utilities/NodeUtils.hpp"
+#include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <openssl/md5.h>
 //------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
+//------------------------------------------------------------------------------------------------
+
+Await::TrackingManager::TrackingManager()
+    : m_awaiting()
+    , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+{
+    assert(m_spLogger);
+}
+
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -22,8 +31,9 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     BryptIdentifier::SharedContainer const& spBryptPeerIdentifier)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
-    NodeUtils::printo(
-        "Pushing ResponseTracker with key: " + std::to_string(key), NodeUtils::PrintType::Await);
+    m_spLogger->debug(
+        "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
+        key, message.GetSourceIdentifier().GetNetworkRepresentation());
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, spBryptPeerIdentifier));
     return key;
 }
@@ -41,8 +51,9 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     std::set<BryptIdentifier::SharedContainer> const& identifiers)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
-    NodeUtils::printo(
-        "Pushing ResponseTracker with key: " + std::to_string(key), NodeUtils::PrintType::Await);
+    m_spLogger->debug(
+        "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
+        message.GetSourceIdentifier().GetNetworkRepresentation(), key);
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, identifiers));
     return key;
 }
@@ -58,26 +69,49 @@ bool Await::TrackingManager::PushResponse(ApplicationMessage const& message)
 {
     // Try to get an await object ID from the message
     auto const& optKey = message.GetAwaitTrackerKey();
-    if (!optKey) {
-        return false;
-    }
+    if (!optKey) { return false; }
 
     // Try to find the awaiting object in the awaiting container
     auto const itr = m_awaiting.find(*optKey);
     if(itr == m_awaiting.end()) {
+        m_spLogger->warn(
+            "Unable to find an awaiting request for id={:x}."
+            "The request may have exist or has expired.", *optKey);
         return false;
     }
+
     auto& [key, tracker] = *itr;
     assert(key == *optKey);
 
     // Update the response to the waiting message with th new message
-    NodeUtils::printo(
-        "Pushing response to ResponseTracker " + std::to_string(key), NodeUtils::PrintType::Await);
-
-    auto const status = tracker.UpdateResponse(message);
-    if (status == ResponseStatus::Fulfilled) {
-        NodeUtils::printo(
-            "ResponseTracker has been fulfilled, Waiting to transmit", NodeUtils::PrintType::Await);
+    switch (tracker.UpdateResponse(message)) {
+        // Response tracter update success handling. 
+        // The tracker will notify us if the response update was successful or if on success the
+        // awaiting request became fulfilled. 
+        case UpdateStatus::Success: {
+            m_spLogger->debug("Received response for awaiting request. [request={:x}].", key);
+        } break;
+        case UpdateStatus::Fulfilled: {
+            m_spLogger->debug(
+                "Await request has been fulfilled, waiting to transmit. [request={:x}]", key);
+        } break;
+        // Response tracker update error handling.
+        // The tracker will us us if the response was the received response was received after
+        // allowable period. This may only occur while the response is waiting for transmission
+        // and we able to determine the associated request for the message. 
+        case UpdateStatus::Expired: {
+            m_spLogger->warn(
+                "Expired await request for {} received a late response from {}. [request={:x}]",
+                tracker.GetSource().GetNetworkRepresentation(),
+                message.GetSourceIdentifier().GetNetworkRepresentation(), key);
+        } return false;
+        case UpdateStatus::Unexpected: {
+            m_spLogger->warn(
+                "Await request for {} received an unexpected response from {}. [request={:x}]",
+                tracker.GetSource().GetNetworkRepresentation(), 
+                message.GetSourceIdentifier().GetNetworkRepresentation(), key);
+        } return false;
+        default: assert(false); return false;
     }
 
     return true;
@@ -93,10 +127,16 @@ void Await::TrackingManager::ProcessFulfilledRequests()
     for (auto itr = m_awaiting.begin(); itr != m_awaiting.end();) {
         auto& [key, tracker] = *itr;
         if (tracker.CheckResponseStatus() == ResponseStatus::Fulfilled) {
-            NodeUtils::printo(
-                "Sending fulfilled response for:  " + std::to_string(key),
-                NodeUtils::PrintType::Await);
-            [[maybe_unused]] bool const bSuccess = tracker.SendFulfilledResponse();
+            bool const success = tracker.SendFulfilledResponse();
+            if (success) {
+                m_spLogger->debug(  
+                    "Await request has been transmitted to {}. [request={:x}]",
+                    tracker.GetSource().GetNetworkRepresentation(), key);
+            } else {
+                m_spLogger->warn(  
+                    "Unable to fulfill request from {}. [request={:x}]",
+                    key, tracker.GetSource().GetNetworkRepresentation());
+            }
             itr = m_awaiting.erase(itr);
         } else {
             ++itr;

@@ -14,7 +14,8 @@ target_sources(
     AwaitTest.cpp
     UT_Await.cpp)
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Await BryptIdentifier BryptPeer Security MessageControl BryptMessage 

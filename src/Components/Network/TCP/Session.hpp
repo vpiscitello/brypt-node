@@ -21,6 +21,8 @@
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
 //------------------------------------------------------------------------------------------------
 namespace Network::TCP {
 //------------------------------------------------------------------------------------------------
@@ -41,7 +43,7 @@ public:
         std::span<std::uint8_t const> message)>;
     using SessionErrorCallback = std::function<void(std::shared_ptr<Session> const&)>;
     
-    explicit Session(boost::asio::io_context& context);
+    Session(boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& spLogger);
     ~Session();
 
     [[nodiscard]] bool IsActive() const;
@@ -59,13 +61,15 @@ public:
     [[nodiscard]] bool ScheduleSend(std::string_view message);
 
 private:
+    enum class LogLevel : std::uint8_t { Default, Warning };
+
     SocketProcessor Receiver();
     SocketProcessor Dispatcher();
 
     [[nodiscard]] bool OnMessageReceived(std::span<std::uint8_t const> receivable);
     
     [[nodiscard]] CompletionOrigin OnSessionError(boost::system::error_code const& error);
-    void OnSessionError(std::string_view error);
+    void OnSessionError(std::string_view error, LogLevel level = LogLevel::Default);
 
     std::atomic_bool m_active;
     std::string m_uri;
@@ -78,6 +82,8 @@ private:
     MessageDispatchedCallback m_onDispatched;
     MessageReceivedCallback m_onReceived;
     SessionErrorCallback m_onError;
+
+    std::shared_ptr<spdlog::logger> m_spLogger;
 };
 
 //------------------------------------------------------------------------------------------------
