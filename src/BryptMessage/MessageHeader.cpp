@@ -82,14 +82,15 @@ std::optional<BryptIdentifier::Container> const& MessageHeader::GetDestinationId
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t MessageHeader::GetPackSize() const
+std::size_t MessageHeader::GetPackSize() const
 {
     std::size_t size = FixedPackSize();
     size += m_source.NetworkRepresentationSize();
     if (m_optDestinationIdentifier) {
         size += m_optDestinationIdentifier->NetworkRepresentationSize();
     }
-    return static_cast<std::uint32_t>(size);
+    assert(std::cmp_less(size, std::numeric_limits<std::uint16_t>::max()));
+    return size;
 }
 
 //------------------------------------------------------------------------------------------------

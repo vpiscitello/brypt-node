@@ -57,13 +57,13 @@ public:
 	TimeUtils::Timestamp const& GetTimestamp() const;
 	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;
 
-    std::uint32_t GetPackSize() const;
+    std::size_t GetPackSize() const;
 	std::string GetPack() const;
 	Message::ValidationStatus Validate() const;
 
 private:
-	constexpr std::uint32_t FixedPackSize() const;
-	constexpr std::uint16_t FixedAwaitExtensionSize() const;
+	constexpr std::size_t FixedPackSize() const;
+	constexpr std::size_t FixedAwaitExtensionSize() const;
 
 	MessageContext m_context; // The internal message context of the message
 	MessageHeader m_header; // The required message header 

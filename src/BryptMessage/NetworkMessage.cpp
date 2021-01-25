@@ -106,15 +106,15 @@ Message::Buffer const& NetworkMessage::GetPayload() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t NetworkMessage::GetPackSize() const
+std::size_t NetworkMessage::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
 	size += m_payload.size();
 
 	auto const encoded = Z85::EncodedSize(size);
-	assert(encoded < std::numeric_limits<std::uint32_t>::max());
-	return static_cast<std::uint32_t>(encoded);
+    assert(std::cmp_less(encoded, std::numeric_limits<std::uint32_t>::max()));
+	return encoded;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -169,13 +169,14 @@ Message::ValidationStatus NetworkMessage::Validate() const
 
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t NetworkMessage::FixedPackSize() const
+constexpr std::size_t NetworkMessage::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(Message::Network::Type); // 1 byte for network message type
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-	return static_cast<std::uint32_t>(size);
+    assert(std::cmp_less(size, std::numeric_limits<std::uint32_t>::max()));
+	return size;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -311,7 +312,7 @@ NetworkBuilder& NetworkBuilder::FromEncodedPack(std::string_view pack)
 
 NetworkMessage&& NetworkBuilder::Build()
 {
-	m_message.m_header.m_size = m_message.GetPackSize();
+	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
 
     return std::move(m_message);
 }
@@ -320,7 +321,7 @@ NetworkMessage&& NetworkBuilder::Build()
 
 NetworkBuilder::OptionalMessage NetworkBuilder::ValidatedBuild()
 {
-	m_message.m_header.m_size = m_message.GetPackSize();
+	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
 
     if (m_message.Validate() != Message::ValidationStatus::Success) {
         return {};

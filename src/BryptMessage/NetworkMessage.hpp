@@ -51,12 +51,12 @@ public:
 	Message::Network::Type GetMessageType() const;
 	Message::Buffer const& GetPayload() const;
 
-    std::uint32_t GetPackSize() const;
+    std::size_t GetPackSize() const;
 	std::string GetPack() const;
 	Message::ValidationStatus Validate() const;
 
 private:
-	constexpr std::uint32_t FixedPackSize() const;
+	constexpr std::size_t FixedPackSize() const;
 
 	MessageContext m_context; // The internal message context of the message
 	MessageHeader m_header; // The required message header 

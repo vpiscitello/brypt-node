@@ -19,7 +19,7 @@ Handler::Type UnpackCommand(
 std::optional<Message::BoundTrackerKey> UnpackAwaitTracker(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end,
-	std::uint32_t expected);
+	std::size_t expected);
 
 //------------------------------------------------------------------------------------------------
 namespace Extensions {
@@ -148,7 +148,7 @@ std::optional<Await::TrackerKey> ApplicationMessage::GetAwaitTrackerKey() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t ApplicationMessage::GetPackSize() const
+std::size_t ApplicationMessage::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
@@ -161,8 +161,8 @@ std::uint32_t ApplicationMessage::GetPackSize() const
 	size += m_context.GetSignatureSize();
 
 	auto const encoded = Z85::EncodedSize(size);
-	assert(encoded < std::numeric_limits<std::uint32_t>::max());
-	return static_cast<std::uint32_t>(encoded);
+	assert(std::cmp_less(encoded, std::numeric_limits<std::uint32_t>::max()));
+	return encoded;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -196,8 +196,9 @@ std::string ApplicationMessage::GetPack() const
 	auto& extensionCountByte = buffer.back();
 	if (m_optBoundAwaitTracker) {
 		++extensionCountByte;
+        std::uint16_t const size = static_cast<std::uint16_t>(FixedAwaitExtensionSize());
 		PackUtils::PackChunk(local::Extensions::AwaitTracker, buffer);
-		PackUtils::PackChunk(FixedAwaitExtensionSize(), buffer);
+		PackUtils::PackChunk(size, buffer);
 		PackUtils::PackChunk(m_optBoundAwaitTracker->first, buffer);
 		PackUtils::PackChunk(m_optBoundAwaitTracker->second, buffer);
 	}
@@ -241,7 +242,7 @@ Message::ValidationStatus ApplicationMessage::Validate() const
 
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint32_t ApplicationMessage::FixedPackSize() const
+constexpr std::size_t ApplicationMessage::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(m_command); // 1 byte for command type
@@ -249,19 +250,21 @@ constexpr std::uint32_t ApplicationMessage::FixedPackSize() const
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint64_t); // 8 bytes for message timestamp
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-	return static_cast<std::uint32_t>(size);
+    assert(std::cmp_less(size, std::numeric_limits<std::uint32_t>::max()));
+	return size;
 }
 
 //------------------------------------------------------------------------------------------------
 
-constexpr std::uint16_t ApplicationMessage::FixedAwaitExtensionSize() const
+constexpr std::size_t ApplicationMessage::FixedAwaitExtensionSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(local::Extensions::AwaitTracker); // 1 byte for the extension type
 	size += sizeof(std::uint16_t); // 2 bytes for the extension size
 	size += sizeof(m_optBoundAwaitTracker->first); // 1 byte for await tracker binding
 	size += sizeof(m_optBoundAwaitTracker->second); // 4 bytes for await tracker key
-	return static_cast<std::uint16_t>(size);
+    assert(std::cmp_less(size, std::numeric_limits<std::uint16_t>::max()));
+	return size;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -433,7 +436,7 @@ ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
 
 ApplicationMessage&& ApplicationBuilder::Build()
 {
-	m_message.m_header.m_size = m_message.GetPackSize();
+	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
 
     return std::move(m_message);
 }
@@ -442,7 +445,7 @@ ApplicationMessage&& ApplicationBuilder::Build()
 
 ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
 {
-	m_message.m_header.m_size = m_message.GetPackSize();
+	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
 
     if (m_message.Validate() != Message::ValidationStatus::Success) {
         return {};
@@ -553,27 +556,19 @@ Handler::Type local::UnpackCommand(
 std::optional<Message::BoundTrackerKey> local::UnpackAwaitTracker(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end,
-	std::uint32_t expected)
+	std::size_t expected)
 {
 	std::uint16_t size = 0;
-	if (!PackUtils::UnpackChunk(begin, end, size)) {
-		return {};
-	}
+	if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
 	
-	if (size < expected) {
-		return {};
-	}
+	if (std::cmp_less(size, expected)) { return {}; }
 
 	using BindingType = std::underlying_type_t<Message::AwaitBinding>;
 	BindingType binding = 0;
-	if (!PackUtils::UnpackChunk(begin, end, binding)) {
-		return {};
-	}
+	if (!PackUtils::UnpackChunk(begin, end, binding)) { return {}; }
 
 	Await::TrackerKey tracker = 0;
-	if (!PackUtils::UnpackChunk(begin, end, tracker)) {
-		return {};
-	}
+	if (!PackUtils::UnpackChunk(begin, end, tracker)) { return {}; }
 
 	switch (binding) {
 		case static_cast<BindingType>(Message::AwaitBinding::Source): {

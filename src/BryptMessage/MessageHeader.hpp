@@ -31,12 +31,12 @@ public:
     Message::Destination GetDestinationType() const;
     std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
 
-    std::uint32_t GetPackSize() const;
+    std::size_t GetPackSize() const;
 	Message::Buffer GetPackedBuffer() const;
 
 	bool IsValid() const;
 
-	constexpr static std::uint32_t FixedPackSize()
+	constexpr static std::size_t FixedPackSize()
     {
         std::size_t size = 0;
         size += sizeof(m_protocol); // 1 byte for message protocol type 
@@ -47,10 +47,11 @@ public:
         size += sizeof(std::uint8_t); // 1 byte for destination type
         size += sizeof(std::uint8_t); // 1 byte for destination identifier size
         size += sizeof(std::uint8_t); // 1 bytes for header extension size
-        return static_cast<std::uint32_t>(size);
+        assert(std::cmp_less(size, std::numeric_limits<std::uint16_t>::max()));
+        return size;
     }
 
-    constexpr static std::uint32_t PeekableEncodedSize()
+    constexpr static std::size_t PeekableEncodedSize()
     {
         std::size_t size = 0;
         size += sizeof(m_protocol); // 1 byte for message protocol type 
@@ -58,17 +59,21 @@ public:
         size += sizeof(m_version.second); // 1 byte for minor version
         size += sizeof(m_size); // 4 bytes for message size
         size += sizeof(std::uint8_t); // 1 byte for source identifier size
-        return static_cast<std::uint32_t>(Z85::EncodedSize(size));
+        auto const encoded = Z85::EncodedSize(size);
+        assert(std::cmp_less(encoded, std::numeric_limits<std::uint16_t>::max()));
+        return encoded;
     }
 
-    constexpr static std::uint32_t MaximumEncodedSize()
+    constexpr static std::size_t MaximumEncodedSize()
     {
         // Base the peekable encoded size 
         std::size_t size = FixedPackSize();
         // Account for the maximum possible sizes of the source and destination sizes.
         size += BryptIdentifier::Network::MaximumLength;
         size += BryptIdentifier::Network::MaximumLength;
-        return static_cast<std::uint32_t>(Z85::EncodedSize(size));
+        auto const encoded = Z85::EncodedSize(size);
+        assert(std::cmp_less(encoded, std::numeric_limits<std::uint16_t>::max()));
+        return encoded;
     }
 
 private:
