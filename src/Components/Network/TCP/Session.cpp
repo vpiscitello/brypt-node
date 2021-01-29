@@ -147,13 +147,9 @@ void Network::TCP::Session::Start()
 
 void Network::TCP::Session::Stop()
 {
-    if (!m_active) [[unlikely]] { assert(!m_socket.is_open()); return; }
-
-    m_spLogger->info("Shutting down session with {}.", m_uri);
-
+    if (m_active) {  m_spLogger->info("Shutting down session with {}.", m_uri); }
     m_socket.close();
     m_timer.cancel();
-
     m_active = false;
 }
 

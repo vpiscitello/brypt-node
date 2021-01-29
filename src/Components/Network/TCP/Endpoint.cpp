@@ -538,7 +538,7 @@ Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
         {
             bool const error = (exception || origin == TCP::CompletionOrigin::Error);
             if (error) {
-                spLogger->warn("Connection attempt to {} failed.", uri);
+                spLogger->warn("Unable to connect to {} due to an unexpected error.", uri);
             }
         });
 
@@ -559,8 +559,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Connect(
         { address, std::to_string(port) },
         boost::asio::redirect_error(boost::asio::use_awaitable, error));
     if (error) {
-        m_spLogger->warn(
-            "Unable to resolve an endpoint for {}:{}", address, port);
+        m_spLogger->warn("Unable to resolve an endpoint for {}", uri);
         co_return TCP::CompletionOrigin::Error;
     }
 
@@ -585,7 +584,13 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Connect(
         boost::asio::redirect_error(boost::asio::use_awaitable, error));
     
     // If there was an error establishing the connection, there is nothing to do. 
-    if (error) { co_return TCP::CompletionOrigin::Error; }
+    if (error) {
+        if (error.value() == boost::asio::error::connection_refused) {
+            m_spLogger->warn("Connection refused by {}", uri);
+            co_return TCP::CompletionOrigin::Peer;
+        }
+        co_return TCP::CompletionOrigin::Error;
+    }
 
     OnSessionStarted(spSession);
     
