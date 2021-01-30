@@ -28,7 +28,7 @@ class Manager;
 class Configuration::Manager  {
 public:
     Manager();
-    explicit Manager(std::string_view filepath);
+    Manager(std::string_view filepath, bool interactive);
     explicit Manager(Settings const& settings);
 
     StatusCode FetchSettings();
@@ -57,6 +57,7 @@ private:
     void InitializeSettings();
     
     std::shared_ptr<spdlog::logger> m_spLogger;
+    bool m_isGeneratorAllowed;
 
     std::filesystem::path m_filepath;
     Settings m_settings;

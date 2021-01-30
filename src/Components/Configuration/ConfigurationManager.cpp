@@ -232,6 +232,7 @@ LI_SYMBOL(value)
 
 Configuration::Manager::Manager()
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_isGeneratorAllowed(false)
     , m_filepath()
     , m_settings()
     , m_validated(false)
@@ -245,8 +246,9 @@ Configuration::Manager::Manager()
 
 //-----------------------------------------------------------------------------------------------
 
-Configuration::Manager::Manager(std::string_view filepath)
+Configuration::Manager::Manager(std::string_view filepath, bool isGeneratorAllowed)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_isGeneratorAllowed(isGeneratorAllowed)
     , m_filepath(filepath)
     , m_settings()
     , m_validated(false)
@@ -262,7 +264,7 @@ Configuration::Manager::Manager(std::string_view filepath)
         m_filepath = GetDefaultBryptFolder() / m_filepath;
     }
     
-    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+    if (m_isGeneratorAllowed && !FileUtils::CreateFolderIfNoneExist(m_filepath)) {
         m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
     }
 }
@@ -271,6 +273,7 @@ Configuration::Manager::Manager(std::string_view filepath)
 
 Configuration::Manager::Manager(Settings const& settings)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_isGeneratorAllowed(false)
     , m_filepath()
     , m_settings(settings)
     , m_validated(false)
@@ -293,8 +296,16 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
         m_spLogger->info("Reading configuration file at: {}.", m_filepath.string());
         status = DecodeConfigurationFile();
     } else {
+        if (!m_isGeneratorAllowed) {
+            std::ostringstream oss;
+            oss << "Unable to locate: {}; The configuration generator could not be launched ";
+            oss << "with \"--non-interactive\" enabled.";
+            m_spLogger->error(oss.str(), m_filepath.string());
+            return StatusCode::FileError;
+        }
+
         m_spLogger->warn(
-            "No configuration file exists. Launching configuration file setup for: {}.",
+            "A configuration file could not be found. Launching configuration generator for: {}.",
             m_filepath.string());
         status = GenerateConfigurationFile();
     }

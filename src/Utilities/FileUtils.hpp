@@ -32,13 +32,15 @@ inline bool FileUtils::CreateFolderIfNoneExist(std::filesystem::path const& path
     // If the directories exist, there is nothing to do.
     if (std::filesystem::exists(base)) { return true; }
     
+    std::error_code error;
     // Create directories in the base path that do not exist
-    bool const success = std::filesystem::create_directories(base);
+    bool const success = std::filesystem::create_directories(base, error);
     if (success) {
         // Set the permissions on the brypt conffiguration folder such that only the 
         // user can read, write, and execute
         std::filesystem::permissions(base, std::filesystem::perms::owner_all);
     }
+    
     return success;
 }
 

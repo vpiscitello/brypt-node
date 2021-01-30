@@ -17,7 +17,7 @@ set(BOOST_HASH "SHA256=aeb26f80e80945e82ee93e5939baebdca47b9dee80a07d3144be1e1a6
 set(BOOST_DIRECTORY ${DEPENDENCY_DIRECTORY}/boost/${BOOST_VERSION})
 set(BOOST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/boost/${BOOST_VERSION})
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS system HINTS ${BOOST_DIRECTORY} QUIET)
+find_package(Boost ${BOOST_VERSION} COMPONENTS system program_options HINTS ${BOOST_DIRECTORY} QUIET)
 if (NOT Boost_FOUND)
     if (NOT EXISTS ${BOOST_DOWNLOAD_DIRECTORY})
         message(STATUS "Boost was not found. Downloading now...")
@@ -64,7 +64,9 @@ if (NOT Boost_FOUND)
         INSTALL_DIR ${BOOST_DIRECTORY})
 
     set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include)
-    set(Boost_LIBRARIES ${BOOST_DIRECTORY}/lib/libboost_system.a)
+    set(Boost_LIBRARIES
+        ${BOOST_DIRECTORY}/lib/libboost_system.a
+        ${BOOST_DIRECTORY}/lib/libboost_program_options.a)
 endif()
 
 message(DEBUG "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")

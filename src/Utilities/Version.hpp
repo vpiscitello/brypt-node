@@ -1,11 +1,9 @@
 //------------------------------------------------------------------------------------------------
 // File: Version.hpp
-// Description: Holds version information about the Brypt software
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
-#include <cstring>
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
@@ -16,8 +14,7 @@ namespace Brypt {
 constexpr std::uint8_t MajorVersion = 0;
 constexpr std::uint8_t MinorVersion = 0;
 constexpr std::uint8_t PatchVersion = 0;
-constexpr std::string_view VersionName = "Alpha";
-constexpr std::string_view Version = "0.0.0 Alpha";
+constexpr std::string_view Version = "0.0.0";
 
 //------------------------------------------------------------------------------------------------
 } // Brypt namespace

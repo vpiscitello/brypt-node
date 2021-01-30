@@ -18,7 +18,7 @@
 namespace LogUtils {
 //------------------------------------------------------------------------------------------------
 
-void InitializeLoggers();
+void InitializeLoggers(spdlog::level::level_enum verbosity = spdlog::level::debug);
 
 using Logger = std::shared_ptr<spdlog::logger>;
 
@@ -70,7 +70,7 @@ std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> CreateTrueColorConsole();
 } // FileUtils namespace
 //------------------------------------------------------------------------------------------------
 
-inline void LogUtils::InitializeLoggers()
+inline void LogUtils::InitializeLoggers(spdlog::level::level_enum verbosity)
 {
     auto spCoreLogger = std::make_shared<spdlog::logger>(
         Name::Core.data(), Color::CreateTrueColorConsole()); 
@@ -86,6 +86,8 @@ inline void LogUtils::InitializeLoggers()
         Name::TcpClient.data(), Color::CreateTrueColorConsole());
     spTcpClientLogger->set_pattern(Pattern::Generate(Color::TCP, {"tcp", "client"}));
     spdlog::register_logger(spTcpClientLogger);
+
+    spdlog::set_level(verbosity);
 }
 
 //-----------------------------------------------------------------------------------------------
