@@ -215,6 +215,11 @@ void Network::TCP::Endpoint::ScheduleBind(std::string_view binding)
         event.address = NetworkUtils::GetInterfaceAddress(m_interface);
     }
 
+    // Greedily set the entry to the provided binding to prevent reflection 
+    // connections on startup. If the binding fails or changes, it will be updated by 
+    // the thread. 
+    m_entry = binding;
+
     // Schedule the Bind network instruction event
     {
         std::scoped_lock lock(m_eventsMutex);
@@ -430,8 +435,9 @@ bool Network::TCP::Endpoint::Bind(
     std::ostringstream entry;
     entry << address << NetworkUtils::ComponentSeperator << port;
 
-    auto const OnBindError = [&acceptor = m_acceptor] () -> bool
+    auto const OnBindError = [&entry = m_entry, &acceptor = m_acceptor] () -> bool
     {
+        entry.clear();
         acceptor.close();
         return false;
     };
