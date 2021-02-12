@@ -11,6 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    AddressTest.cpp
     ConnectionDetailsTest.cpp
     EndpointManagerTest.cpp
     MessageSinkStub.cpp
