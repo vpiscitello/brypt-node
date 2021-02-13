@@ -375,7 +375,7 @@ TEST(AddressTest, TcpRemoteAddressMoveTest)
     EXPECT_EQ(address.GetAuthority(), "127.0.0.1:35216");
     EXPECT_EQ(address.GetSize(), Expected.size());
     EXPECT_EQ(address.IsValid(), true);
-    EXPECT_TRUE(initial.IsBootstrapable());
+    EXPECT_TRUE(address.IsBootstrapable());
     EXPECT_EQ(Network::Socket::ParseAddressType(address), Network::Socket::Type::IPv4);
 }
 
