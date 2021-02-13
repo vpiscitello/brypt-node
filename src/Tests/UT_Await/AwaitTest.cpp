@@ -42,6 +42,8 @@ constexpr std::string_view Message = "Hello World!";
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
+Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -56,6 +58,7 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -122,6 +125,7 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress, 
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -214,6 +218,7 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -269,6 +274,7 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -355,6 +361,7 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -414,6 +421,7 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
@@ -468,6 +476,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&context, &optFulfilledResponse] (
             [[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {

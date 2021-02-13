@@ -1,10 +1,10 @@
 //------------------------------------------------------------------------------------------------
 #include "Session.hpp"
+//------------------------------------------------------------------------------------------------
 #include "EndpointDefinitions.hpp"
 #include "BryptMessage/MessageHeader.hpp"
 #include "BryptMessage/MessageUtils.hpp"
 #include "Utilities/Z85.hpp"
-#include "Utilities/NetworkUtils.hpp"
 #include "Utilities/LogUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/asio/buffer.hpp>
@@ -24,7 +24,7 @@
 Network::TCP::Session::Session(
     boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& spLogger)
     : m_active(false)
-    , m_uri()
+    , m_address()
     , m_socket(context)
     , m_timer(m_socket.get_executor())
     , m_outgoing()
@@ -52,9 +52,9 @@ bool Network::TCP::Session::IsActive() const
 
 //------------------------------------------------------------------------------------------------
 
-std::string const& Network::TCP::Session::GetURI() const
+Network::RemoteAddress const& Network::TCP::Session::GetAddress() const
 {
-    return m_uri;
+    return m_address;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -87,15 +87,16 @@ void Network::TCP::Session::OnSessionError(SessionErrorCallback const& callback)
 
 //------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::Initialize()
+void Network::TCP::Session::Initialize(Operation source)
 {
     assert(m_socket.is_open());
 
     auto const endpoint = m_socket.remote_endpoint();
     std::ostringstream uri;
-    uri << Network::TCP::Scheme;
-    uri << endpoint.address().to_string() << NetworkUtils::ComponentSeperator << endpoint.port();
-    m_uri = uri.str();
+    uri << Network::TCP::Scheme << Network::SchemeSeperator;
+    uri << endpoint.address().to_string() << Network::ComponentSeperator << endpoint.port();
+
+    m_address = { Protocol::TCP, uri.str(), (source == Operation::Client) };
 }
 
 //------------------------------------------------------------------------------------------------
@@ -116,7 +117,7 @@ void Network::TCP::Session::Start()
             if (error) { 
                 spLogger->error(
                     "An unexpected error caused the receiver for {} to shutdown!",
-                    spContext->GetURI());
+                    spContext->GetAddress());
             }
         });
 
@@ -134,11 +135,11 @@ void Network::TCP::Session::Start()
             if (error) { 
                 spLogger->error(
                     "An unexpected error caused the dispatcher for {} to shutdown!",
-                    spContext->GetURI());
+                    spContext->GetAddress());
             }
         });
 
-    m_spLogger->info("Session started with {}.", m_uri);
+    m_spLogger->info("Session started with {}.", m_address);
 
     m_active = true;
 }
@@ -147,7 +148,7 @@ void Network::TCP::Session::Start()
 
 void Network::TCP::Session::Stop()
 {
-    if (m_active) {  m_spLogger->info("Shutting down session with {}.", m_uri); }
+    if (m_active) {  m_spLogger->info("Shutting down session with {}.", m_address); }
     m_socket.close();
     m_timer.cancel();
     m_active = false;
@@ -218,8 +219,8 @@ Network::TCP::SocketProcessor Network::TCP::Session::Receiver()
         // something went wrong.
         if (error || received != expected) [[unlikely]] { co_return std::nullopt; }
 
-        m_spLogger->debug("Received {} bytes from {}.", buffer.size(), m_uri);
-        m_spLogger->trace("[{}] Received: {:p}...", m_uri,
+        m_spLogger->debug("Received {} bytes from {}.", buffer.size(), m_address);
+        m_spLogger->trace("[{}] Received: {:p}...", m_address,
             spdlog::to_hex(std::string_view(reinterpret_cast<char const*>(buffer.data()),
                     std::min(buffer.size(), MessageHeader::MaximumEncodedSize()))));
 
@@ -283,8 +284,8 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher()
 
             if (error) { co_return OnSessionError(error); }
 
-            m_spLogger->debug("Dispatched {} bytes to {}.", message.size(), m_uri);
-            m_spLogger->trace("[{}] Dispatched: {:p}...", m_uri, 
+            m_spLogger->debug("Dispatched {} bytes to {}.", message.size(), m_address);
+            m_spLogger->trace("[{}] Dispatched: {:p}...", m_address, 
                 spdlog::to_hex(std::string_view(message.data(), std::min(
                     message.size(), MessageHeader::MaximumEncodedSize()))));
 
@@ -354,7 +355,7 @@ void Network::TCP::Session::OnSessionError(std::string_view error, LogLevel leve
     if (level == LogLevel::Warning) {
         spdlogLevel = spdlog::level::warn;
     }
-    m_spLogger->log(spdlogLevel, "{} on {}.", error, m_uri);
+    m_spLogger->log(spdlogLevel, "{} on {}.", error, m_address);
     m_onError(shared_from_this()); // Notify the endpoint.
     Stop(); // Stop the session processors. 
 }

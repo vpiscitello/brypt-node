@@ -44,6 +44,9 @@ constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 constexpr std::string_view ExchangeCloseMessage = "Exchange Success!";
 
+Network::RemoteAddress const RemoteServerAddress(Network::Protocol::TCP, "127.0.0.1:35216", true);
+Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -114,6 +117,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
         spClientPeer->RegisterEndpoint(
             test::EndpointIdentifier,
             test::EndpointProtocol,
+            test::RemoteServerAddress,
             [&spServerPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
@@ -144,6 +148,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
         spServerPeer->RegisterEndpoint(
             test::EndpointIdentifier,
             test::EndpointProtocol,
+            test::RemoteClientAddress,
             [&spClientPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {

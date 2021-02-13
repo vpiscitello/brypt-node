@@ -48,6 +48,9 @@ constexpr std::string_view const ConnectMessage = "Connection Request";
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
+Network::RemoteAddress const RemoteServerAddress(Network::Protocol::TCP, "127.0.0.1:35216", true);
+Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -148,7 +151,7 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
     upSecurityMediator->BindPeer(spBryptPeer);
 
     EndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointProtocol, {});
+        test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
     spBryptPeer->RegisterEndpoint(registration);
 
@@ -184,7 +187,7 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
     upSecurityMediator->BindPeer(spBryptPeer);
 
     EndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointProtocol, {});
+        test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
     spBryptPeer->RegisterEndpoint(registration);
 
@@ -273,6 +276,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
         EndpointRegistration registration(
             test::EndpointIdentifier,
             test::EndpointProtocol,
+            test::RemoteServerAddress,
             [&spServerPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
@@ -293,6 +297,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
         EndpointRegistration registration(
             test::EndpointIdentifier,
             test::EndpointProtocol,
+            test::RemoteClientAddress,
             [&spClientPeer] (
                 [[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {

@@ -23,7 +23,7 @@ Protocol ParseProtocol(std::string name);
 std::string ProtocolToString(Protocol protocol);
 
 //------------------------------------------------------------------------------------------------
-} // Endpoint namespace
+} // Network namespace
 //------------------------------------------------------------------------------------------------
 
 inline Network::Protocol Network::ParseProtocol(std::string name)
@@ -35,11 +35,11 @@ inline Network::Protocol Network::ParseProtocol(std::string name)
 
     // Adjust the provided protocol name to lowercase
     std::transform(name.begin(), name.end(), name.begin(),
-    [](unsigned char c){
-        return std::tolower(c);
-    });
+        [](unsigned char c){
+            return std::tolower(c);
+        });
 
-    if(auto const itr = protocolMap.find(name.data()); itr != protocolMap.end()) {
+    if (auto const itr = protocolMap.find(name.data()); itr != protocolMap.end()) {
         return itr->second;
     }
     return Protocol::Invalid;

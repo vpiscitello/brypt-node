@@ -39,9 +39,9 @@ auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container const>
     BryptIdentifier::Generate());
 
 constexpr Network::Protocol ProtocolType = Network::Protocol::TCP;
-constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35216";
 constexpr std::string_view ServerEntry = "127.0.0.1:35216";
+
+Network::BindingAddress ServerBinding(ProtocolType, "*:35216", "lo");
 
 constexpr std::uint32_t Iterations = 100;
 
@@ -62,8 +62,8 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     EXPECT_EQ(upServerEndpoint->GetOperation(), Network::Operation::Server);
 
     // Wait a period of time to ensure the server endpoint is spun up
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    ASSERT_EQ(upServerEndpoint->GetEntry(), test::ServerEntry);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    ASSERT_EQ(upServerEndpoint->GetBinding(), test::ServerBinding);
     
     // Create the client resources. The peer mediator stub will store a single BryptPeer 
     // representing the server.
@@ -75,7 +75,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     EXPECT_EQ(upClientEndpoint->GetOperation(), Network::Operation::Client);
 
     // Wait a period of time to ensure the client initiated the connection with the server
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     // Verify that the client endpoint used the connection declaration method on the mediator.
     EXPECT_TRUE(upServerProcessor->ReceviedHeartbeatRequest());
@@ -176,8 +176,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
 std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpServer(
     std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
-    auto upServerEndpoint = std::make_unique<Network::TCP::Endpoint>(
-        test::Interface, Network::Operation::Server);
+    auto upServerEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Server);
 
     upServerEndpoint->RegisterMediator(spPeerMediator.get());
     upServerEndpoint->ScheduleBind(test::ServerBinding);
@@ -191,8 +190,7 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpServer(
 std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpClient(
     std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
-    auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(
-        test::Interface, Network::Operation::Client);
+    auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Client);
         
     upClientEndpoint->RegisterMediator(spPeerMediator.get());
     upClientEndpoint->ScheduleConnect(test::ServerEntry);

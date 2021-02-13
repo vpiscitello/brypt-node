@@ -107,6 +107,7 @@ TEST(EndpointManagerSuite, EndpointStartupTest)
         Network::Protocol::TCP,
         test::Interface,
         test::ServerBinding);
+    options.Initialize();
     configurations.emplace_back(options);
     
     auto const spPeerCache = std::make_shared<local::BootstrapCacheStub>();

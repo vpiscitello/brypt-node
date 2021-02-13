@@ -80,7 +80,7 @@ void SinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* c
 //------------------------------------------------------------------------------------------------
 
 SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolvingPeer(
-    [[maybe_unused]] std::string_view uri)
+    [[maybe_unused]] Network::RemoteAddress const& address)
 {
     auto const optHeartbeatRequest = NetworkMessage::Builder()
         .MakeHeartbeatRequest()
@@ -114,7 +114,7 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
 
 std::shared_ptr<BryptPeer> SinglePeerMediatorStub::LinkPeer(
     BryptIdentifier::Container const& identifier,
-    [[maybe_unused]] std::string_view uri)
+    [[maybe_unused]] Network::RemoteAddress const& address)
 {
     m_spBryptPeer = std::make_shared<BryptPeer>(identifier, this);
 

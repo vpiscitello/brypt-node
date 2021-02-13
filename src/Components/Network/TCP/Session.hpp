@@ -6,6 +6,8 @@
 //------------------------------------------------------------------------------------------------
 #include "AsioUtils.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Network/Address.hpp"
+#include "Components/Network/EndpointTypes.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -47,14 +49,14 @@ public:
     ~Session();
 
     [[nodiscard]] bool IsActive() const;
-    [[nodiscard]] std::string const& GetURI() const;
+    [[nodiscard]] RemoteAddress const& GetAddress() const;
     [[nodiscard]] boost::asio::ip::tcp::socket& GetSocket();
 
     void OnMessageDispatched(MessageDispatchedCallback const& callback);
     void OnMessageReceived(MessageReceivedCallback const& callback);
     void OnSessionError(SessionErrorCallback const& callback);
     
-    void Initialize();
+    void Initialize(Operation source);
     void Start();
     void Stop();
     
@@ -72,7 +74,7 @@ private:
     void OnSessionError(std::string_view error, LogLevel level = LogLevel::Default);
 
     std::atomic_bool m_active;
-    std::string m_uri;
+    RemoteAddress m_address;
 
     boost::asio::ip::tcp::socket m_socket;
     boost::asio::steady_timer m_timer;

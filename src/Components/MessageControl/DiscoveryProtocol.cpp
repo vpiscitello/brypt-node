@@ -9,7 +9,7 @@
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Handler/HandlerDefinitions.hpp"
 #include "Components/Handler/Connect.hpp"
-#include "Utilities/NetworkUtils.hpp"
+#include "Components/Network/Address.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
@@ -110,15 +110,7 @@ std::string local::GenerateDiscoveryData(
     for (auto const& options: configurations) {
         auto& entrypoint = request.entrypoints.emplace_back();
         entrypoint.protocol = options.GetProtocolName();
-
-        auto const [primary, secondary] = options.GetBindingComponents();
-        if (primary == "*") {
-            entrypoint.entry.append(NetworkUtils::GetInterfaceAddress(options.GetInterface()));
-        } else {
-            entrypoint.entry.append(primary);
-        }
-        entrypoint.entry.append(NetworkUtils::ComponentSeperator);
-        entrypoint.entry.append(secondary);
+        entrypoint.entry = options.GetBinding().GetUri();
     }
 
     return li::json_encode(request);

@@ -42,7 +42,7 @@ public:
 
     // IEndpointMediator {
     [[nodiscard]] virtual EndpointEntryMap GetEndpointEntries() const override;
-    [[nodiscard]] virtual EndpointURISet GetEndpointURIs() const override;
+    [[nodiscard]] virtual EndpointUriSet GetEndpointUris() const override;
     // } IEndpointMediator
     
     void Startup();

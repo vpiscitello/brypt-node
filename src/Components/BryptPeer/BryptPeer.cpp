@@ -7,10 +7,10 @@
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
+#include "Components/Network/Address.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Components/Security/SecurityMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
-#include "Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
 BryptPeer::BryptPeer(
@@ -187,8 +187,8 @@ void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
 void BryptPeer::RegisterEndpoint(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
-    MessageScheduler const& scheduler,
-    std::string_view uri)
+    Network::RemoteAddress const& address,
+    MessageScheduler const& scheduler)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -196,7 +196,7 @@ void BryptPeer::RegisterEndpoint(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
-            identifier, protocol, scheduler, uri);
+            identifier, protocol, address, scheduler);
             
         auto& [identifier, registration] = *itr;
         if (m_upSecurityMediator) [[likely]] {
@@ -255,8 +255,9 @@ std::optional<std::string> BryptPeer::GetRegisteredEntry(
     std::scoped_lock lock(m_endpointsMutex);
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
-        if (auto const entry = endpoint.GetEntry(); !entry.empty()) {
-            return entry;
+        if (auto const address = endpoint.GetAddress(); address.IsBootstrapable()) {
+            auto const& authority = address.GetAuthority();
+            return std::string(authority.data(), authority.size());
         }
     }
 

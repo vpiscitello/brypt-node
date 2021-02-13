@@ -34,8 +34,7 @@ void ParseDefaultBootstraps(
 void FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target);
 
 void WriteEndpointPeers(
-    PeerPersistor::UniqueProtocolMap const& endpoints,
-    std::ofstream& out);
+    PeerPersistor::UniqueProtocolMap const& endpoints, std::ofstream& out);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -216,18 +215,14 @@ void PeerPersistor::SetMediator(IPeerMediator* const mediator)
 {
     // If there already a mediator attached to the persistor, unpublish the persistor
     // from the previous mediator.
-    if (m_mediator) {
-        mediator->UnpublishObserver(this);
-    }
+    if (m_mediator) [[likely]] { mediator->UnpublishObserver(this); }
     
     // Set the mediator, it is possible for the nullptr if the caller intends to 
     // detach the previous mediator.
     m_mediator = mediator;
 
     // If the mediator exists, register the persistor with the mediator
-    if (m_mediator) {
-        m_mediator->RegisterObserver(this);
-    }
+    if (m_mediator) [[likely]] { m_mediator->RegisterObserver(this); }
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -236,7 +231,7 @@ bool PeerPersistor::FetchBootstraps()
 {
     Configuration::StatusCode status = Configuration::StatusCode::DecodeError;
     if (std::filesystem::exists(m_filepath)) {
-        m_spLogger->info("Reading peers file at: {}.", m_filepath.string());
+        m_spLogger->debug("Reading peers file at: {}.", m_filepath.string());
         status = DecodePeersFile();
     } else {
         status = SetupPeersFile();
@@ -256,18 +251,11 @@ Configuration::StatusCode PeerPersistor::Serialize()
 {
     std::scoped_lock lock(m_fileMutex);
     
-    if (!m_upProtocols) {
-        return Configuration::StatusCode::InputError;
-    }
-
-    if (m_filepath.empty()) {
-        return Configuration::StatusCode::FileError;
-    }
+    if (!m_upProtocols) [[unlikely]] { return Configuration::StatusCode::InputError; }
+    if (m_filepath.empty()) [[unlikely]] { return Configuration::StatusCode::FileError; }
 
     std::ofstream out(m_filepath, std::ofstream::out);
-    if (out.fail()) {
-        return Configuration::StatusCode::FileError;
-    }
+    if (out.fail()) [[unlikely]] { return Configuration::StatusCode::FileError; }
 
     local::WriteEndpointPeers(m_upProtocols, out);
 
@@ -284,15 +272,13 @@ Configuration::StatusCode PeerPersistor::DecodePeersFile()
     // that is above the given treshold. 
     std::error_code error;
     auto const size = std::filesystem::file_size(m_filepath, error);
-    if (error || size == 0 || size > defaults::FileSizeLimit) {
+    if (error || size == 0 || size > defaults::FileSizeLimit) [[unlikely]] {
         return Configuration::StatusCode::FileError;
     }
 
     // Attempt to open the configuration file, if it fails return noopt
     std::ifstream file(m_filepath);
-    if (file.fail()) {
-        return Configuration::StatusCode::FileError;
-    }
+    if (file.fail()) [[unlikely]] { return Configuration::StatusCode::FileError; }
 
     std::stringstream buffer;
     buffer << file.rdbuf(); // Read the file into the buffer stream
@@ -317,9 +303,7 @@ Configuration::StatusCode PeerPersistor::DecodePeersFile()
             // Parse the protocol name from the entry, if it is not a valid name continue to 
             // the next endpoint entry.
             auto const protocol = Network::ParseProtocol(endpoint.protocol);
-            if (protocol == Network::Protocol::Invalid) {
-                return;
-            }
+            if (protocol == Network::Protocol::Invalid) { return; }
 
             auto upBootstraps = std::make_unique<BootstrapSet>();
 
@@ -338,10 +322,7 @@ Configuration::StatusCode PeerPersistor::DecodePeersFile()
                 bootstraps.begin(), bootstraps.end(),
                 [&protocol, &upBootstraps] (local::BootstrapEntry const& bootstrap)
                 {
-                    if (bootstrap.target.empty()) {
-                        return;
-                    }
-
+                    if (bootstrap.target.empty()) { return; }
                     upBootstraps->emplace(bootstrap.target);
                 }
             );
@@ -350,9 +331,7 @@ Configuration::StatusCode PeerPersistor::DecodePeersFile()
         }
     );
 
-    if (upProtocols->empty()) {
-        return Configuration::StatusCode::DecodeError;
-    }
+    if (upProtocols->empty()) [[unlikely]] { return Configuration::StatusCode::DecodeError; }
 
     m_upProtocols = std::move(upProtocols);
     return Configuration::StatusCode::Success;
@@ -366,19 +345,17 @@ Configuration::StatusCode PeerPersistor::DecodePeersFile()
 //-----------------------------------------------------------------------------------------------
 Configuration::StatusCode PeerPersistor::SerializeEndpointPeers()
 {
-    if (!m_upProtocols) {
-        return Configuration::StatusCode::DecodeError;
-    }
+    if (!m_upProtocols) [[unlikely]] { return Configuration::StatusCode::DecodeError; }
 
     for (auto const& [endpoint, upBootstraps] : *m_upProtocols) {
-        if (upBootstraps->empty()) {
+        if (upBootstraps->empty()) [[unlikely]] {
             auto const protocol = Network::ProtocolToString(endpoint);
             m_spLogger->warn("{} has no attached bootstrap peers.", protocol);
         }
     }
 
     Configuration::StatusCode const status = Serialize();
-    if (status != Configuration::StatusCode::Success) {
+    if (status != Configuration::StatusCode::Success) [[unlikely]] {
         m_spLogger->error("Failed to serialize peers!");
     }
 
@@ -392,9 +369,7 @@ Configuration::StatusCode PeerPersistor::SerializeEndpointPeers()
 //-----------------------------------------------------------------------------------------------
 Configuration::StatusCode PeerPersistor::SetupPeersFile()
 {
-    if (!m_upProtocols) {
-        m_upProtocols = std::make_unique<ProtocolMap>();
-    }
+    if (!m_upProtocols) [[unlikely]] { m_upProtocols = std::make_unique<ProtocolMap>(); }
 
     for (auto const& [protocol, bootstrap] : m_defaults) {
         auto upBootstraps = std::make_unique<BootstrapSet>();
@@ -405,7 +380,7 @@ Configuration::StatusCode PeerPersistor::SetupPeersFile()
     }
 
     Configuration::StatusCode const status = Serialize();
-    if (status != Configuration::StatusCode::Success) {
+    if (status != Configuration::StatusCode::Success) [[unlikely]] {
         m_spLogger->error("Failed to serialize peers!");
     }
 
@@ -431,9 +406,7 @@ void PeerPersistor::AddBootstrapEntry(
     Network::Protocol protocol,
     std::string_view bootstrap)
 {
-    if (bootstrap.empty()) {
-        return;
-    }
+    if (bootstrap.empty()) [[unlikely]] { return; }
 
     {
         std::scoped_lock lock(m_protocolsMutex);
@@ -441,7 +414,7 @@ void PeerPersistor::AddBootstrapEntry(
         // insert a new entry for the technolgoy type or get the existing entry.
         if (auto const [itr, emplaced] = m_upProtocols->try_emplace(protocol); itr != m_upProtocols->end()) {
             auto const& [key, upBootstraps] = *itr;
-            if (upBootstraps) {
+            if (upBootstraps) [[likely]] {
                 upBootstraps->emplace(bootstrap);
             }
         }
@@ -467,12 +440,9 @@ void PeerPersistor::DeleteBootstrapEntry(
 //-----------------------------------------------------------------------------------------------
 
 void PeerPersistor::DeleteBootstrapEntry(
-    Network::Protocol protocol,
-    std::string_view bootstrap)
+    Network::Protocol protocol,  std::string_view bootstrap)
 {
-    if (bootstrap.empty()) {
-        return;
-    }
+    if (bootstrap.empty()) [[unlikely]] { return; }
 
     {
         std::scoped_lock lock(m_protocolsMutex);
@@ -498,9 +468,7 @@ void PeerPersistor::HandlePeerStateChange(
     ConnectionState change)
 {
     // If the persistor peers have not yet been intialized, simply return
-    if (!m_upProtocols) {
-        return; 
-    }
+    if (!m_upProtocols) [[unlikely]] { return; }
 
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
         switch (change) {
@@ -522,9 +490,7 @@ bool PeerPersistor::ForEachCachedBootstrap(
     AllProtocolsErrorFunction const& error) const
 {
     std::scoped_lock lock(m_protocolsMutex);
-    if (!m_upProtocols) {
-        return false;
-    }
+    if (!m_upProtocols) { return false; }
 
     for (auto const& [protocol, upBootstraps]: *m_upProtocols) {
         if (!upBootstraps) {
@@ -536,13 +502,9 @@ bool PeerPersistor::ForEachCachedBootstrap(
         CallbackIteration result;
         for (auto const& bootstrap: *upBootstraps) {
             result = callback(protocol, bootstrap);
-            if (result != CallbackIteration::Continue) {
-                break;
-            }
+            if (result != CallbackIteration::Continue) { break; }
         }
-        if (result != CallbackIteration::Continue) {
-            break;
-        }
+        if (result != CallbackIteration::Continue) { break; }
     }
 
     return true;
@@ -555,21 +517,15 @@ bool PeerPersistor::ForEachCachedBootstrap(
     OneProtocolReadFunction const& callback) const
 {
     std::scoped_lock lock(m_protocolsMutex);
-    if (!m_upProtocols) {
-        return false;
-    }
+    if (!m_upProtocols) [[unlikely]] { return false; }
 
     auto const itr = m_upProtocols->find(protocol);
-    if (itr == m_upProtocols->end()) {
-        return false;
-    }   
+    if (itr == m_upProtocols->end()) { return false; }   
 
     auto const& [key, upBootstraps] = *itr;
     for (auto const& bootstrap: *upBootstraps) {
         auto const result = callback(bootstrap);
-        if (result != CallbackIteration::Continue) {
-            break;
-        }
+        if (result != CallbackIteration::Continue) { break; }
     }
 
     return true;
@@ -580,15 +536,11 @@ bool PeerPersistor::ForEachCachedBootstrap(
 std::size_t PeerPersistor::CachedBootstrapCount() const
 {
     std::scoped_lock lock(m_protocolsMutex);
-    if (!m_upProtocols) {
-        return 0;
-    }
+    if (!m_upProtocols) [[unlikely]] { return 0; }
 
     std::size_t count = 0;
     for (auto const& [protocol, upBootstraps]: *m_upProtocols) {
-        if (upBootstraps) {
-            count += upBootstraps->size();
-        }
+        if (upBootstraps) { count += upBootstraps->size(); }
     }
 
     return count;
@@ -599,15 +551,11 @@ std::size_t PeerPersistor::CachedBootstrapCount() const
 std::size_t PeerPersistor::CachedBootstrapCount(Network::Protocol protocol) const
 {
     std::scoped_lock lock(m_protocolsMutex);
-    if (!m_upProtocols) {
-        return 0;
-    }
+    if (!m_upProtocols) [[unlikely]] { return 0; }
 
     if (auto const itr = m_upProtocols->find(protocol); itr != m_upProtocols->end()) {
         auto const& [protocol, upBootstraps] = *itr;
-        if (upBootstraps) {
-            return upBootstraps->size();
-        }
+        if (upBootstraps) { return upBootstraps->size(); }
     }   
     return 0;
 }
@@ -629,31 +577,23 @@ void local::ParseDefaultBootstraps(
 
 void local::FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target)
 {
-    if (target.empty()) {
-        return;
-    }
-
+    if (target.empty()) [[unlikely]] { return; }
     bootstraps.emplace_back(target);
 }
 
 //-----------------------------------------------------------------------------------------------
 
 void local::WriteEndpointPeers(
-    PeerPersistor::UniqueProtocolMap const& upProtocols,
-    std::ofstream& out)
+    PeerPersistor::UniqueProtocolMap const& upProtocols, std::ofstream& out)
 {
     // If the provided endpoint peers are empty, ther is nothing to do
-    if (!upProtocols) {
-        return;
-    }
+    if (!upProtocols) [[unlikely]] { return; }
 
     std::size_t endpointsWritten = 0;
     std::size_t const endpointSize = upProtocols->size();
     out << "[\n";
     for (auto const& [protocol, upBootstraps]: *upProtocols) {
-        if (protocol == Network::Protocol::Invalid){
-            continue;
-        }
+        if (protocol == Network::Protocol::Invalid){ continue; }
         
         out << "\t{\n";
         out << "\t\t\"protocol\": \"" << Network::ProtocolToString(protocol) << "\",\n";
@@ -663,16 +603,12 @@ void local::WriteEndpointPeers(
         std::size_t const peersSize = upBootstraps->size();
         for (auto const& bootstrap: *upBootstraps) {
             out << "\t\t\t{ \"target\": \"" << bootstrap << "\" }";
-            if (++peersWritten != peersSize) {
-                out << ",\n";
-            }
+            if (++peersWritten != peersSize) { out << ",\n"; }
         }
 
         out << "\n\t\t]\n";
         out << "\t}";
-        if (++endpointsWritten != endpointSize) {
-            out << ",\n";
-        }
+        if (++endpointsWritten != endpointSize) { out << ",\n"; }
     }
     out << "\n]\n";
 }

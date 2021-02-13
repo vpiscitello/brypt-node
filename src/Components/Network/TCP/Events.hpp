@@ -6,9 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Utilities/NetworkUtils.hpp"
-//------------------------------------------------------------------------------------------------
-#include <boost/asio/ip/tcp.hpp>
+#include "Components/Network/Address.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 #include <string>
@@ -20,28 +18,66 @@ namespace Network::TCP {
 
 class Session;
 
-struct InstructionEvent;
-struct DispatchEvent;
+class Event;
+
+class BindEvent;
+class ConnectEvent;
+class DispatchEvent;
 
 //------------------------------------------------------------------------------------------------
 } // TCP namespace
 //------------------------------------------------------------------------------------------------
 
-struct Network::TCP::InstructionEvent
+class Network::TCP::Event
 {
-    BryptIdentifier::SharedContainer identifier;
-    Instruction instruction;
-    NetworkUtils::Address address;
-    NetworkUtils::Port port;
+public:
+    explicit Event(Instruction instruction);
+    Instruction const& GetInstruction() const;
+
+private:
+    Instruction const m_instruction;
 };
 
 //------------------------------------------------------------------------------------------------
 
-struct Network::TCP::DispatchEvent
+class Network::TCP::BindEvent : public Network::TCP::Event
 {
+public:
+    explicit BindEvent(BindingAddress const& binding);
+    BindingAddress const& GetBinding() const;
+
+private:
+    BindingAddress m_binding;
+};
+
+//------------------------------------------------------------------------------------------------
+
+class Network::TCP::ConnectEvent : public Network::TCP::Event
+{
+public:
+    ConnectEvent(
+        RemoteAddress&& address,
+        BryptIdentifier::SharedContainer const& session = nullptr);
+    BryptIdentifier::SharedContainer const& GetBryptIdentifier() const;
+    RemoteAddress const& GetRemoteAddress() const;
+
+private:
+    BryptIdentifier::SharedContainer m_spIdentifier;
+    RemoteAddress m_address;
+};
+
+//------------------------------------------------------------------------------------------------
+
+class Network::TCP::DispatchEvent : public Network::TCP::Event
+{
+public:
     DispatchEvent(std::shared_ptr<Session> const& session, std::string_view message);
-    std::shared_ptr<Session> session;
-    std::string message;
+    std::shared_ptr<Session> const& GetSession() const;
+    std::string const& GetMessage() const;
+
+private:
+    std::shared_ptr<Session> m_spSession;
+    std::string m_message;
 };
 
 //------------------------------------------------------------------------------------------------

@@ -45,8 +45,8 @@ EndpointManager::EndpointEntryMap EndpointManager::GetEndpointEntries() const
     EndpointEntryMap entries;
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
         if (spEndpoint) {
-            if (auto const entry = spEndpoint->GetEntry(); !entry.empty()) {
-                entries.emplace(spEndpoint->GetProtocol(), entry);
+            if (auto const binding = spEndpoint->GetBinding(); binding.IsValid()) {
+                entries.emplace(spEndpoint->GetProtocol(), binding.GetAuthority());
             }
         }
     }
@@ -55,13 +55,13 @@ EndpointManager::EndpointEntryMap EndpointManager::GetEndpointEntries() const
 
 //------------------------------------------------------------------------------------------------
 
-EndpointManager::EndpointURISet EndpointManager::GetEndpointURIs() const
+EndpointManager::EndpointUriSet EndpointManager::GetEndpointUris() const
 {
-    EndpointURISet uris;
+    EndpointUriSet uris;
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
         if (spEndpoint) {
-            if (auto const uri = spEndpoint->GetURI(); !uri.empty()) {
-                uris.emplace(uri);
+            if (auto const binding = spEndpoint->GetBinding(); binding.IsValid()) {
+                uris.emplace(binding.GetUri());
             }
         }
     }
@@ -179,8 +179,7 @@ void EndpointManager::InitializeTCPEndpoints(
 
     // Add the server based endpoint
     SharedEndpoint spServer = Network::Endpoint::Factory(
-        options.GetProtocol(), options.GetInterface(),
-        Network::Operation::Server, this, pPeerMediator);
+        options.GetProtocol(), Network::Operation::Server, this, pPeerMediator);
 
     spServer->ScheduleBind(options.GetBinding());
 
@@ -188,8 +187,7 @@ void EndpointManager::InitializeTCPEndpoints(
 
     // Add the client based endpoint
     SharedEndpoint spClient = Network::Endpoint::Factory(
-        options.GetProtocol(), options.GetInterface(),
-        Network::Operation::Client, this, pPeerMediator);
+        options.GetProtocol(), Network::Operation::Client, this, pPeerMediator);
 
     if (pBootstrapCache) {
         local::ConnectBootstraps(spClient, pBootstrapCache);

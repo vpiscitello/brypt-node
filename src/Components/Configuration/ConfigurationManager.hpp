@@ -54,7 +54,7 @@ private:
     StatusCode DecodeConfigurationFile();
 
     void GetConfigurationOptionsFromUser();
-    void InitializeSettings();
+    bool InitializeSettings();
     
     std::shared_ptr<spdlog::logger> m_spLogger;
     bool m_isGeneratorAllowed;

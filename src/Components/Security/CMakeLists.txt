@@ -23,7 +23,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
 
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
-    ${Boost_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR})
+    ${Boost_INCLUDE_DIRS} ${OPENSSL_INCLUDE_DIR} ${spdlog_INCLUDE_DIRS})
 
 # Exported library dependencies
 target_link_libraries(${PROJECT_NAME} PUBLIC ${OPENSSL_CRYPTO_LIBRARY} ${OQS_LIBRARIES})

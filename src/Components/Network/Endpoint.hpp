@@ -12,7 +12,6 @@
 #include "Components/Configuration/Configuration.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
-#include "Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 #include <string>
@@ -21,7 +20,11 @@
 
 class BryptPeer;
 
-namespace Network { class IEndpoint; }
+namespace Network {
+    class IEndpoint;
+    class Address;
+}
+
 namespace Network::LoRa { class Endpoint; }
 namespace Network::TCP { class Endpoint; }
 
@@ -31,38 +34,38 @@ namespace Network::Endpoint {
 
 std::unique_ptr<IEndpoint> Factory(
     Protocol protocol,
-    std::string_view interface,
     Operation operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator);
 
 //------------------------------------------------------------------------------------------------
-} // Network::Endpoint namespace
+} // Network::Network namespace
 //------------------------------------------------------------------------------------------------
 
 class Network::IEndpoint
 {
 public:
     IEndpoint(
-        std::string_view interface,
         Operation operation,
         Network::Protocol protocol = Network::Protocol::Invalid);
 
     virtual ~IEndpoint() = default;
 
     virtual Network::Protocol GetProtocol() const = 0;
-    virtual std::string GetProtocolString() const = 0;
-    virtual std::string GetEntry() const = 0;
-    virtual std::string GetURI() const = 0;
+    virtual std::string GetScheme() const = 0;
+    virtual BindingAddress GetBinding() const = 0;
 
     virtual void Startup() = 0;
 	virtual bool Shutdown() = 0;
     virtual bool IsActive() const = 0;
 
-    virtual void ScheduleBind(std::string_view binding) = 0;
-    virtual void ScheduleConnect(std::string_view entry) = 0;
+    virtual void ScheduleBind(BindingAddress const& address) = 0;
+    
+    virtual void ScheduleConnect(std::string_view uri) = 0;
     virtual void ScheduleConnect(
-        BryptIdentifier::SharedContainer const& spIdentifier, std::string_view entry) = 0;
+        std::string_view uri,
+        BryptIdentifier::SharedContainer const& spIdentifier) = 0;
+
 	virtual bool ScheduleSend(
         BryptIdentifier::Container const& destination, std::string_view message) = 0;
 
@@ -74,15 +77,13 @@ public:
 
 protected: 
     std::shared_ptr<BryptPeer> LinkPeer(
-        BryptIdentifier::Container const& identifier,
-        std::string_view uri = "") const;
+        BryptIdentifier::Container const& identifier, RemoteAddress const& address) const;
     
     Network::Endpoint::Identifier const m_identifier;
-    std::string m_interface;
 	Operation const m_operation;
     Network::Protocol const m_protocol;
 
-    std::string m_entry;
+    BindingAddress m_binding;
 
     IEndpointMediator const* m_pEndpointMediator;
     IPeerMediator* m_pPeerMediator;

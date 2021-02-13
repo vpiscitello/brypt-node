@@ -4,13 +4,14 @@
 //------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
 //------------------------------------------------------------------------------------------------
+#include "EndpointDefinitions.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 
-Network::LoRa::Endpoint::Endpoint(
-    std::string_view interface, Operation operation)
-    : IEndpoint(interface, operation, Protocol::LoRa)
+Network::LoRa::Endpoint::Endpoint(Operation operation)
+    : IEndpoint(operation, Protocol::LoRa)
 {
 }
 
@@ -35,9 +36,9 @@ Network::Protocol Network::LoRa::Endpoint::GetProtocol() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-std::string Network::LoRa::Endpoint::GetProtocolString() const
+std::string Network::LoRa::Endpoint::GetScheme() const
 {
-    return ProtocolString.data();
+    return Scheme.data();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -46,20 +47,9 @@ std::string Network::LoRa::Endpoint::GetProtocolString() const
 // Description:
 // Returns:
 //------------------------------------------------------------------------------------------------
-std::string Network::LoRa::Endpoint::GetEntry() const
+Network::BindingAddress Network::LoRa::Endpoint::GetBinding() const
 {
-    return "";
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-// Returns:
-//------------------------------------------------------------------------------------------------
-std::string Network::LoRa::Endpoint::GetURI() const
-{
-    return Scheme.data() + GetEntry();
+    return {};
 }
 
 //------------------------------------------------------------------------------------------------
@@ -97,7 +87,7 @@ bool Network::LoRa::Endpoint::IsActive() const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] std::string_view binding)
+void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] BindingAddress const& binding)
 {
 }
 
@@ -106,7 +96,7 @@ void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] std::string_view bin
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] std::string_view entry)
+void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] std::string_view uri)
 {
 }
 
@@ -116,8 +106,8 @@ void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] std::string_view 
 // Description:
 //------------------------------------------------------------------------------------------------
 void Network::LoRa::Endpoint::ScheduleConnect(
-    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier,
-    [[maybe_unused]] std::string_view entry)
+    [[maybe_unused]] std::string_view uri,
+    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier)
 {
 }
 

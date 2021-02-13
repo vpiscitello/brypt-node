@@ -25,6 +25,8 @@
 
 class MessageContext;
 class SecurityMediator;
+namespace Network { class Address; }
+
 class IPeerMediator;
 
 //------------------------------------------------------------------------------------------------
@@ -64,8 +66,8 @@ public:
     void RegisterEndpoint(
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
-        MessageScheduler const& scheduler = {},
-        std::string_view uri = {});
+        Network::RemoteAddress const& address = {},
+        MessageScheduler const& scheduler = {});
 
     void WithdrawEndpoint(
         Network::Endpoint::Identifier identifier, Network::Protocol protocol);

@@ -4,7 +4,7 @@
 // protocols. Currently supports TCP sockets.
 //------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
-//------------------------------------------------------------------------------------------------
+#include "Address.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "Components//BryptPeer/BryptPeer.hpp"
@@ -14,7 +14,6 @@
 
 std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
     Protocol protocol,
-    std::string_view interface,
     Operation operation,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator)
@@ -23,10 +22,10 @@ std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
 
     switch (protocol) {
         case Protocol::LoRa: {
-            upEndpoint = std::make_unique<LoRa::Endpoint>(interface, operation);
+            upEndpoint = std::make_unique<LoRa::Endpoint>(operation);
         } break;
         case Protocol::TCP: {
-            upEndpoint = std::make_unique<TCP::Endpoint>(interface, operation);
+            upEndpoint = std::make_unique<TCP::Endpoint>(operation);
         } break;
         case Protocol::Invalid: assert(false); break;
     }
@@ -42,14 +41,11 @@ std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
 //------------------------------------------------------------------------------------------------
 
 Network::IEndpoint::IEndpoint(
-    std::string_view interface,
-    Operation operation,
-    Network::Protocol protocol)
+    Operation operation, Network::Protocol protocol)
     : m_identifier(Network::Endpoint::IdentifierGenerator::Instance().Generate())
-    , m_interface(interface)
     , m_operation(operation)
     , m_protocol(protocol)
-    , m_entry()
+    , m_binding()
     , m_pEndpointMediator(nullptr)
     , m_pPeerMediator(nullptr)
 {
@@ -99,8 +95,7 @@ void Network::IEndpoint::RegisterMediator(IPeerMediator* const pMediator)
 //------------------------------------------------------------------------------------------------
 
 std::shared_ptr<BryptPeer> Network::IEndpoint::LinkPeer(
-    BryptIdentifier::Container const& identifier,
-    std::string_view uri) const
+    BryptIdentifier::Container const& identifier, RemoteAddress const& address) const
 {
     std::shared_ptr<BryptPeer> spBryptPeer = {};
 
@@ -109,7 +104,7 @@ std::shared_ptr<BryptPeer> Network::IEndpoint::LinkPeer(
     // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
     // should only be hit in unit tests of the endpoint. 
     if(m_pPeerMediator) {
-        spBryptPeer = m_pPeerMediator->LinkPeer(identifier, uri);
+        spBryptPeer = m_pPeerMediator->LinkPeer(identifier, address);
     } else {
         spBryptPeer = std::make_shared<BryptPeer>(identifier);
     }

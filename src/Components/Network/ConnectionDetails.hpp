@@ -5,6 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "ConnectionState.hpp"
+#include "Address.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Utilities/TimeUtils.hpp"
@@ -15,8 +16,8 @@
 class ConnectionDetailsBase
 {
 public:
-    explicit ConnectionDetailsBase(std::string_view uri)
-        : m_uri(uri)
+    explicit ConnectionDetailsBase(Network::RemoteAddress const& address)
+        : m_address(address)
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
@@ -25,7 +26,7 @@ public:
     }
 
     explicit ConnectionDetailsBase(std::shared_ptr<BryptPeer> const& spBryptPeer)
-        : m_uri()
+        : m_address()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
@@ -33,7 +34,7 @@ public:
     {
     }
 
-    std::string GetURI() const { return m_uri; }
+    Network::RemoteAddress GetAddress() const { return m_address; }
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
@@ -46,9 +47,9 @@ public:
         return m_spBryptPeer->GetBryptIdentifier();
     }
 
-    void SetURI(std::string_view uri)
+    void SetAddress(Network::RemoteAddress const& address)
     {
-        m_uri = uri;
+        m_address = address;
     }
 
     void SetUpdatedTimepoint(TimeUtils::Timepoint const& timepoint)
@@ -92,7 +93,7 @@ public:
     }
 
 protected: 
-    std::string m_uri;
+    Network::RemoteAddress m_address;
     TimeUtils::Timepoint m_updateTimepoint;
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
@@ -120,9 +121,7 @@ public:
 
     ConnectionDetails& operator=(ConnectionDetails const& other)
     {
-        if (other.m_uri.size() != 0) {
-            m_uri = other.m_uri;
-        }
+        if (other.m_address.IsValid()) { m_address = other.m_address;}
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
@@ -153,9 +152,9 @@ public:
     }
 
     ConnectionDetails(
-        std::string_view uri,
+        Network::RemoteAddress const& address,
         ExtensionType const& extension)
-        : ConnectionDetailsBase(uri)
+        : ConnectionDetailsBase(address)
         , m_extension(extension)
     {
     }
@@ -165,9 +164,7 @@ public:
 
     ConnectionDetails& operator=(ConnectionDetails const& other)
     {
-        if (other.m_uri.size() != 0) {
-            m_uri = other.m_uri;
-        }
+        if (other.m_address.IsValid()) { m_address = other.m_address; }
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;

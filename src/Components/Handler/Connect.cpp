@@ -196,7 +196,7 @@ bool local::HandleDiscoveryRequest(
                 // If we have an endpoint for the given protocol, schedule the connect.
                 if (auto spEndpoint = spEndpointManager->GetEndpoint(
                     protocol, Network::Operation::Client); spEndpoint) {
-                    spEndpoint->ScheduleConnect(spPeerIdentifier, entrypoint.entry);
+                    spEndpoint->ScheduleConnect(entrypoint.entry, spPeerIdentifier);
                 }
             }
         }

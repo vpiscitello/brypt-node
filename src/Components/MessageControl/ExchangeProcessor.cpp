@@ -156,9 +156,6 @@ bool ExchangeProcessor::HandleMessage(
 }
 
 //------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wattributes"
-//------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleSynchronizationMessage(
     std::shared_ptr<BryptPeer> const& spBryptPeer,
@@ -204,7 +201,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         // key sharing has completed and application messages can now be completed. 
         case Security::SynchronizationStatus::Ready: {
             // If there is an excnage observer, provide it the prepared security strategy. 
-            if (m_pExchangeObserver) [[likley]] {
+            if (m_pExchangeObserver) [[likely]] {
                 m_pExchangeObserver->OnFulfilledStrategy(std::move(m_upSecurityStrategy));
             }
 
@@ -218,7 +215,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
 
             // If there is an excnage observer, notify the observe that the exchange has 
             // successfully completed and provide it the prepared security strategy. 
-            if (m_pExchangeObserver) [[likley]] {
+            if (m_pExchangeObserver) [[likely]] {
                 m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Success);
             }
         } break;
@@ -231,6 +228,4 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
-#pragma GCC diagnostic pop
 //------------------------------------------------------------------------------------------------

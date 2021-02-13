@@ -54,8 +54,8 @@ TEST(ConnectionDetailsSuite, IdentifierTranslateTest)
         [] ([[maybe_unused]] auto& details) {
             ASSERT_FALSE(true);
         },
-        [this, &spBryptPeer] (
-            [[maybe_unused]] std::string_view uri) -> ConnectionDetails<>
+        [this, &spBryptPeer] ([[maybe_unused]] Network::RemoteAddress const& address) 
+            -> ConnectionDetails<>
         {
             ConnectionDetails<> details(spBryptPeer);
             details.SetConnectionState(ConnectionState::Unknown);

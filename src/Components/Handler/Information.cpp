@@ -229,7 +229,7 @@ std::string local::GenerateNodeInfo(BryptNode const& instance)
             std::string const timestamp = TimeUtils::TimepointToString(endpoint.GetUpdateClock());
             nodesInfo.emplace_back(
                 spConnection->GetPeerName(), cluster, id, 0,
-                "node", spConnection->GetProtocolString(), timestamp);
+                "node", spConnection->GetScheme(), timestamp);
         }
     } */
 

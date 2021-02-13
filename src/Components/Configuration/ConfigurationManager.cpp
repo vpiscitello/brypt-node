@@ -28,17 +28,13 @@ namespace local {
 
 void SerializeVersion(std::ofstream& out);
 void SerializeIdentifierOptions(
-    Configuration::IdentifierOptions const& options,
-    std::ofstream& out);
+    Configuration::IdentifierOptions const& options, std::ofstream& out);
 void SerializeNodeOptions(
-    Configuration::DetailsOptions const& options,
-    std::ofstream& out);
+    Configuration::DetailsOptions const& options, std::ofstream& out);
 void SerializeEndpointConfigurations(
-    Configuration::EndpointConfigurations const& configurations,
-    std::ofstream& out);
+    Configuration::EndpointConfigurations const& configurations, std::ofstream& out);
 void SerializeSecurityOptions(
-    Configuration::SecurityOptions const& options,
-    std::ofstream& out);
+    Configuration::SecurityOptions const& options, std::ofstream& out);
 
 Configuration::IdentifierOptions GetIdentifierOptionsFromUser();
 Configuration::DetailsOptions GetDetailsOptionsFromUser();
@@ -46,7 +42,9 @@ Configuration::EndpointConfigurations GetEndpointConfigurationsFromUser();
 Configuration::SecurityOptions GetSecurityOptionsFromUser();
 
 void InitializeIdentifierOptions(Configuration::IdentifierOptions& options);
-void InitializeEndpointConfigurations(Configuration::EndpointConfigurations& configurations);
+[[nodiscard]] bool InitializeEndpointConfigurations(
+    Configuration::EndpointConfigurations& configurations,
+    std::shared_ptr<spdlog::logger> const& spLogger);
 void InitializeSecurityOptions(Configuration::SecurityOptions& options);
 
 //------------------------------------------------------------------------------------------------
@@ -75,19 +73,9 @@ constexpr std::string_view CentralAutority = "https://bridge.brypt.com";
 namespace allowable {
 //------------------------------------------------------------------------------------------------
 
-std::array<std::string_view, 2> IdentifierTypes = {
-    "Ephemeral",
-    "Persistent"
-};
-
-std::array<std::string_view, 2> EndpointTypes = {
-    "LoRa",
-    "TCP"
-};
-
-std::array<std::string_view, 1> StrategyTypes = {
-    "PQNISTL3",
-};
+std::array<std::string_view, 2> IdentifierTypes = { "Ephemeral", "Persistent" };
+std::array<std::string_view, 2> EndpointTypes = { "LoRa", "TCP" };
+std::array<std::string_view, 1> StrategyTypes = { "PQNISTL3" };
 
 template <typename ArrayType, std::size_t ArraySize>
 std::optional<std::string> IfAllowableGetValue(
@@ -96,14 +84,9 @@ std::optional<std::string> IfAllowableGetValue(
 {
     auto const found = std::find_if(
         values.begin(), values.end(),
-        [&value] (std::string_view const& entry)
-        {
-            return (boost::iequals(value, entry));
-        });
+        [&value] (std::string_view const& entry) { return (boost::iequals(value, entry));  });
 
-    if (found == values.end()) {
-        return {};
-    }
+    if (found == values.end()) {  return {}; }
 
     return std::string(found->begin(), found->end());
 }
@@ -114,9 +97,7 @@ void OutputValues(std::array<ArrayType, ArraySize> const& values)
     std::cout << "[";
     for (std::uint32_t idx = 0; idx < values.size(); ++idx) {
         std::cout << "\"" << values[idx] << "\"";
-        if (idx != values.size() - 1) {
-            std::cout << ", ";
-        }
+        if (idx != values.size() - 1) { std::cout << ", "; }
     }
     std::cout << "]" << std::endl;
 }
@@ -255,14 +236,10 @@ Configuration::Manager::Manager(std::string_view filepath, bool isGeneratorAllow
 {
     assert(m_spLogger);
     // If the filepath does not have a filename, attach the default config.json
-    if (!m_filepath.has_filename()) {
-        m_filepath = m_filepath / DefaultConfigurationFilename;
-    }
+    if (!m_filepath.has_filename()) { m_filepath = m_filepath / DefaultConfigurationFilename; }
 
     // If the filepath does not have a parent path, get and attach the default brypt folder
-    if (!m_filepath.has_parent_path()) {
-        m_filepath = GetDefaultBryptFolder() / m_filepath;
-    }
+    if (!m_filepath.has_parent_path()) {  m_filepath = GetDefaultBryptFolder() / m_filepath; }
     
     if (m_isGeneratorAllowed && !FileUtils::CreateFolderIfNoneExist(m_filepath)) {
         m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
@@ -293,7 +270,7 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
 {
     StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
-        m_spLogger->info("Reading configuration file at: {}.", m_filepath.string());
+        m_spLogger->debug("Reading configuration file at: {}.", m_filepath.string());
         status = DecodeConfigurationFile();
     } else {
         if (!m_isGeneratorAllowed) {
@@ -310,11 +287,9 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
         status = GenerateConfigurationFile();
     }
 
-    if (status != StatusCode::Success) {
-        return status;
-    }
+    if (status != StatusCode::Success) { return status; }
 
-    InitializeSettings();
+    if (!InitializeSettings()) { return StatusCode::InputError; }
 
     return status;
 }
@@ -323,18 +298,11 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
 
 Configuration::StatusCode Configuration::Manager::Serialize()
 {
-    if (!m_validated) {
-        return StatusCode::InputError;
-    }
-
-    if (m_filepath.empty()) {
-        return StatusCode::FileError;
-    }
+    if (!m_validated) { return StatusCode::InputError; }
+    if (m_filepath.empty()) { return StatusCode::FileError; }
 
     std::ofstream out(m_filepath, std::ofstream::out);
-    if (out.fail()) {
-        return StatusCode::FileError;
-    }
+    if (out.fail()) { return StatusCode::FileError; }
 
     out << "{\n";
 
@@ -361,9 +329,7 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 {
     // If the configuration has not been provided to the Configuration Manager
     // generate a configuration object from user input
-    if (m_settings.endpoints.empty()) {
-        GetConfigurationOptionsFromUser();
-    }
+    if (m_settings.endpoints.empty()) { GetConfigurationOptionsFromUser(); }
 
     ValidateSettings();
 
@@ -379,9 +345,7 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 
 std::optional<Configuration::Settings> Configuration::Manager::GetSettings() const
 {
-    if (!m_validated) {
-        return {};
-    }
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings;
 }
 
@@ -389,14 +353,10 @@ std::optional<Configuration::Settings> Configuration::Manager::GetSettings() con
 
 BryptIdentifier::SharedContainer Configuration::Manager::GetBryptIdentifier() const
 {
-    if (!m_validated) {
-        return {};
-    }
+    if (!m_validated) [[unlikely]] { return {}; }
 
     auto& spBryptIdentifier = m_settings.identifier.container;
-    if (!spBryptIdentifier || !spBryptIdentifier->IsValid()) {
-        return {};
-    }
+    if (!spBryptIdentifier || !spBryptIdentifier->IsValid()) { return {}; }
 
     return spBryptIdentifier;
 }
@@ -405,10 +365,7 @@ BryptIdentifier::SharedContainer Configuration::Manager::GetBryptIdentifier() co
 
 std::string Configuration::Manager::GetNodeName() const
 {
-    if (!m_validated) {
-        return {};
-    }
-
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings.details.name;
 }
 
@@ -416,10 +373,7 @@ std::string Configuration::Manager::GetNodeName() const
 
 std::string Configuration::Manager::GetNodeDescription() const
 {
-    if (!m_validated) {
-        return {};
-    }
-
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings.details.description;
 }
 
@@ -427,10 +381,7 @@ std::string Configuration::Manager::GetNodeDescription() const
 
 std::string Configuration::Manager::GetNodeLocation() const
 {
-    if (!m_validated) {
-        return {};
-    }
-
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings.details.location;
 }
 
@@ -438,9 +389,7 @@ std::string Configuration::Manager::GetNodeLocation() const
     
 std::optional<Configuration::EndpointConfigurations> Configuration::Manager::GetEndpointConfigurations() const
 {
-    if (!m_validated) {
-        return {};
-    }
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings.endpoints;
 }
 
@@ -448,9 +397,7 @@ std::optional<Configuration::EndpointConfigurations> Configuration::Manager::Get
 
 Security::Strategy Configuration::Manager::GetSecurityStrategy() const
 {
-    if (!m_validated) {
-        return Security::Strategy::Invalid;
-    }
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings.security.type;
 }
 
@@ -458,9 +405,7 @@ Security::Strategy Configuration::Manager::GetSecurityStrategy() const
 
 std::string Configuration::Manager::GetCentralAuthority() const
 {
-    if (!m_validated) {
-        return {};
-    }
+    if (!m_validated) [[unlikely]] { return {}; }
     return m_settings.security.authority;
 }
 
@@ -470,21 +415,15 @@ Configuration::StatusCode Configuration::Manager::ValidateSettings()
 {
     m_validated = false;
 
-    if (m_settings.identifier.type.empty()) {
+    if (m_settings.identifier.type.empty()) { return StatusCode::DecodeError; }
+    if (!allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_settings.identifier.type)) {
         return StatusCode::DecodeError;
-    } else {
-        if (!allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_settings.identifier.type)) {
-            return StatusCode::DecodeError;
-        }
     }
 
-    if (m_settings.endpoints.empty()) {
-        return StatusCode::DecodeError;
-    } else {
-        for (auto const& endpoint: m_settings.endpoints) {
-            if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) {
-                return StatusCode::DecodeError;
-            }
+    if (m_settings.endpoints.empty()) { return StatusCode::DecodeError; }
+    for (auto const& endpoint: m_settings.endpoints) {
+        if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) {
+            return StatusCode::DecodeError;
         }
     }
 
@@ -493,6 +432,7 @@ Configuration::StatusCode Configuration::Manager::ValidateSettings()
     }
 
     m_validated = true;
+
     return StatusCode::Success;
 }
 
@@ -504,18 +444,14 @@ Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
     // that is above the given treshold. 
     std::error_code error;
     auto const size = std::filesystem::file_size(m_filepath, error);
-    if (error || size == 0 || size > defaults::FileSizeLimit) {
-        return StatusCode::FileError;
-    }
+    if (error || size == 0 || size > defaults::FileSizeLimit) { return StatusCode::FileError; }
 
     // Attempt to open the configuration file, if it fails return noopt
     std::ifstream file(m_filepath);
-    if (file.fail()) {
-        return StatusCode::FileError;
-    }
+    if (file.fail()) { return StatusCode::FileError; }
 
     std::stringstream buffer;
-    buffer << file.rdbuf(); // Read the file into the buffer streamInitializeEndpointOptions
+    buffer << file.rdbuf(); // Read the file into the buffer stream
     std::string json = buffer.str(); // Put the file contents into a string to be trimmed and parsed
     // Remove newlines and tabs from the string
     json.erase(std::remove_if(json.begin(), json.end(), &FileUtils::IsNewlineOrTab), json.end());
@@ -568,18 +504,23 @@ void Configuration::Manager::GetConfigurationOptionsFromUser()
 
 //-----------------------------------------------------------------------------------------------
 
-void Configuration::Manager::InitializeSettings()
+bool Configuration::Manager::InitializeSettings()
 {
     local::InitializeIdentifierOptions(m_settings.identifier);
-    local::InitializeEndpointConfigurations(m_settings.endpoints);
     local::InitializeSecurityOptions(m_settings.security);
+    if (!local::InitializeEndpointConfigurations(m_settings.endpoints, m_spLogger)) {
+        return false;
+    }
 
     // Update the configuration file as the initialization of options may create new values 
     // for certain options. Currently, this only caused by the generation of Brypt Identifiers.
     auto const status = Serialize();
     if (status != StatusCode::Success) {
         m_spLogger->error("Failed to update configuration file at: {}!", m_filepath.string());
+        return false;
     }
+
+    return true;
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -592,8 +533,7 @@ void local::SerializeVersion(std::ofstream& out)
 //-----------------------------------------------------------------------------------------------
 
 void local::SerializeIdentifierOptions(
-    Configuration::IdentifierOptions const& options,
-    std::ofstream& out)
+    Configuration::IdentifierOptions const& options, std::ofstream& out)
 {
     out << "\t\"identifier\": {\n";
     if (options.value && options.type == "Persistent") {
@@ -606,8 +546,7 @@ void local::SerializeIdentifierOptions(
 //-----------------------------------------------------------------------------------------------
 
 void local::SerializeNodeOptions(
-    Configuration::DetailsOptions const& options,
-    std::ofstream& out)
+    Configuration::DetailsOptions const& options, std::ofstream& out)
 {
     out << "\t\"details\": {\n";
     out << "\t\t\"name\": \"" << options.name << "\",\n";
@@ -619,8 +558,7 @@ void local::SerializeNodeOptions(
 //-----------------------------------------------------------------------------------------------
 
 void local::SerializeEndpointConfigurations(
-    Configuration::EndpointConfigurations const& configurations,
-    std::ofstream& out)
+    Configuration::EndpointConfigurations const& configurations, std::ofstream& out)
 {
     out << "\t\"endpoints\": [\n";
     for (auto const& options: configurations) {
@@ -634,9 +572,7 @@ void local::SerializeEndpointConfigurations(
             out << "\"\n";
         }
         out << "\t\t}";
-        if (&options != &configurations.back()) {
-            out << ",\n";
-        }
+        if (&options != &configurations.back()) { out << ",\n"; }
     }
     out << "\n\t],\n";
 }
@@ -644,8 +580,7 @@ void local::SerializeEndpointConfigurations(
 //-----------------------------------------------------------------------------------------------
 
 void local::SerializeSecurityOptions(
-    Configuration::SecurityOptions const& options,
-    std::ofstream& out)
+    Configuration::SecurityOptions const& options, std::ofstream& out)
 {
     out << "\t\"security\": {\n";
     out << "\t\t\"strategy\": \"" << options.strategy << "\",\n";
@@ -658,9 +593,7 @@ void local::SerializeSecurityOptions(
 
 Configuration::IdentifierOptions local::GetIdentifierOptionsFromUser()
 {
-    Configuration::IdentifierOptions options(
-        defaults::IdentifierType
-    );
+    Configuration::IdentifierOptions options(defaults::IdentifierType);
 
     // Get the network interface that the node will be bound too
     std::string type(defaults::IdentifierType);
@@ -690,25 +623,19 @@ Configuration::DetailsOptions local::GetDetailsOptionsFromUser()
     std::string name = "";
     std::cout << "Node Name: " << std::flush;
     std::getline(std::cin, name);
-    if (!name.empty()) {
-        options.name = name;
-    }
+    if (!name.empty()) { options.name = name; }
 
     std::string decription = "";
     std::cout << "Node Description: " << std::flush;
     std::getline(std::cin, decription);
-    if (!decription.empty()) {
-        options.description = decription;
-    }
+    if (!decription.empty()) { options.description = decription; }
 
     // TODO: Possibly expand on location to have different types. Possible types could include
     // worded description, geographic coordinates, custom map coordinates, etc.
     std::string location = "";
     std::cout << "Node Location: " << std::flush;
     std::getline(std::cin, location);
-    if (!location.empty()) {
-        options.location = location;
-    }
+    if (!location.empty()) { options.location = location; }
 
     std::cout << "\n";
 
@@ -749,9 +676,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
             std::string interface = "";
             std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
             std::getline(std::cin, interface);
-            if (!interface.empty()) {
-                options.interface = interface;
-            }
+            if (!interface.empty()) { options.interface = interface; }
 
             // Get the primary and secondary network address components
             // Currently, this may be the IP and port for TCP/IP based nodes
@@ -768,9 +693,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 
             std::cout << bindingOutputMessage << std::flush;
             std::getline(std::cin, binding);
-            if (!binding.empty()) {
-                options.binding = binding;
-            }
+            if (!binding.empty()) { options.binding = binding; }
 
             // Get the default bootstrap entry for the protocol
             if (options.type != Network::Protocol::LoRa) {
@@ -779,9 +702,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
                 std::string bootstrap = "";
                 std::cout << "Default Bootstrap Entry: (" << defaults::TcpBootstrapEntry << ") " << std::flush;
                 std::getline(std::cin, bootstrap);
-                if (!bootstrap.empty()) {
-                    options.bootstrap = bootstrap;
-                }
+                if (!bootstrap.empty()) { options.bootstrap = bootstrap; }
             }
 
             configurations.emplace_back(options);
@@ -831,16 +752,12 @@ Configuration::SecurityOptions local::GetSecurityOptionsFromUser()
             std::string token(defaults::NetworkToken);
             std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
             std::getline(std::cin, token);
-            if (!token.empty()) {
-                options.token = token;
-            }
+            if (!token.empty()) { options.token = token; }
 
             std::string authority(defaults::CentralAutority);
             std::cout << "Central Authority: (" << defaults::CentralAutority << ") " << std::flush;
             std::getline(std::cin, authority);
-            if (!authority.empty()) {
-                options.authority = authority;
-            }
+            if (!authority.empty()) { options.authority = authority; }
         }
 
         std::cout << "\n";
@@ -871,9 +788,7 @@ void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
             options.container = std::make_shared<BryptIdentifier::Container const>(
                 *options.value);
             assert(options.container);
-            if (!options.container->IsValid()) {
-                options.value.reset();
-            }
+            if (!options.container->IsValid()) { options.value.reset(); }
         } else {
             options.container = std::make_shared<BryptIdentifier::Container const>(
                 BryptIdentifier::Generate());
@@ -887,14 +802,22 @@ void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
 
 //-----------------------------------------------------------------------------------------------
 
-void  local::InitializeEndpointConfigurations(Configuration::EndpointConfigurations& configurations)
+bool local::InitializeEndpointConfigurations(
+    Configuration::EndpointConfigurations& configurations,
+    std::shared_ptr<spdlog::logger> const& spLogger)
 {
+    bool success = true;
     std::for_each(configurations.begin(), configurations.end(),
-    [] (auto& endpoint)
+        [&success, &spLogger] (auto& options)
         {
-            endpoint.type = Network::ParseProtocol(endpoint.protocol);
-        }
-    );
+            if (!options.Initialize()) {
+                spLogger->warn(
+                    "Unable to initialize the endpoint configuration for {}",
+                    options.GetProtocolName());
+                success = false;
+            }
+        });
+    return success;
 }
 
 //-----------------------------------------------------------------------------------------------

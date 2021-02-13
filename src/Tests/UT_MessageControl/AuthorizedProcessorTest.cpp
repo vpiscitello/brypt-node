@@ -32,6 +32,7 @@ namespace test {
 BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
 BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
 
+
 constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
@@ -39,6 +40,8 @@ constexpr std::string_view Message = "Hello World!";
 
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
+
+Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
 
 constexpr std::uint32_t Iterations = 10000;
 
@@ -204,6 +207,7 @@ EndpointRegistration local::GenerateCaptureRegistration(
     EndpointRegistration registration(
         test::EndpointIdentifier,
         test::EndpointProtocol,
+        test::RemoteClientAddress,
         [&registration, &optCapturedMessage] (auto const&, auto message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()

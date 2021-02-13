@@ -5,10 +5,10 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Network/Address.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Components/Security/SecurityUtils.hpp"
-#include "Utilities/NetworkUtils.hpp"
 #include "Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -53,16 +53,14 @@ struct Configuration::IdentifierOptions
     {
     }
 
-    IdentifierOptions(std::string_view type)
+    explicit IdentifierOptions(std::string_view type)
         : value()
         , type(type)
         , container()
     {
     }
 
-    IdentifierOptions(
-        std::string_view value,
-        std::string_view type)
+    IdentifierOptions(std::string_view value, std::string_view type)
         : value(value)
         , type(type)
         , container()
@@ -118,13 +116,12 @@ struct Configuration::EndpointOptions
         std::string_view protocol,
         std::string_view interface,
         std::string_view binding)
-        : type(Network::Protocol::Invalid)
+        : type(Network::ParseProtocol({protocol.data(), protocol.size()}))
         , protocol(protocol)
         , interface(interface)
         , binding(binding)
         , bootstrap()
     {
-        type = Network::ParseProtocol({protocol.data(), protocol.size()});
     }
 
     EndpointOptions(
@@ -132,39 +129,41 @@ struct Configuration::EndpointOptions
         std::string_view interface,
         std::string_view binding)
         : type(type)
-        , protocol()
+        , protocol(Network::ProtocolToString(type))
         , interface(interface)
         , binding(binding)
         , bootstrap()
     {
-        protocol = Network::ProtocolToString(type);
+    }
+
+    [[nodiscard]] bool Initialize()
+    {
+        if (address.IsValid()) { return true; }
+
+        if (type == Network::Protocol::Invalid && !protocol.empty()) {
+            type = Network::ParseProtocol(protocol);
+        }
+
+        if (type == Network::Protocol::Invalid || binding.empty() || interface.empty()) {
+            return false; 
+        }
+
+        address = { type, binding, interface };
+
+        return true;
     }
 
     Network::Protocol GetProtocol() const { return type; }
     std::string const& GetProtocolName() const { return protocol; }
     std::string const& GetInterface() const { return interface; }
-    std::string const& GetBinding() const { return binding; }
+    Network::BindingAddress const& GetBinding() const { return address; }
     std::optional<std::string> const& GetBootstrap() const { return bootstrap; }
-
-    NetworkUtils::AddressComponentPair GetBindingComponents() const
-    {
-        auto components = NetworkUtils::SplitAddressString(binding);
-        switch (type) {
-            case Network::Protocol::TCP: {
-                if (auto const found = components.first.find(NetworkUtils::Wildcard); found != std::string::npos) {
-                    components.first = NetworkUtils::GetInterfaceAddress(interface);
-                }
-            } break;
-            default: break; // Do not do any additional processing on types that don't require it
-        }
-
-        return components;
-    }
 
     Network::Protocol type;
     std::string protocol;
     std::string interface;
     std::string binding;
+    Network::BindingAddress address;
     std::optional<std::string> bootstrap;
 };
 
@@ -220,45 +219,14 @@ struct Configuration::Settings
     {
     }
 
-    Settings(Settings const& other)
-        : details(other.details)
-        , endpoints(other.endpoints)
-        , security(other.security)
-    {
-    }
+    Settings(Settings const& other) = default;
+    Settings& operator=(Settings const& other) = default;
 
-    Settings& operator=(Settings const& other)
-    {
-        details = other.details;
-        endpoints = other.endpoints;
-        security = other.security;
-        return *this;
-    }
-
-    std::string const& GetVersion()
-    {
-        return version;
-    }
-
-    IdentifierOptions const& GetIdentifierOptions()
-    {
-        return identifier;
-    }
-
-    DetailsOptions const& GetDetailsOptions()
-    {
-        return details;
-    }
-
-    EndpointConfigurations const& GetEndpointConfigurations()
-    {
-        return endpoints;
-    }
-
-    SecurityOptions const& GetSecurityOptions()
-    {
-        return security;
-    }
+    std::string const& GetVersion() { return version; }
+    IdentifierOptions const& GetIdentifierOptions() { return identifier; }
+    DetailsOptions const& GetDetailsOptions() { return details; }
+    EndpointConfigurations const& GetEndpointConfigurations() { return endpoints; }
+    SecurityOptions const& GetSecurityOptions() {  return security; }
 
     std::string version;
     IdentifierOptions identifier;

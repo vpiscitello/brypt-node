@@ -44,13 +44,14 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
-    virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) override;
+    virtual OptionalRequest DeclareResolvingPeer(
+        Network::RemoteAddress const& address) override;
     virtual OptionalRequest DeclareResolvingPeer(
         BryptIdentifier::SharedContainer const& spIdentifier) override;
 
     virtual std::shared_ptr<BryptPeer> LinkPeer(
         BryptIdentifier::Container const& identifier,
-        std::string_view uri = "") override;
+        Network::RemoteAddress const& address) override;
 
     virtual void DispatchPeerStateChange(
         std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -106,7 +107,6 @@ private:
     
     std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
     std::weak_ptr<IMessageSink> const m_wpPromotedProcessor;
-
 };
 
 //------------------------------------------------------------------------------------------------

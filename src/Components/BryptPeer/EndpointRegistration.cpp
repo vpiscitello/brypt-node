@@ -3,29 +3,16 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "EndpointRegistration.hpp"
-#include "Utilities/NetworkUtils.hpp"
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-namespace {
-namespace local {
-//------------------------------------------------------------------------------------------------
-
-std::string ParseEntryFromURI(std::string_view uri);
-
-//------------------------------------------------------------------------------------------------
-} // local namespace
-} // namespace
 //------------------------------------------------------------------------------------------------
 
 EndpointRegistration::EndpointRegistration(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
-    MessageScheduler const& scheduler,
-    std::string_view uri)
+    Network::RemoteAddress const& address,
+    MessageScheduler const& scheduler)
     : m_context(identifier, protocol)
     , m_scheduler(scheduler)
-    , m_entry(local::ParseEntryFromURI(uri))
+    , m_address(address)
 {
 }
 
@@ -66,19 +53,9 @@ MessageScheduler const& EndpointRegistration::GetScheduler() const
 
 //------------------------------------------------------------------------------------------------
 
-std::string const& EndpointRegistration::GetEntry() const
+Network::RemoteAddress const& EndpointRegistration::GetAddress() const
 {
-    return m_entry;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::string local::ParseEntryFromURI(std::string_view uri) {
-    if (auto const pos = uri.find(NetworkUtils::SchemeSeperator); pos != std::string::npos) {
-        return std::string(uri.begin() + pos + NetworkUtils::SchemeSeperator.size(), uri.end());
-    } else {
-        return std::string(uri.begin(), uri.end());
-    }
+    return m_address;
 }
 
 //------------------------------------------------------------------------------------------------

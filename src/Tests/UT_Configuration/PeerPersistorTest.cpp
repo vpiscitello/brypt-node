@@ -5,6 +5,7 @@
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Components/Network/Address.hpp"
 #include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -28,7 +29,6 @@ namespace test {
 
 constexpr Network::Endpoint::Identifier EndpointIdentifier = 1;
 constexpr Network::Protocol PeerProtocol = Network::Protocol::TCP;
-constexpr std::string_view NewBootstrapEntry = "127.0.0.1:35220";
 
 constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
 constexpr std::string_view LoraBootstrapEntry = "915:71";
@@ -138,11 +138,13 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     ASSERT_TRUE(bParsed);
     EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerProtocol), std::size_t(1));
 
+    Network::RemoteAddress const address(Network::Protocol::TCP, "127.0.0.1:35220", true);
+
     // Create a new peer and notify the persistor
     auto const spBryptPeer = std::make_shared<BryptPeer>(
         BryptIdentifier::Container{ BryptIdentifier::Generate() });
     spBryptPeer->RegisterEndpoint(
-        test::EndpointIdentifier, test::PeerProtocol, {}, test::NewBootstrapEntry);
+        test::EndpointIdentifier, test::PeerProtocol, address, {});
 
     persistor.HandlePeerStateChange(
         spBryptPeer, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Connected);
@@ -153,9 +155,9 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     bool bFoundConnectedBootstrap;
     persistor.ForEachCachedBootstrap(
         test::PeerProtocol,
-        [&bFoundConnectedBootstrap] (std::string_view const& bootstrap) -> CallbackIteration
+        [&bFoundConnectedBootstrap, &address] (std::string_view const& bootstrap) -> CallbackIteration
         {
-            if (bootstrap == test::NewBootstrapEntry) {
+            if (bootstrap == address.GetAuthority()) {
                 bFoundConnectedBootstrap = true;
                 return CallbackIteration::Stop;
             }
@@ -174,9 +176,9 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         bool bFoundCheckBootstrap;
         persistor.ForEachCachedBootstrap(
             test::PeerProtocol,
-            [&bFoundCheckBootstrap] (std::string_view const& bootstrap) -> CallbackIteration
+            [&bFoundCheckBootstrap, &address] (std::string_view const& bootstrap) -> CallbackIteration
             {
-                if (bootstrap == test::NewBootstrapEntry) {
+                if (bootstrap == address.GetAuthority()) {
                     bFoundCheckBootstrap = true;
                     return CallbackIteration::Stop;
                 }
@@ -199,9 +201,9 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     bool bFoundDisconnectedBootstrap = false;
     persistor.ForEachCachedBootstrap(
         test::PeerProtocol,
-        [&bFoundDisconnectedBootstrap] (std::string_view const& bootstrap) -> CallbackIteration
+        [&bFoundDisconnectedBootstrap, &address] (std::string_view const& bootstrap) -> CallbackIteration
         {
-            if (bootstrap == test::NewBootstrapEntry) {
+            if (bootstrap == address.GetAuthority()) {
                 bFoundDisconnectedBootstrap = true;
             }
             return CallbackIteration::Continue;

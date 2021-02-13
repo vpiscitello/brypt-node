@@ -66,12 +66,13 @@ void PeerManager::UnpublishObserver(IPeerObserver* const observer)
 
 //------------------------------------------------------------------------------------------------
 
-PeerManager::OptionalRequest PeerManager::DeclareResolvingPeer(std::string_view uri)
+PeerManager::OptionalRequest PeerManager::DeclareResolvingPeer(
+    Network::RemoteAddress const& address)
 {
     // Disallow endpoints from connecting to the same uri. The endpoint should only declare a 
     // a connection once. If it has connection retry logic, the endpoint should store the 
     // connection request message. TODO: Handle cleaning up stale declarations. 
-    if (auto const itr = m_resolving.find(uri.data()); itr != m_resolving.end()) {
+    if (auto const itr = m_resolving.find(address.GetUri()); itr != m_resolving.end()) {
         return {};
     }
 
@@ -85,7 +86,7 @@ PeerManager::OptionalRequest PeerManager::DeclareResolvingPeer(std::string_view 
     // to the full BryptPeer
     if (optRequest) {
         std::scoped_lock lock(m_resolvingMutex);
-        m_resolving[uri.data()] = std::move(upSecurityMediator);
+        m_resolving[address.GetUri()] = std::move(upSecurityMediator);
     }
 
     // Return the ticket number and the initial connection message
@@ -126,7 +127,8 @@ PeerManager::OptionalRequest PeerManager::DeclareResolvingPeer(
 //------------------------------------------------------------------------------------------------
 
 std::shared_ptr<BryptPeer> PeerManager::LinkPeer(
-    BryptIdentifier::Container const& identifier, std::string_view uri)
+    BryptIdentifier::Container const& identifier,
+    Network::RemoteAddress const& address)
 {
     std::shared_ptr<BryptPeer> spBryptPeer = {};
 
@@ -150,13 +152,8 @@ std::shared_ptr<BryptPeer> PeerManager::LinkPeer(
             // to move the SecurityStrategy out of the resolving map and give it to the SecurityMediator. 
             // Otherwise, it is assumed are accepting the connection and we need to make an accepting strategy.
             std::unique_ptr<SecurityMediator> upSecurityMediator;
-            if (uri.size() != 0) {
+            if (auto itr = m_resolving.find(address.GetUri()); itr != m_resolving.end()) {
                 std::scoped_lock resolvingLock(m_resolvingMutex);
-                auto itr = m_resolving.find(uri.data());
-                if (itr == m_resolving.end()) {
-                    // Why were we given a ticket if we do not have an associated strategy?
-                    assert(false); return nullptr;
-                }
                 upSecurityMediator = std::move(itr->second);
                 m_resolving.erase(itr);
             } else {
@@ -164,9 +161,7 @@ std::shared_ptr<BryptPeer> PeerManager::LinkPeer(
                     m_spBryptIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
                 bool const success = upSecurityMediator->SetupExchangeAcceptor(m_strategyType);
-                if (!success) {
-                    return {};
-                }
+                if (!success) {  return {}; }
             }
             
             spBryptPeer->AttachSecurityMediator(std::move(upSecurityMediator));

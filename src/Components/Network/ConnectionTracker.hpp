@@ -10,6 +10,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "Components/Network/Address.hpp"
 #include "Utilities/CallbackIteration.hpp"
 #include "Utilities/EnumMaskUtils.hpp"
 //------------------------------------------------------------------------------------------------
@@ -71,13 +72,13 @@ public:
         return spBryptIdentifier->GetInternalRepresentation();
     }
     
-    std::string GetURI() const
+    std::string GetUri() const
     {
         if (!m_optConnectionDetails) {
             return {};
         }
 
-        return m_optConnectionDetails->GetURI();
+        return m_optConnectionDetails->GetAddress().GetUri();
     }
 
     OptionalConnectionDetails& GetUpdatableConnectionDetails()
@@ -89,7 +90,7 @@ public:
     {
         if (m_optConnectionDetails &&
             m_optConnectionDetails->GetConnectionState() == ConnectionState::Resolving) {
-            details.SetURI(m_optConnectionDetails->GetURI());
+            details.SetAddress(m_optConnectionDetails->GetAddress());
         }
 
         m_optConnectionDetails = std::move(details);
@@ -180,7 +181,7 @@ public:
     using UpdateMultipleFunction = std::function<
         CallbackIteration(ConnectionIdType const&, OptionalConnectionDetails&)>;
     using UpdateUnpromotedConnectionFunction = std::function<
-        ExtendedConnectionDetails(std::string_view)>;
+        ExtendedConnectionDetails(Network::RemoteAddress const&)>;
 
     using ReadOneFunction = std::function<void(ExtendedConnectionDetails const&)>;
     using ReadMultipleFunction = std::function<
@@ -211,12 +212,10 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    void TrackConnection(ConnectionIdType const& connection, std::string_view uri)
+    void TrackConnection(ConnectionIdType const& connection, Network::RemoteAddress const& address)
     {
-        // Return early if the provided URI is empty
-        if (uri.empty()) {
-            return;
-        }
+        // Return early if the provided remote address is not valid
+        if (!address.IsValid()) { return; }
 
         {
             std::scoped_lock lock(m_mutex);
@@ -224,7 +223,7 @@ public:
                 return;
             }
 
-            ConnectionEntryType entry(connection, ExtendedConnectionDetails(uri));
+            ConnectionEntryType entry(connection, ExtendedConnectionDetails(address));
             m_connections.emplace(entry);
         }
     }
@@ -322,10 +321,10 @@ public:
                             found = true;
                         } else {
                             optConnectionDetails = unpromotedConnectionFunction(
-                                optConnectionDetails->GetURI());
+                                optConnectionDetails->GetAddress());
                         }
                     } else {
-                        optConnectionDetails = unpromotedConnectionFunction("");
+                        optConnectionDetails = unpromotedConnectionFunction({});
                     }
                 });
 
@@ -656,7 +655,7 @@ public:
 
     //------------------------------------------------------------------------------------------------
 
-    bool IsURITracked(std::string_view uri) const
+    bool IsUriTracked(std::string_view uri) const
     {
         std::scoped_lock lock(m_mutex);
         auto const& index = m_connections.template get<UriIndex>();
@@ -716,7 +715,7 @@ private:
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
                     std::string,
-                    &ConnectionEntryType::GetURI>>>>;
+                    &ConnectionEntryType::GetUri>>>>;
 
     mutable std::recursive_mutex m_mutex;
     ConnectionTrackingMap m_connections;

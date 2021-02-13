@@ -15,10 +15,11 @@ target_sources(
     SecurityMediatorTest.cpp
     UT_Security.cpp)
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Security MessageControl BryptMessage BryptIdentifier 
+    BryptPeer Security MessageControl Network BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

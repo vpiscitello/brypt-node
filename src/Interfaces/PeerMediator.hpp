@@ -4,9 +4,10 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
-#include "Components/Network/ConnectionState.hpp"
+#include "Components/Network/Address.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -29,13 +30,12 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
-    virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) = 0;
+    virtual OptionalRequest DeclareResolvingPeer(Network::RemoteAddress const& address) = 0;
     virtual OptionalRequest DeclareResolvingPeer(
         BryptIdentifier::SharedContainer const& spIdentifier) = 0;
 
     virtual std::shared_ptr<BryptPeer> LinkPeer(
-        BryptIdentifier::Container const& identifier,
-        std::string_view uri = "") = 0;
+        BryptIdentifier::Container const& identifier, Network::RemoteAddress const& address) = 0;
 
     virtual void DispatchPeerStateChange(
         std::weak_ptr<BryptPeer> const& wpBryptPeer,
