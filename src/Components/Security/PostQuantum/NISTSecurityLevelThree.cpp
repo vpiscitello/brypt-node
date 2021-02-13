@@ -876,7 +876,7 @@ Security::Strategy local::UnpackStrategy(
 //------------------------------------------------------------------------------------------------
 Security::OptionalBuffer local::GenerateRandomData(std::size_t size)
 {
-    assert(size < std::numeric_limits<std::int32_t>::max());
+    assert(std::in_range<std::int32_t>(size));
     Security::Buffer buffer = std::vector<std::uint8_t>(size, 0x00);
     if (!RAND_bytes(buffer.data(), static_cast<std::int32_t>(size))) { return {}; }
     return buffer;
