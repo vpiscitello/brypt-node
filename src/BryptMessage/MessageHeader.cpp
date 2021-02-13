@@ -89,7 +89,7 @@ std::size_t MessageHeader::GetPackSize() const
     if (m_optDestinationIdentifier) {
         size += m_optDestinationIdentifier->NetworkRepresentationSize();
     }
-    assert(std::cmp_less(size, std::numeric_limits<std::uint16_t>::max()));
+    assert(std::in_range<std::uint16_t>(size));
     return size;
 }
 

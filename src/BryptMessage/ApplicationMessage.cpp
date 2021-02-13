@@ -161,7 +161,7 @@ std::size_t ApplicationMessage::GetPackSize() const
 	size += m_context.GetSignatureSize();
 
 	auto const encoded = Z85::EncodedSize(size);
-	assert(std::cmp_less(encoded, std::numeric_limits<std::uint32_t>::max()));
+	assert(std::in_range<std::uint32_t>(encoded));
 	return encoded;
 }
 
@@ -250,7 +250,7 @@ constexpr std::size_t ApplicationMessage::FixedPackSize() const
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint64_t); // 8 bytes for message timestamp
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-    assert(std::cmp_less(size, std::numeric_limits<std::uint32_t>::max()));
+    assert(std::in_range<std::uint32_t>(size));
 	return size;
 }
 
@@ -263,7 +263,7 @@ constexpr std::size_t ApplicationMessage::FixedAwaitExtensionSize() const
 	size += sizeof(std::uint16_t); // 2 bytes for the extension size
 	size += sizeof(m_optBoundAwaitTracker->first); // 1 byte for await tracker binding
 	size += sizeof(m_optBoundAwaitTracker->second); // 4 bytes for await tracker key
-    assert(std::cmp_less(size, std::numeric_limits<std::uint16_t>::max()));
+    assert(std::in_range<std::uint16_t>(size));
 	return size;
 }
 

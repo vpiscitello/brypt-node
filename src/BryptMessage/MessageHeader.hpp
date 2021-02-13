@@ -47,7 +47,7 @@ public:
         size += sizeof(std::uint8_t); // 1 byte for destination type
         size += sizeof(std::uint8_t); // 1 byte for destination identifier size
         size += sizeof(std::uint8_t); // 1 bytes for header extension size
-        assert(std::cmp_less(size, std::numeric_limits<std::uint16_t>::max()));
+        assert(std::in_range<std::uint16_t>(size));
         return size;
     }
 
@@ -60,7 +60,7 @@ public:
         size += sizeof(m_size); // 4 bytes for message size
         size += sizeof(std::uint8_t); // 1 byte for source identifier size
         auto const encoded = Z85::EncodedSize(size);
-        assert(std::cmp_less(encoded, std::numeric_limits<std::uint16_t>::max()));
+        assert(std::in_range<std::uint16_t>(size));
         return encoded;
     }
 
@@ -72,7 +72,7 @@ public:
         size += BryptIdentifier::Network::MaximumLength;
         size += BryptIdentifier::Network::MaximumLength;
         auto const encoded = Z85::EncodedSize(size);
-        assert(std::cmp_less(encoded, std::numeric_limits<std::uint16_t>::max()));
+        assert(std::in_range<std::uint16_t>(encoded));
         return encoded;
     }
 

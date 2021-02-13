@@ -113,7 +113,7 @@ std::size_t NetworkMessage::GetPackSize() const
 	size += m_payload.size();
 
 	auto const encoded = Z85::EncodedSize(size);
-    assert(std::cmp_less(encoded, std::numeric_limits<std::uint32_t>::max()));
+    assert(std::in_range<std::uint32_t>(encoded));
 	return encoded;
 }
 
@@ -175,7 +175,7 @@ constexpr std::size_t NetworkMessage::FixedPackSize() const
 	size += sizeof(Message::Network::Type); // 1 byte for network message type
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
-    assert(std::cmp_less(size, std::numeric_limits<std::uint32_t>::max()));
+    assert(std::in_range<std::uint32_t>(size));
 	return size;
 }
 
