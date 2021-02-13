@@ -39,8 +39,13 @@ std::string GetInterfaceAddress(std::string_view interface);
 //------------------------------------------------------------------------------------------------
 
 Network::Address::Address()
-    : m_protocol(Network::Protocol::Invalid)
+    : m_protocol(Protocol::Invalid)
     , m_uri()
+    , m_scheme()
+    , m_authority()
+    , m_primary()
+    , m_secondary()
+    , m_bootstrapable(false)
 {
 }
 
@@ -50,6 +55,7 @@ Network::Address::Address(Protocol protocol, std::string_view uri, bool bootstra
     : m_protocol(protocol)
     , m_uri(uri)
     , m_scheme()
+    , m_authority()
     , m_primary()
     , m_secondary()
     , m_bootstrapable(bootstrapable)
@@ -58,6 +64,51 @@ Network::Address::Address(Protocol protocol, std::string_view uri, bool bootstra
 }
 
 //------------------------------------------------------------------------------------------------
+
+Network::Address& Network::Address::operator=(Address const& other)
+{
+    m_protocol = other.m_protocol;
+    m_uri = other.m_uri;
+    m_bootstrapable = other.m_bootstrapable;
+    if (!CacheAddressPartitions()) { Reset(); }
+    return *this;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Network::Address::Address(Address const& other)
+    : m_protocol(other.m_protocol)
+    , m_uri(other.m_uri)
+    , m_scheme()
+    , m_authority()
+    , m_primary()
+    , m_secondary()
+    , m_bootstrapable(other.m_bootstrapable)
+{
+    if (!CacheAddressPartitions()) { Reset(); }
+}
+
+//------------------------------------------------------------------------------------------------
+
+Network::Address::Address(Address&& other)
+    : m_protocol(std::move(other.m_protocol))
+    , m_uri(std::move(other.m_uri))
+    , m_scheme(std::move(other.m_scheme))
+    , m_authority(std::move(other.m_authority))
+    , m_primary(std::move(other.m_primary))
+    , m_secondary(std::move(other.m_secondary))
+    , m_bootstrapable(std::move(other.m_bootstrapable))
+{
+    other.m_protocol = Protocol::Invalid;
+    other.m_scheme = {};
+    other.m_authority = {};
+    other.m_primary = {};
+    other.m_secondary = {};
+    other.m_bootstrapable = false;
+}
+
+//------------------------------------------------------------------------------------------------
+
 
 bool Network::Address::operator==(Address const& other) const
 {
@@ -134,8 +185,8 @@ bool Network::Address::CacheAddressPartitions()
         std::ostringstream oss;
         std::string_view scheme;
         switch (m_protocol) {
-            case Network::Protocol::TCP: { scheme = Network::TCP::Scheme; } break;
-            case Network::Protocol::LoRa: { scheme = Network::LoRa::Scheme; } break;
+            case Protocol::TCP: { scheme = Network::TCP::Scheme; } break;
+            case Protocol::LoRa: { scheme = Network::LoRa::Scheme; } break;
             default: assert(false); return false;
         }
         oss << scheme << Network::SchemeSeperator << m_uri;
@@ -166,9 +217,9 @@ bool Network::Address::CacheAddressPartitions()
     // Validate the uri based on the protocol type. 
     bool validated = false;
     switch (m_protocol) {
-        case Network::Protocol::TCP: {
+        case Protocol::TCP: {
             auto const result = Socket::ParseAddressType(*this);
-            if (result != Network::Socket::Type::Invalid) { validated = true; }
+            if (result != Socket::Type::Invalid) { validated = true; }
         } break;
         default: return false;
     }
@@ -209,14 +260,6 @@ Network::BindingAddress::BindingAddress(
     Protocol protocol, std::string_view uri, std::string_view interface)
     : Address(protocol, local::BuildBindingUri(protocol, uri, interface), false)
     , m_interface(interface)
-{
-}
-
-//------------------------------------------------------------------------------------------------
-
-Network::BindingAddress::BindingAddress(Address&& other)
-    : Address(std::move(other))
-    , m_interface()
 {
 }
 
@@ -292,7 +335,7 @@ bool Network::RemoteAddress::IsBootstrapable() const
 
 Network::Socket::Type Network::Socket::ParseAddressType(Address const& address)
 {
-    if (address.m_protocol != Network::Protocol::TCP) { return Type::Invalid; }
+    if (address.m_protocol != Protocol::TCP) { return Type::Invalid; }
 
     // General URI and Partition Size Checks
     {
@@ -344,7 +387,7 @@ Network::Socket::Type Network::Socket::ParseAddressType(Address const& address)
 
 Network::Socket::Components Network::Socket::GetAddressComponents(Address const& address)
 {
-    assert(address.GetProtocol() == Network::Protocol::TCP);
+    assert(address.GetProtocol() == Protocol::TCP);
     return { address.m_primary, address.m_secondary }; 
 }
 

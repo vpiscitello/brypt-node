@@ -46,9 +46,9 @@ class Network::Address
 public:
     virtual ~Address() = default;
     
-    Address& operator=(Address const& other) = default;
-    Address(Address const& other) = default;
-    Address(Address&& other) = default;
+    Address& operator=(Address const& other);
+    Address(Address const& other);
+    Address(Address&& other);
 
     bool operator==(Address const& other) const;
     bool operator!=(Address const& other) const;
@@ -90,7 +90,10 @@ class Network::BindingAddress : public Network::Address
 public:
     BindingAddress();
     BindingAddress(Protocol protocol, std::string_view uri, std::string_view interface);
-    BindingAddress(Address&& address);
+
+    BindingAddress& operator=(BindingAddress const& other) = default;
+    BindingAddress(BindingAddress const& other) = default;
+    BindingAddress(BindingAddress&& other) = default;
 
     bool operator==(BindingAddress const& other) const;
     bool operator!=(BindingAddress const& other) const;
@@ -108,6 +111,10 @@ class Network::RemoteAddress : public Network::Address
 public:
     RemoteAddress();
     RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable);
+    
+    RemoteAddress& operator=(RemoteAddress const& other) = default;
+    RemoteAddress(RemoteAddress const& other) = default;
+    RemoteAddress(RemoteAddress&& other) = default;
 
     bool operator==(RemoteAddress const& other) const;
     bool operator!=(RemoteAddress const& other) const;
