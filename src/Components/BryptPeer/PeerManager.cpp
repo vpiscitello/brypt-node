@@ -242,6 +242,36 @@ std::uint32_t PeerManager::ObservedPeerCount() const
 
 bool PeerManager::ForEachPeer(ForEachPeerFunction const& callback, Filter filter) const
 {
+    std::shared_lock lock(m_peersMutex);
+    for (auto const& spBryptPeer: m_peers) {
+        bool bShouldProvideIdentifier = true;
+        switch (filter) {
+            case Filter::Active: {
+                bShouldProvideIdentifier = spBryptPeer->IsActive();
+            } break;
+            case Filter::Inactive: {
+                bShouldProvideIdentifier = !spBryptPeer->IsActive();
+            } break;
+            case Filter::None: {
+                bShouldProvideIdentifier = true;
+            } break;
+            default: assert(false); // What is this?
+        }
+
+        if (bShouldProvideIdentifier) {
+            if (callback(spBryptPeer) != CallbackIteration::Continue) {
+                break;
+            }
+        }
+    }
+
+    return true;
+}
+
+//-----------------------------------------------------------------------------------------------
+
+std::uint32_t PeerManager::PeerCount(Filter filter) const
+{
     std::uint32_t count = 0;
 
     std::shared_lock lock(m_peersMutex);
