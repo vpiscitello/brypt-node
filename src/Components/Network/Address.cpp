@@ -221,6 +221,7 @@ bool Network::Address::CacheAddressPartitions()
             auto const result = Socket::ParseAddressType(*this);
             if (result != Socket::Type::Invalid) { validated = true; }
         } break;
+        case Protocol::LoRa: { return true; }
         default: return false;
     }
 

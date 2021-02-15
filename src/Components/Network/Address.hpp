@@ -25,6 +25,10 @@ class Address;
 class BindingAddress;
 class RemoteAddress;
 
+template <typename AddressType>
+    requires std::derived_from<AddressType, Network::Address>
+struct AddressHasher;
+
 //------------------------------------------------------------------------------------------------
 namespace Socket {
 //------------------------------------------------------------------------------------------------
@@ -120,6 +124,17 @@ public:
     bool operator!=(RemoteAddress const& other) const;
 
     [[nodiscard]] bool IsBootstrapable() const;
+};
+
+//------------------------------------------------------------------------------------------------
+
+template <typename AddressType>
+    requires std::derived_from<AddressType, Network::Address>
+struct Network::AddressHasher  {
+    std::size_t operator()(AddressType const& address) const
+    {
+        return std::hash<std::string>()(address.GetUri());
+    }
 };
 
 //------------------------------------------------------------------------------------------------
