@@ -118,8 +118,7 @@ bool Handler::Query::FloodHandler(
     ApplicationMessage const& message)
 {
     m_spLogger->debug(
-        "Flooding query request in service for {}",
-        message.GetSourceIdentifier().GetNetworkRepresentation());
+        "Flooding query request in service for {}", message.GetSourceIdentifier());
 
     IHandler::SendClusterNotice(
         wpBryptPeer, message,
@@ -142,8 +141,7 @@ bool Handler::Query::RespondHandler(
     ApplicationMessage const& message)
 {
     m_spLogger->debug(
-        "Building response for the Query request from {}.",
-        message.GetSourceIdentifier().GetNetworkRepresentation());
+        "Building response for the Query request from {}.", message.GetSourceIdentifier());
     IHandler::SendResponse(
         wpBryptPeer, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
     return true;

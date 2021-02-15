@@ -150,8 +150,7 @@ bool Handler::Information::FloodHandler(
     std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
 {
     m_spLogger->debug(
-        "Building response for the Information request from {}.",
-        message.GetSourceIdentifier().GetNetworkRepresentation());
+        "Building response for the Information request from {}.", message.GetSourceIdentifier());
 
     IHandler::SendClusterNotice(
         wpBryptPeer, message,

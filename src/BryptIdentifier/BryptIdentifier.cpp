@@ -280,8 +280,7 @@ void BryptIdentifier::Container::SetupFromNetworkRepresentation(std::string_view
 //------------------------------------------------------------------------------------------------
 
 std::ostream& BryptIdentifier::operator<<(
-    std::ostream& stream,
-    BryptIdentifier::Container const& identifier)
+    std::ostream& stream, BryptIdentifier::Container const& identifier)
 {
     stream << identifier.m_networkRepresentation;
     return stream;
@@ -290,8 +289,7 @@ std::ostream& BryptIdentifier::operator<<(
 //------------------------------------------------------------------------------------------------
 
 std::stringstream& BryptIdentifier::operator<<(
-    std::stringstream& stream,
-    BryptIdentifier::Container const& identifier)
+    std::stringstream& stream, BryptIdentifier::Container const& identifier)
 {
     stream << identifier.m_networkRepresentation;
     return stream;
@@ -300,13 +298,13 @@ std::stringstream& BryptIdentifier::operator<<(
 //------------------------------------------------------------------------------------------------
 
 std::stringstream& BryptIdentifier::operator<<(
-    std::stringstream& stream,
-    BryptIdentifier::SharedContainer const& spIdentifier)
+    std::stringstream& stream, BryptIdentifier::SharedContainer const& spIdentifier)
 {
     if (!spIdentifier) {
-        return stream;
+        stream << "[Unknown Identifier]";
+    } else {
+        stream << spIdentifier->m_networkRepresentation;
     }
-    stream << spIdentifier->m_networkRepresentation;
     return stream;
 }
 

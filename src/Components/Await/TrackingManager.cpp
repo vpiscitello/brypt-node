@@ -33,7 +33,7 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
     m_spLogger->debug(
         "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
-        key, message.GetSourceIdentifier().GetNetworkRepresentation());
+        key, message.GetSourceIdentifier());
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, spBryptPeerIdentifier));
     return key;
 }
@@ -53,7 +53,7 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
     m_spLogger->debug(
         "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
-        message.GetSourceIdentifier().GetNetworkRepresentation(), key);
+        message.GetSourceIdentifier(), key);
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, identifiers));
     return key;
 }
@@ -102,14 +102,14 @@ bool Await::TrackingManager::PushResponse(ApplicationMessage const& message)
         case UpdateStatus::Expired: {
             m_spLogger->warn(
                 "Expired await request for {} received a late response from {}. [request={:x}]",
-                tracker.GetSource().GetNetworkRepresentation(),
-                message.GetSourceIdentifier().GetNetworkRepresentation(), key);
+                tracker.GetSource(),
+                message.GetSourceIdentifier(), key);
         } return false;
         case UpdateStatus::Unexpected: {
             m_spLogger->warn(
                 "Await request for {} received an unexpected response from {}. [request={:x}]",
-                tracker.GetSource().GetNetworkRepresentation(), 
-                message.GetSourceIdentifier().GetNetworkRepresentation(), key);
+                tracker.GetSource(), 
+                message.GetSourceIdentifier(), key);
         } return false;
         default: assert(false); return false;
     }
@@ -131,11 +131,11 @@ void Await::TrackingManager::ProcessFulfilledRequests()
             if (success) {
                 m_spLogger->debug(  
                     "Await request has been transmitted to {}. [request={:x}]",
-                    tracker.GetSource().GetNetworkRepresentation(), key);
+                    tracker.GetSource(), key);
             } else {
                 m_spLogger->warn(  
                     "Unable to fulfill request from {}. [request={:x}]",
-                    key, tracker.GetSource().GetNetworkRepresentation());
+                    key, tracker.GetSource());
             }
             itr = m_awaiting.erase(itr);
         } else {

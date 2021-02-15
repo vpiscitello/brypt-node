@@ -15,7 +15,8 @@ target_sources(
     ReservedIdentifiers.cpp)
 
 # Exported include dependencies
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${OPENSSL_INCLUDE_DIR})

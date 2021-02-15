@@ -6,6 +6,8 @@
 //------------------------------------------------------------------------------------------------
 #include "IdentifierTypes.hpp"
 //------------------------------------------------------------------------------------------------
+#include <spdlog/fmt/bundled/format.h>
+//------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -95,6 +97,47 @@ struct BryptIdentifier::Hasher  {
     {
         return std::hash<Internal::Type>()(identifier.GetInternalRepresentation());
     }
+};
+
+//------------------------------------------------------------------------------------------------
+
+template <>
+struct fmt::formatter<BryptIdentifier::Container>
+{
+  constexpr auto parse(format_parse_context& ctx)
+  {
+    auto const begin = ctx.begin();
+    if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+    return begin;
+  }
+
+  template <typename FormatContext>
+  auto format(BryptIdentifier::Container const& identifier, FormatContext& ctx)
+  {
+    return format_to(ctx.out(), "{}", identifier.GetNetworkRepresentation());
+  }
+};
+
+//------------------------------------------------------------------------------------------------
+
+template <>
+struct fmt::formatter<BryptIdentifier::SharedContainer>
+{
+  constexpr auto parse(format_parse_context& ctx)
+  {
+    auto const begin = ctx.begin();
+    if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+    return begin;
+  }
+
+  template <typename FormatContext>
+  auto format(BryptIdentifier::SharedContainer const& spIdentifier, FormatContext& ctx)
+  {
+    if (!spIdentifier) {
+        return format_to(ctx.out(), "[Unknown Identifier]");
+    }
+    return format_to(ctx.out(), "{}", spIdentifier->GetNetworkRepresentation());
+  }
 };
 
 //------------------------------------------------------------------------------------------------
