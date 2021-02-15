@@ -46,26 +46,9 @@ std::filesystem::path GetDefaultPeersFilepath();
 
 struct Configuration::IdentifierOptions
 {
-    IdentifierOptions()
-        : value()
-        , type()
-        , container()
-    {
-    }
-
-    explicit IdentifierOptions(std::string_view type)
-        : value()
-        , type(type)
-        , container()
-    {
-    }
-
-    IdentifierOptions(std::string_view value, std::string_view type)
-        : value(value)
-        , type(type)
-        , container()
-    {
-    }
+    IdentifierOptions();
+    explicit IdentifierOptions(std::string_view type);
+    IdentifierOptions(std::string_view value, std::string_view type);
 
     std::optional<std::string> value;
     std::string type;
@@ -77,22 +60,11 @@ struct Configuration::IdentifierOptions
 
 struct Configuration::DetailsOptions
 {
-    DetailsOptions()
-        : name()
-        , description()
-        , location()
-    {
-    }
-
+    DetailsOptions();
     DetailsOptions(
         std::string_view name,
         std::string_view description = "",
-        std::string_view location = "")
-        : name(name)
-        , description(description)
-        , location(location)
-    {
-    }
+        std::string_view location = "");
 
     std::string name;
     std::string description;
@@ -103,93 +75,44 @@ struct Configuration::DetailsOptions
 
 struct Configuration::EndpointOptions
 {
-    EndpointOptions()
-        : type(Network::Protocol::Invalid)
-        , protocol()
-        , interface()
-        , binding()
-        , bootstrap()
-    {
-    }
-
+    EndpointOptions();
     EndpointOptions(
         std::string_view protocol,
         std::string_view interface,
-        std::string_view binding)
-        : type(Network::ParseProtocol({protocol.data(), protocol.size()}))
-        , protocol(protocol)
-        , interface(interface)
-        , binding(binding)
-        , bootstrap()
-    {
-    }
-
+        std::string_view binding);
     EndpointOptions(
         Network::Protocol type,
         std::string_view interface,
-        std::string_view binding)
-        : type(type)
-        , protocol(Network::ProtocolToString(type))
-        , interface(interface)
-        , binding(binding)
-        , bootstrap()
-    {
-    }
+        std::string_view binding);
 
-    [[nodiscard]] bool Initialize()
-    {
-        if (address.IsValid()) { return true; }
+    [[nodiscard]] bool Initialize();
 
-        if (type == Network::Protocol::Invalid && !protocol.empty()) {
-            type = Network::ParseProtocol(protocol);
-        }
-
-        if (type == Network::Protocol::Invalid || binding.empty() || interface.empty()) {
-            return false; 
-        }
-
-        address = { type, binding, interface };
-
-        return true;
-    }
-
-    Network::Protocol GetProtocol() const { return type; }
-    std::string const& GetProtocolName() const { return protocol; }
-    std::string const& GetInterface() const { return interface; }
-    Network::BindingAddress const& GetBinding() const { return address; }
-    std::optional<std::string> const& GetBootstrap() const { return bootstrap; }
+    Network::Protocol GetProtocol() const;
+    std::string const& GetProtocolName() const;
+    std::string const& GetInterface() const;
+    Network::BindingAddress const& GetBinding() const;
+    std::optional<Network::RemoteAddress> const& GetBootstrap() const;
 
     Network::Protocol type;
     std::string protocol;
     std::string interface;
+
     std::string binding;
-    Network::BindingAddress address;
+    Network::BindingAddress bindingAddress;
+
     std::optional<std::string> bootstrap;
+    std::optional<Network::RemoteAddress> optBootstrapAddress;
 };
 
 //------------------------------------------------------------------------------------------------
 
 struct Configuration::SecurityOptions
 {
-    SecurityOptions()
-        : type(Security::Strategy::Invalid)
-        , strategy()
-        , token()
-        , authority()
-    {
-    }
-
+    SecurityOptions();
     SecurityOptions(
         std::string_view strategy,
         std::string_view token,
-        std::string_view authority)
-        : type(Security::Strategy::Invalid)
-        , strategy(strategy)
-        , token(token)
-        , authority(authority)
-    {
-        type = Security::ConvertToStrategy({strategy.data(), strategy.size()});
-    }
+        std::string_view authority);
 
     Security::Strategy type;
     std::string strategy;
@@ -201,32 +124,20 @@ struct Configuration::SecurityOptions
 
 struct Configuration::Settings
 {
-    Settings()
-        : version(Brypt::Version)
-        , details()
-        , endpoints()
-        , security()
-    {
-    }
-
+    Settings();
     Settings(
         DetailsOptions const& detailsOptions,
         EndpointConfigurations const& endpointsConfigurations,
-        SecurityOptions const& securityOptions)
-        : details(detailsOptions)
-        , endpoints(endpointsConfigurations)
-        , security(securityOptions)
-    {
-    }
+        SecurityOptions const& securityOptions);
 
     Settings(Settings const& other) = default;
     Settings& operator=(Settings const& other) = default;
 
-    std::string const& GetVersion() { return version; }
-    IdentifierOptions const& GetIdentifierOptions() { return identifier; }
-    DetailsOptions const& GetDetailsOptions() { return details; }
-    EndpointConfigurations const& GetEndpointConfigurations() { return endpoints; }
-    SecurityOptions const& GetSecurityOptions() {  return security; }
+    std::string const& GetVersion() const;
+    IdentifierOptions const& GetIdentifierOptions() const;
+    DetailsOptions const& GetDetailsOptions() const;
+    EndpointConfigurations const& GetEndpointConfigurations() const;
+    SecurityOptions const& GetSecurityOptions()  const;
 
     std::string version;
     IdentifierOptions identifier;
