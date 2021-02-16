@@ -95,13 +95,13 @@ bool BryptPeer::ScheduleReceive(
         m_statistics.IncrementReceivedCount();
     }
 
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock endpointsLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, registration] = *itr;
         auto const& context = registration.GetMessageContext();
 
         // Forward the message through the message sink
-        std::scoped_lock lock(m_receiverMutex);
+        std::scoped_lock sinkLock(m_receiverMutex);
         if (m_pMessageSink) [[likely]] {
             return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
         }
@@ -120,13 +120,13 @@ bool BryptPeer::ScheduleReceive(
         m_statistics.IncrementReceivedCount();
     }
 
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock endpointsLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, registration] = *itr;
         auto const& context = registration.GetMessageContext();
 
         // Forward the message through the message sink
-        std::scoped_lock lock(m_receiverMutex);
+        std::scoped_lock sinkLock(m_receiverMutex);
         if (m_pMessageSink) [[likely]] {
             return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
         }
@@ -289,7 +289,7 @@ std::size_t BryptPeer::RegisteredEndpointCount() const
 
 void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSecurityMediator)
 {
-    std::scoped_lock lock(m_mediatorMutex);
+    std::scoped_lock mediatorLock(m_mediatorMutex);
     m_upSecurityMediator = std::move(upSecurityMediator);  // Take ownership of the mediator.
 
     if (!m_upSecurityMediator) [[unlikely]] { return; }
@@ -297,7 +297,7 @@ void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSec
     // Ensure any registered endpoints have their message contexts updated to the new mediator's
     // security context.
     {
-        std::scoped_lock lock(m_endpointsMutex);
+        std::scoped_lock endpointsLock(m_endpointsMutex);
         for (auto& [identifier, registration]: m_endpoints) {
             m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
         }

@@ -167,6 +167,11 @@ bool local::HandleDiscoveryRequest(
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& spLogger)
 {
+    BryptIdentifier::SharedContainer spPeerIdentifier;
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    }
+
     // Parse the discovery request
     auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
@@ -176,11 +181,9 @@ bool local::HandleDiscoveryRequest(
             li::mmm(
                 s::protocol = std::string(), s::entry = std::string()) });
 
-    auto err = li::json_decode(dataview, request);
-
-    BryptIdentifier::SharedContainer spPeerIdentifier;
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    if (auto error = li::json_decode(dataview, request); error.bad()) { 
+        spLogger->warn("Unable to decode discovery request from: {}", spPeerIdentifier);
+        return false;
     }
 
     if (!request.entrypoints.empty()) {
@@ -274,6 +277,11 @@ bool local::HandleDiscoveryResponse(
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& spLogger)
 {
+    BryptIdentifier::SharedContainer spPeerIdentifier;
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    }
+
     // Parse the discovery response
     auto const data = message.GetPayload();
     std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
@@ -285,11 +293,9 @@ bool local::HandleDiscoveryResponse(
                 s::protocol = std::string(),
                 s::entries = std::vector<std::string>()) });
 
-    auto err = li::json_decode(dataview, response);
-
-    BryptIdentifier::SharedContainer spPeerIdentifier;
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    if (auto error = li::json_decode(dataview, response); error.bad()) { 
+        spLogger->warn("Unable to decode discovery response from: {}", spPeerIdentifier);
+        return false;
     }
 
     auto wpEndpointManager = instance.GetEndpointManager();

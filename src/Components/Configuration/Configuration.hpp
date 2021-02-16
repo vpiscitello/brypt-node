@@ -61,7 +61,7 @@ struct Configuration::IdentifierOptions
 struct Configuration::DetailsOptions
 {
     DetailsOptions();
-    DetailsOptions(
+    explicit DetailsOptions(
         std::string_view name,
         std::string_view description = "",
         std::string_view location = "");

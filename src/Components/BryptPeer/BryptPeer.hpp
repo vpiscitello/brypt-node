@@ -34,7 +34,7 @@ class IPeerMediator;
 class BryptPeer : public std::enable_shared_from_this<BryptPeer>
 {
 public:
-    BryptPeer(
+    explicit BryptPeer(
         BryptIdentifier::Container const& identifier,
         IPeerMediator* const pPeerMediator = nullptr);
 

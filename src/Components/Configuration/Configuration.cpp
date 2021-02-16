@@ -179,12 +179,11 @@ Configuration::SecurityOptions::SecurityOptions(
     std::string_view strategy,
     std::string_view token,
     std::string_view authority)
-    : type(Security::Strategy::Invalid)
+    : type(Security::ConvertToStrategy({strategy.data(), strategy.size()}))
     , strategy(strategy)
     , token(token)
     , authority(authority)
 {
-    type = Security::ConvertToStrategy({strategy.data(), strategy.size()});
 }
 
 //------------------------------------------------------------------------------------------------

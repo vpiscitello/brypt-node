@@ -377,7 +377,7 @@ void Network::TCP::Endpoint::ProcessDispatchEvent(DispatchEvent const& event)
 
 std::shared_ptr<Network::TCP::Session> Network::TCP::Endpoint::CreateSession()
 {
-    auto spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
+    auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
 
     spSession->OnMessageDispatched(
         [this] (auto const& spSession) { OnMessageDispatched(spSession); });

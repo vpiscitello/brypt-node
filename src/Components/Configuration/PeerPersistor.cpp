@@ -87,7 +87,7 @@ struct local::BootstrapEntry
         : target()
     {
     }
-    BootstrapEntry(std::string_view target)
+    explicit BootstrapEntry(std::string_view target)
         : target(target)
     {
     }
@@ -123,12 +123,11 @@ PeerPersistor::PeerPersistor()
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_mediator(nullptr)
     , m_fileMutex()
-    , m_filepath()
+    , m_filepath(Configuration::GetDefaultPeersFilepath())
     , m_protocolsMutex()
     , m_upProtocols()
     , m_defaults()
 {
-    m_filepath = Configuration::GetDefaultPeersFilepath();
     if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
         m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
     }
@@ -166,12 +165,11 @@ PeerPersistor::PeerPersistor(Configuration::EndpointConfigurations const& config
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_mediator(nullptr)
     , m_fileMutex()
-    , m_filepath()
+    , m_filepath(Configuration::GetDefaultPeersFilepath())
     , m_protocolsMutex()
     , m_upProtocols()
     , m_defaults()
 {
-    m_filepath = Configuration::GetDefaultPeersFilepath();
     if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
         m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
         return;
@@ -217,7 +215,7 @@ void PeerPersistor::SetMediator(IPeerMediator* const mediator)
 {
     // If there already a mediator attached to the persistor, unpublish the persistor
     // from the previous mediator.
-    if (m_mediator) [[likely]] { mediator->UnpublishObserver(this); }
+    if (m_mediator) [[likely]] { m_mediator->UnpublishObserver(this); }
     
     // Set the mediator, it is possible for the nullptr if the caller intends to 
     // detach the previous mediator.
@@ -231,7 +229,7 @@ void PeerPersistor::SetMediator(IPeerMediator* const mediator)
 
 bool PeerPersistor::FetchBootstraps()
 {
-    Configuration::StatusCode status = Configuration::StatusCode::DecodeError;
+    Configuration::StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
         m_spLogger->debug("Reading peers file at: {}.", m_filepath.string());
         status = DecodePeersFile();

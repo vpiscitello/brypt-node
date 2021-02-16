@@ -55,7 +55,7 @@ private:
 class Network::TCP::ConnectEvent : public Network::TCP::Event
 {
 public:
-    ConnectEvent(
+    explicit ConnectEvent(
         RemoteAddress&& address,
         BryptIdentifier::SharedContainer const& session = nullptr);
     BryptIdentifier::SharedContainer const& GetBryptIdentifier() const;
