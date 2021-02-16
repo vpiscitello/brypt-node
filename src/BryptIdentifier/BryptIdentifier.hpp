@@ -104,18 +104,18 @@ struct BryptIdentifier::Hasher  {
 template <>
 struct fmt::formatter<BryptIdentifier::Container>
 {
-  constexpr auto parse(format_parse_context& ctx)
-  {
-    auto const begin = ctx.begin();
-    if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
-    return begin;
-  }
+    constexpr auto parse(format_parse_context& ctx)
+    {
+        auto const begin = ctx.begin();
+        if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+        return begin;
+    }
 
-  template <typename FormatContext>
-  auto format(BryptIdentifier::Container const& identifier, FormatContext& ctx)
-  {
-    return format_to(ctx.out(), "{}", identifier.GetNetworkRepresentation());
-  }
+    template <typename FormatContext>
+    auto format(BryptIdentifier::Container const& identifier, FormatContext& ctx)
+    {
+        return format_to(ctx.out(), "{}", identifier.GetNetworkRepresentation());
+    }
 };
 
 //------------------------------------------------------------------------------------------------
@@ -123,21 +123,21 @@ struct fmt::formatter<BryptIdentifier::Container>
 template <>
 struct fmt::formatter<BryptIdentifier::SharedContainer>
 {
-  constexpr auto parse(format_parse_context& ctx)
-  {
-    auto const begin = ctx.begin();
-    if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
-    return begin;
-  }
-
-  template <typename FormatContext>
-  auto format(BryptIdentifier::SharedContainer const& spIdentifier, FormatContext& ctx)
-  {
-    if (!spIdentifier) {
-        return format_to(ctx.out(), "[Unknown Identifier]");
+    constexpr auto parse(format_parse_context& ctx)
+    {
+        auto const begin = ctx.begin();
+        if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+        return begin;
     }
-    return format_to(ctx.out(), "{}", spIdentifier->GetNetworkRepresentation());
-  }
+
+    template <typename FormatContext>
+    auto format(BryptIdentifier::SharedContainer const& spIdentifier, FormatContext& ctx)
+    {
+        if (!spIdentifier) {
+            return format_to(ctx.out(), "[Unknown Identifier]");
+        }
+        return format_to(ctx.out(), "{}", spIdentifier->GetNetworkRepresentation());
+    }
 };
 
 //------------------------------------------------------------------------------------------------

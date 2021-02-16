@@ -157,18 +157,21 @@ template <typename AddressType>
     requires std::derived_from<AddressType, Network::Address>
 struct fmt::formatter<AddressType>
 {
-  constexpr auto parse(format_parse_context& ctx)
-  {
-    auto const begin = ctx.begin();
-    if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
-    return begin;
-  }
+    constexpr auto parse(format_parse_context& ctx)
+    {
+        auto const begin = ctx.begin();
+        if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+        return begin;
+    }
 
-  template <typename FormatContext>
-  auto format(Network::Address const& address, FormatContext& ctx)
-  {
-    return format_to(ctx.out(), "{}", address.GetUri());
-  }
+    template <typename FormatContext>
+    auto format(Network::Address const& address, FormatContext& ctx)
+    {
+        if (!address.IsValid()) {
+            return format_to(ctx.out(), "[Unknown Address]");
+        }
+        return format_to(ctx.out(), "{}", address.GetUri());
+    }
 };
 
 //------------------------------------------------------------------------------------------------
