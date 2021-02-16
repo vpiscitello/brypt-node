@@ -14,6 +14,7 @@
 //------------------------------------------------------------------------------------------------
 
 class BryptPeer;
+namespace Network { class RemoteAddress; }
 
 //------------------------------------------------------------------------------------------------
 
@@ -23,10 +24,10 @@ public:
     virtual ~IBootstrapCache() = default;
 
     using AllProtocolsReadFunction = std::function<
-        CallbackIteration(Network::Protocol, std::string_view const& bootstrap)>;
+        CallbackIteration(Network::RemoteAddress const& bootstrap)>;
     using AllProtocolsErrorFunction = std::function<void(Network::Protocol)>;
     using OneProtocolReadFunction = std::function<
-        CallbackIteration(std::string_view const& bootstrap)>;
+        CallbackIteration(Network::RemoteAddress const& bootstrap)>;
 
     virtual bool ForEachCachedBootstrap(
         AllProtocolsReadFunction const& callback,

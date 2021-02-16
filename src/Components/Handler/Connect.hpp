@@ -23,7 +23,8 @@ public:
     bool DiscoveryHandler(
         std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
         
-    bool JoinHandler(ApplicationMessage const& message);    
+    bool JoinHandler(
+        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);    
 };
 
 //------------------------------------------------------------------------------------------------

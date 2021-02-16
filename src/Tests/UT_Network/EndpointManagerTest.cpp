@@ -48,9 +48,9 @@ public:
     {
     }
 
-    void AddBootstrap(Network::Protocol protocol, std::string_view bootstrap)
+    void AddBootstrap(Network::RemoteAddress const& bootstrap)
     {
-        auto& upBootstrapSet = m_protocols[protocol]; 
+        auto& upBootstrapSet = m_protocols[bootstrap.GetProtocol()]; 
         if (!upBootstrapSet) {
             upBootstrapSet = std::make_unique<PeerPersistor::BootstrapSet>();
         }
@@ -58,7 +58,6 @@ public:
     }
 
     // IBootstrapCache {
-
     bool ForEachCachedBootstrap(
         [[maybe_unused]] AllProtocolsReadFunction const& readFunction,
         [[maybe_unused]] AllProtocolsErrorFunction const& errorFunction) const override
@@ -107,11 +106,12 @@ TEST(EndpointManagerSuite, EndpointStartupTest)
         Network::Protocol::TCP,
         test::Interface,
         test::ServerBinding);
-    options.Initialize();
+    ASSERT_TRUE(options.Initialize());
     configurations.emplace_back(options);
     
     auto const spPeerCache = std::make_shared<local::BootstrapCacheStub>();
-    spPeerCache->AddBootstrap(test::ProtocolType, test::ServerEntry);
+    Network::RemoteAddress address(test::ProtocolType, test::ServerEntry, true);
+    spPeerCache->AddBootstrap(address);
 
     auto upEndpointManager = std::make_unique<EndpointManager>(
         configurations, nullptr, spPeerCache.get());

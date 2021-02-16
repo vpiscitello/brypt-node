@@ -249,23 +249,6 @@ bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) c
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<std::string> BryptPeer::GetRegisteredEntry(
-    Network::Endpoint::Identifier identifier) const
-{
-    std::scoped_lock lock(m_endpointsMutex);
-    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
-        auto const& [key, endpoint] = *itr;
-        if (auto const address = endpoint.GetAddress(); address.IsBootstrapable()) {
-            auto const& authority = address.GetAuthority();
-            return std::string(authority.data(), authority.size());
-        }
-    }
-
-    return {};
-}
-
-//------------------------------------------------------------------------------------------------
-
 std::optional<MessageContext> BryptPeer::GetMessageContext(
     Network::Endpoint::Identifier identifier) const
 {
@@ -273,6 +256,22 @@ std::optional<MessageContext> BryptPeer::GetMessageContext(
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
         return endpoint.GetMessageContext();
+    }
+
+    return {};
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<Network::RemoteAddress> BryptPeer::GetRegisteredAddress(
+    Network::Endpoint::Identifier identifier) const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        auto const& [key, endpoint] = *itr;
+        if (auto const address = endpoint.GetAddress(); address.IsBootstrapable()) {
+            return address;
+        }
     }
 
     return {};

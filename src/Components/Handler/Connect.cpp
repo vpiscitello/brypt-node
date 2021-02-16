@@ -4,6 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #include "Connect.hpp"
 //------------------------------------------------------------------------------------------------
+#include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
 #include "BryptNode/NetworkState.hpp"
@@ -13,6 +14,7 @@
 #include "Components/Network/EndpointManager.hpp"
 //------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
+#include <spdlog/spdlog.h>
 //------------------------------------------------------------------------------------------------
 #include <chrono>
 #include <thread>
@@ -26,11 +28,16 @@ namespace local {
 bool HandleDiscoveryRequest(
     BryptNode& instance,
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
-    ApplicationMessage const& message);
+    ApplicationMessage const& message,
+    std::shared_ptr<spdlog::logger> const& spLogger);
 
 std::string BuildDiscoveryResponse(BryptNode& instance);
 
-bool HandleDiscoveryResponse(BryptNode& instance, ApplicationMessage const& message);
+bool HandleDiscoveryResponse(
+    BryptNode& instance,
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& message,
+    std::shared_ptr<spdlog::logger> const& spLogger);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -113,7 +120,7 @@ bool Handler::Connect::HandleMessage(AssociatedMessage const& associatedMessage)
             status = DiscoveryHandler(wpBryptPeer, message);
         } break;
         case Phase::Join: {
-            status = JoinHandler(message);
+            status = JoinHandler(wpBryptPeer, message);
         } break;
         default: break;
     }
@@ -128,10 +135,10 @@ bool Handler::Connect::HandleMessage(AssociatedMessage const& associatedMessage)
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
 bool Handler::Connect::DiscoveryHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
-    ApplicationMessage const& message)
+    std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
 {
-    bool const status = local::HandleDiscoveryRequest(m_instance, wpBryptPeer, message);
+    bool const status = local::HandleDiscoveryRequest(
+        m_instance, wpBryptPeer, message, m_spLogger);
     if (!status) { return status; }
 
     auto const response = local::BuildDiscoveryResponse(m_instance);
@@ -146,9 +153,10 @@ bool Handler::Connect::DiscoveryHandler(
 // Description: Handles the join phase for the Connect type handler
 // Returns: Status of the message handling
 //------------------------------------------------------------------------------------------------
-bool Handler::Connect::JoinHandler(ApplicationMessage const& message)
+bool Handler::Connect::JoinHandler(
+    std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
 {
-    return local::HandleDiscoveryResponse(m_instance, message);
+    return local::HandleDiscoveryResponse(m_instance, wpBryptPeer, message, m_spLogger);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -156,7 +164,8 @@ bool Handler::Connect::JoinHandler(ApplicationMessage const& message)
 bool local::HandleDiscoveryRequest(
     BryptNode& instance,
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
-    ApplicationMessage const& message)
+    ApplicationMessage const& message,
+    std::shared_ptr<spdlog::logger> const& spLogger)
 {
     // Parse the discovery request
     auto const data = message.GetPayload();
@@ -183,20 +192,23 @@ bool local::HandleDiscoveryRequest(
         for (auto const& entrypoint: request.entrypoints) {
             // Parse the technoloy type from the human readible name.
             auto const protocol = Network::ParseProtocol(entrypoint.protocol);
-
-            if (spPeerPersistor) {
-                // Notify the PeerPersistor of the entry for the protocol. By immediately storing the 
-                // entry it may be used in bootstrapping and distribution of entries for protocols
-                // to peers that have different capabilites not accessible by this node. The verification
-                // of entrypoints should be handled by a different module (i.e. the endpoint or security mechanism).
-                spPeerPersistor->AddBootstrapEntry(protocol, entrypoint.entry);
+            Network::RemoteAddress address(protocol, entrypoint.entry, true);
+            if (!address.IsValid()) {
+                spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier);
             }
 
-            if (spEndpointManager) {
+            // Notify the PeerPersistor of the entry for the protocol. By immediately 
+            // storing the  entry it may be used in bootstrapping and distribution of entries
+            // for protocols to peers that have different capabilites not accessible by this 
+            // node. The verification of entrypoints should be handled by a different module
+            //  (i.e. the endpoint or security mechanism).
+            if (spPeerPersistor) [[likely]] { spPeerPersistor->AddBootstrapEntry(address); }
+
+            if (spEndpointManager) [[likely]] {
                 // If we have an endpoint for the given protocol, schedule the connect.
                 if (auto spEndpoint = spEndpointManager->GetEndpoint(
                     protocol, Network::Operation::Client); spEndpoint) {
-                    spEndpoint->ScheduleConnect(entrypoint.entry, spPeerIdentifier);
+                    spEndpoint->ScheduleConnect(std::move(address), spPeerIdentifier);
                 }
             }
         }
@@ -234,11 +246,9 @@ std::string local::BuildDiscoveryResponse(BryptNode& instance)
         // protocol entries vector.
         spPeerPersistor->ForEachCachedBootstrap(
             // Get the entries for the requestor from the cached list of peers
-            [&bootstraps] (
-                Network::Protocol protocol,
-                std::string_view const& bootstrap) -> CallbackIteration
+            [&bootstraps] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
             {
-                bootstraps[protocol].emplace_back(bootstrap);
+                bootstraps[bootstrap.GetProtocol()].emplace_back(bootstrap.GetUri());
                 return CallbackIteration::Continue;
             },
             // Unused cache error handling function
@@ -258,7 +268,11 @@ std::string local::BuildDiscoveryResponse(BryptNode& instance)
 
 //------------------------------------------------------------------------------------------------
 
-bool local::HandleDiscoveryResponse(BryptNode& instance, ApplicationMessage const& message)
+bool local::HandleDiscoveryResponse(
+    BryptNode& instance,
+    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    ApplicationMessage const& message,
+    std::shared_ptr<spdlog::logger> const& spLogger)
 {
     // Parse the discovery response
     auto const data = message.GetPayload();
@@ -273,6 +287,11 @@ bool local::HandleDiscoveryResponse(BryptNode& instance, ApplicationMessage cons
 
     auto err = li::json_decode(dataview, response);
 
+    BryptIdentifier::SharedContainer spPeerIdentifier;
+    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    }
+
     auto wpEndpointManager = instance.GetEndpointManager();
     if (auto spEndpointManager = wpEndpointManager.lock(); spEndpointManager) {
         // The provided in the message should contain a series elements containing a protocol 
@@ -281,11 +300,17 @@ bool local::HandleDiscoveryResponse(BryptNode& instance, ApplicationMessage cons
         //  may not be address, it is dependent on the attached protocol. 
         for (auto const& bootstrap: response.bootstraps) {
             auto spEndpoint = spEndpointManager->GetEndpoint(
-                message.GetContext().GetEndpointProtocol(),
-                Network::Operation::Client);
-
-            if (spEndpoint) {
-                for (auto const& entry: bootstrap.entries) { spEndpoint->ScheduleConnect(entry); }
+                message.GetContext().GetEndpointProtocol(), Network::Operation::Client);
+            if (spEndpoint) [[likely]] {
+                auto const protocol = Network::ParseProtocol(bootstrap.protocol);
+                for (auto const& entry: bootstrap.entries) {
+                    Network::RemoteAddress address(protocol, entry, true);
+                    if (address.IsValid()) {
+                        spEndpoint->ScheduleConnect(std::move(address));
+                    } else {
+                        spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier);
+                    }
+                }
             }
         }
     }

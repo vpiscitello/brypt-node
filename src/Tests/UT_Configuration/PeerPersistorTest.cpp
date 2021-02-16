@@ -21,6 +21,9 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
+Configuration::EndpointOptions GenerateTcpOptions();
+Configuration::EndpointOptions GenerateLoRaOptions();
+
 //------------------------------------------------------------------------------------------------
 } // local namespace
 //------------------------------------------------------------------------------------------------
@@ -30,8 +33,8 @@ namespace test {
 constexpr Network::Endpoint::Identifier EndpointIdentifier = 1;
 constexpr Network::Protocol PeerProtocol = Network::Protocol::TCP;
 
-constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
-constexpr std::string_view LoraBootstrapEntry = "915:71";
+constexpr std::string_view TcpBootstrapEntry = "tcp://127.0.0.1:35216";
+constexpr std::string_view LoraBootstrapEntry = "lora://915:71";
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -55,16 +58,9 @@ TEST(PeerPersistorSuite, DefualtBootstrapTest)
     std::filesystem::path const filepath = "files/good/default-peers.json";
 
     Configuration::EndpointConfigurations configurations;
-
-    Configuration::EndpointOptions tcpOptions;
-    tcpOptions.type = Network::Protocol::TCP;
-    tcpOptions.bootstrap = test::TcpBootstrapEntry;
-    configurations.emplace_back(tcpOptions);
-
-    Configuration::EndpointOptions loraOptions;
-    loraOptions.type = Network::Protocol::LoRa;
-    loraOptions.bootstrap = test::LoraBootstrapEntry;
-    configurations.emplace_back(loraOptions);
+    configurations.emplace_back(local::GenerateTcpOptions());
+    configurations.emplace_back(local::GenerateLoRaOptions());
+    for (auto& options : configurations) { ASSERT_TRUE(options.Initialize()); }
 
     PeerPersistor persistor(filepath.c_str(), configurations);
     auto const bParsed = persistor.FetchBootstraps();
@@ -96,9 +92,9 @@ TEST(PeerPersistorSuite, ParseGoodFileTest)
 
     persistor.ForEachCachedBootstrap(
         test::PeerProtocol,
-        [] (std::string_view const& bootstrap) -> CallbackIteration
+        [] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
         {
-            EXPECT_EQ(bootstrap, test::TcpBootstrapEntry);
+            EXPECT_EQ(bootstrap.GetUri(), test::TcpBootstrapEntry);
             return CallbackIteration::Continue;
         }
     );
@@ -155,9 +151,10 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     bool bFoundConnectedBootstrap;
     persistor.ForEachCachedBootstrap(
         test::PeerProtocol,
-        [&bFoundConnectedBootstrap, &address] (std::string_view const& bootstrap) -> CallbackIteration
+        [&bFoundConnectedBootstrap, &address] (Network::RemoteAddress const& bootstrap) 
+            -> CallbackIteration
         {
-            if (bootstrap == address.GetAuthority()) {
+            if (bootstrap == address) {
                 bFoundConnectedBootstrap = true;
                 return CallbackIteration::Stop;
             }
@@ -176,9 +173,10 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         bool bFoundCheckBootstrap;
         persistor.ForEachCachedBootstrap(
             test::PeerProtocol,
-            [&bFoundCheckBootstrap, &address] (std::string_view const& bootstrap) -> CallbackIteration
+            [&bFoundCheckBootstrap, &address] (Network::RemoteAddress const& bootstrap)
+                -> CallbackIteration
             {
-                if (bootstrap == address.GetAuthority()) {
+                if (bootstrap == address) {
                     bFoundCheckBootstrap = true;
                     return CallbackIteration::Stop;
                 }
@@ -201,15 +199,38 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     bool bFoundDisconnectedBootstrap = false;
     persistor.ForEachCachedBootstrap(
         test::PeerProtocol,
-        [&bFoundDisconnectedBootstrap, &address] (std::string_view const& bootstrap) -> CallbackIteration
+        [&bFoundDisconnectedBootstrap, &address] (Network::RemoteAddress const& bootstrap)
+            -> CallbackIteration
         {
-            if (bootstrap == address.GetAuthority()) {
-                bFoundDisconnectedBootstrap = true;
-            }
+            if (bootstrap == address) { bFoundDisconnectedBootstrap = true; }
             return CallbackIteration::Continue;
         }
     );
     EXPECT_FALSE(bFoundDisconnectedBootstrap);
+}
+
+//------------------------------------------------------------------------------------------------
+
+Configuration::EndpointOptions local::GenerateTcpOptions()
+{
+    Configuration::EndpointOptions options;
+    options.type = Network::Protocol::TCP;
+    options.interface = "lo";
+    options.binding = test::TcpBootstrapEntry;
+    options.bootstrap = test::TcpBootstrapEntry;
+    return options;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Configuration::EndpointOptions local::GenerateLoRaOptions()
+{
+    Configuration::EndpointOptions options;
+    options.type = Network::Protocol::LoRa;
+    options.interface = "lo";
+    options.binding = test::LoraBootstrapEntry;
+    options.bootstrap = test::LoraBootstrapEntry;
+    return options;
 }
 
 //------------------------------------------------------------------------------------------------

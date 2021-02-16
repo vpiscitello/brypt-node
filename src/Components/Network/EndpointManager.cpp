@@ -211,7 +211,7 @@ void local::ConnectBootstraps(
     // for each peer in the list.
     pCache->ForEachCachedBootstrap(
         spEndpoint->GetProtocol(), 
-        [&spEndpoint] (std::string_view const& bootstrap) -> CallbackIteration
+        [&spEndpoint] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
         {
             spEndpoint->ScheduleConnect(bootstrap);
             return CallbackIteration::Continue;

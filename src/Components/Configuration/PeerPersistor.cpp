@@ -31,10 +31,12 @@ using EndpointEntriesVector = std::vector<EndpointEntry>;
 void ParseDefaultBootstraps(
     Configuration::EndpointConfigurations const& configurations, 
     PeerPersistor::DefaultBootstrapMap& defaults);
-void FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target);
+void FillDefaultBootstrap(
+    PeerPersistor::UniqueBootstrapSet const& upBootstraps,
+    std::optional<Network::RemoteAddress> const& optDefault);
 
 void WriteEndpointPeers(
-    PeerPersistor::UniqueProtocolMap const& endpoints, std::ofstream& out);
+    PeerPersistor::UniqueProtocolMap const& upProtocols, std::ofstream& out);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -234,6 +236,7 @@ bool PeerPersistor::FetchBootstraps()
         m_spLogger->debug("Reading peers file at: {}.", m_filepath.string());
         status = DecodePeersFile();
     } else {
+        m_spLogger->debug("Generating peers file at: {}.", m_filepath.string());
         status = SetupPeersFile();
     }
 
@@ -310,22 +313,22 @@ Configuration::StatusCode PeerPersistor::DecodePeersFile()
             auto& bootstraps = endpoint.bootstraps;
             upBootstraps->reserve(bootstraps.size());
 
-            if (bootstraps.empty()) {
+            if (!bootstraps.empty()) {
+                std::for_each(
+                    bootstraps.begin(), bootstraps.end(),
+                    [&protocol, &upBootstraps] (local::BootstrapEntry const& bootstrap)
+                    {
+                        if (bootstrap.target.empty()) { return; }
+                        Network::RemoteAddress address(protocol, bootstrap.target, true);
+                        upBootstraps->emplace(std::move(address));
+                    });
+            } else {
+                // Insert any valid peers into the endpoint map
                 if (auto const itr = m_defaults.find(protocol); itr != m_defaults.end()) {
-                    auto const& [key, defaultBootstrap] = *itr;
-                    local::FillDefaultBootstrap(bootstraps, defaultBootstrap);
+                    auto const& [key, optDefaultBootstrap] = *itr;
+                    local::FillDefaultBootstrap(upBootstraps, optDefaultBootstrap);
                 }
             }
-
-            // Insert any valid peers into the endpoint map
-            std::for_each(
-                bootstraps.begin(), bootstraps.end(),
-                [&protocol, &upBootstraps] (local::BootstrapEntry const& bootstrap)
-                {
-                    if (bootstrap.target.empty()) { return; }
-                    upBootstraps->emplace(bootstrap.target);
-                }
-            );
             
             upProtocols->emplace(protocol, std::move(upBootstraps));
         }
@@ -371,10 +374,10 @@ Configuration::StatusCode PeerPersistor::SetupPeersFile()
 {
     if (!m_upProtocols) [[unlikely]] { m_upProtocols = std::make_unique<ProtocolMap>(); }
 
-    for (auto const& [protocol, bootstrap] : m_defaults) {
+    for (auto const& [protocol, optDefault] : m_defaults) {
         auto upBootstraps = std::make_unique<BootstrapSet>();
-        if (!bootstrap.empty()) {
-            upBootstraps->emplace(bootstrap);
+        if (optDefault && optDefault->IsValid()) [[likely]] {
+            upBootstraps->emplace(*optDefault);
         }
         m_upProtocols->emplace(protocol, std::move(upBootstraps));
     }
@@ -391,32 +394,28 @@ Configuration::StatusCode PeerPersistor::SetupPeersFile()
 
 void PeerPersistor::AddBootstrapEntry(
     std::shared_ptr<BryptPeer> const& spBryptPeer,
-    Network::Endpoint::Identifier identifier,
-    Network::Protocol protocol)
+    Network::Endpoint::Identifier identifier)
 {
     // Get the entry from the peer, if there is no entry there is nothing to store. 
-    if (auto const optBootstrap = spBryptPeer->GetRegisteredEntry(identifier); optBootstrap) {
-        AddBootstrapEntry(protocol, *optBootstrap);
+    if (auto const optBootstrap = spBryptPeer->GetRegisteredAddress(identifier); optBootstrap) {
+        AddBootstrapEntry(*optBootstrap);
     }
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void PeerPersistor::AddBootstrapEntry(
-    Network::Protocol protocol,
-    std::string_view bootstrap)
+void PeerPersistor::AddBootstrapEntry(Network::RemoteAddress const& bootstrap)
 {
-    if (bootstrap.empty()) [[unlikely]] { return; }
+    if (!bootstrap.IsValid()) [[unlikely]] { return; }
 
     {
         std::scoped_lock lock(m_protocolsMutex);
         // Since we always want ensure the peer can be tracked, we use emplace to either
         // insert a new entry for the technolgoy type or get the existing entry.
-        if (auto const [itr, emplaced] = m_upProtocols->try_emplace(protocol); itr != m_upProtocols->end()) {
+        auto const [itr, emplaced] = m_upProtocols->try_emplace(bootstrap.GetProtocol()); 
+        if (itr != m_upProtocols->end()) {
             auto const& [key, upBootstraps] = *itr;
-            if (upBootstraps) [[likely]] {
-                upBootstraps->emplace(bootstrap);
-            }
+            if (upBootstraps) [[likely]] { upBootstraps->emplace(bootstrap); }
         }
 
         // Write the updated peers to the file
@@ -428,30 +427,28 @@ void PeerPersistor::AddBootstrapEntry(
 
 void PeerPersistor::DeleteBootstrapEntry(
     std::shared_ptr<BryptPeer> const& spBryptPeer,
-    Network::Endpoint::Identifier identifier,
-    Network::Protocol protocol)
+    Network::Endpoint::Identifier identifier)
 {
     // Get the entry from the peer, if there is no entry there is nothing to delete. 
-    if (auto const optBootstrap = spBryptPeer->GetRegisteredEntry(identifier); optBootstrap) {
-        DeleteBootstrapEntry(protocol, *optBootstrap);
+    if (auto const optBootstrap = spBryptPeer->GetRegisteredAddress(identifier); optBootstrap) {
+        DeleteBootstrapEntry(*optBootstrap);
     }
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void PeerPersistor::DeleteBootstrapEntry(
-    Network::Protocol protocol,  std::string_view bootstrap)
+void PeerPersistor::DeleteBootstrapEntry(Network::RemoteAddress const& bootstrap)
 {
-    if (bootstrap.empty()) [[unlikely]] { return; }
+    if (!bootstrap.IsValid()) [[unlikely]] { return; }
 
     {
         std::scoped_lock lock(m_protocolsMutex);
         // Since we always want ensure the peer can be tracked, we use emplace to either
         // insert a new entry for the technolgoy type or get the existing entry.
-        if (auto const [itr, emplaced] = m_upProtocols->try_emplace(protocol);
-            itr != m_upProtocols->end()) {
+        auto const [itr, emplaced] = m_upProtocols->try_emplace(bootstrap.GetProtocol());
+        if (itr != m_upProtocols->end()) {
             auto const& [key, upBootstraps] = *itr;
-            upBootstraps->erase(bootstrap.data());
+            upBootstraps->erase(bootstrap);
         }
 
         // Write the updated peers to the file
@@ -464,7 +461,7 @@ void PeerPersistor::DeleteBootstrapEntry(
 void PeerPersistor::HandlePeerStateChange(
     std::weak_ptr<BryptPeer> const& wpBryptPeer,
     Network::Endpoint::Identifier identifier,
-    Network::Protocol protocol,
+    [[maybe_unused]] Network::Protocol protocol,
     ConnectionState change)
 {
     // If the persistor peers have not yet been intialized, simply return
@@ -473,10 +470,10 @@ void PeerPersistor::HandlePeerStateChange(
     if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
         switch (change) {
             case ConnectionState::Connected: {
-                AddBootstrapEntry(spBryptPeer, identifier, protocol);
+                AddBootstrapEntry(spBryptPeer, identifier);
             } break;
             case ConnectionState::Disconnected:{
-                DeleteBootstrapEntry(spBryptPeer, identifier, protocol);
+                DeleteBootstrapEntry(spBryptPeer, identifier);
             } break;
             default: return; // Currently, we don't persist information for other state changes.
         }
@@ -486,22 +483,18 @@ void PeerPersistor::HandlePeerStateChange(
 //-----------------------------------------------------------------------------------------------
 
 bool PeerPersistor::ForEachCachedBootstrap(
-    AllProtocolsReadFunction const& callback,
-    AllProtocolsErrorFunction const& error) const
+    AllProtocolsReadFunction const& callback, AllProtocolsErrorFunction const& error) const
 {
     std::scoped_lock lock(m_protocolsMutex);
     if (!m_upProtocols) { return false; }
 
     for (auto const& [protocol, upBootstraps]: *m_upProtocols) {
-        if (!upBootstraps) {
-            // Notify the caller that there are no listed peers for an endpoint of a given protocol
-            error(protocol);
-            continue;
-        }
+        // Notify the caller that there are no listed peers for an endpoint of a given protocol
+        if (!upBootstraps) { error(protocol); continue; }
 
         CallbackIteration result;
         for (auto const& bootstrap: *upBootstraps) {
-            result = callback(protocol, bootstrap);
+            result = callback(bootstrap);
             if (result != CallbackIteration::Continue) { break; }
         }
         if (result != CallbackIteration::Continue) { break; }
@@ -513,8 +506,7 @@ bool PeerPersistor::ForEachCachedBootstrap(
 //-----------------------------------------------------------------------------------------------
 
 bool PeerPersistor::ForEachCachedBootstrap(
-    Network::Protocol protocol,
-    OneProtocolReadFunction const& callback) const
+    Network::Protocol protocol, OneProtocolReadFunction const& callback) const
 {
     std::scoped_lock lock(m_protocolsMutex);
     if (!m_upProtocols) [[unlikely]] { return false; }
@@ -568,17 +560,24 @@ void local::ParseDefaultBootstraps(
 {
     for (auto const& options: configurations) {
         if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {
-            defaults.emplace(options.type, *optBootstrap);
+            defaults.emplace(options.type, optBootstrap);
+        } else {
+            defaults.emplace(options.type, std::nullopt);
         }
     }
 }
 
 //-----------------------------------------------------------------------------------------------
 
-void local::FillDefaultBootstrap(BootstrapVector& bootstraps, std::string_view target)
+void local::FillDefaultBootstrap(
+    PeerPersistor::UniqueBootstrapSet const& upBootstraps,
+    std::optional<Network::RemoteAddress> const& optDefault)
 {
-    if (target.empty()) [[unlikely]] { return; }
-    bootstraps.emplace_back(target);
+    assert(upBootstraps);
+    if (optDefault) {
+        if (!optDefault->IsValid()) [[unlikely]] { return; }
+        upBootstraps->emplace(*optDefault);
+    }
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -602,7 +601,7 @@ void local::WriteEndpointPeers(
         std::size_t peersWritten = 0;
         std::size_t const peersSize = upBootstraps->size();
         for (auto const& bootstrap: *upBootstraps) {
-            out << "\t\t\t{ \"target\": \"" << bootstrap << "\" }";
+            out << "\t\t\t{ \"target\": \"" << bootstrap.GetUri() << "\" }";
             if (++peersWritten != peersSize) { out << ",\n"; }
         }
 

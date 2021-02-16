@@ -74,9 +74,9 @@ public:
 
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
-    [[nodiscard]] std::optional<std::string> GetRegisteredEntry(
-        Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::optional<MessageContext> GetMessageContext(
+        Network::Endpoint::Identifier identifier) const;
+    [[nodiscard]] std::optional<Network::RemoteAddress> GetRegisteredAddress(
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t RegisteredEndpointCount() const;
     // } Endpoint Association Methods

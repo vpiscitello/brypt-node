@@ -7,8 +7,9 @@
 #include "Configuration.hpp"
 #include "StatusCode.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
-#include "Components/Network/ConnectionState.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Network/Address.hpp"
+#include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Interfaces/BootstrapCache.hpp"
 #include "Interfaces/PeerMediator.hpp"
@@ -30,16 +31,15 @@ namespace spdlog { class logger; }
 
 class PeerPersistor : public IPeerObserver, public IBootstrapCache {
 public:
-    using BootstrapSet = std::unordered_set<std::string>;
+    using BootstrapSet = std::unordered_set<
+        Network::RemoteAddress, Network::AddressHasher<Network::RemoteAddress>>;
     using UniqueBootstrapSet = std::unique_ptr<BootstrapSet>;
 
     using ProtocolMap = std::unordered_map<Network::Protocol, UniqueBootstrapSet>;
     using UniqueProtocolMap = std::unique_ptr<ProtocolMap>;
 
-    using DefaultBootstrapMap = std::unordered_map<Network::Protocol, std::string>;
-
-    using BryptIdentifierSet = std::unordered_set<BryptIdentifier::SharedContainer>;
-    using UniqueBryptIdentifierSet = std::unique_ptr<BryptIdentifierSet>;
+    using DefaultBootstrapMap = std::unordered_map<
+        Network::Protocol, std::optional<Network::RemoteAddress>>;
 
     PeerPersistor();
     explicit PeerPersistor(std::string_view filepath);
@@ -58,21 +58,15 @@ public:
 
     void AddBootstrapEntry(
         std::shared_ptr<BryptPeer> const& spBryptPeer,
-        Network::Endpoint::Identifier identifier,
-        Network::Protocol protocol);
-    void AddBootstrapEntry(
-        Network::Protocol protocol,
-        std::string_view bootstrap);
+        Network::Endpoint::Identifier identifier);
+    void AddBootstrapEntry(Network::RemoteAddress const& bootstrap);
     void DeleteBootstrapEntry(
         std::shared_ptr<BryptPeer> const& spBryptPeer,
-        Network::Endpoint::Identifier identifier,
-        Network::Protocol protocol);
-    void DeleteBootstrapEntry(
-        Network::Protocol protocol,
-        std::string_view bootstrap);
+        Network::Endpoint::Identifier identifier);
+    void DeleteBootstrapEntry(Network::RemoteAddress const& bootstrap);
 
     // IPeerObserver {
-    void HandlePeerStateChange(
+    virtual void HandlePeerStateChange(
         std::weak_ptr<BryptPeer> const& wpBryptPeer,
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
@@ -80,10 +74,10 @@ public:
     // } IPeerObserver
 
     // IBootstrapCache {
-    bool ForEachCachedBootstrap(
+    virtual bool ForEachCachedBootstrap(
         AllProtocolsReadFunction const& callback,
         AllProtocolsErrorFunction const& error) const override;
-    bool ForEachCachedBootstrap(
+    virtual bool ForEachCachedBootstrap(
         Network::Protocol protocol,
         OneProtocolReadFunction const& callback) const override;
 
