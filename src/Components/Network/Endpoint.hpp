@@ -9,7 +9,6 @@
 #include "EndpointIdentifier.hpp"
 #include "Protocol.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/Configuration/Configuration.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
 //------------------------------------------------------------------------------------------------
@@ -59,11 +58,12 @@ public:
 	virtual bool Shutdown() = 0;
     virtual bool IsActive() const = 0;
 
-    virtual void ScheduleBind(BindingAddress const& address) = 0;
+    virtual void ScheduleBind(BindingAddress const& binding) = 0;
     
-    virtual void ScheduleConnect(std::string_view uri) = 0;
+    virtual void ScheduleConnect(RemoteAddress const& address) = 0;
+    virtual void ScheduleConnect(RemoteAddress&& address) = 0;
     virtual void ScheduleConnect(
-        std::string_view uri,
+        RemoteAddress&& address,
         BryptIdentifier::SharedContainer const& spIdentifier) = 0;
 
 	virtual bool ScheduleSend(

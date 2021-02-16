@@ -62,9 +62,10 @@ public:
 
     virtual void ScheduleBind(BindingAddress const& binding) override;
 
-    virtual void ScheduleConnect(std::string_view uri) override;
+    virtual void ScheduleConnect(RemoteAddress const& address) override;
+    virtual void ScheduleConnect(RemoteAddress&& address) override;
     virtual void ScheduleConnect(
-        std::string_view uri,
+        RemoteAddress&& address,
         BryptIdentifier::SharedContainer const& spIdentifier) override;
 
     [[nodiscard]] virtual bool ScheduleSend(

@@ -220,33 +220,23 @@ void Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
 
 //------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ScheduleConnect(std::string_view uri)
+void Network::TCP::Endpoint::ScheduleConnect(RemoteAddress const& address)
 {
-    if (m_operation != Operation::Client) {
-        m_spLogger->critical("Connect was called on a non-client endpoint!");
-        throw std::runtime_error("Invalid argument.");
-    }
-    
-    RemoteAddress address(ProtocolType, uri, true);
-    if (!address.IsValid()) {
-        m_spLogger->warn("Failed to parse {} while scheduling a connection.", address);
-        return;
-    }
-    assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
-    
-    ConnectEvent event(std::move(address));
+    RemoteAddress remote = address;
+    ScheduleConnect(std::move(remote));
+}
 
-    // Schedule the Connect network instruction event
-    {
-        std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(event);
-    }
+//------------------------------------------------------------------------------------------------
+
+void Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address)
+{
+    ScheduleConnect(std::move(address), nullptr);
 }
 
 //------------------------------------------------------------------------------------------------
 
 void Network::TCP::Endpoint::ScheduleConnect(
-    std::string_view uri, 
+    RemoteAddress&& address, 
     BryptIdentifier::SharedContainer const& spIdentifier)
 {
     if (m_operation != Operation::Client) {
@@ -254,11 +244,7 @@ void Network::TCP::Endpoint::ScheduleConnect(
         throw std::runtime_error("Invalid argument.");
     }
 
-    RemoteAddress address(ProtocolType, uri, true);
-    if (!address.IsValid()) {
-        m_spLogger->warn("Failed to parse {} while scheduling a connection.", address);
-        return;
-    }
+    assert(address.IsValid() && address.IsBootstrapable());
     assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
 
     ConnectEvent event(std::move(address), spIdentifier);
@@ -336,7 +322,7 @@ void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
 
         for (auto const& event: events) {
             auto index = std::type_index(event.type());
-            if (const auto itr = m_processors.find(index); itr != m_processors.cend()) {
+            if (auto const itr = m_processors.find(index); itr != m_processors.cend()) {
                 auto const& [type, processor] = *itr;
                 processor(event);
             } else {
@@ -368,7 +354,8 @@ void Network::TCP::Endpoint::ProcessBindEvent(BindEvent const& event)
 void Network::TCP::Endpoint::ProcessConnectEvent(ConnectEvent const& event)
 {
     auto const status = Connect(event.GetRemoteAddress(), event.GetBryptIdentifier());
-    if (status != ConnectStatusCode::Success) {
+    // Connect successes and error logging is handled within the call itself. 
+    if (status == ConnectStatusCode::GenericError) {
         m_spLogger->warn("A connection with {} could not be established.",
         event.GetRemoteAddress());
     }
@@ -469,9 +456,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ListenProcessor()
         if (error) {
             // If the error is caused by an intentional operation (i.e. shutdown), then don't 
             // indicate an operational error has occured. 
-            if (IsInducedError(error)) {
-                co_return CompletionOrigin::Self;
-            }
+            if (IsInducedError(error)) { co_return CompletionOrigin::Self; }
 
             m_spLogger->error(
                 "An unexpected error occured while accepting a connection on {}!", m_binding);
@@ -497,10 +482,10 @@ Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
     if (status != ConnectStatusCode::Success) {
         switch (status) {
             case ConnectStatusCode::DuplicateError: {
-                m_spLogger->warn("Ignoring duplicate connection attempt to {}.", address);
+                m_spLogger->debug("Ignoring duplicate connection attempt to {}.", address);
             } break;
             case ConnectStatusCode::ReflectionError: {
-                m_spLogger->warn("Ignoring reflective connection attempt to {}.", address);
+                m_spLogger->debug("Ignoring reflective connection attempt to {}.", address);
             } break;
             default: assert(false); break;
         }
@@ -535,7 +520,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ConnectionProcessor(
     auto const endpoints = co_await m_resolver.async_resolve(
         ip, port, boost::asio::redirect_error(boost::asio::use_awaitable, error));
     if (error) {
-        m_spLogger->warn("Unable to resolve an endpoint for {}", address.GetAuthority());
+        m_spLogger->warn("Unable to resolve an endpoint for {}", address);
         co_return CompletionOrigin::Error;
     }
 
@@ -560,7 +545,6 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ConnectionProcessor(
     
     // If there was an error establishing the connection, there is nothing to do. 
     if (error) {
-        m_spLogger->info("{}, {}", spSession->GetAddress(), error.message());
         if (error.value() == boost::asio::error::connection_refused) {
             m_spLogger->warn("Connection refused by {}", address.GetUri());
             co_return CompletionOrigin::Peer;

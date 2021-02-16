@@ -96,7 +96,18 @@ void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] BindingAddress const
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] std::string_view uri)
+void Network::LoRa::Endpoint::ScheduleConnect(RemoteAddress const& address)
+{
+    RemoteAddress remote = address;
+    ScheduleConnect(std::move(remote));
+}
+
+//------------------------------------------------------------------------------------------------
+
+//------------------------------------------------------------------------------------------------
+// Description:
+//------------------------------------------------------------------------------------------------
+void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] RemoteAddress&& address)
 {
 }
 
@@ -106,7 +117,7 @@ void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] std::string_view 
 // Description:
 //------------------------------------------------------------------------------------------------
 void Network::LoRa::Endpoint::ScheduleConnect(
-    [[maybe_unused]] std::string_view uri,
+    [[maybe_unused]] RemoteAddress&& address,
     [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier)
 {
 }

@@ -39,8 +39,6 @@ auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container const>
     BryptIdentifier::Generate());
 
 constexpr Network::Protocol ProtocolType = Network::Protocol::TCP;
-constexpr std::string_view ServerEntry = "127.0.0.1:35216";
-
 Network::BindingAddress ServerBinding(ProtocolType, "*:35216", "lo");
 
 constexpr std::uint32_t Iterations = 100;
@@ -192,8 +190,9 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpClient(
 {
     auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Client);
         
+    Network::RemoteAddress address(test::ProtocolType, test::ServerBinding.GetUri(), true);
     upClientEndpoint->RegisterMediator(spPeerMediator.get());
-    upClientEndpoint->ScheduleConnect(test::ServerEntry);
+    upClientEndpoint->ScheduleConnect(std::move(address));
     upClientEndpoint->Startup();
 
     return upClientEndpoint;
