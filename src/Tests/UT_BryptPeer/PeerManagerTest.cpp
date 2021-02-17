@@ -184,6 +184,23 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 //------------------------------------------------------------------------------------------------
 
+TEST(PeerManagerSuite, UndeclarePeerTest)
+{
+    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+
+    auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
+    ASSERT_TRUE(optRequest);
+    EXPECT_GT(optRequest->size(), std::size_t(0));
+    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(1));
+
+    manager.UndeclareResolvingPeer(test::RemoteServerAddress);
+    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
+}
+
+//------------------------------------------------------------------------------------------------
+
 TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 {
     PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);

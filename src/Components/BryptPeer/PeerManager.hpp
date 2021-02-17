@@ -6,6 +6,7 @@
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
@@ -45,9 +46,10 @@ public:
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
     virtual OptionalRequest DeclareResolvingPeer(
-        Network::RemoteAddress const& address) override;
-    virtual OptionalRequest DeclareResolvingPeer(
-        BryptIdentifier::SharedContainer const& spIdentifier) override;
+        Network::RemoteAddress const& address,
+        BryptIdentifier::SharedContainer const& spIdentifier = nullptr) override;
+
+    virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) override;
 
     virtual std::shared_ptr<BryptPeer> LinkPeer(
         BryptIdentifier::Container const& identifier,
@@ -86,7 +88,9 @@ private:
                     BryptIdentifier::Internal::Type,
                     &BryptPeer::GetInternalIdentifier>>>>;
 
-    using ResolvingPeerMap = std::unordered_map<std::string, std::unique_ptr<SecurityMediator>>;
+    using ResolvingPeerMap = std::unordered_map<
+        Network::RemoteAddress, std::unique_ptr<SecurityMediator>,
+        Network::AddressHasher<Network::RemoteAddress>>;
 
     std::size_t PeerCount(Filter filter) const;
 

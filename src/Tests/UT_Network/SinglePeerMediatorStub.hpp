@@ -31,9 +31,10 @@ public:
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
     virtual OptionalRequest DeclareResolvingPeer(
-        Network::RemoteAddress const& address) override;
-    virtual OptionalRequest DeclareResolvingPeer(
-        BryptIdentifier::SharedContainer const& spIdentifier) override;
+        Network::RemoteAddress const& address,
+        BryptIdentifier::SharedContainer const& spIdentifier = nullptr) override;
+
+    virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) override;
 
     virtual std::shared_ptr<BryptPeer> LinkPeer(
         BryptIdentifier::Container const& identifier,

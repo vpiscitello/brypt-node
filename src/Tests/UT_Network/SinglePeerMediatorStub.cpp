@@ -80,7 +80,8 @@ void SinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* c
 //------------------------------------------------------------------------------------------------
 
 SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolvingPeer(
-    [[maybe_unused]] Network::RemoteAddress const& address)
+    [[maybe_unused]] Network::RemoteAddress const& address,
+    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier)
 {
     auto const optHeartbeatRequest = NetworkMessage::Builder()
         .MakeHeartbeatRequest()
@@ -93,21 +94,9 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
 
 //------------------------------------------------------------------------------------------------
 
-SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolvingPeer(
-    BryptIdentifier::SharedContainer const& spIdentifier)
+void SinglePeerMediatorStub::UndeclareResolvingPeer(
+    [[maybe_unused]] Network::RemoteAddress const& address)
 {
-    if (!spIdentifier) {
-        return {};
-    }
-
-    auto const optHeartbeatRequest = NetworkMessage::Builder()
-        .SetSource(*m_spBryptIdentifier)
-        .SetDestination(*spIdentifier)
-        .MakeHeartbeatRequest()
-        .ValidatedBuild();
-    assert(optHeartbeatRequest);
-
-    return optHeartbeatRequest->GetPack();
 }
 
 //------------------------------------------------------------------------------------------------

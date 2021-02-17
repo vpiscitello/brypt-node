@@ -30,9 +30,11 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
-    virtual OptionalRequest DeclareResolvingPeer(Network::RemoteAddress const& address) = 0;
     virtual OptionalRequest DeclareResolvingPeer(
-        BryptIdentifier::SharedContainer const& spIdentifier) = 0;
+        Network::RemoteAddress const& address,
+        BryptIdentifier::SharedContainer const& spIdentifier = nullptr) = 0;
+
+    virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) = 0;
 
     virtual std::shared_ptr<BryptPeer> LinkPeer(
         BryptIdentifier::Container const& identifier, Network::RemoteAddress const& address) = 0;
