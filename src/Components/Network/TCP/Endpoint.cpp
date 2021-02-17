@@ -491,8 +491,6 @@ Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
         }
         return status;
     }
-
-    m_spLogger->info("Attempting a connection with {}.", address);
     
     boost::asio::co_spawn(
         m_context, ConnectionProcessor(address, spIdentifier),
