@@ -210,7 +210,7 @@ std::string local::GenerateNodeInfo(BryptNode const& instance)
     }
 
     // Get the information pertaining to the node's network
-    std::uint32_t neighbors = 0;
+    std::size_t neighbors = 0;
     if (auto const spPeerManager = instance.GetPeerManager().lock(); spPeerManager) {
         neighbors = spPeerManager->ActivePeerCount();
     }

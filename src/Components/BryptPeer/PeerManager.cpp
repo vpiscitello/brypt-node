@@ -219,23 +219,31 @@ bool PeerManager::ForEachCachedIdentifier(
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t PeerManager::ActivePeerCount() const
+std::size_t PeerManager::ActivePeerCount() const
 {
     return PeerCount(Filter::Active);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t PeerManager::InactivePeerCount() const
+std::size_t PeerManager::InactivePeerCount() const
 {
     return PeerCount(Filter::Inactive);
 }
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t PeerManager::ObservedPeerCount() const
+std::size_t PeerManager::ObservedPeerCount() const
 {
     return PeerCount(Filter::None);
+}
+
+//-----------------------------------------------------------------------------------------------
+
+std::size_t PeerManager::ResolvingPeerCount() const
+{
+    std::scoped_lock lock(m_resolvingMutex);
+    return m_resolving.size();
 }
 
 //-----------------------------------------------------------------------------------------------
@@ -270,9 +278,9 @@ bool PeerManager::ForEachPeer(ForEachPeerFunction const& callback, Filter filter
 
 //-----------------------------------------------------------------------------------------------
 
-std::uint32_t PeerManager::PeerCount(Filter filter) const
+std::size_t PeerManager::PeerCount(Filter filter) const
 {
-    std::uint32_t count = 0;
+    std::size_t count = 0;
 
     std::shared_lock lock(m_peersMutex);
     for (auto const& spBryptPeer: m_peers) {

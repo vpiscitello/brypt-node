@@ -64,9 +64,12 @@ public:
     virtual bool ForEachCachedIdentifier(
       IdentifierReadFunction const& callback,
       Filter filter = Filter::Active) const override;
-    virtual std::uint32_t ActivePeerCount() const override;
-    virtual std::uint32_t InactivePeerCount() const override;
-    virtual std::uint32_t ObservedPeerCount() const override;
+
+    virtual std::size_t ActivePeerCount() const override;
+    virtual std::size_t InactivePeerCount() const override;
+    virtual std::size_t ObservedPeerCount() const override;
+
+    virtual std::size_t ResolvingPeerCount() const override;
     // } IPeerCache
 
     bool ForEachPeer(ForEachPeerFunction const& callback, Filter filter = Filter::Active) const;
@@ -85,7 +88,7 @@ private:
 
     using ResolvingPeerMap = std::unordered_map<std::string, std::unique_ptr<SecurityMediator>>;
 
-    std::uint32_t PeerCount(Filter filter) const;
+    std::size_t PeerCount(Filter filter) const;
 
     template<typename FunctionType, typename...Args>
     void NotifyObservers(FunctionType const& function, Args&&...args);
