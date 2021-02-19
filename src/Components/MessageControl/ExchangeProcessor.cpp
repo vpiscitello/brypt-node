@@ -81,9 +81,7 @@ bool ExchangeProcessor::CollectMessage(
         case Message::Protocol::Network: break;
         // Any other messages are should be dropped from processing.
         case Message::Protocol::Application:
-        case Message::Protocol::Invalid: {
-            m_stage = ProcessStage::Invalid;
-        } return false;
+        case Message::Protocol::Invalid: { m_stage = ProcessStage::Invalid; } return false;
     }
 
     // Attempt to unpack the buffer into the handshake message.

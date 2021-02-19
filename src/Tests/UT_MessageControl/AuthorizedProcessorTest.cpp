@@ -30,8 +30,8 @@ namespace test {
 //------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
-
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container const>(
+    BryptIdentifier::Generate());
 
 constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
@@ -52,7 +52,7 @@ constexpr std::uint32_t Iterations = 10000;
 
 TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
-    AuthorizedProcessor processor;
+    AuthorizedProcessor processor(test::ServerIdentifier);
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
@@ -69,7 +69,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     auto const optRequest = ApplicationMessage::Builder()
         .SetMessageContext(*optMessageContext)
         .SetSource(test::ClientIdentifier)
-        .SetDestination(test::ServerIdentifier)
+        .SetDestination(*test::ServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
@@ -98,7 +98,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     // Build an application message to represent the response to the client's request.
     auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(*optMessageContext)
-        .SetSource(test::ServerIdentifier)
+        .SetSource(*test::ServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
@@ -124,7 +124,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
 TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 {
-    AuthorizedProcessor processor;
+    AuthorizedProcessor processor(test::ServerIdentifier);
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
@@ -143,7 +143,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
         auto const optRequest = ApplicationMessage::Builder()
             .SetMessageContext(*optMessageContext)
             .SetSource(test::ClientIdentifier)
-            .SetDestination(test::ServerIdentifier)
+            .SetDestination(*test::ServerIdentifier)
             .SetCommand(test::Handler, test::RequestPhase)
             .SetPayload(test::Message)
             .ValidatedBuild();
@@ -173,7 +173,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
         // Build an application message to represent the response to the client's request.
         auto const optResponse = ApplicationMessage::Builder()
             .SetMessageContext(*optMessageContext)
-            .SetSource(test::ServerIdentifier)
+            .SetSource(*test::ServerIdentifier)
             .SetDestination(test::ClientIdentifier)
             .SetCommand(test::Handler, test::ResponsePhase)
             .SetPayload(test::Message)
@@ -227,7 +227,7 @@ EndpointRegistration local::GenerateCaptureRegistration(
 
     registration.GetWritableMessageContext().BindSignatureHandlers(
         [] (auto&) -> Security::Signator::result_type
-            {  return 0; },
+            { return 0; },
         [] (auto const&) -> Security::Verifier::result_type
             { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type

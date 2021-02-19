@@ -62,7 +62,7 @@ std::int32_t main(std::int32_t argc, char** argv)
     auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(
         *optEndpointConfigurations);
 
-    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>();
+    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(spBryptIdentifier);
 
     auto const spPeerManager = std::make_shared<PeerManager>(
         spBryptIdentifier, upConfigurationManager->GetSecurityStrategy(),

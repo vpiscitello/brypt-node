@@ -13,8 +13,10 @@
 #include <mutex>
 //------------------------------------------------------------------------------------------------
 
-AuthorizedProcessor::AuthorizedProcessor()
-	: m_incomingMutex()
+AuthorizedProcessor::AuthorizedProcessor(
+    BryptIdentifier::SharedContainer const& spBryptIdentifier)
+	: m_spBryptIdentifier(spBryptIdentifier)
+    , m_incomingMutex()
 	, m_incoming()
 {
 }
@@ -42,9 +44,7 @@ bool AuthorizedProcessor::CollectMessage(
 {
     // Peek the protocol in the packed buffer. 
     auto const optProtocol = Message::PeekProtocol(buffer);
-    if (!optProtocol) {
-        return false;
-    }
+    if (!optProtocol) { return false; }
 
 	// Handle the message based on the message protocol indicated by the message.
     switch (*optProtocol) {
@@ -54,9 +54,7 @@ bool AuthorizedProcessor::CollectMessage(
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
-			if (!optMessage) {
-				return false;
-			}
+			if (!optMessage) { return false; }
 
 			return HandleMessage(wpBryptPeer, *optMessage);
 		} 
@@ -66,9 +64,7 @@ bool AuthorizedProcessor::CollectMessage(
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
-			if (!optMessage) {
-				return false;
-			}
+			if (!optMessage) { return false; }
 
 			return QueueMessage(wpBryptPeer, *optMessage);
 		}
@@ -90,9 +86,7 @@ std::size_t AuthorizedProcessor::QueuedMessageCount() const
 std::optional<AssociatedMessage> AuthorizedProcessor::PopIncomingMessage()
 {
 	std::scoped_lock lock(m_incomingMutex);
-	if (m_incoming.empty()) {
-		return {};
-	}
+	if (m_incoming.empty()) { return {}; }
 
 	auto const message = m_incoming.front();
 	m_incoming.pop();
@@ -117,15 +111,25 @@ bool AuthorizedProcessor::HandleMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
 	NetworkMessage const& message)
 {
+    // Currently, there are no network messages that are sent network wide. 
+    if (message.GetDestinationType() != Message::Destination::Node) { return false; }
+
 	auto const& optDestination = message.GetDestinationIdentifier();
-	if (!optDestination || message.GetDestinationType() != Message::Destination::Node) {
-		return false;
+
+    // If the network message does not have a destination and is not a handshake message
+    // then there is currently no possible message we expect given this context. 
+    // If it is a handshake message without a destination identifier, it is assumed that 
+    // we woke up and connected to the peer while the peer was actively trying to 
+    // connect while this node was offline. 
+	if (!optDestination && message.GetMessageType() != Message::Network::Type::Handshake) {
+        return false;
 	}
 
+    // Currently, messages not destined for this node are note accepted. 
+    if (optDestination && *optDestination != *m_spBryptIdentifier) { return false; }
+
 	auto const spBryptPeer = wpBryptPeer.lock();
-	if (!spBryptPeer) {
-		return false;
-	}
+	if (!spBryptPeer) { return false; }
 
 	Message::Network::Type type = message.GetMessageType();
 
@@ -134,7 +138,7 @@ bool AuthorizedProcessor::HandleMessage(
 		// Allow heartbeat requests to be processed. 
 		case Message::Network::Type::HeartbeatRequest:  {
 			optResponse = NetworkMessage::Builder()
-				.SetSource(*optDestination)
+				.SetSource(*m_spBryptIdentifier)
 				.SetDestination(message.GetSourceIdentifier())
 				.MakeHeartbeatResponse()
 				.ValidatedBuild();
@@ -142,8 +146,16 @@ bool AuthorizedProcessor::HandleMessage(
 		} break;
 		// Currently, heartbeat responses are silently dropped from this processor.
 		case Message::Network::Type::HeartbeatResponse: return true;
-		// Currently, handshake messages are silently dropped from this processor.
-		case Message::Network::Type::Handshake: return true;
+		// Currently, handshake requests are responded with a heartbeat request to indicate
+        // a valid session has already been established. 
+		case Message::Network::Type::Handshake: {
+			optResponse = NetworkMessage::Builder()
+				.SetSource(*m_spBryptIdentifier)
+				.SetDestination(message.GetSourceIdentifier())
+				.MakeHeartbeatRequest()
+				.ValidatedBuild();
+			assert(optResponse);
+        } break;
 		default: return false; // What is this?
 	}
 

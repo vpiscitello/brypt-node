@@ -26,7 +26,7 @@ class MessageContext;
 
 class AuthorizedProcessor : public IMessageSink {
 public:
-    AuthorizedProcessor();
+    explicit AuthorizedProcessor(BryptIdentifier::SharedContainer const& spBryptIdentifier);
 
     // IMessageSink {
     virtual bool CollectMessage(
@@ -52,6 +52,8 @@ private:
         std::weak_ptr<BryptPeer> const& wpBryptPeer,
     	NetworkMessage const& message);
         
+    BryptIdentifier::SharedContainer m_spBryptIdentifier;
+    
     mutable std::shared_mutex m_incomingMutex;
     std::queue<AssociatedMessage> m_incoming;
 };
