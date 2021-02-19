@@ -196,17 +196,19 @@ BryptIdentifier::Container::Container(local::Buffer const& buffer, BufferContent
 
 bool BryptIdentifier::Container::operator<(Container const& other) const
 {
-    return (m_internalRepresentation < other.m_internalRepresentation);
+    if (m_valid && !other.m_valid) { return false; }
+    else if (!m_valid && other.m_valid) { return true; }
+    else { 
+        return (m_internalRepresentation < other.m_internalRepresentation);
+    }
 }
 
 //------------------------------------------------------------------------------------------------
  
 bool BryptIdentifier::Container::operator==(Container const& other) const
 {
-    if (m_internalRepresentation != other.m_internalRepresentation) {
-        return false;
-    }
-
+    if (!m_valid && !other.m_valid) { return false; }
+    if (m_internalRepresentation != other.m_internalRepresentation) { return false; }
     return true;
 }
 

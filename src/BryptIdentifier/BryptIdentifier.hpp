@@ -22,6 +22,8 @@ namespace BryptIdentifier {
 
 enum class BufferContentType : std::uint8_t { Internal, Network };
 
+class Container;
+
 struct Hasher;
 
 std::string Generate();
@@ -93,7 +95,7 @@ private:
 //------------------------------------------------------------------------------------------------
 
 struct BryptIdentifier::Hasher  {
-    std::size_t operator()(Container const& identifier) const
+    std::size_t operator() (Container const& identifier) const
     {
         return std::hash<Internal::Type>()(identifier.GetInternalRepresentation());
     }
