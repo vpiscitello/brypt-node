@@ -5,12 +5,14 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
-#include "../Endpoints/EndpointIdentifier.hpp"
-#include "../Endpoints/TechnologyType.hpp"
-#include "../Security/SecurityMediator.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../Interfaces/PeerCache.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Network/Address.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Components/Security/SecurityMediator.hpp"
+#include "Interfaces/PeerCache.hpp"
+#include "Interfaces/PeerMediator.hpp"
 //------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -27,11 +29,15 @@ class IPeerObserver;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class CPeerManager : public IPeerMediator, public IPeerCache
+class PeerManager : public IPeerMediator, public IPeerCache
 {
 public:
-    CPeerManager(
+    using ForEachPeerFunction = std::function<CallbackIteration(
+        std::shared_ptr<BryptPeer> const)>;
+
+    PeerManager(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
         std::weak_ptr<IMessageSink> const& wpPromotedProcessor = {});
 
@@ -39,18 +45,20 @@ public:
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
-    virtual OptionalRequest DeclareResolvingPeer(std::string_view uri) override;
     virtual OptionalRequest DeclareResolvingPeer(
-        BryptIdentifier::SharedContainer const& spIdentifier) override;
+        Network::RemoteAddress const& address,
+        BryptIdentifier::SharedContainer const& spIdentifier = nullptr) override;
 
-    virtual std::shared_ptr<CBryptPeer> LinkPeer(
-        BryptIdentifier::CContainer const& identifier,
-        std::string_view uri = "") override;
+    virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) override;
+
+    virtual std::shared_ptr<BryptPeer> LinkPeer(
+        BryptIdentifier::Container const& identifier,
+        Network::RemoteAddress const& address) override;
 
     virtual void DispatchPeerStateChange(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
         ConnectionState change) override;
     // } IPeerMediator
 
@@ -58,26 +66,33 @@ public:
     virtual bool ForEachCachedIdentifier(
       IdentifierReadFunction const& callback,
       Filter filter = Filter::Active) const override;
-    virtual std::uint32_t ActivePeerCount() const override;
-    virtual std::uint32_t InactivePeerCount() const override;
-    virtual std::uint32_t ObservedPeerCount() const override;
+
+    virtual std::size_t ActivePeerCount() const override;
+    virtual std::size_t InactivePeerCount() const override;
+    virtual std::size_t ObservedPeerCount() const override;
+
+    virtual std::size_t ResolvingPeerCount() const override;
     // } IPeerCache
+
+    bool ForEachPeer(ForEachPeerFunction const& callback, Filter filter = Filter::Active) const;
 
 private:
     using ObserverSet = std::set<IPeerObserver*>;
 
     using PeerTrackingMap = boost::multi_index_container<
-        std::shared_ptr<CBryptPeer>,
+        std::shared_ptr<BryptPeer>,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
-                    CBryptPeer,
+                    BryptPeer,
                     BryptIdentifier::Internal::Type,
-                    &CBryptPeer::GetInternalIdentifier>>>>;
+                    &BryptPeer::GetInternalIdentifier>>>>;
 
-    using ResolvingPeerMap = std::unordered_map<std::string, std::unique_ptr<CSecurityMediator>>;
+    using ResolvingPeerMap = std::unordered_map<
+        Network::RemoteAddress, std::unique_ptr<SecurityMediator>,
+        Network::AddressHasher<Network::RemoteAddress>>;
 
-    std::uint32_t PeerCount(Filter filter) const;
+    std::size_t PeerCount(Filter filter) const;
 
     template<typename FunctionType, typename...Args>
     void NotifyObservers(FunctionType const& function, Args&&...args);
@@ -86,6 +101,7 @@ private:
     void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
+    Security::Strategy m_strategyType;
     
     mutable std::mutex m_observersMutex;
     ObserverSet m_observers;
@@ -98,7 +114,6 @@ private:
     
     std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
     std::weak_ptr<IMessageSink> const m_wpPromotedProcessor;
-
 };
 
 //------------------------------------------------------------------------------------------------

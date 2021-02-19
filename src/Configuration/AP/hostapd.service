@@ -1,3 +1,0 @@
-[Service]
-RestartSec=5
-Restart=on-failure

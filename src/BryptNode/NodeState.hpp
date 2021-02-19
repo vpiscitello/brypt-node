@@ -1,9 +1,9 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Utilities/NodeUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/NodeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 #include <cstdint>
@@ -11,12 +11,12 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CNodeState {
+class NodeState {
 public:
-    explicit CNodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier);
-    CNodeState(
+    explicit NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    NodeState(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        Endpoints::TechnologySet const& technologies);
+        Network::ProtocolSet const& protocols);
 
     BryptIdentifier::SharedContainer GetBryptIdentifier() const;
     NodeUtils::ClusterIdType GetCluster() const;
@@ -33,7 +33,7 @@ private:
 
     NodeUtils::ClusterIdType m_cluster;   // Cluster identification number of the node's cluster
     NodeUtils::DeviceOperation m_operation;  // A enumeration value of the node's root status
-    Endpoints::TechnologySet m_technologies; // Communication technologies of the node
+    Network::ProtocolSet m_protocols; // Communication protocols of the node
 };
 
 //------------------------------------------------------------------------------------------------

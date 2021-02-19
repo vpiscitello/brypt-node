@@ -1,8 +1,8 @@
 //------------------------------------------------------------------------------------------------
-#include "../../Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
-#include "../../Interfaces/SecurityStrategy.hpp"
+#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <memory>
 //------------------------------------------------------------------------------------------------
@@ -27,16 +27,16 @@ namespace test {
 
 TEST(PQNISTL3StrategySuite, UniqueContextTest)
 {
-    Security::PQNISTL3::CStrategy strategy(Security::Role::Initiator, Security::Context::Unique);
+    Security::PQNISTL3::Strategy strategy(Security::Role::Initiator, Security::Context::Unique);
     EXPECT_EQ(strategy.GetRoleType(), Security::Role::Initiator);
 
     Security::Strategy type = strategy.GetStrategyType();
-    EXPECT_EQ(type, Security::PQNISTL3::CStrategy::Type);
+    EXPECT_EQ(type, Security::PQNISTL3::Strategy::Type);
     EXPECT_EQ(type, Security::Strategy::PQNISTL3);
 
     EXPECT_EQ(strategy.GetContextType(), Security::Context::Unique);
 
-    Security::PQNISTL3::CStrategy checkStrategy(Security::Role::Initiator, Security::Context::Unique);
+    Security::PQNISTL3::Strategy checkStrategy(Security::Role::Initiator, Security::Context::Unique);
     EXPECT_EQ(checkStrategy.GetRoleType(), Security::Role::Initiator);
 
     auto spContext = strategy.GetSessionContext().lock();
@@ -50,18 +50,18 @@ TEST(PQNISTL3StrategySuite, UniqueContextTest)
 
 TEST(PQNISTL3StrategySuite, ApplicationContextTest)
 {
-    Security::PQNISTL3::CStrategy::InitializeApplicationContext();
+    Security::PQNISTL3::Strategy::InitializeApplicationContext();
 
-    Security::PQNISTL3::CStrategy strategy(Security::Role::Initiator, Security::Context::Application);
+    Security::PQNISTL3::Strategy strategy(Security::Role::Initiator, Security::Context::Application);
     EXPECT_EQ(strategy.GetRoleType(), Security::Role::Initiator);
 
     Security::Strategy type = strategy.GetStrategyType();
-    EXPECT_EQ(type, Security::PQNISTL3::CStrategy::Type);
+    EXPECT_EQ(type, Security::PQNISTL3::Strategy::Type);
     EXPECT_EQ(type, Security::Strategy::PQNISTL3);
 
     EXPECT_EQ(strategy.GetContextType(), Security::Context::Application);
 
-    Security::PQNISTL3::CStrategy checkStrategy(Security::Role::Initiator, Security::Context::Application);
+    Security::PQNISTL3::Strategy checkStrategy(Security::Role::Initiator, Security::Context::Application);
     EXPECT_EQ(checkStrategy.GetRoleType(), Security::Role::Initiator);
 
     auto spContext = strategy.GetSessionContext().lock();
@@ -70,19 +70,19 @@ TEST(PQNISTL3StrategySuite, ApplicationContextTest)
     EXPECT_EQ(spContext, spCheckContext);
     EXPECT_EQ(spContext->GetPublicKey(), spCheckContext->GetPublicKey());
 
-    Security::PQNISTL3::CStrategy::ShutdownApplicationContext();
+    Security::PQNISTL3::Strategy::ShutdownApplicationContext();
 }
 
 //------------------------------------------------------------------------------------------------
 
 TEST(PQNISTL3StrategySuite, SynchronizationTest)
 {
-    Security::PQNISTL3::CStrategy initiator(Security::Role::Initiator, Security::Context::Unique);
+    Security::PQNISTL3::Strategy initiator(Security::Role::Initiator, Security::Context::Unique);
     EXPECT_EQ(initiator.GetRoleType(), Security::Role::Initiator);
     EXPECT_EQ(initiator.GetContextType(), Security::Context::Unique);
     EXPECT_EQ(initiator.GetSynchronizationStages(), std::uint32_t(1));
 
-    Security::PQNISTL3::CStrategy acceptor(Security::Role::Acceptor, Security::Context::Unique);
+    Security::PQNISTL3::Strategy acceptor(Security::Role::Acceptor, Security::Context::Unique);
     EXPECT_EQ(acceptor.GetRoleType(), Security::Role::Acceptor);
     EXPECT_EQ(acceptor.GetContextType(), Security::Context::Unique);
     EXPECT_EQ(acceptor.GetSynchronizationStages(), std::uint32_t(2));

@@ -5,9 +5,9 @@
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CSensorState {
+class SensorState {
 public:
-    CSensorState();
+    SensorState();
 
     std::uint8_t GetPin() const;
 

@@ -25,60 +25,57 @@
 namespace Security {
 //------------------------------------------------------------------------------------------------
 
-using KeyResult = std::pair<std::uint8_t const*, std::uint32_t>;
-using OptionalKeyResult = std::optional<KeyResult>;
+using OptionalKeyCordons = std::optional<Security::ReadableView>;
 
-class CKeyStore;
-class CSecureBuffer;
+class KeyStore;
+class SecureBuffer;
 
 //------------------------------------------------------------------------------------------------
 } // Security namespace
 //------------------------------------------------------------------------------------------------
 
-class Security::CKeyStore
+class Security::KeyStore
 {
 public:
-    constexpr static std::uint32_t VerificationSize = 32;
+    constexpr static std::size_t VerificationSize = 32;
 
-    CKeyStore();
+    KeyStore();
 
-    CKeyStore(CKeyStore&& other) = delete;
-    CKeyStore(CKeyStore const& other) = delete;
-    CKeyStore& operator=(CKeyStore const& other) = delete;
+    KeyStore(KeyStore&& other) = delete;
+    KeyStore(KeyStore const& other) = delete;
+    KeyStore& operator=(KeyStore const& other) = delete;
 
     void SetPublicKey(Security::Buffer&& buffer);
     void SetPeerPublicKey(Security::Buffer&& buffer);
     void ExpandSessionSeed(Security::Buffer const& buffer);
 
-    bool GenerateSessionKeys(
+    [[nodiscard]] bool GenerateSessionKeys(
         Security::Role role,
         Security::Buffer&& buffer,
-        std::uint32_t contentKeyBytes,
-        std::uint32_t signatureKeyBytes);
+        std::size_t contentKeyBytes,
+        std::size_t signatureKeyBytes);
 
-    Security::OptionalBuffer GetPeerPublicKey() const;
+    [[nodiscard]] Security::OptionalBuffer GetPeerPublicKey() const;
 
-    Security::OptionalKeyResult GetContentKey() const;
-    Security::OptionalKeyResult GetPeerContentKey() const;
+    [[nodiscard]] Security::OptionalKeyCordons GetContentKey() const;
+    [[nodiscard]] Security::OptionalKeyCordons GetPeerContentKey() const;
 
-    Security::OptionalKeyResult GetSignatureKey() const;
-    Security::OptionalKeyResult GetPeerSignatureKey() const;
+    [[nodiscard]] Security::OptionalKeyCordons GetSignatureKey() const;
+    [[nodiscard]] Security::OptionalKeyCordons GetPeerSignatureKey() const;
     
-    Security::OptionalBuffer GetVerificationData() const;
+    [[nodiscard]] Security::OptionalBuffer GetVerificationData() const;
 
-    bool HasGeneratedKeys() const;
+    [[nodiscard]] bool HasGeneratedKeys() const;
+    
     void ResetState();
 
 private:
-    using OptionalSecureBuffer = std::optional<Security::CSecureBuffer>;
-    
-    using KeyCordons = std::pair<std::uint32_t, std::uint32_t>;
-    using OptionalKeyCordons = std::optional<KeyCordons>;
+    using OptionalSecureBuffer = std::optional<Security::SecureBuffer>;
 
-    std::uint32_t SetInitiatorKeyCordons(
-        std::uint32_t contentKeyBytes, std::uint32_t signatureKeyBytes);
-    std::uint32_t SetAcceptorKeyCordons(
-        std::uint32_t contentKeyBytes, std::uint32_t signatureKeyBytes);
+    [[nodiscard]] std::size_t SetInitiatorKeyCordons(
+        std::size_t contentKeyBytes, std::size_t signatureKeyBytes);
+    [[nodiscard]] std::size_t SetAcceptorKeyCordons(
+        std::size_t contentKeyBytes, std::size_t signatureKeyBytes);
     
     Security::OptionalBuffer m_optPeerPublicKey;
 
@@ -91,7 +88,6 @@ private:
     OptionalKeyCordons m_optSignatureKeyCordons;
     OptionalKeyCordons m_optPeerSignatureKeyCordons;
     bool m_bHasGeneratedKeys;
-
 };
 
 //------------------------------------------------------------------------------------------------

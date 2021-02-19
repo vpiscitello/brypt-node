@@ -13,7 +13,8 @@ namespace Await {
 
 using TrackerKey = std::uint32_t;
 
-enum class ResponseStatus : std::uint8_t { Fulfilled, Unfulfilled, Completed };
+enum class UpdateStatus : std::uint8_t { Expired, Unexpected, Success, Fulfilled };
+enum class ResponseStatus : std::uint8_t { Unfulfilled, Fulfilled, Completed };
 
 //------------------------------------------------------------------------------------------------
 } // Await namespace

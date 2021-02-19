@@ -3,82 +3,59 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "EndpointRegistration.hpp"
-#include "../../Utilities/NetworkUtils.hpp"
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-namespace {
-namespace local {
-//------------------------------------------------------------------------------------------------
-
-std::string ParseEntryFromURI(std::string_view uri);
-
-//------------------------------------------------------------------------------------------------
-} // local namespace
-} // namespace
-//------------------------------------------------------------------------------------------------
-
-CEndpointRegistration::CEndpointRegistration(
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology,
-    MessageScheduler const& scheduler,
-    std::string_view uri)
-    : m_context(identifier, technology)
+EndpointRegistration::EndpointRegistration(
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
+    Network::RemoteAddress const& address,
+    MessageScheduler const& scheduler)
+    : m_context(identifier, protocol)
     , m_scheduler(scheduler)
-    , m_entry(local::ParseEntryFromURI(uri))
+    , m_address(address)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext const& CEndpointRegistration::GetMessageContext() const
-{
-    return m_context;
-}
-
-//------------------------------------------------------------------------------------------------
-
-CMessageContext& CEndpointRegistration::GetWritableMessageContext()
+MessageContext const& EndpointRegistration::GetMessageContext() const
 {
     return m_context;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::EndpointIdType CEndpointRegistration::GetEndpointIdentifier() const
+MessageContext& EndpointRegistration::GetWritableMessageContext()
+{
+    return m_context;
+}
+
+//------------------------------------------------------------------------------------------------
+
+Network::Endpoint::Identifier EndpointRegistration::GetEndpointIdentifier() const
 {
     return m_context.GetEndpointIdentifier();
 }
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::TechnologyType CEndpointRegistration::GetEndpointTechnology() const
+Network::Protocol EndpointRegistration::GetEndpointProtocol() const
 {
-    return m_context.GetEndpointTechnology();
+    return m_context.GetEndpointProtocol();
 }
 
 //------------------------------------------------------------------------------------------------
 
-MessageScheduler const& CEndpointRegistration::GetScheduler() const
+MessageScheduler const& EndpointRegistration::GetScheduler() const
 {
     return m_scheduler;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::string const& CEndpointRegistration::GetEntry() const
+Network::RemoteAddress const& EndpointRegistration::GetAddress() const
 {
-    return m_entry;
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::string local::ParseEntryFromURI(std::string_view uri) {
-    if (auto const pos = uri.find(NetworkUtils::SchemeSeperator); pos != std::string::npos) {
-        return std::string(uri.begin() + pos + NetworkUtils::SchemeSeperator.size(), uri.end());
-    } else {
-        return std::string(uri.begin(), uri.end());
-    }
+    return m_address;
 }
 
 //------------------------------------------------------------------------------------------------

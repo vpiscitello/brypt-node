@@ -1,12 +1,12 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptIdentifier/IdentifierDefinitions.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
-#include "../../BryptMessage/MessageUtils.hpp"
-#include "../../BryptMessage/PackUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/IdentifierDefinitions.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/MessageUtils.hpp"
+#include "Utilities/Z85.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <string>
@@ -18,7 +18,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-CMessageContext GenerateMessageContext();
+MessageContext GenerateMessageContext();
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -26,33 +26,33 @@ CMessageContext GenerateMessageContext();
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
 
-constexpr Command::Type Command = Command::Type::Election;
+constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t Phase = 0;
 
-constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
-constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
+constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ApplicationConstructorTest)
+TEST(MessageHeaderSuite, ApplicationConstructorTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optMessage = CApplicationMessage::Builder()
+    auto const optMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::Phase)
+        .SetCommand(test::Handler, test::Phase)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    CMessageHeader const header = optMessage->GetMessageHeader();
+    MessageHeader const header = optMessage->GetMessageHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
@@ -62,19 +62,19 @@ TEST(CMessageHeaderSuite, ApplicationConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ApplicationPackTest)
+TEST(MessageHeaderSuite, ApplicationPackTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optBaseMessage = CApplicationMessage::Builder()
+    auto const optBaseMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::Phase)
+        .SetCommand(test::Handler, test::Phase)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
-    CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    MessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
@@ -83,13 +83,13 @@ TEST(CMessageHeaderSuite, ApplicationPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CApplicationMessage::Builder()
+    auto const optPackMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    CMessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    MessageHeader const packHeader = optPackMessage->GetMessageHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
@@ -99,16 +99,16 @@ TEST(CMessageHeaderSuite, ApplicationPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, NetworkConstructorTest)
+TEST(MessageHeaderSuite, NetworkConstructorTest)
 {
-    auto const optMessage = CNetworkMessage::Builder()
+    auto const optMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    CMessageHeader const header = optMessage->GetMessageHeader();
+    MessageHeader const header = optMessage->GetMessageHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Network);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
@@ -118,16 +118,16 @@ TEST(CMessageHeaderSuite, NetworkConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, NetworkPackTest)
+TEST(MessageHeaderSuite, NetworkPackTest)
 {
-    auto const optBaseMessage = CNetworkMessage::Builder()
+    auto const optBaseMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
-    CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    MessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Network);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
@@ -136,12 +136,12 @@ TEST(CMessageHeaderSuite, NetworkPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CNetworkMessage::Builder()
+    auto const optPackMessage = NetworkMessage::Builder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    CMessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    MessageHeader const packHeader = optPackMessage->GetMessageHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
@@ -151,19 +151,19 @@ TEST(CMessageHeaderSuite, NetworkPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ClusterDestinationTest)
+TEST(MessageHeaderSuite, ClusterDestinationTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optMessage = CApplicationMessage::Builder()
+    auto const optMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
-        .SetCommand(test::Command, test::Phase)
+        .SetCommand(test::Handler, test::Phase)
         .MakeClusterMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    CMessageHeader const header = optMessage->GetMessageHeader();
+    MessageHeader const header = optMessage->GetMessageHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Cluster);
@@ -172,19 +172,19 @@ TEST(CMessageHeaderSuite, ClusterDestinationTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, NetworkDestinationTest)
+TEST(MessageHeaderSuite, NetworkDestinationTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optMessage = CApplicationMessage::Builder()
+    auto const optMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
-        .SetCommand(test::Command, test::Phase)
+        .SetCommand(test::Handler, test::Phase)
         .MakeNetworkMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    CMessageHeader const header = optMessage->GetMessageHeader();
+    MessageHeader const header = optMessage->GetMessageHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Network);
@@ -193,19 +193,19 @@ TEST(CMessageHeaderSuite, NetworkDestinationTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, ClusterPackTest)
+TEST(MessageHeaderSuite, ClusterPackTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
 
-    auto const optBaseMessage = CApplicationMessage::Builder()
+    auto const optBaseMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
-        .SetCommand(test::Command, test::Phase)
+        .SetCommand(test::Handler, test::Phase)
         .MakeClusterMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
-    CMessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    MessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Cluster);
@@ -213,13 +213,13 @@ TEST(CMessageHeaderSuite, ClusterPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CApplicationMessage::Builder()
+    auto const optPackMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    CMessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    MessageHeader const packHeader = optPackMessage->GetMessageHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
@@ -228,35 +228,33 @@ TEST(CMessageHeaderSuite, ClusterPackTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolTest)
+TEST(MessageHeaderSuite, PeekProtocolTest)
 {
-    CMessageContext const context = local::GenerateMessageContext();
+    MessageContext const context = local::GenerateMessageContext();
     
-    auto const optNetworkMessage = CNetworkMessage::Builder()
+    auto const optNetworkMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optNetworkMessage);
 
-    auto const networkBuffer = PackUtils::Z85Decode(optNetworkMessage->GetPack());
-    auto const optNetworkProtocol = Message::PeekProtocol(
-        networkBuffer.begin(), networkBuffer.end());
+    auto const networkBuffer = Z85::Decode(optNetworkMessage->GetPack());
+    auto const optNetworkProtocol = Message::PeekProtocol(networkBuffer);
 
     ASSERT_TRUE(optNetworkProtocol);
     EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Network);
 
-    auto const optApplicationMessage = CApplicationMessage::Builder()
+    auto const optApplicationMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::Phase)
+        .SetCommand(test::Handler, test::Phase)
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationMessage);
 
-    auto const applicationBuffer = PackUtils::Z85Decode(optApplicationMessage->GetPack());
-    auto const optApplicationProtocol = Message::PeekProtocol(
-        applicationBuffer.begin(), applicationBuffer.end());
+    auto const applicationBuffer = Z85::Decode(optApplicationMessage->GetPack());
+    auto const optApplicationProtocol = Message::PeekProtocol(applicationBuffer);
 
     ASSERT_TRUE(optApplicationProtocol);
     EXPECT_EQ(*optApplicationProtocol, Message::Protocol::Application);
@@ -264,44 +262,96 @@ TEST(CMessageHeaderSuite, PeekProtocolTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolNullBytesTest)
+TEST(MessageHeaderSuite, PeekProtocolNullBytesTest)
 {
     Message::Buffer const buffer(12, 0x00);
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     EXPECT_FALSE(optProtocol);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
+TEST(MessageHeaderSuite, PeekProtocolOutOfRangeBytesTest)
 {
     Message::Buffer const buffer(12, 0xF0);
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     EXPECT_FALSE(optProtocol);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekProtocolEmptyBufferTest)
+TEST(MessageHeaderSuite, PeekProtocolEmptyBufferTest)
 {
     Message::Buffer const buffer;
-    auto const optProtocol = Message::PeekProtocol(buffer.begin(), buffer.end());
+    auto const optProtocol = Message::PeekProtocol(buffer);
     EXPECT_FALSE(optProtocol);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceTest)
+TEST(MessageHeaderSuite, PeekSizeTest)
 {
-    auto const optMessage = CNetworkMessage::Builder()
+    MessageContext const context = local::GenerateMessageContext();
+    
+    auto const optNetworkMessage = NetworkMessage::Builder()
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .MakeHandshakeMessage()
+        .ValidatedBuild();
+    ASSERT_TRUE(optNetworkMessage);
+
+    auto const networkBuffer = Z85::Decode(optNetworkMessage->GetPack());
+    auto const optNetworkSize = Message::PeekSize(networkBuffer);
+
+    ASSERT_TRUE(optNetworkSize);
+    EXPECT_EQ(*optNetworkSize, optNetworkMessage->GetPack().size());
+
+    auto const optApplicationMessage = ApplicationMessage::Builder()
+        .SetMessageContext(context)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetCommand(test::Handler, test::Phase)
+        .ValidatedBuild();
+    ASSERT_TRUE(optApplicationMessage);
+
+    auto const applicationBuffer = Z85::Decode(optApplicationMessage->GetPack());
+    auto const optApplicationSize = Message::PeekSize(applicationBuffer);
+
+    ASSERT_TRUE(optApplicationSize);
+    EXPECT_EQ(*optApplicationSize, optApplicationMessage->GetPack().size());
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(MessageHeaderSuite, PeekSizeNullBytesTest)
+{
+    Message::Buffer const buffer(12, 0x00);
+    auto const optMessageSize = Message::PeekSize(buffer);
+    EXPECT_FALSE(optMessageSize);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(MessageHeaderSuite, PeekSizeEmptyBufferTest)
+{
+    Message::Buffer const buffer;
+    auto const optMessageSize = Message::PeekSize(buffer);
+    EXPECT_FALSE(optMessageSize);
+}
+
+//------------------------------------------------------------------------------------------------
+
+TEST(MessageHeaderSuite, PeekSourceTest)
+{
+    auto const optMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    auto const buffer = PackUtils::Z85Decode(optMessage->GetPack());
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const buffer = Z85::Decode(optMessage->GetPack());
+    auto const optSource = Message::PeekSource(buffer);
 
     ASSERT_TRUE(optSource);
     EXPECT_EQ(*optSource, test::ClientIdentifier);
@@ -309,69 +359,69 @@ TEST(CMessageHeaderSuite, PeekSourceTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceNullBytesTest)
+TEST(MessageHeaderSuite, PeekSourceNullBytesTest)
 {
     Message::Buffer const buffer(128, 0x00);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceInvalidIdentifierTest)
+TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceSmallBufferTest)
+TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 {
     Message::Buffer const buffer(12, BryptIdentifier::Network::MinimumLength);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
+TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MaximumLength + 1);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
+TEST(MessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 {
     Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength - 1);
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CMessageHeaderSuite, PeekSourceEmptyBufferTest)
+TEST(MessageHeaderSuite, PeekSourceEmptyBufferTest)
 {
     Message::Buffer const buffer;
-    auto const optSource = Message::PeekSource(buffer.begin(), buffer.end());
+    auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext local::GenerateMessageContext()
+MessageContext local::GenerateMessageContext()
 {
-    CMessageContext context(test::EndpointIdentifier, test::EndpointTechnology);
+    MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto, auto) -> Security::Encryptor::result_type 
-            { return buffer; },
-        [] (auto const& buffer, auto, auto) -> Security::Decryptor::result_type 
-            { return buffer; });
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
+            { return Security::Buffer(buffer.begin(), buffer.end()); },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
+            { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     context.BindSignatureHandlers(
         [] (auto&) -> Security::Signator::result_type 

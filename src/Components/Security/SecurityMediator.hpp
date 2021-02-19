@@ -6,16 +6,16 @@
 //------------------------------------------------------------------------------------------------
 #include "SecurityDefinitions.hpp"
 #include "SecurityState.hpp"
-#include "../MessageControl/ExchangeProcessor.hpp"
-#include "../../BryptIdentifier/IdentifierTypes.hpp"
-#include "../../Interfaces/ExchangeObserver.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/MessageControl/ExchangeProcessor.hpp"
+#include "Interfaces/ExchangeObserver.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 #include <shared_mutex>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CExchangeProcessor;
+class BryptPeer;
+class ExchangeProcessor;
 class IConnectProtocol;
 class ISecurityStrategy;
 
@@ -24,41 +24,40 @@ class ISecurityStrategy;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class CSecurityMediator : public IExchangeObserver
+class SecurityMediator : public IExchangeObserver
 {
 public:
-    CSecurityMediator(
+    SecurityMediator(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
         Security::Context context,
         std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
 
-    CSecurityMediator(
+    SecurityMediator(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy);
+        std::unique_ptr<ISecurityStrategy>&& upStrategy);
 
-    CSecurityMediator(CSecurityMediator&& other) = delete;
-    CSecurityMediator(CSecurityMediator const& other) = delete;
-    CSecurityMediator& operator=(CSecurityMediator const& other) = delete;
+    SecurityMediator(SecurityMediator&& other) = delete;
+    SecurityMediator(SecurityMediator const& other) = delete;
+    SecurityMediator& operator=(SecurityMediator const& other) = delete;
 
-    ~CSecurityMediator();
+    ~SecurityMediator();
 
     // IExchangeObserver {
-    virtual void HandleExchangeClose(
-        ExchangeStatus status,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy = nullptr) override;
+    virtual void OnExchangeClose(ExchangeStatus status) override;
+    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) override;
     // } IExchangeObserver
 
-    Security::State GetSecurityState() const;
+    [[nodiscard]] Security::State GetSecurityState() const;
 
-    void BindPeer(std::shared_ptr<CBryptPeer> const& spBryptPeer);
-    void BindSecurityContext(CMessageContext& context) const;
+    void BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer);
+    void BindSecurityContext(MessageContext& context) const;
 
-    std::optional<std::string> SetupExchangeInitiator(
+    [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
         Security::Strategy strategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
-    bool SetupExchangeAcceptor(Security::Strategy strategy);
-    bool SetupExchangeProcessor(
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy,
+    [[nodiscard]] bool SetupExchangeAcceptor(Security::Strategy strategy);
+    [[nodiscard]] bool SetupExchangeProcessor(
+        std::unique_ptr<ISecurityStrategy>&& upStrategy,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
 
 private:
@@ -68,12 +67,13 @@ private:
     Security::State m_state;
 
     BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    std::shared_ptr<CBryptPeer> m_spBryptPeer;
-    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
+    std::shared_ptr<BryptPeer> m_spBryptPeer;
+    std::unique_ptr<ISecurityStrategy> m_upStrategy;
 
-    std::unique_ptr<CExchangeProcessor> m_upExchangeProcessor;
+    std::unique_ptr<ExchangeProcessor> m_upExchangeProcessor;
     std::weak_ptr<IMessageSink> m_wpAuthorizedSink;
 
+    std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
 };
 
 //------------------------------------------------------------------------------------------------

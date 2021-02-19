@@ -3,7 +3,7 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "SecurityUtils.hpp"
-#include "PostQuantum/NISTSecurityLevelThree.hpp"
+#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 //------------------------------------------------------------------------------------------------
 #ifndef __STDC_WANT_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1
@@ -27,12 +27,31 @@ Security::Strategy Security::ConvertToStrategy(std::underlying_type_t<Security::
 
 //------------------------------------------------------------------------------------------------
 
+Security::Strategy Security::ConvertToStrategy(std::string strategy)
+{
+    static std::unordered_map<std::string, Strategy> const strategies = {
+        {"PQNISTL3", Strategy::PQNISTL3},
+    };
+
+    std::transform(strategy.begin(), strategy.end(), strategy.begin(),
+    [](unsigned char c){
+        return std::toupper(c);
+    });
+
+    if(auto const itr = strategies.find(strategy.data()); itr != strategies.end()) {
+        return itr->second;
+    }
+    return Strategy::Invalid;
+}
+
+//------------------------------------------------------------------------------------------------
+
 std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
     Security::Strategy strategy, Security::Role role, Security::Context context)
 {
     switch (strategy) {
         case Security::Strategy::PQNISTL3: {
-            return std::make_unique<PQNISTL3::CStrategy>(role, context);
+            return std::make_unique<PQNISTL3::Strategy>(role, context);
         }
         case Security::Strategy::Invalid: 
         default: return nullptr;
@@ -41,7 +60,7 @@ std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
 
 //------------------------------------------------------------------------------------------------
 
-void Security::EraseMemory(void* begin, std::uint32_t size)
+void Security::EraseMemory(void* begin, std::size_t size)
 {
 #if defined(__STDC_LIB_EXT1__)
     std::memset_s(begin, size, 0, size);

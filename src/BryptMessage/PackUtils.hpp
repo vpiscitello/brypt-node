@@ -4,237 +4,139 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "MessageTypes.hpp"
-#include "MessageDefinitions.hpp"
-//------------------------------------------------------------------------------------------------
-#include <zmq.h>
-//------------------------------------------------------------------------------------------------
+#include <bit>
 #include <cassert>
 #include <cmath>
-#include <string>
+#include <concepts>
+#include <cstdint>
+#include <iterator>
 #include <string_view>
+#include <type_traits>
+#include <vector>
+//------------------------------------------------------------------------------------------------
+#include <boost/endian/conversion.hpp>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 namespace PackUtils {
 //------------------------------------------------------------------------------------------------
 
-constexpr static std::double_t Z85Multiplier = 1.25;
-
-template<typename ChunkType>
-void PackChunk(Message::Buffer& buffer, ChunkType const& chunk)
+//------------------------------------------------------------------------------------------------
+// Note: Classes and Structs with more than one member should not use this method. 
+//------------------------------------------------------------------------------------------------
+template<typename Source>
+	requires std::is_standard_layout_v<Source> && std::is_trivial_v<Source> && 
+		(sizeof(Source) > 0 && sizeof(Source) < 9)	
+void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 {
-	auto const begin = reinterpret_cast<std::uint8_t const*>(&chunk);
-	auto const end = begin + sizeof(chunk);
-	buffer.insert(buffer.end(), begin, end);
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Note: Variable length data chunks must be preceeded by the size of the buffer. The caller 
-// must ensure the buffer size can be represented by the interger type to contain the size. 
-// The limit is the integer type's size in bytes. 
-//------------------------------------------------------------------------------------------------
-inline void PackChunk(Message::Buffer& buffer, Message::Buffer const& chunk, std::uint32_t limit = 0)
-{
-	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit) || limit == 0);
-	switch (limit) {
-		// A limit type of 0 assumes that the buffer length is static for the field and the 
-		// preceeding size is not needed to decode the data. 
-		case 0: break;
-		case 1: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 2: {
-			auto const size = static_cast<std::uint16_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 4: {
-			auto const size = static_cast<std::uint32_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 8: {
-			auto const size = static_cast<std::uint64_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		default: assert(false); break;
+	constexpr std::size_t SourceBytes = sizeof(Source);
+	if constexpr (std::endian::native == std::endian::little) {
+		auto const size = destination.size();
+		auto const begin = destination.data() + size;
+		destination.resize(size + SourceBytes, 0x00);
+		boost::endian::endian_store<Source, SourceBytes, boost::endian::order::big>(
+			begin, source);
+	} else {
+		auto const begin = reinterpret_cast<std::uint8_t const*>(&source);
+		auto const end = begin + SourceBytes;
+		destination.insert(destination.end(), begin, end);
 	}
-	buffer.insert(buffer.end(), chunk.begin(), chunk.end());
 }
 
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Note: Variable length data chunks must be preceeded by the size of the buffer. The caller 
-// must ensure the buffer size can be represented by the interger type to contain the size. 
-// The limit is the integer type's size in bytes. 
+// Note: Variable length buffers must be preceeded by its size. The caller must supply a unsigned 
+// intergral type to indicate the size limit and ensure the source buffer does not exceed the 
+// maxmimum value representable by that type. If no type is provided, it assumed the source 
+// buffer is of a fixed size buffer and thus no size field will be appended. 
 //------------------------------------------------------------------------------------------------
-inline void PackChunk(Message::Buffer& buffer, std::string const& chunk, std::uint32_t limit = 0)
+template<typename SizeField = void>
+	requires std::unsigned_integral<SizeField> || std::is_void_v<SizeField>
+inline void PackChunk(
+	std::vector<std::uint8_t> const& source, std::vector<std::uint8_t>& destination)
 {
-	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit) || limit == 0);
-	switch (limit) {
-		// A limit type of 0 assumes that the buffer length is static for the field and the 
-		// preceeding size is not needed to decode the data. 
-		case 0: break;
-		case 1: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 2: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 4: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 8: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		default: assert(false); break;
+	// If the SizeField type is not void then preceed the buffer with its size.
+	if constexpr (!std::is_void_v<SizeField>) {
+		[[maybe_unused]] constexpr std::size_t FieldLimit = sizeof(SizeField);
+		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
+		auto const size = static_cast<SizeField>(source.size());
+		PackChunk(size, destination);
 	}
-	buffer.insert(buffer.end(), chunk.begin(), chunk.end());
+
+	destination.insert(destination.end(), source.begin(), source.end());
 }
 
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
-// Note: Variable length data chunks must be preceeded by the size of the buffer. The caller 
-// must ensure the buffer size can be represented by the interger type to contain the size. 
-// The limit is the integer type's size in bytes. 
+// Note: Variable length buffers must be preceeded by its size. The caller must supply a unsigned 
+// intergral type to indicate the size limit and ensure the source buffer does not exceed the 
+// maxmimum value representable by that type. If no type is provided, it assumed the source 
+// buffer is of a fixed size buffer and thus no size field will be appended. 
 //------------------------------------------------------------------------------------------------
-inline void PackChunk(Message::Buffer& buffer, std::string_view chunk, std::uint32_t limit = 0)
+template<typename SizeField = void>
+	requires std::unsigned_integral<SizeField> || std::is_void_v<SizeField>
+inline void PackChunk(
+	std::string_view source, std::vector<std::uint8_t>& destination)
 {
-	assert(static_cast<double>(chunk.size()) < std::pow(2, 8 * limit) || limit == 0);
-	switch (limit) {
-		// A limit type of 0 assumes that the buffer length is static for the field and the 
-		// preceeding size is not needed to decode the data. 
-		case 0: break;
-		case 1: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 2: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 4: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		case 8: {
-			auto const size = static_cast<std::uint8_t>(chunk.size());
-			PackChunk(buffer, size);
-		} break;
-		default: assert(false); break;
+	// If the SizeField type is not void then preceed the buffer with its size.
+	if constexpr (!std::is_void_v<SizeField>) {
+		[[maybe_unused]] constexpr std::size_t FieldLimit = sizeof(SizeField);
+		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
+		auto const size = static_cast<SizeField>(source.size());
+		PackChunk(size, destination);
 	}
-	buffer.insert(buffer.end(), chunk.begin(), chunk.end());
+
+	destination.insert(destination.end(), source.begin(), source.end());
 }
 
 //------------------------------------------------------------------------------------------------
 
-template<typename ChunkType>
-bool UnpackChunk(
-	Message::Buffer::const_iterator& bufferBegin,
-	Message::Buffer::const_iterator const& bufferEnd,
-	ChunkType& destination)
+template<std::input_iterator Source, typename Destination>
+	requires std::is_standard_layout_v<Destination> && std::is_trivial_v<Destination> &&
+		std::indirectly_copyable<Source, std::uint8_t*>
+bool UnpackChunk(Source& begin, Source const& end, Destination& destination)
 {
-    std::uint32_t const bytesToUnpack = sizeof(destination);
+    constexpr std::size_t DestinationBytes = sizeof(destination);
 
 	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
-	if (auto const bytesAvailable = std::distance(bufferBegin, bufferEnd);
-		bytesAvailable < bytesToUnpack) {
-		return false;
+	if (std::cmp_less(std::distance(begin, end), DestinationBytes)) { return false; }
+
+	std::copy_n(begin, DestinationBytes, reinterpret_cast<std::uint8_t*>(&destination));
+	if constexpr (std::endian::native == std::endian::little) {
+		boost::endian::big_to_native_inplace(destination);
 	}
 
-	std::copy_n(bufferBegin, bytesToUnpack, reinterpret_cast<std::uint8_t*>(&destination));
-    bufferBegin += bytesToUnpack;
-
+    begin += DestinationBytes;
 	return true;
 }
 
 //------------------------------------------------------------------------------------------------
 
-inline bool UnpackChunk(
-	Message::Buffer::const_iterator& bufferBegin,
-	Message::Buffer::const_iterator const& bufferEnd,
-	Message::Buffer& destination,
-	std::uint32_t bytesToUnpack)
+//------------------------------------------------------------------------------------------------
+// Note: It is assumed the caller has reserved enough space for the incoming data in the 
+// destination buffer. It is that capacity that is used to determine the amount data to copy
+// from the source buffer. 
+//------------------------------------------------------------------------------------------------
+template<std::input_iterator Source>
+	requires std::indirectly_copyable<Source, std::vector<std::uint8_t>::iterator> 
+bool UnpackChunk(
+	Source& begin, Source const& end, std::vector<std::uint8_t>& destination)
 {
-	Message::Buffer::const_iterator sectionEnd = bufferBegin + bytesToUnpack;
+	std::size_t const capacity = destination.capacity();
 
 	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
-	if (auto const bytesAvailable = std::distance(bufferBegin, bufferEnd);
-		bytesAvailable < bytesToUnpack) {
-		return false;
-	}
+	if (std::cmp_less(std::distance(begin, end), capacity)) { return false; }
 
 	// Insert the buffer section into the destination
-	destination.insert(destination.begin(), bufferBegin, sectionEnd);
-	bufferBegin = sectionEnd;
+    auto boundary = begin;
+    std::advance(boundary, capacity);
+	destination.insert(destination.begin(), begin, boundary);
+	assert(destination.size() == capacity);
 
+	std::advance(begin, capacity);
 	return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-inline bool UnpackChunk(
-	Message::Buffer::const_iterator& bufferBegin,
-	Message::Buffer::const_iterator const& bufferEnd,
-	Message::Buffer::iterator const& destinationBegin,
-	Message::Buffer::iterator const& destinationEnd)
-{
-	auto const bytesToUnpack = std::distance(destinationBegin, destinationEnd);
-
-	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
-	if (auto const bytesAvailable = std::distance(bufferBegin, bufferEnd);
-		bytesAvailable < bytesToUnpack) {
-		return false;
-	}
-
-	// Copy the entir contents of the buffer into the destination
-	std::copy(bufferBegin, bufferEnd, destinationBegin);
-	bufferBegin += bytesToUnpack;
-
-	return true;
-}
-
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description: Decode a Z85 message to a std::string
-//------------------------------------------------------------------------------------------------
-inline Message::Buffer Z85Decode(std::string_view message)
-{
-	Message::Buffer decoded;
-	// Resize the destination to be the estimated maximum size
-	decoded.resize(message.size() / Z85Multiplier);
-	zmq_z85_decode(decoded.data(), message.data());
-	return decoded;
-}
-
-
-//------------------------------------------------------------------------------------------------
-// Description: Encode a Message::Buffer to a Z85 message
-// Warning: The source buffer may increase in size to be a multiple of 4. Z85 needs to be this 
-// padding.
-//------------------------------------------------------------------------------------------------
-inline std::string Z85Encode(Message::Buffer& message)
-{
-	std::string encoded;
-	// Pad the buffer such that it's length is a multiple of 4 for z85 encoding
-	for (std::size_t idx = 0; idx < (message.size() % 4); ++idx) {
-		message.emplace_back(0);
-	}
-
-	// Resize m_raw to be at least as large as the maximum encoding length of z85
-	// z85 will expand the byte length to 25% more than the input length
-	encoded.resize(ceil(message.size() * Z85Multiplier));
-	zmq_z85_encode(encoded.data(), message.data(), message.size());
-	return encoded;
 }
 
 //------------------------------------------------------------------------------------------------

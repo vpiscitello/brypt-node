@@ -4,8 +4,8 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Endpoints/TechnologyType.hpp"
-#include "../Utilities/CallbackIteration.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/CallbackIteration.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <functional>
@@ -13,7 +13,8 @@
 #include <utility>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
+class BryptPeer;
+namespace Network { class RemoteAddress; }
 
 //------------------------------------------------------------------------------------------------
 
@@ -22,21 +23,21 @@ class IBootstrapCache
 public:
     virtual ~IBootstrapCache() = default;
 
-    using AllEndpointBootstrapReadFunction = std::function<
-        CallbackIteration(Endpoints::TechnologyType, std::string_view const& bootstrap)>;
-    using AllEndpointBootstrapErrorFunction = std::function<void(Endpoints::TechnologyType)>;
-    using OneEndpointBootstrapReadFunction = std::function<
-        CallbackIteration(std::string_view const& bootstrap)>;
+    using AllProtocolsReadFunction = std::function<
+        CallbackIteration(Network::RemoteAddress const& bootstrap)>;
+    using AllProtocolsErrorFunction = std::function<void(Network::Protocol)>;
+    using OneProtocolReadFunction = std::function<
+        CallbackIteration(Network::RemoteAddress const& bootstrap)>;
 
     virtual bool ForEachCachedBootstrap(
-        AllEndpointBootstrapReadFunction const& callback,
-        AllEndpointBootstrapErrorFunction const& error) const = 0;
+        AllProtocolsReadFunction const& callback,
+        AllProtocolsErrorFunction const& error) const = 0;
     virtual bool ForEachCachedBootstrap(
-        Endpoints::TechnologyType technology,
-        OneEndpointBootstrapReadFunction const& callback) const = 0;
+        Network::Protocol protocol,
+        OneProtocolReadFunction const& callback) const = 0;
 
-    virtual std::uint32_t CachedBootstrapCount() const = 0;
-    virtual std::uint32_t CachedBootstrapCount(Endpoints::TechnologyType technology) const = 0;
+    virtual std::size_t CachedBootstrapCount() const = 0;
+    virtual std::size_t CachedBootstrapCount(Network::Protocol protocol) const = 0;
 };
 
 //------------------------------------------------------------------------------------------------

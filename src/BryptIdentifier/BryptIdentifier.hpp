@@ -6,6 +6,8 @@
 //------------------------------------------------------------------------------------------------
 #include "IdentifierTypes.hpp"
 //------------------------------------------------------------------------------------------------
+#include <spdlog/fmt/bundled/format.h>
+//------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <iostream>
 #include <memory>
@@ -18,24 +20,27 @@
 namespace BryptIdentifier {
 //------------------------------------------------------------------------------------------------
 
-using BufferType = std::vector<std::uint8_t>;
 enum class BufferContentType : std::uint8_t { Internal, Network };
+
+class Container;
 
 struct Hasher;
 
 std::string Generate();
 
-std::optional<Internal::Type> ConvertToInternalRepresentation(BufferType const& buffer);
+std::optional<Internal::Type> ConvertToInternalRepresentation(
+    std::vector<std::uint8_t> const& buffer);
 std::optional<Internal::Type> ConvertToInternalRepresentation(std::string_view identifier);
 
 std::optional<Network::Type> ConvertToNetworkRepresentation(Internal::Type const& identifier);
-std::optional<Network::Type> ConvertToNetworkRepresentation(BufferType const& identifier);
+std::optional<Network::Type> ConvertToNetworkRepresentation(
+    std::vector<std::uint8_t> const& identifier);
 
 std::ostream& operator<<(
-    std::ostream& stream, BryptIdentifier::CContainer const& identifier);
+    std::ostream& stream, BryptIdentifier::Container const& identifier);
         
 std::stringstream& operator<<(
-    std::stringstream& stream, BryptIdentifier::CContainer const& identifier);
+    std::stringstream& stream, BryptIdentifier::Container const& identifier);
 
 std::stringstream& operator<<(
     std::stringstream& stream, BryptIdentifier::SharedContainer const& spIdentifier);
@@ -44,29 +49,29 @@ std::stringstream& operator<<(
 } // BryptIdentifier namespace
 //------------------------------------------------------------------------------------------------
 
-class BryptIdentifier::CContainer 
+class BryptIdentifier::Container 
 {
 public:
-    CContainer();
-    explicit CContainer(Internal::Type const& identifier);
-    explicit CContainer(std::string_view identifier);
-    explicit CContainer(BufferType const& buffer, BufferContentType type);
+    Container();
+    explicit Container(Internal::Type const& identifier);
+    explicit Container(std::string_view identifier);
+    explicit Container(std::vector<std::uint8_t> const& buffer, BufferContentType type);
 
-    CContainer(CContainer const&) = default;
-    CContainer(CContainer&&) = default;
-    CContainer& operator=(CContainer const&) = default;
-    CContainer& operator=(CContainer&&) = default;
+    Container(Container const&) = default;
+    Container(Container&&) = default;
+    Container& operator=(Container const&) = default;
+    Container& operator=(Container&&) = default;
 
-    bool operator<(CContainer const& other) const;
-    bool operator==(CContainer const& other) const;
-    bool operator!=(CContainer const& other) const;
+    bool operator<(Container const& other) const;
+    bool operator==(Container const& other) const;
+    bool operator!=(Container const& other) const;
 
     friend std::ostream& operator<<(
         std::ostream& stream,
-        CContainer const& identifier);
+        Container const& identifier);
     friend std::stringstream& operator<<(
         std::stringstream& stream,
-        CContainer const& identifier);
+        Container const& identifier);
     friend std::stringstream& operator<<(
         std::stringstream& stream,
         SharedContainer const& spIdentifier);
@@ -74,7 +79,7 @@ public:
     Internal::Type GetInternalRepresentation() const;
     Network::Type GetNetworkRepresentation() const;
 
-    std::uint32_t NetworkRepresentationSize() const;
+    std::size_t NetworkRepresentationSize() const;
     bool IsValid() const;
 
 private:
@@ -90,9 +95,50 @@ private:
 //------------------------------------------------------------------------------------------------
 
 struct BryptIdentifier::Hasher  {
-    std::size_t operator()(CContainer const& identifier) const
+    std::size_t operator() (Container const& identifier) const
     {
         return std::hash<Internal::Type>()(identifier.GetInternalRepresentation());
+    }
+};
+
+//------------------------------------------------------------------------------------------------
+
+template <>
+struct fmt::formatter<BryptIdentifier::Container>
+{
+    constexpr auto parse(format_parse_context& ctx)
+    {
+        auto const begin = ctx.begin();
+        if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+        return begin;
+    }
+
+    template <typename FormatContext>
+    auto format(BryptIdentifier::Container const& identifier, FormatContext& ctx)
+    {
+        return format_to(ctx.out(), "{}", identifier.GetNetworkRepresentation());
+    }
+};
+
+//------------------------------------------------------------------------------------------------
+
+template <>
+struct fmt::formatter<BryptIdentifier::SharedContainer>
+{
+    constexpr auto parse(format_parse_context& ctx)
+    {
+        auto const begin = ctx.begin();
+        if (begin != ctx.end() && *begin != '}') {  throw format_error("invalid format");}
+        return begin;
+    }
+
+    template <typename FormatContext>
+    auto format(BryptIdentifier::SharedContainer const& spIdentifier, FormatContext& ctx)
+    {
+        if (!spIdentifier) {
+            return format_to(ctx.out(), "[Unknown Identifier]");
+        }
+        return format_to(ctx.out(), "{}", spIdentifier->GetNetworkRepresentation());
     }
 };
 

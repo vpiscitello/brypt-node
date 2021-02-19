@@ -7,12 +7,13 @@
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Utilities/TimeUtils.hpp"
-#include "../Components/Await/AwaitDefinitions.hpp"
-#include "../Components/Command/CommandDefinitions.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Await/AwaitDefinitions.hpp"
+#include "Components/Handler/HandlerDefinitions.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 //------------------------------------------------------------------------------------------------
@@ -29,45 +30,45 @@ using BoundTrackerKey = std::pair<AwaitBinding, Await::TrackerKey>;
 } // Message namespace
 //------------------------------------------------------------------------------------------------
 
-class CApplicationBuilder;
+class ApplicationBuilder;
 
 //------------------------------------------------------------------------------------------------
 
-class CApplicationMessage {
+class ApplicationMessage {
 public:
-	CApplicationMessage();
-	CApplicationMessage(CApplicationMessage const& other);
+	ApplicationMessage();
+	ApplicationMessage(ApplicationMessage const& other);
 
-	// CApplicationBuilder {
-	friend class CApplicationBuilder;
-	static CApplicationBuilder Builder();
-	// } CApplicationBuilder
+	// ApplicationBuilder {
+	friend class ApplicationBuilder;
+	static ApplicationBuilder Builder();
+	// } ApplicationBuilder
 
-	CMessageContext const& GetContext() const;
+	MessageContext const& GetContext() const;
 
-	CMessageHeader const& GetMessageHeader() const;
-	BryptIdentifier::CContainer const& GetSourceIdentifier() const;
+	MessageHeader const& GetMessageHeader() const;
+	BryptIdentifier::Container const& GetSourceIdentifier() const;
 	Message::Destination GetDestinationType() const;
-	std::optional<BryptIdentifier::CContainer> const& GetDestinationIdentifier() const;
+	std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
 
-	Command::Type GetCommand() const;
-	std::uint32_t GetPhase() const;
+	Handler::Type GetCommand() const;
+	std::uint8_t GetPhase() const;
 	Message::Buffer GetPayload() const;
 	TimeUtils::Timestamp const& GetTimestamp() const;
 	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;
 
-    std::uint32_t GetPackSize() const;
+    std::size_t GetPackSize() const;
 	std::string GetPack() const;
 	Message::ValidationStatus Validate() const;
 
 private:
-	constexpr std::uint32_t FixedPackSize() const;
-	constexpr std::uint16_t FixedAwaitExtensionSize() const;
+	constexpr std::size_t FixedPackSize() const;
+	constexpr std::size_t FixedAwaitExtensionSize() const;
 
-	CMessageContext m_context; // The internal message context of the message
-	CMessageHeader m_header; // The required message header 
+	MessageContext m_context; // The internal message context of the message
+	MessageHeader m_header; // The required message header 
 
-	Command::Type m_command; // The application command
+	Handler::Type m_command; // The application command
 	std::uint8_t m_phase; // The command phase
 	Message::Buffer m_payload;	// The command payload
 	TimeUtils::Timestamp m_timestamp; // The message creation timestamp
@@ -75,47 +76,45 @@ private:
 	// Optional Extension: Allows the sender to associate to the destination's response with a 
 	// a hopped or flooded request from another peer. 
 	std::optional<Message::BoundTrackerKey> m_optBoundAwaitTracker;
-
 };
 
 //------------------------------------------------------------------------------------------------
 
-class CApplicationBuilder {
+class ApplicationBuilder {
 public:
-	using OptionalMessage = std::optional<CApplicationMessage>;
+	using OptionalMessage = std::optional<ApplicationMessage>;
 
-	CApplicationBuilder();
+	ApplicationBuilder();
 
-	CApplicationBuilder& SetMessageContext(CMessageContext const& context);
-	CApplicationBuilder& SetSource(BryptIdentifier::CContainer const& identifier);
-	CApplicationBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
-	CApplicationBuilder& SetSource(std::string_view identifier);
-	CApplicationBuilder& MakeClusterMessage();
-	CApplicationBuilder& MakeNetworkMessage();
-	CApplicationBuilder& SetDestination(BryptIdentifier::CContainer const& identifier);
-	CApplicationBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
-	CApplicationBuilder& SetDestination(std::string_view identifier);
-	CApplicationBuilder& SetCommand(Command::Type type, std::uint8_t phase);
-	CApplicationBuilder& SetPayload(std::string_view data);
-	CApplicationBuilder& SetPayload(Message::Buffer const& buffer);
-	CApplicationBuilder& BindAwaitTracker(Message::AwaitBinding binding, Await::TrackerKey key);
-	CApplicationBuilder& BindAwaitTracker(
+	ApplicationBuilder& SetMessageContext(MessageContext const& context);
+	ApplicationBuilder& SetSource(BryptIdentifier::Container const& identifier);
+	ApplicationBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
+	ApplicationBuilder& SetSource(std::string_view identifier);
+	ApplicationBuilder& MakeClusterMessage();
+	ApplicationBuilder& MakeNetworkMessage();
+	ApplicationBuilder& SetDestination(BryptIdentifier::Container const& identifier);
+	ApplicationBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
+	ApplicationBuilder& SetDestination(std::string_view identifier);
+	ApplicationBuilder& SetCommand(Handler::Type type, std::uint8_t phase);
+	ApplicationBuilder& SetPayload(std::string_view buffer);
+	ApplicationBuilder& SetPayload(std::span<std::uint8_t const> buffer);
+	ApplicationBuilder& BindAwaitTracker(Message::AwaitBinding binding, Await::TrackerKey key);
+	ApplicationBuilder& BindAwaitTracker(
 		std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker);
 
-	CApplicationBuilder& FromDecodedPack(Message::Buffer const& buffer);
-	CApplicationBuilder& FromEncodedPack(std::string_view pack);
+	ApplicationBuilder& FromDecodedPack(std::span<std::uint8_t const> buffer);
+	ApplicationBuilder& FromEncodedPack(std::string_view pack);
 
-    CApplicationMessage&& Build();
+    ApplicationMessage&& Build();
     OptionalMessage ValidatedBuild();
 
 private:
-	void Unpack(Message::Buffer const& buffer);
+	void Unpack(std::span<std::uint8_t const> buffer);
 	void UnpackExtensions(
-        Message::Buffer::const_iterator& begin,
-        Message::Buffer::const_iterator const& end);
+        std::span<std::uint8_t const>::iterator& begin,
+        std::span<std::uint8_t const>::iterator const& end);
 
-    CApplicationMessage m_message;
-
+    ApplicationMessage m_message;
 };
 
 //------------------------------------------------------------------------------------------------

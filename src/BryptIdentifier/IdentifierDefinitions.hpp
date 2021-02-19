@@ -5,6 +5,7 @@
 #pragma once
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <string_view>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
@@ -21,14 +22,14 @@ constexpr std::uint8_t const ChecksumSize = 4;
 namespace Network {
 //------------------------------------------------------------------------------------------------
 
-constexpr std::string_view const Prefix = "bry";
-constexpr std::string_view const Version = "0";
-constexpr std::string_view const MetadataSeperator = ":";
+constexpr std::string_view Prefix = "bry";
+constexpr std::string_view Version = "0";
+constexpr std::string_view MetadataSeperator = ":";
 
-constexpr std::string_view const Metadata = "bry0:";
+constexpr std::string_view Metadata = "bry0:";
 
-constexpr std::uint32_t const MinimumLength = 31;
-constexpr std::uint32_t const MaximumLength = 33;
+constexpr std::uint32_t MinimumLength = 31;
+constexpr std::uint32_t MaximumLength = 33;
 
 //------------------------------------------------------------------------------------------------
 } // Network namespace

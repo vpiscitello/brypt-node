@@ -1,5 +1,5 @@
 {
-	"version": "0.0.0 Alpha",
+	"version": "0.0.0",
 	"identifier": {
 		"type": "Ephemeral"
 	},
@@ -10,13 +10,13 @@
 	},
 	"endpoints": [
 		{
-			"technology": "TCP",
+			"protocol": "TCP",
 			"interface": "lo",
 			"binding": "*:35216"
 		}
 	],
 	"security": {
-		"standard": "AES-256-CTR",
+		"strategy": "PQNISTL3",
 		"token": "",
 		"authority": ""
 	}

@@ -1,16 +1,16 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Utilities/TimeUtils.hpp"
+#include "Utilities/TimeUtils.hpp"
 //------------------------------------------------------------------------------------------------
 #include <set>
 #include <shared_mutex>
 #include <string>
 //------------------------------------------------------------------------------------------------
 
-class CNetworkState {
+class NetworkState {
 public:
-    CNetworkState();
+    NetworkState();
 
     TimeUtils::Timestamp GetUptimeCount() const;
     TimeUtils::Timepoint GetRegisteredTimepoint() const;

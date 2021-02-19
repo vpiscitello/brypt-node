@@ -4,14 +4,14 @@
 // after an exchange successfully completes. 
 //------------------------------------------------------------------------------------------------
 #include "DiscoveryProtocol.hpp"
-#include "../BryptPeer/BryptPeer.hpp"
-#include "../Command/CommandDefinitions.hpp"
-#include "../Command/ConnectHandler.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../Utilities/NetworkUtils.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Handler/HandlerDefinitions.hpp"
+#include "Components/Handler/Connect.hpp"
+#include "Components/Network/Address.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/metajson/metajson.hh"
+#include <lithium_json.hh>
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <string_view>
@@ -23,9 +23,9 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-constexpr Command::Type Command = Command::Type::Connect;
+constexpr Handler::Type Handler = Handler::Type::Connect;
 constexpr std::uint8_t Phase = static_cast<std::uint8_t>(
-    Command::CConnectHandler::Phase::Discovery);
+    Handler::Connect::Phase::Discovery);
 
 std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& configurations);
 
@@ -41,20 +41,29 @@ std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& c
 // DiscoveryRequest {
 //     "entrypoints": [
 //     {
-//         "technology": String
+//         "protocol": String
 //         "entry": String,
 //     },
 //     ...
 //     ],
 // }
 
-IOD_SYMBOL(entrypoints)
-IOD_SYMBOL(entry)
-IOD_SYMBOL(technology)
+#ifndef LI_SYMBOL_entrypoints
+#define LI_SYMBOL_entrypoints
+LI_SYMBOL(entrypoints)
+#endif
+#ifndef LI_SYMBOL_entry
+#define LI_SYMBOL_entry
+LI_SYMBOL(entry)
+#endif
+#ifndef LI_SYMBOL_protocol
+#define LI_SYMBOL_protocol
+LI_SYMBOL(protocol)
+#endif
 
 //------------------------------------------------------------------------------------------------
 
-CDiscoveryProtocol::CDiscoveryProtocol(
+DiscoveryProtocol::DiscoveryProtocol(
     Configuration::EndpointConfigurations const& configurations)
     : m_data(local::GenerateDiscoveryData(configurations))
 {
@@ -62,10 +71,10 @@ CDiscoveryProtocol::CDiscoveryProtocol(
 
 //------------------------------------------------------------------------------------------------
 
-bool CDiscoveryProtocol::SendRequest(
+bool DiscoveryProtocol::SendRequest(
     BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    std::shared_ptr<CBryptPeer> const& spBryptPeer,
-    CMessageContext const& context) const
+    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    MessageContext const& context) const
 {
     assert(m_data.size() != 0);
 
@@ -74,11 +83,11 @@ bool CDiscoveryProtocol::SendRequest(
         return false;
     }
 
-    auto const optDiscoveryRequest = CApplicationMessage::Builder()
+    auto const optDiscoveryRequest = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)
-        .SetCommand(local::Command, local::Phase)
+        .SetCommand(local::Handler, local::Phase)
         .SetPayload(m_data)
         .ValidatedBuild();
     assert(optDiscoveryRequest);
@@ -92,28 +101,19 @@ bool CDiscoveryProtocol::SendRequest(
 std::string local::GenerateDiscoveryData(
     Configuration::EndpointConfigurations const& configurations)
 {
-    auto request = iod::make_metamap(
+    auto request = li::mmm(
         s::entrypoints = {
-            iod::make_metamap(
-                s::technology = std::string(), s::entry = std::string()) });
+            li::mmm(s::protocol = std::string(), s::entry = std::string()) });
 
     request.entrypoints.clear();
 
     for (auto const& options: configurations) {
         auto& entrypoint = request.entrypoints.emplace_back();
-        entrypoint.technology = options.GetTechnologyName();
-
-        auto const [primary, secondary] = options.GetBindingComponents();
-        if (primary == "*") {
-            entrypoint.entry.append(NetworkUtils::GetInterfaceAddress(options.GetInterface()));
-        } else {
-            entrypoint.entry.append(primary);
-        }
-        entrypoint.entry.append(NetworkUtils::ComponentSeperator);
-        entrypoint.entry.append(secondary);
+        entrypoint.protocol = options.GetProtocolName();
+        entrypoint.entry = options.GetBinding().GetUri();
     }
 
-    return iod::json_encode(request);
+    return li::json_encode(request);
 }
 
 //------------------------------------------------------------------------------------------------

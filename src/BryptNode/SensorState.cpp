@@ -2,7 +2,7 @@
 #include "SensorState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CSensorState::CSensorState()
+SensorState::SensorState()
     : m_mutex()
     , m_pin()
 {
@@ -10,7 +10,7 @@ CSensorState::CSensorState()
 
 //------------------------------------------------------------------------------------------------
 
-std::uint8_t CSensorState::GetPin() const
+std::uint8_t SensorState::GetPin() const
 {
     std::shared_lock lock(m_mutex);
     return m_pin;
@@ -18,7 +18,7 @@ std::uint8_t CSensorState::GetPin() const
 
 //------------------------------------------------------------------------------------------------
 
-void CSensorState::SetPin(std::uint8_t pin)
+void SensorState::SetPin(std::uint8_t pin)
 {
     std::unique_lock lock(m_mutex);
     m_pin = pin;

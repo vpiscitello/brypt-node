@@ -4,10 +4,9 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageUtils.hpp"
 #include "MessageHeader.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../BryptIdentifier/IdentifierDefinitions.hpp"
-//------------------------------------------------------------------------------------------------
-#include <algorithm>
+#include "PackUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/IdentifierDefinitions.hpp"
 //------------------------------------------------------------------------------------------------
 
 Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Protocol> protocol)
@@ -27,76 +26,78 @@ Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Pro
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<Message::Protocol> Message::PeekProtocol(
-    Message::Buffer::const_iterator const& begin,
-    Message::Buffer::const_iterator const& end)
+std::optional<Message::Protocol> Message::PeekProtocol(std::span<std::uint8_t const> buffer)
 {
-    if (begin == end) {
-        return {};
-    }
-
-    if (auto const size = std::distance(begin, end); size < 1) {
-        return {};
-    }
+    constexpr auto ExpectedPosition = sizeof(Message::Protocol);
+    if (buffer.size() < ExpectedPosition) { return {}; }
 
     // The protocol type should be the first byte in the provided message buffer. 
-    Message::Protocol protocol = ConvertToProtocol(*begin);
-    if (protocol == Message::Protocol::Invalid) {
-        return {};
-    }
+    Message::Protocol protocol = ConvertToProtocol(*buffer.begin());
+    if (protocol == Message::Protocol::Invalid) { return {}; }
 
     return protocol;
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::CContainer> Message::PeekSource(
-    Message::Buffer::const_iterator const& begin,
-    Message::Buffer::const_iterator const& end)
+std::optional<std::uint32_t> Message::PeekSize(std::span<std::uint8_t const> buffer)
 {
-    if (begin == end) {
-        return {};
-    }
-
-    // The source identifier section begins after protocol type and version of the message.
-    auto const start = sizeof(Message::Protocol) + 
-        sizeof(Message::Version::first) + 
+    // The messagesize section begins after protocol type and version of the message.
+    constexpr auto ExpectedPosition = sizeof(Message::Protocol) +
+        sizeof(Message::Version::first) +
         sizeof(Message::Version::second);
 
-    auto identifierStart = begin + start;
+    // The provided buffer must be large enough to contain the identifier's size
+    if (buffer.size() < ExpectedPosition) { return {}; }
+
+    auto begin = buffer.begin() + ExpectedPosition;
+    auto end = buffer.end();
+
+    // Attempt to unpack the size from the buffer. 
+    std::uint32_t size = 0;
+    if (!PackUtils::UnpackChunk(begin, end, size) || size == 0) {
+        return {};
+    }
+
+    return size;
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::optional<BryptIdentifier::Container> Message::PeekSource(
+    std::span<std::uint8_t const> buffer)
+{
+    // The source identifier section begins after protocol type, version, and size of the message.
+    // We set the expected position after the size of the identifier as we can return early if 
+    // the size byte and first byte are not present. 
+    constexpr auto ExpectedPosition = sizeof(Message::Protocol) + 
+        sizeof(Message::Version::first) + 
+        sizeof(Message::Version::second) +
+        sizeof(std::uint32_t) + 
+        sizeof(std::uint8_t);
 
     // The provided buffer must be large enough to contain the identifier's size
-    if (std::uint32_t const size = std::distance(identifierStart, end); size < 1) {
-        return {};
-    }
+    if (buffer.size() < ExpectedPosition) { return {}; }
     
     // Capture the provided identifier size.
-    std::uint8_t const identifierSize = *identifierStart;
+    std::uint8_t const size = *(buffer.data() + ExpectedPosition - 1);
         
     // The provided size must not be smaller the smallest possible brypt identifier
-    if (identifierSize < BryptIdentifier::Network::MinimumLength) {
-        return {};
-    }
+    if (size < BryptIdentifier::Network::MinimumLength) { return {}; }
     // The provided size must not be larger than the maximum possible brypt identifier
-    if (identifierSize > BryptIdentifier::Network::MaximumLength) {
-        return {};
-    }
+    if (size > BryptIdentifier::Network::MaximumLength) { return {}; }
 
-    ++identifierStart;  // Move to the start of the source identifier field. 
-    
     // The provided buffer must be large enough to contain the data specified by the identifier size
-    if (std::uint32_t const size = std::distance(identifierStart, end); size < identifierSize) {
+    if (buffer.size() < ExpectedPosition + size) {
         return {};
     }
 
-    auto const identifierEnd = identifierStart + identifierSize;
-
-    auto const identifier = BryptIdentifier::CContainer(
-        { identifierStart, identifierEnd }, BryptIdentifier::BufferContentType::Network);
+    auto const start = buffer.begin() + ExpectedPosition;
+    auto const stop = buffer.begin() + ExpectedPosition + size;
+    auto const identifier = BryptIdentifier::Container(
+        { start, stop }, BryptIdentifier::BufferContentType::Network);
     
-    if (!identifier.IsValid()) {
-        return {};
-    }
+    if (!identifier.IsValid()) { return {}; }
 
     return identifier;
 }

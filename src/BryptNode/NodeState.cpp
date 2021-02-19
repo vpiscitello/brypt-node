@@ -2,31 +2,31 @@
 #include "NodeState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+NodeState::NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
     : m_mutex()
     , m_spBryptIdentifier(spBryptIdentifier)
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
-    , m_technologies()
+    , m_protocols()
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-CNodeState::CNodeState(
+NodeState::NodeState(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    Endpoints::TechnologySet const& technologies)
+    Network::ProtocolSet const& protocols)
     : m_mutex()
     , m_spBryptIdentifier(spBryptIdentifier)
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
-    , m_technologies(technologies)
+    , m_protocols(protocols)
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer CNodeState::GetBryptIdentifier() const
+BryptIdentifier::SharedContainer NodeState::GetBryptIdentifier() const
 {
     std::shared_lock lock(m_mutex);
     return m_spBryptIdentifier;
@@ -34,7 +34,7 @@ BryptIdentifier::SharedContainer CNodeState::GetBryptIdentifier() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::ClusterIdType CNodeState::GetCluster() const
+NodeUtils::ClusterIdType NodeState::GetCluster() const
 {
     std::shared_lock lock(m_mutex);
     return m_cluster;
@@ -42,7 +42,7 @@ NodeUtils::ClusterIdType CNodeState::GetCluster() const
 
 //------------------------------------------------------------------------------------------------
 
-NodeUtils::DeviceOperation CNodeState::GetOperation() const
+NodeUtils::DeviceOperation NodeState::GetOperation() const
 {
     std::shared_lock lock(m_mutex);
     return m_operation;
@@ -50,7 +50,7 @@ NodeUtils::DeviceOperation CNodeState::GetOperation() const
 
 //------------------------------------------------------------------------------------------------
 
-void CNodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+void NodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 {
     std::unique_lock lock(m_mutex);
     m_spBryptIdentifier = spBryptIdentifier;
@@ -58,7 +58,7 @@ void CNodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBr
 
 //------------------------------------------------------------------------------------------------
 
-void CNodeState::SetCluster(NodeUtils::ClusterIdType const& cluster)
+void NodeState::SetCluster(NodeUtils::ClusterIdType const& cluster)
 {
     std::unique_lock lock(m_mutex);
     m_cluster = cluster;
@@ -66,7 +66,7 @@ void CNodeState::SetCluster(NodeUtils::ClusterIdType const& cluster)
 
 //------------------------------------------------------------------------------------------------
 
-void CNodeState::SetOperation(NodeUtils::DeviceOperation operation)
+void NodeState::SetOperation(NodeUtils::DeviceOperation operation)
 {
     std::unique_lock lock(m_mutex);
     m_operation = operation;

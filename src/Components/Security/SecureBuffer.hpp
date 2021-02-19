@@ -11,24 +11,24 @@
 namespace Security {
 //------------------------------------------------------------------------------------------------
 
-class CSecureBuffer;
+class SecureBuffer;
 
 //------------------------------------------------------------------------------------------------
 } // Security namespace
 //------------------------------------------------------------------------------------------------
 
-class Security::CSecureBuffer
+class Security::SecureBuffer
 {
 public:
-    CSecureBuffer(Security::Buffer&& buffer);
-    ~CSecureBuffer();
-
-    std::uint8_t const* GetData() const;
-    std::uint32_t GetSize() const;
+    SecureBuffer(Security::Buffer&& buffer);
+    ~SecureBuffer();
+    
+    [[nodiscard]] Security::ReadableView GetData() const;
+    [[nodiscard]] Security::ReadableView GetCordon(std::size_t offset, std::size_t size) const;
+    [[nodiscard]] std::size_t GetSize() const;
     
 private:
     Security::Buffer m_buffer;
-
 };
 
 //------------------------------------------------------------------------------------------------

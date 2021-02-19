@@ -8,11 +8,13 @@
 *.pipe
 .vscode
 
-src/tmp/*
+src/temp/*
+src/external/*
 src/build/*
 src/bin/*
 
 src/Libraries/googletest/*
 src/Libraries/liboqs/*
 src/Libraries/liboqs-cpp/*
+src/Libraries/lithium/*
 src/Libraries/spdlog/*

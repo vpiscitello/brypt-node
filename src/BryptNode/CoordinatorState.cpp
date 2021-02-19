@@ -2,7 +2,7 @@
 #include "CoordinatorState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CCoordinatorState::CCoordinatorState()
+CoordinatorState::CoordinatorState()
     : m_mutex()
     , m_spBryptIdentifier()
 {
@@ -10,7 +10,7 @@ CCoordinatorState::CCoordinatorState()
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer CCoordinatorState::GetBryptIdentifier() const 
+BryptIdentifier::SharedContainer CoordinatorState::GetBryptIdentifier() const 
 {
     std::shared_lock lock(m_mutex);
     return m_spBryptIdentifier;
@@ -18,7 +18,7 @@ BryptIdentifier::SharedContainer CCoordinatorState::GetBryptIdentifier() const
 
 //------------------------------------------------------------------------------------------------
 
-void CCoordinatorState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+void CoordinatorState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 {
     std::unique_lock lock(m_mutex);
     m_spBryptIdentifier = spBryptIdentifier;

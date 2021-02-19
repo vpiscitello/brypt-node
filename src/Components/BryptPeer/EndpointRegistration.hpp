@@ -4,36 +4,36 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Endpoints/EndpointIdentifier.hpp"
-#include "../Endpoints/MessageScheduler.hpp"
-#include "../Endpoints/TechnologyType.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/MessageScheduler.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Network/Address.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 #include <string_view>
 //------------------------------------------------------------------------------------------------
 
-class CEndpointRegistration
+class EndpointRegistration
 {
 public:
-    CEndpointRegistration(
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
-        MessageScheduler const& scheduler = {},
-        std::string_view uri = {});
+    EndpointRegistration(
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
+        Network::RemoteAddress const& address = {},
+        MessageScheduler const& scheduler = {});
 
-    CMessageContext const& GetMessageContext() const;
-    CMessageContext& GetWritableMessageContext();
-    Endpoints::EndpointIdType GetEndpointIdentifier() const;
-    Endpoints::TechnologyType GetEndpointTechnology() const;
-    MessageScheduler const& GetScheduler() const;
-    std::string const& GetEntry() const;
+    [[nodiscard]] MessageContext const& GetMessageContext() const;
+    [[nodiscard]] MessageContext& GetWritableMessageContext();
+    [[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
+    [[nodiscard]] Network::Protocol GetEndpointProtocol() const;
+    [[nodiscard]] Network::RemoteAddress const& GetAddress() const;
+    [[nodiscard]] MessageScheduler const& GetScheduler() const;
 
 private:
-    CMessageContext m_context;
+    MessageContext m_context;
     MessageScheduler const m_scheduler;
-    std::string const m_entry;
-
+    Network::RemoteAddress const m_address;
 };
 
 //------------------------------------------------------------------------------------------------

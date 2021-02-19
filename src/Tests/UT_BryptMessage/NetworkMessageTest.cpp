@@ -1,8 +1,8 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/NetworkMessage.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/NetworkMessage.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <string>
@@ -20,8 +20,8 @@ namespace local {
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
 
 constexpr std::string_view Data = "Hello World!";
 
@@ -30,9 +30,9 @@ constexpr std::string_view Data = "Hello World!";
 } // namespace
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HandshakeConstructorTest)
+TEST(NetworkMessageSuite, HandshakeConstructorTest)
 {
-    auto const optMessage = CNetworkMessage::Builder()
+    auto const optMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -55,9 +55,9 @@ TEST(CNetworkMessageSuite, HandshakeConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatRequestConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatRequestConstructorTest)
 {
-    auto const optRequest = CNetworkMessage::Builder()
+    auto const optRequest = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatRequest()
@@ -75,9 +75,9 @@ TEST(CNetworkMessageSuite, HeartbeatRequestConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatResponseConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatResponseConstructorTest)
 {
-    auto const optResponse = CNetworkMessage::Builder()
+    auto const optResponse = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatResponse()
@@ -95,9 +95,9 @@ TEST(CNetworkMessageSuite, HeartbeatResponseConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HandshakePackConstructorTest)
+TEST(NetworkMessageSuite, HandshakePackConstructorTest)
 {
-    auto const optBaseMessage = CNetworkMessage::Builder()
+    auto const optBaseMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -107,7 +107,7 @@ TEST(CNetworkMessageSuite, HandshakePackConstructorTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CNetworkMessage::Builder()
+    auto const optPackMessage = NetworkMessage::Builder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -125,9 +125,9 @@ TEST(CNetworkMessageSuite, HandshakePackConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatRequestPackConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 {
-    auto const optBaseMessage = CNetworkMessage::Builder()
+    auto const optBaseMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatRequest()
@@ -136,7 +136,7 @@ TEST(CNetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CNetworkMessage::Builder()
+    auto const optPackMessage = NetworkMessage::Builder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -149,9 +149,9 @@ TEST(CNetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 
 //------------------------------------------------------------------------------------------------
 
-TEST(CNetworkMessageSuite, HeartbeatResponsePackConstructorTest)
+TEST(NetworkMessageSuite, HeartbeatResponsePackConstructorTest)
 {
-    auto const optBaseMessage = CNetworkMessage::Builder()
+    auto const optBaseMessage = NetworkMessage::Builder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatResponse()
@@ -160,7 +160,7 @@ TEST(CNetworkMessageSuite, HeartbeatResponsePackConstructorTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = CNetworkMessage::Builder()
+    auto const optPackMessage = NetworkMessage::Builder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);

@@ -4,10 +4,12 @@
 //------------------------------------------------------------------------------------------------
 #include "MessageContext.hpp"
 //------------------------------------------------------------------------------------------------
+#include <cassert>
+//------------------------------------------------------------------------------------------------
 
-CMessageContext::CMessageContext()
-	: m_endpointIdentifier(Endpoints::InvalidEndpointIdentifier)
-	, m_endpointTechnology(Endpoints::TechnologyType::Invalid)
+MessageContext::MessageContext()
+	: m_endpointIdentifier(Network::Endpoint::InvalidIdentifier)
+	, m_endpointProtocol(Network::Protocol::Invalid)
 	, m_encryptor()
 	, m_decryptor()
 	, m_signator()
@@ -18,11 +20,11 @@ CMessageContext::CMessageContext()
 
 //------------------------------------------------------------------------------------------------
 
-CMessageContext::CMessageContext(
-	Endpoints::EndpointIdType identifier,
-	Endpoints::TechnologyType technology)
+MessageContext::MessageContext(
+	Network::Endpoint::Identifier identifier,
+	Network::Protocol protocol)
 	: m_endpointIdentifier(identifier)
-	, m_endpointTechnology(technology)
+	, m_endpointProtocol(protocol)
 	, m_encryptor()
 	, m_decryptor()
 	, m_signator()
@@ -33,28 +35,28 @@ CMessageContext::CMessageContext(
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::EndpointIdType CMessageContext::GetEndpointIdentifier() const
+Network::Endpoint::Identifier MessageContext::GetEndpointIdentifier() const
 {
 	return m_endpointIdentifier;
 }
 
 //------------------------------------------------------------------------------------------------
 
-Endpoints::TechnologyType CMessageContext::GetEndpointTechnology() const
+Network::Protocol MessageContext::GetEndpointProtocol() const
 {
-	return m_endpointTechnology;
+	return m_endpointProtocol;
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool CMessageContext::HasSecurityHandlers() const
+bool MessageContext::HasSecurityHandlers() const
 {
 	return (m_encryptor && m_decryptor && m_signator && m_verifier && m_getSignatureSize);
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CMessageContext::BindEncryptionHandlers(
+void MessageContext::BindEncryptionHandlers(
 	Security::Encryptor const& encryptor, Security::Decryptor const& decryptor)
 {
 	m_encryptor = encryptor;
@@ -63,7 +65,7 @@ void CMessageContext::BindEncryptionHandlers(
 
 //------------------------------------------------------------------------------------------------
 
-void CMessageContext::BindSignatureHandlers(
+void MessageContext::BindSignatureHandlers(
 	Security::Signator const& signator,
 	Security::Verifier const& verifier,
 	Security::SignatureSizeGetter const& getter)
@@ -75,53 +77,41 @@ void CMessageContext::BindSignatureHandlers(
 
 //------------------------------------------------------------------------------------------------
 
-Security::Encryptor::result_type CMessageContext::Encrypt(
-	Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const
+Security::Encryptor::result_type MessageContext::Encrypt(
+	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
 {
-	if (!m_encryptor) {
-		return {};
-	}
-	return m_encryptor(buffer, buffer.size(), timestamp.count());
+    assert(timestamp.count() >= 0);
+	return m_encryptor(buffer, static_cast<std::uint64_t>(timestamp.count()));
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Decryptor::result_type CMessageContext::Decrypt(
-	Message::Buffer const& buffer, TimeUtils::Timestamp const& timestamp) const
+Security::Decryptor::result_type MessageContext::Decrypt(
+	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
 {
-	if (!m_decryptor) {
-		return {};
-	}
-	return m_decryptor(buffer, buffer.size(), timestamp.count());
+    assert(timestamp.count() >= 0);
+	return m_decryptor(buffer, static_cast<std::uint64_t>(timestamp.count()));
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Signator::result_type CMessageContext::Sign(Message::Buffer& buffer) const
+Security::Signator::result_type MessageContext::Sign(Message::Buffer& buffer) const
 {
-	if (!m_signator) {
-		return -1;
-	}
 	return m_signator(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
 
-Security::Verifier::result_type CMessageContext::Verify(Message::Buffer const& buffer) const
+Security::Verifier::result_type MessageContext::Verify(
+	std::span<std::uint8_t const> buffer) const
 {
-	if (!m_verifier) {
-		return Security::VerificationStatus::Failed;
-	}
 	return m_verifier(buffer);
 }
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CMessageContext::GetSignatureSize() const
+std::size_t MessageContext::GetSignatureSize() const
 {
-	if (!m_getSignatureSize) {
-		return 0;
-	}
 	return m_getSignatureSize();
 }
 

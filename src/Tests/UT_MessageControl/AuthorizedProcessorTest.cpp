@@ -1,13 +1,13 @@
 //------------------------------------------------------------------------------------------------
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../Components/BryptPeer/BryptPeer.hpp"
-#include "../../Components/Endpoints/EndpointIdentifier.hpp"
-#include "../../Components/Endpoints/TechnologyType.hpp"
-#include "../../Components/MessageControl/AssociatedMessage.hpp"
-#include "../../Components/MessageControl/AuthorizedProcessor.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/MessageControl/AssociatedMessage.hpp"
+#include "Components/MessageControl/AuthorizedProcessor.hpp"
 //------------------------------------------------------------------------------------------------
-#include "../../Libraries/googletest/include/gtest/gtest.h"
+#include <gtest/gtest.h>
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <optional>
@@ -20,8 +20,8 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-CEndpointRegistration GenerateCaptureRegistration(
-    std::optional<CApplicationMessage>& optCapturedMessage);
+EndpointRegistration GenerateCaptureRegistration(
+    std::optional<ApplicationMessage>& optCapturedMessage);
 
 //------------------------------------------------------------------------------------------------
 } // local namespace
@@ -29,16 +29,19 @@ CEndpointRegistration GenerateCaptureRegistration(
 namespace test {
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::CContainer const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::CContainer const ServerIdentifier(BryptIdentifier::Generate());
+BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
+auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container const>(
+    BryptIdentifier::Generate());
 
-constexpr Command::Type Command = Command::Type::Election;
+constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
 
-constexpr Endpoints::EndpointIdType const EndpointIdentifier = 1;
-constexpr Endpoints::TechnologyType const EndpointTechnology = Endpoints::TechnologyType::TCP;
+constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
+constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
+
+Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
 
 constexpr std::uint32_t Iterations = 10000;
 
@@ -49,11 +52,11 @@ constexpr std::uint32_t Iterations = 10000;
 
 TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
-    CAuthorizedProcessor processor;
-    std::optional<CApplicationMessage> optCapturedMessage;
+    AuthorizedProcessor processor(test::ServerIdentifier);
+    std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
     spBryptPeer->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
@@ -63,11 +66,11 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     ASSERT_TRUE(optMessageContext);
     
     // Generate an application message to represent a request sent from a client. 
-    auto const optRequest = CApplicationMessage::Builder()
+    auto const optRequest = ApplicationMessage::Builder()
         .SetMessageContext(*optMessageContext)
         .SetSource(test::ClientIdentifier)
-        .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Command, test::RequestPhase)
+        .SetDestination(*test::ServerIdentifier)
+        .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
@@ -93,11 +96,11 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     EXPECT_EQ(optRequest->GetPack(), request.GetPack());
 
     // Build an application message to represent the response to the client's request.
-    auto const optResponse = CApplicationMessage::Builder()
+    auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(*optMessageContext)
-        .SetSource(test::ServerIdentifier)
+        .SetSource(*test::ServerIdentifier)
         .SetDestination(test::ClientIdentifier)
-        .SetCommand(test::Command, test::ResponsePhase)
+        .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
@@ -108,7 +111,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
         EXPECT_EQ(spAssociatedPeer, spBryptPeer);
         
         // Send a message through the peer to further verify that it is correct.
-        spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack());
+        EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
     }
 
     // Verify that the response passed through the capturing endpoint and matches the correct
@@ -121,11 +124,11 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
 TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 {
-    CAuthorizedProcessor processor;
-    std::optional<CApplicationMessage> optCapturedMessage;
+    AuthorizedProcessor processor(test::ServerIdentifier);
+    std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
-    auto const spBryptPeer = std::make_shared<CBryptPeer>(test::ClientIdentifier);
+    auto const spBryptPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
     spBryptPeer->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
@@ -137,11 +140,11 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     // Use the processor to collect several messages to verify they are queued correctly. 
     for (std::uint32_t count = 0; count < test::Iterations; ++count) {
         // Generate an application message to represent a request sent from a client. 
-        auto const optRequest = CApplicationMessage::Builder()
+        auto const optRequest = ApplicationMessage::Builder()
             .SetMessageContext(*optMessageContext)
             .SetSource(test::ClientIdentifier)
-            .SetDestination(test::ServerIdentifier)
-            .SetCommand(test::Command, test::RequestPhase)
+            .SetDestination(*test::ServerIdentifier)
+            .SetCommand(test::Handler, test::RequestPhase)
             .SetPayload(test::Message)
             .ValidatedBuild();
 
@@ -168,11 +171,11 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
         auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
 
         // Build an application message to represent the response to the client's request.
-        auto const optResponse = CApplicationMessage::Builder()
+        auto const optResponse = ApplicationMessage::Builder()
             .SetMessageContext(*optMessageContext)
-            .SetSource(test::ServerIdentifier)
+            .SetSource(*test::ServerIdentifier)
             .SetDestination(test::ClientIdentifier)
-            .SetCommand(test::Command, test::ResponsePhase)
+            .SetCommand(test::Handler, test::ResponsePhase)
             .SetPayload(test::Message)
             .ValidatedBuild();
 
@@ -183,7 +186,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
             EXPECT_EQ(spAssociatedPeer, spBryptPeer);
             
             // Send a message through the peer to further verify that it is correct.
-            spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack());
+            EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
         }
 
         // Verify that the response passed through the capturing endpoint and matches the correct
@@ -198,16 +201,16 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
 //------------------------------------------------------------------------------------------------
 
-CEndpointRegistration local::GenerateCaptureRegistration(
-    std::optional<CApplicationMessage>& optCapturedMessage)
+EndpointRegistration local::GenerateCaptureRegistration(
+    std::optional<ApplicationMessage>& optCapturedMessage)
 {
-    CEndpointRegistration registration(
+    EndpointRegistration registration(
         test::EndpointIdentifier,
-        test::EndpointTechnology,
-        [&registration, &optCapturedMessage] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        test::EndpointProtocol,
+        test::RemoteClientAddress,
+        [&registration, &optCapturedMessage] (auto const&, auto message) -> bool
         {
-            auto const optMessage = CApplicationMessage::Builder()
+            auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(registration.GetMessageContext())
                 .FromEncodedPack(message)
                 .ValidatedBuild();
@@ -217,30 +220,18 @@ CEndpointRegistration local::GenerateCaptureRegistration(
         });
     
     registration.GetWritableMessageContext().BindEncryptionHandlers(
-        [] (auto const& buffer, [[maybe_unused]] auto size, [[maybe_unused]] auto nonce)
-            -> Security::Encryptor::result_type
-        {
-            return buffer;
-        },
-        [] (auto const& buffer, [[maybe_unused]] auto size, [[maybe_unused]] auto nonce)
-            -> Security::Decryptor::result_type
-        {
-            return buffer;
-        });
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type
+            {  return Security::Buffer(buffer.begin(), buffer.end()); },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type
+            { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     registration.GetWritableMessageContext().BindSignatureHandlers(
-        [] ([[maybe_unused]] auto& buffer) -> Security::Signator::result_type
-        {
-            return 0;
-        },
-        [] ([[maybe_unused]] auto const& buffer) -> Security::Verifier::result_type
-        {
-            return Security::VerificationStatus::Success;
-        },
+        [] (auto&) -> Security::Signator::result_type
+            { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type
+            { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type
-        {
-            return 0;
-        });
+            { return 0; });
 
     return registration;
 }

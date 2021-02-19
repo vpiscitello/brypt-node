@@ -2,7 +2,7 @@
 #include "NetworkState.hpp"
 //------------------------------------------------------------------------------------------------
 
-CNetworkState::CNetworkState()
+NetworkState::NetworkState()
     : m_mutex()
     , m_uptime()
     , m_registered()
@@ -12,7 +12,7 @@ CNetworkState::CNetworkState()
 
 //------------------------------------------------------------------------------------------------
 
-TimeUtils::Timestamp CNetworkState::GetUptimeCount() const
+TimeUtils::Timestamp NetworkState::GetUptimeCount() const
 {
     std::shared_lock lock(m_mutex);
     return m_uptime;
@@ -20,7 +20,7 @@ TimeUtils::Timestamp CNetworkState::GetUptimeCount() const
 
 //------------------------------------------------------------------------------------------------
 
-TimeUtils::Timepoint CNetworkState::GetRegisteredTimepoint() const
+TimeUtils::Timepoint NetworkState::GetRegisteredTimepoint() const
 {
     std::shared_lock lock(m_mutex);
     return m_registered;
@@ -28,7 +28,7 @@ TimeUtils::Timepoint CNetworkState::GetRegisteredTimepoint() const
 
 //------------------------------------------------------------------------------------------------
 
-TimeUtils::Timepoint CNetworkState::GetUpdatedTimepoint() const
+TimeUtils::Timepoint NetworkState::GetUpdatedTimepoint() const
 {
     std::shared_lock lock(m_mutex);
     return m_updated;
@@ -36,7 +36,7 @@ TimeUtils::Timepoint CNetworkState::GetUpdatedTimepoint() const
 
 //------------------------------------------------------------------------------------------------
 
-void CNetworkState::SetRegisteredTimepoint(TimeUtils::Timepoint const& timepoint)
+void NetworkState::SetRegisteredTimepoint(TimeUtils::Timepoint const& timepoint)
 {
     std::unique_lock lock(m_mutex);
     m_registered = timepoint;
@@ -44,7 +44,7 @@ void CNetworkState::SetRegisteredTimepoint(TimeUtils::Timepoint const& timepoint
 
 //------------------------------------------------------------------------------------------------
 
-void CNetworkState::Updated()
+void NetworkState::Updated()
 {
     std::unique_lock lock(m_mutex);
     m_updated = TimeUtils::GetSystemTimepoint();

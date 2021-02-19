@@ -4,37 +4,36 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../../Configuration/Configuration.hpp"
-#include "../../Interfaces/ConnectProtocol.hpp"
-#include "../../Interfaces/EndpointMediator.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
+#include "Interfaces/EndpointMediator.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
-class CMessageContext;
+class BryptPeer;
+class MessageContext;
 
 //------------------------------------------------------------------------------------------------
 
-class CDiscoveryProtocol : public IConnectProtocol
+class DiscoveryProtocol : public IConnectProtocol
 {
 public:
-    explicit CDiscoveryProtocol(Configuration::EndpointConfigurations const& configurations);
+    explicit DiscoveryProtocol(Configuration::EndpointConfigurations const& configurations);
 
-    CDiscoveryProtocol(CDiscoveryProtocol&&) = delete;
-    CDiscoveryProtocol(CDiscoveryProtocol const&) = delete;
-    void operator=(CDiscoveryProtocol const&) = delete;
+    DiscoveryProtocol(DiscoveryProtocol&&) = delete;
+    DiscoveryProtocol(DiscoveryProtocol const&) = delete;
+    void operator=(DiscoveryProtocol const&) = delete;
 
     // IConnectProtocol {
     virtual bool SendRequest(
         BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<CBryptPeer> const& spBryptPeer,
-        CMessageContext const& context) const override;
+        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        MessageContext const& context) const override;
     // } IConnectProtocol
 
 private:
     std::string m_data;
-
 };
 
 //------------------------------------------------------------------------------------------------ 

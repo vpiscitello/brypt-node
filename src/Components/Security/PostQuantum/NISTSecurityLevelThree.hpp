@@ -5,10 +5,10 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../KeyStore.hpp"
-#include "../SecurityTypes.hpp"
-#include "../SecurityDefinitions.hpp"
-#include "../../../Interfaces/SecurityStrategy.hpp"
+#include "Components/Security/KeyStore.hpp"
+#include "Components/Security/SecurityTypes.hpp"
+#include "Components/Security/SecurityDefinitions.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 //------------------------------------------------------------------------------------------------
 #include <oqscpp/oqs_cpp.h>
 //------------------------------------------------------------------------------------------------
@@ -25,40 +25,39 @@ namespace Security {
 namespace PQNISTL3 {
 //------------------------------------------------------------------------------------------------
 
-class CContext;
-class CSynchronizationTracker;
-
-class CStrategy;
+class Context;
+class SynchronizationTracker;
+class Strategy;
 
 //------------------------------------------------------------------------------------------------
 } // PQNISTL3 namespace
 } // Security namespace
 //------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::CContext
+class Security::PQNISTL3::Context
 {
 public:
     // A callback providing the caller the encapsulation and the shared secret. The caller may 
     // take ownsership of both of these items. 
-    using EncapsulationCallback = std::function<void(Buffer&&, Buffer&&)>;
+    using EncapsulationCallback = std::function<bool(Buffer&&, Buffer&&)>;
 
-    constexpr static std::uint32_t PublicKeySize = 930;
-    constexpr static std::uint32_t EncapsulationSize = 930;
+    constexpr static std::size_t PublicKeySize = 930;
+    constexpr static std::size_t EncapsulationSize = 930;
 
-    CContext(std::string_view kem);
+    Context(std::string_view kem);
 
-    std::uint32_t GetPublicKeySize() const;
-    Buffer GetPublicKey() const;
-    std::uint32_t GetPublicKey(Buffer& buffer) const;
+    [[nodiscard]] std::size_t GetPublicKeySize() const;
+    [[nodiscard]] Buffer GetPublicKey() const;
+    [[nodiscard]] std::size_t GetPublicKey(Buffer& buffer) const;
 
-    bool GenerateEncapsulatedSecret(
+    [[nodiscard]] bool GenerateEncapsulatedSecret(
         Buffer const& publicKey, EncapsulationCallback const& callback) const;
-    bool DecapsulateSecret(
+    [[nodiscard]] bool DecapsulateSecret(
         Buffer const& encapsulation, Buffer& decapsulation) const;
 
-    CContext(CContext const&) = delete;
-    CContext(CContext&&) = delete;
-    void operator=(CContext const&) = delete;
+    Context(Context const&) = delete;
+    Context(Context&&) = delete;
+    void operator=(Context const&) = delete;
 
 private:
     mutable std::shared_mutex m_kemMutex;
@@ -66,38 +65,37 @@ private:
 
     mutable std::shared_mutex m_publicKeyMutex;
     Buffer m_publicKey;
-
 };
 
 //------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::CSynchronizationTracker
+class Security::PQNISTL3::SynchronizationTracker
 {
 public:
-    using TransactionSignator = std::function<std::uint32_t(Buffer const&, Buffer&)>;
+    using TransactionSignator = std::function<std::size_t(Buffer const&, Buffer&)>;
     using TransactionVerifier = std::function<VerificationStatus(Buffer const& buffer)>;
 
-    CSynchronizationTracker();
+    SynchronizationTracker();
 
     SynchronizationStatus GetStatus() const;
     void SetError();
 
     template <typename EnumType>
-    EnumType GetStage() const;
+    [[nodiscard]] EnumType GetStage() const;
 
     template<typename EnumType>
     void SetStage(EnumType stage);
 
     void SetSignator(TransactionSignator const& signator);
     void SetVerifier(TransactionVerifier const& verifier);
-    bool UpdateTransaction(Buffer const& buffer);
-    bool SignTransaction(Buffer& message);
-    VerificationStatus VerifyTransaction();
+    void UpdateTransaction(ReadableView buffer);
+    [[nodiscard]] bool SignTransaction(Buffer& message);
+    [[nodiscard]] VerificationStatus VerifyTransaction();
 
     template<typename EnumType>
     void Finalize(EnumType stage);
 
-    bool ResetState();
+    [[nodiscard]] bool ResetState();
 
 private:
     SynchronizationStatus m_status;
@@ -106,14 +104,13 @@ private:
     Buffer m_transaction;
     TransactionSignator m_signator;
     TransactionVerifier m_verifier;
-
 };
 
 //------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::CStrategy : public ISecurityStrategy {
+class Security::PQNISTL3::Strategy : public ISecurityStrategy {
 public:
-    constexpr static Strategy Type = Strategy::PQNISTL3;
+    constexpr static Security::Strategy Type = Security::Strategy::PQNISTL3;
 
     constexpr static std::string_view KeyEncapsulationSchme = "NTRU-HPS-2048-677";
     constexpr static std::string_view EncryptionScheme = "AES-256-CTR";
@@ -124,76 +121,70 @@ public:
     constexpr static std::uint32_t InitiatorStages = 1; 
     constexpr static std::uint32_t AcceptorStages = 2; 
     
-    constexpr static std::uint32_t PrincipalRandomSize = 32;
-    constexpr static std::uint32_t SignatureSize = 48;
+    constexpr static std::size_t PrincipalRandomSize = 32;
+    constexpr static std::size_t SignatureSize = 48;
 
-    CStrategy(Role role, Context context);
+    Strategy(Role role, Security::Context context);
 
-    CStrategy(CStrategy&& other) = delete;
-    CStrategy(CStrategy const& other) = delete;
-    CStrategy& operator=(CStrategy const& other) = delete;
+    Strategy(Strategy&& other) = delete;
+    Strategy(Strategy const& other) = delete;
+    Strategy& operator=(Strategy const& other) = delete;
 
     // ISecurityStrategy {
-    virtual Strategy GetStrategyType() const override;
-    virtual Role GetRoleType() const override;
-    virtual Context GetContextType() const override;
-    virtual std::uint32_t GetSignatureSize() const override;
+    [[nodiscard]] virtual Security::Strategy GetStrategyType() const override;
+    [[nodiscard]] virtual Role GetRoleType() const override;
+    [[nodiscard]] virtual Security::Context GetContextType() const override;
+    [[nodiscard]] virtual std::size_t GetSignatureSize() const override;
 
-    virtual std::uint32_t GetSynchronizationStages() const override;
-    virtual SynchronizationStatus GetSynchronizationStatus() const override;
-    virtual SynchronizationResult PrepareSynchronization() override;
-    virtual SynchronizationResult Synchronize(Buffer const& buffer) override;
+    [[nodiscard]] virtual std::uint32_t GetSynchronizationStages() const override;
+    [[nodiscard]] virtual SynchronizationStatus GetSynchronizationStatus() const override;
+    [[nodiscard]] virtual SynchronizationResult PrepareSynchronization() override;
+    [[nodiscard]] virtual SynchronizationResult Synchronize(ReadableView buffer) override;
 
-    virtual OptionalBuffer Encrypt(
-        Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
+    [[nodiscard]] virtual OptionalBuffer Encrypt(
+        ReadableView buffer, std::uint64_t nonce) const override;
+    [[nodiscard]] virtual OptionalBuffer Decrypt(
+        ReadableView buffer, std::uint64_t nonce) const override;
 
-    virtual OptionalBuffer Decrypt(
-        Buffer const& buffer, std::uint32_t size, std::uint64_t nonce) const override;
-
-    virtual std::int32_t Sign(Buffer& buffer) const override;
-
-    virtual VerificationStatus Verify(Buffer const& buffer) const override;
+    [[nodiscard]] virtual std::int32_t Sign(Buffer& buffer) const override;
+    [[nodiscard]] virtual VerificationStatus Verify(ReadableView buffer) const override;
     // } ISecurityStrategy
 
     static void InitializeApplicationContext();
     static void ShutdownApplicationContext();
 
-    std::weak_ptr<CContext> GetSessionContext() const;
-    std::uint32_t GetPublicKeySize() const;
+    [[nodiscard]] std::weak_ptr<Context> GetSessionContext() const;
+    [[nodiscard]] std::size_t GetPublicKeySize() const;
 
-    OptionalBuffer EncapsulateSharedSecret();
-    bool DecapsulateSharedSecret(Buffer const& encapsulation);
-    OptionalBuffer GenerateVerficationData();
-    VerificationStatus VerifyKeyShare(Buffer const& buffer) const;
+    [[nodiscard]] OptionalBuffer EncapsulateSharedSecret();
+    [[nodiscard]] bool DecapsulateSharedSecret(Buffer const& encapsulation);
+    [[nodiscard]] OptionalBuffer GenerateVerficationData();
+    [[nodiscard]] VerificationStatus VerifyKeyShare(Buffer const& buffer) const;
 
 private:
     // ISecurityStrategy {
-    virtual std::int32_t Sign(
-        Security::Buffer const& source, Security::Buffer& destination) const override;
-
-    virtual OptionalBuffer GenerateSignature(
-        std::uint8_t const* pKey,
-        std::uint32_t keySize,
-        std::uint8_t const* pData,
-        std::uint32_t dataSize) const override;
+    [[nodiscard]] virtual std::int32_t Sign(
+        ReadableView source, Security::Buffer& destination) const override;
+    [[nodiscard]] virtual OptionalBuffer GenerateSignature(
+        ReadableView key, ReadableView data) const override;
     // } ISecurityStrategy
     
-    SynchronizationResult HandleInitiatorSynchronization(Buffer const& buffer);
-    SynchronizationResult HandleInitiatorInitialization(Buffer const& buffer);
+    [[nodiscard]] SynchronizationResult HandleInitiatorSynchronization(ReadableView buffer);
+    [[nodiscard]] SynchronizationResult HandleInitiatorInitialization(ReadableView buffer);
 
-    SynchronizationResult HandleAcceptorSynchronization(Buffer const& buffer);
-    SynchronizationResult HandleAcceptorInitialization(Buffer const& buffer);
-    SynchronizationResult HandleAcceptorVerification(Buffer const& buffer);
-
+    [[nodiscard]] SynchronizationResult HandleAcceptorSynchronization(ReadableView buffer);
+    [[nodiscard]] SynchronizationResult HandleAcceptorInitialization(ReadableView buffer);
+    [[nodiscard]] SynchronizationResult HandleAcceptorVerification(ReadableView buffer);
+ 
     Role m_role;
-    Context m_context;
-    CSynchronizationTracker m_synchronization;
+    Security::Context m_context;
+    SynchronizationTracker m_synchronization;
 
-    static std::shared_ptr<CContext> m_spSharedContext;
-    std::shared_ptr<CContext> m_spSessionContext;
+    static std::shared_ptr<Context> m_spSharedContext;
+    std::shared_ptr<Context> m_spSessionContext;
 
     oqs::KeyEncapsulation m_kem;
-    Security::CKeyStore m_store;
+    Security::KeyStore m_store;
 
 };
 

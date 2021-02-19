@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Security/SecurityState.hpp"
+#include "Components/Security/SecurityState.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 //------------------------------------------------------------------------------------------------
@@ -22,9 +22,8 @@ class IExchangeObserver
 public:
     virtual ~IExchangeObserver() = default;
 
-    virtual void HandleExchangeClose(
-        ExchangeStatus status,
-        std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy = nullptr) = 0;
+    virtual void OnExchangeClose(ExchangeStatus status) = 0;
+    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) = 0;
 };
 
 //------------------------------------------------------------------------------------------------

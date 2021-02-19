@@ -4,12 +4,12 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Endpoints/ConnectionState.hpp"
+#include "Components/Network/ConnectionState.hpp"
 //------------------------------------------------------------------------------------------------
 #include <memory>
 //------------------------------------------------------------------------------------------------
 
-class CBryptPeer;
+class BryptPeer;
 
 //------------------------------------------------------------------------------------------------
 
@@ -19,9 +19,9 @@ public:
     virtual ~IPeerObserver() = default;
 
     virtual void HandlePeerStateChange(
-        std::weak_ptr<CBryptPeer> const& wpBryptPeer,
-        Endpoints::EndpointIdType identifier,
-        Endpoints::TechnologyType technology,
+        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
         ConnectionState change) = 0;
 };
 

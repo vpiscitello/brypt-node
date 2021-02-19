@@ -4,7 +4,7 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../Components/Endpoints/TechnologyType.hpp"
+#include "Components/Network/Protocol.hpp"
 //------------------------------------------------------------------------------------------------
 #include <string>
 #include <set>
@@ -14,12 +14,12 @@
 class IEndpointMediator
 {
 public:
-    using EndpointEntryMap = std::unordered_map<Endpoints::TechnologyType, std::string>;
-    using EndpointURISet = std::set<std::string>;
+    using EndpointEntryMap = std::unordered_map<Network::Protocol, std::string>;
+    using EndpointUriSet = std::set<std::string>;
 
     virtual ~IEndpointMediator() = default;
-    virtual EndpointEntryMap GetEndpointEntries() const = 0;
-    virtual EndpointURISet GetEndpointURIs() const = 0;
+    [[nodiscard]] virtual EndpointEntryMap GetEndpointEntries() const = 0;
+    [[nodiscard]] virtual EndpointUriSet GetEndpointUris() const = 0;
 };
 
 //------------------------------------------------------------------------------------------------

@@ -4,77 +4,69 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
-#include "../BryptIdentifier/IdentifierTypes.hpp"
-#include "../Components/BryptPeer/BryptPeer.hpp"
-#include "../Components/Command/Handler.hpp"
-#include "../Components/Endpoints/EndpointTypes.hpp"
-#include "../Configuration/Configuration.hpp"
-#include "../BryptMessage/ApplicationMessage.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Components/Handler/Handler.hpp"
+#include "Components/Network/EndpointTypes.hpp"
 //------------------------------------------------------------------------------------------------
-#include <cstdio>
-#include <cstdlib>
-#include <cstdint>
-#include <cmath>
-#include <ctime>
-#include <iostream>
 #include <memory>
-#include <mutex>
-#include <vector>
 //------------------------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------------------------
 // Forward Declarations
 //------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
 namespace Await {
-    class CResponseTracker;
-    class CTrackingManager;
+    class ResponseTracker;
+    class TrackingManager;
 }
 
 namespace Configuration {
-    class CManager;
+    class Manager;
 }
 
-class CAuthorizedProcessor;
-class CEndpointManager;
-class CPeerManager;
-class CPeerPersistor;
+class AuthorizedProcessor;
+class EndpointManager;
+class PeerManager;
+class PeerPersistor;
 
-class CAuthorityState;
-class CCoordinatorState;
-class CNetworkState;
-class CNodeState;
-class CSecurityState;
-class CSensorState;
+class AuthorityState;
+class CoordinatorState;
+class NetworkState;
+class NodeState;
+class SecurityState;
+class SensorState;
 
 //------------------------------------------------------------------------------------------------
 
-class CBryptNode {
+class BryptNode {
 public:
     // Constructors and Deconstructors
-    CBryptNode(
+    BryptNode(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        std::shared_ptr<CEndpointManager> const& spEndpointManager,
-        std::shared_ptr<CPeerManager> const& spPeerManager,
-        std::shared_ptr<CAuthorizedProcessor> const& spMessageProcessor,
-        std::shared_ptr<CPeerPersistor> const& spPeerPersistor,
-        std::unique_ptr<Configuration::CManager> const& upConfigurationManager);
+        std::shared_ptr<EndpointManager> const& spEndpointManager,
+        std::shared_ptr<PeerManager> const& spPeerManager,
+        std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
+        std::shared_ptr<PeerPersistor> const& spPeerPersistor,
+        std::unique_ptr<Configuration::Manager> const& upConfigurationManager);
 
     void Startup();
     bool Shutdown();
 
     // Getter Functions
-    std::weak_ptr<CNodeState> GetNodeState() const;
-    std::weak_ptr<CAuthorityState> GetAuthorityState() const;
-    std::weak_ptr<CCoordinatorState> GetCoordinatorState() const;
-    std::weak_ptr<CNetworkState> GetNetworkState() const;
-    std::weak_ptr<CSecurityState> GetSecurityState() const;
-    std::weak_ptr<CSensorState> GetSensorState() const;
+    std::weak_ptr<NodeState> GetNodeState() const;
+    std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
+    std::weak_ptr<NetworkState> GetNetworkState() const;
+    std::weak_ptr<SecurityState> GetSecurityState() const;
+    std::weak_ptr<SensorState> GetSensorState() const;
 
-    std::weak_ptr<CEndpointManager> GetEndpointManager() const;
-    std::weak_ptr<CPeerManager> GetPeerManager() const;
-    std::weak_ptr<CPeerPersistor> GetPeerPersistor() const;
-    std::weak_ptr<Await::CTrackingManager> GetAwaitManager() const;
+    std::weak_ptr<EndpointManager> GetEndpointManager() const;
+    std::weak_ptr<PeerManager> GetPeerManager() const;
+    std::weak_ptr<PeerPersistor> GetPeerPersistor() const;
+    std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
     // Run Functions
@@ -84,22 +76,21 @@ private:
     void HandleIncomingMessage(AssociatedMessage const& associatedMessage);
 
     bool m_initialized;
+    std::shared_ptr<spdlog::logger> m_spLogger;
 
-    std::shared_ptr<CNodeState> m_spNodeState;
-    std::shared_ptr<CAuthorityState> m_spAuthorityState;
-    std::shared_ptr<CCoordinatorState> m_spCoordinatorState;
-    std::shared_ptr<CNetworkState> m_spNetworkState;
-    std::shared_ptr<CSecurityState> m_spSecurityState;
-    std::shared_ptr<CSensorState> m_spSensorState;
+    std::shared_ptr<NodeState> m_spNodeState;
+    std::shared_ptr<CoordinatorState> m_spCoordinatorState;
+    std::shared_ptr<NetworkState> m_spNetworkState;
+    std::shared_ptr<SecurityState> m_spSecurityState;
+    std::shared_ptr<SensorState> m_spSensorState;
 
-    std::shared_ptr<CEndpointManager> m_spEndpointManager;
-    std::shared_ptr<CPeerManager> m_spPeerManager;
-    std::shared_ptr<CAuthorizedProcessor> m_spMessageProcessor;
-    std::shared_ptr<Await::CTrackingManager> m_spAwaitManager;
-    std::shared_ptr<CPeerPersistor> m_spPeerPersistor;
+    std::shared_ptr<EndpointManager> m_spEndpointManager;
+    std::shared_ptr<PeerManager> m_spPeerManager;
+    std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
+    std::shared_ptr<Await::TrackingManager> m_spAwaitManager;
+    std::shared_ptr<PeerPersistor> m_spPeerPersistor;
 
-    Command::HandlerMap m_handlers;
-
+    Handler::HandlerMap m_handlers;
 };
 
 //------------------------------------------------------------------------------------------------

@@ -3,122 +3,88 @@
 // Description:
 //------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
-#include "../BryptIdentifier/BryptIdentifier.hpp"
-#include "../Components/BryptPeer/PeerManager.hpp"
-#include "../Components/Endpoints/EndpointTypes.hpp"
-#include "../Components/Endpoints/EndpointManager.hpp"
-#include "../Components/MessageControl/AuthorizedProcessor.hpp"
-#include "../Components/MessageControl/DiscoveryProtocol.hpp"
-#include "../Configuration/Configuration.hpp"
-#include "../Configuration/ConfigurationManager.hpp"
-#include "../Configuration/PeerPersistor.hpp"
-#include "../Utilities/NodeUtils.hpp"
-//------------------------------------------------------------------------------------------------
-#include "../Libraries/spdlog/spdlog.h"
+#include "StartupOptions.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/BryptPeer/PeerManager.hpp"
+#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/MessageControl/AuthorizedProcessor.hpp"
+#include "Components/MessageControl/DiscoveryProtocol.hpp"
+#include "Components/Network/EndpointTypes.hpp"
+#include "Components/Network/EndpointManager.hpp"
+#include "Utilities/LogUtils.hpp"
+#include "Utilities/Version.hpp"
 //------------------------------------------------------------------------------------------------
 #include <cstdint>
-#include <optional>
-#include <string>
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-namespace {
-namespace local {
-//------------------------------------------------------------------------------------------------
-
-std::string PeersFilename = "";
-std::string ConfigurationFilename = "";
-void ParseArguments(std::int32_t argc, char** argv);
-
-//------------------------------------------------------------------------------------------------
-} // local namespace
-} // namespace
 //------------------------------------------------------------------------------------------------
 
 std::int32_t main(std::int32_t argc, char** argv)
 {
-    std::cout << std::endl;
-    NodeUtils::printo("Welcome to the Brypt Network", NodeUtils::PrintType::Node);
-
-    local::ParseArguments(argc, argv);
-
-    std::unique_ptr<Configuration::CManager> upConfigurationManager;
-    if (local::ConfigurationFilename.empty()) {
-        upConfigurationManager = std::make_unique<Configuration::CManager>();
-    } else {
-        upConfigurationManager = std::make_unique<Configuration::CManager>(
-            local::ConfigurationFilename);
+    Startup::Options options;
+    if (auto const status = options.Parse(argc, argv); status != Startup::ParseCode::Success) {
+        if (status == Startup::ParseCode::ExitRequested) { return 0; }
+        else { std::cout << "Unable to parse startup options!" << std::endl; return 1; }
     }
+
+    LogUtils::InitializeLoggers(options.GetVerbosityLevel());
+    auto const spLogger = spdlog::get(LogUtils::Name::Core.data());  
+
+    auto const upConfigurationManager = std::make_unique<Configuration::Manager>(
+            options.GetConfigurationPath(), options.IsInteractive());
 
     auto const status = upConfigurationManager->FetchSettings();
     if (status != Configuration::StatusCode::Success) {
-        throw std::runtime_error("Error occured parsing settings!");
+        spLogger->critical("An unexpected error occured while parsing the configuration file!");
+        return 1;
     }
 
     auto const spBryptIdentifier = upConfigurationManager->GetBryptIdentifier();
     if (!spBryptIdentifier) {
-        throw std::runtime_error("Error occured establishing a Brypt Identifier!");
+        spLogger->critical("An error occured establishing a Brypt Identifier!");
+        return 1;
     }
-
-    NodeUtils::printo(
-        "Brypt Identifier: " + spBryptIdentifier->GetNetworkRepresentation(),
-        NodeUtils::PrintType::Node);
 
     auto const optEndpointConfigurations = upConfigurationManager->GetEndpointConfigurations();
     if (!optEndpointConfigurations) {
-        throw std::runtime_error("Error occured parsing endpoint configurations!");
+        spLogger->critical("An error occured parsing endpoint configurations!");
+        return 1;
     }
 
-    auto const spPeerPersistor = std::make_shared<CPeerPersistor>(
-        local::PeersFilename, *optEndpointConfigurations);
+    auto const spPeerPersistor = std::make_shared<PeerPersistor>(
+        options.GetPeersPath(), *optEndpointConfigurations);
 
     if (!spPeerPersistor->FetchBootstraps()) {
-        throw std::runtime_error("Error occured parsing bootstraps!");
+        spLogger->critical("An error occured parsing bootstraps!");
+        return 1;
     }
 
-    auto const spDiscoveryProtocol = std::make_shared<CDiscoveryProtocol>(
+    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(
         *optEndpointConfigurations);
 
-    auto const spMessageCollector = std::make_shared<CAuthorizedProcessor>();
+    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(spBryptIdentifier);
 
-    auto const spPeerManager = std::make_shared<CPeerManager>(
-        spBryptIdentifier, spDiscoveryProtocol, spMessageCollector);
+    auto const spPeerManager = std::make_shared<PeerManager>(
+        spBryptIdentifier, upConfigurationManager->GetSecurityStrategy(),
+        spDiscoveryProtocol, spMessageCollector);
 
     spPeerPersistor->SetMediator(spPeerManager.get());
 
-    auto const spEndpointManager = std::make_shared<CEndpointManager>(
-        *optEndpointConfigurations, spBryptIdentifier, spPeerManager.get(), spPeerPersistor.get());
+    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? 
+        spPeerPersistor.get() : nullptr;
+    auto const spEndpointManager = std::make_shared<EndpointManager>(
+        *optEndpointConfigurations, spPeerManager.get(), pBootstraps);
 
-    CBryptNode alpha(
+    BryptNode alpha(
         spBryptIdentifier, spEndpointManager, spPeerManager, 
         spMessageCollector, spPeerPersistor, upConfigurationManager);
+
+    spLogger->info("Welcome to the Brypt Network!");
+    spLogger->info("Brypt Identifier: {}", spBryptIdentifier->GetNetworkRepresentation());
 
     alpha.Startup();
 
     return 0;
 }
 
-//------------------------------------------------------------------------------------------------
-
-void local::ParseArguments(std::int32_t argc, char** argv)
-{
-    std::vector<std::string> arguments;
-    std::vector<std::string>::iterator itr;
-
-    for (std::int32_t idx = 0; idx < argc; ++idx) {
-        if (auto const& argument = argv[idx]; argument != nullptr) {
-        arguments.push_back(std::string(argument));
-        }
-    }
-
-    itr = find (arguments.begin(), arguments.end(), "--config");
-    if (itr != arguments.end()) {
-        local::ConfigurationFilename = *(++itr);
-    }
-
-    itr = find (arguments.begin(), arguments.end(), "--peers");
-    if (itr != arguments.end()) {
-        local::PeersFilename = *(++itr);
-    }
-}
 //------------------------------------------------------------------------------------------------

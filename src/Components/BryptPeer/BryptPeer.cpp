@@ -3,18 +3,18 @@
 // Description: 
 //------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
-#include "../Security/SecurityState.hpp"
-#include "../Security/SecurityMediator.hpp"
-#include "../../BryptIdentifier/BryptIdentifier.hpp"
-#include "../../BryptIdentifier/ReservedIdentifiers.hpp"
-#include "../../BryptMessage/ApplicationMessage.hpp"
-#include "../../BryptMessage/MessageContext.hpp"
-#include "../../Interfaces/PeerMediator.hpp"
-#include "../../Utilities/NetworkUtils.hpp"
+#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "Components/Network/Address.hpp"
+#include "Components/Security/SecurityState.hpp"
+#include "Components/Security/SecurityMediator.hpp"
+#include "Interfaces/PeerMediator.hpp"
 //------------------------------------------------------------------------------------------------
 
-CBryptPeer::CBryptPeer(
-    BryptIdentifier::CContainer const& identifier,
+BryptPeer::BryptPeer(
+    BryptIdentifier::Container const& identifier,
     IPeerMediator* const pPeerMediator)
     : m_pPeerMediator(pPeerMediator)
     , m_dataMutex()
@@ -29,23 +29,24 @@ CBryptPeer::CBryptPeer(
 {
     // A Brypt Peer must always be constructed with an identifier that can uniquely identify
     // the peer. 
-    if (!identifier.IsValid() || ReservedIdentifiers::IsIdentifierReserved(identifier)) {
+    if (!identifier.IsValid() ||
+        ReservedIdentifiers::IsIdentifierReserved(identifier)) [[unlikely]] {
         throw std::runtime_error(
             "Error creating Brypt Peer with an invalid identifier!");
     }
 
-    m_spBryptIdentifier = std::make_shared<BryptIdentifier::CContainer const>(identifier);
+    m_spBryptIdentifier = std::make_shared<BryptIdentifier::Container const>(identifier);
 }
 
 //------------------------------------------------------------------------------------------------
 
-CBryptPeer::~CBryptPeer()
+BryptPeer::~BryptPeer()
 {
 }
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer CBryptPeer::GetBryptIdentifier() const
+BryptIdentifier::SharedContainer BryptPeer::GetBryptIdentifier() const
 {
     std::scoped_lock lock(m_dataMutex);
     return m_spBryptIdentifier;
@@ -53,7 +54,7 @@ BryptIdentifier::SharedContainer CBryptPeer::GetBryptIdentifier() const
 
 //------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Internal::Type CBryptPeer::GetInternalIdentifier() const
+BryptIdentifier::Internal::Type BryptPeer::GetInternalIdentifier() const
 {
     std::scoped_lock lock(m_dataMutex);
     assert(m_spBryptIdentifier);
@@ -62,7 +63,7 @@ BryptIdentifier::Internal::Type CBryptPeer::GetInternalIdentifier() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CBryptPeer::GetSentCount() const
+std::uint32_t BryptPeer::GetSentCount() const
 {
     std::scoped_lock lock(m_dataMutex);
     return m_statistics.GetSentCount();
@@ -70,7 +71,7 @@ std::uint32_t CBryptPeer::GetSentCount() const
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CBryptPeer::GetReceivedCount() const
+std::uint32_t BryptPeer::GetReceivedCount() const
 {
     std::scoped_lock lock(m_dataMutex);
     return m_statistics.GetReceivedCount();
@@ -78,7 +79,7 @@ std::uint32_t CBryptPeer::GetReceivedCount() const
 
 //------------------------------------------------------------------------------------------------
 
-void CBryptPeer::SetReceiver(IMessageSink* const pMessageSink)
+void BryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 {
     std::scoped_lock lock(m_receiverMutex);
     m_pMessageSink = pMessageSink;
@@ -86,48 +87,22 @@ void CBryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::ScheduleReceive(
-    Endpoints::EndpointIdType identifier, std::string_view const& buffer)
+bool BryptPeer::ScheduleReceive(
+    Network::Endpoint::Identifier identifier, std::string_view buffer)
 {
     {
         std::scoped_lock lock(m_dataMutex);
         m_statistics.IncrementReceivedCount();
     }
 
-    std::scoped_lock lock(m_endpointsMutex);
-    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+    std::scoped_lock endpointsLock(m_endpointsMutex);
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, registration] = *itr;
         auto const& context = registration.GetMessageContext();
 
         // Forward the message through the message sink
-        std::scoped_lock lock(m_receiverMutex);
-        if (m_pMessageSink) {
-            return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
-        }
-
-    }
-
-    return false;
-}
-
-//------------------------------------------------------------------------------------------------
-
-bool CBryptPeer::ScheduleReceive(
-    Endpoints::EndpointIdType identifier, Message::Buffer const& buffer)
-{
-    {
-        std::scoped_lock lock(m_dataMutex);
-        m_statistics.IncrementReceivedCount();
-    }
-
-    std::scoped_lock lock(m_endpointsMutex);
-    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
-        auto const& [key, registration] = *itr;
-        auto const& context = registration.GetMessageContext();
-
-        // Forward the message through the message sink
-        std::scoped_lock lock(m_receiverMutex);
-        if (m_pMessageSink) {
+        std::scoped_lock sinkLock(m_receiverMutex);
+        if (m_pMessageSink) [[likely]] {
             return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
         }
     }
@@ -137,8 +112,33 @@ bool CBryptPeer::ScheduleReceive(
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::ScheduleSend(
-    Endpoints::EndpointIdType identifier, std::string_view const& message) const
+bool BryptPeer::ScheduleReceive(
+    Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
+{
+    {
+        std::scoped_lock lock(m_dataMutex);
+        m_statistics.IncrementReceivedCount();
+    }
+
+    std::scoped_lock endpointsLock(m_endpointsMutex);
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        auto const& [key, registration] = *itr;
+        auto const& context = registration.GetMessageContext();
+
+        // Forward the message through the message sink
+        std::scoped_lock sinkLock(m_receiverMutex);
+        if (m_pMessageSink) [[likely]] {
+            return m_pMessageSink->CollectMessage(weak_from_this(), context, buffer);
+        }
+    }
+
+    return false;
+}
+
+//------------------------------------------------------------------------------------------------
+
+bool BryptPeer::ScheduleSend(
+    Network::Endpoint::Identifier identifier, std::string_view message) const
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -146,7 +146,7 @@ bool CBryptPeer::ScheduleSend(
     }
 
     std::scoped_lock lock(m_endpointsMutex);
-    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
         if (m_spBryptIdentifier && scheduler) {
@@ -159,36 +159,36 @@ bool CBryptPeer::ScheduleSend(
 
 //------------------------------------------------------------------------------------------------
 
-void CBryptPeer::RegisterEndpoint(CEndpointRegistration const& registration)
+void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
         auto [itr, result] = m_endpoints.try_emplace(
             registration.GetEndpointIdentifier(), registration);
 
-        if (m_upSecurityMediator) {
+        if (m_upSecurityMediator) [[likely]] {
             m_upSecurityMediator->BindSecurityContext(itr->second.GetWritableMessageContext());
         }     
     }
 
     // When an endpoint registers a connection with this peer, the mediator needs to notify the
     // observers that this peer has been connected to a new endpoint. 
-    if (m_pPeerMediator) { 
+    if (m_pPeerMediator) [[likely]] { 
         m_pPeerMediator->DispatchPeerStateChange(
             weak_from_this(),
             registration.GetEndpointIdentifier(),
-            registration.GetEndpointTechnology(),
+            registration.GetEndpointProtocol(),
             ConnectionState::Connected);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CBryptPeer::RegisterEndpoint(
-    Endpoints::EndpointIdType identifier,
-    Endpoints::TechnologyType technology,
-    MessageScheduler const& scheduler,
-    std::string_view uri)
+void BryptPeer::RegisterEndpoint(
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
+    Network::RemoteAddress const& address,
+    MessageScheduler const& scheduler)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -196,26 +196,26 @@ void CBryptPeer::RegisterEndpoint(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
-            identifier, technology, scheduler, uri);
+            identifier, protocol, address, scheduler);
             
         auto& [identifier, registration] = *itr;
-        if (m_upSecurityMediator) {
+        if (m_upSecurityMediator) [[likely]] {
             m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
         }   
     }
 
     // When an endpoint registers a connection with this peer, the mediator needs to notify the
     // observers that this peer has been connected to a new endpoint. 
-    if (m_pPeerMediator) {
+    if (m_pPeerMediator) [[likely]] {
         m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(), identifier, technology, ConnectionState::Connected);
+            weak_from_this(), identifier, protocol, ConnectionState::Connected);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-void CBryptPeer::WithdrawEndpoint(
-    Endpoints::EndpointIdType identifier, Endpoints::TechnologyType technology)
+void BryptPeer::WithdrawEndpoint(
+    Network::Endpoint::Identifier identifier, Network::Protocol protocol)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -224,15 +224,15 @@ void CBryptPeer::WithdrawEndpoint(
 
     // When an endpoint withdraws its registration from the peer, the mediator needs to notify
     // observer's that peer has been disconnected from that endpoint. 
-    if (m_pPeerMediator) {
+    if (m_pPeerMediator) [[likely]] {
         m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(), identifier, technology, ConnectionState::Disconnected);
+            weak_from_this(), identifier, protocol, ConnectionState::Disconnected);
     }
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsActive() const
+bool BryptPeer::IsActive() const
 {
     std::scoped_lock lock(m_endpointsMutex);
     return (m_endpoints.size() != 0);
@@ -240,7 +240,7 @@ bool CBryptPeer::IsActive() const
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsEndpointRegistered(Endpoints::EndpointIdType identifier) const
+bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     auto const itr = m_endpoints.find(identifier);
@@ -249,27 +249,11 @@ bool CBryptPeer::IsEndpointRegistered(Endpoints::EndpointIdType identifier) cons
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<std::string> CBryptPeer::GetRegisteredEntry(
-    Endpoints::EndpointIdType identifier) const
+std::optional<MessageContext> BryptPeer::GetMessageContext(
+    Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
-    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
-        auto const& [key, endpoint] = *itr;
-        if (auto const entry = endpoint.GetEntry(); !entry.empty()) {
-            return entry;
-        }
-    }
-
-    return {};
-}
-
-//------------------------------------------------------------------------------------------------
-
-std::optional<CMessageContext> CBryptPeer::GetMessageContext(
-    Endpoints::EndpointIdType identifier) const
-{
-    std::scoped_lock lock(m_endpointsMutex);
-    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
         return endpoint.GetMessageContext();
     }
@@ -279,7 +263,23 @@ std::optional<CMessageContext> CBryptPeer::GetMessageContext(
 
 //------------------------------------------------------------------------------------------------
 
-std::uint32_t CBryptPeer::RegisteredEndpointCount() const
+std::optional<Network::RemoteAddress> BryptPeer::GetRegisteredAddress(
+    Network::Endpoint::Identifier identifier) const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        auto const& [key, endpoint] = *itr;
+        if (auto const address = endpoint.GetAddress(); address.IsBootstrapable()) {
+            return address;
+        }
+    }
+
+    return {};
+}
+
+//------------------------------------------------------------------------------------------------
+
+std::size_t BryptPeer::RegisteredEndpointCount() const
 {
     std::scoped_lock lock(m_endpointsMutex);
     return m_endpoints.size();
@@ -287,19 +287,17 @@ std::uint32_t CBryptPeer::RegisteredEndpointCount() const
 
 //------------------------------------------------------------------------------------------------
 
-void CBryptPeer::AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upSecurityMediator)
+void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSecurityMediator)
 {
-    std::scoped_lock lock(m_mediatorMutex);
+    std::scoped_lock mediatorLock(m_mediatorMutex);
     m_upSecurityMediator = std::move(upSecurityMediator);  // Take ownership of the mediator.
 
-    if (!m_upSecurityMediator) {
-        return;
-    }
+    if (!m_upSecurityMediator) [[unlikely]] { return; }
 
     // Ensure any registered endpoints have their message contexts updated to the new mediator's
     // security context.
     {
-        std::scoped_lock lock(m_endpointsMutex);
+        std::scoped_lock endpointsLock(m_endpointsMutex);
         for (auto& [identifier, registration]: m_endpoints) {
             m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
         }
@@ -312,32 +310,26 @@ void CBryptPeer::AttachSecurityMediator(std::unique_ptr<CSecurityMediator>&& upS
 
 //------------------------------------------------------------------------------------------------
 
-Security::State CBryptPeer::GetSecurityState() const
+Security::State BryptPeer::GetSecurityState() const
 {
-    if (m_upSecurityMediator) {
-        return m_upSecurityMediator->GetSecurityState();
-    }
-    return Security::State::Unauthorized;
+    if (!m_upSecurityMediator) [[unlikely]] { return Security::State::Unauthorized; } 
+    return m_upSecurityMediator->GetSecurityState();
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsFlagged() const
+bool BryptPeer::IsFlagged() const
 {
-    if (m_upSecurityMediator) {
-        return (m_upSecurityMediator->GetSecurityState() == Security::State::Flagged);
-    }
-    return true;
+    if (!m_upSecurityMediator) [[unlikely]] { return true; }
+    return (m_upSecurityMediator->GetSecurityState() == Security::State::Flagged);
 }
 
 //------------------------------------------------------------------------------------------------
 
-bool CBryptPeer::IsAuthorized() const
+bool BryptPeer::IsAuthorized() const
 {
-    if (m_upSecurityMediator) {
-        return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);
-    }
-    return false;
+    if (!m_upSecurityMediator) [[unlikely]] { return false; }
+    return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);
 }
 
 //------------------------------------------------------------------------------------------------

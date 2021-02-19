@@ -5,17 +5,15 @@ Brypt is an exploration into creating a secure distributed network and applicati
 
 ## Getting Started
 ### Prerequisites
-#### C++ Standard Version: C++17
+#### C++ Standard Version: C++20
 #### Build Tools:
-- GCC/G++ 9.3.0
+- GCC/G++ 10.1.0
 - GNU Make 4.1
 #### Library Dependencies
-- Boost 1.72
-- libzmq 4.3.2
-- cppzmq 4.6.0
+- Boost 1.74
 - liboqs 0.3.0
 - liboqs-cpp 0.3.0
-- metajson 0.2
+- lithium_json 0.0
 - Google Test 1.10
   
 ### Build Process
