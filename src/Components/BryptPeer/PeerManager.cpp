@@ -141,7 +141,8 @@ std::shared_ptr<BryptPeer> PeerManager::LinkPeer(
         // If the provided peer has an identifier that matches an already tracked peer, the 
         // tracked peer needs to be returned to the caller. 
         // Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
-        if(auto const itr = m_peers.find(identifier.GetInternalRepresentation());itr != m_peers.end()) {
+        if(auto const itr = m_peers.find(identifier.GetInternalRepresentation()); itr != m_peers.end()) {
+            m_resolving.erase(address); // Ensure the provided address is not marked as resolving.
             m_peers.modify(itr, [&spBryptPeer](
                 std::shared_ptr<BryptPeer>& spTrackedPeer)
             {

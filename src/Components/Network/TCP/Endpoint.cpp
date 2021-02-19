@@ -522,29 +522,51 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ConnectionProcessor(
         co_return CompletionOrigin::Error;
     }
 
-    // Get the connection request message from the peer mediator. If we have not been given 
-    // an expected identifier declare a new peer using the peer's URI. Otherwise, declare 
-    // the resolving peer using the expected identifier. If the peer is known through the 
-    // identifier, the mediator will provide us a heartbeat request to verify the endpoint.
-    std::optional<std::string> optConnectionRequest = 
-        (!spIdentifier) ? m_pPeerMediator->DeclareResolvingPeer(address) :
-                          m_pPeerMediator->DeclareResolvingPeer(spIdentifier);
+    // Get the connection request message from the peer mediator. The mediator will decide 
+    // whether or not the address or identifier takes precedence when generating the message. 
+    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(
+        address, spIdentifier);
 
-    if (!optConnectionRequest) {
-        m_spLogger->warn("Unable to determine the handshake request for {}", address);
-        co_return CompletionOrigin::Error;
-    }
+    // Currently, it is assumed that if we are not provided a connection request it implies
+    // that the connection process is on going. Another existing coroutine has been launched
+    // and is activley trying to establish a connection 
+    if (!optConnectionRequest) { co_return CompletionOrigin::Self; }
+
+    m_spLogger->info("Attempting a connection with {}.", address);
 
     auto const spSession = CreateSession();
-    co_await boost::asio::async_connect(
-        spSession->GetSocket(),
-        endpoints,
-        boost::asio::redirect_error(boost::asio::use_awaitable, error));
+
+    // Start attempting the connection to the peer. If the connection fails for any reason,
+    // the connection processor will wait a period of time until retrying until the number
+    // of retries exceeds a predefined limit. 
+    std::uint32_t retries = 0;
+    do {
+        // Launch a connection attempt. 
+        co_await boost::asio::async_connect(
+            spSession->GetSocket(),
+            endpoints,
+            boost::asio::redirect_error(boost::asio::use_awaitable, error));
     
-    // If there was an error establishing the connection, there is nothing to do. 
+        // If an error occurs, log a warning and wait some time be re-attempting. 
+        if (error) {
+            boost::system::error_code timerError;
+            m_spLogger->warn(
+                "Unable to connect to {}. Retrying in {} seconds", address,
+                Network::Endpoint::ConnectRetryThreshold);
+            boost::asio::steady_timer timer(
+                m_context, std::chrono::seconds(Network::Endpoint::ConnectRetryThreshold));
+            co_await timer.async_wait(
+                boost::asio::redirect_error(boost::asio::use_awaitable, timerError));
+            if (timerError) { retries = std::numeric_limits<std::uint32_t>::max(); }
+        }
+    } while (error && ++retries < Network::Endpoint::ConnectRetryThreshold);
+
+    // If a connection could still not be established after some retries, handle cleaning up
+    // the connection attempts. 
     if (error) {
+        m_pPeerMediator->UndeclareResolvingPeer(address); 
         if (error.value() == boost::asio::error::connection_refused) {
-            m_spLogger->warn("Connection refused by {}", address.GetUri());
+            m_spLogger->warn("Connection refused by {}", address);
             co_return CompletionOrigin::Peer;
         }
         co_return CompletionOrigin::Error;
