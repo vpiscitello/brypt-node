@@ -13,7 +13,7 @@ Brypt is an exploration into creating a secure distributed network and applicati
 #### Library Dependencies
 - Boost 1.75
 - liboqs 0.4.0
-- liboqs-cpp 0.3.0
+- liboqs-cpp 0.4.0
 - lithium_json 0.0
 - Google Test 1.10
 - spdlog 1.8.2
