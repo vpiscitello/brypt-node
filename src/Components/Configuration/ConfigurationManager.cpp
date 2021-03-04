@@ -211,23 +211,8 @@ LI_SYMBOL(value)
 
 //------------------------------------------------------------------------------------------------
 
-Configuration::Manager::Manager()
-    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
-    , m_isGeneratorAllowed(false)
-    , m_filepath()
-    , m_settings()
-    , m_validated(false)
-{
-    assert(m_spLogger);
-    m_filepath = GetDefaultConfigurationFilepath();
-    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
-    }
-}
-
-//-----------------------------------------------------------------------------------------------
-
-Configuration::Manager::Manager(std::string_view filepath, bool isGeneratorAllowed)
+Configuration::Manager::Manager(
+    std::filesystem::path const& filepath, bool isGeneratorAllowed, bool shouldBuildPath)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_isGeneratorAllowed(isGeneratorAllowed)
     , m_filepath(filepath)
@@ -235,6 +220,9 @@ Configuration::Manager::Manager(std::string_view filepath, bool isGeneratorAllow
     , m_validated(false)
 {
     assert(m_spLogger);
+
+    if (!shouldBuildPath) { return; }
+
     // If the filepath does not have a filename, attach the default config.json
     if (!m_filepath.has_filename()) { m_filepath = m_filepath / DefaultConfigurationFilename; }
 

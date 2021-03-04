@@ -41,12 +41,10 @@ public:
     using DefaultBootstrapMap = std::unordered_map<
         Network::Protocol, std::optional<Network::RemoteAddress>>;
 
-    PeerPersistor();
-    explicit PeerPersistor(std::string_view filepath);
-    explicit PeerPersistor(Configuration::EndpointConfigurations const& configurations);
-    PeerPersistor(
-        std::string_view filepath,
-        Configuration::EndpointConfigurations const& configurations);
+    explicit PeerPersistor(
+        std::filesystem::path const& filepath,
+        Configuration::EndpointConfigurations const& configurations = {},
+        bool shouldBuildPath = true);
 
     void SetMediator(IPeerMediator* const mediator);
 

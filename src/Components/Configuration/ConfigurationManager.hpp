@@ -27,8 +27,7 @@ class Manager;
 
 class Configuration::Manager  {
 public:
-    Manager();
-    Manager(std::string_view filepath, bool interactive);
+    Manager(std::filesystem::path const& filepath, bool interactive, bool shouldBuildPath = true);
     explicit Manager(Settings const& settings);
 
     StatusCode FetchSettings();

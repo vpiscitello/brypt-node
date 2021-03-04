@@ -119,70 +119,10 @@ struct local::EndpointEntry
 
 //-----------------------------------------------------------------------------------------------
 
-PeerPersistor::PeerPersistor()
-    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
-    , m_mediator(nullptr)
-    , m_fileMutex()
-    , m_filepath(Configuration::GetDefaultPeersFilepath())
-    , m_protocolsMutex()
-    , m_upProtocols()
-    , m_defaults()
-{
-    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
-    }
-}
-
-//-----------------------------------------------------------------------------------------------
-
-PeerPersistor::PeerPersistor(std::string_view filepath)
-    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
-    , m_mediator(nullptr)
-    , m_fileMutex()
-    , m_filepath(filepath)
-    , m_protocolsMutex()
-    , m_upProtocols()
-    , m_defaults()
-{
-    // If the filepath does not have a filename, attach the default config.json
-    if (!m_filepath.has_filename()) {
-        m_filepath = m_filepath / Configuration::DefaultKnownPeersFilename;
-    }
-
-    // If the filepath does not have a parent path, get and attach the default brypt folder
-    if (!m_filepath.has_parent_path()) {
-        m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath;
-    }
-
-    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
-    }
-}
-
-//-----------------------------------------------------------------------------------------------
-
-PeerPersistor::PeerPersistor(Configuration::EndpointConfigurations const& configurations)
-    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
-    , m_mediator(nullptr)
-    , m_fileMutex()
-    , m_filepath(Configuration::GetDefaultPeersFilepath())
-    , m_protocolsMutex()
-    , m_upProtocols()
-    , m_defaults()
-{
-    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
-        return;
-    }
-
-    local::ParseDefaultBootstraps(configurations, m_defaults);
-}
-
-//-----------------------------------------------------------------------------------------------
-
 PeerPersistor::PeerPersistor(
-    std::string_view filepath,
-    Configuration::EndpointConfigurations const& configurations)
+    std::filesystem::path const& filepath,
+    Configuration::EndpointConfigurations const& configurations,
+    bool shouldBuildPath)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_mediator(nullptr)
     , m_fileMutex()
@@ -191,6 +131,12 @@ PeerPersistor::PeerPersistor(
     , m_upProtocols()
     , m_defaults()
 {
+    assert(m_spLogger);
+
+    local::ParseDefaultBootstraps(configurations, m_defaults);
+
+    if (!shouldBuildPath) { return; }
+
     // If the filepath does not have a filename, attach the default config.json
     if (!m_filepath.has_filename()) {
         m_filepath = m_filepath / Configuration::DefaultKnownPeersFilename;
@@ -205,8 +151,6 @@ PeerPersistor::PeerPersistor(
         m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
         return;
     }
-
-    local::ParseDefaultBootstraps(configurations, m_defaults);
 }
 
 //-----------------------------------------------------------------------------------------------
