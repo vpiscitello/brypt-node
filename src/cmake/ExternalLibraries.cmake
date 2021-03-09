@@ -337,7 +337,7 @@ message(DEBUG "OQSCPP_INCLUDE_DIRS: ${OQSCPP_INCLUDE_DIRS}")
 #------------------------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------------------------
-# OQS Dependency
+# spdlog Dependency
 #------------------------------------------------------------------------------------------------
 set(SPDLOG_VERSION "1.8.2")
 set(SPDLOG_URL "https://github.com/gabime/spdlog/archive/v${SPDLOG_VERSION}.tar.gz")
@@ -363,7 +363,7 @@ if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY})
     message(STATUS "spdlog downloaded to ${SPDLOG_DIRECTORY}")
 endif()
     
-if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.so)
+if (NOT EXISTS ${SPDLOG_DIRECTORY}/lib/libspdlog.a)
     set(SPDLOG_CONFIGURE_PARAMS -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY})
     
     ExternalProject_Add(

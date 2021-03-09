@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Security Library...")
+message(STATUS "Configuring Security Static Library...")
 #------------------------------------------------------------------------------------------------
 project(Security LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

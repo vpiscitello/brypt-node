@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Message Control Library...")
+message(STATUS "Configuring Message Control Static Library...")
 #------------------------------------------------------------------------------------------------
 project(MessageControl LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

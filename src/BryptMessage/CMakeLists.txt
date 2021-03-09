@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Brypt Message Library...")
+message(STATUS "Configuring Brypt Message Static Library...")
 #------------------------------------------------------------------------------------------------
 project(BryptMessage LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

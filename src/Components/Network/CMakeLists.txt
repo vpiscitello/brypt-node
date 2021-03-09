@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Network Library...")
+message(STATUS "Configuring Network Static Library...")
 #------------------------------------------------------------------------------------------------
 project(Network LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Brypt Peer Library...")
+message(STATUS "Configuring Brypt Peer Static Library...")
 #------------------------------------------------------------------------------------------------
 project(BryptPeer LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

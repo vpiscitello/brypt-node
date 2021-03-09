@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Handler Library...")
+message(STATUS "Configuring Handler Static Library...")
 #------------------------------------------------------------------------------------------------
 project(Handler LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

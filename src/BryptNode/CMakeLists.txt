@@ -1,8 +1,8 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring brypt binaries...")
+message(STATUS "Configuring brypt Binary...")
 #------------------------------------------------------------------------------------------------
-project(brypt LANGUAGES CXX)
-add_executable(brypt)
+project(brypt-bin LANGUAGES CXX)
+add_executable(${PROJECT_NAME})
 #------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -31,6 +31,8 @@ set(INTERNAL_LIBRARIES
     BryptMessage
     BryptIdentifier)
 
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME brypt)
+
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${spdlog_INCLUDE_DIRS})
 
@@ -42,5 +44,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC ${spdlog_LIBRARIES} ${Boost_LIBRARI
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #------------------------------------------------------------------------------------------------
-install(TARGETS brypt RUNTIME DESTINATION bin)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
 #------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Await Library...")
+message(STATUS "Configuring Await Static Library...")
 #------------------------------------------------------------------------------------------------
 project(Await LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)

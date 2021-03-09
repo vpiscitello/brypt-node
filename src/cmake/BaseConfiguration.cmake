@@ -45,9 +45,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Configuring Debug Build...")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         set(CMAKE_CXX_FLAGS_DEBUG "-g3 -ggdb3 -O0" CACHE STRING "" FORCE)
     endif()
+else()
+    message(STATUS "Configuring Release Build...")
 endif()
 
 #------------------------------------------------------------------------------------------------

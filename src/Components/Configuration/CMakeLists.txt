@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Configuration Library...")
+message(STATUS "Configuring Configuration Static Library...")
 #------------------------------------------------------------------------------------------------
 project(Configuration LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
