@@ -83,7 +83,7 @@ std::size_t AuthorizedProcessor::QueuedMessageCount() const
 
 //------------------------------------------------------------------------------------------------
 
-std::optional<AssociatedMessage> AuthorizedProcessor::PopIncomingMessage()
+std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage()
 {
 	std::scoped_lock lock(m_incomingMutex);
 	if (m_incoming.empty()) { return {}; }

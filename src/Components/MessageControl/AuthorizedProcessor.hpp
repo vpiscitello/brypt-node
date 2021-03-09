@@ -40,7 +40,7 @@ public:
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
-    std::optional<AssociatedMessage> PopIncomingMessage();
+    std::optional<AssociatedMessage> GetNextMessage();
     std::size_t QueuedMessageCount() const;
 
 private:

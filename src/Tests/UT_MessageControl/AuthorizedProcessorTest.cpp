@@ -83,7 +83,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(1));
     
     // Pop the queued request to verify it was properly handled.
-    auto const optAssociatedMessage = processor.PopIncomingMessage();
+    auto const optAssociatedMessage = processor.GetNextMessage();
 
     // Verify the queue count was decreased after popping a message.
     EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(0));
@@ -160,7 +160,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     
     // While there are messages to processed in the authorized processor's queue validate the
     // processor's functionality and state.
-    while (auto const optAssociatedMessage = processor.PopIncomingMessage()) {
+    while (auto const optAssociatedMessage = processor.GetNextMessage()) {
         --expectedQueueCount;
 
         // Verify the queue count was decreased after popping a message.
