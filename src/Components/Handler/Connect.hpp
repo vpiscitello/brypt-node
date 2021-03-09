@@ -10,7 +10,8 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Connecting to a new network or peer
 //------------------------------------------------------------------------------------------------
-class Handler::Connect : public Handler::IHandler {
+class Handler::Connect : public Handler::IHandler
+{
 public:
     enum class Phase : std::uint8_t { Discovery, Join, };
 

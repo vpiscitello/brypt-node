@@ -89,18 +89,10 @@ bool Handler::Query::HandleMessage(AssociatedMessage const& associatedMessage)
     auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<Query::Phase>(message.GetPhase());
     switch (phase) {
-        case Query::Phase::Flood: {
-            status = FloodHandler(wpBryptPeer, message);
-        } break;
-        case Query::Phase::Respond: {
-            status = RespondHandler(wpBryptPeer, message);
-        } break;
-        case Query::Phase::Aggregate: {
-            status = AggregateHandler(wpBryptPeer, message);
-        } break;
-        case Query::Phase::Close: {
-            status = CloseHandler();
-        } break;
+        case Query::Phase::Flood: { status = FloodHandler(wpBryptPeer, message); } break;
+        case Query::Phase::Respond: { status = RespondHandler(wpBryptPeer, message); } break;
+        case Query::Phase::Aggregate: { status = AggregateHandler(wpBryptPeer, message); } break;
+        case Query::Phase::Close: { status = CloseHandler(); } break;
         default: break;
     }
 

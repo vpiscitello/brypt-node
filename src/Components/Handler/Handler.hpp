@@ -34,9 +34,7 @@ class Election;
 class Information;
 class Query;
 
-std::unique_ptr<IHandler> Factory(
-    Handler::Type handlerType,
-    BryptNode& instance);
+std::unique_ptr<IHandler> Factory(Handler::Type handlerType, BryptNode& instance);
 
 using Map = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
 
@@ -47,11 +45,10 @@ using Map = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
 //------------------------------------------------------------------------------------------------
 // Description:
 //------------------------------------------------------------------------------------------------
-class Handler::IHandler {
+class Handler::IHandler
+{
 public:
-    IHandler(
-        Handler::Type type,
-        BryptNode& instance);
+    IHandler(Handler::Type type, BryptNode& instance);
     virtual ~IHandler() = default;
     
     virtual Handler::Type GetType() const final;

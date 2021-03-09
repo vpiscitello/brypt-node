@@ -22,25 +22,15 @@
 #include <cassert>
 //------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Handler::IHandler> Handler::Factory(
-    Handler::Type handlerType, BryptNode& instance)
+std::unique_ptr<Handler::IHandler> Handler::Factory(Handler::Type type, BryptNode& instance)
 {
-    switch (handlerType) {
-        case Handler::Type::Connect:
-            return std::make_unique<Connect>(instance);
-
-        case Handler::Type::Election:
-            return std::make_unique<Election>(instance);
-
-        case Handler::Type::Information:
-            return std::make_unique<Information>(instance);
-
-        case Handler::Type::Query:
-            return std::make_unique<Query>(instance);
-
+    switch (type) {
+        case Handler::Type::Connect: return std::make_unique<Connect>(instance);
+        case Handler::Type::Election: return std::make_unique<Election>(instance);
+        case Handler::Type::Information: return std::make_unique<Information>(instance);
+        case Handler::Type::Query: return std::make_unique<Query>(instance);
         case Handler::Type::Invalid:
-        default:
-            return {};
+        default: return {};
     }
 }
 
@@ -48,8 +38,7 @@ std::unique_ptr<Handler::IHandler> Handler::Factory(
 // IHandler implementation
 //------------------------------------------------------------------------------------------------
 
-Handler::IHandler::IHandler(
-    Handler::Type type, BryptNode& instance)
+Handler::IHandler::IHandler(Handler::Type type, BryptNode& instance)
     : m_type(type)
     , m_instance(instance)
     , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))

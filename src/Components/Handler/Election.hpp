@@ -10,9 +10,10 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Elections
 //------------------------------------------------------------------------------------------------
-class Handler::Election : public Handler::IHandler {
+class Handler::Election : public Handler::IHandler
+{
 public:
-    enum class Phase { Probe, Precommit, Vote, Abort, Results, Close };
+    enum class Phase : std::uint8_t { Probe, Precommit, Vote, Abort, Results, Close };
     
     explicit Election(BryptNode& instance);
 

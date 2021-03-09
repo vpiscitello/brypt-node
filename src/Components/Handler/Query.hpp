@@ -10,9 +10,10 @@
 //------------------------------------------------------------------------------------------------
 // Description: Handle Requests regarding Sensor readings
 //------------------------------------------------------------------------------------------------
-class Handler::Query : public Handler::IHandler {
+class Handler::Query : public Handler::IHandler
+{
 public:
-    enum class Phase { Flood, Respond, Aggregate, Close };
+    enum class Phase : std::uint8_t { Flood, Respond, Aggregate, Close };
     
     explicit Query(BryptNode& instance);
 
@@ -20,9 +21,12 @@ public:
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;
     // }IHandler
 
-    bool FloodHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
-    bool RespondHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
-    bool AggregateHandler(std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool FloodHandler(
+        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool RespondHandler(
+        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+    bool AggregateHandler(
+        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
     bool CloseHandler();
 };
 

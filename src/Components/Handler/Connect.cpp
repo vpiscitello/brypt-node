@@ -114,14 +114,11 @@ bool Handler::Connect::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
     auto& [wpBryptPeer, message] = associatedMessage;
+    
     auto const phase = static_cast<Connect::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::Discovery: {
-            status = DiscoveryHandler(wpBryptPeer, message);
-        } break;
-        case Phase::Join: {
-            status = JoinHandler(wpBryptPeer, message);
-        } break;
+        case Phase::Discovery: { status = DiscoveryHandler(wpBryptPeer, message); } break;
+        case Phase::Join: { status = JoinHandler(wpBryptPeer, message); } break;
         default: break;
     }
 

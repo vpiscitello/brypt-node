@@ -125,15 +125,9 @@ bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMess
     auto& [wpBryptPeer, message] = associatedMessage;
     auto const phase = static_cast<Information::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::Flood: {
-            status = FloodHandler(wpBryptPeer, message);
-        } break;
-        case Phase::Respond: {
-            status = RespondHandler();
-        } break;
-        case Phase::Close: {
-            status = CloseHandler();
-        } break;
+        case Phase::Flood: { status = FloodHandler(wpBryptPeer, message); } break;
+        case Phase::Respond: { status = RespondHandler(); } break;
+        case Phase::Close: { status = CloseHandler(); } break;
         default: break;
     }
 
