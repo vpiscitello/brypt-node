@@ -38,7 +38,7 @@ std::unique_ptr<IHandler> Factory(
     Handler::Type handlerType,
     BryptNode& instance);
 
-using HandlerMap = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
+using Map = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
 
 //------------------------------------------------------------------------------------------------
 } // Handler namespace

@@ -24,7 +24,7 @@ namespace {
 namespace local {
 //------------------------------------------------------------------------------------------------
 
-void SetupHandlerHandlerMap(Handler::HandlerMap& handlers, BryptNode& node);
+void SetupHandlerMap(Handler::Map& handlers, BryptNode& node);
 MessageContext GenerateMessageContext();
 
 //------------------------------------------------------------------------------------------------
@@ -71,8 +71,8 @@ TEST(HandlerSuite, HandlerMatchingTest)
     BryptNode node(
         test::spServerIdentifier, nullptr, nullptr, nullptr, nullptr, upConfigurationManager);
 
-    Handler::HandlerMap handlers;
-    local::SetupHandlerHandlerMap(handlers, node);
+    Handler::Map handlers;
+    local::SetupHandlerMap(handlers, node);
 
     MessageContext const context = local::GenerateMessageContext();
 
@@ -161,8 +161,8 @@ std::unique_ptr<Configuration::Manager> test::CreateConfigurationManager()
 
 //------------------------------------------------------------------------------------------------
 
-void local::SetupHandlerHandlerMap(
-    Handler::HandlerMap& handlers, BryptNode& node)
+void local::SetupHandlerMap(
+    Handler::Map& handlers, BryptNode& node)
 {
     handlers.emplace(
         Handler::Type::Connect,

@@ -90,7 +90,7 @@ private:
     std::shared_ptr<Await::TrackingManager> m_spAwaitManager;
     std::shared_ptr<PeerPersistor> m_spPeerPersistor;
 
-    Handler::HandlerMap m_handlers;
+    Handler::Map m_handlers;
 };
 
 //------------------------------------------------------------------------------------------------
