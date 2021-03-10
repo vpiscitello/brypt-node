@@ -82,7 +82,11 @@ std::int32_t main(std::int32_t argc, char** argv)
     spLogger->info("Welcome to the Brypt Network!");
     spLogger->info("Brypt Identifier: {}", spBryptIdentifier->GetNetworkRepresentation());
 
-    alpha.Startup();
+    bool const success = alpha.Startup();
+    if (!success) {
+        spLogger->critical("An unexpected error caused the node to shutdown!");
+        return 1;
+    }
 
     return 0;
 }

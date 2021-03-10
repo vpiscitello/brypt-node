@@ -4,12 +4,14 @@
 //------------------------------------------------------------------------------------------------
 #pragma once
 //------------------------------------------------------------------------------------------------
+#include "RuntimePolicy.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 //------------------------------------------------------------------------------------------------
+#include <concepts>
 #include <memory>
 //------------------------------------------------------------------------------------------------
 
@@ -42,8 +44,13 @@ class SensorState;
 
 //------------------------------------------------------------------------------------------------
 
-class BryptNode {
+class BryptNode final
+{
 public:
+    // Runtime Handler {
+    friend class IRuntimePolicy;
+    // } Runtime Handler
+
     // Constructors and Deconstructors
     BryptNode(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
@@ -53,8 +60,18 @@ public:
         std::shared_ptr<PeerPersistor> const& spPeerPersistor,
         std::unique_ptr<Configuration::Manager> const& upConfigurationManager);
 
-    void Startup();
-    bool Shutdown();
+    BryptNode(BryptNode const& other) = delete;
+    BryptNode(BryptNode&& other) = default;
+    BryptNode& operator=(BryptNode const& other) = delete;
+    BryptNode& operator=(BryptNode&& other) = default;
+
+    ~BryptNode() = default;
+
+    template<typename RuntimePolicy = ForegroundRuntime>
+        requires std::derived_from<RuntimePolicy, IRuntimePolicy>
+    [[nodiscard]] bool Startup();
+    
+    [[nodiscard]] bool Shutdown();
 
     // Getter Functions
     std::weak_ptr<NodeState> GetNodeState() const;
@@ -69,11 +86,7 @@ public:
     std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
-    // Run Functions
-    void StartLifecycle();
-
-    // Lifecycle Functions
-    void HandleIncomingMessage(AssociatedMessage const& associatedMessage);
+    bool StartComponents();
 
     bool m_initialized;
     std::shared_ptr<spdlog::logger> m_spLogger;
@@ -91,6 +104,18 @@ private:
     std::shared_ptr<PeerPersistor> m_spPeerPersistor;
 
     Handler::Map m_handlers;
+    std::unique_ptr<IRuntimePolicy> m_upRuntime;
 };
+
+//------------------------------------------------------------------------------------------------
+
+template<typename RuntimePolicy>
+    requires std::derived_from<RuntimePolicy, IRuntimePolicy>
+[[nodiscard]] bool BryptNode::Startup()
+{
+    if (!StartComponents()) { return false; }
+    m_upRuntime = std::make_unique<RuntimePolicy>(*this);
+    return m_upRuntime->Start();
+}
 
 //------------------------------------------------------------------------------------------------

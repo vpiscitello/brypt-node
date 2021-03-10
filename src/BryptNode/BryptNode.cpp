@@ -24,24 +24,8 @@
 //------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <random>
-#include <thread>
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-namespace {
-namespace local {
-//------------------------------------------------------------------------------------------------
-
-constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
-
-//------------------------------------------------------------------------------------------------
-} // local namespace
-} // namespace
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
 BryptNode::BryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     std::shared_ptr<EndpointManager> const& spEndpointManager,
@@ -62,13 +46,12 @@ BryptNode::BryptNode(
     , m_spAwaitManager(std::make_shared<Await::TrackingManager>())
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
+    , m_upRuntime(nullptr)
 {
     assert(m_spLogger);
 
     // An EndpointManager and PeerManager is required for the node to operate
-    if (!m_spEndpointManager || !m_spPeerManager) {
-        return;
-    }
+    if (!m_spEndpointManager || !m_spPeerManager) { return; }
 
     // Initialize state from settings.
     m_spCoordinatorState = std::make_shared<CoordinatorState>();
@@ -101,22 +84,13 @@ BryptNode::BryptNode(
 
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-// Description:
-//------------------------------------------------------------------------------------------------
-void BryptNode::Startup()
-{
-    assert(m_initialized);
-    m_spLogger->info("Starting up brypt node instance.");
-    m_spEndpointManager->Startup();
-    StartLifecycle();
-}
-
-//------------------------------------------------------------------------------------------------
-
 bool BryptNode::Shutdown()
 {
-    return true;
+    if (!m_upRuntime) { return false; }
+
+    m_spEndpointManager->Shutdown();
+
+    return m_upRuntime->Stop();
 }
 
 //------------------------------------------------------------------------------------------------
@@ -184,39 +158,14 @@ std::weak_ptr<PeerPersistor> BryptNode::GetPeerPersistor() const
 
 //------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void BryptNode::StartLifecycle()
+bool BryptNode::StartComponents()
 {
-    std::uint64_t run = 0;
-    // TODO: Implement stopping condition
-    do {
-        if (auto const optMessage = m_spMessageProcessor->PopIncomingMessage(); optMessage) {
-            HandleIncomingMessage(*optMessage);
-        }
+    if (!m_initialized || m_upRuntime) { return false; }
 
-        m_spAwaitManager->ProcessFulfilledRequests();
-        ++run;
-        
-        std::this_thread::sleep_for(local::CycleTimeout);
-    } while (true);
-}
+    m_spLogger->info("Starting up brypt node instance.");
+    m_spEndpointManager->Startup();
 
-//------------------------------------------------------------------------------------------------
-
-//------------------------------------------------------------------------------------------------
-// Function:
-// Description:
-//------------------------------------------------------------------------------------------------
-void BryptNode::HandleIncomingMessage(AssociatedMessage const& associatedMessage)
-{ 
-    auto& [spBryptPeer, message] = associatedMessage;
-    if (auto const itr = m_handlers.find(message.GetCommand()); itr != m_handlers.end()) {
-        auto const& [type, handler] = *itr;
-        handler->HandleMessage(associatedMessage);
-    }
+    return true;
 }
 
 //------------------------------------------------------------------------------------------------

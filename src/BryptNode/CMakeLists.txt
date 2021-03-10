@@ -15,6 +15,7 @@ target_sources(
     CoordinatorState.cpp
     NetworkState.cpp
     NodeState.cpp
+    RuntimePolicy.cpp
     SecurityState.cpp
     SensorState.cpp
     StartupOptions.cpp
