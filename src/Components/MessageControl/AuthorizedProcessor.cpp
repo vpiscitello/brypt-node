@@ -1,7 +1,7 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: AuthorizedProcessor.cpp
 // Description:
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "AuthorizedProcessor.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
@@ -9,9 +9,9 @@
 #include "BryptMessage/NetworkMessage.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Utilities/Z85.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <mutex>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 AuthorizedProcessor::AuthorizedProcessor(
     BryptIdentifier::SharedContainer const& spBryptIdentifier)
@@ -21,7 +21,7 @@ AuthorizedProcessor::AuthorizedProcessor(
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::CollectMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -35,7 +35,7 @@ bool AuthorizedProcessor::CollectMessage(
     return CollectMessage(wpBryptPeer, context, decoded);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::CollectMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -73,7 +73,7 @@ bool AuthorizedProcessor::CollectMessage(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t AuthorizedProcessor::QueuedMessageCount() const
 {
@@ -81,7 +81,7 @@ std::size_t AuthorizedProcessor::QueuedMessageCount() const
 	return m_incoming.size();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage()
 {
@@ -94,7 +94,7 @@ std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage()
 	return message;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::QueueMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -105,7 +105,7 @@ bool AuthorizedProcessor::QueueMessage(
 	return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::HandleMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -164,4 +164,4 @@ bool AuthorizedProcessor::HandleMessage(
 		message.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

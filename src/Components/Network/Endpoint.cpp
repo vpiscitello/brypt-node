@@ -1,8 +1,8 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: Endpoint.cpp
 // Description: Defines a set of communication methods for use on varying types of communication
 // protocols. Currently supports TCP sockets.
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
 #include "Address.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
@@ -10,7 +10,7 @@
 #include "Components//BryptPeer/BryptPeer.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
     Protocol protocol,
@@ -38,7 +38,7 @@ std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
     return upEndpoint;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Network::IEndpoint::IEndpoint(
     Operation operation, Network::Protocol protocol)
@@ -54,21 +54,21 @@ Network::IEndpoint::IEndpoint(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Network::Endpoint::Identifier Network::IEndpoint::GetEndpointIdentifier() const
 {
     return m_identifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Network::Operation Network::IEndpoint::GetOperation() const
 {
     return m_operation;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Network::IEndpoint::RegisterMediator(IEndpointMediator const* const pMediator)
 {
@@ -80,7 +80,7 @@ void Network::IEndpoint::RegisterMediator(IEndpointMediator const* const pMediat
     m_pEndpointMediator = pMediator;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Network::IEndpoint::RegisterMediator(IPeerMediator* const pMediator)
 {
@@ -92,7 +92,7 @@ void Network::IEndpoint::RegisterMediator(IPeerMediator* const pMediator)
     m_pPeerMediator = pMediator;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::shared_ptr<BryptPeer> Network::IEndpoint::LinkPeer(
     BryptIdentifier::Container const& identifier, RemoteAddress const& address) const
@@ -112,4 +112,4 @@ std::shared_ptr<BryptPeer> Network::IEndpoint::LinkPeer(
     return spBryptPeer;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

@@ -1,7 +1,7 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: BryptPeer.cpp
 // Description: 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "BryptPeer.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
@@ -11,7 +11,7 @@
 #include "Components/Security/SecurityState.hpp"
 #include "Components/Security/SecurityMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptPeer::BryptPeer(
     BryptIdentifier::Container const& identifier,
@@ -38,13 +38,13 @@ BryptPeer::BryptPeer(
     m_spBryptIdentifier = std::make_shared<BryptIdentifier::Container const>(identifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptPeer::~BryptPeer()
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::SharedContainer BryptPeer::GetBryptIdentifier() const
 {
@@ -52,7 +52,7 @@ BryptIdentifier::SharedContainer BryptPeer::GetBryptIdentifier() const
     return m_spBryptIdentifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Internal::Type BryptPeer::GetInternalIdentifier() const
 {
@@ -61,7 +61,7 @@ BryptIdentifier::Internal::Type BryptPeer::GetInternalIdentifier() const
     return m_spBryptIdentifier->GetInternalRepresentation();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::uint32_t BryptPeer::GetSentCount() const
 {
@@ -69,7 +69,7 @@ std::uint32_t BryptPeer::GetSentCount() const
     return m_statistics.GetSentCount();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::uint32_t BryptPeer::GetReceivedCount() const
 {
@@ -77,7 +77,7 @@ std::uint32_t BryptPeer::GetReceivedCount() const
     return m_statistics.GetReceivedCount();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 {
@@ -85,7 +85,7 @@ void BryptPeer::SetReceiver(IMessageSink* const pMessageSink)
     m_pMessageSink = pMessageSink;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::ScheduleReceive(
     Network::Endpoint::Identifier identifier, std::string_view buffer)
@@ -110,7 +110,7 @@ bool BryptPeer::ScheduleReceive(
     return false;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::ScheduleReceive(
     Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
@@ -135,7 +135,7 @@ bool BryptPeer::ScheduleReceive(
     return false;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::ScheduleSend(
     Network::Endpoint::Identifier identifier, std::string_view message) const
@@ -157,7 +157,7 @@ bool BryptPeer::ScheduleSend(
     return false;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
 {
@@ -182,7 +182,7 @@ void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptPeer::RegisterEndpoint(
     Network::Endpoint::Identifier identifier,
@@ -212,7 +212,7 @@ void BryptPeer::RegisterEndpoint(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptPeer::WithdrawEndpoint(
     Network::Endpoint::Identifier identifier, Network::Protocol protocol)
@@ -230,7 +230,7 @@ void BryptPeer::WithdrawEndpoint(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::IsActive() const
 {
@@ -238,7 +238,7 @@ bool BryptPeer::IsActive() const
     return (m_endpoints.size() != 0);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
 {
@@ -247,7 +247,7 @@ bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) c
     return (itr != m_endpoints.end());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<MessageContext> BryptPeer::GetMessageContext(
     Network::Endpoint::Identifier identifier) const
@@ -261,7 +261,7 @@ std::optional<MessageContext> BryptPeer::GetMessageContext(
     return {};
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<Network::RemoteAddress> BryptPeer::GetRegisteredAddress(
     Network::Endpoint::Identifier identifier) const
@@ -277,7 +277,7 @@ std::optional<Network::RemoteAddress> BryptPeer::GetRegisteredAddress(
     return {};
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t BryptPeer::RegisteredEndpointCount() const
 {
@@ -285,7 +285,7 @@ std::size_t BryptPeer::RegisteredEndpointCount() const
     return m_endpoints.size();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSecurityMediator)
 {
@@ -308,7 +308,7 @@ void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSec
     m_upSecurityMediator->BindPeer(shared_from_this());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::State BryptPeer::GetSecurityState() const
 {
@@ -316,7 +316,7 @@ Security::State BryptPeer::GetSecurityState() const
     return m_upSecurityMediator->GetSecurityState();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::IsFlagged() const
 {
@@ -324,7 +324,7 @@ bool BryptPeer::IsFlagged() const
     return (m_upSecurityMediator->GetSecurityState() == Security::State::Flagged);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptPeer::IsAuthorized() const
 {
@@ -332,4 +332,4 @@ bool BryptPeer::IsAuthorized() const
     return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

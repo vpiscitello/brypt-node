@@ -1,12 +1,12 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: NISTSecurityLevelThree.cpp
 // Description: 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "NISTSecurityLevelThree.hpp"
 #include "BryptMessage/PackUtils.hpp"
 #include "Components/Security/SecurityUtils.hpp"
 #include "Utilities/TimeUtils.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <openssl/conf.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
@@ -14,7 +14,7 @@
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -22,12 +22,12 @@
 #include <mutex>
 #include <optional>
 #include <utility>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 namespace {
 namespace local {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 // Various size constants required for AES-256-CTR 
 constexpr std::size_t EncryptionKeySize = 32; // In bytes, 256 bits. 
@@ -41,11 +41,11 @@ using CipherContext = std::unique_ptr<EVP_CIPHER_CTX, decltype(&EVP_CIPHER_CTX_f
 
 [[nodiscard]] Security::OptionalBuffer GenerateRandomData(std::size_t size);
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 } // local namespace
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 namespace Initiator {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 [[nodiscard]] Security::OptionalBuffer GenerateInitializationRequest(
     Security::PQNISTL3::Context const& context,
@@ -62,11 +62,11 @@ namespace Initiator {
     Security::PQNISTL3::Strategy* const pStrategy,
     Security::PQNISTL3::SynchronizationTracker& synchronization);
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 } // Initiator namespace
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 namespace Acceptor {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 using OptionalInitializationResult = std::optional<std::pair<Security::Buffer, Security::Buffer>>;
 
@@ -86,18 +86,18 @@ using OptionalInitializationResult = std::optional<std::pair<Security::Buffer, S
     Security::PQNISTL3::SynchronizationTracker& synchronization,
     Security::ReadableView request);
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 } // Acceptor namespace
 } // namespace
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // Declare the static shared context the strategy may use in a shared application context. 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::shared_ptr<Security::PQNISTL3::Context> Security::PQNISTL3::Strategy::m_spSharedContext = nullptr;
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::PQNISTL3::Context::Context(std::string_view kem)
     : m_kemMutex()
@@ -112,7 +112,7 @@ Security::PQNISTL3::Context::Context(std::string_view kem)
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t Security::PQNISTL3::Context::GetPublicKeySize() const
 {
@@ -120,14 +120,14 @@ std::size_t Security::PQNISTL3::Context::GetPublicKeySize() const
     return PublicKeySize;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::Buffer Security::PQNISTL3::Context::GetPublicKey() const
 {
     return m_publicKey;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t Security::PQNISTL3::Context::GetPublicKey(Buffer& buffer) const
 {
@@ -136,7 +136,7 @@ std::size_t Security::PQNISTL3::Context::GetPublicKey(Buffer& buffer) const
     return m_publicKey.size();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Security::PQNISTL3::Context::GenerateEncapsulatedSecret(
     Buffer const& publicKey, EncapsulationCallback const& callback) const
@@ -151,7 +151,7 @@ bool Security::PQNISTL3::Context::GenerateEncapsulatedSecret(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Security::PQNISTL3::Context::DecapsulateSecret(
     Buffer const& encapsulation, Buffer& decapsulation) const
@@ -167,7 +167,7 @@ bool Security::PQNISTL3::Context::DecapsulateSecret(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::PQNISTL3::SynchronizationTracker::SynchronizationTracker()
     : m_status(SynchronizationStatus::Processing)
@@ -178,21 +178,21 @@ Security::PQNISTL3::SynchronizationTracker::SynchronizationTracker()
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationStatus Security::PQNISTL3::SynchronizationTracker::GetStatus() const
 {
     return m_status;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::PQNISTL3::SynchronizationTracker::SetError()
 {
     m_status = SynchronizationStatus::Error;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 template <typename EnumType>
 EnumType Security::PQNISTL3::SynchronizationTracker::GetStage() const
@@ -200,7 +200,7 @@ EnumType Security::PQNISTL3::SynchronizationTracker::GetStage() const
     return static_cast<EnumType>(m_stage);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 template <typename EnumType>
 void Security::PQNISTL3::SynchronizationTracker::SetStage(EnumType type)
@@ -209,28 +209,28 @@ void Security::PQNISTL3::SynchronizationTracker::SetStage(EnumType type)
     m_stage = static_cast<decltype(m_stage)>(type);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::PQNISTL3::SynchronizationTracker::SetSignator(TransactionSignator const& signator)
 {
     m_signator = signator;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::PQNISTL3::SynchronizationTracker::SetVerifier(TransactionVerifier const& verifier)
 {
     m_verifier = verifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::PQNISTL3::SynchronizationTracker::UpdateTransaction(ReadableView buffer)
 {
     m_transaction.insert(m_transaction.end(), buffer.begin(), buffer.end());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Security::PQNISTL3::SynchronizationTracker::SignTransaction(Buffer& message)
 {
@@ -242,7 +242,7 @@ bool Security::PQNISTL3::SynchronizationTracker::SignTransaction(Buffer& message
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::VerificationStatus Security::PQNISTL3::SynchronizationTracker::VerifyTransaction()
 {
@@ -250,7 +250,7 @@ Security::VerificationStatus Security::PQNISTL3::SynchronizationTracker::VerifyT
     return m_verifier(m_transaction);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 template<typename EnumType>
 void Security::PQNISTL3::SynchronizationTracker::Finalize(EnumType stage)
@@ -260,7 +260,7 @@ void Security::PQNISTL3::SynchronizationTracker::Finalize(EnumType stage)
     SetStage(stage);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Security::PQNISTL3::SynchronizationTracker::ResetState()
 {
@@ -270,7 +270,7 @@ bool Security::PQNISTL3::SynchronizationTracker::ResetState()
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::PQNISTL3::Strategy::Strategy(Role role, Security::Context context)
     : m_role(role)
@@ -302,35 +302,35 @@ Security::PQNISTL3::Strategy::Strategy(Role role, Security::Context context)
         { return Verify(transaction); });
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::Strategy Security::PQNISTL3::Strategy::GetStrategyType() const
 {
     return Type;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::Role Security::PQNISTL3::Strategy::GetRoleType() const
 {
     return m_role;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::Context Security::PQNISTL3::Strategy::GetContextType() const
 {
     return m_context;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t Security::PQNISTL3::Strategy::GetSignatureSize() const
 {
     return SignatureSize;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::uint32_t Security::PQNISTL3::Strategy::GetSynchronizationStages() const
 {
@@ -341,14 +341,14 @@ std::uint32_t Security::PQNISTL3::Strategy::GetSynchronizationStages() const
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationStatus Security::PQNISTL3::Strategy::GetSynchronizationStatus() const
 {
     return m_synchronization.GetStatus();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::PrepareSynchronization()
 {
@@ -380,7 +380,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::PrepareSynchroniza
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::Synchronize(ReadableView buffer)
 {
@@ -392,7 +392,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::Synchronize(Readab
     return { SynchronizationStatus::Error, {} };
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(
     ReadableView buffer, std::uint64_t nonce) const
@@ -456,7 +456,7 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(
 	return ciphertext;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(
     ReadableView buffer, std::uint64_t nonce) const
@@ -520,14 +520,14 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(
 	return plaintext;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::int32_t Security::PQNISTL3::Strategy::Sign(Buffer& buffer) const
 {
     return Sign(buffer, buffer); // Generate and add the signature to the provided buffer. 
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::VerificationStatus Security::PQNISTL3::Strategy::Verify(ReadableView buffer) const
 {
@@ -561,7 +561,7 @@ Security::VerificationStatus Security::PQNISTL3::Strategy::Verify(ReadableView b
 	return VerificationStatus::Success;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::PQNISTL3::Strategy::InitializeApplicationContext()
 {
@@ -570,34 +570,34 @@ void Security::PQNISTL3::Strategy::InitializeApplicationContext()
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::PQNISTL3::Strategy::ShutdownApplicationContext()
 {
     Strategy::m_spSharedContext.reset();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::weak_ptr<Security::PQNISTL3::Context> Security::PQNISTL3::Strategy::GetSessionContext() const
 {
     return m_spSessionContext;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t Security::PQNISTL3::Strategy::GetPublicKeySize() const
 {
     return m_spSessionContext->GetPublicKeySize();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // Description: Generate and encapsulates an ephemeral session key using NTRU-HPS-2048-677. The
 // caller is provided the encapsulated shared secret to provide the peer. If an error is 
 // encountered nullopt is provided instead. 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 Security::OptionalBuffer Security::PQNISTL3::Strategy::EncapsulateSharedSecret()
 {
     // A shared secret cannot be generated and encapsulated without the peer's public key. 
@@ -627,12 +627,12 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::EncapsulateSharedSecret()
     return encapsulation;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // Description: Decapsulates an ephemeral session key using NTRU-HPS-2048-677 from the provided
 // encapsulated ciphertext. 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 bool Security::PQNISTL3::Strategy::DecapsulateSharedSecret(Buffer const& encapsulation)
 {
     // The session context should always exist after the constructor is called. 
@@ -645,7 +645,7 @@ bool Security::PQNISTL3::Strategy::DecapsulateSharedSecret(Buffer const& encapsu
         m_role, std::move(decapsulation), local::EncryptionKeySize, SignatureSize);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateVerficationData()
 {
@@ -669,7 +669,7 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateVerficationData()
     return optEncrypted;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::VerificationStatus Security::PQNISTL3::Strategy::VerifyKeyShare(Buffer const& buffer) const
 {
@@ -690,7 +690,7 @@ Security::VerificationStatus Security::PQNISTL3::Strategy::VerifyKeyShare(Buffer
     return VerificationStatus::Success;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::int32_t Security::PQNISTL3::Strategy::Sign(
     ReadableView source, Security::Buffer& destination) const
@@ -714,7 +714,7 @@ std::int32_t Security::PQNISTL3::Strategy::Sign(
     return static_cast<std::int32_t>(optSignature->size());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateSignature(
     ReadableView key, ReadableView data) const
@@ -734,7 +734,7 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateSignature(
     return signature;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorSynchronization(
     ReadableView buffer)
@@ -754,7 +754,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorSyn
     return {};
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorInitialization(
     ReadableView buffer)
@@ -783,7 +783,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorIni
     return { m_synchronization.GetStatus(), *optRequest };
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorSynchronization(
     ReadableView buffer)
@@ -806,7 +806,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorSync
     return {};
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorInitialization(
     ReadableView buffer)
@@ -840,7 +840,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorInit
     return { m_synchronization.GetStatus(), *optResponse };
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorVerification(
     ReadableView buffer)
@@ -855,7 +855,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorVeri
     return { m_synchronization.GetStatus(), {} };
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::Strategy local::UnpackStrategy(
     Security::ReadableView::iterator& begin, Security::ReadableView::iterator const& end)
@@ -869,11 +869,11 @@ Security::Strategy local::UnpackStrategy(
     return Security::ConvertToStrategy(strategy);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // Description: Generate and return a buffer of the provided size filled with random data. 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 Security::OptionalBuffer local::GenerateRandomData(std::size_t size)
 {
     assert(std::in_range<std::int32_t>(size));
@@ -882,7 +882,7 @@ Security::OptionalBuffer local::GenerateRandomData(std::size_t size)
     return buffer;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Initiator::GenerateInitializationRequest(
     Security::PQNISTL3::Context const& context,
@@ -914,7 +914,7 @@ Security::OptionalBuffer Initiator::GenerateInitializationRequest(
     return request;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Initiator::HandleInitializationResponse(
     Security::PQNISTL3::Strategy* const pStrategy,
@@ -984,7 +984,7 @@ bool Initiator::HandleInitializationResponse(
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Initiator::GeneratVerificationRequest(
     Security::PQNISTL3::Strategy* const pStrategy,
@@ -1016,7 +1016,7 @@ Security::OptionalBuffer Initiator::GeneratVerificationRequest(
     return request;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Acceptor::HandleInitializationRequest(
     Security::PQNISTL3::Context const& context,
@@ -1062,7 +1062,7 @@ bool Acceptor::HandleInitializationRequest(
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer Acceptor::GenerateInitializationResponse(
     Security::PQNISTL3::Strategy* const pStrategy,
@@ -1107,7 +1107,7 @@ Security::OptionalBuffer Acceptor::GenerateInitializationResponse(
     return response;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Acceptor::HandleVerificationRequest(
     Security::PQNISTL3::Strategy* const pStrategy,
@@ -1153,4 +1153,4 @@ bool Acceptor::HandleVerificationRequest(
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

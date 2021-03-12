@@ -1,28 +1,28 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: BryptIdentifier.cpp
 // Description:
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier.hpp"
 #include "IdentifierDefinitions.hpp"
 #include "ReservedIdentifiers.hpp"
 #include "Utilities/Base58.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <vector>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 namespace {
 namespace local {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 using Buffer = std::vector<std::uint8_t>;
 using DigestContext = std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)>;
@@ -39,10 +39,10 @@ std::string ConvertToNetworkRepresentation(
 bool Shake128(
     EVP_MD_CTX* pDigestContext, Buffer const& source, Buffer& destination, std::uint32_t length);
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string BryptIdentifier::Generate()
 {
@@ -56,7 +56,7 @@ std::string BryptIdentifier::Generate()
     return local::ConvertToNetworkRepresentation(upDigestContext, identifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<BryptIdentifier::Internal::Type> BryptIdentifier::ConvertToInternalRepresentation(
     local::Buffer const& buffer)
@@ -70,7 +70,7 @@ std::optional<BryptIdentifier::Internal::Type> BryptIdentifier::ConvertToInterna
     return identifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<BryptIdentifier::Internal::Type> BryptIdentifier::ConvertToInternalRepresentation(
     std::string_view identifier)
@@ -116,7 +116,7 @@ std::optional<BryptIdentifier::Internal::Type> BryptIdentifier::ConvertToInterna
     return ConvertToInternalRepresentation(identifierBytes);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<BryptIdentifier::Network::Type> BryptIdentifier::ConvertToNetworkRepresentation(
     Internal::Type const& identifier)
@@ -129,7 +129,7 @@ std::optional<BryptIdentifier::Network::Type> BryptIdentifier::ConvertToNetworkR
     return local::ConvertToNetworkRepresentation(upDigestContext, identifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<BryptIdentifier::Network::Type> BryptIdentifier::ConvertToNetworkRepresentation(
     local::Buffer const& identifier)
@@ -142,7 +142,7 @@ std::optional<BryptIdentifier::Network::Type> BryptIdentifier::ConvertToNetworkR
     return local::ConvertToNetworkRepresentation(upDigestContext, identifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Container::Container()
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
@@ -151,7 +151,7 @@ BryptIdentifier::Container::Container()
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Container::Container(Internal::Type const& identifier)
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
@@ -161,7 +161,7 @@ BryptIdentifier::Container::Container(Internal::Type const& identifier)
     SetupFromInternalRepresentation(identifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Container::Container(std::string_view identifier)
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
@@ -171,7 +171,7 @@ BryptIdentifier::Container::Container(std::string_view identifier)
     SetupFromNetworkRepresentation(identifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Container::Container(local::Buffer const& buffer, BufferContentType type)
     : m_internalRepresentation(ReservedIdentifiers::Internal::Invalid)
@@ -192,7 +192,7 @@ BryptIdentifier::Container::Container(local::Buffer const& buffer, BufferContent
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptIdentifier::Container::operator<(Container const& other) const
 {
@@ -203,7 +203,7 @@ bool BryptIdentifier::Container::operator<(Container const& other) const
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
  
 bool BryptIdentifier::Container::operator==(Container const& other) const
 {
@@ -212,42 +212,42 @@ bool BryptIdentifier::Container::operator==(Container const& other) const
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptIdentifier::Container::operator!=(Container const& other) const
 {
     return !operator==(other);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Internal::Type BryptIdentifier::Container::GetInternalRepresentation() const
 {
     return m_internalRepresentation;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::Network::Type BryptIdentifier::Container::GetNetworkRepresentation() const
 {
     return m_networkRepresentation;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::size_t BryptIdentifier::Container::NetworkRepresentationSize() const
 {
     return m_networkRepresentation.size();
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool BryptIdentifier::Container::IsValid() const
 {
     return m_valid;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptIdentifier::Container::SetupFromInternalRepresentation(Internal::Type const& identifier)
 {
@@ -263,7 +263,7 @@ void BryptIdentifier::Container::SetupFromInternalRepresentation(Internal::Type 
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void BryptIdentifier::Container::SetupFromNetworkRepresentation(std::string_view identifier)
 {
@@ -279,7 +279,7 @@ void BryptIdentifier::Container::SetupFromNetworkRepresentation(std::string_view
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::ostream& BryptIdentifier::operator<<(
     std::ostream& stream, BryptIdentifier::Container const& identifier)
@@ -288,7 +288,7 @@ std::ostream& BryptIdentifier::operator<<(
     return stream;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::stringstream& BryptIdentifier::operator<<(
     std::stringstream& stream, BryptIdentifier::Container const& identifier)
@@ -297,7 +297,7 @@ std::stringstream& BryptIdentifier::operator<<(
     return stream;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::stringstream& BryptIdentifier::operator<<(
     std::stringstream& stream, BryptIdentifier::SharedContainer const& spIdentifier)
@@ -310,7 +310,7 @@ std::stringstream& BryptIdentifier::operator<<(
     return stream;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 local::Buffer local::GenerateIdentifier(DigestContext const& upDigestContext)
 {
@@ -334,7 +334,7 @@ local::Buffer local::GenerateIdentifier(DigestContext const& upDigestContext)
     return identifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string local::ConvertToNetworkRepresentation(
     DigestContext const& upDigestContext,
@@ -349,7 +349,7 @@ std::string local::ConvertToNetworkRepresentation(
     return local::ConvertToNetworkRepresentation(upDigestContext, buffer);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string local::ConvertToNetworkRepresentation(
     DigestContext const& upDigestContext,
@@ -376,7 +376,7 @@ std::string local::ConvertToNetworkRepresentation(
     return paylod;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool local::Shake128(
     EVP_MD_CTX* pDigestContext,
@@ -402,4 +402,4 @@ bool local::Shake128(
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

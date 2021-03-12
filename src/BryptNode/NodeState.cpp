@@ -1,6 +1,6 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "NodeState.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 NodeState::NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
     : m_mutex()
@@ -11,7 +11,7 @@ NodeState::NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 NodeState::NodeState(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
@@ -24,7 +24,7 @@ NodeState::NodeState(
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::SharedContainer NodeState::GetBryptIdentifier() const
 {
@@ -32,7 +32,7 @@ BryptIdentifier::SharedContainer NodeState::GetBryptIdentifier() const
     return m_spBryptIdentifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 NodeUtils::ClusterIdType NodeState::GetCluster() const
 {
@@ -40,7 +40,7 @@ NodeUtils::ClusterIdType NodeState::GetCluster() const
     return m_cluster;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 NodeUtils::DeviceOperation NodeState::GetOperation() const
 {
@@ -48,7 +48,7 @@ NodeUtils::DeviceOperation NodeState::GetOperation() const
     return m_operation;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void NodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 {
@@ -56,7 +56,7 @@ void NodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBry
     m_spBryptIdentifier = spBryptIdentifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void NodeState::SetCluster(NodeUtils::ClusterIdType const& cluster)
 {
@@ -64,7 +64,7 @@ void NodeState::SetCluster(NodeUtils::ClusterIdType const& cluster)
     m_cluster = cluster;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void NodeState::SetOperation(NodeUtils::DeviceOperation operation)
 {
@@ -72,4 +72,4 @@ void NodeState::SetOperation(NodeUtils::DeviceOperation operation)
     m_operation = operation;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

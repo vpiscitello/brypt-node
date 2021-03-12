@@ -1,7 +1,7 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: MessageSinkStub.cpp
 // Description:
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "MessageSinkStub.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
@@ -9,9 +9,9 @@
 #include "BryptMessage/NetworkMessage.hpp"
 #include "Components/BryptPeer/BryptPeer.hpp"
 #include "Utilities/Z85.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <mutex>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 MessageSinkStub::MessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 	: m_mutex()
@@ -24,7 +24,7 @@ MessageSinkStub::MessageSinkStub(BryptIdentifier::SharedContainer const& spBrypt
 	assert(m_spBryptIdentifier);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool MessageSinkStub::CollectMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -38,7 +38,7 @@ bool MessageSinkStub::CollectMessage(
     return CollectMessage(wpBryptPeer, context, decoded);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool MessageSinkStub::CollectMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -121,7 +121,7 @@ bool MessageSinkStub::CollectMessage(
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<AssociatedMessage> MessageSinkStub::GetNextMessage()
 {
@@ -136,7 +136,7 @@ std::optional<AssociatedMessage> MessageSinkStub::GetNextMessage()
 	return message;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool MessageSinkStub::ReceviedHeartbeatRequest() const
 {
@@ -144,7 +144,7 @@ bool MessageSinkStub::ReceviedHeartbeatRequest() const
 	return m_bReceivedHeartbeatRequest;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool MessageSinkStub::ReceviedHeartbeatResponse() const
 {
@@ -152,7 +152,7 @@ bool MessageSinkStub::ReceviedHeartbeatResponse() const
 	return m_bReceivedHeartbeatResponse;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::uint32_t MessageSinkStub::InvalidMessageCount() const
 {
@@ -160,7 +160,7 @@ std::uint32_t MessageSinkStub::InvalidMessageCount() const
 	return m_invalidMessageCount;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool MessageSinkStub::QueueMessage(
 	std::weak_ptr<BryptPeer> const& wpBryptPeer,
@@ -171,4 +171,4 @@ bool MessageSinkStub::QueueMessage(
 	return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

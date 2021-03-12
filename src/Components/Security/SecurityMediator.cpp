@@ -1,7 +1,7 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: SecurityMediator.cpp
 // Description:
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "SecurityMediator.hpp"
 #include "SecurityUtils.hpp"
 #include "BryptMessage/MessageContext.hpp"
@@ -9,13 +9,13 @@
 #include "Components/MessageControl/ExchangeProcessor.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // Description: 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 SecurityMediator::SecurityMediator(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
     Security::Context context,
@@ -31,7 +31,7 @@ SecurityMediator::SecurityMediator(
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 SecurityMediator::SecurityMediator(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
@@ -47,7 +47,7 @@ SecurityMediator::SecurityMediator(
 {
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 SecurityMediator::~SecurityMediator()
 {
@@ -58,7 +58,7 @@ SecurityMediator::~SecurityMediator()
     if (m_spBryptPeer && m_upExchangeProcessor) { m_spBryptPeer->SetReceiver(nullptr); }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void SecurityMediator::OnExchangeClose(ExchangeStatus status)
 {
@@ -86,7 +86,7 @@ void SecurityMediator::OnExchangeClose(ExchangeStatus status)
     m_upExchangeProcessor.reset(); // Delete the exchange processor. 
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void SecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy)
 {
@@ -94,7 +94,7 @@ void SecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& 
     m_upStrategy = std::move(upStrategy);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::State SecurityMediator::GetSecurityState() const
 {
@@ -102,7 +102,7 @@ Security::State SecurityMediator::GetSecurityState() const
     return m_state;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void SecurityMediator::BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
 {
@@ -131,7 +131,7 @@ void SecurityMediator::BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
     }
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void SecurityMediator::BindSecurityContext(MessageContext& context) const
 {
@@ -173,7 +173,7 @@ void SecurityMediator::BindSecurityContext(MessageContext& context) const
         });
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<std::string> SecurityMediator::SetupExchangeInitiator(
     Security::Strategy strategy, std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
@@ -198,7 +198,7 @@ std::optional<std::string> SecurityMediator::SetupExchangeInitiator(
     return request;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool SecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
 {
@@ -221,7 +221,7 @@ bool SecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool SecurityMediator::SetupExchangeProcessor(
     std::unique_ptr<ISecurityStrategy>&& upStrategy,
@@ -235,4 +235,4 @@ bool SecurityMediator::SetupExchangeProcessor(
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

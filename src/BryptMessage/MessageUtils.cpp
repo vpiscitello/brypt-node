@@ -1,13 +1,13 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: MessageUtils.cpp
 // Description:
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "MessageUtils.hpp"
 #include "MessageHeader.hpp"
 #include "PackUtils.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/IdentifierDefinitions.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Protocol> protocol)
 {
@@ -24,7 +24,7 @@ Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Pro
     return Message::Protocol::Invalid;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<Message::Protocol> Message::PeekProtocol(std::span<std::uint8_t const> buffer)
 {
@@ -38,7 +38,7 @@ std::optional<Message::Protocol> Message::PeekProtocol(std::span<std::uint8_t co
     return protocol;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<std::uint32_t> Message::PeekSize(std::span<std::uint8_t const> buffer)
 {
@@ -62,7 +62,7 @@ std::optional<std::uint32_t> Message::PeekSize(std::span<std::uint8_t const> buf
     return size;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<BryptIdentifier::Container> Message::PeekSource(
     std::span<std::uint8_t const> buffer)
@@ -102,4 +102,4 @@ std::optional<BryptIdentifier::Container> Message::PeekSource(
     return identifier;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

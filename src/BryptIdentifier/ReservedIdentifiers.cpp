@@ -1,19 +1,19 @@
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: ReservedIdentifiers.cpp
 // Description:
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier.hpp"
 #include "IdentifierDefinitions.hpp"
 #include "ReservedIdentifiers.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstdint>
 #include <memory>
 #include <vector>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool ReservedIdentifiers::IsIdentifierReserved(std::vector<std::uint8_t> const& buffer)
 {
@@ -25,7 +25,7 @@ bool ReservedIdentifiers::IsIdentifierReserved(std::vector<std::uint8_t> const& 
     return IsIdentifierReserved(*optInternalRepresentation);
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::Internal::Type const& identifier)
 {
@@ -36,7 +36,7 @@ bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::Internal::Type c
     return false;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool ReservedIdentifiers::IsIdentifierReserved(std::string_view identifier)
 {
@@ -47,14 +47,14 @@ bool ReservedIdentifiers::IsIdentifierReserved(std::string_view identifier)
     return false;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::Container const& identifier)
 {
     return IsIdentifierReserved(identifier.GetInternalRepresentation());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Internal::Type const& identifier)
 {
@@ -65,7 +65,7 @@ bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Internal::Type co
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool ReservedIdentifiers::IsIdentifierAllowed(std::string_view identifier)
 {
@@ -76,7 +76,7 @@ bool ReservedIdentifiers::IsIdentifierAllowed(std::string_view identifier)
     return true;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 
 bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Container const& identifier)
@@ -84,4 +84,4 @@ bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Container const& 
     return IsIdentifierAllowed(identifier.GetInternalRepresentation());
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
