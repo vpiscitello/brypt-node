@@ -40,15 +40,23 @@ include_directories(${CMAKE_SOURCE_DIR})
 # Options
 #-----------------------------------------------------------------------------------------------------------------------
 option(ENABLE_TESTS "Enable Unit Test Builds" ON)
+option(SKIP_BINARY "Skip Brypt Binary Build" OFF)
+option(SKIP_SHARED_LIBRARY "Skip Brypt Shared Library Build" OFF)
 #-----------------------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Project source build. 
 #-----------------------------------------------------------------------------------------------------------------------
-add_subdirectory(BryptIdentifier)
-add_subdirectory(BryptMessage)
-add_subdirectory(Components)
-add_subdirectory(BryptNode)
+if(NOT SKIP_BINARY)
+    add_subdirectory(BryptIdentifier)
+    add_subdirectory(BryptMessage)
+    add_subdirectory(Components)
+    add_subdirectory(BryptNode)
+endif()
+
+if(NOT SKIP_SHARED_LIBRARY)
+    add_subdirectory(BryptLibrary)
+endif()
 #-----------------------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------------------
