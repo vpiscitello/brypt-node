@@ -84,6 +84,13 @@ bool ForegroundRuntime::Stop()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool ForegroundRuntime::IsActive() const
+{
+    return m_active;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 BackgroundRuntime::BackgroundRuntime(BryptNode& instance)
     : IRuntimePolicy(instance)
     , m_active(false)
@@ -118,6 +125,13 @@ bool BackgroundRuntime::Stop()
     m_active = false;
 
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool BackgroundRuntime::IsActive() const
+{
+    return m_active;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

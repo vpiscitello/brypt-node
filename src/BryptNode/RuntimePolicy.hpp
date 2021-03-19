@@ -27,6 +27,7 @@ public:
 
     [[nodiscard]] virtual bool Start() = 0;
     [[nodiscard]] virtual bool Stop() = 0;
+    [[nodiscard]] virtual bool IsActive() const = 0;
 
 protected:
     virtual void ProcessEvents() final;
@@ -44,6 +45,7 @@ public:
 
     [[nodiscard]] virtual bool Start() override;
     [[nodiscard]] virtual bool Stop() override;
+    [[nodiscard]] virtual bool IsActive() const override;
 
 private:
     std::atomic_bool m_active;
@@ -58,6 +60,7 @@ public:
 
     [[nodiscard]] virtual bool Start() override;
     [[nodiscard]] virtual bool Stop() override;
+    [[nodiscard]] virtual bool IsActive() const override;
 
 private:
     void BackgroundProcessor(std::stop_token token);

@@ -70,20 +70,20 @@ public:
     template<typename RuntimePolicy = ForegroundRuntime>
         requires std::derived_from<RuntimePolicy, IRuntimePolicy>
     [[nodiscard]] bool Startup();
-    
     [[nodiscard]] bool Shutdown();
+    [[nodiscard]] bool IsActive() const;
 
     // Getter Functions
-    std::weak_ptr<NodeState> GetNodeState() const;
-    std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
-    std::weak_ptr<NetworkState> GetNetworkState() const;
-    std::weak_ptr<SecurityState> GetSecurityState() const;
-    std::weak_ptr<SensorState> GetSensorState() const;
+    [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
+    [[nodiscard]] std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
+    [[nodiscard]] std::weak_ptr<NetworkState> GetNetworkState() const;
+    [[nodiscard]] std::weak_ptr<SecurityState> GetSecurityState() const;
+    [[nodiscard]] std::weak_ptr<SensorState> GetSensorState() const;
 
-    std::weak_ptr<EndpointManager> GetEndpointManager() const;
-    std::weak_ptr<PeerManager> GetPeerManager() const;
-    std::weak_ptr<PeerPersistor> GetPeerPersistor() const;
-    std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
+    [[nodiscard]] std::weak_ptr<EndpointManager> GetEndpointManager() const;
+    [[nodiscard]] std::weak_ptr<PeerManager> GetPeerManager() const;
+    [[nodiscard]] std::weak_ptr<PeerPersistor> GetPeerPersistor() const;
+    [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
     bool StartComponents();

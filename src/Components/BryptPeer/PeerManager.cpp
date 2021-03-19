@@ -43,9 +43,7 @@ PeerManager::PeerManager(
     , m_spConnectProtocol(spConnectProtocol)
     , m_wpPromotedProcessor(wpPromotedProcessor)
 {
-    if (m_strategyType == Security::Strategy::Invalid) {
-        throw std::runtime_error("Peer Manager was not provided a valid security strategy type!");
-    }
+    assert(m_strategyType != Security::Strategy::Invalid);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

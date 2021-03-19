@@ -95,6 +95,13 @@ bool BryptNode::Shutdown()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool BryptNode::IsActive() const
+{
+    return (m_upRuntime && m_upRuntime->IsActive());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::weak_ptr<NodeState> BryptNode::GetNodeState() const
 {
     return m_spNodeState;
