@@ -1,0 +1,23 @@
+{
+	"version": "0.0.0",
+	"identifier": {
+		"type": "Ephemeral"
+	},
+	"details": {
+		"name": "alpha",
+		"description": "",
+		"location": ""
+	},
+	"endpoints": [
+		{
+			"protocol": "TCP",
+			"interface": "lo",
+			"binding": "*:35216"
+		}
+	],
+	"security": {
+		"strategy": "PQNISTL3",
+		"token": "",
+		"authority": ""
+	}
+}

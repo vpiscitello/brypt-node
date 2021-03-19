@@ -1,0 +1,8 @@
+[
+	{
+		"protocol": "TCP",
+		"bootstraps": [
+			{ "target": "tcp://127.0.0.1:35217" }
+		]
+	}
+]

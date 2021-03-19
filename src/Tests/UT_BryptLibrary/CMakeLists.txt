@@ -1,0 +1,39 @@
+#-----------------------------------------------------------------------------------------------------------------------
+message(STATUS "Configuring UT_BryptLibrary...")
+#-----------------------------------------------------------------------------------------------------------------------
+project(UT_BryptLibrary LANGUAGES CXX)
+add_executable(${PROJECT_NAME})
+#-----------------------------------------------------------------------------------------------------------------------
+
+set(BRYPT_DIRECTORY ${CMAKE_BINARY_DIR})
+set(BRYPT_INCLUDE_DIRS ${BRYPT_DIRECTORY}/include)
+set(BRYPT_LIBRARY ${BRYPT_DIRECTORY}/lib/libbrypt.so.0.0.0)
+
+add_dependencies(UT_BryptLibrary brypt)
+
+target_sources(
+    # Library Name
+    ${PROJECT_NAME}
+    # Source Type
+    PRIVATE
+    # Source Files
+    OptionTest.cpp
+    ServiceTest.cpp
+    StatusTest.cpp
+    UT_BryptLibrary.cpp)
+
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    ${GTEST_INCLUDE_DIRS} ${BRYPT_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
+
+target_link_libraries(${PROJECT_NAME} PUBLIC brypt ${BRYPT_LIBRARY} ${GTEST_LIBRARIES})
+
+target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
+
+#-----------------------------------------------------------------------------------------------------------------------
+
+configure_file("config/config.json" "config/config.json" COPYONLY)
+configure_file("config/peers.json" "config/peers.json" COPYONLY)
+
+#-----------------------------------------------------------------------------------------------------------------------
+gtest_discover_tests(${PROJECT_NAME})
+#-----------------------------------------------------------------------------------------------------------------------
