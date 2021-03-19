@@ -302,7 +302,7 @@ public:
     service(service&& other) = default;
     service& operator=(service&& other) = default;
 
-    [[nodiscard]] option get_option(brypt_option_t type) const noexcept
+    [[nodiscard]] option get_option(brypt_option_t type) const
     {
         if (!m_service) { throw status(error_code::operation_not_supported); }
 
@@ -316,6 +316,25 @@ public:
                 return option(type, brypt_option_get_bool(m_service.get(), type));
             }
             default: throw status(error_code::invalid_argument);
+        }
+    }
+
+    [[nodiscard]] option get_option(brypt_option_t type, status& result) const noexcept
+    {
+        if (!m_service) { result =  status(error_code::operation_not_supported); }
+
+        result = {};
+
+        switch (type) {
+            case option::base_path:
+            case option::configuration_filename:
+            case option::peers_filename: {
+                return option(type, brypt_option_get_str(m_service.get(), type));
+            }
+            case option::use_bootstraps: {
+                return option(type, brypt_option_get_bool(m_service.get(), type));
+            }
+            default: result = status(error_code::invalid_argument);
         }
     }
 
