@@ -6,6 +6,7 @@
 #include <brypt/brypt.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <any>
+#include <cassert>
 #include <concepts>
 #include <cstdint>
 #include <memory>
@@ -75,14 +76,14 @@ public:
     {
     }
 
-    explicit status(brypt_status_t status) noexcept
+    status(brypt_status_t status) noexcept
         : std::runtime_error(brypt_error_description(status))
         , m_status(status)
     {
     }
 
     template<status_code CodeType>
-    explicit status(CodeType status) noexcept
+    status(CodeType status) noexcept
         : std::runtime_error(brypt_error_description(static_cast<brypt_status_t>(status)))
         , m_status(static_cast<brypt_status_t>(status))
     {
@@ -253,7 +254,7 @@ public:
     [[nodiscard]] status get(ValueType& value) const
     {
         try { value = std::any_cast<ValueType>(m_value); }
-        catch(...) { return status(error_code::invalid_argument); }
+        catch(...) { return error_code::invalid_argument; }
         return {};
     }
 
@@ -261,7 +262,7 @@ private:
     void handle_invalid_value(status& result)
     {
         m_value.reset();
-        result = status(error_code::invalid_argument);
+        result = error_code::invalid_argument;
     }
 
     brypt_option_t m_name;
@@ -284,10 +285,8 @@ public:
         : m_service(
             brypt_service_create(base_path.data(), base_path.size()), &brypt_service_destroy)
     {
-        if (!m_service) {
-            result = status(error_code::initialization_failure);
-            return;
-        }
+        assert(m_service);
+        if (!m_service) { result = error_code::initialization_failure; return; }
         result = {};
     }
 
@@ -304,7 +303,7 @@ public:
 
     [[nodiscard]] option get_option(brypt_option_t type) const
     {
-        if (!m_service) { throw status(error_code::operation_not_supported); }
+        assert(m_service);
 
         switch (type) {
             case option::base_path:
@@ -321,7 +320,7 @@ public:
 
     [[nodiscard]] option get_option(brypt_option_t type, status& result) const noexcept
     {
-        if (!m_service) { result =  status(error_code::operation_not_supported); }
+        assert(m_service);
 
         result = {};
 
@@ -334,13 +333,13 @@ public:
             case option::use_bootstraps: {
                 return option(type, brypt_option_get_bool(m_service.get(), type));
             }
-            default: result = status(error_code::invalid_argument);
+            default: result = error_code::invalid_argument;
         }
     }
 
     [[nodiscard]] status set_option(option const& opt) noexcept
     {
-        if (!m_service) { return status(error_code::operation_not_supported); }
+        assert(m_service);
 
         switch (opt.name()) {
             case option::base_path:
@@ -349,21 +348,21 @@ public:
                 auto const optValue = opt.value<std::string>();
                 if (optValue) {
                     auto const& value = optValue.value().get();
-                    return status(brypt_option_set_str(m_service.get(), opt.name(), value.data(), value.size()));
+                    return brypt_option_set_str(m_service.get(), opt.name(), value.c_str(), value.size());
                 }
             } break;
             case option::use_bootstraps: {
                 auto const optValue = opt.value<bool>();
                 if (optValue) {
-                    return status(brypt_option_set_bool(m_service.get(), opt.name(), *optValue));
+                    return brypt_option_set_bool(m_service.get(), opt.name(), *optValue);
                 }
             } break;
             default: break;
         }
 
-        return status(error_code::invalid_argument);
+        return error_code::invalid_argument;
     }
-    
+
     [[nodiscard]] status startup() noexcept
     {
         return status(brypt_service_start(m_service.get()));
