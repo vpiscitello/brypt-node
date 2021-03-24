@@ -104,7 +104,12 @@ BRYPT_CONSTANT brypt_status_t BRYPT_ENETCONNNFAILED = BRYPT_NETWORK_VALUE(1);
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define DECLARE_HANDLE(name) struct name; typedef struct name name
+BRYPT_CONSTANT size_t BRYPT_IDENTIFIER_MIN_SIZE = 31;
+BRYPT_CONSTANT size_t BRYPT_IDENTIFIER_MAX_SIZE = 33;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+#define DECLARE_HANDLE(name) struct name; typedef struct name##_t name##_t
 
 //----------------------------------------------------------------------------------------------------------------------
 #if defined(__cplusplus)
@@ -112,22 +117,32 @@ extern "C" {
 #endif
 //----------------------------------------------------------------------------------------------------------------------
 
-DECLARE_HANDLE(brypt_service_t);
+DECLARE_HANDLE(brypt_service);
 
 BRYPT_EXPORT brypt_service_t* brypt_service_create(char const* base_path, size_t base_path_size);
+BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const service);
+BRYPT_EXPORT brypt_status_t brypt_service_start(brypt_service_t* const service);
+BRYPT_EXPORT brypt_status_t brypt_service_stop(brypt_service_t* const service);
 BRYPT_EXPORT brypt_status_t brypt_service_destroy(brypt_service_t* service);
 
-BRYPT_EXPORT brypt_status_t brypt_option_set_int(brypt_service_t* service, brypt_option_t option, int32_t value);
-BRYPT_EXPORT brypt_status_t brypt_option_set_bool(brypt_service_t* service, brypt_option_t option, bool value);
+BRYPT_EXPORT brypt_status_t brypt_option_set_int(
+    brypt_service_t* const service, brypt_option_t option, int32_t value);
+BRYPT_EXPORT brypt_status_t brypt_option_set_bool(
+    brypt_service_t* const service, brypt_option_t option, bool value);
 BRYPT_EXPORT brypt_status_t brypt_option_set_str(
-    brypt_service_t* service, brypt_option_t option, char const* value, size_t size);
+    brypt_service_t* const service, brypt_option_t option, char const* value, size_t size);
 
-BRYPT_EXPORT int32_t brypt_option_get_int(brypt_service_t* service, brypt_option_t option);
-BRYPT_EXPORT bool brypt_option_get_bool(brypt_service_t* service, brypt_option_t option);
-BRYPT_EXPORT char const* brypt_option_get_str(brypt_service_t* service, brypt_option_t option);
+BRYPT_EXPORT int32_t brypt_option_get_int(brypt_service_t const* const service, brypt_option_t option);
+BRYPT_EXPORT bool brypt_option_get_bool(brypt_service_t const* const service, brypt_option_t option);
+BRYPT_EXPORT char const* brypt_option_get_str(brypt_service_t const* const service, brypt_option_t option);
 
-BRYPT_EXPORT brypt_status_t brypt_service_start(brypt_service_t* service);
-BRYPT_EXPORT brypt_status_t brypt_service_stop(brypt_service_t* service);
+BRYPT_EXPORT bool brypt_service_is_active(brypt_service_t const* const service);
+
+BRYPT_EXPORT size_t brypt_service_get_identifier(brypt_service_t const* const service, char* buffer, size_t size);
+
+BRYPT_EXPORT size_t brypt_service_active_peer_count(brypt_service_t const* const service);
+BRYPT_EXPORT size_t brypt_service_inactive_peer_count(brypt_service_t const* const service);
+BRYPT_EXPORT size_t brypt_service_observed_peer_count(brypt_service_t const* const service);
 
 BRYPT_EXPORT char const* brypt_error_description(brypt_status_t code);
 

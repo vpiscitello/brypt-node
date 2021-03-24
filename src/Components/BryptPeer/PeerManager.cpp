@@ -196,21 +196,15 @@ bool PeerManager::ForEachCachedIdentifier(
 {
     std::shared_lock lock(m_peersMutex);
     for (auto const& spBryptPeer: m_peers) {
-        bool bShouldProvideIdentifier = true;
+        bool isIncluded = true;
         switch (filter) {
-            case Filter::Active: {
-                bShouldProvideIdentifier = spBryptPeer->IsActive();
-            } break;
-            case Filter::Inactive: {
-                bShouldProvideIdentifier = !spBryptPeer->IsActive();
-            } break;
-            case Filter::None: {
-                bShouldProvideIdentifier = true;
-            } break;
+            case Filter::Active: { isIncluded = spBryptPeer->IsActive(); } break;
+            case Filter::Inactive: { isIncluded = !spBryptPeer->IsActive(); } break;
+            case Filter::None: { isIncluded = true; } break;
             default: assert(false); // What is this?
         }
 
-        if (bShouldProvideIdentifier) {
+        if (isIncluded) {
             if (callback(spBryptPeer->GetBryptIdentifier()) != CallbackIteration::Continue) {
                 break;
             }
@@ -255,24 +249,16 @@ bool PeerManager::ForEachPeer(ForEachPeerFunction const& callback, Filter filter
 {
     std::shared_lock lock(m_peersMutex);
     for (auto const& spBryptPeer: m_peers) {
-        bool bShouldProvideIdentifier = true;
+        bool isIncluded = true;
         switch (filter) {
-            case Filter::Active: {
-                bShouldProvideIdentifier = spBryptPeer->IsActive();
-            } break;
-            case Filter::Inactive: {
-                bShouldProvideIdentifier = !spBryptPeer->IsActive();
-            } break;
-            case Filter::None: {
-                bShouldProvideIdentifier = true;
-            } break;
+            case Filter::Active: { isIncluded = spBryptPeer->IsActive(); } break;
+            case Filter::Inactive: { isIncluded = !spBryptPeer->IsActive(); } break;
+            case Filter::None: { isIncluded = true; } break;
             default: assert(false); // What is this?
         }
 
-        if (bShouldProvideIdentifier) {
-            if (callback(spBryptPeer) != CallbackIteration::Continue) {
-                break;
-            }
+        if (isIncluded) {
+            if (callback(spBryptPeer) != CallbackIteration::Continue) { break; }
         }
     }
 
@@ -287,23 +273,15 @@ std::size_t PeerManager::PeerCount(Filter filter) const
 
     std::shared_lock lock(m_peersMutex);
     for (auto const& spBryptPeer: m_peers) {
-        bool bShouldCountPeer = true;
+        bool isIncluded = true;
         switch (filter) {
-            case Filter::Active: {
-                bShouldCountPeer = spBryptPeer->IsActive();
-            } break;
-            case Filter::Inactive: {
-                bShouldCountPeer = !spBryptPeer->IsActive();
-            } break;
-            case Filter::None: {
-                bShouldCountPeer = true;
-            } break;
+            case Filter::Active: { isIncluded = spBryptPeer->IsActive(); } break;
+            case Filter::Inactive: { isIncluded = !spBryptPeer->IsActive(); } break;
+            case Filter::None: { isIncluded = true; } break;
             default: assert(false); // What is this?
         }
         
-        if (bShouldCountPeer) {
-            ++count;
-        }
+        if (isIncluded) { ++count; }
     }
 
     return count;

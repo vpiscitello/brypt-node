@@ -274,16 +274,21 @@ private:
 class brypt::service
 {
 public:
+    enum class peer_filter : std::uint32_t { active, inactive, observed };
+
     explicit service(std::string_view base_path)
         : m_service(
             brypt_service_create(base_path.data(), base_path.size()), &brypt_service_destroy)
+        , m_identifier()
     {
+        assert(m_service);
         if (!m_service) { throw status(error_code::initialization_failure); }
     }
 
     service(std::string_view base_path, status& result)
         : m_service(
             brypt_service_create(base_path.data(), base_path.size()), &brypt_service_destroy)
+        , m_identifier()
     {
         assert(m_service);
         if (!m_service) { result = error_code::initialization_failure; return; }
@@ -300,6 +305,30 @@ public:
 
     service(service&& other) = default;
     service& operator=(service&& other) = default;
+
+    [[nodiscard]] status initialize() noexcept
+    {
+        auto const result = brypt_service_initialize(m_service.get());
+        if (result != BRYPT_ACCEPTED) { return result; }
+
+        m_identifier.resize(BRYPT_IDENTIFIER_MAX_SIZE, '\x00');
+        std::size_t written = brypt_service_get_identifier(m_service.get(), m_identifier.data(), m_identifier.size());
+        if (written < BRYPT_IDENTIFIER_MIN_SIZE) { return error_code::initialization_failure; }
+        
+        return success_code::accepted;
+    }
+    
+    [[nodiscard]] status startup() noexcept
+    {
+        assert(m_service);
+        return brypt_service_start(m_service.get());
+    }
+
+    [[nodiscard]] status shutdown() noexcept
+    {
+        assert(m_service);
+        return brypt_service_stop(m_service.get());
+    }
 
     [[nodiscard]] option get_option(brypt_option_t type) const
     {
@@ -363,17 +392,30 @@ public:
         return error_code::invalid_argument;
     }
 
-    [[nodiscard]] status startup() noexcept
+    [[nodiscard]] std::string const& identifier() const noexcept
     {
-        return status(brypt_service_start(m_service.get()));
+        return m_identifier;
     }
 
-    [[nodiscard]] status shutdown() noexcept
+    [[nodiscard]] bool is_active() const noexcept
     {
-        return status(brypt_service_stop(m_service.get()));
+        assert(m_service);
+        return brypt_service_is_active(m_service.get());
+    }
+
+    [[nodiscard]] std::size_t peer_count(peer_filter filter = peer_filter::active) const noexcept
+    {
+        assert(m_service);
+        switch (filter) {
+            case peer_filter::active: return brypt_service_active_peer_count(m_service.get());
+            case peer_filter::inactive: return brypt_service_inactive_peer_count(m_service.get());
+            case peer_filter::observed: return brypt_service_observed_peer_count(m_service.get());
+            default: assert(false); return 0;
+        }
     }
 
 private:
     using unique_service_t = std::unique_ptr<brypt_service_t, decltype(&brypt_service_destroy)>;
     unique_service_t m_service;
+    std::string m_identifier;
 };

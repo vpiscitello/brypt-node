@@ -1,6 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "brypt.h"
+#include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptNode/BryptNode.hpp"
+#include "BryptNode/NodeState.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/ConfigurationManager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
@@ -36,6 +38,13 @@ constexpr bool UseBootstraps = true;
 //----------------------------------------------------------------------------------------------------------------------
 } // defaults namespace
 } // namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+static_assert(
+    BRYPT_IDENTIFIER_MIN_SIZE == BryptIdentifier::Network::MinimumLength, "Brypt Identifier Minimum Size Mismatch!");
+static_assert(
+    BRYPT_IDENTIFIER_MAX_SIZE == BryptIdentifier::Network::MaximumLength, "Brypt Identifier Maximum Size Mismatch!");
+
 //----------------------------------------------------------------------------------------------------------------------
 
 struct brypt_service_t
@@ -82,6 +91,67 @@ brypt_service_t* brypt_service_create(char const* base_path, size_t base_path_si
 
 //----------------------------------------------------------------------------------------------------------------------
 
+BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const service)
+{
+    if (!service) { return BRYPT_EINVALIDARGUMENT; }
+    if (service->node && !service->node->Shutdown()) { return BRYPT_EOPERNOTSUPPORTED; }
+   
+    auto const upConfig = std::make_unique<Configuration::Manager>(service->GetConfigurationFilepath(), false, false);
+    switch (upConfig->FetchSettings()) {
+        case Configuration::StatusCode::FileError: return BRYPT_EFILENOTFOUND;
+        case Configuration::StatusCode::DecodeError: 
+        case Configuration::StatusCode::InputError: return BRYPT_EFILENOTSUPPORTED;
+        default: break;
+    }
+
+    auto const spIdentifier = upConfig->GetBryptIdentifier();
+    if (!spIdentifier) { return BRYPT_EMISSINGPARAMETER; }
+
+    auto const optEndpoints = upConfig->GetEndpointConfigurations();
+    if (!optEndpoints) { return BRYPT_EMISSINGPARAMETER; }
+
+    auto const spPersistor = std::make_shared<PeerPersistor>(service->GetPeersFilepath(), *optEndpoints, false);
+    if (!spPersistor->FetchBootstraps()) { return BRYPT_EMISSINGPARAMETER; }
+
+    auto const spProtocol = std::make_shared<DiscoveryProtocol>(*optEndpoints);
+    auto const spProcessor = std::make_shared<AuthorizedProcessor>(spIdentifier);
+
+    auto const spPeerManager = std::make_shared<PeerManager>(
+        spIdentifier, upConfig->GetSecurityStrategy(), spProtocol, spProcessor);
+
+    spPersistor->SetMediator(spPeerManager.get());
+
+    IBootstrapCache const* const pBootstraps = (service->use_bootstraps) ? spPersistor.get() : nullptr;
+    auto const spEndpointManager = std::make_shared<EndpointManager>(*optEndpoints, spPeerManager.get(), pBootstraps);
+
+    service->node = std::make_unique<BryptNode>(
+        spIdentifier, spEndpointManager, spPeerManager, spProcessor, spPersistor, std::move(upConfig));
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_status_t brypt_service_start(brypt_service_t* const service)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+    if (!service->node->Startup<BackgroundRuntime>()) { return BRYPT_EINITNFAILURE; }
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_status_t brypt_service_stop(brypt_service_t* const service)
+{
+    if (!service) { return BRYPT_EINVALIDARGUMENT; }
+    if (!service->node) { return BRYPT_ENOTSTARTED; }
+    
+    if (!service->node->Shutdown()) { return BRYPT_EUNSPECIFIED; }
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 brypt_status_t brypt_service_destroy(brypt_service_t* service)
 {
     if (!service) { return BRYPT_EINVALIDARGUMENT; }
@@ -96,7 +166,7 @@ brypt_status_t brypt_service_destroy(brypt_service_t* service)
 //----------------------------------------------------------------------------------------------------------------------
 
 brypt_status_t brypt_option_set_int(
-    [[maybe_unused]] brypt_service_t* service,
+    [[maybe_unused]] brypt_service_t* const service,
     [[maybe_unused]] brypt_option_t option, [[maybe_unused]] int32_t value)
 {
     return BRYPT_EINVALIDARGUMENT;
@@ -104,7 +174,7 @@ brypt_status_t brypt_option_set_int(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_status_t brypt_option_set_bool(brypt_service_t* service, brypt_option_t option, bool value)
+brypt_status_t brypt_option_set_bool(brypt_service_t* const service, brypt_option_t option, bool value)
 {
     if (!service) { return BRYPT_EINVALIDARGUMENT; }
 
@@ -118,7 +188,8 @@ brypt_status_t brypt_option_set_bool(brypt_service_t* service, brypt_option_t op
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_status_t brypt_option_set_str(brypt_service_t* service, brypt_option_t option, char const* value, size_t size)
+brypt_status_t brypt_option_set_str(
+    brypt_service_t* const service, brypt_option_t option, char const* value, size_t size)
 {
     if (!service) { return BRYPT_EINVALIDARGUMENT; }
     if (service->node && service->node->IsActive()) { return BRYPT_EOPERNOTSUPPORTED; }
@@ -169,14 +240,15 @@ brypt_status_t brypt_option_set_str(brypt_service_t* service, brypt_option_t opt
 
 //----------------------------------------------------------------------------------------------------------------------
 
-int32_t brypt_option_get_int([[maybe_unused]] brypt_service_t* service, [[maybe_unused]] brypt_option_t option)
+int32_t brypt_option_get_int(
+    [[maybe_unused]] brypt_service_t const* const service, [[maybe_unused]] brypt_option_t option)
 {
     return -1;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool brypt_option_get_bool(brypt_service_t* service, brypt_option_t option)
+bool brypt_option_get_bool(brypt_service_t const* const service, brypt_option_t option)
 {
     if (!service) { return false; }
 
@@ -188,7 +260,7 @@ bool brypt_option_get_bool(brypt_service_t* service, brypt_option_t option)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-char const* brypt_option_get_str(brypt_service_t* service, brypt_option_t option)
+char const* brypt_option_get_str(brypt_service_t const* const service, brypt_option_t option)
 {
     if (!service) { return nullptr; }
 
@@ -202,55 +274,64 @@ char const* brypt_option_get_str(brypt_service_t* service, brypt_option_t option
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_status_t brypt_service_start(brypt_service_t* service)
+bool brypt_service_is_active(brypt_service_t const* const service)
 {
-    if (!service) { return BRYPT_EINVALIDARGUMENT; }
-
-    auto const upConfig = std::make_unique<Configuration::Manager>(service->GetConfigurationFilepath(), false, false);
-    switch (upConfig->FetchSettings()) {
-        case Configuration::StatusCode::FileError: return BRYPT_EFILENOTFOUND;
-        case Configuration::StatusCode::DecodeError: 
-        case Configuration::StatusCode::InputError: return BRYPT_EFILENOTSUPPORTED;
-        default: break;
-    }
-
-    auto const spIdentifier = upConfig->GetBryptIdentifier();
-    if (!spIdentifier) { return BRYPT_EMISSINGPARAMETER; }
-
-    auto const optEndpoints = upConfig->GetEndpointConfigurations();
-    if (!optEndpoints) { return BRYPT_EMISSINGPARAMETER; }
-
-    auto const spPersistor = std::make_shared<PeerPersistor>(service->GetPeersFilepath(), *optEndpoints, false);
-    if (!spPersistor->FetchBootstraps()) { return BRYPT_EMISSINGPARAMETER; }
-
-    auto const spProtocol = std::make_shared<DiscoveryProtocol>(*optEndpoints);
-    auto const spProcessor = std::make_shared<AuthorizedProcessor>(spIdentifier);
-
-    auto const spPeerManager = std::make_shared<PeerManager>(
-        spIdentifier, upConfig->GetSecurityStrategy(), spProtocol, spProcessor);
-
-    spPersistor->SetMediator(spPeerManager.get());
-
-    IBootstrapCache const* const pBootstraps = (service->use_bootstraps) ? spPersistor.get() : nullptr;
-    auto const spEndpointManager = std::make_shared<EndpointManager>(*optEndpoints, spPeerManager.get(), pBootstraps);
-
-    service->node = std::make_unique<BryptNode>(
-        spIdentifier, spEndpointManager, spPeerManager, spProcessor, spPersistor, std::move(upConfig));
-        
-    if (!service->node || !service->node->Startup<BackgroundRuntime>()) { return BRYPT_EINITNFAILURE; }
-
-    return BRYPT_ACCEPTED;
+    if (!service || !service->node) { return false; }
+    return service->node->IsActive();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_status_t brypt_service_stop(brypt_service_t* service)
+size_t brypt_service_get_identifier(brypt_service_t const* const service, char* dest, size_t size)
 {
-    if (!service) { return BRYPT_EINVALIDARGUMENT; }
-    if (!service->node) { return BRYPT_ENOTSTARTED; }
-    
-    if (!service->node->Shutdown()) { return BRYPT_EUNSPECIFIED; }
-    return BRYPT_ACCEPTED;
+    if (!service || !service->node) { return 0; }
+
+    if (auto const spNodeState = service->node->GetNodeState().lock(); spNodeState) {
+        auto const spIdentifier = spNodeState->GetBryptIdentifier();
+        auto const identifier = spIdentifier->GetNetworkRepresentation();
+        assert(dest && size >= identifier.size());
+        try {
+            std::copy(identifier.begin(), identifier.end(), dest);
+            return identifier.size();
+        } catch(...) {
+            return 0;
+        }
+    }
+
+    return 0;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+size_t brypt_service_active_peer_count(brypt_service_t const* const service)
+{
+    if (!service || !service->node) { return 0; }
+    if (auto const spPeerManager = service->node->GetPeerManager().lock(); spPeerManager) {
+        return spPeerManager->ActivePeerCount();
+    }
+    return 0;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+size_t brypt_service_inactive_peer_count(brypt_service_t const* const service)
+{
+    if (!service || !service->node) { return 0; }
+    if (auto const spPeerManager = service->node->GetPeerManager().lock(); spPeerManager) {
+        return spPeerManager->InactivePeerCount();
+    }
+    return 0;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+size_t brypt_service_observed_peer_count(brypt_service_t const* const service)
+{
+    if (!service || !service->node) { return 0; }
+    if (auto const spPeerManager = service->node->GetPeerManager().lock(); spPeerManager) {
+        return spPeerManager->ObservedPeerCount();
+    }
+    return 0;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -272,7 +353,7 @@ char const* brypt_error_description(brypt_status_t code)
         case BRYPT_EMISSINGPARAMETER: return "Configuration failed to apply due to a missing or failed option";
         case BRYPT_ENETBINDFAILED: return "Endpoint could not bind to the specified address";
         case BRYPT_ENETCONNNFAILED: return "Endpoint could not connect to the specified address";
-        default: return "Unexpected error";
+        default: return "Unknown error";
     }
 }
 
