@@ -41,7 +41,7 @@ Configuration::DetailsOptions GetDetailsOptionsFromUser();
 Configuration::EndpointConfigurations GetEndpointConfigurationsFromUser();
 Configuration::SecurityOptions GetSecurityOptionsFromUser();
 
-void InitializeIdentifierOptions(Configuration::IdentifierOptions& options);
+[[nodiscard]] bool InitializeIdentifierOptions(Configuration::IdentifierOptions& options);
 [[nodiscard]] bool InitializeEndpointConfigurations(
     Configuration::EndpointConfigurations& configurations,
     std::shared_ptr<spdlog::logger> const& spLogger);
@@ -448,8 +448,8 @@ Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
     li::json_object(
         s::version,
         s::identifier = li::json_object(
-            s::value,
-            s::type),
+            s::type,
+            s::value),
         s::details = li::json_object(
             s::name,
             s::description,
@@ -494,11 +494,15 @@ void Configuration::Manager::GetConfigurationOptionsFromUser()
 
 bool Configuration::Manager::InitializeSettings()
 {
-    local::InitializeIdentifierOptions(m_settings.identifier);
-    local::InitializeSecurityOptions(m_settings.security);
+    if (!local::InitializeIdentifierOptions(m_settings.identifier)) {
+        return false;
+    }
+    
     if (!local::InitializeEndpointConfigurations(m_settings.endpoints, m_spLogger)) {
         return false;
     }
+
+    local::InitializeSecurityOptions(m_settings.security);
 
     // Update the configuration file as the initialization of options may create new values 
     // for certain options. Currently, this only caused by the generation of Brypt Identifiers.
@@ -524,10 +528,12 @@ void local::SerializeIdentifierOptions(
     Configuration::IdentifierOptions const& options, std::ofstream& out)
 {
     out << "\t\"identifier\": {\n";
+    out << "\t\t\"type\": \"" << options.type;
     if (options.value && options.type == "Persistent") {
-        out << "\t\t\"value\": \"" << *options.value << "\",\n";
+        out << "\",\n\t\t\"value\": \"" << *options.value << "\"\n";
+    } else {
+        out << "\"\n";
     }
-    out << "\t\t\"type\": \"" << options.type << "\"\n";
     out << "\t},\n";
 }
 
@@ -756,7 +762,7 @@ Configuration::SecurityOptions local::GetSecurityOptionsFromUser()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& options)
+bool local::InitializeIdentifierOptions(Configuration::IdentifierOptions& options)
 {
     // If the identifier type is Ephemeral, then a new identifier should be generated. 
     // If the identifier type is Persistent, the we shall attempt to use provided value.
@@ -776,7 +782,10 @@ void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
             options.container = std::make_shared<BryptIdentifier::Container const>(
                 *options.value);
             assert(options.container);
-            if (!options.container->IsValid()) { options.value.reset(); }
+            if (!options.container->IsValid()) {
+                options.value.reset();
+                return false;
+            }
         } else {
             options.container = std::make_shared<BryptIdentifier::Container const>(
                 BryptIdentifier::Generate());
@@ -786,6 +795,8 @@ void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
     } else {
         assert(false); // How did these identifier options pass validation?
     }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
