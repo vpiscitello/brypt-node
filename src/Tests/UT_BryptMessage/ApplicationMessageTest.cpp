@@ -107,7 +107,7 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
     EXPECT_EQ(data, test::Data);
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 {
@@ -202,7 +202,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
     EXPECT_EQ(data, test::Data);
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 MessageContext local::GenerateMessageContext()
 {

@@ -90,7 +90,7 @@ inline void LogUtils::InitializeLoggers(spdlog::level::level_enum verbosity)
     spdlog::set_level(verbosity);
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 inline std::string LogUtils::Pattern::Generate(
     std::string_view color, std::vector<std::string> const& tags)
 {
@@ -103,7 +103,7 @@ inline std::string LogUtils::Pattern::Generate(
     return oss.str();
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 inline std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> LogUtils::Color::CreateTrueColorConsole()
 {
@@ -120,4 +120,4 @@ inline std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> LogUtils::Color::Cre
     return spColorSink;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

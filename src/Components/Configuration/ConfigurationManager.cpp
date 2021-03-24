@@ -1,17 +1,17 @@
 //----------------------------------------------------------------------------------------------------------------------
 // File: ConfigurationManager.cpp 
 // Description:
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "Configuration.hpp"
 #include "ConfigurationManager.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/FileUtils.hpp"
 #include "Utilities/LogUtils.hpp"
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <boost/algorithm/string.hpp>
 #include <lithium_json.hh>
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
 #include <cstdlib>
@@ -19,7 +19,7 @@
 #include <fstream>
 #include <memory>
 #include <string>
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
@@ -234,7 +234,7 @@ Configuration::Manager::Manager(
     }
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Manager::Manager(Settings const& settings)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
@@ -252,7 +252,7 @@ Configuration::Manager::Manager(Settings const& settings)
     ValidateSettings();
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::StatusCode Configuration::Manager::FetchSettings()
 {
@@ -282,7 +282,7 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
     return status;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::StatusCode Configuration::Manager::Serialize()
 {
@@ -307,12 +307,12 @@ Configuration::StatusCode Configuration::Manager::Serialize()
     return StatusCode::Success;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // Description: Generates a new configuration file based on user handler line arguements or
 // from user input.
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 {
     // If the configuration has not been provided to the Configuration Manager
@@ -329,7 +329,7 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
     return status;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::optional<Configuration::Settings> Configuration::Manager::GetSettings() const
 {
@@ -337,7 +337,7 @@ std::optional<Configuration::Settings> Configuration::Manager::GetSettings() con
     return m_settings;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 BryptIdentifier::SharedContainer Configuration::Manager::GetBryptIdentifier() const
 {
@@ -349,7 +349,7 @@ BryptIdentifier::SharedContainer Configuration::Manager::GetBryptIdentifier() co
     return spBryptIdentifier;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string Configuration::Manager::GetNodeName() const
 {
@@ -357,7 +357,7 @@ std::string Configuration::Manager::GetNodeName() const
     return m_settings.details.name;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string Configuration::Manager::GetNodeDescription() const
 {
@@ -365,7 +365,7 @@ std::string Configuration::Manager::GetNodeDescription() const
     return m_settings.details.description;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string Configuration::Manager::GetNodeLocation() const
 {
@@ -373,7 +373,7 @@ std::string Configuration::Manager::GetNodeLocation() const
     return m_settings.details.location;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
     
 std::optional<Configuration::EndpointConfigurations> Configuration::Manager::GetEndpointConfigurations() const
 {
@@ -381,7 +381,7 @@ std::optional<Configuration::EndpointConfigurations> Configuration::Manager::Get
     return m_settings.endpoints;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Security::Strategy Configuration::Manager::GetSecurityStrategy() const
 {
@@ -389,7 +389,7 @@ Security::Strategy Configuration::Manager::GetSecurityStrategy() const
     return m_settings.security.type;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 std::string Configuration::Manager::GetCentralAuthority() const
 {
@@ -397,7 +397,7 @@ std::string Configuration::Manager::GetCentralAuthority() const
     return m_settings.security.authority;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::StatusCode Configuration::Manager::ValidateSettings()
 {
@@ -424,7 +424,7 @@ Configuration::StatusCode Configuration::Manager::ValidateSettings()
     return StatusCode::Success;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
 {
@@ -469,7 +469,7 @@ Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
     return ValidateSettings();
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Configuration::Manager::GetConfigurationOptionsFromUser()
 {
@@ -490,7 +490,7 @@ void Configuration::Manager::GetConfigurationOptionsFromUser()
     m_settings.security = securityOptions;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Manager::InitializeSettings()
 {
@@ -511,14 +511,14 @@ bool Configuration::Manager::InitializeSettings()
     return true;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::SerializeVersion(std::ofstream& out)
 {
     out << "\t\"version\": \"" << Brypt::Version << "\",\n";
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::SerializeIdentifierOptions(
     Configuration::IdentifierOptions const& options, std::ofstream& out)
@@ -531,7 +531,7 @@ void local::SerializeIdentifierOptions(
     out << "\t},\n";
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::SerializeNodeOptions(
     Configuration::DetailsOptions const& options, std::ofstream& out)
@@ -543,7 +543,7 @@ void local::SerializeNodeOptions(
     out << "\t},\n";
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::SerializeEndpointConfigurations(
     Configuration::EndpointConfigurations const& configurations, std::ofstream& out)
@@ -565,7 +565,7 @@ void local::SerializeEndpointConfigurations(
     out << "\n\t],\n";
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::SerializeSecurityOptions(
     Configuration::SecurityOptions const& options, std::ofstream& out)
@@ -577,7 +577,7 @@ void local::SerializeSecurityOptions(
     out << "\t}\n";
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::IdentifierOptions local::GetIdentifierOptionsFromUser()
 {
@@ -602,7 +602,7 @@ Configuration::IdentifierOptions local::GetIdentifierOptionsFromUser()
     return options;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::DetailsOptions local::GetDetailsOptionsFromUser()
 {
@@ -630,7 +630,7 @@ Configuration::DetailsOptions local::GetDetailsOptionsFromUser()
     return options;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 {
@@ -706,7 +706,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
     return configurations;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 Configuration::SecurityOptions local::GetSecurityOptionsFromUser()
 {
@@ -754,7 +754,7 @@ Configuration::SecurityOptions local::GetSecurityOptionsFromUser()
     return options;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& options)
 {
@@ -788,7 +788,7 @@ void local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
     }
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 bool local::InitializeEndpointConfigurations(
     Configuration::EndpointConfigurations& configurations,
@@ -808,11 +808,11 @@ bool local::InitializeEndpointConfigurations(
     return success;
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void local::InitializeSecurityOptions(Configuration::SecurityOptions& options)
 {
     options.type = Security::ConvertToStrategy(options.strategy);
 }
 
-//-----------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
