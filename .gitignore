@@ -18,3 +18,5 @@ src/Libraries/liboqs/*
 src/Libraries/liboqs-cpp/*
 src/Libraries/lithium/*
 src/Libraries/spdlog/*
+
+.DS_Store
