@@ -2,6 +2,8 @@
 *.a
 *.d
 *.so
+*.dylib
+*.dll
 *.exe
 *.test
 *.pem
@@ -10,13 +12,7 @@
 
 src/temp/*
 src/external/*
-src/build/*
+src/*build*/*
 src/bin/*
-
-src/Libraries/googletest/*
-src/Libraries/liboqs/*
-src/Libraries/liboqs-cpp/*
-src/Libraries/lithium/*
-src/Libraries/spdlog/*
 
 .DS_Store
