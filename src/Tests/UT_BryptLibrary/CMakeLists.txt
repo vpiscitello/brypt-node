@@ -23,7 +23,7 @@ target_sources(
     UT_BryptLibrary.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-    ${GTEST_INCLUDE_DIRS} ${BRYPT_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
+    ${GTEST_INCLUDE_DIRS} ${BRYPT_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC brypt ${BRYPT_LIBRARY} ${GTEST_LIBRARIES})
 

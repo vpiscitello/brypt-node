@@ -37,6 +37,7 @@ function(set_project_options project_name)
     target_compile_options(${project_name} INTERFACE ${PROJECT_WARNINGS})
     target_compile_options(${project_name} INTERFACE ${PROJECT_FEATURES})
     target_link_options(${project_name} INTERFACE ${PROJECT_LINKS})
+    target_compile_definitions(${project_name} INTERFACE SPDLOG_COMPILED_LIB)
 endfunction()
 
 #-----------------------------------------------------------------------------------------------------------------------

@@ -19,8 +19,8 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Security MessageControl Network BryptMessage BryptIdentifier 
-    ${GTEST_LIBRARIES})
+    BryptPeer Security MessageControl Network Configuration BryptMessage BryptIdentifier 
+    ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 

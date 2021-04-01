@@ -84,7 +84,8 @@ target_link_libraries(
     ${PROJECT_NAME} PUBLIC
     ${Boost_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
-    ${OQS_LIBRARIES})
+    ${OQS_LIBRARIES}
+    ${spdlog_LIBRARIES})
 
 # Compilier options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

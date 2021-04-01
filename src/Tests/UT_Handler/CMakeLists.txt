@@ -32,7 +32,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Await Handler BryptPeer Network Security Configuration MessageControl BryptMessage BryptIdentifier 
-    ${GTEST_LIBRARIES})
+    ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
