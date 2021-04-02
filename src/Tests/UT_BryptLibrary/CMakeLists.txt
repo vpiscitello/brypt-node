@@ -7,7 +7,6 @@ add_executable(${PROJECT_NAME})
 
 set(BRYPT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(BRYPT_INCLUDE_DIRS ${BRYPT_DIRECTORY}/include)
-set(BRYPT_LIBRARY ${BRYPT_DIRECTORY}/lib/libbrypt.so.0.0.0)
 
 add_dependencies(UT_BryptLibrary brypt)
 
@@ -25,7 +24,7 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${BRYPT_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC brypt ${BRYPT_LIBRARY} ${GTEST_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC brypt ${GTEST_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
