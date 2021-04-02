@@ -81,7 +81,7 @@ target_include_directories(
 
 # Exported library dependencies
 target_link_libraries(
-    ${PROJECT_NAME} PUBLIC
+    ${PROJECT_NAME} PRIVATE
     ${Boost_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OQS_LIBRARIES}

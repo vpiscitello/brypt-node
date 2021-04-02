@@ -47,17 +47,19 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
         INSTALL_RPATH_USE_LINK_PATH TRUE
         INSTALL_RPATH "${MACOS_INSTALL_RPATH}")
 
+    set(MACOS_EXTERNAL_DIR "@executable_path/../../external/")
+
     # Fixup the binary on MacOS to run without installing
     add_custom_command(TARGET brypt-bin 
         POST_BUILD
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../external/boost/${BOOST_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}boost/${BOOST_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../external/liboqs/${OQS_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}liboqs/${OQS_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../external/openssl/${OPENSSL_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}openssl/${OPENSSL_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "@executable_path/../external/spdlog/${SPDLOG_VERSION}/lib/" $<TARGET_FILE:brypt-bin>)
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}spdlog/${SPDLOG_VERSION}/lib/" $<TARGET_FILE:brypt-bin>)
 endif()
 
 # Internal include dependencies
