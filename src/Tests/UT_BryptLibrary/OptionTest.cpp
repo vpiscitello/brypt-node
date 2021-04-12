@@ -55,8 +55,8 @@ TEST(BryptLibrarySuite, OptionTest)
 
         ValueType value;
         auto const status = option.get(value);
-        EXPECT_EQ(status.succeeded(), isExpectedInput);
-        if (status.succeeded()) { EXPECT_EQ(value, std::any_cast<ValueType const&>(input)); }
+        EXPECT_EQ(status.is_nominal(), isExpectedInput);
+        if (status.is_nominal()) { EXPECT_EQ(value, std::any_cast<ValueType const&>(input)); }
 
         auto const optValue = option.value<ValueType>();
         EXPECT_EQ(optValue != std::nullopt, isExpectedInput);
@@ -71,7 +71,7 @@ TEST(BryptLibrarySuite, OptionTest)
             brypt::status status;
             brypt::option option(name, input, status);
             
-            EXPECT_EQ(status.succeeded(), isExpectedInput);
+            EXPECT_EQ(status.is_nominal(), isExpectedInput);
             EXPECT_EQ(option.has_value(), isExpectedInput);
 
             VerifyOptionConversion.template operator()<std::decay_t<decltype(input)>>(option, input, isExpectedInput);

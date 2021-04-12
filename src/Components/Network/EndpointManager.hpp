@@ -26,7 +26,8 @@ namespace Network { class IEndpoint; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class EndpointManager : public IEndpointMediator {
+class EndpointManager : public IEndpointMediator
+{
 public:
     using SharedEndpoint = std::shared_ptr<Network::IEndpoint>;
 

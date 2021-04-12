@@ -116,12 +116,12 @@ public:
         return std::runtime_error::what();
     }
 
-    [[nodiscard]] bool succeeded() const noexcept
+    [[nodiscard]] bool is_nominal() const noexcept
     {
         return m_status == BRYPT_ACCEPTED;
     }
 
-    [[nodiscard]] bool failed() const noexcept
+    [[nodiscard]] bool is_error() const noexcept
     {
         return m_status != BRYPT_ACCEPTED;
     }

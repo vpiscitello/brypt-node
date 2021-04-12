@@ -236,8 +236,7 @@ Network::TCP::SocketProcessor Network::TCP::Session::Receiver()
         co_return received;
     };
 
-    auto const OnReceiveError = [this] (boost::system::error_code const& error)
-        -> CompletionOrigin
+    auto const OnReceiveError = [this] (boost::system::error_code const& error) -> CompletionOrigin
     {
         if (error) {
             return OnSessionError(error);
