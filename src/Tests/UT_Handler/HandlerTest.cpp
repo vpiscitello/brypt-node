@@ -69,7 +69,7 @@ TEST(HandlerSuite, HandlerMatchingTest)
     // internal state, but in order to setup our own we need to provide the 
     // handlers a node instance and a state.
     BryptNode node(
-        test::spServerIdentifier, nullptr, nullptr, nullptr, nullptr, upConfigurationManager);
+        test::spServerIdentifier, nullptr, nullptr, nullptr, nullptr, nullptr, upConfigurationManager);
 
     Handler::Map handlers;
     local::SetupHandlerMap(handlers, node);

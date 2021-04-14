@@ -6,6 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
 #include "Components/Await/TrackingManager.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/BryptPeer/PeerManager.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -34,24 +35,18 @@ IRuntimePolicy::IRuntimePolicy(BryptNode& instance)
 void IRuntimePolicy::ProcessEvents()
 {
     if (auto const optMessage = m_instance.m_spMessageProcessor->GetNextMessage(); optMessage) {
-        ProcessMessage(*optMessage);
+        auto const& handlers = m_instance.m_handlers;
+        auto& [spBryptPeer, message] = *optMessage;
+        if (auto const itr = handlers.find(message.GetCommand()); itr != handlers.end()) {
+            auto const& [type, handler] = *itr;
+            handler->HandleMessage(*optMessage);
+        }
     }
 
     m_instance.m_spAwaitManager->ProcessFulfilledRequests();
-
+    m_instance.m_spEventPublisher->PublishEvents();
+    
     std::this_thread::sleep_for(local::CycleTimeout);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void IRuntimePolicy::ProcessMessage(AssociatedMessage const& associatedMessage)
-{
-    auto const& handlers = m_instance.m_handlers;
-    auto& [spBryptPeer, message] = associatedMessage;
-    if (auto const itr = handlers.find(message.GetCommand()); itr != handlers.end()) {
-        auto const& [type, handler] = *itr;
-        handler->HandleMessage(associatedMessage);
-    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -31,7 +31,6 @@ public:
 
 protected:
     virtual void ProcessEvents() final;
-    virtual void ProcessMessage(AssociatedMessage const& associatedMessage) final;
 
     BryptNode& m_instance;
 };

@@ -9,6 +9,7 @@
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/ConfigurationManager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/EndpointTypes.hpp"
@@ -51,32 +52,27 @@ std::int32_t main(std::int32_t argc, char** argv)
         return 1;
     }
 
-    auto const spPeerPersistor = std::make_shared<PeerPersistor>(
-        options.GetPeersPath(), *optEndpointConfigurations);
-
+    auto const spPeerPersistor = std::make_shared<PeerPersistor>(options.GetPeersPath(), *optEndpointConfigurations);
     if (!spPeerPersistor->FetchBootstraps()) {
         spLogger->critical("An error occured parsing bootstraps!");
         return 1;
     }
 
-    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(
-        *optEndpointConfigurations);
-
+    auto const spEventPublisher = std::make_shared<Event::Publisher>();
+    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(*optEndpointConfigurations);
     auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(spBryptIdentifier);
-
     auto const spPeerManager = std::make_shared<PeerManager>(
         spBryptIdentifier, upConfigurationManager->GetSecurityStrategy(),
         spDiscoveryProtocol, spMessageCollector);
 
     spPeerPersistor->SetMediator(spPeerManager.get());
 
-    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? 
-        spPeerPersistor.get() : nullptr;
+    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spPeerPersistor.get() : nullptr;
     auto const spEndpointManager = std::make_shared<EndpointManager>(
         *optEndpointConfigurations, spPeerManager.get(), pBootstraps);
 
     BryptNode alpha(
-        spBryptIdentifier, spEndpointManager, spPeerManager, 
+        spBryptIdentifier, spEventPublisher, spEndpointManager, spPeerManager, 
         spMessageCollector, spPeerPersistor, upConfigurationManager);
 
     spLogger->info("Welcome to the Brypt Network!");
@@ -87,6 +83,8 @@ std::int32_t main(std::int32_t argc, char** argv)
         spLogger->critical("An unexpected error caused the node to shutdown!");
         return 1;
     }
+
+    // TODO: Use boost signal_set to listen for SIGTERM, etc.
 
     return 0;
 }

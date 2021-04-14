@@ -29,6 +29,7 @@ set(INTERNAL_LIBRARIES
     Security
     Configuration
     MessageControl
+    Event
     BryptMessage
     BryptIdentifier)
 

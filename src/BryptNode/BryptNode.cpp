@@ -16,6 +16,7 @@
 #include "Components/BryptPeer/PeerManager.hpp"
 #include "Components/Configuration/ConfigurationManager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
@@ -28,6 +29,7 @@
 
 BryptNode::BryptNode(
     BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    std::shared_ptr<Event::Publisher> const& spEventPublisher,
     std::shared_ptr<EndpointManager> const& spEndpointManager,
     std::shared_ptr<PeerManager> const& spPeerManager,
     std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
@@ -40,6 +42,7 @@ BryptNode::BryptNode(
     , m_spNetworkState()
     , m_spSecurityState()
     , m_spSensorState()
+    , m_spEventPublisher(spEventPublisher)
     , m_spEndpointManager(spEndpointManager)
     , m_spPeerManager(spPeerManager)
     , m_spMessageProcessor(spMessageProcessor)
@@ -90,7 +93,13 @@ bool BryptNode::Shutdown()
 
     m_spEndpointManager->Shutdown();
 
-    return m_upRuntime->Stop();
+    bool const stopped = m_upRuntime->Stop();
+    assert(stopped);
+
+    m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStopped>({ Event::Cause::Expected });
+    m_upRuntime.reset();
+
+    return stopped;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -171,6 +180,7 @@ bool BryptNode::StartComponents()
 
     m_spLogger->info("Starting up brypt node instance.");
     m_spEndpointManager->Startup();
+    m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStarted>();
 
     return true;
 }

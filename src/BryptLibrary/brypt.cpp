@@ -6,6 +6,7 @@
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/ConfigurationManager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/EndpointTypes.hpp"
@@ -107,6 +108,8 @@ BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const serv
     auto const spIdentifier = upConfig->GetBryptIdentifier();
     if (!spIdentifier) { return BRYPT_EMISSINGPARAMETER; }
 
+    auto const spEventPublisher = std::make_shared<Event::Publisher>();
+
     auto const optEndpoints = upConfig->GetEndpointConfigurations();
     if (!optEndpoints) { return BRYPT_EMISSINGPARAMETER; }
 
@@ -125,7 +128,8 @@ BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const serv
     auto const spEndpointManager = std::make_shared<EndpointManager>(*optEndpoints, spPeerManager.get(), pBootstraps);
 
     service->node = std::make_unique<BryptNode>(
-        spIdentifier, spEndpointManager, spPeerManager, spProcessor, spPersistor, std::move(upConfig));
+        spIdentifier, spEventPublisher, spEndpointManager,
+        spPeerManager, spProcessor, spPersistor, std::move(upConfig));
 
     return BRYPT_ACCEPTED;
 }

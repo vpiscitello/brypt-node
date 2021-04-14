@@ -26,9 +26,9 @@ namespace Await {
     class TrackingManager;
 }
 
-namespace Configuration {
-    class Manager;
-}
+namespace Configuration { class Manager; }
+
+namespace Event { class Publisher; }
 
 class AuthorizedProcessor;
 class EndpointManager;
@@ -54,6 +54,7 @@ public:
     // Constructors and Deconstructors
     BryptNode(
         BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        std::shared_ptr<Event::Publisher> const& spEventPublisher,
         std::shared_ptr<EndpointManager> const& spEndpointManager,
         std::shared_ptr<PeerManager> const& spPeerManager,
         std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
@@ -67,8 +68,7 @@ public:
 
     ~BryptNode() = default;
 
-    template<typename RuntimePolicy = ForegroundRuntime>
-        requires std::derived_from<RuntimePolicy, IRuntimePolicy>
+    template<typename RuntimePolicy = ForegroundRuntime> requires std::derived_from<RuntimePolicy, IRuntimePolicy>
     [[nodiscard]] bool Startup();
     [[nodiscard]] bool Shutdown();
     [[nodiscard]] bool IsActive() const;
@@ -97,6 +97,8 @@ private:
     std::shared_ptr<SecurityState> m_spSecurityState;
     std::shared_ptr<SensorState> m_spSensorState;
 
+    std::shared_ptr<Event::Publisher> m_spEventPublisher;
+
     std::shared_ptr<EndpointManager> m_spEndpointManager;
     std::shared_ptr<PeerManager> m_spPeerManager;
     std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
@@ -109,8 +111,7 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<typename RuntimePolicy>
-    requires std::derived_from<RuntimePolicy, IRuntimePolicy>
+template<typename RuntimePolicy> requires std::derived_from<RuntimePolicy, IRuntimePolicy>
 [[nodiscard]] bool BryptNode::Startup()
 {
     if (!StartComponents()) { return false; }
