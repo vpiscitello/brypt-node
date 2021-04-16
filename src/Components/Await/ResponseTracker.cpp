@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "ResponseTracker.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------
@@ -25,9 +25,9 @@ LI_SYMBOL(pack)
 // Description: Intended for a single peer
 //----------------------------------------------------------------------------------------------------------------------
 Await::ResponseTracker::ResponseTracker(
-    std::weak_ptr<BryptPeer> const& wpRequestor,
+    std::weak_ptr<Peer::Proxy> const& wpRequestor,
     ApplicationMessage const& request,
-    BryptIdentifier::SharedContainer const& spPeerIdentifier)
+    Node::SharedIdentifier const& spPeerIdentifier)
     : m_status(ResponseStatus::Unfulfilled)
     , m_expected(1)
     , m_received(0)
@@ -48,9 +48,9 @@ Await::ResponseTracker::ResponseTracker(
 // Description: Intended for multiple peers with responses from each
 //----------------------------------------------------------------------------------------------------------------------
 Await::ResponseTracker::ResponseTracker(
-    std::weak_ptr<BryptPeer> const& wpRequestor,
+    std::weak_ptr<Peer::Proxy> const& wpRequestor,
     ApplicationMessage const& request,
-    std::set<BryptIdentifier::SharedContainer> const& identifiers)
+    std::set<Node::SharedIdentifier> const& identifiers)
     : m_status(ResponseStatus::Unfulfilled)
     , m_expected(std::uint32_t(identifiers.size()))
     , m_received(0)
@@ -59,19 +59,17 @@ Await::ResponseTracker::ResponseTracker(
     , m_responses()
     , m_expire(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
 {
-    BryptIdentifier::Container const& source = m_request.GetSourceIdentifier();
-    for (auto const& spBryptPeerIdentifier: identifiers) {
-        if (!spBryptPeerIdentifier || *spBryptPeerIdentifier == source) {
-            continue;
-        }
-        ResponseEntry entry = { spBryptPeerIdentifier, {} };
+    Node::Identifier const& source = m_request.GetSourceIdentifier();
+    for (auto const& spIdentifier: identifiers) {
+        if (!spIdentifier || *spIdentifier == source) { continue; }
+        ResponseEntry entry = { spIdentifier, {} };
         m_responses.emplace(entry);
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container Await::ResponseTracker::GetSource() const
+Node::Identifier Await::ResponseTracker::GetSource() const
 {
     return m_request.GetSourceIdentifier();
 }
@@ -86,7 +84,7 @@ BryptIdentifier::Container Await::ResponseTracker::GetSource() const
 //----------------------------------------------------------------------------------------------------------------------
 Await::UpdateStatus Await::ResponseTracker::UpdateResponse(ApplicationMessage const& response)
 {
-    auto const itr = m_responses.find(response.GetSourceIdentifier().GetInternalRepresentation());
+    auto const itr = m_responses.find(response.GetSourceIdentifier().GetInternalValue());
     if(itr == m_responses.end() || !itr->pack.empty()) {
         if (m_expire < TimeUtils::GetSystemTimepoint()) { return UpdateStatus::Expired; }
         return UpdateStatus::Unexpected;
@@ -145,26 +143,21 @@ bool Await::ResponseTracker::SendFulfilledResponse()
 
     std::vector<ResponseEntry> responsesVector;
     std::transform(m_responses.begin(), m_responses.end(), std::back_inserter(responsesVector), 
-        [](auto const& entry) -> ResponseEntry
-        { 
-            return entry;
-        });
+        [](auto const& entry) -> ResponseEntry {  return entry; });
 
     std::string data = li::json_vector(s::identifier, s::pack).encode(responsesVector);
 
     // Note: The destination of the stored request should always represent to the current
     // node's Brypt Identifier. 
-    auto const& optBryptIdentifier = m_request.GetDestinationIdentifier();
-    if (!optBryptIdentifier) {
-        return false;
-    }
+    auto const& optNodeIdentifier = m_request.GetDestinationIdentifier();
+    if (!optNodeIdentifier) { return false; }
 
     // Since we are responding to the request, the destination will point to its source.
     auto const& destination = m_request.GetSourceIdentifier();
 
     auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(m_request.GetContext())
-        .SetSource(*optBryptIdentifier)
+        .SetSource(*optNodeIdentifier)
         .SetDestination(destination)
         .SetCommand(m_request.GetCommand(), m_request.GetPhase() + std::uint8_t(1))
         .SetPayload(data)
@@ -177,8 +170,7 @@ bool Await::ResponseTracker::SendFulfilledResponse()
     m_status = ResponseStatus::Completed;
 
     if (auto const spRequestor = m_wpRequestor.lock(); spRequestor) {
-        return spRequestor->ScheduleSend(
-            m_request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
+        return spRequestor->ScheduleSend(m_request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
     }
 
     return false;

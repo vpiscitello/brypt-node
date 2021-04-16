@@ -57,12 +57,12 @@ class Network::TCP::ConnectEvent : public Network::TCP::Event
 public:
     explicit ConnectEvent(
         RemoteAddress&& address,
-        BryptIdentifier::SharedContainer const& session = nullptr);
-    BryptIdentifier::SharedContainer const& GetBryptIdentifier() const;
+        Node::SharedIdentifier const& session = nullptr);
+    Node::SharedIdentifier const& GetNodeIdentifier() const;
     RemoteAddress const& GetRemoteAddress() const;
 
 private:
-    BryptIdentifier::SharedContainer m_spIdentifier;
+    Node::SharedIdentifier m_spIdentifier;
     RemoteAddress m_address;
 };
 

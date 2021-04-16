@@ -34,7 +34,7 @@ Network::BindingAddress const& Network::TCP::BindEvent::GetBinding() const
 
 Network::TCP::ConnectEvent::ConnectEvent(
     RemoteAddress&& address,
-    BryptIdentifier::SharedContainer const& spIdentifier)
+    Node::SharedIdentifier const& spIdentifier)
     : Event(Instruction::Connect)
     , m_spIdentifier(spIdentifier)
     , m_address(std::move(address))
@@ -43,7 +43,7 @@ Network::TCP::ConnectEvent::ConnectEvent(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer const& Network::TCP::ConnectEvent::GetBryptIdentifier() const
+Node::SharedIdentifier const& Network::TCP::ConnectEvent::GetNodeIdentifier() const
 {
     return m_spIdentifier;
 }

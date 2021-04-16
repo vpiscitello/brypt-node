@@ -6,10 +6,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "RuntimePolicy.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointTypes.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <concepts>
 #include <memory>
@@ -27,12 +27,11 @@ namespace Await {
 }
 
 namespace Configuration { class Manager; }
-
 namespace Event { class Publisher; }
+namespace Network { class Manager; }
+namespace Peer { class Manager; }
 
 class AuthorizedProcessor;
-class EndpointManager;
-class PeerManager;
 class PeerPersistor;
 
 class AuthorityState;
@@ -51,12 +50,11 @@ public:
     friend class IRuntimePolicy;
     // } Runtime Handler
 
-    // Constructors and Deconstructors
     BryptNode(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Node::SharedIdentifier const& spNodeIdentifier,
         std::shared_ptr<Event::Publisher> const& spEventPublisher,
-        std::shared_ptr<EndpointManager> const& spEndpointManager,
-        std::shared_ptr<PeerManager> const& spPeerManager,
+        std::shared_ptr<Network::Manager> const& spNetworkManager,
+        std::shared_ptr<Peer::Manager> const& spPeerManager,
         std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
         std::shared_ptr<PeerPersistor> const& spPeerPersistor,
         std::unique_ptr<Configuration::Manager> const& upConfigurationManager);
@@ -73,15 +71,15 @@ public:
     [[nodiscard]] bool Shutdown();
     [[nodiscard]] bool IsActive() const;
 
-    // Getter Functions
     [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
     [[nodiscard]] std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
     [[nodiscard]] std::weak_ptr<NetworkState> GetNetworkState() const;
     [[nodiscard]] std::weak_ptr<SecurityState> GetSecurityState() const;
     [[nodiscard]] std::weak_ptr<SensorState> GetSensorState() const;
 
-    [[nodiscard]] std::weak_ptr<EndpointManager> GetEndpointManager() const;
-    [[nodiscard]] std::weak_ptr<PeerManager> GetPeerManager() const;
+    [[nodiscard]] std::weak_ptr<Event::Publisher> GetEventPublisher() const;
+    [[nodiscard]] std::weak_ptr<Network::Manager> GetNetworkManager() const;
+    [[nodiscard]] std::weak_ptr<Peer::Manager> GetPeerManager() const;
     [[nodiscard]] std::weak_ptr<PeerPersistor> GetPeerPersistor() const;
     [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
@@ -98,9 +96,8 @@ private:
     std::shared_ptr<SensorState> m_spSensorState;
 
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
-
-    std::shared_ptr<EndpointManager> m_spEndpointManager;
-    std::shared_ptr<PeerManager> m_spPeerManager;
+    std::shared_ptr<Network::Manager> m_spNetworkManager;
+    std::shared_ptr<Peer::Manager> m_spPeerManager;
     std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
     std::shared_ptr<Await::TrackingManager> m_spAwaitManager;
     std::shared_ptr<PeerPersistor> m_spPeerPersistor;

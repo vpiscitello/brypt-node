@@ -11,12 +11,12 @@ class CoordinatorState {
 public:
     CoordinatorState();
 
-    BryptIdentifier::SharedContainer GetBryptIdentifier() const;
-    void SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    Node::SharedIdentifier GetNodeIdentifier() const;
+    void SetNodeIdentifier(Node::SharedIdentifier const& spNodeIdentifier);
 
 private:
     mutable std::shared_mutex m_mutex;
-    BryptIdentifier::SharedContainer m_spBryptIdentifier; // BryptIdentifier of the node's coordinator
+    Node::SharedIdentifier m_spNodeIdentifier; // The identifier of the node's coordinator
 };
 
 //----------------------------------------------------------------------------------------------------------------------

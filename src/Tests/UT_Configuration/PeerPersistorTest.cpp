@@ -1,11 +1,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -137,13 +137,11 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     Network::RemoteAddress const address(Network::Protocol::TCP, "127.0.0.1:35220", true);
 
     // Create a new peer and notify the persistor
-    auto const spBryptPeer = std::make_shared<BryptPeer>(
-        BryptIdentifier::Container{ BryptIdentifier::Generate() });
-    spBryptPeer->RegisterEndpoint(
-        test::EndpointIdentifier, test::PeerProtocol, address, {});
+    auto const spPeerProxy = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
+    spPeerProxy->RegisterEndpoint(test::EndpointIdentifier, test::PeerProtocol, address, {});
 
     persistor.HandlePeerStateChange(
-        spBryptPeer, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Connected);
+        spPeerProxy, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Connected);
 
     // Verify the new peer has been added to the current persistor
     EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerProtocol), std::size_t(2));
@@ -189,8 +187,8 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
 
     // Tell the persistor the new peer has been disconnected
     persistor.HandlePeerStateChange(
-        spBryptPeer, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Disconnected);
-    spBryptPeer->WithdrawEndpoint(test::EndpointIdentifier, test::PeerProtocol);
+        spPeerProxy, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Disconnected);
+    spPeerProxy->WithdrawEndpoint(test::EndpointIdentifier, test::PeerProtocol);
 
     persistor.FetchBootstraps(); // Force the persitor to re-query the persistor file
     EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerProtocol), std::size_t(1));

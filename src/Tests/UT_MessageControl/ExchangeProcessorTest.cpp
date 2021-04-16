@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/NetworkMessage.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/MessageControl/ExchangeProcessor.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Components/Security/SecurityUtils.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
@@ -34,10 +34,8 @@ class CExchangeObserverStub;
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<BryptIdentifier::Container>(
-    BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container>(
-    BryptIdentifier::Generate());
+auto const ClientIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
+auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
 
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
@@ -59,16 +57,16 @@ public:
 
     // IConnectProtocol {
     virtual bool SendRequest(
-        BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        Node::SharedIdentifier const& spSourceIdentifier,
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         MessageContext const& context) const override;
     // } IConnectProtocol 
 
-    bool CalledBy(BryptIdentifier::SharedContainer const& spBryptIdentifier) const;
+    bool CalledBy(Node::SharedIdentifier const& spNodeIdentifier) const;
     bool CalledOnce() const;
 
 private:
-    mutable std::vector<BryptIdentifier::Internal::Type> m_callers;
+    mutable std::vector<Node::Internal::Identifier::Type> m_callers;
 
 };
 
@@ -97,13 +95,13 @@ private:
 TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
 {
     // Declare the client resources for the test. 
-    std::shared_ptr<BryptPeer> spClientPeer;
+    std::shared_ptr<Peer::Proxy> spClientPeer;
     std::unique_ptr<ISecurityStrategy> upClientStrategy;
     std::unique_ptr<local::CExchangeObserverStub> upClientObserver;
     std::unique_ptr<ExchangeProcessor> upClientProcessor;
 
     // Declare the server resoucres for the test. 
-    std::shared_ptr<BryptPeer> spServerPeer;
+    std::shared_ptr<Peer::Proxy> spServerPeer;
     std::unique_ptr<ISecurityStrategy> upServerStrategy;
     std::unique_ptr<local::CExchangeObserverStub> upServerObserver;
     std::unique_ptr<ExchangeProcessor> upServerProcessor;
@@ -113,7 +111,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     // Setup the client's view of the exchange.
     {
         // Make the client peer and register a mock endpoint to handle exchange messages.
-        spClientPeer = std::make_shared<BryptPeer>(*test::ServerIdentifier);
+        spClientPeer = std::make_shared<Peer::Proxy>(*test::ServerIdentifier);
         spClientPeer->RegisterEndpoint(
             test::EndpointIdentifier,
             test::EndpointProtocol,
@@ -144,7 +142,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     // Setup the server's view of the exchange.
     {
         // Make the server peer and register a mock endpoint to handle exchange messages.
-        spServerPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
+        spServerPeer = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
         spServerPeer->RegisterEndpoint(
             test::EndpointIdentifier,
             test::EndpointProtocol,
@@ -213,21 +211,21 @@ local::ConnectProtocolStub::ConnectProtocolStub()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::SendRequest(
-    BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    [[maybe_unused]] std::shared_ptr<BryptPeer> const& spBryptPeer,
+    Node::SharedIdentifier const& spSourceIdentifier,
+    [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     [[maybe_unused]] MessageContext const& context) const
 {
-    m_callers.emplace_back(spSourceIdentifier->GetInternalRepresentation());
+    m_callers.emplace_back(spSourceIdentifier->GetInternalValue());
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::CalledBy(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier) const
+    Node::SharedIdentifier const& spNodeIdentifier) const
 {
     auto const itr = std::find(
-        m_callers.begin(), m_callers.end(), spBryptIdentifier->GetInternalRepresentation());
+        m_callers.begin(), m_callers.end(), spNodeIdentifier->GetInternalValue());
 
     return (itr != m_callers.end());
 }

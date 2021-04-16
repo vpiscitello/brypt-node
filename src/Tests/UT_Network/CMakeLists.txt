@@ -2,7 +2,7 @@
 message(STATUS "Configuring UT_Network...")
 #-----------------------------------------------------------------------------------------------------------------------
 project(UT_Network LANGUAGES CXX)
-add_executable(UT_Network)
+add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -13,7 +13,7 @@ target_sources(
     # Source Files
     AddressTest.cpp
     ConnectionDetailsTest.cpp
-    EndpointManagerTest.cpp
+    NetworkManagerTest.cpp
     MessageSinkStub.cpp
     SinglePeerMediatorStub.cpp
     TcpEndpointTest.cpp
@@ -23,11 +23,11 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Network Security MessageControl Configuration BryptMessage BryptIdentifier 
+    Peer Network Security MessageControl Configuration BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_Network)
+gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

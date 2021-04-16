@@ -11,7 +11,7 @@
 #include "BryptNode/NodeState.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Network/Endpoint.hpp"
-#include "Components/Network/EndpointManager.hpp"
+#include "Components/Network/Manager.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 #include <spdlog/spdlog.h>
@@ -27,7 +27,7 @@ namespace local {
 
 bool HandleDiscoveryRequest(
     BryptNode& instance,
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& spLogger);
 
@@ -35,7 +35,7 @@ std::string BuildDiscoveryResponse(BryptNode& instance);
 
 bool HandleDiscoveryResponse(
     BryptNode& instance,
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& spLogger);
 
@@ -113,12 +113,12 @@ Handler::Connect::Connect(BryptNode& instance)
 bool Handler::Connect::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
-    auto& [wpBryptPeer, message] = associatedMessage;
+    auto& [wpPeerProxy, message] = associatedMessage;
     
     auto const phase = static_cast<Connect::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::Discovery: { status = DiscoveryHandler(wpBryptPeer, message); } break;
-        case Phase::Join: { status = JoinHandler(wpBryptPeer, message); } break;
+        case Phase::Discovery: { status = DiscoveryHandler(wpPeerProxy, message); } break;
+        case Phase::Join: { status = JoinHandler(wpPeerProxy, message); } break;
         default: break;
     }
 
@@ -132,14 +132,14 @@ bool Handler::Connect::HandleMessage(AssociatedMessage const& associatedMessage)
 // Returns: Status of the message handling
 //----------------------------------------------------------------------------------------------------------------------
 bool Handler::Connect::DiscoveryHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
     bool const status = local::HandleDiscoveryRequest(
-        m_instance, wpBryptPeer, message, m_spLogger);
+        m_instance, wpPeerProxy, message, m_spLogger);
     if (!status) { return status; }
 
     auto const response = local::BuildDiscoveryResponse(m_instance);
-    IHandler::SendResponse(wpBryptPeer, message, response, static_cast<std::uint8_t>(Phase::Join));
+    IHandler::SendResponse(wpPeerProxy, message, response, static_cast<std::uint8_t>(Phase::Join));
 
     return status;
 }
@@ -151,22 +151,22 @@ bool Handler::Connect::DiscoveryHandler(
 // Returns: Status of the message handling
 //----------------------------------------------------------------------------------------------------------------------
 bool Handler::Connect::JoinHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
-    return local::HandleDiscoveryResponse(m_instance, wpBryptPeer, message, m_spLogger);
+    return local::HandleDiscoveryResponse(m_instance, wpPeerProxy, message, m_spLogger);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::HandleDiscoveryRequest(
     BryptNode& instance,
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& spLogger)
 {
-    BryptIdentifier::SharedContainer spPeerIdentifier;
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    Node::SharedIdentifier spPeerIdentifier;
+    if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
+        spPeerIdentifier = spPeerProxy->GetNodeIdentifier();
     }
 
     // Parse the discovery request
@@ -184,18 +184,15 @@ bool local::HandleDiscoveryRequest(
     }
 
     if (!request.entrypoints.empty()) {
-        // Get shared_ptrs for the PeerPersitor and EndpointManager
         auto spPeerPersistor = instance.GetPeerPersistor().lock();
-        auto spEndpointManager = instance.GetEndpointManager().lock();
+        auto spNetworkManager = instance.GetNetworkManager().lock();
         
         // For each listed entrypoint, handle each entry for the given protocol.
         for (auto const& entrypoint: request.entrypoints) {
             // Parse the technoloy type from the human readible name.
             auto const protocol = Network::ParseProtocol(entrypoint.protocol);
             Network::RemoteAddress address(protocol, entrypoint.entry, true);
-            if (!address.IsValid()) {
-                spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier);
-            }
+            if (!address.IsValid()) { spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier); }
 
             // Notify the PeerPersistor of the entry for the protocol. By immediately 
             // storing the  entry it may be used in bootstrapping and distribution of entries
@@ -204,10 +201,10 @@ bool local::HandleDiscoveryRequest(
             //  (i.e. the endpoint or security mechanism).
             if (spPeerPersistor) [[likely]] { spPeerPersistor->AddBootstrapEntry(address); }
 
-            if (spEndpointManager) [[likely]] {
+            if (spNetworkManager) [[likely]] {
                 // If we have an endpoint for the given protocol, schedule the connect.
-                if (auto spEndpoint = spEndpointManager->GetEndpoint(
-                    protocol, Network::Operation::Client); spEndpoint) {
+                if (auto const spEndpoint = spNetworkManager->GetEndpoint(protocol, Network::Operation::Client);
+                    spEndpoint) {
                     spEndpoint->ScheduleConnect(std::move(address), spPeerIdentifier);
                 }
             }
@@ -270,13 +267,13 @@ std::string local::BuildDiscoveryResponse(BryptNode& instance)
 
 bool local::HandleDiscoveryResponse(
     BryptNode& instance,
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& spLogger)
 {
-    BryptIdentifier::SharedContainer spPeerIdentifier;
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        spPeerIdentifier = spBryptPeer->GetBryptIdentifier();
+    Node::SharedIdentifier spPeerIdentifier;
+    if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
+        spPeerIdentifier = spPeerProxy->GetNodeIdentifier();
     }
 
     // Parse the discovery response
@@ -295,14 +292,13 @@ bool local::HandleDiscoveryResponse(
         return false;
     }
 
-    auto wpEndpointManager = instance.GetEndpointManager();
-    if (auto spEndpointManager = wpEndpointManager.lock(); spEndpointManager) {
+    if (auto spManager = instance.GetNetworkManager().lock(); spManager) {
         // The provided in the message should contain a series elements containing a protocol 
         // name and vector of endpoint entries. We attempt to get the shared endpoint from the 
         // manager and then schedule a connect event for each provided entry. The entry may or
         //  may not be address, it is dependent on the attached protocol. 
         for (auto const& bootstrap: response.bootstraps) {
-            auto spEndpoint = spEndpointManager->GetEndpoint(
+            auto spEndpoint = spManager->GetEndpoint(
                 message.GetContext().GetEndpointProtocol(), Network::Operation::Client);
             if (spEndpoint) [[likely]] {
                 auto const protocol = Network::ParseProtocol(bootstrap.protocol);

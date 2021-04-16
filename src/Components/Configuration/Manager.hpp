@@ -1,9 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: ConfigurationManager.hpp
+// File: Manager.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Configuration.hpp"
 #include "StatusCode.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
@@ -25,7 +26,8 @@ class Manager;
 } // Configuration namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Configuration::Manager  {
+class Configuration::Manager final
+{
 public:
     Manager(std::filesystem::path const& filepath, bool interactive, bool shouldBuildPath = true);
     explicit Manager(Settings const& settings);
@@ -37,7 +39,7 @@ public:
 
     std::optional<Configuration::Settings> GetSettings() const;
 
-    BryptIdentifier::SharedContainer GetBryptIdentifier() const;
+    Node::SharedIdentifier GetNodeIdentifier() const;
 
     std::string GetNodeName() const;
     std::string GetNodeDescription() const;

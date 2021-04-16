@@ -2,7 +2,7 @@
 message(STATUS "Configuring UT_BryptMessage...")
 #-----------------------------------------------------------------------------------------------------------------------
 project(UT_BryptMessage LANGUAGES CXX)
-add_executable(UT_BryptMessage)
+add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -25,5 +25,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_BryptMessage)
+gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

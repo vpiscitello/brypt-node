@@ -4,13 +4,13 @@
 #include "BryptNode/BryptNode.hpp"
 #include "BryptNode/NodeState.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Components/Configuration/Manager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Components/Network/EndpointManager.hpp"
+#include "Components/Network/Manager.hpp"
 #include "Utilities/LogUtils.hpp"
 #include "Utilities/FileUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -42,9 +42,9 @@ constexpr bool UseBootstraps = true;
 //----------------------------------------------------------------------------------------------------------------------
 
 static_assert(
-    BRYPT_IDENTIFIER_MIN_SIZE == BryptIdentifier::Network::MinimumLength, "Brypt Identifier Minimum Size Mismatch!");
+    BRYPT_IDENTIFIER_MIN_SIZE == Node::Network::Identifier::MinimumLength, "Brypt Identifier Minimum Size Mismatch!");
 static_assert(
-    BRYPT_IDENTIFIER_MAX_SIZE == BryptIdentifier::Network::MaximumLength, "Brypt Identifier Maximum Size Mismatch!");
+    BRYPT_IDENTIFIER_MAX_SIZE == Node::Network::Identifier::MaximumLength, "Brypt Identifier Maximum Size Mismatch!");
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -105,7 +105,7 @@ BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const serv
         default: break;
     }
 
-    auto const spIdentifier = upConfig->GetBryptIdentifier();
+    auto const spIdentifier = upConfig->GetNodeIdentifier();
     if (!spIdentifier) { return BRYPT_EMISSINGPARAMETER; }
 
     auto const spEventPublisher = std::make_shared<Event::Publisher>();
@@ -119,16 +119,16 @@ BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const serv
     auto const spProtocol = std::make_shared<DiscoveryProtocol>(*optEndpoints);
     auto const spProcessor = std::make_shared<AuthorizedProcessor>(spIdentifier);
 
-    auto const spPeerManager = std::make_shared<PeerManager>(
+    auto const spPeerManager = std::make_shared<Peer::Manager>(
         spIdentifier, upConfig->GetSecurityStrategy(), spProtocol, spProcessor);
 
     spPersistor->SetMediator(spPeerManager.get());
 
     IBootstrapCache const* const pBootstraps = (service->use_bootstraps) ? spPersistor.get() : nullptr;
-    auto const spEndpointManager = std::make_shared<EndpointManager>(*optEndpoints, spPeerManager.get(), pBootstraps);
+    auto const spNetworkManager = std::make_shared<Network::Manager>(*optEndpoints, spPeerManager.get(), pBootstraps);
 
     service->node = std::make_unique<BryptNode>(
-        spIdentifier, spEventPublisher, spEndpointManager,
+        spIdentifier, spEventPublisher, spNetworkManager,
         spPeerManager, spProcessor, spPersistor, std::move(upConfig));
 
     return BRYPT_ACCEPTED;
@@ -291,8 +291,8 @@ size_t brypt_service_get_identifier(brypt_service_t const* const service, char* 
     if (!service || !service->node) { return 0; }
 
     if (auto const spNodeState = service->node->GetNodeState().lock(); spNodeState) {
-        auto const spIdentifier = spNodeState->GetBryptIdentifier();
-        auto const identifier = spIdentifier->GetNetworkRepresentation();
+        auto const spIdentifier = spNodeState->GetNodeIdentifier();
+        auto const identifier = spIdentifier->GetNetworkString();
         assert(dest && size >= identifier.size());
         try {
             std::copy(identifier.begin(), identifier.end(), dest);

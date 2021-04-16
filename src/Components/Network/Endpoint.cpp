@@ -7,9 +7,9 @@
 #include "Address.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "Components//BryptPeer/BryptPeer.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
@@ -94,22 +94,22 @@ void Network::IEndpoint::RegisterMediator(IPeerMediator* const pMediator)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::shared_ptr<BryptPeer> Network::IEndpoint::LinkPeer(
-    BryptIdentifier::Container const& identifier, RemoteAddress const& address) const
+std::shared_ptr<Peer::Proxy> Network::IEndpoint::LinkPeer(
+    Node::Identifier const& identifier, RemoteAddress const& address) const
 {
-    std::shared_ptr<BryptPeer> spBryptPeer = {};
+    std::shared_ptr<Peer::Proxy> spPeerProxy = {};
 
     // If the endpoint has a known peer mediator then we should use the mediator to acquire or 
     // link this endpoint with a unified peer identified by the provided Brypt Identifier. 
     // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
     // should only be hit in unit tests of the endpoint. 
     if(m_pPeerMediator) {
-        spBryptPeer = m_pPeerMediator->LinkPeer(identifier, address);
+        spPeerProxy = m_pPeerMediator->LinkPeer(identifier, address);
     } else {
-        spBryptPeer = std::make_shared<BryptPeer>(identifier);
+        spPeerProxy = std::make_shared<Peer::Proxy>(identifier);
     }
 
-    return spBryptPeer;
+    return spPeerProxy;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

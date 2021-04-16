@@ -7,7 +7,7 @@
 #include "ConnectionState.hpp"
 #include "Address.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
@@ -21,16 +21,16 @@ public:
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
-        , m_spBryptPeer()
+        , m_spPeer()
     {
     }
 
-    explicit ConnectionDetailsBase(std::shared_ptr<BryptPeer> const& spBryptPeer)
+    explicit ConnectionDetailsBase(std::shared_ptr<Peer::Proxy> const& spPeerProxy)
         : m_address()
         , m_updateTimepoint()
         , m_sequenceNumber(0)
         , m_connectionState(ConnectionState::Resolving)
-        , m_spBryptPeer(spBryptPeer)
+        , m_spPeer(spPeerProxy)
     {
     }
 
@@ -38,13 +38,13 @@ public:
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
     std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
     ConnectionState GetConnectionState() const { return m_connectionState; }
-    std::shared_ptr<BryptPeer> GetBryptPeer() const { return m_spBryptPeer; }
-    BryptIdentifier::SharedContainer GetBryptIdentifier() const
+    std::shared_ptr<Peer::Proxy> GetPeerProxy() const { return m_spPeer; }
+    Node::SharedIdentifier GetNodeIdentifier() const
     {
-        if (!m_spBryptPeer) {
+        if (!m_spPeer) {
             return {};
         }
-        return m_spBryptPeer->GetBryptIdentifier();
+        return m_spPeer->GetNodeIdentifier();
     }
 
     void SetAddress(Network::RemoteAddress const& address)
@@ -73,9 +73,9 @@ public:
         Updated();
     }
 
-    void SetBryptPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
+    void SetPeerProxy(std::shared_ptr<Peer::Proxy> const& spPeerProxy)
     {
-        m_spBryptPeer = spBryptPeer;
+        m_spPeer = spPeerProxy;
     }
 
     void Updated()
@@ -85,7 +85,7 @@ public:
 
     bool HasAssociatedPeer() const 
     {
-        if (!m_spBryptPeer) {
+        if (!m_spPeer) {
             return false;
         }
 
@@ -98,7 +98,7 @@ protected:
     std::uint32_t m_sequenceNumber;
     ConnectionState m_connectionState;
     
-    std::shared_ptr<BryptPeer> m_spBryptPeer;
+    std::shared_ptr<Peer::Proxy> m_spPeer;
 
 };
 
@@ -125,7 +125,7 @@ public:
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
-        m_spBryptPeer = other.m_spBryptPeer;
+        m_spPeer = other.m_spPeer;
         return *this;
     }
 
@@ -144,9 +144,9 @@ public:
     using UpdateExtensionFunction = std::function<void(ExtensionType&)>;
 
     ConnectionDetails(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Node::SharedIdentifier const& spNodeIdentifier,
         ExtensionType const& extension)
-        : ConnectionDetailsBase(spBryptIdentifier)
+        : ConnectionDetailsBase(spNodeIdentifier)
         , m_extension(extension)
     {
     }
@@ -168,7 +168,7 @@ public:
         m_updateTimepoint = other.m_updateTimepoint;
         m_sequenceNumber = other.m_sequenceNumber;
         m_connectionState = other.m_connectionState;
-        m_spBryptPeer = other.spBryptPeer;
+        m_spPeer = other.spPeerProxy;
         m_extension = other.m_extension;
         return *this;
     }

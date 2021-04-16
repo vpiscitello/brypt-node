@@ -2,9 +2,9 @@
 #include "NodeState.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-NodeState::NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+NodeState::NodeState(Node::SharedIdentifier const& spNodeIdentifier)
     : m_mutex()
-    , m_spBryptIdentifier(spBryptIdentifier)
+    , m_spNodeIdentifier(spNodeIdentifier)
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
     , m_protocols()
@@ -14,10 +14,10 @@ NodeState::NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier)
 //----------------------------------------------------------------------------------------------------------------------
 
 NodeState::NodeState(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Node::SharedIdentifier const& spNodeIdentifier,
     Network::ProtocolSet const& protocols)
     : m_mutex()
-    , m_spBryptIdentifier(spBryptIdentifier)
+    , m_spNodeIdentifier(spNodeIdentifier)
     , m_cluster(0)
     , m_operation(NodeUtils::DeviceOperation::None)
     , m_protocols(protocols)
@@ -26,10 +26,10 @@ NodeState::NodeState(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer NodeState::GetBryptIdentifier() const
+Node::SharedIdentifier NodeState::GetNodeIdentifier() const
 {
     std::shared_lock lock(m_mutex);
-    return m_spBryptIdentifier;
+    return m_spNodeIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -50,10 +50,10 @@ NodeUtils::DeviceOperation NodeState::GetOperation() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void NodeState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+void NodeState::SetNodeIdentifier(Node::SharedIdentifier const& spNodeIdentifier)
 {
     std::unique_lock lock(m_mutex);
-    m_spBryptIdentifier = spBryptIdentifier;
+    m_spNodeIdentifier = spNodeIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

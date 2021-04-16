@@ -15,8 +15,8 @@
 #include "BryptNode/NetworkState.hpp"
 #include "Components/Await/AwaitDefinitions.hpp"
 #include "Components/Await/TrackingManager.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/Manager.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -55,7 +55,7 @@ Handler::Type Handler::IHandler::GetType() const
 //----------------------------------------------------------------------------------------------------------------------
 
 void Handler::IHandler::SendClusterNotice(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
@@ -63,14 +63,14 @@ void Handler::IHandler::SendClusterNotice(
     std::optional<std::string> optResponseData)
 {
     SendNotice(
-        wpBryptPeer, request, Message::Destination::Cluster,
+        wpPeerProxy, request, Message::Destination::Cluster,
         noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Handler::IHandler::SendNetworkNotice(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& request,
     std::string_view noticeData,
     std::uint8_t noticePhase,
@@ -78,28 +78,28 @@ void Handler::IHandler::SendNetworkNotice(
     std::optional<std::string> optResponseData)
 {
     SendNotice(
-        wpBryptPeer, request, Message::Destination::Network,
+        wpPeerProxy, request, Message::Destination::Network,
         noticeData, noticePhase, responsePhase, optResponseData);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Handler::IHandler::SendResponse(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& request,
     std::string_view responseData,
     std::uint8_t responsePhase)
 {
     // Get the current Node ID and Cluster ID for this node
-    BryptIdentifier::SharedContainer spBryptIdentifier;
+    Node::SharedIdentifier spNodeIdentifier;
     auto const wpNodeState = m_instance.GetNodeState();
     if (auto const spNodeState = wpNodeState.lock(); spNodeState) {
-        spBryptIdentifier = spNodeState->GetBryptIdentifier();
+        spNodeIdentifier = spNodeState->GetNodeIdentifier();
     }
-    assert(spBryptIdentifier);
+    assert(spNodeIdentifier);
 
     // Since we are responding to the request, the destination will point to its source.
-    BryptIdentifier::Container destination = request.GetSourceIdentifier();
+    Node::Identifier destination = request.GetSourceIdentifier();
 
     std::optional<Message::BoundTrackerKey> optBoundAwaitTracker = {};
     std::optional<Await::TrackerKey> const optAwaitingKey = request.GetAwaitTrackerKey();
@@ -110,7 +110,7 @@ void Handler::IHandler::SendResponse(
     // Using the information from the node instance generate a discovery response message
     auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(request.GetContext())
-        .SetSource(*spBryptIdentifier)
+        .SetSource(*spNodeIdentifier)
         .SetDestination(destination)
         .SetCommand(request.GetCommand(), responsePhase)
         .SetPayload(responseData)
@@ -118,8 +118,8 @@ void Handler::IHandler::SendResponse(
         .ValidatedBuild();
     assert(optResponse);
 
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
-        [[maybe_unused]] bool const success = spBryptPeer->ScheduleSend(
+    if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
+        [[maybe_unused]] bool const success = spPeerProxy->ScheduleSend(
             request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
         assert(success);
     }
@@ -128,7 +128,7 @@ void Handler::IHandler::SendResponse(
 //----------------------------------------------------------------------------------------------------------------------
 
 void Handler::IHandler::SendNotice(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& request,
     Message::Destination destination,
     std::string_view noticeData,
@@ -136,22 +136,22 @@ void Handler::IHandler::SendNotice(
     std::uint8_t responsePhase,
     std::optional<std::string> optResponseData = {})
 {
-    std::set<BryptIdentifier::SharedContainer> peers;
+    std::set<Node::SharedIdentifier> peers;
 
     // Get the information pertaining to the node itself
-    BryptIdentifier::SharedContainer spBryptIdentifier;
+    Node::SharedIdentifier spNodeIdentifier;
     if (auto const spNodeState = m_instance.GetNodeState().lock()) {
-        spBryptIdentifier = spNodeState->GetBryptIdentifier();
+        spNodeIdentifier = spNodeState->GetNodeIdentifier();
     }
-    peers.emplace(spBryptIdentifier);
+    peers.emplace(spNodeIdentifier);
 
     // Get the information pertaining to the node's network
     if (auto const spPeerManager = m_instance.GetPeerManager().lock(); spPeerManager) {
         spPeerManager->ForEachCachedIdentifier(
             [&peers] (
-                BryptIdentifier::SharedContainer const& spBryptIdentifier) -> CallbackIteration
+                Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration
             {
-                peers.emplace(spBryptIdentifier);
+                peers.emplace(spNodeIdentifier);
                 return CallbackIteration::Continue;
             }
         );
@@ -160,13 +160,13 @@ void Handler::IHandler::SendNotice(
     // Setup the awaiting message object and push this node's response
     Await::TrackerKey awaitTrackingKey = 0;
     if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {
-        awaitTrackingKey = spAwaitManager->PushRequest(wpBryptPeer, request, peers);
+        awaitTrackingKey = spAwaitManager->PushRequest(wpPeerProxy, request, peers);
 
         if (optResponseData) {
             // Create a reading message
             auto const optNodeResponse = ApplicationMessage::Builder()
                 .SetMessageContext(request.GetContext())
-                .SetSource(*spBryptIdentifier)
+                .SetSource(*spNodeIdentifier)
                 .SetDestination(request.GetSourceIdentifier())
                 .SetCommand(request.GetCommand(), responsePhase)
                 .SetPayload(*optResponseData)
@@ -180,7 +180,7 @@ void Handler::IHandler::SendNotice(
     // Create a notice message for the network
     auto builder = ApplicationMessage::Builder()
         .SetMessageContext(request.GetContext())
-        .SetSource(*spBryptIdentifier)
+        .SetSource(*spNodeIdentifier)
         .SetCommand(request.GetCommand(), noticePhase)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
         .SetPayload(noticeData);

@@ -9,7 +9,7 @@
 #include <memory>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ public:
     virtual ~IPeerObserver() = default;
 
     virtual void HandlePeerStateChange(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         ConnectionState change) = 0;

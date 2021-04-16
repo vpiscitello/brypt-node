@@ -15,7 +15,7 @@ Message::Protocol UnpackProtocol(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end);
 
-std::optional<BryptIdentifier::Container> UnpackIdentifier(
+std::optional<Node::Identifier> UnpackIdentifier(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end);
 
@@ -61,7 +61,7 @@ std::uint32_t MessageHeader::GetMessageSize() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const& MessageHeader::GetSourceIdentifier() const
+Node::Identifier const& MessageHeader::GetSourceIdentifier() const
 {
     return m_source;
 }
@@ -75,7 +75,7 @@ Message::Destination MessageHeader::GetDestinationType() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::Container> const& MessageHeader::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& MessageHeader::GetDestinationIdentifier() const
 {
     return m_optDestinationIdentifier;
 }
@@ -85,9 +85,9 @@ std::optional<BryptIdentifier::Container> const& MessageHeader::GetDestinationId
 std::size_t MessageHeader::GetPackSize() const
 {
     std::size_t size = FixedPackSize();
-    size += m_source.NetworkRepresentationSize();
+    size += m_source.NetworkStringSize();
     if (m_optDestinationIdentifier) {
-        size += m_optDestinationIdentifier->NetworkRepresentationSize();
+        size += m_optDestinationIdentifier->NetworkStringSize();
     }
     assert(std::in_range<std::uint16_t>(size));
     return size;
@@ -118,14 +118,14 @@ Message::Buffer MessageHeader::GetPackedBuffer() const
     PackUtils::PackChunk(m_version.first, buffer);
     PackUtils::PackChunk(m_version.second, buffer);
     PackUtils::PackChunk(m_size, buffer);
-	PackUtils::PackChunk<std::uint8_t>(m_source.GetNetworkRepresentation(), buffer);
+	PackUtils::PackChunk<std::uint8_t>(m_source.GetNetworkString(), buffer);
     PackUtils::PackChunk(m_destination, buffer);
 
     // If a destination as been set pack the size and the identifier. 
     // Otherwise, indicate there is no destination identifier.
     if (m_optDestinationIdentifier) {
         PackUtils::PackChunk<std::uint8_t>(
-            m_optDestinationIdentifier->GetNetworkRepresentation(), buffer);
+            m_optDestinationIdentifier->GetNetworkString(), buffer);
     } else {
         PackUtils::PackChunk(std::uint8_t(0), buffer);
     }
@@ -211,23 +211,22 @@ Message::Protocol local::UnpackProtocol(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::Container> local::UnpackIdentifier(
+std::optional<Node::Identifier> local::UnpackIdentifier(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end)
 {
+    using namespace Node::Network::Identifier;
+
     std::uint8_t size = 0; 
     if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
-
-    if (size < BryptIdentifier::Network::MinimumLength || size > BryptIdentifier::Network::MaximumLength) {
-        return {};
-    }
+    if (size < MinimumLength || size > MaximumLength) { return {}; }
 
     std::vector<std::uint8_t> buffer;
     buffer.reserve(size);
     if (!PackUtils::UnpackChunk(begin, end, buffer)) { return {}; }
 
-    return BryptIdentifier::Container(
-        buffer, BryptIdentifier::BufferContentType::Network);
+    return Node::Identifier(
+        buffer, Node::BufferContentType::Network);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

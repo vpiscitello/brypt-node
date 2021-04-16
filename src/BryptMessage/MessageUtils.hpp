@@ -20,7 +20,7 @@ Message::Protocol ConvertToProtocol(std::underlying_type_t<Message::Protocol> pr
 
 std::optional<Message::Protocol> PeekProtocol(std::span<std::uint8_t const> buffer);
 std::optional<std::uint32_t> PeekSize(std::span<std::uint8_t const> buffer);
-std::optional<BryptIdentifier::Container> PeekSource(std::span<std::uint8_t const> buffer);
+std::optional<Node::Identifier> PeekSource(std::span<std::uint8_t const> buffer);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Message namespace

@@ -11,7 +11,8 @@
 #include <string>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
+
 class MessageContext;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -27,8 +28,8 @@ public:
 
     // IConnectProtocol {
     virtual bool SendRequest(
-        BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        Node::SharedIdentifier const& spSourceIdentifier,
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         MessageContext const& context) const override;
     // } IConnectProtocol
 

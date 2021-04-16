@@ -10,8 +10,8 @@
 #include "BryptNode/NodeState.hpp"
 #include "BryptNode/CoordinatorState.hpp"
 #include "BryptNode/NetworkState.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
 #include "Components/Network/Endpoint.hpp"
+#include "Components/Peer/Manager.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
@@ -77,14 +77,14 @@ LI_SYMBOL(update_timestamp)
 struct Json::NodeInfo
 {
     NodeInfo(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Node::SharedIdentifier const& spNodeIdentifier,
         NodeUtils::ClusterIdType cluster,
-        BryptIdentifier::SharedContainer const& spCoordinatorIdentifier,
+        Node::SharedIdentifier const& spCoordinatorIdentifier,
         std::size_t neighbor_count,
         std::string const& designation,
         std::string const& protocols,
         TimeUtils::Timestamp const& update_timestamp)
-        : identifier(spBryptIdentifier)
+        : identifier(spNodeIdentifier)
         , cluster(cluster)
         , coordinator(spCoordinatorIdentifier)
         , neighbor_count(neighbor_count)
@@ -93,9 +93,9 @@ struct Json::NodeInfo
         , update_timestamp(update_timestamp.count())
     {
     }
-    BryptIdentifier::SharedContainer const identifier;
+    Node::SharedIdentifier const identifier;
     NodeUtils::ClusterIdType const cluster;
-    BryptIdentifier::SharedContainer const coordinator;
+    Node::SharedIdentifier const coordinator;
     std::size_t const neighbor_count;
     std::string const designation;
     std::string const protocols;
@@ -122,10 +122,10 @@ bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMess
 {
     bool status = false;
 
-    auto& [wpBryptPeer, message] = associatedMessage;
+    auto& [wpPeerProxy, message] = associatedMessage;
     auto const phase = static_cast<Information::Phase>(message.GetPhase());
     switch (phase) {
-        case Phase::Flood: { status = FloodHandler(wpBryptPeer, message); } break;
+        case Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
         case Phase::Respond: { status = RespondHandler(); } break;
         case Phase::Close: { status = CloseHandler(); } break;
         default: break;
@@ -141,13 +141,13 @@ bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMess
 // Returns: Status of the message handling
 //----------------------------------------------------------------------------------------------------------------------
 bool Handler::Information::FloodHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message)
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
     m_spLogger->debug(
         "Building response for the Information request from {}.", message.GetSourceIdentifier());
 
     IHandler::SendClusterNotice(
-        wpBryptPeer, message,
+        wpPeerProxy, message,
         "Request for Node Information.",
         static_cast<std::uint8_t>(Phase::Respond),
         static_cast<std::uint8_t>(Phase::Close),
@@ -187,20 +187,20 @@ bool Handler::Information::CloseHandler()
 std::string local::GenerateNodeInfo(BryptNode const& instance)
 {
     // Get the information pertaining to the node itself
-    BryptIdentifier::SharedContainer spBryptIdentifier; 
+    Node::SharedIdentifier spNodeIdentifier; 
     NodeUtils::ClusterIdType cluster = 0;
     NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
     if (auto const spNodeState = instance.GetNodeState().lock()) {
-        spBryptIdentifier = spNodeState->GetBryptIdentifier();
+        spNodeIdentifier = spNodeState->GetNodeIdentifier();
         cluster = spNodeState->GetCluster();
         operation = spNodeState->GetOperation();
     }
-    assert(spBryptIdentifier);
+    assert(spNodeIdentifier);
 
     // Get the information pertaining to the node's coordinator
-    BryptIdentifier::SharedContainer spCoordinatorIdentifier; 
+    Node::SharedIdentifier spCoordinatorIdentifier; 
     if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
-        spCoordinatorIdentifier = spCoordinatorState->GetBryptIdentifier();
+        spCoordinatorIdentifier = spCoordinatorState->GetNodeIdentifier();
     }
 
     // Get the information pertaining to the node's network
@@ -211,7 +211,7 @@ std::string local::GenerateNodeInfo(BryptNode const& instance)
 
     std::vector<Json::NodeInfo> nodesInfo;
     nodesInfo.emplace_back(
-        spBryptIdentifier, cluster, spCoordinatorIdentifier,
+        spNodeIdentifier, cluster, spCoordinatorIdentifier,
         neighbors, NodeUtils::GetDesignation(operation), 
         "IEEE 802.11", TimeUtils::GetSystemTimestamp());
 

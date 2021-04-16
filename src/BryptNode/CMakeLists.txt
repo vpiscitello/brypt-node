@@ -24,7 +24,7 @@ target_sources(
 set(INTERNAL_LIBRARIES 
     Await
     Handler
-    BryptPeer
+    Peer
     Network
     Security
     Configuration

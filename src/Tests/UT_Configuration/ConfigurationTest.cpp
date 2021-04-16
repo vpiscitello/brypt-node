@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Components/Configuration/Manager.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>

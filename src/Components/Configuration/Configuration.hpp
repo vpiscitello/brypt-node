@@ -53,7 +53,7 @@ struct Configuration::IdentifierOptions
     std::optional<std::string> value;
     std::string type;
 
-    BryptIdentifier::SharedContainer container;
+    Node::SharedIdentifier container;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

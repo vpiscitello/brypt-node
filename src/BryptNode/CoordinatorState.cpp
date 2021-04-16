@@ -4,24 +4,24 @@
 
 CoordinatorState::CoordinatorState()
     : m_mutex()
-    , m_spBryptIdentifier()
+    , m_spNodeIdentifier()
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer CoordinatorState::GetBryptIdentifier() const 
+Node::SharedIdentifier CoordinatorState::GetNodeIdentifier() const 
 {
     std::shared_lock lock(m_mutex);
-    return m_spBryptIdentifier;
+    return m_spNodeIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void CoordinatorState::SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier)
+void CoordinatorState::SetNodeIdentifier(Node::SharedIdentifier const& spNodeIdentifier)
 {
     std::unique_lock lock(m_mutex);
-    m_spBryptIdentifier = spBryptIdentifier;
+    m_spNodeIdentifier = spNodeIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

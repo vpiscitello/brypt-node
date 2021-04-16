@@ -3,7 +3,7 @@
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Network/Endpoint.hpp"
-#include "Components/Network/EndpointManager.hpp"
+#include "Components/Network/Manager.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Interfaces/BootstrapCache.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -51,9 +51,7 @@ public:
     void AddBootstrap(Network::RemoteAddress const& bootstrap)
     {
         auto& upBootstrapSet = m_protocols[bootstrap.GetProtocol()]; 
-        if (!upBootstrapSet) {
-            upBootstrapSet = std::make_unique<PeerPersistor::BootstrapSet>();
-        }
+        if (!upBootstrapSet) { upBootstrapSet = std::make_unique<PeerPersistor::BootstrapSet>(); }
         upBootstrapSet->emplace(bootstrap);
     }
 
@@ -66,8 +64,7 @@ public:
     }
 
     bool ForEachCachedBootstrap(
-        Network::Protocol protocol,
-        OneProtocolReadFunction const& readFunction) const override
+        Network::Protocol protocol, OneProtocolReadFunction const& readFunction) const override
     {
         auto const itr = m_protocols.find(protocol);
         if (itr == m_protocols.end()) { return false; }   
@@ -99,13 +96,10 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(EndpointManagerSuite, EndpointStartupTest)
+TEST(NetworkManagerSuite, EndpointStartupTest)
 {
     Configuration::EndpointConfigurations configurations;
-    Configuration::EndpointOptions options(
-        Network::Protocol::TCP,
-        test::Interface,
-        test::ServerBinding);
+    Configuration::EndpointOptions options(Network::Protocol::TCP, test::Interface, test::ServerBinding);
     ASSERT_TRUE(options.Initialize());
     configurations.emplace_back(options);
     
@@ -113,23 +107,22 @@ TEST(EndpointManagerSuite, EndpointStartupTest)
     Network::RemoteAddress address(test::ProtocolType, test::ServerEntry, true);
     spPeerCache->AddBootstrap(address);
 
-    auto upEndpointManager = std::make_unique<EndpointManager>(
-        configurations, nullptr, spPeerCache.get());
+    auto upNetworkManager = std::make_unique<Network::Manager>(configurations, nullptr, spPeerCache.get());
         
-    std::size_t const initialActiveEndpoints = upEndpointManager->ActiveEndpointCount();
-    std::size_t const initialActiveProtocolsCount = upEndpointManager->ActiveProtocolCount();
+    std::size_t const initialActiveEndpoints = upNetworkManager->ActiveEndpointCount();
+    std::size_t const initialActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
     EXPECT_EQ(initialActiveEndpoints, std::size_t(0));
     EXPECT_EQ(initialActiveProtocolsCount, std::size_t(0));
 
-    upEndpointManager->Startup();
-    std::size_t const startupActiveEndpoints = upEndpointManager->ActiveEndpointCount();
-    std::size_t const startupActiveProtocolsCount = upEndpointManager->ActiveProtocolCount();
+    upNetworkManager->Startup();
+    std::size_t const startupActiveEndpoints = upNetworkManager->ActiveEndpointCount();
+    std::size_t const startupActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
     EXPECT_GT(startupActiveEndpoints, std::size_t(0));
     EXPECT_EQ(startupActiveProtocolsCount, configurations.size());
 
-    upEndpointManager->Shutdown();
-    std::size_t const shutdownActiveEndpoints = upEndpointManager->ActiveEndpointCount();
-    std::size_t const shutdownActiveProtocolsCount = upEndpointManager->ActiveProtocolCount();
+    upNetworkManager->Shutdown();
+    std::size_t const shutdownActiveEndpoints = upNetworkManager->ActiveEndpointCount();
+    std::size_t const shutdownActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
     EXPECT_EQ(shutdownActiveEndpoints, std::size_t(0));
     EXPECT_EQ(shutdownActiveProtocolsCount, std::size_t(0));
 }

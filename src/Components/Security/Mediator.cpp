@@ -1,12 +1,13 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: SecurityMediator.cpp
+// File: Mediator.cpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-#include "SecurityMediator.hpp"
+#include "Mediator.hpp"
+//----------------------------------------------------------------------------------------------------------------------
 #include "SecurityUtils.hpp"
 #include "BryptMessage/MessageContext.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/MessageControl/ExchangeProcessor.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -16,15 +17,15 @@
 //----------------------------------------------------------------------------------------------------------------------
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-SecurityMediator::SecurityMediator(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+Security::Mediator::Mediator(
+    Node::SharedIdentifier const& spNodeIdentifier,
     Security::Context context,
     std::weak_ptr<IMessageSink> const& wpAuthorizedSink)
     : m_mutex()
     , m_context(context)
     , m_state(Security::State::Unauthorized)
-    , m_spBryptIdentifier(spBryptIdentifier)
-    , m_spBryptPeer()
+    , m_spNodeIdentifier(spNodeIdentifier)
+    , m_spPeer()
     , m_upStrategy()
     , m_upExchangeProcessor()
     , m_wpAuthorizedSink(wpAuthorizedSink)
@@ -33,14 +34,13 @@ SecurityMediator::SecurityMediator(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-SecurityMediator::SecurityMediator(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
-    std::unique_ptr<ISecurityStrategy>&& upStrategy)
+Security::Mediator::Mediator(
+    Node::SharedIdentifier const& spNodeIdentifier, std::unique_ptr<ISecurityStrategy>&& upStrategy)
     : m_mutex()
     , m_context(upStrategy->GetContextType())
     , m_state(Security::State::Unauthorized)
-    , m_spBryptIdentifier(spBryptIdentifier)
-    , m_spBryptPeer()
+    , m_spNodeIdentifier(spNodeIdentifier)
+    , m_spPeer()
     , m_upStrategy(std::move(upStrategy))
     , m_upExchangeProcessor()
     , m_wpAuthorizedSink()
@@ -49,21 +49,21 @@ SecurityMediator::SecurityMediator(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-SecurityMediator::~SecurityMediator()
+Security::Mediator::~Mediator()
 {
     // If the unauthorized sink is still active for the peer, we must unset the peer's receiver
     // to ensure the receiver does not point to invalid memory. Note: the process of acquiring the 
-    // receiver mutex in BryptPeer should ensure that the sink is not destructed while it is 
+    // receiver mutex in Peer::Proxy should ensure that the sink is not destructed while it is 
     // actively processing a message. 
-    if (m_spBryptPeer && m_upExchangeProcessor) { m_spBryptPeer->SetReceiver(nullptr); }
+    if (m_spPeer && m_upExchangeProcessor) { m_spPeer->SetReceiver(nullptr); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SecurityMediator::OnExchangeClose(ExchangeStatus status)
+void Security::Mediator::OnExchangeClose(ExchangeStatus status)
 {
     std::scoped_lock lock(m_mutex);
-    if (!m_spBryptPeer) [[unlikely]] { return; }   
+    if (!m_spPeer) [[unlikely]] { return; }   
     
     switch (status) {
         // If we have been notified us of a successful exchange set the message sink for the peer 
@@ -71,14 +71,14 @@ void SecurityMediator::OnExchangeClose(ExchangeStatus status)
         case ExchangeStatus::Success: {
             m_state = Security::State::Authorized;
             if (auto const spMessageSink = m_wpAuthorizedSink.lock(); spMessageSink) [[likely]] {
-                m_spBryptPeer->SetReceiver(spMessageSink.get());
+                m_spPeer->SetReceiver(spMessageSink.get());
             } else { assert(false); }
         } break;
         // If we have been notified us of a failed exchange unset the message sink for the peer 
         // and mark the peer as unauthorized. 
         case ExchangeStatus::Failed: {
             m_state = Security::State::Unauthorized;
-            m_spBryptPeer->SetReceiver(nullptr);
+            m_spPeer->SetReceiver(nullptr);
         } break;
         default: assert(false); break;  // What is this?
     }
@@ -88,7 +88,7 @@ void SecurityMediator::OnExchangeClose(ExchangeStatus status)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy)
+void Security::Mediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy)
 {
     std::scoped_lock lock(m_mutex);
     m_upStrategy = std::move(upStrategy);
@@ -96,7 +96,7 @@ void SecurityMediator::OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::State SecurityMediator::GetSecurityState() const
+Security::State Security::Mediator::GetSecurityState() const
 {
     std::shared_lock lock(m_mutex);
     return m_state;
@@ -104,7 +104,7 @@ Security::State SecurityMediator::GetSecurityState() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SecurityMediator::BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
+void Security::Mediator::BindPeer(std::shared_ptr<Peer::Proxy> const& spPeerProxy)
 {
     std::scoped_lock lock(m_mutex);
 
@@ -113,27 +113,27 @@ void SecurityMediator::BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
     }
 
     // We must be provided a peer to track. 
-    if (!spBryptPeer) [[unlikely]] {
+    if (!spPeerProxy) [[unlikely]] {
         throw std::runtime_error("The Security Mediator was not bound to a valid peer!");
     }
 
-    if (m_spBryptPeer) [[unlikely]] {
+    if (m_spPeer) [[unlikely]] {
         throw std::runtime_error("The Security Mediator may only be bound to a peer once!");
     }
 
     // Capture the bound peer in order to manage the security process and to ensure the bind 
     // method is not called multuple times. 
-    m_spBryptPeer = spBryptPeer;
+    m_spPeer = spPeerProxy;
 
     // If an exchange processor has been setup, set the receiver on the peer to it.
     if (m_upExchangeProcessor) [[likely]] {
-        spBryptPeer->SetReceiver(m_upExchangeProcessor.get());
+        spPeerProxy->SetReceiver(m_upExchangeProcessor.get());
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SecurityMediator::BindSecurityContext(MessageContext& context) const
+void Security::Mediator::BindSecurityContext(MessageContext& context) const
 {
     auto& mutex = m_mutex;
     auto const& upStrategy = m_upStrategy;
@@ -175,7 +175,7 @@ void SecurityMediator::BindSecurityContext(MessageContext& context) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<std::string> SecurityMediator::SetupExchangeInitiator(
+std::optional<std::string> Security::Mediator::SetupExchangeInitiator(
     Security::Strategy strategy, std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
 {
     std::scoped_lock lock(m_mutex);
@@ -200,7 +200,7 @@ std::optional<std::string> SecurityMediator::SetupExchangeInitiator(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool SecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
+bool Security::Mediator::SetupExchangeAcceptor(Security::Strategy strategy)
 {
     std::scoped_lock lock(m_mutex);
 
@@ -223,14 +223,13 @@ bool SecurityMediator::SetupExchangeAcceptor(Security::Strategy strategy)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool SecurityMediator::SetupExchangeProcessor(
-    std::unique_ptr<ISecurityStrategy>&& upStrategy,
-    std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
+bool Security::Mediator::SetupExchangeProcessor(
+    std::unique_ptr<ISecurityStrategy>&& upStrategy, std::shared_ptr<IConnectProtocol> const& spConnectProtocol)
 {
     if (m_upExchangeProcessor || !upStrategy) [[unlikely]] { return false; }
 
     m_upExchangeProcessor = std::make_unique<ExchangeProcessor>(
-        m_spBryptIdentifier, spConnectProtocol, this, std::move(upStrategy));
+        m_spNodeIdentifier, spConnectProtocol, this, std::move(upStrategy));
 
     return true;
 }

@@ -26,8 +26,8 @@ MessageContext GenerateMessageContext();
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 
 constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t Phase = 0;
@@ -370,7 +370,7 @@ TEST(MessageHeaderSuite, PeekSourceNullBytesTest)
 
 TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 {
-    Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength);
+    Message::Buffer const buffer(128, Node::Network::Identifier::MinimumLength);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
@@ -379,7 +379,7 @@ TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 
 TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 {
-    Message::Buffer const buffer(12, BryptIdentifier::Network::MinimumLength);
+    Message::Buffer const buffer(12, Node::Network::Identifier::MinimumLength);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
@@ -388,7 +388,7 @@ TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 
 TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 {
-    Message::Buffer const buffer(128, BryptIdentifier::Network::MaximumLength + 1);
+    Message::Buffer const buffer(128, Node::Network::Identifier::MaximumLength + 1);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
@@ -397,7 +397,7 @@ TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 
 TEST(MessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 {
-    Message::Buffer const buffer(128, BryptIdentifier::Network::MinimumLength - 1);
+    Message::Buffer const buffer(128, Node::Network::Identifier::MinimumLength - 1);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }

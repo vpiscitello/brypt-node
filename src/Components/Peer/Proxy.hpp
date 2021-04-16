@@ -1,11 +1,11 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: BryptPeer.hpp
+// File: Proxy.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "EndpointRegistration.hpp"
-#include "PeerStatistics.hpp"
+#include "Registration.hpp"
+#include "Statistics.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageTypes.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
@@ -24,24 +24,29 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 class MessageContext;
-class SecurityMediator;
+namespace Security{ class Mediator; }
 namespace Network { class Address; }
 
 class IPeerMediator;
 
 //----------------------------------------------------------------------------------------------------------------------
+namespace Peer {
+//----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer : public std::enable_shared_from_this<BryptPeer>
+class Proxy;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Peer namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Peer::Proxy final : public std::enable_shared_from_this<Peer::Proxy>
 {
 public:
-    explicit BryptPeer(
-        BryptIdentifier::Container const& identifier,
-        IPeerMediator* const pPeerMediator = nullptr);
+    explicit Proxy(Node::Identifier const& identifier, IPeerMediator* const pPeerMediator = nullptr);
+    ~Proxy();
 
-    ~BryptPeer();
-
-    [[nodiscard]] BryptIdentifier::SharedContainer GetBryptIdentifier() const;
-    [[nodiscard]] BryptIdentifier::Internal::Type GetInternalIdentifier() const;
+    [[nodiscard]] Node::SharedIdentifier GetNodeIdentifier() const;
+    [[nodiscard]] Node::Internal::Identifier::Type GetInternalIdentifier() const;
 
     // Statistic Methods {
     [[nodiscard]] std::uint32_t GetSentCount() const;
@@ -57,20 +62,18 @@ public:
     // } Message Receiving Methods
 
     // Message Sending Methods {
-    [[nodiscard]] bool ScheduleSend(
-        Network::Endpoint::Identifier identifier, std::string_view message) const;
+    [[nodiscard]] bool ScheduleSend(Network::Endpoint::Identifier identifier, std::string_view message) const;
     // } Message Sending Methods
 
     // Endpoint Association Methods {
-    void RegisterEndpoint(EndpointRegistration const& registration);
+    void RegisterEndpoint(Registration const& registration);
     void RegisterEndpoint(
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
         MessageScheduler const& scheduler = {});
 
-    void WithdrawEndpoint(
-        Network::Endpoint::Identifier identifier, Network::Protocol protocol);
+    void WithdrawEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
@@ -82,24 +85,23 @@ public:
     // } Endpoint Association Methods
 
     // Security Methods {
-    void AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSecurityMediator);
+    void AttachSecurityMediator(std::unique_ptr<Security::Mediator>&& upSecurityMediator);
     [[nodiscard]] Security::State GetSecurityState() const;
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;
     // } Security Methods
     
 private:
-    using RegisteredEndpoints = std::unordered_map<
-        Network::Endpoint::Identifier, EndpointRegistration>;
+    using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;
 
     IPeerMediator* const m_pPeerMediator;
 
     mutable std::recursive_mutex m_dataMutex;
-    BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    mutable PeerStatistics m_statistics;
+    Node::SharedIdentifier m_spNodeIdentifier;
+    mutable Statistics m_statistics;
 
     mutable std::recursive_mutex m_mediatorMutex;
-    std::unique_ptr<SecurityMediator> m_upSecurityMediator;
+    std::unique_ptr<Security::Mediator> m_upSecurityMediator;
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;

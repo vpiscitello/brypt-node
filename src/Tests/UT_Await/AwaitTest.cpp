@@ -1,12 +1,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Await/AwaitDefinitions.hpp"
 #include "Components/Await/ResponseTracker.hpp"
 #include "Components/Await/TrackingManager.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -30,9 +30,8 @@ MessageContext GenerateMessageContext();
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::Container const>(
-    BryptIdentifier::Generate());
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+auto const spServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
 constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
@@ -54,7 +53,7 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -121,7 +120,7 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     MessageContext const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -136,9 +135,8 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
             EXPECT_TRUE(optMessage);
 
             Message::ValidationStatus status = optMessage->Validate();
-            if (status != Message::ValidationStatus::Success) {
-                return false;
-            }
+            if (status != Message::ValidationStatus::Success) { return false; }
+
             optFulfilledResponse = optMessage;
             return true;
         });
@@ -151,10 +149,8 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
     
-    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::Container const>(
-        BryptIdentifier::Generate());
-    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::Container const>(
-        BryptIdentifier::Generate());
+    auto const spFirstIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+    auto const spSecondIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
     Await::ResponseTracker tracker(
         spClientPeer,
@@ -214,7 +210,7 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -270,7 +266,7 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -300,10 +296,8 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
     
-    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::Container const>(
-        BryptIdentifier::Generate());
-    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::Container const>(
-        BryptIdentifier::Generate());
+    auto const spFirstIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+    auto const spSecondIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
     Await::ResponseTracker tracker(
         spClientPeer,
@@ -357,7 +351,7 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -417,7 +411,7 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -472,7 +466,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
     MessageContext const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
     spClientPeer->RegisterEndpoint(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -502,10 +496,8 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
-    auto const spFirstIdentifier = std::make_shared<BryptIdentifier::Container const>(
-        BryptIdentifier::Generate());
-    auto const spSecondIdentifier = std::make_shared<BryptIdentifier::Container const>(
-        BryptIdentifier::Generate());
+    auto const spFirstIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+    auto const spSecondIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
     Await::TrackingManager manager;
     auto const key = manager.PushRequest(

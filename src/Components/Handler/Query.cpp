@@ -86,12 +86,12 @@ bool Handler::Query::HandleMessage(AssociatedMessage const& associatedMessage)
 {
     bool status = false;
 
-    auto& [wpBryptPeer, message] = associatedMessage;
+    auto& [wpPeerProxy, message] = associatedMessage;
     auto const phase = static_cast<Query::Phase>(message.GetPhase());
     switch (phase) {
-        case Query::Phase::Flood: { status = FloodHandler(wpBryptPeer, message); } break;
-        case Query::Phase::Respond: { status = RespondHandler(wpBryptPeer, message); } break;
-        case Query::Phase::Aggregate: { status = AggregateHandler(wpBryptPeer, message); } break;
+        case Query::Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
+        case Query::Phase::Respond: { status = RespondHandler(wpPeerProxy, message); } break;
+        case Query::Phase::Aggregate: { status = AggregateHandler(wpPeerProxy, message); } break;
         case Query::Phase::Close: { status = CloseHandler(); } break;
         default: break;
     }
@@ -106,14 +106,14 @@ bool Handler::Query::HandleMessage(AssociatedMessage const& associatedMessage)
 // Returns: Status of the message handling
 //----------------------------------------------------------------------------------------------------------------------
 bool Handler::Query::FloodHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message)
 {
     m_spLogger->debug(
         "Flooding query request in service for {}", message.GetSourceIdentifier());
 
     IHandler::SendClusterNotice(
-        wpBryptPeer, message,
+        wpPeerProxy, message,
         "Request for Sensor Readings.",
         static_cast<std::uint8_t>(Phase::Respond),
         static_cast<std::uint8_t>(Phase::Aggregate),
@@ -129,13 +129,13 @@ bool Handler::Query::FloodHandler(
 // Returns: Status of the message handling
 //----------------------------------------------------------------------------------------------------------------------
 bool Handler::Query::RespondHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message)
 {
     m_spLogger->debug(
         "Building response for the Query request from {}.", message.GetSourceIdentifier());
     IHandler::SendResponse(
-        wpBryptPeer, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
+        wpPeerProxy, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));
     return true;
 }
 
@@ -146,7 +146,7 @@ bool Handler::Query::RespondHandler(
 // Returns: Status of the message handling
 //----------------------------------------------------------------------------------------------------------------------
 bool Handler::Query::AggregateHandler(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message)
 {
     if (auto const spAwaitManager = m_instance.GetAwaitManager().lock()) {
@@ -154,7 +154,7 @@ bool Handler::Query::AggregateHandler(
     }
 
     IHandler::SendResponse(
-        wpBryptPeer, message, "Response Acknowledged.", static_cast<std::uint8_t>(Phase::Close));
+        wpPeerProxy, message, "Response Acknowledged.", static_cast<std::uint8_t>(Phase::Close));
     return true;
 }
 

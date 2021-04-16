@@ -17,7 +17,8 @@
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
+
 class ApplicationMessage;
 class NetworkMessage;
 class MessageContext;
@@ -26,16 +27,16 @@ class MessageContext;
 
 class AuthorizedProcessor : public IMessageSink {
 public:
-    explicit AuthorizedProcessor(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    explicit AuthorizedProcessor(Node::SharedIdentifier const& spNodeIdentifier);
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
@@ -44,15 +45,12 @@ public:
     std::size_t QueuedMessageCount() const;
 
 private:
-    bool QueueMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
-        ApplicationMessage const& message);
-
-    bool HandleMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
-    	NetworkMessage const& message);
+    [[nodiscard]] bool QueueMessage(
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
+    [[nodiscard]] bool HandleMessage(
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
         
-    BryptIdentifier::SharedContainer m_spBryptIdentifier;
+    Node::SharedIdentifier m_spNodeIdentifier;
     
     mutable std::shared_mutex m_incomingMutex;
     std::queue<AssociatedMessage> m_incoming;

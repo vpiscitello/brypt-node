@@ -23,13 +23,10 @@ set(
     ${CMAKE_SOURCE_DIR}/BryptNode/SensorState.cpp
     ${CMAKE_SOURCE_DIR}/Components/Await/ResponseTracker.cpp
     ${CMAKE_SOURCE_DIR}/Components/Await/TrackingManager.cpp
-    ${CMAKE_SOURCE_DIR}/Components/BryptPeer/BryptPeer.cpp
-    ${CMAKE_SOURCE_DIR}/Components/BryptPeer/EndpointRegistration.cpp
-    ${CMAKE_SOURCE_DIR}/Components/BryptPeer/PeerManager.cpp
-    ${CMAKE_SOURCE_DIR}/Components/BryptPeer/PeerStatistics.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/Configuration.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Configuration/ConfigurationManager.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Configuration/Manager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/PeerPersistor.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Event/Publisher.cpp
     ${CMAKE_SOURCE_DIR}/Components/Handler/Connect.cpp
     ${CMAKE_SOURCE_DIR}/Components/Handler/Election.cpp
     ${CMAKE_SOURCE_DIR}/Components/Handler/Handler.cpp
@@ -38,16 +35,20 @@ set(
     ${CMAKE_SOURCE_DIR}/Components/MessageControl/AuthorizedProcessor.cpp
     ${CMAKE_SOURCE_DIR}/Components/MessageControl/DiscoveryProtocol.cpp
     ${CMAKE_SOURCE_DIR}/Components/MessageControl/ExchangeProcessor.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/Endpoint.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/EndpointManager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/Address.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Network/Endpoint.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Network/Manager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/LoRa/Endpoint.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Endpoint.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Events.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Session.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Proxy.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Registration.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Manager.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Statistics.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/KeyStore.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Security/Mediator.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecureBuffer.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/SecurityMediator.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecurityUtils.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/PostQuantum/NISTSecurityLevelThree.cpp)
 

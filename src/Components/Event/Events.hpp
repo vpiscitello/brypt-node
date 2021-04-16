@@ -113,8 +113,8 @@ template <>
 class Event::Message<Event::Type::PeerConnected> : public Event::IMessage
 {
     // Schema: The brypt identifier of the peer and the network technology of the endpoint.
-    EVENT_MESSAGE_CONTENT_STORE(BryptIdentifier::SharedContainer, Network::Protocol)
-    EVENT_MESSAGE_CALLBACK_TRAIT(BryptIdentifier::SharedContainer const&, Network::Protocol)
+    EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, Node::SharedIdentifier)
+    EVENT_MESSAGE_CALLBACK_TRAIT( Network::Protocol, Node::SharedIdentifier const&)
     EVENT_MESSAGE_CORE(Event::Type::PeerConnected)
 };
 
@@ -124,8 +124,8 @@ template <>
 class Event::Message<Event::Type::PeerDisconnected> : public Event::IMessage
 {
     // Schema: The brypt identifier of the peer, the network technology of the endpoint, and the cause of the event.
-    EVENT_MESSAGE_CONTENT_STORE(BryptIdentifier::SharedContainer, Network::Protocol, Cause)
-    EVENT_MESSAGE_CALLBACK_TRAIT(BryptIdentifier::SharedContainer const&, Network::Protocol, Cause)
+    EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, Node::SharedIdentifier, Cause)
+    EVENT_MESSAGE_CALLBACK_TRAIT( Network::Protocol, Node::SharedIdentifier const&, Cause)
     EVENT_MESSAGE_CORE(Event::Type::PeerDisconnected)
 };
 

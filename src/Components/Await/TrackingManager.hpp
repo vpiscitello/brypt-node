@@ -16,8 +16,9 @@
 
 namespace spdlog { class logger; }
 
+namespace Peer { class Proxy; }
+
 class ApplicationMessage;
-class BryptPeer;
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Await {
@@ -38,14 +39,14 @@ public:
     TrackingManager();
 
     TrackerKey PushRequest(
-        std::weak_ptr<BryptPeer> const& wpRequestor,
+        std::weak_ptr<Peer::Proxy> const& wpRequestor,
         ApplicationMessage const& message,
-        BryptIdentifier::SharedContainer const& spBryptPeerIdentifier);
+        Node::SharedIdentifier const& spIdentifier);
 
     TrackerKey PushRequest(
-        std::weak_ptr<BryptPeer> const& wpRequestor,
+        std::weak_ptr<Peer::Proxy> const& wpRequestor,
         ApplicationMessage const& message,
-        std::set<BryptIdentifier::SharedContainer> const& spBryptPeerIdentifier);
+        std::set<Node::SharedIdentifier> const& spIdentifier);
 
     bool PushResponse(ApplicationMessage const& message);
     void ProcessFulfilledRequests();

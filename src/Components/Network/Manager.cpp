@@ -1,9 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: EndpointManager.cpp
+// File: Manager.cpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
+#include "Manager.hpp"
+//----------------------------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
-#include "EndpointManager.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -13,15 +14,14 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-void ConnectBootstraps(
-    EndpointManager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache);
+void ConnectBootstraps(Network::Manager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointManager::EndpointManager(
+Network::Manager::Manager(
     Configuration::EndpointConfigurations const& configurations,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
@@ -33,14 +33,14 @@ EndpointManager::EndpointManager(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointManager::~EndpointManager()
+Network::Manager::~Manager()
 {
     Shutdown();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointManager::EndpointEntryMap EndpointManager::GetEndpointEntries() const
+Network::Manager::EndpointEntryMap Network::Manager::GetEndpointEntries() const
 {
     EndpointEntryMap entries;
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
@@ -55,7 +55,7 @@ EndpointManager::EndpointEntryMap EndpointManager::GetEndpointEntries() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointManager::EndpointUriSet EndpointManager::GetEndpointUris() const
+Network::Manager::EndpointUriSet Network::Manager::GetEndpointUris() const
 {
     EndpointUriSet uris;
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
@@ -70,7 +70,7 @@ EndpointManager::EndpointUriSet EndpointManager::GetEndpointUris() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void EndpointManager::Startup()
+void Network::Manager::Startup()
 {
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
         spEndpoint->Startup();
@@ -79,7 +79,7 @@ void EndpointManager::Startup()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void EndpointManager::Shutdown()
+void Network::Manager::Shutdown()
 {
     for (auto const& [identifier, spEndpoint]: m_endpoints) {
         if (spEndpoint) {
@@ -90,8 +90,7 @@ void EndpointManager::Shutdown()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointManager::SharedEndpoint EndpointManager::GetEndpoint(
-    Network::Endpoint::Identifier identifier) const
+Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Network::Endpoint::Identifier identifier) const
 {
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
         return itr->second;
@@ -101,9 +100,8 @@ EndpointManager::SharedEndpoint EndpointManager::GetEndpoint(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointManager::SharedEndpoint EndpointManager::GetEndpoint(
-    Network::Protocol protocol,
-    Network::Operation operation) const
+Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(
+    Network::Protocol protocol, Network::Operation operation) const
 {
     for (auto const [identifier, spEndpoint]: m_endpoints) {
         if (protocol == spEndpoint->GetProtocol() && operation == spEndpoint->GetOperation()) {
@@ -115,14 +113,14 @@ EndpointManager::SharedEndpoint EndpointManager::GetEndpoint(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::ProtocolSet EndpointManager::GetEndpointProtocols() const
+Network::ProtocolSet Network::Manager::GetEndpointProtocols() const
 {
     return m_protocols;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t EndpointManager::ActiveEndpointCount() const
+std::size_t Network::Manager::ActiveEndpointCount() const
 {
     std::uint32_t count = 0;
     for (auto const& [identifier, spEndpoint] : m_endpoints) {
@@ -133,7 +131,7 @@ std::size_t EndpointManager::ActiveEndpointCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t EndpointManager::ActiveProtocolCount() const
+std::size_t Network::Manager::ActiveProtocolCount() const
 {
     Network::ProtocolSet protocols;
     for (auto const& [identifier, spEndpoint] : m_endpoints) {
@@ -146,7 +144,7 @@ std::size_t EndpointManager::ActiveProtocolCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void EndpointManager::Initialize(
+void Network::Manager::Initialize(
     Configuration::EndpointConfigurations const& configurations,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
@@ -170,7 +168,7 @@ void EndpointManager::Initialize(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void EndpointManager::InitializeTCPEndpoints(
+void Network::Manager::InitializeTCPEndpoints(
     Configuration::EndpointOptions const& options,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
@@ -201,7 +199,7 @@ void EndpointManager::InitializeTCPEndpoints(
 //----------------------------------------------------------------------------------------------------------------------
 
 void local::ConnectBootstraps(
-    EndpointManager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache)
+    Network::Manager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache)
 {
     using namespace Network;
     assert(spEndpoint && spEndpoint->GetOperation() == Operation::Client);

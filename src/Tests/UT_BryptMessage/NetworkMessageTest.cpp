@@ -20,8 +20,8 @@ namespace local {
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 
 constexpr std::string_view Data = "Hello World!";
 

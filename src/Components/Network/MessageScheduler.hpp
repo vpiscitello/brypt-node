@@ -10,8 +10,6 @@
 #include <functional>
 //----------------------------------------------------------------------------------------------------------------------
 
-using MessageScheduler = std::function<bool(
-    BryptIdentifier::Container const& destination,
-    std::string_view message)>;
+using MessageScheduler = std::function<bool(Node::Identifier const& destination, std::string_view message)>;
 
 //----------------------------------------------------------------------------------------------------------------------

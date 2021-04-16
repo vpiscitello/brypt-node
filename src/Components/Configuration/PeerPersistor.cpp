@@ -335,11 +335,10 @@ Configuration::StatusCode PeerPersistor::SetupPeersFile()
 //----------------------------------------------------------------------------------------------------------------------
 
 void PeerPersistor::AddBootstrapEntry(
-    std::shared_ptr<BryptPeer> const& spBryptPeer,
-    Network::Endpoint::Identifier identifier)
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy, Network::Endpoint::Identifier identifier)
 {
     // Get the entry from the peer, if there is no entry there is nothing to store. 
-    if (auto const optBootstrap = spBryptPeer->GetRegisteredAddress(identifier); optBootstrap) {
+    if (auto const optBootstrap = spPeerProxy->GetRegisteredAddress(identifier); optBootstrap) {
         AddBootstrapEntry(*optBootstrap);
     }
 }
@@ -368,11 +367,10 @@ void PeerPersistor::AddBootstrapEntry(Network::RemoteAddress const& bootstrap)
 //----------------------------------------------------------------------------------------------------------------------
 
 void PeerPersistor::DeleteBootstrapEntry(
-    std::shared_ptr<BryptPeer> const& spBryptPeer,
-    Network::Endpoint::Identifier identifier)
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy, Network::Endpoint::Identifier identifier)
 {
     // Get the entry from the peer, if there is no entry there is nothing to delete. 
-    if (auto const optBootstrap = spBryptPeer->GetRegisteredAddress(identifier); optBootstrap) {
+    if (auto const optBootstrap = spPeerProxy->GetRegisteredAddress(identifier); optBootstrap) {
         DeleteBootstrapEntry(*optBootstrap);
     }
 }
@@ -401,7 +399,7 @@ void PeerPersistor::DeleteBootstrapEntry(Network::RemoteAddress const& bootstrap
 //----------------------------------------------------------------------------------------------------------------------
 
 void PeerPersistor::HandlePeerStateChange(
-    std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     Network::Endpoint::Identifier identifier,
     [[maybe_unused]] Network::Protocol protocol,
     ConnectionState change)
@@ -409,13 +407,13 @@ void PeerPersistor::HandlePeerStateChange(
     // If the persistor peers have not yet been intialized, simply return
     if (!m_upProtocols) [[unlikely]] { return; }
 
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer) {
+    if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
         switch (change) {
             case ConnectionState::Connected: {
-                AddBootstrapEntry(spBryptPeer, identifier);
+                AddBootstrapEntry(spPeerProxy, identifier);
             } break;
             case ConnectionState::Disconnected:{
-                DeleteBootstrapEntry(spBryptPeer, identifier);
+                DeleteBootstrapEntry(spPeerProxy, identifier);
             } break;
             default: return; // Currently, we don't persist information for other state changes.
         }

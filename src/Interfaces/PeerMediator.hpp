@@ -15,7 +15,8 @@
 #include <string>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
+
 class IPeerObserver;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -31,16 +32,15 @@ public:
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;
 
     virtual OptionalRequest DeclareResolvingPeer(
-        Network::RemoteAddress const& address,
-        BryptIdentifier::SharedContainer const& spIdentifier = nullptr) = 0;
+        Network::RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier = nullptr) = 0;
 
     virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) = 0;
 
-    virtual std::shared_ptr<BryptPeer> LinkPeer(
-        BryptIdentifier::Container const& identifier, Network::RemoteAddress const& address) = 0;
+    virtual std::shared_ptr<Peer::Proxy> LinkPeer(
+        Node::Identifier const& identifier, Network::RemoteAddress const& address) = 0;
 
     virtual void DispatchPeerStateChange(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         ConnectionState change) = 0;

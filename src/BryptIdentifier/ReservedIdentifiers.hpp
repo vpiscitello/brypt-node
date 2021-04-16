@@ -13,35 +13,33 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace ReservedIdentifiers {
+namespace Node {
 //----------------------------------------------------------------------------------------------------------------------
 
 bool IsIdentifierReserved(std::vector<std::uint8_t> const& buffer);
-bool IsIdentifierReserved(BryptIdentifier::Internal::Type const& identifier);
+bool IsIdentifierReserved(Internal::Identifier::Type const& identifier);
 bool IsIdentifierReserved(std::string_view identifier);
-bool IsIdentifierReserved(BryptIdentifier::Container const& identifier);
+bool IsIdentifierReserved(Node::Identifier const& identifier);
 
-bool IsIdentifierAllowed(BryptIdentifier::Internal::Type const& identifier);
+bool IsIdentifierAllowed(Internal::Identifier::Type const& identifier);
 bool IsIdentifierAllowed(std::string_view identifier);
-bool IsIdentifierAllowed(BryptIdentifier::Container const& identifier);
+bool IsIdentifierAllowed(Node::Identifier const& identifier);
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Internal {
+namespace Internal::Identifier {
 //----------------------------------------------------------------------------------------------------------------------
 
 // Indicates an invalid node id that is not addressable/reachable
-constexpr BryptIdentifier::Internal::Type const Invalid = 
-    std::numeric_limits<BryptIdentifier::Internal::Type>::min();
+constexpr Node::Internal::Identifier::Type const Invalid = std::numeric_limits<Type>::min();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Internal namespace
 //----------------------------------------------------------------------------------------------------------------------
-namespace Network {
+namespace Network::Identifier {
 //----------------------------------------------------------------------------------------------------------------------
 
-// NOTE: The following the are the pre-computed network representations of the above reserved 
-// in the application's internal representation. 
-
+// NOTE: The following the are the pre-computed network representations of the above reserved in the application's
+// internal representation. 
 constexpr std::string_view const Invalid = "bry0:11111111111111114fq2it";
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -20,8 +20,7 @@ namespace Message {
 namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class Type : std::uint8_t {
-	Invalid, Handshake, HeartbeatRequest, HeartbeatResponse };
+enum class Type : std::uint8_t { Invalid, Handshake, HeartbeatRequest, HeartbeatResponse };
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Network namespace 
@@ -45,9 +44,9 @@ public:
 	MessageContext const& GetContext() const;
 
 	MessageHeader const& GetMessageHeader() const;
-	BryptIdentifier::Container const& GetSourceIdentifier() const;
+	Node::Identifier const& GetSourceIdentifier() const;
 	Message::Destination GetDestinationType() const;
-	std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
+	std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
 	Message::Network::Type GetMessageType() const;
 	Message::Buffer const& GetPayload() const;
 
@@ -74,11 +73,11 @@ public:
 	NetworkBuilder();
 
 	NetworkBuilder& SetMessageContext(MessageContext const& context);
-	NetworkBuilder& SetSource(BryptIdentifier::Container const& identifier);
-	NetworkBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
+	NetworkBuilder& SetSource(Node::Identifier const& identifier);
+	NetworkBuilder& SetSource(Node::Internal::Identifier::Type const& identifier);
 	NetworkBuilder& SetSource(std::string_view identifier);
-	NetworkBuilder& SetDestination(BryptIdentifier::Container const& identifier);
-	NetworkBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
+	NetworkBuilder& SetDestination(Node::Identifier const& identifier);
+	NetworkBuilder& SetDestination(Node::Internal::Identifier::Type const& identifier);
 	NetworkBuilder& SetDestination(std::string_view identifier);
 	NetworkBuilder& MakeHandshakeMessage();
 	NetworkBuilder& MakeHeartbeatRequest();

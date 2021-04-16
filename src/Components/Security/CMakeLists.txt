@@ -13,7 +13,7 @@ target_sources(
     # Source Files
     KeyStore.cpp
     SecureBuffer.cpp
-    SecurityMediator.cpp
+    Mediator.cpp
     SecurityUtils.cpp
     PostQuantum/NISTSecurityLevelThree.cpp)
 

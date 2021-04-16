@@ -8,7 +8,7 @@
 #include "Components/Await/TrackingManager.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
+#include "Components/Peer/Manager.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "Utilities/CallbackIteration.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ void IRuntimePolicy::ProcessEvents()
 {
     if (auto const optMessage = m_instance.m_spMessageProcessor->GetNextMessage(); optMessage) {
         auto const& handlers = m_instance.m_handlers;
-        auto& [spBryptPeer, message] = *optMessage;
+        auto& [spPeerProxy, message] = *optMessage;
         if (auto const itr = handlers.find(message.GetCommand()); itr != handlers.end()) {
             auto const& [type, handler] = *itr;
             handler->HandleMessage(*optMessage);

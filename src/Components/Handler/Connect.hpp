@@ -22,10 +22,10 @@ public:
     // }IHandler
 
     bool DiscoveryHandler(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
         
     bool JoinHandler(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);    
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);    
 };
 
 //----------------------------------------------------------------------------------------------------------------------

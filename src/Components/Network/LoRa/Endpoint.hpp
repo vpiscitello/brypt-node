@@ -40,9 +40,9 @@ public:
     virtual void ScheduleConnect(RemoteAddress&& address) override;
     virtual void ScheduleConnect(
         RemoteAddress&& address,
-        BryptIdentifier::SharedContainer const& spIdentifier) override;
+        Node::SharedIdentifier const& spIdentifier) override;
     virtual bool ScheduleSend(
-        BryptIdentifier::Container const& identifier,
+        Node::Identifier const& identifier,
         std::string_view message) override;
     // } IEndpoint
 };

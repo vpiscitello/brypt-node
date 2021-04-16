@@ -17,7 +17,8 @@
 #include <shared_mutex>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
+
 class ApplicationMessage;
 class MessageContext;
 
@@ -25,16 +26,16 @@ class MessageContext;
 
 class MessageSinkStub : public IMessageSink {
 public:
-    explicit MessageSinkStub(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    explicit MessageSinkStub(Node::SharedIdentifier const& spNodeIdentifier);
     
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
@@ -46,12 +47,12 @@ public:
     
 private:
     bool QueueMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         ApplicationMessage const& message);
 
     mutable std::shared_mutex m_mutex;
     
-    BryptIdentifier::SharedContainer m_spBryptIdentifier;
+    Node::SharedIdentifier m_spNodeIdentifier;
     std::queue<AssociatedMessage> m_incoming;
 
     bool m_bReceivedHeartbeatRequest;

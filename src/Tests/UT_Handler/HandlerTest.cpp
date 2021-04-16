@@ -3,7 +3,7 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Components/Configuration/Manager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
@@ -36,9 +36,8 @@ namespace test {
 Configuration::EndpointOptions CreateEndpointOptions();
 std::unique_ptr<Configuration::Manager> CreateConfigurationManager();
 
-BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-auto const spServerIdentifier = std::make_shared<BryptIdentifier::Container const>(
-    BryptIdentifier::Generate());
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+auto const spServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
 constexpr std::string_view ProtocolName = "TCP";
 constexpr Network::Protocol ProtocolType = Network::Protocol::TCP;

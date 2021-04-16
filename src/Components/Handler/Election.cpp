@@ -26,7 +26,7 @@ bool Handler::Election::HandleMessage(
 {
     bool status = false;
 
-    auto& [wpBryptPeer, message] = associatedMessage;
+    auto& [wpPeerProxy, message] = associatedMessage;
     auto const phase = static_cast<Election::Phase>(message.GetPhase());
     switch (phase) {
         case Phase::Probe: { status = ProbeHandler(); } break;

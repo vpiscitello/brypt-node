@@ -8,6 +8,7 @@
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -33,10 +34,8 @@ std::unique_ptr<Network::TCP::Endpoint> MakeTcpClient(
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<BryptIdentifier::Container const>(
-    BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container const>(
-    BryptIdentifier::Generate());
+auto const ClientIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+auto const ServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
 constexpr Network::Protocol ProtocolType = Network::Protocol::TCP;
 Network::BindingAddress ServerBinding(ProtocolType, "*:35216", "lo");
@@ -50,8 +49,7 @@ constexpr std::uint32_t Iterations = 100;
 
 TEST(TcpEndpointSuite, SingleConnectionTest)
 {
-    // Create the server resources. The peer mediator stub will store a single BryptPeer 
-    // representing the client.
+    // Create the server resources. The peer mediator stub will store a single Peer::Proxy representing the client.
     auto upServerProcessor = std::make_unique<MessageSinkStub>(test::ServerIdentifier);
     auto const spServerMediator = std::make_shared<SinglePeerMediatorStub>(
         test::ServerIdentifier, upServerProcessor.get());
@@ -63,8 +61,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     ASSERT_EQ(upServerEndpoint->GetBinding(), test::ServerBinding);
     
-    // Create the client resources. The peer mediator stub will store a single BryptPeer 
-    // representing the server.
+    // Create the client resources. The peer mediator stub will store a single Peer::Proxy representing the server.
     auto upClientProcessor = std::make_unique<MessageSinkStub>(test::ClientIdentifier);
     auto const spClientMediator = std::make_shared<SinglePeerMediatorStub>(
         test::ClientIdentifier, upClientProcessor.get());

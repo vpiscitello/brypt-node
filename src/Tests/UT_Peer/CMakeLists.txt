@@ -1,8 +1,8 @@
 #-----------------------------------------------------------------------------------------------------------------------
-message(STATUS "Configuring UT_BryptPeer...")
+message(STATUS "Configuring UT_Peer...")
 #-----------------------------------------------------------------------------------------------------------------------
-project(UT_BryptPeer LANGUAGES CXX)
-add_executable(UT_BryptPeer)
+project(UT_Peer LANGUAGES CXX)
+add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -12,16 +12,16 @@ target_sources(
     PRIVATE
     # Source Files
     PeerManagerTest.cpp
-    UT_BryptPeer.cpp)
+    UT_Peer.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Network Security MessageControl Network Configuration BryptMessage BryptIdentifier
+    Peer Network Security MessageControl Network Configuration BryptMessage BryptIdentifier
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_BryptPeer)
+gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

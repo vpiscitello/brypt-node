@@ -17,7 +17,7 @@
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
 
 namespace Network {
     class IEndpoint;
@@ -64,10 +64,10 @@ public:
     virtual void ScheduleConnect(RemoteAddress&& address) = 0;
     virtual void ScheduleConnect(
         RemoteAddress&& address,
-        BryptIdentifier::SharedContainer const& spIdentifier) = 0;
+        Node::SharedIdentifier const& spIdentifier) = 0;
 
 	virtual bool ScheduleSend(
-        BryptIdentifier::Container const& destination, std::string_view message) = 0;
+        Node::Identifier const& destination, std::string_view message) = 0;
 
     Network::Endpoint::Identifier GetEndpointIdentifier() const;
     Operation GetOperation() const;
@@ -76,8 +76,8 @@ public:
     void RegisterMediator(IPeerMediator* const pMediator);
 
 protected: 
-    std::shared_ptr<BryptPeer> LinkPeer(
-        BryptIdentifier::Container const& identifier, RemoteAddress const& address) const;
+    std::shared_ptr<Peer::Proxy> LinkPeer(
+        Node::Identifier const& identifier, RemoteAddress const& address) const;
     
     Network::Endpoint::Identifier const m_identifier;
 	Operation const m_operation;

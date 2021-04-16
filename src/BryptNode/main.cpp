@@ -5,15 +5,15 @@
 #include "BryptNode.hpp"
 #include "StartupOptions.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/ConfigurationManager.hpp"
+#include "Components/Configuration/Manager.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Components/Network/EndpointManager.hpp"
+#include "Components/Network/Manager.hpp"
+#include "Components/Peer/Manager.hpp"
 #include "Utilities/LogUtils.hpp"
 #include "Utilities/Version.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -40,8 +40,8 @@ std::int32_t main(std::int32_t argc, char** argv)
         return 1;
     }
 
-    auto const spBryptIdentifier = upConfigurationManager->GetBryptIdentifier();
-    if (!spBryptIdentifier) {
+    auto const spNodeIdentifier = upConfigurationManager->GetNodeIdentifier();
+    if (!spNodeIdentifier) {
         spLogger->critical("An error occured establishing a Brypt Identifier!");
         return 1;
     }
@@ -60,31 +60,29 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     auto const spEventPublisher = std::make_shared<Event::Publisher>();
     auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(*optEndpointConfigurations);
-    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(spBryptIdentifier);
-    auto const spPeerManager = std::make_shared<PeerManager>(
-        spBryptIdentifier, upConfigurationManager->GetSecurityStrategy(),
+    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(spNodeIdentifier);
+    auto const spPeerManager = std::make_shared<Peer::Manager>(
+        spNodeIdentifier, upConfigurationManager->GetSecurityStrategy(),
         spDiscoveryProtocol, spMessageCollector);
 
     spPeerPersistor->SetMediator(spPeerManager.get());
 
     IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spPeerPersistor.get() : nullptr;
-    auto const spEndpointManager = std::make_shared<EndpointManager>(
+    auto const spNetworkManager = std::make_shared<Network::Manager>(
         *optEndpointConfigurations, spPeerManager.get(), pBootstraps);
 
     BryptNode alpha(
-        spBryptIdentifier, spEventPublisher, spEndpointManager, spPeerManager, 
+        spNodeIdentifier, spEventPublisher, spNetworkManager, spPeerManager, 
         spMessageCollector, spPeerPersistor, upConfigurationManager);
 
     spLogger->info("Welcome to the Brypt Network!");
-    spLogger->info("Brypt Identifier: {}", spBryptIdentifier->GetNetworkRepresentation());
+    spLogger->info("Brypt Identifier: {}", spNodeIdentifier->GetNetworkString());
 
     bool const success = alpha.Startup();
     if (!success) {
         spLogger->critical("An unexpected error caused the node to shutdown!");
         return 1;
     }
-
-    // TODO: Use boost signal_set to listen for SIGTERM, etc.
 
     return 0;
 }

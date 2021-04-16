@@ -1,24 +1,22 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: BryptPeer.cpp
+// File: Proxy.cpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptPeer.hpp"
+#include "Proxy.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "Components/Network/Address.hpp"
+#include "Components/Security/Mediator.hpp"
 #include "Components/Security/SecurityState.hpp"
-#include "Components/Security/SecurityMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptPeer::BryptPeer(
-    BryptIdentifier::Container const& identifier,
-    IPeerMediator* const pPeerMediator)
+Peer::Proxy::Proxy(Node::Identifier const& identifier, IPeerMediator* const pPeerMediator)
     : m_pPeerMediator(pPeerMediator)
     , m_dataMutex()
-    , m_spBryptIdentifier()
+    , m_spNodeIdentifier()
     , m_statistics()
     , m_mediatorMutex()
     , m_upSecurityMediator()
@@ -27,43 +25,41 @@ BryptPeer::BryptPeer(
     , m_receiverMutex()
     , m_pMessageSink()
 {
-    // A Brypt Peer must always be constructed with an identifier that can uniquely identify
-    // the peer. 
+    // A Brypt Peer must always be constructed with an identifier that can uniquely identify the peer. 
     if (!identifier.IsValid() ||
-        ReservedIdentifiers::IsIdentifierReserved(identifier)) [[unlikely]] {
-        throw std::runtime_error(
-            "Error creating Brypt Peer with an invalid identifier!");
+        Node::IsIdentifierReserved(identifier)) [[unlikely]] {
+        throw std::runtime_error("Error creating Brypt Peer with an invalid identifier!");
     }
 
-    m_spBryptIdentifier = std::make_shared<BryptIdentifier::Container const>(identifier);
+    m_spNodeIdentifier = std::make_shared<Node::Identifier const>(identifier);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptPeer::~BryptPeer()
+Peer::Proxy::~Proxy()
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer BryptPeer::GetBryptIdentifier() const
-{
-    std::scoped_lock lock(m_dataMutex);
-    return m_spBryptIdentifier;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-BryptIdentifier::Internal::Type BryptPeer::GetInternalIdentifier() const
+Node::SharedIdentifier Peer::Proxy::GetNodeIdentifier() const
 {
     std::scoped_lock lock(m_dataMutex);
-    assert(m_spBryptIdentifier);
-    return m_spBryptIdentifier->GetInternalRepresentation();
+    return m_spNodeIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint32_t BryptPeer::GetSentCount() const
+Node::Internal::Identifier::Type Peer::Proxy::GetInternalIdentifier() const
+{
+    std::scoped_lock lock(m_dataMutex);
+    assert(m_spNodeIdentifier);
+    return m_spNodeIdentifier->GetInternalValue();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::uint32_t Peer::Proxy::GetSentCount() const
 {
     std::scoped_lock lock(m_dataMutex);
     return m_statistics.GetSentCount();
@@ -71,7 +67,7 @@ std::uint32_t BryptPeer::GetSentCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint32_t BryptPeer::GetReceivedCount() const
+std::uint32_t Peer::Proxy::GetReceivedCount() const
 {
     std::scoped_lock lock(m_dataMutex);
     return m_statistics.GetReceivedCount();
@@ -79,7 +75,7 @@ std::uint32_t BryptPeer::GetReceivedCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BryptPeer::SetReceiver(IMessageSink* const pMessageSink)
+void Peer::Proxy::SetReceiver(IMessageSink* const pMessageSink)
 {
     std::scoped_lock lock(m_receiverMutex);
     m_pMessageSink = pMessageSink;
@@ -87,7 +83,7 @@ void BryptPeer::SetReceiver(IMessageSink* const pMessageSink)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::ScheduleReceive(
+bool Peer::Proxy::ScheduleReceive(
     Network::Endpoint::Identifier identifier, std::string_view buffer)
 {
     {
@@ -112,8 +108,7 @@ bool BryptPeer::ScheduleReceive(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::ScheduleReceive(
-    Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
+bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -137,8 +132,7 @@ bool BryptPeer::ScheduleReceive(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::ScheduleSend(
-    Network::Endpoint::Identifier identifier, std::string_view message) const
+bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::string_view message) const
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -149,8 +143,8 @@ bool BryptPeer::ScheduleSend(
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
-        if (m_spBryptIdentifier && scheduler) {
-            return scheduler(*m_spBryptIdentifier, message);
+        if (m_spNodeIdentifier && scheduler) {
+            return scheduler(*m_spNodeIdentifier, message);
         }
     }
 
@@ -159,7 +153,7 @@ bool BryptPeer::ScheduleSend(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
+void Peer::Proxy::RegisterEndpoint(Registration const& registration)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -184,7 +178,7 @@ void BryptPeer::RegisterEndpoint(EndpointRegistration const& registration)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BryptPeer::RegisterEndpoint(
+void Peer::Proxy::RegisterEndpoint(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
@@ -214,7 +208,7 @@ void BryptPeer::RegisterEndpoint(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BryptPeer::WithdrawEndpoint(
+void Peer::Proxy::WithdrawEndpoint(
     Network::Endpoint::Identifier identifier, Network::Protocol protocol)
 {
     {
@@ -232,7 +226,7 @@ void BryptPeer::WithdrawEndpoint(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::IsActive() const
+bool Peer::Proxy::IsActive() const
 {
     std::scoped_lock lock(m_endpointsMutex);
     return (m_endpoints.size() != 0);
@@ -240,7 +234,7 @@ bool BryptPeer::IsActive() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
+bool Peer::Proxy::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     auto const itr = m_endpoints.find(identifier);
@@ -249,7 +243,7 @@ bool BryptPeer::IsEndpointRegistered(Network::Endpoint::Identifier identifier) c
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<MessageContext> BryptPeer::GetMessageContext(
+std::optional<MessageContext> Peer::Proxy::GetMessageContext(
     Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
@@ -263,7 +257,7 @@ std::optional<MessageContext> BryptPeer::GetMessageContext(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Network::RemoteAddress> BryptPeer::GetRegisteredAddress(
+std::optional<Network::RemoteAddress> Peer::Proxy::GetRegisteredAddress(
     Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
@@ -279,7 +273,7 @@ std::optional<Network::RemoteAddress> BryptPeer::GetRegisteredAddress(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t BryptPeer::RegisteredEndpointCount() const
+std::size_t Peer::Proxy::RegisteredEndpointCount() const
 {
     std::scoped_lock lock(m_endpointsMutex);
     return m_endpoints.size();
@@ -287,7 +281,7 @@ std::size_t BryptPeer::RegisteredEndpointCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSecurityMediator)
+void Peer::Proxy::AttachSecurityMediator(std::unique_ptr<Security::Mediator>&& upSecurityMediator)
 {
     std::scoped_lock mediatorLock(m_mediatorMutex);
     m_upSecurityMediator = std::move(upSecurityMediator);  // Take ownership of the mediator.
@@ -310,7 +304,7 @@ void BryptPeer::AttachSecurityMediator(std::unique_ptr<SecurityMediator>&& upSec
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::State BryptPeer::GetSecurityState() const
+Security::State Peer::Proxy::GetSecurityState() const
 {
     if (!m_upSecurityMediator) [[unlikely]] { return Security::State::Unauthorized; } 
     return m_upSecurityMediator->GetSecurityState();
@@ -318,7 +312,7 @@ Security::State BryptPeer::GetSecurityState() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::IsFlagged() const
+bool Peer::Proxy::IsFlagged() const
 {
     if (!m_upSecurityMediator) [[unlikely]] { return true; }
     return (m_upSecurityMediator->GetSecurityState() == Security::State::Flagged);
@@ -326,7 +320,7 @@ bool BryptPeer::IsFlagged() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptPeer::IsAuthorized() const
+bool Peer::Proxy::IsAuthorized() const
 {
     if (!m_upSecurityMediator) [[unlikely]] { return false; }
     return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);

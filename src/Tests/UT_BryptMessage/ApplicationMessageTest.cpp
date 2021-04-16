@@ -25,8 +25,8 @@ MessageContext GenerateMessageContext();
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-BryptIdentifier::Container const ServerIdentifier(BryptIdentifier::Generate());
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 
 constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;

@@ -26,15 +26,15 @@ Await::TrackingManager::TrackingManager()
 // Returns: the key for the AwaitMap
 //----------------------------------------------------------------------------------------------------------------------
 Await::TrackerKey Await::TrackingManager::PushRequest(
-    std::weak_ptr<BryptPeer> const& wpRequestor,
+    std::weak_ptr<Peer::Proxy> const& wpRequestor,
     ApplicationMessage const& message,
-    BryptIdentifier::SharedContainer const& spBryptPeerIdentifier)
+    Node::SharedIdentifier const& spIdentifier)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
     m_spLogger->debug(
         "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
         key, message.GetSourceIdentifier());
-    m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, spBryptPeerIdentifier));
+    m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, spIdentifier));
     return key;
 }
 
@@ -46,9 +46,9 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
 // Returns: the key for the AwaitMap
 //----------------------------------------------------------------------------------------------------------------------
 Await::TrackerKey Await::TrackingManager::PushRequest(
-    std::weak_ptr<BryptPeer> const& wpRequestor,
+    std::weak_ptr<Peer::Proxy> const& wpRequestor,
     ApplicationMessage const& message,
-    std::set<BryptIdentifier::SharedContainer> const& identifiers)
+    std::set<Node::SharedIdentifier> const& identifiers)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
     m_spLogger->debug(

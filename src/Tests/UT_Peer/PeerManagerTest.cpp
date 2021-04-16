@@ -2,12 +2,12 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/Manager.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
@@ -35,10 +35,8 @@ class MessageCollector;
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<BryptIdentifier::Container>(
-    BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container>(
-    BryptIdentifier::Generate());
+auto const ClientIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
+auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
 
 Network::RemoteAddress const RemoteServerAddress(Network::Protocol::TCP, "127.0.0.1:35216", true);
 constexpr std::string_view const ConnectMessage = "Connection Request";
@@ -55,8 +53,8 @@ public:
 
     // IConnectProtocol {
     virtual bool SendRequest(
-        BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        Node::SharedIdentifier const& spSourceIdentifier,
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         MessageContext const& context) const override;
     // } IConnectProtocol 
 
@@ -73,7 +71,7 @@ class local::PeerObserverStub : public IPeerObserver
 public:
     explicit PeerObserverStub(IPeerMediator* const mediator)
         : m_mediator(mediator)
-        , m_spBryptPeer()
+        , m_spPeer()
         , m_state(ConnectionState::Unknown)
     {
         m_mediator->RegisterObserver(this);
@@ -81,7 +79,7 @@ public:
 
     PeerObserverStub(PeerObserverStub&& other)
         : m_mediator(other.m_mediator)
-        , m_spBryptPeer(std::move(other.m_spBryptPeer))
+        , m_spPeer(std::move(other.m_spPeer))
         , m_state(other.m_state)
     {
         m_mediator->RegisterObserver(this);
@@ -94,7 +92,7 @@ public:
 
     // IPeerObserver {
     void HandlePeerStateChange(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         [[maybe_unused]] Network::Endpoint::Identifier identifier,
         [[maybe_unused]] Network::Protocol protocol,
         ConnectionState change) override
@@ -102,10 +100,10 @@ public:
         m_state = change;
         switch(m_state) {
             case ConnectionState::Connected: {
-                m_spBryptPeer = wpBryptPeer.lock();
+                m_spPeer = wpPeerProxy.lock();
             } break;
             case ConnectionState::Disconnected: {
-                m_spBryptPeer.reset();
+                m_spPeer.reset();
             } break;
             // Not currently testing other connection states for the observer
             default: break;
@@ -113,9 +111,9 @@ public:
     }
     // } IPeerObserver
 
-    std::shared_ptr<BryptPeer> GetBryptPeer() const
+    std::shared_ptr<Peer::Proxy> GetPeerProxy() const
     {
-        return m_spBryptPeer;
+        return m_spPeer;
     }
 
     ConnectionState GetConnectionState() const
@@ -125,7 +123,7 @@ public:
 
 private:
     IPeerMediator* m_mediator;
-    std::shared_ptr<BryptPeer> m_spBryptPeer;
+    std::shared_ptr<Peer::Proxy> m_spPeer;
     ConnectionState m_state;
 };
 
@@ -138,12 +136,12 @@ public:
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
@@ -154,7 +152,7 @@ public:
 
 TEST(PeerManagerSuite, PeerDeclarationTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
@@ -168,7 +166,7 @@ TEST(PeerManagerSuite, PeerDeclarationTest)
 
 TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
@@ -186,7 +184,7 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 TEST(PeerManagerSuite, UndeclarePeerTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
@@ -203,24 +201,21 @@ TEST(PeerManagerSuite, UndeclarePeerTest)
 
 TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t(0));
 
-    auto const spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, test::RemoteServerAddress);
+    auto const spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, test::RemoteServerAddress);
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
 
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
-
-    ASSERT_TRUE(spBryptPeer);
-    EXPECT_TRUE(spBryptPeer->IsEndpointRegistered(tcpIdentifier));
-    EXPECT_EQ(spBryptPeer->RegisteredEndpointCount(), std::size_t(1));
+    ASSERT_TRUE(spPeerProxy);
+    EXPECT_TRUE(spPeerProxy->IsEndpointRegistered(tcpIdentifier));
+    EXPECT_EQ(spPeerProxy->RegisteredEndpointCount(), std::size_t(1));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 }
 
@@ -228,21 +223,18 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    auto const spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, address);
+    auto const spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
 
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
-
-    ASSERT_TRUE(spBryptPeer);
-    EXPECT_TRUE(spBryptPeer->IsEndpointRegistered(tcpIdentifier));
-    EXPECT_EQ(spBryptPeer->RegisteredEndpointCount(), std::size_t(1));
+    ASSERT_TRUE(spPeerProxy);
+    EXPECT_TRUE(spPeerProxy->IsEndpointRegistered(tcpIdentifier));
+    EXPECT_EQ(spPeerProxy->RegisteredEndpointCount(), std::size_t(1));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 }
 
@@ -250,30 +242,24 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, ExistingPeerLinkTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
-
-    spFirstPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
+    spFirstPeer->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
 
     ASSERT_TRUE(spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(tcpIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(1));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
-
+    auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
     auto const spSecondPeer = manager.LinkPeer(*test::ClientIdentifier, secondAddress);
-    spSecondPeer->RegisterEndpoint(
-        loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
+    spSecondPeer->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
 
     EXPECT_EQ(spSecondPeer, spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(loraIdentifier));
@@ -286,30 +272,24 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
 
 TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
-
-    spFirstPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
+    spFirstPeer->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
 
     ASSERT_TRUE(spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(tcpIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(1));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
-
+    auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
     auto const spSecondPeer = manager.LinkPeer(*test::ClientIdentifier, secondAddress);
-    spSecondPeer->RegisterEndpoint(
-        loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
+    spSecondPeer->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
 
     EXPECT_EQ(spSecondPeer, spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(loraIdentifier));
@@ -318,8 +298,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 
     Network::RemoteAddress thirdAddress(Network::Protocol::TCP, "915:72", false);
     auto const spThirdPeer = manager.LinkPeer(*test::ClientIdentifier, thirdAddress);
-    spThirdPeer->RegisterEndpoint(
-        loraIdentifier, Network::Protocol::LoRa, thirdAddress, {});
+    spThirdPeer->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, thirdAddress, {});
 
     EXPECT_EQ(spThirdPeer, spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(loraIdentifier));
@@ -331,23 +310,18 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 
 TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
-
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
-
-    ASSERT_TRUE(spBryptPeer);
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
+    ASSERT_TRUE(spPeerProxy);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
-
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 }
 
@@ -355,38 +329,29 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
-
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
-
-    ASSERT_TRUE(spBryptPeer);
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
+    ASSERT_TRUE(spPeerProxy);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
     manager.LinkPeer(*test::ClientIdentifier, secondAddress);
 
-    auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    spBryptPeer->RegisterEndpoint(
-        loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
-
+    spPeerProxy->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
-
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spBryptPeer->WithdrawEndpoint(loraIdentifier, Network::Protocol::LoRa);
-
+    spPeerProxy->WithdrawEndpoint(loraIdentifier, Network::Protocol::LoRa);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 }
 
@@ -397,13 +362,12 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
     auto const spConnectProtocol = std::make_shared<local::ConnectProtocolStub>();
     auto const spMessageCollector = std::make_shared<local::MessageCollector>();
 
-    PeerManager manager(
-        test::ClientIdentifier, Security::Strategy::PQNISTL3, spConnectProtocol, spMessageCollector);
+    Peer::Manager manager(test::ClientIdentifier, Security::Strategy::PQNISTL3, spConnectProtocol, spMessageCollector);
     EXPECT_EQ(manager.ObservedPeerCount(), std::size_t(0));
 
     // Declare the client and server peers. 
-    std::shared_ptr<BryptPeer> spClientPeer;
-    std::shared_ptr<BryptPeer> spServerPeer;
+    std::shared_ptr<Peer::Proxy> spClientPeer;
+    std::shared_ptr<Peer::Proxy> spServerPeer;
 
     // Simulate an endpoint delcaring that it is attempting to resolve a peer at a
     // given uri. 
@@ -420,15 +384,13 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
     EXPECT_EQ(manager.ObservedPeerCount(), std::size_t(1));
 
     // Create a mock endpoint identifier for the simulated endpoint the client has connected on. 
-    auto const clientEndpoint = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const clientEndpoint = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     // Create a mock message context for messages passed through the client peer. 
     auto const clientContext = MessageContext(clientEndpoint, Network::Protocol::TCP);
 
     // Create a mock endpoint identifier for the simulated endpoint the server has responded to. 
-    auto const serverEndpoint = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const serverEndpoint = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     // Create a mock message context for messages passed through the server peer. 
     auto const serverContext = MessageContext(serverEndpoint, Network::Protocol::TCP);
@@ -465,8 +427,7 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
         });
 
     // Cause the key exchange setup by the peer manager to occur on the stack. 
-    EXPECT_TRUE(spClientPeer->ScheduleReceive(
-        clientContext.GetEndpointIdentifier(), *optRequest));
+    EXPECT_TRUE(spClientPeer->ScheduleReceive(clientContext.GetEndpointIdentifier(), *optRequest));
 
     // Verify the results of the key exchange
     EXPECT_TRUE(spConnectProtocol->CalledOnce());
@@ -478,29 +439,27 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 
 TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
+    auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
 
-    ASSERT_TRUE(spBryptPeer);
+    ASSERT_TRUE(spPeerProxy);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
     manager.ForEachCachedIdentifier(
-        [&spBryptPeer] (auto const& spCheckIdentifier) -> CallbackIteration
+        [&spPeerProxy] (auto const& spCheckIdentifier) -> CallbackIteration
         {
-            EXPECT_EQ(spCheckIdentifier, spBryptPeer->GetBryptIdentifier());
-            EXPECT_EQ(*spCheckIdentifier, *spBryptPeer->GetBryptIdentifier());
+            EXPECT_EQ(spCheckIdentifier, spPeerProxy->GetNodeIdentifier());
+            EXPECT_EQ(*spCheckIdentifier, *spPeerProxy->GetNodeIdentifier());
             return CallbackIteration::Continue;
         });
 
-    spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
 
     std::uint32_t iterations = 0;
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
@@ -517,7 +476,7 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -526,28 +485,25 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
     std::uint32_t disconnected = 0;
     std::uint32_t const iterations = 1000;
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     for (std::uint32_t idx = 0; idx < iterations; ++idx) {
         Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
-        auto spBryptPeer = manager.LinkPeer(
-            BryptIdentifier::Container{ BryptIdentifier::Generate() }, address);
-        spBryptPeer->RegisterEndpoint(
-            tcpIdentifier, Network::Protocol::TCP, address, {});
+        auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
+        spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
             ++disconnected;
         }
     }
 
-    std::set<BryptIdentifier::SharedContainer> identifiers;
+    std::set<Node::SharedIdentifier> identifiers;
     std::uint32_t connectedIterations = 0;
     manager.ForEachCachedIdentifier(
         [&identifiers, &connectedIterations] (
-            [[maybe_unused]] auto const& spBryptIdentifier) -> CallbackIteration
+            [[maybe_unused]] auto const& spNodeIdentifier) -> CallbackIteration
         {
-            auto const [itr, emplaced] = identifiers.emplace(spBryptIdentifier);
+            auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
             EXPECT_TRUE(emplaced);
             ++connectedIterations;
             return CallbackIteration::Continue;
@@ -558,9 +514,9 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
     std::uint32_t disconnectedIterations = 0;
     manager.ForEachCachedIdentifier(
         [&identifiers, &disconnectedIterations] (
-            [[maybe_unused]] auto const& spBryptIdentifier) -> CallbackIteration
+            [[maybe_unused]] auto const& spNodeIdentifier) -> CallbackIteration
         {
-            auto const [itr, emplaced] = identifiers.emplace(spBryptIdentifier);
+            auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
             EXPECT_TRUE(emplaced);
             ++disconnectedIterations;
             return CallbackIteration::Continue;
@@ -571,9 +527,9 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
     std::uint32_t observedIterations = 0;
     manager.ForEachCachedIdentifier(
         [&identifiers, &observedIterations] (
-            [[maybe_unused]] auto const& spBryptIdentifier) -> CallbackIteration
+            [[maybe_unused]] auto const& spNodeIdentifier) -> CallbackIteration
         {
-            auto const [itr, emplaced] = identifiers.emplace(spBryptIdentifier);
+            auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
             EXPECT_FALSE(emplaced);
             ++observedIterations;
             return CallbackIteration::Continue;
@@ -586,7 +542,7 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, PeerCountTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -594,17 +550,14 @@ TEST(PeerManagerSuite, PeerCountTest)
 
     std::uint32_t disconnected = 0;
     std::uint32_t const iterations = 1000;
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     for (std::uint32_t idx = 0; idx < iterations; ++idx) {
         Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
-        auto spBryptPeer = manager.LinkPeer(
-            BryptIdentifier::Container{ BryptIdentifier::Generate() }, address);
-        spBryptPeer->RegisterEndpoint(
-            tcpIdentifier, Network::Protocol::TCP, address, {});
+        auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
+        spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
             ++disconnected;
         }
     }
@@ -617,26 +570,24 @@ TEST(PeerManagerSuite, PeerCountTest)
 
 TEST(PeerManagerSuite, SingleObserverTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     local::PeerObserverStub observer(&manager);
 
-    EXPECT_FALSE(observer.GetBryptPeer());
+    EXPECT_FALSE(observer.GetPeerProxy());
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, address);
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, address, {});
+    auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
 
-    EXPECT_EQ(observer.GetBryptPeer(), spBryptPeer);
+    EXPECT_EQ(observer.GetPeerProxy(), spPeerProxy);
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Connected);
 
-    spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
 
-    EXPECT_FALSE(observer.GetBryptPeer());
+    EXPECT_FALSE(observer.GetPeerProxy());
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
 }
 
@@ -644,7 +595,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
 
 TEST(PeerManagerSuite, MultipleObserverTest)
 {
-    PeerManager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
 
     std::vector<local::PeerObserverStub> observers;
     for (std::uint32_t idx = 0; idx < 12; ++idx) {
@@ -652,27 +603,25 @@ TEST(PeerManagerSuite, MultipleObserverTest)
     }
 
     for (auto const& observer: observers) {
-        EXPECT_FALSE(observer.GetBryptPeer());
+        EXPECT_FALSE(observer.GetPeerProxy());
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
     }
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance()
-        .Generate();
+    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    auto spBryptPeer = manager.LinkPeer(*test::ClientIdentifier, address);
-    spBryptPeer->RegisterEndpoint(
-        tcpIdentifier, Network::Protocol::TCP, address, {});
+    auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
+    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
 
     for (auto const& observer: observers) {
-        EXPECT_EQ(observer.GetBryptPeer(), spBryptPeer);
+        EXPECT_EQ(observer.GetPeerProxy(), spPeerProxy);
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Connected);
     }
 
-    spBryptPeer->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
 
     for (auto const& observer: observers) {
-        EXPECT_FALSE(observer.GetBryptPeer());
+        EXPECT_FALSE(observer.GetPeerProxy());
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
     }
 }
@@ -687,8 +636,8 @@ local::ConnectProtocolStub::ConnectProtocolStub()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::SendRequest(
-    [[maybe_unused]] BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    [[maybe_unused]] std::shared_ptr<BryptPeer> const& spBryptPeer,
+    [[maybe_unused]] Node::SharedIdentifier const& spSourceIdentifier,
+    [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     [[maybe_unused]] MessageContext const& context) const
 {
     ++m_count;
@@ -711,7 +660,7 @@ local::MessageCollector::MessageCollector()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::MessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     [[maybe_unused]] MessageContext const& context,
     [[maybe_unused]] std::string_view buffer)
 {
@@ -721,7 +670,7 @@ bool local::MessageCollector::CollectMessage(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::MessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     [[maybe_unused]] MessageContext const& context,
     [[maybe_unused]] std::span<std::uint8_t const> buffer)
 {

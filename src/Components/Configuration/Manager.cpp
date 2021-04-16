@@ -1,9 +1,9 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: ConfigurationManager.cpp 
+// File: Manager.cpp 
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-#include "Configuration.hpp"
-#include "ConfigurationManager.hpp"
+#include "Manager.hpp"
+//----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/FileUtils.hpp"
@@ -27,14 +27,10 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 void SerializeVersion(std::ofstream& out);
-void SerializeIdentifierOptions(
-    Configuration::IdentifierOptions const& options, std::ofstream& out);
-void SerializeNodeOptions(
-    Configuration::DetailsOptions const& options, std::ofstream& out);
-void SerializeEndpointConfigurations(
-    Configuration::EndpointConfigurations const& configurations, std::ofstream& out);
-void SerializeSecurityOptions(
-    Configuration::SecurityOptions const& options, std::ofstream& out);
+void SerializeIdentifierOptions(Configuration::IdentifierOptions const& options, std::ofstream& out);
+void SerializeNodeOptions(Configuration::DetailsOptions const& options, std::ofstream& out);
+void SerializeEndpointConfigurations(Configuration::EndpointConfigurations const& configurations, std::ofstream& out);
+void SerializeSecurityOptions(Configuration::SecurityOptions const& options, std::ofstream& out);
 
 Configuration::IdentifierOptions GetIdentifierOptionsFromUser();
 Configuration::DetailsOptions GetDetailsOptionsFromUser();
@@ -43,8 +39,7 @@ Configuration::SecurityOptions GetSecurityOptionsFromUser();
 
 [[nodiscard]] bool InitializeIdentifierOptions(Configuration::IdentifierOptions& options);
 [[nodiscard]] bool InitializeEndpointConfigurations(
-    Configuration::EndpointConfigurations& configurations,
-    std::shared_ptr<spdlog::logger> const& spLogger);
+    Configuration::EndpointConfigurations& configurations, std::shared_ptr<spdlog::logger> const& spLogger);
 void InitializeSecurityOptions(Configuration::SecurityOptions& options);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -339,14 +334,14 @@ std::optional<Configuration::Settings> Configuration::Manager::GetSettings() con
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::SharedContainer Configuration::Manager::GetBryptIdentifier() const
+Node::SharedIdentifier Configuration::Manager::GetNodeIdentifier() const
 {
     if (!m_validated) [[unlikely]] { return {}; }
 
-    auto& spBryptIdentifier = m_settings.identifier.container;
-    if (!spBryptIdentifier || !spBryptIdentifier->IsValid()) { return {}; }
+    auto& spNodeIdentifier = m_settings.identifier.container;
+    if (!spNodeIdentifier || !spNodeIdentifier->IsValid()) { return {}; }
 
-    return spBryptIdentifier;
+    return spNodeIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -494,13 +489,8 @@ void Configuration::Manager::GetConfigurationOptionsFromUser()
 
 bool Configuration::Manager::InitializeSettings()
 {
-    if (!local::InitializeIdentifierOptions(m_settings.identifier)) {
-        return false;
-    }
-    
-    if (!local::InitializeEndpointConfigurations(m_settings.endpoints, m_spLogger)) {
-        return false;
-    }
+    if (!local::InitializeIdentifierOptions(m_settings.identifier)) { return false; }
+    if (!local::InitializeEndpointConfigurations(m_settings.endpoints, m_spLogger)) { return false; }
 
     local::InitializeSecurityOptions(m_settings.security);
 
@@ -524,8 +514,7 @@ void local::SerializeVersion(std::ofstream& out)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void local::SerializeIdentifierOptions(
-    Configuration::IdentifierOptions const& options, std::ofstream& out)
+void local::SerializeIdentifierOptions(Configuration::IdentifierOptions const& options, std::ofstream& out)
 {
     out << "\t\"identifier\": {\n";
     out << "\t\t\"type\": \"" << options.type;
@@ -539,8 +528,7 @@ void local::SerializeIdentifierOptions(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void local::SerializeNodeOptions(
-    Configuration::DetailsOptions const& options, std::ofstream& out)
+void local::SerializeNodeOptions(Configuration::DetailsOptions const& options, std::ofstream& out)
 {
     out << "\t\"details\": {\n";
     out << "\t\t\"name\": \"" << options.name << "\",\n";
@@ -573,8 +561,7 @@ void local::SerializeEndpointConfigurations(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void local::SerializeSecurityOptions(
-    Configuration::SecurityOptions const& options, std::ofstream& out)
+void local::SerializeSecurityOptions(Configuration::SecurityOptions const& options, std::ofstream& out)
 {
     out << "\t\"security\": {\n";
     out << "\t\t\"strategy\": \"" << options.strategy << "\",\n";
@@ -717,10 +704,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
 Configuration::SecurityOptions local::GetSecurityOptionsFromUser()
 {
     Configuration::SecurityOptions options(
-        defaults::SecurityStrategy,
-        defaults::NetworkToken,
-        defaults::CentralAutority
-    );
+        defaults::SecurityStrategy, defaults::NetworkToken, defaults::CentralAutority);
     
     bool bAllowableStrategyType;
     do {
@@ -769,28 +753,25 @@ bool local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
     // Would should never hit this function before the the options have been validated.
     if (options.type == "Ephemeral") {
         // Generate a new Brypt Identifier and store the network representation as the value.
-        options.container = std::make_shared<BryptIdentifier::Container const>(
-            BryptIdentifier::Generate());
+        options.container = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
         assert(options.container);
-        options.value = options.container->GetNetworkRepresentation();
+        options.value = options.container->GetNetworkString();
     } else if (options.type == "Persistent") {
         // If an identifier value has been parsed, attempt to use the provided value as
         // the identifier. We need to check the validity of the identifier to ensure the
         // value was properly formatted. 
         // Otherwise, a new Brypt Identifier must be be generated. 
         if (options.value) {
-            options.container = std::make_shared<BryptIdentifier::Container const>(
-                *options.value);
+            options.container = std::make_shared<Node::Identifier const>(*options.value);
             assert(options.container);
             if (!options.container->IsValid()) {
                 options.value.reset();
                 return false;
             }
         } else {
-            options.container = std::make_shared<BryptIdentifier::Container const>(
-                BryptIdentifier::Generate());
+            options.container = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
             assert(options.container);
-            options.value = options.container->GetNetworkRepresentation();  
+            options.value = options.container->GetNetworkString();  
         }
     } else {
         assert(false); // How did these identifier options pass validation?
@@ -802,8 +783,7 @@ bool local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::InitializeEndpointConfigurations(
-    Configuration::EndpointConfigurations& configurations,
-    std::shared_ptr<spdlog::logger> const& spLogger)
+    Configuration::EndpointConfigurations& configurations, std::shared_ptr<spdlog::logger> const& spLogger)
 {
     bool success = true;
     std::for_each(configurations.begin(), configurations.end(),

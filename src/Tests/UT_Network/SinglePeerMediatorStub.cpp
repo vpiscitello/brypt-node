@@ -4,8 +4,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "SinglePeerMediatorStub.hpp"
 #include "BryptMessage/NetworkMessage.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
-#include "Components/Security/SecurityMediator.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Security/Mediator.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -57,10 +57,10 @@ private:
 //----------------------------------------------------------------------------------------------------------------------
 
 SinglePeerMediatorStub::SinglePeerMediatorStub(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Node::SharedIdentifier const& spNodeIdentifier,
     IMessageSink* const pMessageSink)
-    : m_spBryptIdentifier(spBryptIdentifier)
-    , m_spBryptPeer()
+    : m_spNodeIdentifier(spNodeIdentifier)
+    , m_spPeer()
     , m_pMessageSink(pMessageSink)
 {
 }
@@ -81,11 +81,11 @@ void SinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* c
 
 SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolvingPeer(
     [[maybe_unused]] Network::RemoteAddress const& address,
-    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier)
+    [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
 {
     auto const optHeartbeatRequest = NetworkMessage::Builder()
         .MakeHeartbeatRequest()
-        .SetSource(*m_spBryptIdentifier)
+        .SetSource(*m_spNodeIdentifier)
         .ValidatedBuild();
     assert(optHeartbeatRequest);
 
@@ -101,27 +101,25 @@ void SinglePeerMediatorStub::UndeclareResolvingPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::shared_ptr<BryptPeer> SinglePeerMediatorStub::LinkPeer(
-    BryptIdentifier::Container const& identifier,
+std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
+    Node::Identifier const& identifier,
     [[maybe_unused]] Network::RemoteAddress const& address)
 {
-    m_spBryptPeer = std::make_shared<BryptPeer>(identifier, this);
+    m_spPeer = std::make_shared<Peer::Proxy>(identifier, this);
 
     auto upSecurityStrategy = std::make_unique<local::SecurityStrategyStub>();
-    auto upSecurityMediator = std::make_unique<SecurityMediator>(
-            m_spBryptIdentifier, std::move(upSecurityStrategy));
+    auto upSecurityMediator = std::make_unique<Security::Mediator>(m_spNodeIdentifier, std::move(upSecurityStrategy));
 
-    m_spBryptPeer->AttachSecurityMediator(std::move(upSecurityMediator));
+    m_spPeer->AttachSecurityMediator(std::move(upSecurityMediator));
+    m_spPeer->SetReceiver(m_pMessageSink);
 
-    m_spBryptPeer->SetReceiver(m_pMessageSink);
-
-    return m_spBryptPeer;
+    return m_spPeer;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void SinglePeerMediatorStub::DispatchPeerStateChange(
-    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     [[maybe_unused]] Network::Endpoint::Identifier identifier,
     [[maybe_unused]] Network::Protocol protocol,
     [[maybe_unused]] ConnectionState change)
@@ -130,9 +128,9 @@ void SinglePeerMediatorStub::DispatchPeerStateChange(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::shared_ptr<BryptPeer> SinglePeerMediatorStub::GetPeer() const
+std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::GetPeer() const
 {
-    return m_spBryptPeer;
+    return m_spPeer;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

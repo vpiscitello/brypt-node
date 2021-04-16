@@ -118,7 +118,7 @@ void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] RemoteAddress&& a
 //----------------------------------------------------------------------------------------------------------------------
 void Network::LoRa::Endpoint::ScheduleConnect(
     [[maybe_unused]] RemoteAddress&& address,
-    [[maybe_unused]] BryptIdentifier::SharedContainer const& spIdentifier)
+    [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
 {
 }
 
@@ -128,7 +128,7 @@ void Network::LoRa::Endpoint::ScheduleConnect(
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 bool Network::LoRa::Endpoint::ScheduleSend(
-    [[maybe_unused]] BryptIdentifier::Container const& identifier,
+    [[maybe_unused]] Node::Identifier const& identifier,
     [[maybe_unused]] std::string_view message)
 {
     return false;

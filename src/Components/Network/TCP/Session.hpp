@@ -41,7 +41,7 @@ public:
     using MessageDispatchedCallback = std::function<void(std::shared_ptr<Session> const&)>;
     using MessageReceivedCallback = std::function<bool(
         std::shared_ptr<Session> const&,
-        BryptIdentifier::Container const&,
+        Node::Identifier const&,
         std::span<std::uint8_t const> message)>;
     using SessionErrorCallback = std::function<void(std::shared_ptr<Session> const&)>;
     

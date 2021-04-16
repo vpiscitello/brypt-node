@@ -6,10 +6,10 @@
 #include "DiscoveryProtocol.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Handler/HandlerDefinitions.hpp"
 #include "Components/Handler/Connect.hpp"
 #include "Components/Network/Address.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------
@@ -72,13 +72,13 @@ DiscoveryProtocol::DiscoveryProtocol(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool DiscoveryProtocol::SendRequest(
-    BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    Node::SharedIdentifier const& spSourceIdentifier,
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     MessageContext const& context) const
 {
     assert(m_data.size() != 0);
 
-    auto const spDestination = spBryptPeer->GetBryptIdentifier();
+    auto const spDestination = spPeerProxy->GetNodeIdentifier();
     if (!spDestination) {
         return false;
     }
@@ -92,7 +92,7 @@ bool DiscoveryProtocol::SendRequest(
         .ValidatedBuild();
     assert(optDiscoveryRequest);
 
-    return spBryptPeer->ScheduleSend(
+    return spPeerProxy->ScheduleSend(
         context.GetEndpointIdentifier(), optDiscoveryRequest->GetPack());
 }
 

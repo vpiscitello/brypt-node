@@ -13,8 +13,7 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::Network::Type UnpackMessageType(
-	std::span<std::uint8_t const>::iterator& begin,
-    std::span<std::uint8_t const>::iterator const& end);
+	std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end);
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Extensions {
@@ -71,7 +70,7 @@ MessageHeader const& NetworkMessage::GetMessageHeader() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const& NetworkMessage::GetSourceIdentifier() const
+Node::Identifier const& NetworkMessage::GetSourceIdentifier() const
 {
 	return m_header.GetSourceIdentifier();
 }
@@ -85,7 +84,7 @@ Message::Destination NetworkMessage::GetDestinationType() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::Container> const& NetworkMessage::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& NetworkMessage::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();
 }
@@ -160,9 +159,7 @@ Message::ValidationStatus NetworkMessage::Validate() const
 	}
 
 	// The network message type must not be invalid.
-	if (m_type == Message::Network::Type::Invalid) {
-		return Message::ValidationStatus::Error;
-	}
+	if (m_type == Message::Network::Type::Invalid) { return Message::ValidationStatus::Error; }
 
 	return Message::ValidationStatus::Success;
 }
@@ -197,7 +194,7 @@ NetworkBuilder& NetworkBuilder::SetMessageContext(MessageContext const& context)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetSource(BryptIdentifier::Container const& identifier)
+NetworkBuilder& NetworkBuilder::SetSource(Node::Identifier const& identifier)
 {
 	m_message.m_header.m_source = identifier;
 	return *this;
@@ -206,9 +203,9 @@ NetworkBuilder& NetworkBuilder::SetSource(BryptIdentifier::Container const& iden
 //----------------------------------------------------------------------------------------------------------------------
 
 NetworkBuilder& NetworkBuilder::SetSource(
-    BryptIdentifier::Internal::Type const& identifier)
+    Node::Internal::Identifier::Type const& identifier)
 {
-	m_message.m_header.m_source = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
@@ -216,13 +213,13 @@ NetworkBuilder& NetworkBuilder::SetSource(
 
 NetworkBuilder& NetworkBuilder::SetSource(std::string_view identifier)
 {
-	m_message.m_header.m_source = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetDestination(BryptIdentifier::Container const& identifier)
+NetworkBuilder& NetworkBuilder::SetDestination(Node::Identifier const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
@@ -231,9 +228,9 @@ NetworkBuilder& NetworkBuilder::SetDestination(BryptIdentifier::Container const&
 //----------------------------------------------------------------------------------------------------------------------
 
 NetworkBuilder& NetworkBuilder::SetDestination(
-    BryptIdentifier::Internal::Type const& identifier)
+    Node::Internal::Identifier::Type const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
@@ -241,7 +238,7 @@ NetworkBuilder& NetworkBuilder::SetDestination(
 
 NetworkBuilder& NetworkBuilder::SetDestination(std::string_view identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
@@ -344,33 +341,21 @@ void NetworkBuilder::Unpack(std::span<std::uint8_t const> buffer)
 	}
 
 	m_message.m_type = local::UnpackMessageType(begin, end);
-	if (m_message.m_type == Message::Network::Type::Invalid) {
-		return;
-	}
+	if (m_message.m_type == Message::Network::Type::Invalid) { return; }
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_message.m_header.m_protocol != Message::Protocol::Network) {
-		return;
-	}
+	if (m_message.m_header.m_protocol != Message::Protocol::Network) { return; }
 
 	std::uint32_t dataSize = 0;
-	if (!PackUtils::UnpackChunk(begin, end, dataSize)) {
-		return;
-	}
+	if (!PackUtils::UnpackChunk(begin, end, dataSize)) { return; }
 
 	m_message.m_payload.reserve(dataSize);
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload)) {
-		return;
-	}
+	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload)) { return; }
 
 	std::uint8_t extensions = 0;
-	if (!PackUtils::UnpackChunk(begin, end, extensions)) {
-		return;
-	}
+	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return; }
 
-	if (extensions != 0) {
-		UnpackExtensions(begin, end);
-	}
+	if (extensions != 0) { UnpackExtensions(begin, end); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -393,8 +378,7 @@ void NetworkBuilder::UnpackExtensions(
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::Network::Type local::UnpackMessageType(
-	std::span<std::uint8_t const>::iterator& begin,
-    std::span<std::uint8_t const>::iterator const& end)
+	std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end)
 {
 	using namespace Message::Network;
 

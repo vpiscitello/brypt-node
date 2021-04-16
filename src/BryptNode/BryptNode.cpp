@@ -13,14 +13,14 @@
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Await/TrackingManager.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
-#include "Components/Configuration/ConfigurationManager.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
-#include "Components/Network/EndpointManager.hpp"
+#include "Components/Network/Manager.hpp"
+#include "Components/Peer/Manager.hpp"
+#include "Components/Configuration/Manager.hpp"
+#include "Components/Configuration/PeerPersistor.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -28,10 +28,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 BryptNode::BryptNode(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Node::SharedIdentifier const& spNodeIdentifier,
     std::shared_ptr<Event::Publisher> const& spEventPublisher,
-    std::shared_ptr<EndpointManager> const& spEndpointManager,
-    std::shared_ptr<PeerManager> const& spPeerManager,
+    std::shared_ptr<Network::Manager> const& spNetworkManager,
+    std::shared_ptr<Peer::Manager> const& spPeerManager,
     std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
     std::shared_ptr<PeerPersistor> const& spPeerPersistor,
     std::unique_ptr<Configuration::Manager> const& upConfigurationManager)
@@ -43,7 +43,7 @@ BryptNode::BryptNode(
     , m_spSecurityState()
     , m_spSensorState()
     , m_spEventPublisher(spEventPublisher)
-    , m_spEndpointManager(spEndpointManager)
+    , m_spNetworkManager(spNetworkManager)
     , m_spPeerManager(spPeerManager)
     , m_spMessageProcessor(spMessageProcessor)
     , m_spAwaitManager(std::make_shared<Await::TrackingManager>())
@@ -53,34 +53,21 @@ BryptNode::BryptNode(
 {
     assert(m_spLogger);
 
-    // An EndpointManager and PeerManager is required for the node to operate
-    if (!m_spEndpointManager || !m_spPeerManager) { return; }
+    // An Network::Manager, Peer::Manager, and Configuration::Manager are required for the node to operate
+    if (!m_spNetworkManager || !m_spPeerManager || !upConfigurationManager) { return; }
 
     // Initialize state from settings.
     m_spCoordinatorState = std::make_shared<CoordinatorState>();
     m_spNetworkState = std::make_shared<NetworkState>();
     m_spSecurityState = std::make_shared<SecurityState>(
-        upConfigurationManager->GetSecurityStrategy(),
-        upConfigurationManager->GetCentralAuthority());
-    m_spNodeState = std::make_shared<NodeState>(
-        spBryptIdentifier, m_spEndpointManager->GetEndpointProtocols());
+        upConfigurationManager->GetSecurityStrategy(), upConfigurationManager->GetCentralAuthority());
+    m_spNodeState = std::make_shared<NodeState>(spNodeIdentifier, m_spNetworkManager->GetEndpointProtocols());
     m_spSensorState = std::make_shared<SensorState>();
 
-    m_handlers.emplace(
-        Handler::Type::Information,
-        Handler::Factory(Handler::Type::Information, *this));
-
-    m_handlers.emplace(
-        Handler::Type::Query,
-        Handler::Factory(Handler::Type::Query, *this));
-
-    m_handlers.emplace(
-        Handler::Type::Election,
-        Handler::Factory(Handler::Type::Election, *this));
-
-    m_handlers.emplace(
-        Handler::Type::Connect,
-        Handler::Factory(Handler::Type::Connect, *this));
+    m_handlers.emplace(Handler::Type::Information, Handler::Factory(Handler::Type::Information, *this));
+    m_handlers.emplace(Handler::Type::Query, Handler::Factory(Handler::Type::Query, *this));
+    m_handlers.emplace(Handler::Type::Election, Handler::Factory(Handler::Type::Election, *this));
+    m_handlers.emplace(Handler::Type::Connect, Handler::Factory(Handler::Type::Connect, *this));
 
     m_initialized = true;
 }
@@ -91,7 +78,7 @@ bool BryptNode::Shutdown()
 {
     if (!m_upRuntime) { return false; }
 
-    m_spEndpointManager->Shutdown();
+    m_spNetworkManager->Shutdown();
 
     bool const stopped = m_upRuntime->Stop();
     assert(stopped);
@@ -146,14 +133,21 @@ std::weak_ptr<SensorState> BryptNode::GetSensorState() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<EndpointManager> BryptNode::GetEndpointManager() const
+std::weak_ptr<Event::Publisher> BryptNode::GetEventPublisher() const
 {
-    return m_spEndpointManager;
+    return m_spEventPublisher;    
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<PeerManager> BryptNode::GetPeerManager() const
+std::weak_ptr<Network::Manager> BryptNode::GetNetworkManager() const
+{
+    return m_spNetworkManager;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::weak_ptr<Peer::Manager> BryptNode::GetPeerManager() const
 {
     return m_spPeerManager;
 }
@@ -179,7 +173,7 @@ bool BryptNode::StartComponents()
     if (!m_initialized || m_upRuntime) { return false; }
 
     m_spLogger->info("Starting up brypt node instance.");
-    m_spEndpointManager->Startup();
+    m_spNetworkManager->Startup();
     m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStarted>();
 
     return true;

@@ -15,73 +15,58 @@
 #include <vector>
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierReserved(std::vector<std::uint8_t> const& buffer)
+bool Node::IsIdentifierReserved(std::vector<std::uint8_t> const& buffer)
 {
-    if (buffer.size() != BryptIdentifier::Internal::PayloadSize) {
-        return true;
-    }
-
-    auto const optInternalRepresentation = BryptIdentifier::ConvertToInternalRepresentation(buffer);
+    if (buffer.size() != Internal::Identifier::PayloadSize) { return true; }
+    auto const optInternalRepresentation = Node::ConvertToInternalRepresentation(buffer);
     return IsIdentifierReserved(*optInternalRepresentation);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::Internal::Type const& identifier)
+bool Node::IsIdentifierReserved(Internal::Identifier::Type const& identifier)
 {
-    if (identifier == ReservedIdentifiers::Internal::Invalid) {
-        return true;
-    }
-    
+    if (identifier == Node::Internal::Identifier::Invalid) { return true; }
     return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierReserved(std::string_view identifier)
+bool Node::IsIdentifierReserved(std::string_view identifier)
 {
-    if (identifier == ReservedIdentifiers::Network::Invalid) {
-        return true;
-    }
-    
+    if (identifier == Network::Identifier::Invalid) { return true; }
     return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierReserved(BryptIdentifier::Container const& identifier)
+bool Node::IsIdentifierReserved(Node::Identifier const& identifier)
 {
-    return IsIdentifierReserved(identifier.GetInternalRepresentation());
+    return IsIdentifierReserved(identifier.GetInternalValue());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Internal::Type const& identifier)
+bool Node::IsIdentifierAllowed(Node::Internal::Identifier::Type const& identifier)
 {
-    if (identifier == ReservedIdentifiers::Internal::Invalid) {
-        return false;
-    }
-    
+    if (identifier == Internal::Identifier::Invalid) { return false; }
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ReservedIdentifiers::IsIdentifierAllowed(std::string_view identifier)
+bool Node::IsIdentifierAllowed(std::string_view identifier)
 {
-    if (identifier == ReservedIdentifiers::Network::Invalid) {
-        return false;
-    }
-    
+    if (identifier == Network::Identifier::Invalid) { return false; }
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 
-bool ReservedIdentifiers::IsIdentifierAllowed(BryptIdentifier::Container const& identifier)
+bool Node::IsIdentifierAllowed(Node::Identifier const& identifier)
 {
-    return IsIdentifierAllowed(identifier.GetInternalRepresentation());
+    return IsIdentifierAllowed(identifier.GetInternalValue());
 }
 
 //----------------------------------------------------------------------------------------------------------------------

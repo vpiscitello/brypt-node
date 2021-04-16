@@ -5,10 +5,10 @@
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageDefinitions.hpp"
 #include "BryptMessage/MessageUtils.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
-#include "Components/Security/SecurityMediator.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Security/Mediator.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/ExchangeObserver.hpp"
@@ -37,10 +37,8 @@ class MessageCollector;
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<BryptIdentifier::Container>(
-    BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container>(
-    BryptIdentifier::Generate());
+auto const ClientIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
+auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
     
 constexpr std::string_view const HandshakeMessage = "Handshake Request";
 constexpr std::string_view const ConnectMessage = "Connection Request";
@@ -63,16 +61,16 @@ public:
 
     // IConnectProtocol {
     virtual bool SendRequest(
-        BryptIdentifier::SharedContainer const& spSourceIdentifier,
-        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        Node::SharedIdentifier const& spSourceIdentifier,
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         MessageContext const& context) const override;
     // } IConnectProtocol 
 
-    bool CalledBy(BryptIdentifier::SharedContainer const& spBryptIdentifier) const;
+    bool CalledBy(Node::SharedIdentifier const& spNodeIdentifier) const;
     bool CalledOnce() const;
 
 private:
-    mutable std::vector<BryptIdentifier::Internal::Type> m_callers;
+    mutable std::vector<Node::Internal::Identifier::Type> m_callers;
 
 };
 
@@ -118,12 +116,12 @@ public:
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
@@ -142,18 +140,17 @@ private:
 TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 {
     auto upStrategyStub = std::make_unique<local::StrategyStub>();
-    auto upSecurityMediator = std::make_unique<SecurityMediator>(
+    auto upSecurityMediator = std::make_unique<Security::Mediator>(
         test::ServerIdentifier, Security::Context::Unique, std::weak_ptr<IMessageSink>());
 
     EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));    
 
-    auto const spBryptPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
-    upSecurityMediator->BindPeer(spBryptPeer);
+    auto const spPeerProxy = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
+    upSecurityMediator->BindPeer(spPeerProxy);
 
-    EndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
+    Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-    spBryptPeer->RegisterEndpoint(registration);
+    spPeerProxy->RegisterEndpoint(registration);
 
     auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
@@ -164,12 +161,11 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 
     std::string const pack = optMessage->GetPack();
 
-    EXPECT_TRUE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(spPeerProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 
-    // Verify the node can't forward a message through the receiver, because it has been 
-    // unset by the SecurityMediator. 
+    // Verify the node can't forward a message through the receiver, because it has been unset by the mediator. 
     upSecurityMediator.reset();
-    EXPECT_FALSE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_FALSE(spPeerProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -178,18 +174,17 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 {
     auto upStrategyStub = std::make_unique<local::StrategyStub>();
     auto spCollector = std::make_shared<local::MessageCollector>();
-    auto upSecurityMediator = std::make_unique<SecurityMediator>(
+    auto upSecurityMediator = std::make_unique<Security::Mediator>(
         test::ServerIdentifier, Security::Context::Unique, spCollector);
 
     EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));
 
-    auto const spBryptPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
-    upSecurityMediator->BindPeer(spBryptPeer);
+    auto const spPeerProxy = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
+    upSecurityMediator->BindPeer(spPeerProxy);
 
-    EndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
+    Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-    spBryptPeer->RegisterEndpoint(registration);
+    spPeerProxy->RegisterEndpoint(registration);
 
     auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
@@ -200,14 +195,14 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 
     std::string const pack = optMessage->GetPack();
 
-    EXPECT_TRUE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(spPeerProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 
-    // Verify the peer's receiver has been swapped to the stub message sink when the 
-    // mediator is notified of a sucessful exchange. 
+    // Verify the peer's receiver has been swapped to the stub message sink when the mediator is notified of a
+    // sucessful exchange. 
     upSecurityMediator->OnExchangeClose(ExchangeStatus::Success);
     EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Authorized);
 
-    EXPECT_TRUE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(spPeerProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 
     // Verify the stub message sink received the message
     EXPECT_EQ(spCollector->GetCollectedPack(), pack);
@@ -219,18 +214,17 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
 {
     auto upStrategyStub = std::make_unique<local::StrategyStub>();
     auto spCollector = std::make_shared<local::MessageCollector>();
-    auto upSecurityMediator = std::make_unique<SecurityMediator>(
+    auto upSecurityMediator = std::make_unique<Security::Mediator>(
         test::ServerIdentifier, Security::Context::Unique, spCollector);
 
     EXPECT_TRUE(upSecurityMediator->SetupExchangeProcessor(std::move(upStrategyStub), nullptr));
 
-    auto const spBryptPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
-    upSecurityMediator->BindPeer(spBryptPeer);
+    auto const spPeerProxy = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
+    upSecurityMediator->BindPeer(spPeerProxy);
 
-    EndpointRegistration registration(
-        test::EndpointIdentifier, test::EndpointProtocol, {});
+    Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-    spBryptPeer->RegisterEndpoint(registration);
+    spPeerProxy->RegisterEndpoint(registration);
     
     auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
@@ -241,14 +235,13 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
 
     std::string const pack = optMessage->GetPack();
 
-    EXPECT_TRUE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(spPeerProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 
-    // Verify the peer receiver has been dropped when the tracker has been notified of a failed
-    // exchange. 
+    // Verify the peer receiver has been dropped when the tracker has been notified of a failed exchange. 
     upSecurityMediator->OnExchangeClose(ExchangeStatus::Failed);
     EXPECT_EQ(upSecurityMediator->GetSecurityState(), Security::State::Unauthorized);
 
-    EXPECT_FALSE(spBryptPeer->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_FALSE(spPeerProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -256,24 +249,24 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
 TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 {
     // Declare the server resoucres for the test. 
-    std::shared_ptr<BryptPeer> spServerPeer;
-    std::unique_ptr<SecurityMediator> upServerMediator;
+    std::shared_ptr<Peer::Proxy> spServerPeer;
+    std::unique_ptr<Security::Mediator> upServerMediator;
 
     // Declare the client resources for the test. 
-    std::shared_ptr<BryptPeer> spClientPeer;
-    std::unique_ptr<SecurityMediator> upClientMediator;
+    std::shared_ptr<Peer::Proxy> spClientPeer;
+    std::unique_ptr<Security::Mediator> upClientMediator;
 
     auto const spConnectProtocol = std::make_shared<local::ConnectProtocolStub>();
     auto const spCollector = std::make_shared<local::MessageCollector>();
 
     // Setup the client's view of the mediator.
     {
-        upClientMediator = std::make_unique<SecurityMediator>(
+        upClientMediator = std::make_unique<Security::Mediator>(
             test::ClientIdentifier, Security::Context::Unique, spCollector);
 
-        spClientPeer = std::make_shared<BryptPeer>(*test::ServerIdentifier);
+        spClientPeer = std::make_shared<Peer::Proxy>(*test::ServerIdentifier);
 
-        EndpointRegistration registration(
+        Peer::Registration registration(
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteServerAddress,
@@ -289,12 +282,12 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
 
     // Setup the servers's view of the exchange.
     {
-        upServerMediator = std::make_unique<SecurityMediator>(
+        upServerMediator = std::make_unique<Security::Mediator>(
             test::ServerIdentifier, Security::Context::Unique, spCollector);
 
-        spServerPeer = std::make_shared<BryptPeer>(*test::ClientIdentifier);
+        spServerPeer = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
 
-        EndpointRegistration registration(
+        Peer::Registration registration(
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteClientAddress,
@@ -376,15 +369,15 @@ local::ConnectProtocolStub::ConnectProtocolStub()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::SendRequest(
-    BryptIdentifier::SharedContainer const& spSourceIdentifier,
-    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    Node::SharedIdentifier const& spSourceIdentifier,
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     MessageContext const& context) const
 {
-    if (!spSourceIdentifier || !spBryptPeer) {
+    if (!spSourceIdentifier || !spPeerProxy) {
         return false;
     }
 
-    m_callers.emplace_back(spSourceIdentifier->GetInternalRepresentation());
+    m_callers.emplace_back(spSourceIdentifier->GetInternalValue());
 
     auto const optConnectRequest = ApplicationMessage::Builder()
         .SetMessageContext(context)
@@ -395,17 +388,17 @@ bool local::ConnectProtocolStub::SendRequest(
         .ValidatedBuild();
     assert(optConnectRequest);
 
-    return spBryptPeer->ScheduleSend(
+    return spPeerProxy->ScheduleSend(
         context.GetEndpointIdentifier(), optConnectRequest->GetPack());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::CalledBy(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier) const
+    Node::SharedIdentifier const& spNodeIdentifier) const
 {
     auto const itr = std::find(
-        m_callers.begin(), m_callers.end(), spBryptIdentifier->GetInternalRepresentation());
+        m_callers.begin(), m_callers.end(), spNodeIdentifier->GetInternalValue());
 
     return (itr != m_callers.end());
 }
@@ -543,7 +536,7 @@ local::MessageCollector::MessageCollector()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::MessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     MessageContext const& context,
     std::string_view buffer)
 {
@@ -575,7 +568,7 @@ bool local::MessageCollector::CollectMessage(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::MessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<BryptPeer> const& wpBryptPeer,
+    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     [[maybe_unused]] MessageContext const& context,
     [[maybe_unused]] std::span<std::uint8_t const> buffer)
 {

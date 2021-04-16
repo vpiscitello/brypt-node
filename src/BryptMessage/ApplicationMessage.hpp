@@ -47,9 +47,9 @@ public:
 	MessageContext const& GetContext() const;
 
 	MessageHeader const& GetMessageHeader() const;
-	BryptIdentifier::Container const& GetSourceIdentifier() const;
+	Node::Identifier const& GetSourceIdentifier() const;
 	Message::Destination GetDestinationType() const;
-	std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
+	std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
 
 	Handler::Type GetCommand() const;
 	std::uint8_t GetPhase() const;
@@ -87,13 +87,13 @@ public:
 	ApplicationBuilder();
 
 	ApplicationBuilder& SetMessageContext(MessageContext const& context);
-	ApplicationBuilder& SetSource(BryptIdentifier::Container const& identifier);
-	ApplicationBuilder& SetSource(BryptIdentifier::Internal::Type const& identifier);
+	ApplicationBuilder& SetSource(Node::Identifier const& identifier);
+	ApplicationBuilder& SetSource(Node::Internal::Identifier::Type const& identifier);
 	ApplicationBuilder& SetSource(std::string_view identifier);
 	ApplicationBuilder& MakeClusterMessage();
 	ApplicationBuilder& MakeNetworkMessage();
-	ApplicationBuilder& SetDestination(BryptIdentifier::Container const& identifier);
-	ApplicationBuilder& SetDestination(BryptIdentifier::Internal::Type const& identifier);
+	ApplicationBuilder& SetDestination(Node::Identifier const& identifier);
+	ApplicationBuilder& SetDestination(Node::Internal::Identifier::Type const& identifier);
 	ApplicationBuilder& SetDestination(std::string_view identifier);
 	ApplicationBuilder& SetCommand(Handler::Type type, std::uint8_t phase);
 	ApplicationBuilder& SetPayload(std::string_view buffer);

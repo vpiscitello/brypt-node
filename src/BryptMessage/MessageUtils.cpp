@@ -64,9 +64,11 @@ std::optional<std::uint32_t> Message::PeekSize(std::span<std::uint8_t const> buf
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::Container> Message::PeekSource(
+std::optional<Node::Identifier> Message::PeekSource(
     std::span<std::uint8_t const> buffer)
 {
+    using namespace Node::Network::Identifier;
+
     // The source identifier section begins after protocol type, version, and size of the message.
     // We set the expected position after the size of the identifier as we can return early if 
     // the size byte and first byte are not present. 
@@ -83,19 +85,16 @@ std::optional<BryptIdentifier::Container> Message::PeekSource(
     std::uint8_t const size = *(buffer.data() + ExpectedPosition - 1);
         
     // The provided size must not be smaller the smallest possible brypt identifier
-    if (size < BryptIdentifier::Network::MinimumLength) { return {}; }
+    if (size < MinimumLength) { return {}; }
     // The provided size must not be larger than the maximum possible brypt identifier
-    if (size > BryptIdentifier::Network::MaximumLength) { return {}; }
+    if (size > MaximumLength) { return {}; }
 
     // The provided buffer must be large enough to contain the data specified by the identifier size
-    if (buffer.size() < ExpectedPosition + size) {
-        return {};
-    }
+    if (buffer.size() < ExpectedPosition + size) { return {}; }
 
     auto const start = buffer.begin() + ExpectedPosition;
     auto const stop = buffer.begin() + ExpectedPosition + size;
-    auto const identifier = BryptIdentifier::Container(
-        { start, stop }, BryptIdentifier::BufferContentType::Network);
+    auto const identifier = Node::Identifier({ start, stop }, Node::BufferContentType::Network);
     
     if (!identifier.IsValid()) { return {}; }
 

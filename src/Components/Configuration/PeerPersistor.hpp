@@ -7,10 +7,10 @@
 #include "Configuration.hpp"
 #include "StatusCode.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Interfaces/BootstrapCache.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
@@ -55,17 +55,17 @@ public:
     Configuration::StatusCode SetupPeersFile();
 
     void AddBootstrapEntry(
-        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier);
     void AddBootstrapEntry(Network::RemoteAddress const& bootstrap);
     void DeleteBootstrapEntry(
-        std::shared_ptr<BryptPeer> const& spBryptPeer,
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier);
     void DeleteBootstrapEntry(Network::RemoteAddress const& bootstrap);
 
     // IPeerObserver {
     virtual void HandlePeerStateChange(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         ConnectionState change) override;

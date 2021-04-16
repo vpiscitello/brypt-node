@@ -10,10 +10,10 @@
 #include <memory>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-using AssociatedMessage = std::pair<std::weak_ptr<BryptPeer>, ApplicationMessage>;
+using AssociatedMessage = std::pair<std::weak_ptr<Peer::Proxy>, ApplicationMessage>;
 
 //----------------------------------------------------------------------------------------------------------------------

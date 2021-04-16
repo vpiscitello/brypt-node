@@ -31,8 +31,7 @@ public:
         Security::ReadableView buffer, std::uint64_t nonce) const = 0;
 
     [[nodiscard]] virtual std::int32_t Sign(Security::Buffer& buffer) const = 0;
-    [[nodiscard]] virtual Security::VerificationStatus Verify(
-        Security::ReadableView buffer) const = 0;
+    [[nodiscard]] virtual Security::VerificationStatus Verify(Security::ReadableView buffer) const = 0;
 
 private: 
     [[nodiscard]] virtual std::int32_t Sign(

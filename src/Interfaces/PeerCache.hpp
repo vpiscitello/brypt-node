@@ -19,12 +19,10 @@ public:
 
     enum class Filter : std::uint8_t { None, Active, Inactive };
 
-    using IdentifierReadFunction = std::function<
-        CallbackIteration(BryptIdentifier::SharedContainer const& spBryptIdentifier)>;
+    using IdentifierReadFunction = std::function<CallbackIteration(Node::SharedIdentifier const& spNodeIdentifier)>;
 
     virtual bool ForEachCachedIdentifier(
-      IdentifierReadFunction const& callback,
-      Filter filter = Filter::Active) const = 0;
+      IdentifierReadFunction const& callback, Filter filter = Filter::Active) const = 0;
 
     virtual std::size_t ActivePeerCount() const = 0;
     virtual std::size_t InactivePeerCount() const = 0;

@@ -7,15 +7,14 @@
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageUtils.hpp"
 #include "BryptMessage/NetworkMessage.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <mutex>
 //----------------------------------------------------------------------------------------------------------------------
 
-AuthorizedProcessor::AuthorizedProcessor(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier)
-	: m_spBryptIdentifier(spBryptIdentifier)
+AuthorizedProcessor::AuthorizedProcessor(Node::SharedIdentifier const& spNodeIdentifier)
+	: m_spNodeIdentifier(spNodeIdentifier)
     , m_incomingMutex()
 	, m_incoming()
 {
@@ -24,21 +23,19 @@ AuthorizedProcessor::AuthorizedProcessor(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::CollectMessage(
-	std::weak_ptr<BryptPeer> const& wpBryptPeer,
-	MessageContext const& context,
-	std::string_view buffer)
+	std::weak_ptr<Peer::Proxy> const& wpPeerProxy, MessageContext const& context, std::string_view buffer)
 {
     // Decode the buffer as it is expected to be encoded with Z85.
     Message::Buffer const decoded = Z85::Decode(buffer);
 
     // Pass on the message collection to the decoded buffer method. 
-    return CollectMessage(wpBryptPeer, context, decoded);
+    return CollectMessage(wpPeerProxy, context, decoded);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::CollectMessage(
-	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
 	MessageContext const& context,
 	std::span<std::uint8_t const> buffer)
 {
@@ -56,7 +53,7 @@ bool AuthorizedProcessor::CollectMessage(
 
 			if (!optMessage) { return false; }
 
-			return HandleMessage(wpBryptPeer, *optMessage);
+			return HandleMessage(wpPeerProxy, *optMessage);
 		} 
         case Message::Protocol::Application: {
 			auto const optMessage = ApplicationMessage::Builder()
@@ -66,7 +63,7 @@ bool AuthorizedProcessor::CollectMessage(
 
 			if (!optMessage) { return false; }
 
-			return QueueMessage(wpBryptPeer, *optMessage);
+			return QueueMessage(wpPeerProxy, *optMessage);
 		}
         case Message::Protocol::Invalid:
 		default: return false;
@@ -96,20 +93,16 @@ std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::QueueMessage(
-	std::weak_ptr<BryptPeer> const& wpBryptPeer,
-	ApplicationMessage const& message)
+bool AuthorizedProcessor::QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
 	std::scoped_lock lock(m_incomingMutex);
-	m_incoming.emplace(AssociatedMessage{ wpBryptPeer, message });
+	m_incoming.emplace(AssociatedMessage{ wpPeerProxy, message });
 	return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::HandleMessage(
-	std::weak_ptr<BryptPeer> const& wpBryptPeer,
-	NetworkMessage const& message)
+bool AuthorizedProcessor::HandleMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message)
 {
     // Currently, there are no network messages that are sent network wide. 
     if (message.GetDestinationType() != Message::Destination::Node) { return false; }
@@ -126,10 +119,10 @@ bool AuthorizedProcessor::HandleMessage(
 	}
 
     // Currently, messages not destined for this node are note accepted. 
-    if (optDestination && *optDestination != *m_spBryptIdentifier) { return false; }
+    if (optDestination && *optDestination != *m_spNodeIdentifier) { return false; }
 
-	auto const spBryptPeer = wpBryptPeer.lock();
-	if (!spBryptPeer) { return false; }
+	auto const spPeerProxy = wpPeerProxy.lock();
+	if (!spPeerProxy) { return false; }
 
 	Message::Network::Type type = message.GetMessageType();
 
@@ -138,7 +131,7 @@ bool AuthorizedProcessor::HandleMessage(
 		// Allow heartbeat requests to be processed. 
 		case Message::Network::Type::HeartbeatRequest:  {
 			optResponse = NetworkMessage::Builder()
-				.SetSource(*m_spBryptIdentifier)
+				.SetSource(*m_spNodeIdentifier)
 				.SetDestination(message.GetSourceIdentifier())
 				.MakeHeartbeatResponse()
 				.ValidatedBuild();
@@ -150,7 +143,7 @@ bool AuthorizedProcessor::HandleMessage(
         // a valid session has already been established. 
 		case Message::Network::Type::Handshake: {
 			optResponse = NetworkMessage::Builder()
-				.SetSource(*m_spBryptIdentifier)
+				.SetSource(*m_spNodeIdentifier)
 				.SetDestination(message.GetSourceIdentifier())
 				.MakeHeartbeatRequest()
 				.ValidatedBuild();
@@ -160,7 +153,7 @@ bool AuthorizedProcessor::HandleMessage(
 	}
 
 	// Send the build response to the network message. 
-	return spBryptPeer->ScheduleSend(
+	return spPeerProxy->ScheduleSend(
 		message.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
 }
 

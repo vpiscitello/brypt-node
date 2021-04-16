@@ -22,7 +22,7 @@ public:
     // }IHandler
 
     bool FloodHandler(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer, ApplicationMessage const& message);
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
     bool RespondHandler();
     bool CloseHandler();
 };

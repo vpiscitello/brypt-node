@@ -5,7 +5,7 @@ project(Network LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
 #-----------------------------------------------------------------------------------------------------------------------
 
-set(BASE_ENDPOINT_SOURCES Endpoint.cpp EndpointManager.cpp Address.cpp)
+set(BASE_ENDPOINT_SOURCES Endpoint.cpp Manager.cpp Address.cpp)
 set(LORA_ENDPOINT_SOURCES LoRa/Endpoint.cpp)
 set(TCP_ENDPOINT_SOURCES TCP/Endpoint.cpp TCP/Events.cpp TCP/Session.cpp)
 

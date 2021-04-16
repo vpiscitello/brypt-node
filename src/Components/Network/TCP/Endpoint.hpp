@@ -66,10 +66,10 @@ public:
     virtual void ScheduleConnect(RemoteAddress&& address) override;
     virtual void ScheduleConnect(
         RemoteAddress&& address,
-        BryptIdentifier::SharedContainer const& spIdentifier) override;
+        Node::SharedIdentifier const& spIdentifier) override;
 
     [[nodiscard]] virtual bool ScheduleSend(
-        BryptIdentifier::Container const& identifier, std::string_view message) override;
+        Node::Identifier const& identifier, std::string_view message) override;
     // }IEndpoint
     
 private:
@@ -94,17 +94,17 @@ private:
 
     [[nodiscard]] ConnectStatusCode Connect(
         RemoteAddress const& address,
-        BryptIdentifier::SharedContainer const& spIdentifier);
+        Node::SharedIdentifier const& spIdentifier);
     [[nodiscard]] SocketProcessor ConnectionProcessor(
         RemoteAddress address,
-        BryptIdentifier::SharedContainer spIdentifier);
+        Node::SharedIdentifier spIdentifier);
 
     void OnSessionStarted(std::shared_ptr<Session> const& spSession);
     void OnSessionStopped(std::shared_ptr<Session> const& spSession);
 
     [[nodiscard]] bool OnMessageReceived(
         std::shared_ptr<Session> const& spSession,
-        BryptIdentifier::Container const& source,
+        Node::Identifier const& source,
         std::span<std::uint8_t const> message);
     void OnMessageDispatched(std::shared_ptr<Session> const& spSession);
 

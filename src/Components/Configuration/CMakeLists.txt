@@ -12,7 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     Configuration.cpp
-    ConfigurationManager.cpp
+    Manager.cpp
     PeerPersistor.cpp)
 
 # Internal include dependencies

@@ -13,7 +13,8 @@
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
+
 class MessageContext;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -24,12 +25,12 @@ public:
     virtual ~IMessageSink() = default;
 
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::string_view buffer) = 0;
         
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         MessageContext const& context,
         std::span<std::uint8_t const> buffer) = 0;
 };

@@ -1,33 +1,42 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Query.hpp
-// Description:
+// File: Statistics.cpp
+// Description: 
 //----------------------------------------------------------------------------------------------------------------------
-#pragma once
-//----------------------------------------------------------------------------------------------------------------------
-#include "Handler.hpp"
+#include "Statistics.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Sensor readings
-//----------------------------------------------------------------------------------------------------------------------
-class Handler::Query : public Handler::IHandler
+Peer::Statistics::Statistics()
+    : m_sent(0)
+    , m_received(0)
 {
-public:
-    enum class Phase : std::uint8_t { Flood, Respond, Aggregate, Close };
-    
-    explicit Query(BryptNode& instance);
+}
 
-    // IHandler{
-    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
-    // }IHandler
+//----------------------------------------------------------------------------------------------------------------------
 
-    bool FloodHandler(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
-    bool RespondHandler(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
-    bool AggregateHandler(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
-    bool CloseHandler();
-};
+std::uint32_t Peer::Statistics::GetSentCount() const
+{
+    return m_sent;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::uint32_t Peer::Statistics::GetReceivedCount() const
+{
+    return m_received;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Peer::Statistics::IncrementSentCount()
+{
+    ++m_sent;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Peer::Statistics::IncrementReceivedCount()
+{
+    ++m_received;
+}
 
 //----------------------------------------------------------------------------------------------------------------------

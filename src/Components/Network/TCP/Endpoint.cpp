@@ -6,8 +6,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "EndpointDefinitions.hpp"
 #include "Session.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/co_spawn.hpp>
@@ -237,7 +237,7 @@ void Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address)
 
 void Network::TCP::Endpoint::ScheduleConnect(
     RemoteAddress&& address, 
-    BryptIdentifier::SharedContainer const& spIdentifier)
+    Node::SharedIdentifier const& spIdentifier)
 {
     if (m_operation != Operation::Client) {
         m_spLogger->critical("Connect was called on a non-client endpoint!");
@@ -259,7 +259,7 @@ void Network::TCP::Endpoint::ScheduleConnect(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Network::TCP::Endpoint::ScheduleSend(
-    BryptIdentifier::Container const& identifier, std::string_view message)
+    Node::Identifier const& identifier, std::string_view message)
 {
     // If the message provided is empty, do not send anything
     if (message.empty()) { return false; }
@@ -353,7 +353,7 @@ void Network::TCP::Endpoint::ProcessBindEvent(BindEvent const& event)
 
 void Network::TCP::Endpoint::ProcessConnectEvent(ConnectEvent const& event)
 {
-    auto const status = Connect(event.GetRemoteAddress(), event.GetBryptIdentifier());
+    auto const status = Connect(event.GetRemoteAddress(), event.GetNodeIdentifier());
     // Connect successes and error logging is handled within the call itself. 
     if (status == ConnectStatusCode::GenericError) {
         m_spLogger->warn("A connection with {} could not be established.",
@@ -474,7 +474,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ListenProcessor()
 
 Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
     RemoteAddress const& address,
-    BryptIdentifier::SharedContainer const& spIdentifier)
+    Node::SharedIdentifier const& spIdentifier)
 {
     if (!m_pPeerMediator) { return ConnectStatusCode::GenericError; }
 
@@ -509,7 +509,7 @@ Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
 
 Network::TCP::SocketProcessor Network::TCP::Endpoint::ConnectionProcessor(
     RemoteAddress address,
-    BryptIdentifier::SharedContainer spIdentifier)
+    Node::SharedIdentifier spIdentifier)
 {
     boost::system::error_code error;
 
@@ -603,8 +603,8 @@ void Network::TCP::Endpoint::OnSessionStopped(std::shared_ptr<Session> const& sp
     auto const updater = [this] (ExtendedConnectionDetails& details)
     { 
         details.SetConnectionState(ConnectionState::Disconnected);
-        if (auto const spBryptPeer = details.GetBryptPeer(); spBryptPeer) {
-            spBryptPeer->WithdrawEndpoint(m_identifier, m_protocol);
+        if (auto const spPeerProxy = details.GetPeerProxy(); spPeerProxy) {
+            spPeerProxy->WithdrawEndpoint(m_identifier, m_protocol);
         }
     };
 
@@ -617,26 +617,26 @@ void Network::TCP::Endpoint::OnSessionStopped(std::shared_ptr<Session> const& sp
 
 bool Network::TCP::Endpoint::OnMessageReceived(
     std::shared_ptr<Session> const& spSession,
-    BryptIdentifier::Container const& source,
+    Node::Identifier const& source,
     std::span<std::uint8_t const> message)
 {
-    std::shared_ptr<BryptPeer> spBryptPeer = {};
-    auto const promotedHandler = [&spBryptPeer] (ExtendedConnectionDetails& details)
+    std::shared_ptr<Peer::Proxy> spPeerProxy = {};
+    auto const promotedHandler = [&spPeerProxy] (ExtendedConnectionDetails& details)
     {
-        spBryptPeer = details.GetBryptPeer();
+        spPeerProxy = details.GetPeerProxy();
         details.IncrementMessageSequence();
     };
 
-    auto const unpromotedHandler = [this, &source, &spBryptPeer] (RemoteAddress const& address) 
+    auto const unpromotedHandler = [this, &source, &spPeerProxy] (RemoteAddress const& address) 
         -> ExtendedConnectionDetails
     {
-        spBryptPeer = IEndpoint::LinkPeer(source, address);
+        spPeerProxy = IEndpoint::LinkPeer(source, address);
         
-        ExtendedConnectionDetails details(spBryptPeer);
+        ExtendedConnectionDetails details(spPeerProxy);
         details.SetConnectionState(ConnectionState::Connected);
         details.IncrementMessageSequence();
         
-        spBryptPeer->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
+        spPeerProxy->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
 
         return details;
     };
@@ -645,7 +645,7 @@ bool Network::TCP::Endpoint::OnMessageReceived(
     // found if this is its first connection.
     m_tracker.UpdateOneConnection(spSession, promotedHandler, unpromotedHandler);
 
-    return spBryptPeer->ScheduleReceive(m_identifier, message);
+    return spPeerProxy->ScheduleReceive(m_identifier, message);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

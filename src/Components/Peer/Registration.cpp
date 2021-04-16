@@ -1,11 +1,11 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: EndpointRegistration.cpp
+// File: Registration.cpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-#include "EndpointRegistration.hpp"
+#include "Registration.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointRegistration::EndpointRegistration(
+Peer::Registration::Registration(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
@@ -18,42 +18,42 @@ EndpointRegistration::EndpointRegistration(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext const& EndpointRegistration::GetMessageContext() const
+MessageContext const& Peer::Registration::GetMessageContext() const
 {
     return m_context;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext& EndpointRegistration::GetWritableMessageContext()
+MessageContext& Peer::Registration::GetWritableMessageContext()
 {
     return m_context;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Endpoint::Identifier EndpointRegistration::GetEndpointIdentifier() const
+Network::Endpoint::Identifier Peer::Registration::GetEndpointIdentifier() const
 {
     return m_context.GetEndpointIdentifier();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Protocol EndpointRegistration::GetEndpointProtocol() const
+Network::Protocol Peer::Registration::GetEndpointProtocol() const
 {
     return m_context.GetEndpointProtocol();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageScheduler const& EndpointRegistration::GetScheduler() const
+MessageScheduler const& Peer::Registration::GetScheduler() const
 {
     return m_scheduler;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::RemoteAddress const& EndpointRegistration::GetAddress() const
+Network::RemoteAddress const& Peer::Registration::GetAddress() const
 {
     return m_address;
 }

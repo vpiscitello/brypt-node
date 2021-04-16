@@ -7,7 +7,7 @@
 #include "BryptMessage/NetworkMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageUtils.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
@@ -30,13 +30,13 @@ namespace local {
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 ExchangeProcessor::ExchangeProcessor(
-    BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Node::SharedIdentifier const& spNodeIdentifier,
     std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
     IExchangeObserver* const pExchangeObserver,
     std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
     : m_stage(ProcessStage::Synchronization)
     , m_expiration(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
-    , m_spBryptIdentifier(spBryptIdentifier)
+    , m_spNodeIdentifier(spNodeIdentifier)
     , m_spConnectProtocol(spConnectProtocol)
     , m_pExchangeObserver(pExchangeObserver)
     , m_upSecurityStrategy(std::move(upSecurityStrategy))
@@ -47,7 +47,7 @@ ExchangeProcessor::ExchangeProcessor(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     MessageContext const& context,
 	std::string_view buffer)
 {
@@ -58,13 +58,13 @@ bool ExchangeProcessor::CollectMessage(
     Message::Buffer const decoded = Z85::Decode(buffer);
 
     // Pass on the message collection to the decoded buffer method. 
-    return CollectMessage(wpBryptPeer, context, decoded);
+    return CollectMessage(wpPeerProxy, context, decoded);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<BryptPeer> const& wpBryptPeer,
+	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     MessageContext const& context,
 	std::span<std::uint8_t const> buffer)
 {
@@ -96,8 +96,8 @@ bool ExchangeProcessor::CollectMessage(
     }
 
     // The message may only be handled if the associated peer can be acquired. 
-    if (auto const spBryptPeer = wpBryptPeer.lock(); spBryptPeer)  [[likely]] {
-	    return HandleMessage(spBryptPeer, *optMessage);
+    if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy)  [[likely]] {
+	    return HandleMessage(spPeerProxy, *optMessage);
     }
 
     return false;
@@ -119,7 +119,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 
     if (buffer.size() != 0) {
         auto const optRequest = NetworkMessage::Builder()
-            .SetSource(*m_spBryptIdentifier)
+            .SetSource(*m_spNodeIdentifier)
             .MakeHandshakeMessage()
             .SetPayload(buffer)
             .ValidatedBuild();
@@ -133,13 +133,13 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleMessage(
-    std::shared_ptr<BryptPeer> const& spBryptPeer, NetworkMessage const& message)
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy, NetworkMessage const& message)
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
             // If the message handling succeeded, break out of the switch statement. Otherwise,
             // fallthrough to the error handler. 
-            if (HandleSynchronizationMessage(spBryptPeer, message)) { break; }
+            if (HandleSynchronizationMessage(spPeerProxy, message)) { break; }
         } [[fallthrough]];
         case ProcessStage::Invalid:
         default: {
@@ -156,11 +156,11 @@ bool ExchangeProcessor::HandleMessage(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleSynchronizationMessage(
-    std::shared_ptr<BryptPeer> const& spBryptPeer,
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     NetworkMessage const& message)
 {
     assert(m_upSecurityStrategy);
-    assert(m_spBryptIdentifier);
+    assert(m_spNodeIdentifier);
 
     // Provide the attached SecurityStrategy the synchronization message. 
     // If for some reason, the message could not be handled return an error. 
@@ -179,7 +179,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         // Build a response to the message from the synchronization result of the strategy. 
         auto const optResponse = NetworkMessage::Builder()
             .SetMessageContext(context)
-            .SetSource(*m_spBryptIdentifier)
+            .SetSource(*m_spNodeIdentifier)
             .SetDestination(message.GetSourceIdentifier())
             .MakeHandshakeMessage()
             .SetPayload(buffer)
@@ -187,7 +187,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         assert(optResponse);
 
         // Send the exchange message to the peer. 
-        if (!spBryptPeer->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack())) {
+        if (!spPeerProxy->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack())) {
             if (m_pExchangeObserver) [[likely]] {
                 m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed);
             }
@@ -207,7 +207,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
             // that protocol fails, return an error
             if (m_spConnectProtocol) [[likely]] {
                 auto const success = m_spConnectProtocol->SendRequest(
-                    m_spBryptIdentifier, spBryptPeer, context);
+                    m_spNodeIdentifier, spPeerProxy, context);
                 if (!success) { return false; }
             }
 

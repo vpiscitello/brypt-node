@@ -113,9 +113,8 @@ bool Configuration::EndpointOptions::Initialize()
     if (protocol.empty()) { Network::ProtocolToString(type); }
 
     if (bindingAddress.IsValid()) { return true; }
-    if (type == Network::Protocol::Invalid || binding.empty() || interface.empty()) {
-        return false; 
-    }
+    if (type == Network::Protocol::Invalid || binding.empty() || interface.empty()) { return false; }
+
     bindingAddress = { type, binding, interface };
     if (!bindingAddress.IsValid()) { return false; }
 

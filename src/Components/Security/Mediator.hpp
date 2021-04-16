@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: SecurityMediator.hpp
+// File: Mediator.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -14,7 +14,8 @@
 #include <shared_mutex>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
+
 class ExchangeProcessor;
 class IConnectProtocol;
 class ISecurityStrategy;
@@ -22,25 +23,32 @@ class ISecurityStrategy;
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-// Description:
+namespace Security {
 //----------------------------------------------------------------------------------------------------------------------
-class SecurityMediator : public IExchangeObserver
+
+class Mediator;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Security namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Security::Mediator final : public IExchangeObserver
 {
 public:
-    SecurityMediator(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Mediator(
+        Node::SharedIdentifier const& spNodeIdentifier,
         Security::Context context,
         std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
 
-    SecurityMediator(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+    Mediator(
+        Node::SharedIdentifier const& spNodeIdentifier,
         std::unique_ptr<ISecurityStrategy>&& upStrategy);
 
-    SecurityMediator(SecurityMediator&& other) = delete;
-    SecurityMediator(SecurityMediator const& other) = delete;
-    SecurityMediator& operator=(SecurityMediator const& other) = delete;
+    Mediator(Mediator&& other) = delete;
+    Mediator(Mediator const& other) = delete;
+    Mediator& operator=(Mediator const& other) = delete;
 
-    ~SecurityMediator();
+    ~Mediator();
 
     // IExchangeObserver {
     virtual void OnExchangeClose(ExchangeStatus status) override;
@@ -49,7 +57,7 @@ public:
 
     [[nodiscard]] Security::State GetSecurityState() const;
 
-    void BindPeer(std::shared_ptr<BryptPeer> const& spBryptPeer);
+    void BindPeer(std::shared_ptr<Peer::Proxy> const& spPeerProxy);
     void BindSecurityContext(MessageContext& context) const;
 
     [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
@@ -66,8 +74,8 @@ private:
     Security::Context m_context;
     Security::State m_state;
 
-    BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    std::shared_ptr<BryptPeer> m_spBryptPeer;
+    Node::SharedIdentifier m_spNodeIdentifier;
+    std::shared_ptr<Peer::Proxy> m_spPeer;
     std::unique_ptr<ISecurityStrategy> m_upStrategy;
 
     std::unique_ptr<ExchangeProcessor> m_upExchangeProcessor;

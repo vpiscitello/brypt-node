@@ -1,11 +1,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
-#include "Components/Network/EndpointIdentifier.hpp"
-#include "Components/Network/Protocol.hpp"
 #include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -20,8 +20,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointRegistration GenerateCaptureRegistration(
-    std::optional<ApplicationMessage>& optCapturedMessage);
+Peer::Registration GenerateCaptureRegistration(std::optional<ApplicationMessage>& optCapturedMessage);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -29,9 +28,8 @@ EndpointRegistration GenerateCaptureRegistration(
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const ClientIdentifier(BryptIdentifier::Generate());
-auto const ServerIdentifier = std::make_shared<BryptIdentifier::Container const>(
-    BryptIdentifier::Generate());
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+auto const ServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
 constexpr Handler::Type Handler = Handler::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
@@ -56,13 +54,13 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
-    auto const spBryptPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
-    spBryptPeer->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
+    spPeerProxy->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
 
     // Get the message context for the endpoint that was registered.
-    auto const optMessageContext = spBryptPeer->GetMessageContext(test::EndpointIdentifier);
+    auto const optMessageContext = spPeerProxy->GetMessageContext(test::EndpointIdentifier);
     ASSERT_TRUE(optMessageContext);
     
     // Generate an application message to represent a request sent from a client. 
@@ -76,7 +74,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
     // Use the authorized processor to collect the request. During runtime this would be called 
     // through the peer's ScheduleReceive method. 
-    processor.CollectMessage(spBryptPeer, *optMessageContext, optRequest->GetPack());
+    processor.CollectMessage(spPeerProxy, *optMessageContext, optRequest->GetPack());
 
     // Verify that the processor correctly queued the message to be processed by the the main
     // event loop.
@@ -108,7 +106,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     if (auto const spAssociatedPeer = wpAssociatedPeer.lock(); spAssociatedPeer) {
         // Verify that the peer that was used to send the request matches the peer that was
         // associated with the message.
-        EXPECT_EQ(spAssociatedPeer, spBryptPeer);
+        EXPECT_EQ(spAssociatedPeer, spPeerProxy);
         
         // Send a message through the peer to further verify that it is correct.
         EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
@@ -128,13 +126,13 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
-    auto const spBryptPeer = std::make_shared<BryptPeer>(test::ClientIdentifier);
+    auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
-    spBryptPeer->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
+    spPeerProxy->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
 
     // Get the message context for the endpoint that was registered.
-    auto const optMessageContext = spBryptPeer->GetMessageContext(test::EndpointIdentifier);
+    auto const optMessageContext = spPeerProxy->GetMessageContext(test::EndpointIdentifier);
     ASSERT_TRUE(optMessageContext);
     
     // Use the processor to collect several messages to verify they are queued correctly. 
@@ -150,7 +148,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
         // Use the authorized processor to collect the request. During runtime this would be called 
         // through the peer's ScheduleReceive method. 
-        processor.CollectMessage(spBryptPeer, *optMessageContext, optRequest->GetPack());
+        processor.CollectMessage(spPeerProxy, *optMessageContext, optRequest->GetPack());
     }
 
     // Verify that the processor correctly queued the messages to be processed by the the main
@@ -183,7 +181,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
         if (auto const spAssociatedPeer = wpAssociatedPeer.lock(); spAssociatedPeer) {
             // Verify that the peer that was used to send the request matches the peer that was
             // associated with the message.
-            EXPECT_EQ(spAssociatedPeer, spBryptPeer);
+            EXPECT_EQ(spAssociatedPeer, spPeerProxy);
             
             // Send a message through the peer to further verify that it is correct.
             EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
@@ -201,10 +199,10 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-EndpointRegistration local::GenerateCaptureRegistration(
+Peer::Registration local::GenerateCaptureRegistration(
     std::optional<ApplicationMessage>& optCapturedMessage)
 {
-    EndpointRegistration registration(
+    Peer::Registration registration(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,

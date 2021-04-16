@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 // File: SinglePeerMediatorStub.hpp
 // Description: An IPeerMediator stub implementation that allows endpoint tests to test single
-// point connection. Requires an IMessageSink stub to set the receiver on the linked BryptPeer
+// point connection. Requires an IMessageSink stub to set the receiver on the linked Peer::Proxy
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
@@ -15,7 +15,7 @@
 #include <memory>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -23,35 +23,32 @@ class SinglePeerMediatorStub : public IPeerMediator
 {
 public:
     SinglePeerMediatorStub(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        IMessageSink* const pMessageSink);
+        Node::SharedIdentifier const& spNodeIdentifier, IMessageSink* const pMessageSink);
 
     // IPeerMediator {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
     virtual OptionalRequest DeclareResolvingPeer(
-        Network::RemoteAddress const& address,
-        BryptIdentifier::SharedContainer const& spIdentifier = nullptr) override;
+        Network::RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier = nullptr) override;
 
     virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) override;
 
-    virtual std::shared_ptr<BryptPeer> LinkPeer(
-        BryptIdentifier::Container const& identifier,
-        Network::RemoteAddress const& address) override;
+    virtual std::shared_ptr<Peer::Proxy> LinkPeer(
+        Node::Identifier const& identifier, Network::RemoteAddress const& address) override;
 
     virtual void DispatchPeerStateChange(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         ConnectionState change) override;
     // } IPeerMediator
 
-    std::shared_ptr<BryptPeer> GetPeer() const;
+    std::shared_ptr<Peer::Proxy> GetPeer() const;
 
 private:
-    BryptIdentifier::SharedContainer m_spBryptIdentifier;
-    std::shared_ptr<BryptPeer> m_spBryptPeer;
+    Node::SharedIdentifier m_spNodeIdentifier;
+    std::shared_ptr<Peer::Proxy> m_spPeer;
     IMessageSink* const m_pMessageSink;
 };
 

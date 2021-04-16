@@ -13,23 +13,23 @@
 
 class NodeState {
 public:
-    explicit NodeState(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    explicit NodeState(Node::SharedIdentifier const& spNodeIdentifier);
     NodeState(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Node::SharedIdentifier const& spNodeIdentifier,
         Network::ProtocolSet const& protocols);
 
-    BryptIdentifier::SharedContainer GetBryptIdentifier() const;
+    Node::SharedIdentifier GetNodeIdentifier() const;
     NodeUtils::ClusterIdType GetCluster() const;
     NodeUtils::DeviceOperation GetOperation() const;
 
-    void SetBryptIdentifier(BryptIdentifier::SharedContainer const& spBryptIdentifier);
+    void SetNodeIdentifier(Node::SharedIdentifier const& spNodeIdentifier);
     void SetCluster(NodeUtils::ClusterIdType const& cluster);
     void SetOperation(NodeUtils::DeviceOperation operation);
 
 private:
     mutable std::shared_mutex m_mutex;
 
-    BryptIdentifier::SharedContainer m_spBryptIdentifier; // BryptIdentifier of the node
+    Node::SharedIdentifier m_spNodeIdentifier; // The unique identifier for this node
 
     NodeUtils::ClusterIdType m_cluster;   // Cluster identification number of the node's cluster
     NodeUtils::DeviceOperation m_operation;  // A enumeration value of the node's root status

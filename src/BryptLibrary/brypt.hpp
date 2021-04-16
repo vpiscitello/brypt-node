@@ -40,7 +40,6 @@ enum class error_code : brypt_status_t {
     network_connection_failed = BRYPT_ENETCONNNFAILED,
 };
 
-
 class status;
 class option;
 class service;

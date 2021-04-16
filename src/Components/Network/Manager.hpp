@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: EndpointManager.hpp
+// File: Manager.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -7,9 +7,9 @@
 #include "EndpointIdentifier.hpp"
 #include "EndpointTypes.hpp"
 #include "Protocol.hpp"
-#include "Components/BryptPeer/PeerManager.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Peer/Manager.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerMediator.hpp"
@@ -22,24 +22,31 @@
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
-namespace Network { class IEndpoint; }
-
+//----------------------------------------------------------------------------------------------------------------------
+namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
 
-class EndpointManager : public IEndpointMediator
+class IEndpoint;
+class Manager;
+
+//----------------------------------------------------------------------------------------------------------------------
+}
+//----------------------------------------------------------------------------------------------------------------------
+
+class Network::Manager final : public IEndpointMediator
 {
 public:
     using SharedEndpoint = std::shared_ptr<Network::IEndpoint>;
 
-    EndpointManager(
+    Manager(
         Configuration::EndpointConfigurations const& configurations,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
 
-    EndpointManager(EndpointManager const& other) = delete;
-    EndpointManager& operator=(EndpointManager const& other) = delete;
+    Manager(Manager const& other) = delete;
+    Manager& operator=(Manager const& other) = delete;
 
-    ~EndpointManager();
+    ~Manager();
 
     // IEndpointMediator {
     [[nodiscard]] virtual EndpointEntryMap GetEndpointEntries() const override;
@@ -50,9 +57,7 @@ public:
     void Shutdown();
 
     [[nodiscard]] SharedEndpoint GetEndpoint(Network::Endpoint::Identifier identifier) const;
-    [[nodiscard]] SharedEndpoint GetEndpoint(
-        Network::Protocol protocol,
-        Network::Operation operation) const;
+    [[nodiscard]] SharedEndpoint GetEndpoint(Network::Protocol protocol, Network::Operation operation) const;
     [[nodiscard]] Network::ProtocolSet GetEndpointProtocols() const;
     [[nodiscard]] std::size_t ActiveEndpointCount() const;
     [[nodiscard]] std::size_t ActiveProtocolCount() const;

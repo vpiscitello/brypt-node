@@ -2,7 +2,7 @@
 message(STATUS "Configuring UT_BryptIdentifier...")
 #-----------------------------------------------------------------------------------------------------------------------
 project(UT_BryptIdentifier LANGUAGES CXX)
-add_executable(UT_BryptIdentifier)
+add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -23,5 +23,5 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_BryptIdentifier)
+gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

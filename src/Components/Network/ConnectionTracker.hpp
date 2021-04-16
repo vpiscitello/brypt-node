@@ -40,11 +40,9 @@ public:
     {
     }
 
-    ConnectionEntry(
-        ConnectionIdType const& connection,
-        OptionalConnectionDetails const& optConnectionDetails)
+    ConnectionEntry(ConnectionIdType const& connection, OptionalConnectionDetails const& optDetails)
         : m_connection(connection)
-        , m_optConnectionDetails(optConnectionDetails)
+        , m_optConnectionDetails(optDetails)
     {
     }
 
@@ -58,25 +56,19 @@ public:
         return m_connection;
     }
 
-    BryptIdentifier::Internal::Type GetPeerIdentifier() const
+    Node::Internal::Identifier::Type GetPeerIdentifier() const
     {
-        if (!m_optConnectionDetails) {
-            return ReservedIdentifiers::Internal::Invalid;
-        }
+        if (!m_optConnectionDetails) { return Node::Internal::Identifier::Invalid; }
 
-        auto const spBryptIdentifier = m_optConnectionDetails->GetBryptIdentifier();
-        if (!spBryptIdentifier) {
-            return ReservedIdentifiers::Internal::Invalid;
-        }
+        auto const spNodeIdentifier = m_optConnectionDetails->GetNodeIdentifier();
+        if (!spNodeIdentifier) { return Node::Internal::Identifier::Invalid; }
 
-        return spBryptIdentifier->GetInternalRepresentation();
+        return spNodeIdentifier->GetInternalValue();
     }
     
     std::string GetUri() const
     {
-        if (!m_optConnectionDetails) {
-            return {};
-        }
+        if (!m_optConnectionDetails) { return {}; }
 
         return m_optConnectionDetails->GetAddress().GetUri();
     }
@@ -202,9 +194,7 @@ public:
     void TrackConnection(ConnectionIdType const& connection)
     {
         std::scoped_lock lock(m_mutex);
-        if (auto const itr = m_connections.find(connection); itr != m_connections.end()) {
-            return;
-        }
+        if (auto const itr = m_connections.find(connection); itr != m_connections.end()) { return; }
 
         ConnectionEntryType entry(connection);
         m_connections.emplace(entry);
@@ -629,13 +619,13 @@ public:
     //----------------------------------------------------------------------------------------------------------------------
 
 
-    BryptIdentifier::SharedContainer Translate(ConnectionIdType const& connection)
+    Node::SharedIdentifier Translate(ConnectionIdType const& connection)
     {
         std::scoped_lock lock(m_mutex);
         if (auto const itr = m_connections.find(connection); itr != m_connections.end()) {
             auto const& optConnectionDetails = itr->GetConnectionDetails();
             if (optConnectionDetails) {
-                return optConnectionDetails->GetBryptIdentifier();
+                return optConnectionDetails->GetNodeIdentifier();
             }
         }
         return {};
@@ -643,11 +633,11 @@ public:
 
     //----------------------------------------------------------------------------------------------------------------------
 
-    ConnectionIdType Translate(BryptIdentifier::Container const& identifier)
+    ConnectionIdType Translate(Node::Identifier const& identifier)
     {
         std::scoped_lock lock(m_mutex);
         auto const& index = m_connections.template get<IdentifierIndex>();
-        if (auto const itr = index.find(identifier.GetInternalRepresentation()); itr != index.end()) {
+        if (auto const itr = index.find(identifier.GetInternalValue()); itr != index.end()) {
             return itr->GetConnectionIdentifier();
         }
         return {};
@@ -708,7 +698,7 @@ private:
                 boost::multi_index::tag<IdentifierIndex>,
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
-                    BryptIdentifier::Internal::Type,
+                    Node::Internal::Identifier::Type,
                     &ConnectionEntryType::GetPeerIdentifier>>,
             boost::multi_index::hashed_non_unique<
                 boost::multi_index::tag<UriIndex>,

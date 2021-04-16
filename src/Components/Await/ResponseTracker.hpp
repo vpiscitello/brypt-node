@@ -20,7 +20,7 @@
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptPeer;
+namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Await {
@@ -40,20 +40,20 @@ class ResponseTracker;
 struct Await::ResponseEntry
 {
     ResponseEntry(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
+        Node::SharedIdentifier const& spNodeIdentifier,
         std::string_view pack)
-        : identifier(spBryptIdentifier)
+        : identifier(spNodeIdentifier)
         , pack(pack)
     {
-        assert(spBryptIdentifier);
+        assert(spNodeIdentifier);
     }
 
-    BryptIdentifier::Internal::Type GetPeerIdentifier() const
+    Node::Internal::Identifier::Type GetPeerIdentifier() const
     {
-        return identifier->GetInternalRepresentation();
+        return identifier->GetInternalValue();
     }
 
-    BryptIdentifier::SharedContainer const identifier;
+    Node::SharedIdentifier const identifier;
     std::string pack;
 };
 
@@ -68,16 +68,16 @@ public:
     constexpr static auto const ExpirationPeriod = std::chrono::milliseconds(1500);
 
     ResponseTracker(
-        std::weak_ptr<BryptPeer> const& wpRequestor,
+        std::weak_ptr<Peer::Proxy> const& wpRequestor,
         ApplicationMessage const& request,
-        BryptIdentifier::SharedContainer const& spPeerIdentifier);
+        Node::SharedIdentifier const& spPeerIdentifier);
 
     ResponseTracker(
-        std::weak_ptr<BryptPeer> const& wpRequestor,
+        std::weak_ptr<Peer::Proxy> const& wpRequestor,
         ApplicationMessage const& request,
-        std::set<BryptIdentifier::SharedContainer> const& identifiers);
+        std::set<Node::SharedIdentifier> const& identifiers);
 
-    BryptIdentifier::Container GetSource() const;
+    Node::Identifier GetSource() const;
     Await::UpdateStatus UpdateResponse(ApplicationMessage const& response);
     Await::ResponseStatus CheckResponseStatus();
     std::uint32_t GetResponseCount() const;
@@ -91,14 +91,14 @@ private:
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
                     ResponseEntry,
-                    BryptIdentifier::Internal::Type,
+                    Node::Internal::Identifier::Type,
                     &ResponseEntry::GetPeerIdentifier>>>>;
 
     Await::ResponseStatus m_status;
     std::uint32_t m_expected;
     std::uint32_t m_received;
 
-    std::weak_ptr<BryptPeer> m_wpRequestor;
+    std::weak_ptr<Peer::Proxy> m_wpRequestor;
     ApplicationMessage const m_request;
     ResponseContainer m_responses;
 

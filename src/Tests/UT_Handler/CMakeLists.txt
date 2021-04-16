@@ -2,7 +2,7 @@
 message(STATUS "Configuring UT_Handler...")
 #-----------------------------------------------------------------------------------------------------------------------
 project(UT_Handler LANGUAGES CXX)
-add_executable(UT_Handler)
+add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -31,11 +31,11 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Await Handler BryptPeer Network Security Configuration MessageControl Event BryptMessage BryptIdentifier 
+    Await Handler Peer Network Security Configuration MessageControl Event BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_Handler)
+gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

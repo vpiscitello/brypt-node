@@ -19,8 +19,9 @@
 
 namespace spdlog { class logger; }
 
+namespace Peer { class Proxy; }
+
 class BryptNode;
-class BryptPeer;
 class ApplicationMessage;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -57,7 +58,7 @@ public:
 
 protected:
     virtual void SendClusterNotice(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         ApplicationMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
@@ -65,7 +66,7 @@ protected:
         std::optional<std::string> optResponseData) final;
 
     virtual void SendNetworkNotice(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         ApplicationMessage const& request,
         std::string_view noticeData,
         std::uint8_t noticePhase,
@@ -73,7 +74,7 @@ protected:
         std::optional<std::string> optResponseData) final;
 
     virtual void SendResponse(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         ApplicationMessage const& request,
         std::string_view responseData,
         std::uint8_t responsePhase) final;
@@ -84,7 +85,7 @@ protected:
 
 private: 
     virtual void SendNotice(
-        std::weak_ptr<BryptPeer> const& wpBryptPeer,
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
         ApplicationMessage const& request,
         Message::Destination destination,
         std::string_view noticeData,

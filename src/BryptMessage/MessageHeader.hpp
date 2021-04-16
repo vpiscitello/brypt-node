@@ -27,9 +27,9 @@ public:
 	Message::Protocol GetMessageProtocol() const;
     Message::Version const& GetVersion() const;
     std::uint32_t GetMessageSize() const;
-    BryptIdentifier::Container const& GetSourceIdentifier() const;
+    Node::Identifier const& GetSourceIdentifier() const;
     Message::Destination GetDestinationType() const;
-    std::optional<BryptIdentifier::Container> const& GetDestinationIdentifier() const;
+    std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
 
     std::size_t GetPackSize() const;
 	Message::Buffer GetPackedBuffer() const;
@@ -69,8 +69,8 @@ public:
         // Base the peekable encoded size 
         std::size_t size = FixedPackSize();
         // Account for the maximum possible sizes of the source and destination sizes.
-        size += BryptIdentifier::Network::MaximumLength;
-        size += BryptIdentifier::Network::MaximumLength;
+        size += Node::Network::Identifier::MaximumLength;
+        size += Node::Network::Identifier::MaximumLength;
         auto const encoded = Z85::EncodedSize(size);
         assert(std::in_range<std::uint16_t>(encoded));
         return encoded;
@@ -84,10 +84,10 @@ private:
     Message::Protocol m_protocol;
     Message::Version m_version;
     std::uint32_t m_size;
-    BryptIdentifier::Container m_source;
+    Node::Identifier m_source;
     Message::Destination m_destination;
 
-    std::optional<BryptIdentifier::Container> m_optDestinationIdentifier;
+    std::optional<Node::Identifier> m_optDestinationIdentifier;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

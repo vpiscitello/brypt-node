@@ -2,7 +2,7 @@
 message(STATUS "Configuring UT_Configuration...")
 #-----------------------------------------------------------------------------------------------------------------------
 project(UT_Configuration LANGUAGES CXX)
-add_executable(UT_Configuration)
+add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
@@ -19,7 +19,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Security Configuration MessageControl Network BryptMessage BryptIdentifier 
+    Peer Security Configuration MessageControl Network BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC  PROJECT_OPTIONS)
@@ -33,5 +33,5 @@ configure_file("files/malformed/peers.json" "files/malformed/peers.json" COPYONL
 configure_file("files/missing/peers.json" "files/missing/peers.json" COPYONLY)
 
 #-----------------------------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_Configuration)
+gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

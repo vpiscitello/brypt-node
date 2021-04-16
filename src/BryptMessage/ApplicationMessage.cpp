@@ -83,7 +83,7 @@ MessageHeader const& ApplicationMessage::GetMessageHeader() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BryptIdentifier::Container const& ApplicationMessage::GetSourceIdentifier() const
+Node::Identifier const& ApplicationMessage::GetSourceIdentifier() const
 {
 	return m_header.GetSourceIdentifier();
 }
@@ -97,7 +97,7 @@ Message::Destination ApplicationMessage::GetDestinationType() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<BryptIdentifier::Container> const& ApplicationMessage::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& ApplicationMessage::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();
 }
@@ -285,7 +285,7 @@ ApplicationBuilder& ApplicationBuilder::SetMessageContext(MessageContext const& 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetSource(BryptIdentifier::Container const& identifier)
+ApplicationBuilder& ApplicationBuilder::SetSource(Node::Identifier const& identifier)
 {
 	m_message.m_header.m_source = identifier;
 	return *this;
@@ -294,9 +294,9 @@ ApplicationBuilder& ApplicationBuilder::SetSource(BryptIdentifier::Container con
 //----------------------------------------------------------------------------------------------------------------------
 
 ApplicationBuilder& ApplicationBuilder::SetSource(
-    BryptIdentifier::Internal::Type const& identifier)
+    Node::Internal::Identifier::Type const& identifier)
 {
-	m_message.m_header.m_source = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
@@ -304,7 +304,7 @@ ApplicationBuilder& ApplicationBuilder::SetSource(
 
 ApplicationBuilder& ApplicationBuilder::SetSource(std::string_view identifier)
 {
-	m_message.m_header.m_source = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
@@ -327,7 +327,7 @@ ApplicationBuilder& ApplicationBuilder::MakeNetworkMessage()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetDestination(BryptIdentifier::Container const& identifier)
+ApplicationBuilder& ApplicationBuilder::SetDestination(Node::Identifier const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
@@ -336,9 +336,9 @@ ApplicationBuilder& ApplicationBuilder::SetDestination(BryptIdentifier::Containe
 //----------------------------------------------------------------------------------------------------------------------
 
 ApplicationBuilder& ApplicationBuilder::SetDestination(
-    BryptIdentifier::Internal::Type const& identifier)
+    Node::Internal::Identifier::Type const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
@@ -346,7 +346,7 @@ ApplicationBuilder& ApplicationBuilder::SetDestination(
 
 ApplicationBuilder& ApplicationBuilder::SetDestination(std::string_view identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = BryptIdentifier::Container(identifier);
+	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
