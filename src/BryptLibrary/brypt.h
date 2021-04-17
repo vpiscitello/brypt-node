@@ -117,7 +117,7 @@ extern "C" {
 #endif
 //----------------------------------------------------------------------------------------------------------------------
 
-DECLARE_HANDLE(brypt_service);
+BRYPT_DECLARE_HANDLE(brypt_service);
 
 BRYPT_EXPORT brypt_service_t* brypt_service_create(char const* base_path, size_t base_path_size);
 BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const service);
@@ -143,6 +143,10 @@ BRYPT_EXPORT size_t brypt_service_get_identifier(brypt_service_t const* const se
 BRYPT_EXPORT size_t brypt_service_active_peer_count(brypt_service_t const* const service);
 BRYPT_EXPORT size_t brypt_service_inactive_peer_count(brypt_service_t const* const service);
 BRYPT_EXPORT size_t brypt_service_observed_peer_count(brypt_service_t const* const service);
+
+BRYPT_EXPORT bool brypt_option_is_int_type(brypt_option_t option);
+BRYPT_EXPORT bool brypt_option_is_bool_type(brypt_option_t option);
+BRYPT_EXPORT bool brypt_option_is_string_type(brypt_option_t option);
 
 BRYPT_EXPORT char const* brypt_error_description(brypt_status_t code);
 

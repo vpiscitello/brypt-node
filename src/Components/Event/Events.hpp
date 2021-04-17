@@ -25,10 +25,7 @@ enum class Type : std::uint32_t {
     RuntimeStopped,
 };
 
-enum class Cause : std::uint32_t {
-    Expected, 
-    Unexpected
-};
+enum class Cause : std::uint32_t { Expected, Unexpected };
 
 class IMessage;
 
@@ -36,9 +33,7 @@ template <Type type>
 class Message;
 
 template<Type type>
-concept MessageWithContent = requires {
-    typename Message<type>::EventContent;
-};
+concept MessageWithContent = requires { typename Message<type>::EventContent; };
 
 template<Type type>
 concept MessageWithoutContent = !MessageWithContent<type>;
