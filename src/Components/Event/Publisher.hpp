@@ -33,16 +33,16 @@ public:
     Publisher& operator=(Publisher const&) = delete; 
     Publisher& operator=(Publisher&&) = delete; 
 
-    template <Event::Type type> requires MessageWithContent<type>
-    void RegisterListener(typename Event::Message<type>::CallbackTrait callback);
+    template <Event::Type EventType> requires MessageWithContent<EventType>
+    void RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback);
 
-    template <Event::Type type> requires MessageWithoutContent<type>
-    void RegisterListener(typename Event::Message<type>::CallbackTrait callback);
+    template <Event::Type EventType> requires MessageWithoutContent<EventType>
+    void RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback);
 
-    template <Event::Type type> requires MessageWithContent<type>
-    void RegisterEvent(typename Event::Message<type>::EventContent&& content);
+    template <Event::Type EventType> requires MessageWithContent<EventType>
+    void RegisterEvent(typename Event::Message<EventType>::EventContent&& content);
 
-    template <Event::Type type> requires MessageWithoutContent<type>
+    template <Event::Type EventType> requires MessageWithoutContent<EventType>
     void RegisterEvent();
     
     std::size_t EventCount() const;
@@ -65,15 +65,15 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type type> requires Event::MessageWithContent<type>
-void Event::Publisher::RegisterListener(typename Event::Message<type>::CallbackTrait callback)
+template <Event::Type EventType> requires Event::MessageWithContent<EventType>
+void Event::Publisher::RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback)
 {
     // In the case of events with content, the listener will need to cast to the derived event type to access the 
     // event's content and then forward them to the supplied handler. 
     std::scoped_lock lock(m_listenersMutex);
-    m_listeners[type].emplace_back(
+    m_listeners[EventType].emplace_back(
         [callback] (EventProxy const& upEventProxy) {
-            auto const* const pEvent = dynamic_cast<Event::Message<type> const* const>(upEventProxy.get());
+            auto const* const pEvent = dynamic_cast<Event::Message<EventType> const* const>(upEventProxy.get());
             assert(pEvent); // PublishEvents needs to ensure this callback is provided the correct event. 
             std::apply(callback, pEvent->GetContent());
         });
@@ -81,30 +81,30 @@ void Event::Publisher::RegisterListener(typename Event::Message<type>::CallbackT
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type type> requires Event::MessageWithoutContent<type>
-void Event::Publisher::RegisterListener(typename Event::Message<type>::CallbackTrait callback)
+template <Event::Type EventType> requires Event::MessageWithoutContent<EventType>
+void Event::Publisher::RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback)
 {
     // In the case of events without content, the listener will simply invoke the callback without needing to care 
     // about the event details. 
     std::scoped_lock lock(m_listenersMutex);
-    m_listeners[type].emplace_back(
+    m_listeners[EventType].emplace_back(
         [callback] ([[maybe_unused]] EventProxy const&) { std::invoke(callback); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type type> requires Event::MessageWithContent<type>
-void Event::Publisher::RegisterEvent(typename Event::Message<type>::EventContent&& content)
+template <Event::Type EventType> requires Event::MessageWithContent<EventType>
+void Event::Publisher::RegisterEvent(typename Event::Message<EventType>::EventContent&& content)
 {
     // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
     // should be registered before starting the node. 
     {
         std::scoped_lock lock(m_listenersMutex);
-        if (!m_listeners.contains(type)) { return; }
+        if (!m_listeners.contains(EventType)) { return; }
     }
 
     // In the case of events with content, we need to forward the event's content to when creating the queued event. 
-    EventProxy upEventProxy = std::make_unique<Event::Message<type>>(std::move(content));
+    EventProxy upEventProxy = std::make_unique<Event::Message<EventType>>(std::move(content));
     {
         std::scoped_lock lock(m_eventsMutex);
         m_events.emplace_back(std::move(upEventProxy));
@@ -113,18 +113,18 @@ void Event::Publisher::RegisterEvent(typename Event::Message<type>::EventContent
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type type> requires Event::MessageWithoutContent<type>
+template <Event::Type EventType> requires Event::MessageWithoutContent<EventType>
 void Event::Publisher::RegisterEvent()
 {
     // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
     // should be registered before starting the node. 
     {
         std::scoped_lock lock(m_listenersMutex);
-        if (!m_listeners.contains(type)) { return; }
+        if (!m_listeners.contains(EventType)) { return; }
     }
 
     // In the case of events with content, we simply need to create the event to queue it. 
-    EventProxy upEventProxy = std::make_unique<Event::Message<type>>();
+    EventProxy upEventProxy = std::make_unique<Event::Message<EventType>>();
     {
         std::scoped_lock lock(m_eventsMutex);
         m_events.emplace_back(std::move(upEventProxy));

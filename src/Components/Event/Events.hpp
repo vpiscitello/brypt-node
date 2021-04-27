@@ -29,14 +29,14 @@ enum class Cause : std::uint32_t { Expected, Unexpected };
 
 class IMessage;
 
-template <Type type>
+template <Type EventType>
 class Message;
 
-template<Type type>
-concept MessageWithContent = requires { typename Message<type>::EventContent; };
+template<Type EventType>
+concept MessageWithContent = requires { typename Message<EventType>::EventContent; };
 
-template<Type type>
-concept MessageWithoutContent = !MessageWithContent<type>;
+template<Type EventType>
+concept MessageWithoutContent = !MessageWithContent<EventType>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Event namespace
