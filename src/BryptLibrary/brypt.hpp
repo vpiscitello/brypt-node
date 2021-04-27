@@ -9,10 +9,14 @@
 #include <cassert>
 #include <concepts>
 #include <cstdint>
+#include <functional>
+#include <forward_list>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <utility>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -40,6 +44,23 @@ enum class error_code : brypt_status_t {
     network_connection_failed = BRYPT_ENETCONNNFAILED,
 };
 
+enum class protocol : std::uint32_t {
+    unknown = BRYPT_PROTOCOL_UNKNOWN,
+    tcp = BRYPT_PROTOCOL_TCP
+};
+
+enum class event : std::uint32_t {
+    endpoint_started,
+    endpoint_stopped,
+    peer_connected,
+    peer_disconnected,
+    runtime_started,
+    runtime_stopped
+};
+
+template <event type>
+struct event_trait;
+
 class status;
 class option;
 class service;
@@ -47,6 +68,7 @@ class service;
 //----------------------------------------------------------------------------------------------------------------------
 // Concepts {
 //----------------------------------------------------------------------------------------------------------------------
+
 template<typename CodeType>
 concept status_code = std::is_same_v<CodeType, success_code> || std::is_same_v<CodeType, error_code>;
 
@@ -60,6 +82,10 @@ concept supported_string_type = std::is_same_v<ValueType, std::string>;
 
 template<typename ValueType>
 concept supported_option_type = suported_primitive_type<ValueType> || supported_string_type<ValueType>;
+
+template<event EventType>
+concept supported_event_callback = requires { typename event_trait<EventType>::callback; };
+
 //----------------------------------------------------------------------------------------------------------------------
 // } Concepts 
 //----------------------------------------------------------------------------------------------------------------------
@@ -391,6 +417,9 @@ public:
         return error_code::invalid_argument;
     }
 
+    template <brypt::event EventType> requires supported_event_callback<EventType>
+    [[nodiscard]] status subscribe(typename event_trait<EventType>::callback const& callback) noexcept;
+
     [[nodiscard]] std::string const& identifier() const noexcept
     {
         return m_identifier;
@@ -417,4 +446,120 @@ private:
     using unique_service_t = std::unique_ptr<brypt_service_t, decltype(&brypt_service_destroy)>;
     unique_service_t m_service;
     std::string m_identifier;
+    std::forward_list<std::any> m_callbacks;
 };
+
+//----------------------------------------------------------------------------------------------------------------------
+
+#define BRYPT_DEFINE_EVENT_TRAIT(event_type, ...)\
+template<> \
+struct brypt::event_trait<brypt::event::event_type> \
+{ \
+    using callback = std::function<void(__VA_ARGS__)>; \
+};
+
+#define BRYPT_EVENT_ABI_WRAPPER(event_type, ...) \
+extern "C" inline void brypt_on_##event_type##_wrapper(__VA_ARGS__ __VA_OPT__(,) void* context)
+
+#define BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(event_type)\
+template<> inline \
+[[nodiscard]] brypt::status brypt::service::subscribe<brypt::event::event_type>(\
+    typename event_trait<event::event_type>::callback const& callback) noexcept \
+{ \
+    assert(m_service && callback); \
+    using store_t = event_trait<event::event_type>::callback; \
+    std::any& store = m_callbacks.emplace_front(callback); \
+    assert(std::any_cast<store_t>(&store)); \
+    return brypt_event_subscribe_##event_type( \
+        m_service.get(), brypt_on_##event_type##_wrapper, std::any_cast<store_t>(&store)); \
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BRYPT_DEFINE_EVENT_TRAIT(endpoint_started, brypt::protocol protocol, std::string_view uri)
+
+BRYPT_EVENT_ABI_WRAPPER(endpoint_started, brypt_protocol_t protocol, char const* uri)
+{
+    assert(context);
+    using store_t = brypt::event_trait<brypt::event::endpoint_started>::callback;
+    auto const* const store = static_cast<store_t*>(context);
+    std::invoke(*store, static_cast<brypt::protocol>(protocol), uri);
+}
+
+BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(endpoint_started)
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BRYPT_DEFINE_EVENT_TRAIT(
+    endpoint_stopped, brypt::protocol protocol, std::string_view uri, brypt::status const& status)
+
+BRYPT_EVENT_ABI_WRAPPER(
+    endpoint_stopped, brypt_protocol_t protocol, char const* uri, brypt_status_t status)
+{
+    assert(context);
+    using store_t = brypt::event_trait<brypt::event::endpoint_stopped>::callback;
+    auto const* const store = static_cast<store_t*>(context);
+    std::invoke(*store, static_cast<brypt::protocol>(protocol), uri, brypt::status(status));
+}
+
+BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(endpoint_stopped)
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BRYPT_DEFINE_EVENT_TRAIT(peer_connected, brypt::protocol protocol, std::string_view identifier)
+
+BRYPT_EVENT_ABI_WRAPPER(peer_connected, brypt_protocol_t protocol, char const* identifier)
+{
+    assert(context);
+    using store_t = brypt::event_trait<brypt::event::peer_connected>::callback;
+    auto const* const store = static_cast<store_t*>(context);
+    std::invoke(*store, static_cast<brypt::protocol>(protocol), identifier);
+}
+
+BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(peer_connected)
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BRYPT_DEFINE_EVENT_TRAIT(
+    peer_disconnected, brypt::protocol protocol, std::string_view identifier, brypt::status const& status)
+
+BRYPT_EVENT_ABI_WRAPPER(
+    peer_disconnected, brypt_protocol_t protocol, char const* identifier, brypt_status_t status)
+{
+    assert(context);
+    using store_t = brypt::event_trait<brypt::event::peer_disconnected>::callback;
+    auto const* const store = static_cast<store_t*>(context);
+    std::invoke(*store, static_cast<brypt::protocol>(protocol), identifier, brypt::status(status));
+}
+
+BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(peer_disconnected)
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BRYPT_DEFINE_EVENT_TRAIT(runtime_started)
+
+BRYPT_EVENT_ABI_WRAPPER(runtime_started)
+{
+    assert(context);
+    using store_t = brypt::event_trait<brypt::event::runtime_started>::callback;
+    auto const* const store = static_cast<store_t*>(context);
+    std::invoke(*store);
+}
+
+BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(runtime_started)
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BRYPT_DEFINE_EVENT_TRAIT(runtime_stopped, brypt::status const& status)
+
+BRYPT_EVENT_ABI_WRAPPER(runtime_stopped, brypt_status_t status)
+{
+    assert(context);
+    using store_t = brypt::event_trait<brypt::event::runtime_stopped>::callback;
+    auto const* const store = static_cast<store_t*>(context);
+    std::invoke(*store, brypt::status(status));
+}
+
+BRYPT_DEFINE_EVENT_SUBSCRIPTION_PASSTHROUGH(runtime_stopped)
+
+//----------------------------------------------------------------------------------------------------------------------

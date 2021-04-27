@@ -11,6 +11,7 @@
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/Manager.hpp"
+#include "Components/Network/Protocol.hpp"
 #include "Utilities/LogUtils.hpp"
 #include "Utilities/FileUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -25,6 +26,8 @@
 namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
+
+brypt_protocol_t TranslateToExternalProtocol(Network::Protocol protocol);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -278,6 +281,135 @@ char const* brypt_option_get_str(brypt_service_t const* const service, brypt_opt
 
 //----------------------------------------------------------------------------------------------------------------------
 
+brypt_status_t brypt_event_subscribe_endpoint_started(
+    brypt_service_t* const service, brypt_event_endpoint_started_t callback, void* context)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+
+    auto const spPublisher = service->node->GetEventPublisher().lock();
+    if (!spPublisher) { return BRYPT_EUNSPECIFIED; }
+
+    spPublisher->RegisterListener<Event::Type::EndpointStarted>(
+        [callback, context] (Network::Protocol protocol, std::string_view uri)
+        {
+            assert(protocol != Network::Protocol::Invalid && uri.size() != 0);
+            callback(local::TranslateToExternalProtocol(protocol), uri.data(), context);
+        });
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_status_t brypt_event_subscribe_endpoint_stopped(
+    brypt_service_t* const service, brypt_event_endpoint_stopped_t callback, void* context)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+    
+    auto const spPublisher = service->node->GetEventPublisher().lock();
+    if (!spPublisher) { return BRYPT_EUNSPECIFIED; }
+    
+    spPublisher->RegisterListener<Event::Type::EndpointStopped>(
+        [callback, context] (Network::Protocol protocol, std::string_view uri, Event::Cause cause)
+        {
+            assert(protocol != Network::Protocol::Invalid && uri.size() != 0);
+            brypt_status_t status = BRYPT_ACCEPTED;
+            if (cause != Event::Cause::Expected) { status = BRYPT_EUNSPECIFIED; }
+            callback(local::TranslateToExternalProtocol(protocol), uri.data(), status, context);
+        });
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_status_t brypt_event_subscribe_peer_connected(
+    brypt_service_t* const service, brypt_event_peer_connected_t callback, void* context)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+    auto const spPublisher = service->node->GetEventPublisher().lock();
+    if (!spPublisher) { return BRYPT_EUNSPECIFIED; }
+
+    spPublisher->RegisterListener<Event::Type::PeerConnected>(
+        [callback, context] (Network::Protocol protocol, Node::SharedIdentifier const& spIdentifier)
+        {
+            assert(spIdentifier);
+            char const* identifier = spIdentifier->GetNetworkString().data();
+
+            assert(protocol != Network::Protocol::Invalid && strlen(identifier) >= BRYPT_IDENTIFIER_MIN_SIZE);
+            callback(local::TranslateToExternalProtocol(protocol), identifier, context);
+        });
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_status_t brypt_event_subscribe_peer_disconnected(
+    brypt_service_t* const service, brypt_event_peer_disconnected_t callback, void* context)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+    auto const spPublisher = service->node->GetEventPublisher().lock();
+    if (!spPublisher) { return BRYPT_EUNSPECIFIED; }
+
+    spPublisher->RegisterListener<Event::Type::PeerDisconnected>(
+        [callback, context] 
+        (Network::Protocol protocol, Node::SharedIdentifier const& spIdentifier, Event::Cause cause)
+        {
+            assert(spIdentifier);
+            char const* identifier = spIdentifier->GetNetworkString().data();
+            brypt_status_t status = BRYPT_ACCEPTED;
+            if (cause != Event::Cause::Expected) { status = BRYPT_EUNSPECIFIED; }
+
+            assert(protocol != Network::Protocol::Invalid && strlen(identifier) >= BRYPT_IDENTIFIER_MIN_SIZE);
+            callback(local::TranslateToExternalProtocol(protocol), identifier, status, context);
+        });
+        
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_status_t brypt_event_subscribe_runtime_started(
+    brypt_service_t* const service, brypt_event_runtime_started_t callback, void* context)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+
+    auto const spPublisher = service->node->GetEventPublisher().lock();
+    if (!spPublisher) { return BRYPT_EUNSPECIFIED; }
+
+    spPublisher->RegisterListener<Event::Type::RuntimeStarted>(
+        [callback, context] ()
+        {
+            callback(context);
+        });
+
+    return BRYPT_ACCEPTED;
+}
+
+//---------------------------------------------------------------------------------------------------------------------- 
+
+brypt_status_t brypt_event_subscribe_runtime_stopped(
+    brypt_service_t* const service, brypt_event_runtime_stopped_t callback, void* context)
+{
+    if (!service || !service->node) { return BRYPT_EINVALIDARGUMENT; }
+
+    auto const spPublisher = service->node->GetEventPublisher().lock();
+    if (!spPublisher) { return BRYPT_EUNSPECIFIED; }
+
+    spPublisher->RegisterListener<Event::Type::RuntimeStopped>(
+        [callback, context] (Event::Cause cause)
+        {
+            brypt_status_t status = BRYPT_ACCEPTED;
+            if (cause != Event::Cause::Expected) { status = BRYPT_EUNSPECIFIED; }
+            callback(status, context);
+        });
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool brypt_service_is_active(brypt_service_t const* const service)
 {
     if (!service || !service->node) { return false; }
@@ -340,6 +472,37 @@ size_t brypt_service_observed_peer_count(brypt_service_t const* const service)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool brypt_option_is_int_type(brypt_option_t option)
+{
+    switch (option) {
+        default: return false;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool brypt_option_is_bool_type(brypt_option_t option)
+{
+    switch (option) {
+        case BRYPT_OPT_USE_BOOTSTRAPS: return true;
+        default: return false;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool brypt_option_is_string_type(brypt_option_t option)
+{
+    switch (option) {
+        case BRYPT_OPT_BASE_FILEPATH:
+        case BRYPT_OPT_CONFIGURATION_FILENAME:
+        case BRYPT_OPT_PEERS_FILENAME: return true;
+        default: return false;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 char const* brypt_error_description(brypt_status_t code)
 {
     switch (code) {
@@ -358,6 +521,16 @@ char const* brypt_error_description(brypt_status_t code)
         case BRYPT_ENETBINDFAILED: return "Endpoint could not bind to the specified address";
         case BRYPT_ENETCONNNFAILED: return "Endpoint could not connect to the specified address";
         default: return "Unknown error";
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_protocol_t local::TranslateToExternalProtocol(Network::Protocol protocol)
+{
+    switch (protocol) {
+        case Network::Protocol::TCP: return BRYPT_PROTOCOL_TCP;
+        default: return BRYPT_PROTOCOL_UNKNOWN;
     }
 }
 

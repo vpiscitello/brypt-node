@@ -59,6 +59,10 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 
+#define BRYPT_DECLARE_HANDLE(name) struct name; typedef struct name##_t name##_t
+
+//----------------------------------------------------------------------------------------------------------------------
+
 #define BRYPT_CATEGORY_VALUE(category, value)  (category * 128) + value; \
     BRYPT_STATIC_ASSERT(category < 51, "Brypt category exceeded maximum range!"); \
     BRYPT_STATIC_ASSERT(value < 128, "Brypt constant exceeded maximum category range!")
@@ -109,7 +113,22 @@ BRYPT_CONSTANT size_t BRYPT_IDENTIFIER_MAX_SIZE = 33;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define DECLARE_HANDLE(name) struct name; typedef struct name##_t name##_t
+typedef uint32_t brypt_protocol_t;
+
+BRYPT_CONSTANT brypt_protocol_t BRYPT_PROTOCOL_UNKNOWN = 0;
+BRYPT_CONSTANT brypt_protocol_t BRYPT_PROTOCOL_TCP = 1;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+#define BRYPT_DECLARE_EVENT_CALLBACK(event_type, ...)\
+    typedef void (*brypt_event_##event_type##_t) (__VA_ARGS__ __VA_OPT__(,) void* context);
+
+BRYPT_DECLARE_EVENT_CALLBACK(endpoint_started, brypt_protocol_t protocol, char const* uri)
+BRYPT_DECLARE_EVENT_CALLBACK(endpoint_stopped, brypt_protocol_t protocol, char const* uri, brypt_status_t status)
+BRYPT_DECLARE_EVENT_CALLBACK(peer_connected, brypt_protocol_t protocol, char const* identifier)
+BRYPT_DECLARE_EVENT_CALLBACK(peer_disconnected, brypt_protocol_t protocol, char const* identifier, brypt_status_t status)
+BRYPT_DECLARE_EVENT_CALLBACK(runtime_started)
+BRYPT_DECLARE_EVENT_CALLBACK(runtime_stopped, brypt_status_t status)
 
 //----------------------------------------------------------------------------------------------------------------------
 #if defined(__cplusplus)
@@ -135,6 +154,19 @@ BRYPT_EXPORT brypt_status_t brypt_option_set_str(
 BRYPT_EXPORT int32_t brypt_option_get_int(brypt_service_t const* const service, brypt_option_t option);
 BRYPT_EXPORT bool brypt_option_get_bool(brypt_service_t const* const service, brypt_option_t option);
 BRYPT_EXPORT char const* brypt_option_get_str(brypt_service_t const* const service, brypt_option_t option);
+
+BRYPT_EXPORT brypt_status_t brypt_event_subscribe_endpoint_started(
+    brypt_service_t* const service, brypt_event_endpoint_started_t callback, void* context);
+BRYPT_EXPORT brypt_status_t brypt_event_subscribe_endpoint_stopped(
+    brypt_service_t* const service, brypt_event_endpoint_stopped_t callback, void* context);
+BRYPT_EXPORT brypt_status_t brypt_event_subscribe_peer_connected(
+    brypt_service_t* const service, brypt_event_peer_connected_t callback, void* context);
+BRYPT_EXPORT brypt_status_t brypt_event_subscribe_peer_disconnected(
+    brypt_service_t* const service, brypt_event_peer_disconnected_t callback, void* context);
+BRYPT_EXPORT brypt_status_t brypt_event_subscribe_runtime_started(
+    brypt_service_t* const service, brypt_event_runtime_started_t callback, void* context);
+BRYPT_EXPORT brypt_status_t brypt_event_subscribe_runtime_stopped(
+    brypt_service_t* const service, brypt_event_runtime_stopped_t callback, void* context);
 
 BRYPT_EXPORT bool brypt_service_is_active(brypt_service_t const* const service);
 

@@ -83,8 +83,10 @@ bool BryptNode::Shutdown()
     bool const stopped = m_upRuntime->Stop();
     assert(stopped);
 
-    m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStopped>({ Event::Cause::Expected });
     m_upRuntime.reset();
+
+    m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStopped>({ Event::Cause::Expected });
+    m_spEventPublisher->PublishEvents(); // Flush any pending events. 
 
     return stopped;
 }
