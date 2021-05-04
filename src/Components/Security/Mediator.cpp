@@ -25,7 +25,7 @@ Security::Mediator::Mediator(
     , m_context(context)
     , m_state(Security::State::Unauthorized)
     , m_spNodeIdentifier(spNodeIdentifier)
-    , m_spPeer()
+    , m_spPeerProxy()
     , m_upStrategy()
     , m_upExchangeProcessor()
     , m_wpAuthorizedSink(wpAuthorizedSink)
@@ -40,7 +40,7 @@ Security::Mediator::Mediator(
     , m_context(upStrategy->GetContextType())
     , m_state(Security::State::Unauthorized)
     , m_spNodeIdentifier(spNodeIdentifier)
-    , m_spPeer()
+    , m_spPeerProxy()
     , m_upStrategy(std::move(upStrategy))
     , m_upExchangeProcessor()
     , m_wpAuthorizedSink()
@@ -55,7 +55,7 @@ Security::Mediator::~Mediator()
     // to ensure the receiver does not point to invalid memory. Note: the process of acquiring the 
     // receiver mutex in Peer::Proxy should ensure that the sink is not destructed while it is 
     // actively processing a message. 
-    if (m_spPeer && m_upExchangeProcessor) { m_spPeer->SetReceiver(nullptr); }
+    if (m_spPeerProxy && m_upExchangeProcessor) { m_spPeer->SetReceiver(nullptr); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -63,7 +63,7 @@ Security::Mediator::~Mediator()
 void Security::Mediator::OnExchangeClose(ExchangeStatus status)
 {
     std::scoped_lock lock(m_mutex);
-    if (!m_spPeer) [[unlikely]] { return; }   
+    if (!m_spPeerProxy) [[unlikely]] { return; }   
     
     switch (status) {
         // If we have been notified us of a successful exchange set the message sink for the peer 
@@ -108,26 +108,17 @@ void Security::Mediator::BindPeer(std::shared_ptr<Peer::Proxy> const& spPeerProx
 {
     std::scoped_lock lock(m_mutex);
 
-    if (!m_upStrategy && !m_upExchangeProcessor) [[unlikely]] {
-        throw std::runtime_error("The Security Mediator has not been setup with a security strategy!");
-    }
-
-    // We must be provided a peer to track. 
-    if (!spPeerProxy) [[unlikely]] {
-        throw std::runtime_error("The Security Mediator was not bound to a valid peer!");
-    }
-
-    if (m_spPeer) [[unlikely]] {
-        throw std::runtime_error("The Security Mediator may only be bound to a peer once!");
-    }
+    assert(!m_upStrategy && !m_upExchangeProcessor);
+    assert(!spPeerProxy);
+    assert(m_spPeerProxy);
 
     // Capture the bound peer in order to manage the security process and to ensure the bind 
     // method is not called multuple times. 
-    m_spPeer = spPeerProxy;
+    m_spPeerProxy = spPeerProxy;
 
     // If an exchange processor has been setup, set the receiver on the peer to it.
     if (m_upExchangeProcessor) [[likely]] {
-        spPeerProxy->SetReceiver(m_upExchangeProcessor.get());
+        m_spPeerProxy->SetReceiver(m_upExchangeProcessor.get());
     }
 }
 

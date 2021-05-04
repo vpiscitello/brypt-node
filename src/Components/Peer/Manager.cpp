@@ -65,8 +65,7 @@ void Peer::Manager::UnpublishObserver(IPeerObserver* const observer)
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
-    Network::RemoteAddress const& address,
-    Node::SharedIdentifier const& spPeerIdentifier)
+    Network::RemoteAddress const& address, Node::SharedIdentifier const& spPeerIdentifier)
 {
     std::scoped_lock resolvingLock(m_resolvingMutex);
 

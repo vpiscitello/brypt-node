@@ -68,7 +68,7 @@ public:
 
     // IPeerCache {
     virtual bool ForEachCachedIdentifier(
-      IdentifierReadFunction const& callback, Filter filter = Filter::Active) const override;
+        IdentifierReadFunction const& callback, Filter filter = Filter::Active) const override;
 
     virtual std::size_t ActivePeerCount() const override;
     virtual std::size_t InactivePeerCount() const override;

@@ -469,10 +469,8 @@ std::string local::BuildBindingUri(
             default: assert(false); break; // What is this?
         }
     } else {
-        std::size_t const start = (scheme != std::string::npos) ?
-            scheme + Network::SchemeSeperator.size() : 0;
-        std::copy(
-            uri.begin() + start, uri.begin() + seperator, std::ostream_iterator<char>(binding));
+        std::size_t const start = (scheme != std::string::npos) ? scheme + Network::SchemeSeperator.size() : 0;
+        std::copy(uri.begin() + start, uri.begin() + seperator, std::ostream_iterator<char>(binding));
     }
 
     // Copy the remaining uri content into the generated buffer. 

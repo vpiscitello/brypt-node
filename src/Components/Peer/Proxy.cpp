@@ -12,6 +12,8 @@
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/PeerMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <cassert>
+//----------------------------------------------------------------------------------------------------------------------
 
 Peer::Proxy::Proxy(Node::Identifier const& identifier, IPeerMediator* const pPeerMediator)
     : m_pPeerMediator(pPeerMediator)
@@ -26,11 +28,7 @@ Peer::Proxy::Proxy(Node::Identifier const& identifier, IPeerMediator* const pPee
     , m_pMessageSink()
 {
     // A Brypt Peer must always be constructed with an identifier that can uniquely identify the peer. 
-    if (!identifier.IsValid() ||
-        Node::IsIdentifierReserved(identifier)) [[unlikely]] {
-        throw std::runtime_error("Error creating Brypt Peer with an invalid identifier!");
-    }
-
+    assert(!identifier.IsValid() || Node::IsIdentifierReserved(identifier));
     m_spNodeIdentifier = std::make_shared<Node::Identifier const>(identifier);
 }
 
@@ -83,8 +81,7 @@ void Peer::Proxy::SetReceiver(IMessageSink* const pMessageSink)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Proxy::ScheduleReceive(
-    Network::Endpoint::Identifier identifier, std::string_view buffer)
+bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std::string_view buffer)
 {
     {
         std::scoped_lock lock(m_dataMutex);
@@ -143,9 +140,8 @@ bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::st
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
-        if (m_spNodeIdentifier && scheduler) {
-            return scheduler(*m_spNodeIdentifier, message);
-        }
+        assert(m_spNodeIdentifier && scheduler);
+        return scheduler(*m_spNodeIdentifier, message);
     }
 
     return false;
@@ -157,23 +153,18 @@ void Peer::Proxy::RegisterEndpoint(Registration const& registration)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
-        auto [itr, result] = m_endpoints.try_emplace(
-            registration.GetEndpointIdentifier(), registration);
+        auto [itr, result] = m_endpoints.try_emplace(registration.GetEndpointIdentifier(), registration);
 
-        if (m_upSecurityMediator) [[likely]] {
-            m_upSecurityMediator->BindSecurityContext(itr->second.GetWritableMessageContext());
-        }     
+        assert(m_upSecurityMediator);
+        m_upSecurityMediator->BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
-    // When an endpoint registers a connection with this peer, the mediator needs to notify the
-    // observers that this peer has been connected to a new endpoint. 
-    if (m_pPeerMediator) [[likely]] { 
-        m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(),
-            registration.GetEndpointIdentifier(),
-            registration.GetEndpointProtocol(),
-            ConnectionState::Connected);
-    }
+    // When an endpoint registers a connection with this peer, the mediator needs to notify the observers that this 
+    // peer has been connected to a new endpoint. 
+    assert(m_pPeerMediator);
+    m_pPeerMediator->DispatchPeerStateChange(
+        weak_from_this(),
+        registration.GetEndpointIdentifier(), registration.GetEndpointProtocol(), ConnectionState::Connected);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -193,35 +184,29 @@ void Peer::Proxy::RegisterEndpoint(
             identifier, protocol, address, scheduler);
             
         auto& [identifier, registration] = *itr;
-        if (m_upSecurityMediator) [[likely]] {
-            m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-        }   
+        assert(m_upSecurityMediator);
+        m_upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
     }
 
-    // When an endpoint registers a connection with this peer, the mediator needs to notify the
-    // observers that this peer has been connected to a new endpoint. 
-    if (m_pPeerMediator) [[likely]] {
-        m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(), identifier, protocol, ConnectionState::Connected);
-    }
+    // When an endpoint registers a connection with this peer, the mediator needs to notify the observers that this 
+    // peer has been connected to a new endpoint. 
+    assert(m_pPeerMediator);
+    m_pPeerMediator->DispatchPeerStateChange(weak_from_this(), identifier, protocol, ConnectionState::Connected);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Proxy::WithdrawEndpoint(
-    Network::Endpoint::Identifier identifier, Network::Protocol protocol)
+void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
         m_endpoints.erase(identifier);
     }
 
-    // When an endpoint withdraws its registration from the peer, the mediator needs to notify
-    // observer's that peer has been disconnected from that endpoint. 
-    if (m_pPeerMediator) [[likely]] {
-        m_pPeerMediator->DispatchPeerStateChange(
-            weak_from_this(), identifier, protocol, ConnectionState::Disconnected);
-    }
+    // When an endpoint withdraws its registration from the peer, the mediator needs to notify observer's that peer 
+    // has been disconnected from that endpoint. 
+    assert(m_pPeerMediator);
+    m_pPeerMediator->DispatchPeerStateChange(weak_from_this(), identifier, protocol, ConnectionState::Disconnected);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -243,8 +228,7 @@ bool Peer::Proxy::IsEndpointRegistered(Network::Endpoint::Identifier identifier)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<MessageContext> Peer::Proxy::GetMessageContext(
-    Network::Endpoint::Identifier identifier) const
+std::optional<MessageContext> Peer::Proxy::GetMessageContext(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
@@ -257,8 +241,7 @@ std::optional<MessageContext> Peer::Proxy::GetMessageContext(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Network::RemoteAddress> Peer::Proxy::GetRegisteredAddress(
-    Network::Endpoint::Identifier identifier) const
+std::optional<Network::RemoteAddress> Peer::Proxy::GetRegisteredAddress(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
@@ -285,8 +268,7 @@ void Peer::Proxy::AttachSecurityMediator(std::unique_ptr<Security::Mediator>&& u
 {
     std::scoped_lock mediatorLock(m_mediatorMutex);
     m_upSecurityMediator = std::move(upSecurityMediator);  // Take ownership of the mediator.
-
-    if (!m_upSecurityMediator) [[unlikely]] { return; }
+    assert(m_upSecurityMediator);
 
     // Ensure any registered endpoints have their message contexts updated to the new mediator's
     // security context.
@@ -306,7 +288,7 @@ void Peer::Proxy::AttachSecurityMediator(std::unique_ptr<Security::Mediator>&& u
 
 Security::State Peer::Proxy::GetSecurityState() const
 {
-    if (!m_upSecurityMediator) [[unlikely]] { return Security::State::Unauthorized; } 
+    assert(m_upSecurityMediator);
     return m_upSecurityMediator->GetSecurityState();
 }
 
@@ -314,7 +296,7 @@ Security::State Peer::Proxy::GetSecurityState() const
 
 bool Peer::Proxy::IsFlagged() const
 {
-    if (!m_upSecurityMediator) [[unlikely]] { return true; }
+    assert(m_upSecurityMediator);
     return (m_upSecurityMediator->GetSecurityState() == Security::State::Flagged);
 }
 
@@ -322,7 +304,7 @@ bool Peer::Proxy::IsFlagged() const
 
 bool Peer::Proxy::IsAuthorized() const
 {
-    if (!m_upSecurityMediator) [[unlikely]] { return false; }
+    assert(m_upSecurityMediator);
     return (m_upSecurityMediator->GetSecurityState() == Security::State::Authorized);
 }
 

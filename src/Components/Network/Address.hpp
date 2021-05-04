@@ -25,8 +25,7 @@ class Address;
 class BindingAddress;
 class RemoteAddress;
 
-template <typename AddressType>
-    requires std::derived_from<AddressType, Network::Address>
+template <typename AddressType> requires std::derived_from<AddressType, Network::Address>
 struct AddressHasher;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -37,8 +36,8 @@ enum class Type : std::uint8_t { IPv4, IPv6, Invalid };
 
 struct Components;
 
-Type ParseAddressType(Address const& address);
-Components GetAddressComponents(Address const& address);
+[[nodiscard]] Type ParseAddressType(Address const& address);
+[[nodiscard]] Components GetAddressComponents(Address const& address);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Socket namespace
@@ -74,7 +73,7 @@ protected:
     Address();
     Address(Protocol protocol, std::string_view uri, bool bootstrapable);
 
-    bool CacheAddressPartitions();
+    [[nodiscard]] bool CacheAddressPartitions();
     void Reset();
 
     Protocol m_protocol;
@@ -102,7 +101,7 @@ public:
     bool operator==(BindingAddress const& other) const;
     bool operator!=(BindingAddress const& other) const;
 
-    std::string const& GetInterface() const;
+    [[nodiscard]] std::string const& GetInterface() const;
 
 private:
     std::string m_interface;
@@ -128,9 +127,9 @@ public:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <typename AddressType>
-    requires std::derived_from<AddressType, Network::Address>
-struct Network::AddressHasher  {
+template <typename AddressType> requires std::derived_from<AddressType, Network::Address>
+struct Network::AddressHasher
+{
     std::size_t operator()(AddressType const& address) const
     {
         return std::hash<std::string>()(address.GetUri());
@@ -153,8 +152,7 @@ struct Network::Socket::Components
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <typename AddressType>
-    requires std::derived_from<AddressType, Network::Address>
+template <typename AddressType> requires std::derived_from<AddressType, Network::Address>
 struct fmt::formatter<AddressType>
 {
     constexpr auto parse(format_parse_context& ctx)

@@ -40,9 +40,7 @@ public:
         Security::Context context,
         std::weak_ptr<IMessageSink> const& wpAuthorizedSink);
 
-    Mediator(
-        Node::SharedIdentifier const& spNodeIdentifier,
-        std::unique_ptr<ISecurityStrategy>&& upStrategy);
+    Mediator( Node::SharedIdentifier const& spNodeIdentifier, std::unique_ptr<ISecurityStrategy>&& upStrategy);
 
     Mediator(Mediator&& other) = delete;
     Mediator(Mediator const& other) = delete;
@@ -61,12 +59,10 @@ public:
     void BindSecurityContext(MessageContext& context) const;
 
     [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
-        Security::Strategy strategy,
-        std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
+        Security::Strategy strategy, std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
     [[nodiscard]] bool SetupExchangeAcceptor(Security::Strategy strategy);
     [[nodiscard]] bool SetupExchangeProcessor(
-        std::unique_ptr<ISecurityStrategy>&& upStrategy,
-        std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
+        std::unique_ptr<ISecurityStrategy>&& upStrategy, std::shared_ptr<IConnectProtocol> const& spConnectProtocol);
 
 private:
     mutable std::shared_mutex m_mutex;
@@ -75,7 +71,7 @@ private:
     Security::State m_state;
 
     Node::SharedIdentifier m_spNodeIdentifier;
-    std::shared_ptr<Peer::Proxy> m_spPeer;
+    std::shared_ptr<Peer::Proxy> m_spPeerProxy;
     std::unique_ptr<ISecurityStrategy> m_upStrategy;
 
     std::unique_ptr<ExchangeProcessor> m_upExchangeProcessor;
