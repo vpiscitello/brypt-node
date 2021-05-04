@@ -32,29 +32,26 @@ public:
     Manager(std::filesystem::path const& filepath, bool interactive, bool shouldBuildPath = true);
     explicit Manager(Settings const& settings);
 
-    StatusCode FetchSettings();
-    StatusCode Serialize();
+    [[nodiscard]] StatusCode FetchSettings();
+    [[nodiscard]] StatusCode Serialize();
 
-    StatusCode GenerateConfigurationFile();
+    [[nodiscard]] StatusCode GenerateConfigurationFile();
 
-    std::optional<Configuration::Settings> GetSettings() const;
+    [[nodiscard]] bool IsValidated() const;
 
-    Node::SharedIdentifier GetNodeIdentifier() const;
-
-    std::string GetNodeName() const;
-    std::string GetNodeDescription() const;
-    std::string GetNodeLocation() const;
-
-    std::optional<Configuration::EndpointConfigurations> GetEndpointConfigurations() const;
-
-    Security::Strategy GetSecurityStrategy() const;
-    std::string GetCentralAuthority() const;
+    [[nodiscard]] Node::SharedIdentifier const& GetNodeIdentifier() const;
+    [[nodiscard]] std::string const& GetNodeName() const;
+    [[nodiscard]] std::string const& GetNodeDescription() const;
+    [[nodiscard]] std::string const& GetNodeLocation() const;
+    [[nodiscard]] EndpointsSet const& GetEndpointOptions() const;
+    [[nodiscard]] Security::Strategy GetSecurityStrategy() const;
+    [[nodiscard]] std::string const& GetCentralAuthority() const;
 
 private:
-    StatusCode ValidateSettings();
-    StatusCode DecodeConfigurationFile();
+    [[nodiscard]] StatusCode ValidateSettings();
+    [[nodiscard]] StatusCode DecodeConfigurationFile();
 
-    void GetConfigurationOptionsFromUser();
+    void GetSettingsFromUser();
     bool InitializeSettings();
     
     std::shared_ptr<spdlog::logger> m_spLogger;

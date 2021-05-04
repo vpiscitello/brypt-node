@@ -22,13 +22,13 @@ void ConnectBootstraps(Network::Manager::SharedEndpoint const& spEndpoint, IBoot
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Manager::Manager(
-    Configuration::EndpointConfigurations const& configurations,
+    Configuration::EndpointsSet const& endpoints,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
     : m_endpoints()
     , m_protocols()
 {
-    Initialize(configurations, pPeerMediator, pBootstrapCache);
+    Initialize(endpoints, pPeerMediator, pBootstrapCache);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -145,12 +145,13 @@ std::size_t Network::Manager::ActiveProtocolCount() const
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::Manager::Initialize(
-    Configuration::EndpointConfigurations const& configurations,
+    Configuration::EndpointsSet const& endpoints,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
+    std::scoped_lock lock(m_mutex);
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
-    for (auto const& options: configurations) {
+    for (auto const& options: endpoints) {
         auto const protocol = options.GetProtocol();
         // If the protocol has not already been configured then continue with the setup. 
         // This function should only be called once per application run, there shouldn't be a reason

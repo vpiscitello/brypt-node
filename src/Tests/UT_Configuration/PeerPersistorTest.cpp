@@ -57,19 +57,19 @@ TEST(PeerPersistorSuite, DefualtBootstrapTest)
 {
     std::filesystem::path const filepath = "files/good/default-peers.json";
 
-    Configuration::EndpointConfigurations configurations;
-    configurations.emplace_back(local::GenerateTcpOptions());
-    configurations.emplace_back(local::GenerateLoRaOptions());
-    for (auto& options : configurations) { ASSERT_TRUE(options.Initialize()); }
+    Configuration::EndpointsSet endpoints;
+    endpoints.emplace_back(local::GenerateTcpOptions());
+    endpoints.emplace_back(local::GenerateLoRaOptions());
+    for (auto& options : endpoints) { ASSERT_TRUE(options.Initialize()); }
 
-    PeerPersistor persistor(filepath.c_str(), configurations);
+    PeerPersistor persistor(filepath.c_str(), endpoints);
     auto const bParsed = persistor.FetchBootstraps();
     ASSERT_TRUE(bParsed);
     EXPECT_EQ(persistor.CachedBootstrapCount(), std::size_t(2));
     EXPECT_EQ(persistor.CachedBootstrapCount(Network::Protocol::TCP), std::size_t(1));
     EXPECT_EQ(persistor.CachedBootstrapCount(Network::Protocol::LoRa), std::size_t(1));
 
-    PeerPersistor checkPersistor(filepath.c_str(), configurations);
+    PeerPersistor checkPersistor(filepath.c_str(), endpoints);
     auto const bCheckParsed = checkPersistor.FetchBootstraps();
     ASSERT_TRUE(bCheckParsed);
     EXPECT_EQ(checkPersistor.CachedBootstrapCount(), std::size_t(2));

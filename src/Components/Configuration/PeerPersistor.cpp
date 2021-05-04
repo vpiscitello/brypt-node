@@ -29,14 +29,11 @@ using BootstrapVector = std::vector<BootstrapEntry>;
 using EndpointEntriesVector = std::vector<EndpointEntry>;
 
 void ParseDefaultBootstraps(
-    Configuration::EndpointConfigurations const& configurations, 
-    PeerPersistor::DefaultBootstrapMap& defaults);
+    Configuration::EndpointsSet const& endpoints,  PeerPersistor::DefaultBootstrapMap& defaults);
 void FillDefaultBootstrap(
-    PeerPersistor::UniqueBootstrapSet const& upBootstraps,
-    std::optional<Network::RemoteAddress> const& optDefault);
+    PeerPersistor::UniqueBootstrapSet const& upBootstraps, std::optional<Network::RemoteAddress> const& optDefault);
 
-void WriteEndpointPeers(
-    PeerPersistor::UniqueProtocolMap const& upProtocols, std::ofstream& out);
+void WriteEndpointPeers(PeerPersistor::UniqueProtocolMap const& upProtocols, std::ofstream& out);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -120,9 +117,7 @@ struct local::EndpointEntry
 //----------------------------------------------------------------------------------------------------------------------
 
 PeerPersistor::PeerPersistor(
-    std::filesystem::path const& filepath,
-    Configuration::EndpointConfigurations const& configurations,
-    bool shouldBuildPath)
+    std::filesystem::path const& filepath, Configuration::EndpointsSet const& endpoints, bool shouldBuildPath)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_mediator(nullptr)
     , m_fileMutex()
@@ -133,7 +128,7 @@ PeerPersistor::PeerPersistor(
 {
     assert(m_spLogger);
 
-    local::ParseDefaultBootstraps(configurations, m_defaults);
+    local::ParseDefaultBootstraps(endpoints, m_defaults);
 
     if (!shouldBuildPath) { return; }
 
@@ -495,10 +490,9 @@ std::size_t PeerPersistor::CachedBootstrapCount(Network::Protocol protocol) cons
 //----------------------------------------------------------------------------------------------------------------------
 
 void local::ParseDefaultBootstraps(
-    Configuration::EndpointConfigurations const& configurations, 
-    PeerPersistor::DefaultBootstrapMap& defaults)
+    Configuration::EndpointsSet const& endpoints, PeerPersistor::DefaultBootstrapMap& defaults)
 {
-    for (auto const& options: configurations) {
+    for (auto const& options: endpoints) {
         if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {
             defaults.emplace(options.type, optBootstrap);
         } else {

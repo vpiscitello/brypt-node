@@ -198,12 +198,12 @@ Configuration::Settings::Settings()
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Settings::Settings(
-    DetailsOptions const& detailsOptions,
-    EndpointConfigurations const& endpointsConfigurations,
-    SecurityOptions const& securityOptions)
-    : details(detailsOptions)
-    , endpoints(endpointsConfigurations)
-    , security(securityOptions)
+    DetailsOptions const& details,
+    EndpointsSet const& endpoints,
+    SecurityOptions const& security)
+    : details(details)
+    , endpoints(endpoints)
+    , security(security)
 {
 }
 
@@ -230,7 +230,7 @@ Configuration::DetailsOptions const& Configuration::Settings::GetDetailsOptions(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::EndpointConfigurations const& Configuration::Settings::GetEndpointConfigurations() const
+Configuration::EndpointsSet const& Configuration::Settings::GetEndpointOptions() const
 {
     return endpoints;
 }

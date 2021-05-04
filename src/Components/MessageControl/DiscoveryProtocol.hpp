@@ -20,7 +20,7 @@ class MessageContext;
 class DiscoveryProtocol : public IConnectProtocol
 {
 public:
-    explicit DiscoveryProtocol(Configuration::EndpointConfigurations const& configurations);
+    explicit DiscoveryProtocol(Configuration::EndpointsSet const& endpoints);
 
     DiscoveryProtocol(DiscoveryProtocol&&) = delete;
     DiscoveryProtocol(DiscoveryProtocol const&) = delete;

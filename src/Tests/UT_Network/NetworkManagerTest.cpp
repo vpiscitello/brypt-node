@@ -98,16 +98,16 @@ private:
 
 TEST(NetworkManagerSuite, EndpointStartupTest)
 {
-    Configuration::EndpointConfigurations configurations;
+    Configuration::EndpointsSet endpoints;
     Configuration::EndpointOptions options(Network::Protocol::TCP, test::Interface, test::ServerBinding);
     ASSERT_TRUE(options.Initialize());
-    configurations.emplace_back(options);
+    endpoints.emplace_back(options);
     
     auto const spPeerCache = std::make_shared<local::BootstrapCacheStub>();
     Network::RemoteAddress address(test::ProtocolType, test::ServerEntry, true);
     spPeerCache->AddBootstrap(address);
 
-    auto upNetworkManager = std::make_unique<Network::Manager>(configurations, nullptr, spPeerCache.get());
+    auto upNetworkManager = std::make_unique<Network::Manager>(endpoints, nullptr, spPeerCache.get());
         
     std::size_t const initialActiveEndpoints = upNetworkManager->ActiveEndpointCount();
     std::size_t const initialActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
@@ -118,7 +118,7 @@ TEST(NetworkManagerSuite, EndpointStartupTest)
     std::size_t const startupActiveEndpoints = upNetworkManager->ActiveEndpointCount();
     std::size_t const startupActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
     EXPECT_GT(startupActiveEndpoints, std::size_t(0));
-    EXPECT_EQ(startupActiveProtocolsCount, configurations.size());
+    EXPECT_EQ(startupActiveProtocolsCount, endpoints.size());
 
     upNetworkManager->Shutdown();
     std::size_t const shutdownActiveEndpoints = upNetworkManager->ActiveEndpointCount();

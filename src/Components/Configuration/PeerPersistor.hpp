@@ -43,7 +43,7 @@ public:
 
     explicit PeerPersistor(
         std::filesystem::path const& filepath,
-        Configuration::EndpointConfigurations const& configurations = {},
+        Configuration::EndpointsSet const& endpoints = {},
         bool shouldBuildPath = true);
 
     void SetMediator(IPeerMediator* const mediator);

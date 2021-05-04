@@ -39,7 +39,7 @@ public:
     using SharedEndpoint = std::shared_ptr<Network::IEndpoint>;
 
     Manager(
-        Configuration::EndpointConfigurations const& configurations,
+        Configuration::EndpointsSet const& endpoints,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
 
@@ -66,7 +66,7 @@ private:
     using EndpointsMap = std::unordered_map<Network::Endpoint::Identifier, SharedEndpoint>;
 
     void Initialize(
-        Configuration::EndpointConfigurations const& configurations,
+        Configuration::EndpointsSet const& endpoints,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
         

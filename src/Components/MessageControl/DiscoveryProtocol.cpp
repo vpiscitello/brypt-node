@@ -24,10 +24,9 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 constexpr Handler::Type Handler = Handler::Type::Connect;
-constexpr std::uint8_t Phase = static_cast<std::uint8_t>(
-    Handler::Connect::Phase::Discovery);
+constexpr std::uint8_t Phase = static_cast<std::uint8_t>(Handler::Connect::Phase::Discovery);
 
-std::string GenerateDiscoveryData(Configuration::EndpointConfigurations const& configurations);
+std::string GenerateDiscoveryData(Configuration::EndpointsSet const& endpoints);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -63,9 +62,8 @@ LI_SYMBOL(protocol)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-DiscoveryProtocol::DiscoveryProtocol(
-    Configuration::EndpointConfigurations const& configurations)
-    : m_data(local::GenerateDiscoveryData(configurations))
+DiscoveryProtocol::DiscoveryProtocol(Configuration::EndpointsSet const& endpoints)
+    : m_data(local::GenerateDiscoveryData(endpoints))
 {
 }
 
@@ -79,9 +77,7 @@ bool DiscoveryProtocol::SendRequest(
     assert(m_data.size() != 0);
 
     auto const spDestination = spPeerProxy->GetNodeIdentifier();
-    if (!spDestination) {
-        return false;
-    }
+    if (!spDestination) { return false; }
 
     auto const optDiscoveryRequest = ApplicationMessage::Builder()
         .SetMessageContext(context)
@@ -92,14 +88,12 @@ bool DiscoveryProtocol::SendRequest(
         .ValidatedBuild();
     assert(optDiscoveryRequest);
 
-    return spPeerProxy->ScheduleSend(
-        context.GetEndpointIdentifier(), optDiscoveryRequest->GetPack());
+    return spPeerProxy->ScheduleSend(context.GetEndpointIdentifier(), optDiscoveryRequest->GetPack());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string local::GenerateDiscoveryData(
-    Configuration::EndpointConfigurations const& configurations)
+std::string local::GenerateDiscoveryData(Configuration::EndpointsSet const& endpoints)
 {
     auto request = li::mmm(
         s::entrypoints = {
@@ -107,7 +101,7 @@ std::string local::GenerateDiscoveryData(
 
     request.entrypoints.clear();
 
-    for (auto const& options: configurations) {
+    for (auto const& options: endpoints) {
         auto& entrypoint = request.entrypoints.emplace_back();
         entrypoint.protocol = options.GetProtocolName();
         entrypoint.entry = options.GetBinding().GetUri();

@@ -30,7 +30,7 @@ struct DetailsOptions;
 struct EndpointOptions;
 struct SecurityOptions;
 
-using EndpointConfigurations = std::vector<EndpointOptions>;
+using EndpointsSet = std::vector<EndpointOptions>;
 
 std::filesystem::path const DefaultBryptFolder = "/brypt/";
 std::filesystem::path const DefaultConfigurationFilename = "config.json";
@@ -87,11 +87,11 @@ struct Configuration::EndpointOptions
 
     [[nodiscard]] bool Initialize();
 
-    Network::Protocol GetProtocol() const;
-    std::string const& GetProtocolName() const;
-    std::string const& GetInterface() const;
-    Network::BindingAddress const& GetBinding() const;
-    std::optional<Network::RemoteAddress> const& GetBootstrap() const;
+    [[nodiscard]] Network::Protocol GetProtocol() const;
+    [[nodiscard]] std::string const& GetProtocolName() const;
+    [[nodiscard]] std::string const& GetInterface() const;
+    [[nodiscard]] Network::BindingAddress const& GetBinding() const;
+    [[nodiscard]] std::optional<Network::RemoteAddress> const& GetBootstrap() const;
 
     Network::Protocol type;
     std::string protocol;
@@ -126,23 +126,23 @@ struct Configuration::Settings
 {
     Settings();
     Settings(
-        DetailsOptions const& detailsOptions,
-        EndpointConfigurations const& endpointsConfigurations,
-        SecurityOptions const& securityOptions);
+        DetailsOptions const& details,
+        EndpointsSet const& endpoints,
+        SecurityOptions const& security);
 
     Settings(Settings const& other) = default;
     Settings& operator=(Settings const& other) = default;
 
-    std::string const& GetVersion() const;
-    IdentifierOptions const& GetIdentifierOptions() const;
-    DetailsOptions const& GetDetailsOptions() const;
-    EndpointConfigurations const& GetEndpointConfigurations() const;
-    SecurityOptions const& GetSecurityOptions()  const;
+    [[nodiscard]] std::string const& GetVersion() const;
+    [[nodiscard]] IdentifierOptions const& GetIdentifierOptions() const;
+    [[nodiscard]] DetailsOptions const& GetDetailsOptions() const;
+    [[nodiscard]] EndpointsSet const& GetEndpointOptions() const;
+    [[nodiscard]] SecurityOptions const& GetSecurityOptions()  const;
 
     std::string version;
     IdentifierOptions identifier;
     DetailsOptions details;
-    EndpointConfigurations endpoints;
+    EndpointsSet endpoints;
     SecurityOptions security;
 };
 

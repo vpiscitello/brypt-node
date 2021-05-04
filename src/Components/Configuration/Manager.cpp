@@ -29,17 +29,17 @@ namespace local {
 void SerializeVersion(std::ofstream& out);
 void SerializeIdentifierOptions(Configuration::IdentifierOptions const& options, std::ofstream& out);
 void SerializeNodeOptions(Configuration::DetailsOptions const& options, std::ofstream& out);
-void SerializeEndpointConfigurations(Configuration::EndpointConfigurations const& configurations, std::ofstream& out);
+void SerializeEndpointOptions(Configuration::EndpointsSet const& configurations, std::ofstream& out);
 void SerializeSecurityOptions(Configuration::SecurityOptions const& options, std::ofstream& out);
 
 Configuration::IdentifierOptions GetIdentifierOptionsFromUser();
 Configuration::DetailsOptions GetDetailsOptionsFromUser();
-Configuration::EndpointConfigurations GetEndpointConfigurationsFromUser();
+Configuration::EndpointsSet GetEndpointOptionsFromUser();
 Configuration::SecurityOptions GetSecurityOptionsFromUser();
 
 [[nodiscard]] bool InitializeIdentifierOptions(Configuration::IdentifierOptions& options);
-[[nodiscard]] bool InitializeEndpointConfigurations(
-    Configuration::EndpointConfigurations& configurations, std::shared_ptr<spdlog::logger> const& spLogger);
+[[nodiscard]] bool InitializeEndpointOptions(
+    Configuration::EndpointsSet& endpoints, std::shared_ptr<spdlog::logger> const& spLogger);
 void InitializeSecurityOptions(Configuration::SecurityOptions& options);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -292,7 +292,7 @@ Configuration::StatusCode Configuration::Manager::Serialize()
     local::SerializeVersion(out);
     local::SerializeIdentifierOptions(m_settings.identifier, out);
     local::SerializeNodeOptions(m_settings.details, out);
-    local::SerializeEndpointConfigurations(m_settings.endpoints, out);
+    local::SerializeEndpointOptions(m_settings.endpoints, out);
     local::SerializeSecurityOptions(m_settings.security, out);
 
     out << "}" << std::flush;
@@ -312,7 +312,7 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 {
     // If the configuration has not been provided to the Configuration Manager
     // generate a configuration object from user input
-    if (m_settings.endpoints.empty()) { GetConfigurationOptionsFromUser(); }
+    if (m_settings.endpoints.empty()) { GetSettingsFromUser(); }
 
     ValidateSettings();
 
@@ -326,53 +326,50 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Configuration::Settings> Configuration::Manager::GetSettings() const
+bool Configuration::Manager::IsValidated() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
-    return m_settings;
+    return m_validated;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier Configuration::Manager::GetNodeIdentifier() const
+Node::SharedIdentifier const& Configuration::Manager::GetNodeIdentifier() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
-
-    auto& spNodeIdentifier = m_settings.identifier.container;
-    if (!spNodeIdentifier || !spNodeIdentifier->IsValid()) { return {}; }
-
-    return spNodeIdentifier;
+    assert(m_validated);
+    assert(m_settings.identifier.container && m_settings.identifier.container->IsValid());
+    return m_settings.identifier.container;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Configuration::Manager::GetNodeName() const
+std::string const& Configuration::Manager::GetNodeName() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
+    assert(m_validated);
     return m_settings.details.name;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Configuration::Manager::GetNodeDescription() const
+std::string const& Configuration::Manager::GetNodeDescription() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
+    assert(m_validated);
     return m_settings.details.description;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Configuration::Manager::GetNodeLocation() const
+std::string const& Configuration::Manager::GetNodeLocation() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
+    assert(m_validated);
     return m_settings.details.location;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
     
-std::optional<Configuration::EndpointConfigurations> Configuration::Manager::GetEndpointConfigurations() const
+Configuration::EndpointsSet const& Configuration::Manager::GetEndpointOptions() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
+    assert(m_validated);
+    assert(m_settings.endpoints.size() != 0);
     return m_settings.endpoints;
 }
 
@@ -380,15 +377,16 @@ std::optional<Configuration::EndpointConfigurations> Configuration::Manager::Get
 
 Security::Strategy Configuration::Manager::GetSecurityStrategy() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
+    assert(m_validated);
+    assert(m_settings.security.type != Security::Strategy::Invalid);
     return m_settings.security.type;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Configuration::Manager::GetCentralAuthority() const
+std::string const& Configuration::Manager::GetCentralAuthority() const
 {
-    if (!m_validated) [[unlikely]] { return {}; }
+    assert(m_validated);
     return m_settings.security.authority;
 }
 
@@ -466,7 +464,7 @@ Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Manager::GetConfigurationOptionsFromUser()
+void Configuration::Manager::GetSettingsFromUser()
 {
     std::cout << "Generating Brypt Node Configuration Settings." << std::endl; 
     std::cout << "Please Enter your Desired Network Options.\n" << std::endl;
@@ -474,15 +472,10 @@ void Configuration::Manager::GetConfigurationOptionsFromUser()
     // Clear the cin stream 
     std::cin.clear(); std::cin.sync();
 
-    IdentifierOptions const identifierOptions = local::GetIdentifierOptionsFromUser();
-    DetailsOptions const detailsOptions = local::GetDetailsOptionsFromUser();
-    EndpointConfigurations const endpointConfigurations = local::GetEndpointConfigurationsFromUser();
-    Configuration::SecurityOptions const securityOptions =  local::GetSecurityOptionsFromUser();
-
-    m_settings.identifier = identifierOptions;
-    m_settings.details = detailsOptions;
-    m_settings.endpoints = endpointConfigurations;
-    m_settings.security = securityOptions;
+    m_settings.identifier = local::GetIdentifierOptionsFromUser();
+    m_settings.details = local::GetDetailsOptionsFromUser();
+    m_settings.endpoints = local::GetEndpointOptionsFromUser();
+    m_settings.security = local::GetSecurityOptionsFromUser();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -490,7 +483,7 @@ void Configuration::Manager::GetConfigurationOptionsFromUser()
 bool Configuration::Manager::InitializeSettings()
 {
     if (!local::InitializeIdentifierOptions(m_settings.identifier)) { return false; }
-    if (!local::InitializeEndpointConfigurations(m_settings.endpoints, m_spLogger)) { return false; }
+    if (!local::InitializeEndpointOptions(m_settings.endpoints, m_spLogger)) { return false; }
 
     local::InitializeSecurityOptions(m_settings.security);
 
@@ -539,11 +532,10 @@ void local::SerializeNodeOptions(Configuration::DetailsOptions const& options, s
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void local::SerializeEndpointConfigurations(
-    Configuration::EndpointConfigurations const& configurations, std::ofstream& out)
+void local::SerializeEndpointOptions(Configuration::EndpointsSet const& endpoints, std::ofstream& out)
 {
     out << "\t\"endpoints\": [\n";
-    for (auto const& options: configurations) {
+    for (auto const& options: endpoints) {
         out << "\t\t{\n";
         out << "\t\t\t\"protocol\": \"" << options.protocol << "\",\n";
         out << "\t\t\t\"interface\": \"" << options.interface << "\",\n";
@@ -554,7 +546,7 @@ void local::SerializeEndpointConfigurations(
             out << "\"\n";
         }
         out << "\t\t}";
-        if (&options != &configurations.back()) { out << ",\n"; }
+        if (&options != &endpoints.back()) { out << ",\n"; }
     }
     out << "\n\t],\n";
 }
@@ -625,9 +617,9 @@ Configuration::DetailsOptions local::GetDetailsOptionsFromUser()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
+Configuration::EndpointsSet local::GetEndpointOptionsFromUser()
 {
-    Configuration::EndpointConfigurations configurations;
+    Configuration::EndpointsSet endpoints;
 
     bool bAddEndpointOption = false;
     do {
@@ -686,7 +678,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
                 if (!bootstrap.empty()) { options.bootstrap = bootstrap; }
             }
 
-            configurations.emplace_back(options);
+            endpoints.emplace_back(std::move(options));
         }
 
         std::string sContinueChoice;
@@ -696,7 +688,7 @@ Configuration::EndpointConfigurations local::GetEndpointConfigurationsFromUser()
         std::cout << "\n";
     } while(bAddEndpointOption);
 
-    return configurations;
+    return endpoints;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -782,17 +774,15 @@ bool local::InitializeIdentifierOptions(Configuration::IdentifierOptions& option
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool local::InitializeEndpointConfigurations(
-    Configuration::EndpointConfigurations& configurations, std::shared_ptr<spdlog::logger> const& spLogger)
+bool local::InitializeEndpointOptions(
+    Configuration::EndpointsSet& endpoints, std::shared_ptr<spdlog::logger> const& spLogger)
 {
     bool success = true;
-    std::for_each(configurations.begin(), configurations.end(),
+    std::for_each(endpoints.begin(), endpoints.end(),
         [&success, &spLogger] (auto& options)
         {
             if (!options.Initialize()) {
-                spLogger->warn(
-                    "Unable to initialize the endpoint configuration for {}",
-                    options.GetProtocolName());
+                spLogger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolName());
                 success = false;
             }
         });
