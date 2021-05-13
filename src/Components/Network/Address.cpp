@@ -90,6 +90,21 @@ Network::Address::Address(Address const& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Network::Address& Network::Address::operator=(Address&& other)
+{
+    m_protocol = std::move(other.m_protocol);
+    m_uri = std::move(other.m_uri);
+    m_scheme = std::move(other.m_scheme);
+    m_authority = std::move(other.m_authority);
+    m_primary = std::move(other.m_primary);
+    m_secondary = std::move(other.m_secondary);
+    m_bootstrapable = std::move(other.m_bootstrapable);
+    other.Reset();
+    return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Network::Address::Address(Address&& other)
     : m_protocol(std::move(other.m_protocol))
     , m_uri(std::move(other.m_uri))
@@ -99,21 +114,26 @@ Network::Address::Address(Address&& other)
     , m_secondary(std::move(other.m_secondary))
     , m_bootstrapable(std::move(other.m_bootstrapable))
 {
-    other.m_protocol = Protocol::Invalid;
-    other.m_scheme = {};
-    other.m_authority = {};
-    other.m_primary = {};
-    other.m_secondary = {};
-    other.m_bootstrapable = false;
+    other.Reset();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::strong_ordering Network::Address::operator<=>(Address const& other) const
+{
+    // We can skip a string compare if the protocols don't match
+    auto result = m_protocol <=> other.m_protocol;
+    if (result == std::strong_ordering::equal) { return m_uri <=> other.m_uri; }
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 
 bool Network::Address::operator==(Address const& other) const
 {
-    bool const equal = (m_protocol == other.m_protocol) && (m_uri == other.m_uri);
-    return equal;
+    // We can skip a string compare if the protocols don't match
+    if (m_protocol == other.m_protocol) { return m_uri == other.m_uri; }
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -233,6 +253,7 @@ bool Network::Address::CacheAddressPartitions()
 void Network::Address::Reset()
 {
     // Clear the partition views to avoid dangling pointers. 
+    m_protocol = Protocol::Invalid;
     m_scheme = {};
     m_authority = {};
     m_primary = {};
@@ -266,9 +287,20 @@ Network::BindingAddress::BindingAddress(
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::strong_ordering Network::BindingAddress::operator<=>(BindingAddress const& other) const
+{
+    // The base address comparator takes precedences over the interface result. 
+    auto result = Address::operator<=>(other);
+    if (result == std::strong_ordering::equal) { return m_interface <=> other.m_interface; }
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool Network::BindingAddress::operator==(BindingAddress const& other) const
 {
-    return (m_interface == other.m_interface) && Address::operator==(other);
+    if (Address::operator==(other)) { return m_interface == other.m_interface; }
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -303,6 +335,13 @@ Network::RemoteAddress::RemoteAddress()
 Network::RemoteAddress::RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable)
     : Address(protocol, uri, bootstrapable)
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::strong_ordering Network::RemoteAddress::operator<=>(RemoteAddress const& other) const
+{
+    return Address::operator<=>(other);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

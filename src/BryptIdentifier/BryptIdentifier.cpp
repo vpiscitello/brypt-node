@@ -171,18 +171,16 @@ Node::Identifier::Identifier(local::Buffer const& buffer, BufferContentType type
 
 bool Node::Identifier::operator<(Identifier const& other) const
 {
-    if (m_valid && !other.m_valid) { return false; }
-    else if (!m_valid && other.m_valid) { return true; }
-    else { return (m_internal < other.m_internal); }
+    if (m_valid != other.m_valid) { return m_valid < other.m_valid; }
+    return m_internal < other.m_internal;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
  
 bool Node::Identifier::operator==(Identifier const& other) const
 {
-    if (!m_valid && !other.m_valid) { return false; }
-    if (m_internal != other.m_internal) { return false; }
-    return true;
+    if (!m_valid && !other.m_valid) { return false; } // Invalid identifiers don't compare equal
+    return m_internal == other.m_internal;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

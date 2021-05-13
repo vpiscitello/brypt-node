@@ -8,6 +8,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/fmt/bundled/format.h>
 //----------------------------------------------------------------------------------------------------------------------
+#include <compare>
 #include <concepts>
 #include <string>
 #include <string_view>
@@ -25,7 +26,10 @@ class Address;
 class BindingAddress;
 class RemoteAddress;
 
-template <typename AddressType> requires std::derived_from<AddressType, Network::Address>
+template<typename AddressType>
+concept ValidAddressType = std::derived_from<AddressType, Network::Address>;
+
+template <ValidAddressType AddressType>
 struct AddressHasher;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -51,10 +55,12 @@ public:
     
     Address& operator=(Address const& other);
     Address(Address const& other);
+    Address& operator=(Address&& other);
     Address(Address&& other);
 
-    bool operator==(Address const& other) const;
-    bool operator!=(Address const& other) const;
+    [[nodiscard]] std::strong_ordering operator<=>(Address const& other) const;
+    [[nodiscard]] bool operator==(Address const& other) const;
+    [[nodiscard]] bool operator!=(Address const& other) const;
 
     [[nodiscard]] Network::Protocol GetProtocol() const;
     [[nodiscard]] std::string const& GetUri() const;
@@ -63,6 +69,9 @@ public:
 
     [[nodiscard]] std::size_t GetSize() const;
     [[nodiscard]] bool IsValid() const;
+
+    template <ValidAddressType AddressType>
+    [[nodiscard]] bool equivalent(AddressType const& other) const;
 
     // Socket Address Helpers {
     friend Socket::Type Socket::ParseAddressType(Address const& address);
@@ -88,6 +97,22 @@ protected:
 
 //----------------------------------------------------------------------------------------------------------------------
 
+template <Network::ValidAddressType AddressType>
+bool Network::Address::equivalent(AddressType const& other) const
+{
+    return operator==(static_cast<Address const&>(other));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+inline bool Network::Address::equivalent(Address const& other) const
+{
+    return operator==(other);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 class Network::BindingAddress : public Network::Address
 {
 public:
@@ -96,10 +121,12 @@ public:
 
     BindingAddress& operator=(BindingAddress const& other) = default;
     BindingAddress(BindingAddress const& other) = default;
+    BindingAddress& operator=(BindingAddress&& other) = default;
     BindingAddress(BindingAddress&& other) = default;
 
-    bool operator==(BindingAddress const& other) const;
-    bool operator!=(BindingAddress const& other) const;
+    std::strong_ordering operator<=>(BindingAddress const& other) const;
+    [[nodiscard]] bool operator==(BindingAddress const& other) const;
+    [[nodiscard]] bool operator!=(BindingAddress const& other) const;
 
     [[nodiscard]] std::string const& GetInterface() const;
 
@@ -117,17 +144,19 @@ public:
     
     RemoteAddress& operator=(RemoteAddress const& other) = default;
     RemoteAddress(RemoteAddress const& other) = default;
+    RemoteAddress& operator=(RemoteAddress&& other) = default;
     RemoteAddress(RemoteAddress&& other) = default;
-
-    bool operator==(RemoteAddress const& other) const;
-    bool operator!=(RemoteAddress const& other) const;
+    
+    std::strong_ordering operator<=>(RemoteAddress const& other) const;
+    [[nodiscard]] bool operator==(RemoteAddress const& other) const;
+    [[nodiscard]] bool operator!=(RemoteAddress const& other) const;
 
     [[nodiscard]] bool IsBootstrapable() const;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <typename AddressType> requires std::derived_from<AddressType, Network::Address>
+template <Network::ValidAddressType AddressType>
 struct Network::AddressHasher
 {
     std::size_t operator()(AddressType const& address) const
@@ -152,7 +181,7 @@ struct Network::Socket::Components
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <typename AddressType> requires std::derived_from<AddressType, Network::Address>
+template <Network::ValidAddressType AddressType>
 struct fmt::formatter<AddressType>
 {
     constexpr auto parse(format_parse_context& ctx)
