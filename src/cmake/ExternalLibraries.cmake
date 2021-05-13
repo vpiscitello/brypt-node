@@ -21,10 +21,10 @@ endif()
 #-----------------------------------------------------------------------------------------------------------------------
 # Boost Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(BOOST_VERSION "1.75.0")
-set(BOOST_DOWNLOAD_TARGET "boost_1_75_0.tar.gz")
-set(BOOST_URL "https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/${BOOST_DOWNLOAD_TARGET}")
-set(BOOST_HASH "SHA256=aeb26f80e80945e82ee93e5939baebdca47b9dee80a07d3144be1e1a6a66dd6a")
+set(BOOST_VERSION "1.76.0")
+set(BOOST_DOWNLOAD_TARGET "boost_1_76_0.tar.gz")
+set(BOOST_URL "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_DOWNLOAD_TARGET}")
+set(BOOST_HASH "SHA256=7bd7ddceec1a1dfdcbdb3e609b60d01739c38390a5f956385a12f3122049f0ca")
 set(BOOST_DIRECTORY ${DEPENDENCY_DIRECTORY}/boost/${BOOST_VERSION})
 set(BOOST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/boost/${BOOST_VERSION})
 
@@ -301,9 +301,9 @@ message(DEBUG "OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQS_VERSION "0.4.0")
+set(OQS_VERSION "0.5.0")
 set(OQS_URL "https://github.com/open-quantum-safe/liboqs/archive/${OQS_VERSION}.tar.gz")
-set(OQS_HASH "SHA256=05836cd2b5c70197b3b6eed68b97d0ccb2c445061d5c19c15aef7c959842de0b")
+set(OQS_HASH "SHA256=f677ea45ada4a1e97354bf2e734047ca6efe6183498224d8fc47b8b88c63a6b5")
 set(OQS_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs/${OQS_VERSION})
 set(OQS_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs/${OQS_VERSION})
 
@@ -332,6 +332,7 @@ if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION})
     set(OQS_CONFIGURE_PARAMS
         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
         -DBUILD_SHARED_LIBS=ON
+        -DOQS_BUILD_ONLY_LIB=ON
         -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
         -DCMAKE_INSTALL_PREFIX=${OQS_DIRECTORY})
     find_program(OQS_BUILD ninja REQUIRED)
