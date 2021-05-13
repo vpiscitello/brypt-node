@@ -244,7 +244,8 @@ Configuration::Manager::Manager(Settings const& settings)
         m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
         return;
     }
-    ValidateSettings();
+    [[maybe_unused]] auto const result = ValidateSettings();
+    assert(result == StatusCode::Success);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -305,18 +306,18 @@ Configuration::StatusCode Configuration::Manager::Serialize()
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-// Description: Generates a new configuration file based on user handler line arguements or
-// from user input.
+// Description: Generates a new configuration file based on user handler line arguements or from user input.
 //----------------------------------------------------------------------------------------------------------------------
 Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 {
-    // If the configuration has not been provided to the Configuration Manager
-    // generate a configuration object from user input
+    // If the settings have not been provided get the desired configuration from user input
     if (m_settings.endpoints.empty()) { GetSettingsFromUser(); }
 
-    ValidateSettings();
+    StatusCode status;
+    status = ValidateSettings();
+    if (status != StatusCode::Success) { return status; }
 
-    StatusCode const status = Serialize();
+    status = Serialize();
     if (status != StatusCode::Success) {
         m_spLogger->error("Failed to save configuration settings to: {}!", m_filepath.string());
     }

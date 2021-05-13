@@ -28,13 +28,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 BryptNode::BryptNode(
-    Node::SharedIdentifier const& spNodeIdentifier,
+    std::unique_ptr<Configuration::Manager> const& upConfiguration,
     std::shared_ptr<Event::Publisher> const& spEventPublisher,
     std::shared_ptr<Network::Manager> const& spNetworkManager,
     std::shared_ptr<Peer::Manager> const& spPeerManager,
     std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
-    std::shared_ptr<PeerPersistor> const& spPeerPersistor,
-    std::unique_ptr<Configuration::Manager> const& upConfigurationManager)
+    std::shared_ptr<PeerPersistor> const& spPeerPersistor)
     : m_initialized(false)
     , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_spNodeState()
@@ -50,18 +49,19 @@ BryptNode::BryptNode(
     , m_spPeerPersistor(spPeerPersistor)
     , m_handlers()
     , m_upRuntime(nullptr)
+    , m_optShutdownCause()
 {
-    assert(m_spLogger);
-
     // An Network::Manager, Peer::Manager, and Configuration::Manager are required for the node to operate
-    if (!m_spNetworkManager || !m_spPeerManager || !upConfigurationManager) { return; }
+    assert(m_spLogger && upConfiguration && m_spNetworkManager && m_spPeerManager);
+    assert(upConfiguration->IsValidated());
 
     // Initialize state from settings.
     m_spCoordinatorState = std::make_shared<CoordinatorState>();
     m_spNetworkState = std::make_shared<NetworkState>();
     m_spSecurityState = std::make_shared<SecurityState>(
-        upConfigurationManager->GetSecurityStrategy(), upConfigurationManager->GetCentralAuthority());
-    m_spNodeState = std::make_shared<NodeState>(spNodeIdentifier, m_spNetworkManager->GetEndpointProtocols());
+        upConfiguration->GetSecurityStrategy(), upConfiguration->GetCentralAuthority());
+    m_spNodeState = std::make_shared<NodeState>(
+        upConfiguration->GetNodeIdentifier(), m_spNetworkManager->GetEndpointProtocols());
     m_spSensorState = std::make_shared<SensorState>();
 
     m_handlers.emplace(Handler::Type::Information, Handler::Factory(Handler::Type::Information, *this));
@@ -89,6 +89,13 @@ bool BryptNode::Shutdown()
     m_spEventPublisher->PublishEvents(); // Flush any pending events. 
 
     return stopped;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool BryptNode::IsInitialized() const
+{
+    return m_initialized;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -172,7 +179,9 @@ std::weak_ptr<PeerPersistor> BryptNode::GetPeerPersistor() const
 
 bool BryptNode::StartComponents()
 {
-    if (!m_initialized || m_upRuntime) { return false; }
+    auto const OnError = [this] (ExecutionResult result) -> bool { m_optShutdownCause = result; return false; };
+    if (!m_initialized) { return OnError(ExecutionResult::InitializationFailed); }
+    if (m_upRuntime) { return OnError(ExecutionResult::AlreadyStarted);  }
 
     m_spLogger->info("Starting up brypt node instance.");
     m_spNetworkManager->Startup();

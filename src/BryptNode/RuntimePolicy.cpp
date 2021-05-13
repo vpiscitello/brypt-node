@@ -12,6 +12,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Utilities/CallbackIteration.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <cassert>
+//----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
@@ -51,6 +53,13 @@ void IRuntimePolicy::ProcessEvents()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+ExecutionResult IRuntimePolicy::GetShutdownCause() const
+{
+    return m_instance.m_optShutdownCause.value_or(ExecutionResult::RequestedShutdown);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 ForegroundRuntime::ForegroundRuntime(BryptNode& instance)
     : IRuntimePolicy(instance)
     , m_active(false)
@@ -59,14 +68,15 @@ ForegroundRuntime::ForegroundRuntime(BryptNode& instance)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ForegroundRuntime::Start()
+ExecutionResult ForegroundRuntime::Start()
 {
-    if (m_active) [[unlikely]] { return false; }
-
+    assert(!m_active); // Currently, the lifecycle of the runtime only exists for one Start/Stop cycle. 
     m_active = true;
     while (m_active) { IRuntimePolicy::ProcessEvents(); }
-
-    return true;
+    // The foreground runtime can be stopped by another thread or an event due to an unrecoverable error
+    // condition. That handler should set the cause to one of the error result values. If it is not set, this shutdown
+    // must have been triggered intentionally through a call to Stop().
+    return IRuntimePolicy::GetShutdownCause();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -95,17 +105,18 @@ BackgroundRuntime::BackgroundRuntime(BryptNode& instance)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BackgroundRuntime::Start()
+ExecutionResult BackgroundRuntime::Start()
 {
-    if (m_active) [[unlikely]] { return false; }
-
+    assert(!m_active); // Currently, the lifecycle of the runtime only exists for one Start/Stop cycle. 
     m_active = true;
     m_worker = std::jthread([&] (std::stop_token token)
         {
             while (!token.stop_requested()) { IRuntimePolicy::ProcessEvents(); }
         });
 
-    return true;
+    // Here we indicate the runtime has been spawned. Unlike the foreground runtime, shutdown causes shall be 
+    // propogated entirely through the event system. 
+    return ExecutionResult::ThreadSpawned;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

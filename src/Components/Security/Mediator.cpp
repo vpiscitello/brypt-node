@@ -55,7 +55,7 @@ Security::Mediator::~Mediator()
     // to ensure the receiver does not point to invalid memory. Note: the process of acquiring the 
     // receiver mutex in Peer::Proxy should ensure that the sink is not destructed while it is 
     // actively processing a message. 
-    if (m_spPeerProxy && m_upExchangeProcessor) { m_spPeer->SetReceiver(nullptr); }
+    if (m_spPeerProxy && m_upExchangeProcessor) { m_spPeerProxy->SetReceiver(nullptr); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -71,14 +71,14 @@ void Security::Mediator::OnExchangeClose(ExchangeStatus status)
         case ExchangeStatus::Success: {
             m_state = Security::State::Authorized;
             if (auto const spMessageSink = m_wpAuthorizedSink.lock(); spMessageSink) [[likely]] {
-                m_spPeer->SetReceiver(spMessageSink.get());
+                m_spPeerProxy->SetReceiver(spMessageSink.get());
             } else { assert(false); }
         } break;
         // If we have been notified us of a failed exchange unset the message sink for the peer 
         // and mark the peer as unauthorized. 
         case ExchangeStatus::Failed: {
             m_state = Security::State::Unauthorized;
-            m_spPeer->SetReceiver(nullptr);
+            m_spPeerProxy->SetReceiver(nullptr);
         } break;
         default: assert(false); break;  // What is this?
     }

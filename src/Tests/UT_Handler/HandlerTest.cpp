@@ -62,13 +62,11 @@ constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 TEST(HandlerSuite, HandlerMatchingTest)
 {
-    auto const upConfigurationManager = test::CreateConfigurationManager();
+    auto const upConfiguration = test::CreateConfigurationManager();
 
-    // The node itself will set up internal handlers that can operate on it's
-    // internal state, but in order to setup our own we need to provide the 
-    // handlers a node instance and a state.
-    BryptNode node(
-        test::spServerIdentifier, nullptr, nullptr, nullptr, nullptr, nullptr, upConfigurationManager);
+    // The node itself will set up internal handlers that can operate on it's internal state, but in order to setup our 
+    // own we need to provide the handlers a node instance and a state.
+    BryptNode node(upConfiguration, nullptr, nullptr, nullptr, nullptr, nullptr);
 
     Handler::Map handlers;
     local::SetupHandlerMap(handlers, node);

@@ -96,7 +96,7 @@ inline std::string LogUtils::Pattern::Generate(
 {
     std::ostringstream oss;
     oss << Prefix << TagSeperator << Date << TagSeperator;
-    for (auto const tag : tags) {
+    for (auto const& tag : tags) {
         oss << TagOpen << color << tag << Color::Reset << TagClose << TagSeperator;
     }
     oss << Message;

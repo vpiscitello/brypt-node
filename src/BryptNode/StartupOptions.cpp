@@ -254,7 +254,7 @@ bool Startup::Options::IsInteractive() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Startup::Options::GetConfigurationPath() const
+std::string const& Startup::Options::GetConfigPath() const
 {
     return m_config;
 }

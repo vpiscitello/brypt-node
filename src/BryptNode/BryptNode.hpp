@@ -10,6 +10,7 @@
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Utilities/ExecutionResult.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <concepts>
 #include <memory>
@@ -46,18 +47,13 @@ class SensorState;
 class BryptNode final
 {
 public:
-    // Runtime Handler {
-    friend class IRuntimePolicy;
-    // } Runtime Handler
-
     BryptNode(
-        Node::SharedIdentifier const& spNodeIdentifier,
+        std::unique_ptr<Configuration::Manager> const& upConfiguration,
         std::shared_ptr<Event::Publisher> const& spEventPublisher,
         std::shared_ptr<Network::Manager> const& spNetworkManager,
         std::shared_ptr<Peer::Manager> const& spPeerManager,
         std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
-        std::shared_ptr<PeerPersistor> const& spPeerPersistor,
-        std::unique_ptr<Configuration::Manager> const& upConfigurationManager);
+        std::shared_ptr<PeerPersistor> const& spPeerPersistor);
 
     BryptNode(BryptNode const& other) = delete;
     BryptNode(BryptNode&& other) = default;
@@ -66,9 +62,14 @@ public:
 
     ~BryptNode() = default;
 
-    template<typename RuntimePolicy = ForegroundRuntime> requires std::derived_from<RuntimePolicy, IRuntimePolicy>
-    [[nodiscard]] bool Startup();
+    // Runtime Handler {
+    friend class IRuntimePolicy;
+    // } Runtime Handler
+
+    template<ValidRuntimePolicy RuntimePolicy = ForegroundRuntime>
+    [[nodiscard]] ExecutionResult Startup();
     [[nodiscard]] bool Shutdown();
+    [[nodiscard]] bool IsInitialized() const;
     [[nodiscard]] bool IsActive() const;
 
     [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
@@ -84,7 +85,7 @@ public:
     [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
-    bool StartComponents();
+    [[nodiscard]] bool StartComponents();
 
     bool m_initialized;
     std::shared_ptr<spdlog::logger> m_spLogger;
@@ -104,15 +105,17 @@ private:
 
     Handler::Map m_handlers;
     std::unique_ptr<IRuntimePolicy> m_upRuntime;
+    std::optional<ExecutionResult> m_optShutdownCause;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<typename RuntimePolicy> requires std::derived_from<RuntimePolicy, IRuntimePolicy>
-[[nodiscard]] bool BryptNode::Startup()
+template<ValidRuntimePolicy RuntimePolicy>
+[[nodiscard]] ExecutionResult BryptNode::Startup()
 {
-    if (!StartComponents()) { return false; }
-    m_upRuntime = std::make_unique<RuntimePolicy>(*this);
+    // If the node components could not be started successfully, return the error code.
+    if (!StartComponents()) { assert(m_optShutdownCause); return *m_optShutdownCause; }
+    m_upRuntime = std::make_unique<RuntimePolicy>(*this); // Create a new runtime of the provided type. 
     return m_upRuntime->Start();
 }
 

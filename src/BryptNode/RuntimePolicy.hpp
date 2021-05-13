@@ -5,6 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "Components/MessageControl/AssociatedMessage.hpp"
+#include "Utilities/ExecutionResult.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <concepts>
@@ -27,9 +28,11 @@ public:
     IRuntimePolicy& operator=(IRuntimePolicy const&) = delete; 
     IRuntimePolicy& operator=(IRuntimePolicy&&) = delete; 
 
-    [[nodiscard]] virtual bool Start() = 0;
+    [[nodiscard]] virtual ExecutionResult Start() = 0;
     [[nodiscard]] virtual bool Stop() = 0;
     [[nodiscard]] virtual bool IsActive() const = 0;
+
+    [[nodiscard]] ExecutionResult GetShutdownCause() const;
 
 protected:
     virtual void ProcessEvents() final;
@@ -44,7 +47,7 @@ class ForegroundRuntime final : public IRuntimePolicy
 public:
     explicit ForegroundRuntime(BryptNode& instance);
 
-    [[nodiscard]] virtual bool Start() override;
+    [[nodiscard]] virtual ExecutionResult Start() override;
     [[nodiscard]] virtual bool Stop() override;
     [[nodiscard]] virtual bool IsActive() const override;
 
@@ -59,7 +62,7 @@ class BackgroundRuntime final : public IRuntimePolicy
 public:
     explicit BackgroundRuntime(BryptNode& instance);
 
-    [[nodiscard]] virtual bool Start() override;
+    [[nodiscard]] virtual ExecutionResult Start() override;
     [[nodiscard]] virtual bool Stop() override;
     [[nodiscard]] virtual bool IsActive() const override;
 
@@ -69,5 +72,10 @@ private:
     std::atomic_bool m_active;
     std::jthread m_worker;
 };
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<typename RuntimePolicy>
+concept ValidRuntimePolicy = std::derived_from<RuntimePolicy, IRuntimePolicy>;
 
 //----------------------------------------------------------------------------------------------------------------------

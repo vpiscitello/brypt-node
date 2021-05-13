@@ -45,7 +45,7 @@ public:
 
     [[nodiscard]] spdlog::level::level_enum GetVerbosityLevel() const;
     [[nodiscard]] bool IsInteractive() const;
-    [[nodiscard]] std::string const& GetConfigurationPath() const;
+    [[nodiscard]] std::string const& GetConfigPath() const;
     [[nodiscard]] std::string const& GetPeersPath() const;
     [[nodiscard]] bool UseBootstraps() const;
 

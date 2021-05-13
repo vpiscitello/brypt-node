@@ -14,6 +14,7 @@
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
+#include "Utilities/ExecutionResult.hpp"
 #include "Utilities/LogUtils.hpp"
 #include "Utilities/Version.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -31,58 +32,45 @@ std::int32_t main(std::int32_t argc, char** argv)
     LogUtils::InitializeLoggers(options.GetVerbosityLevel());
     auto const spLogger = spdlog::get(LogUtils::Name::Core.data());  
 
-    auto const upConfigurationManager = std::make_unique<Configuration::Manager>(
-            options.GetConfigurationPath(), options.IsInteractive());
-
-    auto const status = upConfigurationManager->FetchSettings();
-    if (status != Configuration::StatusCode::Success) {
+    auto const upConfig = std::make_unique<Configuration::Manager>(options.GetConfigPath(), options.IsInteractive());
+    if (auto const status = upConfig->FetchSettings(); status != Configuration::StatusCode::Success) {
         spLogger->critical("An unexpected error occured while parsing the configuration file!");
         return 1;
     }
 
-    auto const spNodeIdentifier = upConfigurationManager->GetNodeIdentifier();
-    if (!spNodeIdentifier) {
-        spLogger->critical("An error occured establishing a Brypt Identifier!");
-        return 1;
-    }
-
-    auto const optEndpointConfigurations = upConfigurationManager->GetEndpointConfigurations();
-    if (!optEndpointConfigurations) {
-        spLogger->critical("An error occured parsing endpoint configurations!");
-        return 1;
-    }
-
-    auto const spPeerPersistor = std::make_shared<PeerPersistor>(options.GetPeersPath(), *optEndpointConfigurations);
-    if (!spPeerPersistor->FetchBootstraps()) {
+    auto const spPersistor = std::make_shared<PeerPersistor>(options.GetPeersPath(), upConfig->GetEndpointOptions());
+    if (!spPersistor->FetchBootstraps()) {
         spLogger->critical("An error occured parsing bootstraps!");
         return 1;
     }
 
     auto const spEventPublisher = std::make_shared<Event::Publisher>();
-    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(*optEndpointConfigurations);
-    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(spNodeIdentifier);
+    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(upConfig->GetEndpointOptions());
+    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(upConfig->GetNodeIdentifier());
     auto const spPeerManager = std::make_shared<Peer::Manager>(
-        spNodeIdentifier, upConfigurationManager->GetSecurityStrategy(),
-        spDiscoveryProtocol, spMessageCollector);
+        upConfig->GetNodeIdentifier(), upConfig->GetSecurityStrategy(), spDiscoveryProtocol, spMessageCollector);
 
-    spPeerPersistor->SetMediator(spPeerManager.get());
+    spPersistor->SetMediator(spPeerManager.get());
 
-    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spPeerPersistor.get() : nullptr;
+    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spPersistor.get() : nullptr;
     auto const spNetworkManager = std::make_shared<Network::Manager>(
-        *optEndpointConfigurations, spPeerManager.get(), pBootstraps);
+        upConfig->GetEndpointOptions(), spPeerManager.get(), pBootstraps);
 
     BryptNode alpha(
-        spNodeIdentifier, spEventPublisher, spNetworkManager, spPeerManager, 
-        spMessageCollector, spPeerPersistor, upConfigurationManager);
+        upConfig, spEventPublisher, spNetworkManager, spPeerManager, spMessageCollector, spPersistor);
+    assert(alpha.IsInitialized());
 
     spLogger->info("Welcome to the Brypt Network!");
-    spLogger->info("Brypt Identifier: {}", spNodeIdentifier->GetNetworkString());
+    spLogger->info("Brypt Identifier: {}", upConfig->GetNodeIdentifier());
 
-    bool const success = alpha.Startup();
-    if (!success) {
+    ExecutionResult const result = alpha.Startup();
+    if (result == ExecutionResult::UnexpectedShutdown) {
         spLogger->critical("An unexpected error caused the node to shutdown!");
         return 1;
     }
+    // Currently, RequestedShutdown and UnexpectedShutdown are the only values that should be returned in the 
+    // foreground context. If we get InitializationFailed, AlreadyStarted, or ThreadSpawned something went wrong 
+    assert(result == ExecutionResult::RequestedShutdown);
 
     return 0;
 }
