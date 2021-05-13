@@ -2,7 +2,10 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Network/Address.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Network/EndpointTypes.hpp"
 #include "Components/Security/Flags.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <concepts>
@@ -17,6 +20,9 @@ namespace Event {
 //----------------------------------------------------------------------------------------------------------------------
 
 enum class Type : std::uint32_t {
+    BindingFailed,
+    ConnectionFailed,
+    CriticalNetworkFailure,
     EndpointStarted,
     EndpointStopped,
     PeerConnected,
@@ -24,8 +30,6 @@ enum class Type : std::uint32_t {
     RuntimeStarted,
     RuntimeStopped,
 };
-
-enum class Cause : std::uint32_t { Expected, Unexpected };
 
 class IMessage;
 
@@ -57,6 +61,10 @@ public:
 // level of flexibility between the content, callback trait, and allow additional methods. 
 //----------------------------------------------------------------------------------------------------------------------
 
+#define EVENT_MESSAGE_CAUSE(...)\
+public:\
+    enum class Cause : std::uint32_t {__VA_ARGS__};
+
 #define EVENT_MESSAGE_CONTENT_STORE(...)\
 public:\
     using EventContent = std::tuple<__VA_ARGS__>;\
@@ -83,11 +91,43 @@ public:\
 //----------------------------------------------------------------------------------------------------------------------
 
 template <>
+class Event::Message<Event::Type::BindingFailed> : public Event::IMessage
+{
+    // Schema: The network protocol of the endpoint and the uri.
+    EVENT_MESSAGE_CONTENT_STORE(Network::BindingAddress)
+    EVENT_MESSAGE_CALLBACK_TRAIT(Network::BindingAddress const&)
+    EVENT_MESSAGE_CORE(Event::Type::BindingFailed)
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+class Event::Message<Event::Type::ConnectionFailed> : public Event::IMessage
+{
+    // Schema: The network protocol of the endpoint and the uri.
+    EVENT_MESSAGE_CONTENT_STORE(Network::RemoteAddress)
+    EVENT_MESSAGE_CALLBACK_TRAIT(Network::RemoteAddress const&)
+    EVENT_MESSAGE_CORE(Event::Type::ConnectionFailed)
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+class Event::Message<Event::Type::CriticalNetworkFailure> : public Event::IMessage
+{
+    // Schema: No event data to be captured. 
+    EVENT_MESSAGE_CALLBACK_TRAIT()
+    EVENT_MESSAGE_CORE(Event::Type::CriticalNetworkFailure)
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
 class Event::Message<Event::Type::EndpointStarted> : public Event::IMessage
 {
     // Schema: The network protocol of the endpoint and the uri.
-    EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, std::string)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Protocol, std::string_view)
+    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::Protocol, Network::Operation)
+    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::Protocol, Network::Operation)
     EVENT_MESSAGE_CORE(Event::Type::EndpointStarted)
 };
 
@@ -97,8 +137,9 @@ template <>
 class Event::Message<Event::Type::EndpointStopped> : public Event::IMessage
 {
     // Schema: The network protocol of the endpoint, the uri, and the cause of the event.
-    EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, std::string, Cause)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Protocol, std::string_view, Cause)
+    EVENT_MESSAGE_CAUSE(ShutdownRequest, BindingFailed, UnexpectedError)
+    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::Protocol, Network::Operation, Cause)
+    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::Protocol, Network::Operation, Cause)
     EVENT_MESSAGE_CORE(Event::Type::EndpointStopped)
 };
 
@@ -119,6 +160,7 @@ template <>
 class Event::Message<Event::Type::PeerDisconnected> : public Event::IMessage
 {
     // Schema: The brypt identifier of the peer, the network technology of the endpoint, and the cause of the event.
+    EVENT_MESSAGE_CAUSE(SessionClosure, UnexpectedError)
     EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, Node::SharedIdentifier, Cause)
     EVENT_MESSAGE_CALLBACK_TRAIT( Network::Protocol, Node::SharedIdentifier const&, Cause)
     EVENT_MESSAGE_CORE(Event::Type::PeerDisconnected)
@@ -140,6 +182,7 @@ template <>
 class Event::Message<Event::Type::RuntimeStopped> : public Event::IMessage
 {
     // Schema: The case of the runtime stopping. 
+    EVENT_MESSAGE_CAUSE(ShutdownRequest, UnexpectedError)
     EVENT_MESSAGE_CONTENT_STORE(Cause)
     EVENT_MESSAGE_CALLBACK_TRAIT(Cause)
     EVENT_MESSAGE_CORE(Event::Type::RuntimeStopped)
