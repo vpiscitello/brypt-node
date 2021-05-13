@@ -25,7 +25,7 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 [[nodiscard]] Network::TCP::ConnectStatusCode IsAllowableUri(
-    std::string_view uri,
+    Network::RemoteAddress const& uri,
     IEndpointMediator const* const pEndpointMediator,
     Network::TCP::Endpoint::SessionTracker const& tracker);
 
@@ -34,8 +34,8 @@ namespace local {
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::Endpoint(Operation operation)
-    : IEndpoint(operation, Protocol::TCP)
+Network::TCP::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher)
+    : IEndpoint(Protocol::TCP, operation, spEventPublisher)
     , m_detailsMutex()
     , m_active(false)
     , m_worker()
@@ -44,7 +44,7 @@ Network::TCP::Endpoint::Endpoint(Operation operation)
     , m_resolver(m_context)
     , m_eventsMutex()
     , m_events()
-    , m_processors()
+    , m_handlers()
     , m_tracker()
     , m_scheduler()
     , m_spLogger()
@@ -56,21 +56,18 @@ Network::TCP::Endpoint::Endpoint(Operation operation)
     }
     assert(m_spLogger);
 
-    m_processors = {
+    m_handlers = {
         { 
             std::type_index(typeid(BindEvent)),
-            [this] (std::any const& event)
-            { ProcessBindEvent(std::any_cast<BindEvent const&>(event)); }
+            [this] (std::any& event) { OnBindEvent(std::any_cast<BindEvent&>(event)); }
         },
         { 
             std::type_index(typeid(ConnectEvent)),
-            [this] (std::any const& event)
-            { ProcessConnectEvent(std::any_cast<ConnectEvent const&>(event)); }
+            [this] (std::any& event) { OnConnectEvent(std::any_cast<ConnectEvent&>(event)); }
         },
         { 
             std::type_index(typeid(DispatchEvent)),
-            [this] (std::any const& event)
-            { ProcessDispatchEvent(std::any_cast<DispatchEvent const&>(event)); }
+            [this] (std::any& event) { OnDispatchEvent(std::any_cast<DispatchEvent&>(event)); }
         },
     };
 
@@ -84,7 +81,7 @@ Network::TCP::Endpoint::Endpoint(Operation operation)
 
 Network::TCP::Endpoint::~Endpoint()
 {
-    if (!Shutdown()) {
+    if (!Shutdown()) [[unlikely]] {
         m_spLogger->error("An unexpected error occured during endpoint shutdown!");
     }
 }
@@ -123,7 +120,6 @@ void Network::TCP::Endpoint::Startup()
     // Attempt to start an endpoint worker thread based on the designated endpoint operation.
     switch (m_operation) {
         case Operation::Server: { 
-            // [&] (std::stop_tokens) { process_tasks(s); }
             m_worker = std::jthread([&] (std::stop_token token) { ServerWorker(token); });
         } break;
         case Operation::Client: {
@@ -139,18 +135,15 @@ void Network::TCP::Endpoint::Startup()
 
 bool Network::TCP::Endpoint::Shutdown()
 {
-    // Determine if any of the endpoint's resources are active. If at least one is operating, 
-    // then proceed with the shutdown. As a post condition, the operating state should be 
-    // be false. 
-    bool const operating = m_worker.joinable()  ||   m_acceptor.is_open() ||
-        !m_context.stopped() || !m_tracker.IsEmpty();
-
+    // Determine if any of the endpoint's resources are active. If at least one is operating, then proceed with the 
+    // shutdown. As a post condition, the operating state should be false. 
+    bool const operating = m_worker.joinable() || m_acceptor.is_open() || !m_context.stopped() || !m_tracker.IsEmpty();
     if (!operating) { return true; }
 
     m_spLogger->info("Shutting down endpoint.");
 
-    // Shutdown worker resources. The worker must be stopped first to ensure new data and 
-    // sessions are generated as we process the endpoint's shutdown procedure. 
+    // Shutdown worker resources. The worker must be stopped first to ensure new data and sessions are generated as we 
+    // process the endpoint's shutdown procedure. 
     if (m_active) {
         m_worker.request_stop();
         if (m_worker.joinable()) { m_worker.join(); }
@@ -161,8 +154,8 @@ bool Network::TCP::Endpoint::Shutdown()
         m_acceptor.close(); // Ensure the acceptor has been shutdown.
         m_resolver.cancel(); // Ensure there are no connections being resolved.
 
-        // Stop any active sessions. After stopping the session ensure the context is polled 
-        // to ensure the completion handlers have been called. 
+        // Stop any active sessions. After stopping the session ensure the context is polled to ensure the completion 
+        // handlers have been called. 
         m_tracker.ResetConnections(
             [&](auto const& spSession, auto const&) -> CallbackIteration
             {
@@ -191,59 +184,46 @@ bool Network::TCP::Endpoint::IsActive() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
+bool Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
 {
-    if (m_operation != Operation::Server) {
-        m_spLogger->critical("Bind was called a non-listening endpoint!");
-        throw std::runtime_error("Invalid argument.");
-    }
-
-    if (!binding.IsValid()) {
-        m_spLogger->error("Unable to parse an endpoint binding for {}!", binding);
-        throw std::runtime_error("Invalid argument.");
-    }
+    assert(m_operation != Operation::Server);
+    assert(binding.IsValid());
     assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
 
-    auto event = BindEvent(binding);
-
-    // Schedule the Bind network instruction event
+    BindEvent event(binding);
     {
         std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(event);
+        m_events.emplace_back(std::move(event));
     }
 
-    // Greedily set the entry to the provided binding to prevent reflection 
-    // connections on startup. If the binding fails or changes, it will be updated by 
-    // the thread. 
-    m_binding = std::move(binding);
+    // Greedily set the entry to the provided binding to prevent reflection connections on startup. If the binding 
+    // fails or changes, it will be updated by the thread. 
+    m_binding = binding;
+    IEndpoint::OnBindingUpdated(binding);
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ScheduleConnect(RemoteAddress const& address)
+bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress const& address)
 {
     RemoteAddress remote = address;
-    ScheduleConnect(std::move(remote));
+    return ScheduleConnect(std::move(remote));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address)
+bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address)
 {
-    ScheduleConnect(std::move(address), nullptr);
+    return ScheduleConnect(std::move(address), nullptr);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ScheduleConnect(
-    RemoteAddress&& address, 
-    Node::SharedIdentifier const& spIdentifier)
+bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
 {
-    if (m_operation != Operation::Client) {
-        m_spLogger->critical("Connect was called on a non-client endpoint!");
-        throw std::runtime_error("Invalid argument.");
-    }
-
+    assert(m_operation != Operation::Server);
     assert(address.IsValid() && address.IsBootstrapable());
     assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
 
@@ -254,6 +234,8 @@ void Network::TCP::Endpoint::ScheduleConnect(
         std::scoped_lock lock(m_eventsMutex);
         m_events.emplace_back(event);
     }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -283,13 +265,14 @@ void Network::TCP::Endpoint::ServerWorker(std::stop_token token)
 {
     // Launch the session acceptor coroutine. 
     boost::asio::co_spawn(
-        m_context, ListenProcessor(),
+        m_context, Listener(),
         [this] (std::exception_ptr exception, TCP::CompletionOrigin origin)
         {
             bool const error = (exception || origin == CompletionOrigin::Error);
             if (error) {
-                m_spLogger->error("An error caused the listener on {} to shutdown!", m_binding);
+                m_spLogger->error("An unexpected error caused the listener on {} to shutdown!", m_binding);
                 m_active = false;
+                IEndpoint::OnUnexpectedError();
             }
         });
 
@@ -307,63 +290,65 @@ void Network::TCP::Endpoint::ClientWorker(std::stop_token  token)
 
 void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
 {
+    IEndpoint::OnStarted();
     while(!token.stop_requested()) {
         EventDeque events;
         {
             std::scoped_lock lock(m_eventsMutex);
             for (std::uint32_t idx = 0; idx < Network::Endpoint::EventProcessingLimit; ++idx) {
-                // If there are no messages left in the outgoing message queue, break from
-                // copying the items into the temporary queue.
+                // If there are no messages left in the outgoing message queue, break from copying the items into the
+                // temporary queue.
                 if (m_events.size() == 0) { break; }
                 events.emplace_back(m_events.front());
                 m_events.pop_front();
             }
         }
 
-        for (auto const& event: events) {
-            auto index = std::type_index(event.type());
-            if (auto const itr = m_processors.find(index); itr != m_processors.cend()) {
+        for (auto& event: events) {
+            if (auto const itr = m_handlers.find(std::type_index(event.type())); itr != m_handlers.cend()) {
                 auto const& [type, processor] = *itr;
                 processor(event);
-            } else {
-                assert(false);
-            }
+            } else { assert(false); }
         }
 
         // If the context has been stopped, restart to ensure the next poll is valid. 
         if (m_context.stopped()) { m_context.restart(); }
-        m_context.poll();   // Poll the context for any ready handlers. 
+        m_context.poll(); // Poll the context for any ready handlers. 
         std::this_thread::sleep_for(Network::Endpoint::CycleTimeout);
     }
 
     m_active = false; // Indicate that the worker has stopped. 
+    IEndpoint::OnStopped();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ProcessBindEvent(BindEvent const& event)
+void Network::TCP::Endpoint::OnBindEvent(BindEvent const& event)
 {
     bool success = Bind(event.GetBinding());
     if (!success) {
         m_spLogger->error("A listener on {} could not be established!", event.GetBinding());
+        IEndpoint::OnBindFailed(event.GetBinding());
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ProcessConnectEvent(ConnectEvent const& event)
+void Network::TCP::Endpoint::OnConnectEvent(ConnectEvent const& event)
 {
+    // Note: the return code does not reflect that the connection was completely successfull. A coroutine is launched
+    // to handle final resolution which will handle asynchronous errors as they appear. 
     auto const status = Connect(event.GetRemoteAddress(), event.GetNodeIdentifier());
     // Connect successes and error logging is handled within the call itself. 
     if (status == ConnectStatusCode::GenericError) {
-        m_spLogger->warn("A connection with {} could not be established.",
-        event.GetRemoteAddress());
+        m_spLogger->warn("A connection with {} could not be established.", event.GetRemoteAddress());
+        IEndpoint::OnConnectFailed(event.GetRemoteAddress());
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::ProcessDispatchEvent(DispatchEvent const& event)
+void Network::TCP::Endpoint::OnDispatchEvent(DispatchEvent& event)
 {
     // If the message provided is empty, do not send anything
     auto const& spSession = event.GetSession();
@@ -379,13 +364,11 @@ std::shared_ptr<Network::TCP::Session> Network::TCP::Endpoint::CreateSession()
 {
     auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
 
-    spSession->OnMessageDispatched(
-        [this] (auto const& spSession) { OnMessageDispatched(spSession); });
+    spSession->OnMessageDispatched([this] (auto const& spSession) { OnMessageDispatched(spSession); });
     spSession->OnMessageReceived(
         [this] (auto const& spSession, auto const& source, auto message) -> bool
         { return OnMessageReceived(spSession, source, message); });
-    spSession->OnSessionError(
-        [this] (auto const& spSession) { OnSessionStopped(spSession); });
+    spSession->OnStopped([this] (auto const& spSession) { OnSessionStopped(spSession); });
 
     return spSession;
 }
@@ -394,23 +377,22 @@ std::shared_ptr<Network::TCP::Session> Network::TCP::Endpoint::CreateSession()
 
 bool Network::TCP::Endpoint::Bind(BindingAddress const& binding)
 {
-    auto const OnBindError = [&binding = m_binding, &acceptor = m_acceptor] () -> bool
+    assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
+
+    m_spLogger->info("Opening endpoint on {}.", binding);
+
+    auto const OnBindError = [&acceptor = m_acceptor] () -> bool
     {
-        binding = BindingAddress();
         acceptor.close();
         return false;
     };
 
-    m_spLogger->info("Opening endpoint on {}.", binding);
-
     if (m_acceptor.is_open()) { m_acceptor.cancel(); }
 
-    assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
     auto const components = Network::Socket::GetAddressComponents(binding);
     boost::system::error_code error;
     boost::asio::ip::tcp::endpoint endpoint(
-        boost::asio::ip::address::from_string(
-            std::string(components.ip.data(), components.ip.size())),
+        boost::asio::ip::address::from_string(std::string(components.ip.data(), components.ip.size())),
         components.GetPortNumber());
 
     m_acceptor.open(endpoint.protocol(), error);
@@ -428,17 +410,14 @@ bool Network::TCP::Endpoint::Bind(BindingAddress const& binding)
     m_acceptor.listen(boost::asio::ip::tcp::acceptor::max_connections, error);
     if (error) [[unlikely]] { return OnBindError(); }
 
-    {
-        std::scoped_lock lock(m_detailsMutex);
-        m_binding = binding;
-    }
+    assert(m_binding == binding); // Currently, we greedily set the binding in the scheduler. 
 
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::SocketProcessor Network::TCP::Endpoint::ListenProcessor()
+Network::TCP::SocketProcessor Network::TCP::Endpoint::Listener()
 {
     boost::system::error_code error;
     while (m_active) {
@@ -449,18 +428,14 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ListenProcessor()
 
         // Await the next connection request. 
         co_await m_acceptor.async_accept(
-            spSession->GetSocket(),
-            boost::asio::redirect_error(boost::asio::use_awaitable, error));
+            spSession->GetSocket(), boost::asio::redirect_error(boost::asio::use_awaitable, error));
 
         // If an error occured accepting the connect, log the error. 
         if (error) {
-            // If the error is caused by an intentional operation (i.e. shutdown), then don't 
-            // indicate an operational error has occured. 
+            // If the error is caused by an intentional operation (i.e. shutdown), then don't indicate an operational
+            // error has occured. 
             if (IsInducedError(error)) { co_return CompletionOrigin::Self; }
-
-            m_spLogger->error(
-                "An unexpected error occured while accepting a connection on {}!", m_binding);
-
+            m_spLogger->error("An unexpected error occured while accepting a connection on {}!", m_binding);
             co_return CompletionOrigin::Error;
         }
 
@@ -473,47 +448,43 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ListenProcessor()
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::ConnectStatusCode Network::TCP::Endpoint::Connect(
-    RemoteAddress const& address,
-    Node::SharedIdentifier const& spIdentifier)
+    RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier)
 {
-    if (!m_pPeerMediator) { return ConnectStatusCode::GenericError; }
+    using enum ConnectStatusCode;
+    if (!m_pPeerMediator) { return GenericError; }
 
-    auto const status = local::IsAllowableUri(address.GetUri(), m_pEndpointMediator, m_tracker);
-    if (status != ConnectStatusCode::Success) {
+    if (auto const status = local::IsAllowableUri(address, m_pEndpointMediator, m_tracker); status != Success) {
         switch (status) {
-            case ConnectStatusCode::DuplicateError: {
-                m_spLogger->debug("Ignoring duplicate connection attempt to {}.", address);
-            } break;
-            case ConnectStatusCode::ReflectionError: {
-                m_spLogger->debug("Ignoring reflective connection attempt to {}.", address);
-            } break;
+            case DuplicateError: { m_spLogger->debug("Ignoring duplicate connection attempt to {}.", address); } break;
+            case ReflectionError: { m_spLogger->debug("Ignoring reflective connection attempt to {}.", address); } break;
             default: assert(false); break;
         }
         return status;
     }
     
     boost::asio::co_spawn(
-        m_context, ConnectionProcessor(address, spIdentifier),
-        [spLogger = m_spLogger, address] (std::exception_ptr exception, TCP::CompletionOrigin origin)
+        m_context, Resolver(address, spIdentifier),
+        [this, address] (std::exception_ptr exception, TCP::CompletionOrigin origin)
         {
             bool const error = (exception || origin == CompletionOrigin::Error);
             if (error) {
-                spLogger->warn("Unable to connect to {} due to an unexpected error.", address);
+                m_spLogger->warn("Unable to connect to {} due to an unexpected error.", address);
+                IEndpoint::OnConnectFailed(address);
             }
         });
 
-    return ConnectStatusCode::Success;
+    return Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::SocketProcessor Network::TCP::Endpoint::ConnectionProcessor(
-    RemoteAddress address,
-    Node::SharedIdentifier spIdentifier)
+Network::TCP::SocketProcessor Network::TCP::Endpoint::Resolver(
+    RemoteAddress address, Node::SharedIdentifier spIdentifier)
 {
+    using namespace Network::Endpoint;
     boost::system::error_code error;
 
-    assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
+    assert(Network::Socket::ParseAddressType(address) != Socket::Type::Invalid);
     auto const [ip, port] = Network::Socket::GetAddressComponents(address);
     auto const endpoints = co_await m_resolver.async_resolve(
         ip, port, boost::asio::redirect_error(boost::asio::use_awaitable, error));
@@ -522,47 +493,39 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::ConnectionProcessor(
         co_return CompletionOrigin::Error;
     }
 
-    // Get the connection request message from the peer mediator. The mediator will decide 
-    // whether or not the address or identifier takes precedence when generating the message. 
-    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(
-        address, spIdentifier);
+    // Get the connection request message from the peer mediator. The mediator will decide whether or not the address 
+    // or identifier takes precedence when generating the message. 
+    std::optional<std::string> optConnectionRequest = m_pPeerMediator->DeclareResolvingPeer(address, spIdentifier);
 
-    // Currently, it is assumed that if we are not provided a connection request it implies
-    // that the connection process is on going. Another existing coroutine has been launched
-    // and is activley trying to establish a connection 
+    // Currently, it is assumed that if we are not provided a connection request it implies that the connection process
+    //  is on going. Another existing coroutine has been launched and is activley trying to establish a connection 
     if (!optConnectionRequest) { co_return CompletionOrigin::Self; }
 
     m_spLogger->info("Attempting a connection with {}.", address);
 
     auto const spSession = CreateSession();
 
-    // Start attempting the connection to the peer. If the connection fails for any reason,
-    // the connection processor will wait a period of time until retrying until the number
-    // of retries exceeds a predefined limit. 
+    // Start attempting the connection to the peer. If the connection fails for any reason, the connection processor 
+    // will wait a period of time until retrying until the number of retries exceeds a predefined limit. 
     std::uint32_t retries = 0;
     do {
         // Launch a connection attempt. 
         co_await boost::asio::async_connect(
-            spSession->GetSocket(),
-            endpoints,
-            boost::asio::redirect_error(boost::asio::use_awaitable, error));
+            spSession->GetSocket(), endpoints, boost::asio::redirect_error(boost::asio::use_awaitable, error));
     
         // If an error occurs, log a warning and wait some time be re-attempting. 
         if (error) {
+            m_spLogger->warn("Unable to connect to {}. Retrying in {} seconds", address, ConnectRetryThreshold);
+                
             boost::system::error_code timerError;
-            m_spLogger->warn(
-                "Unable to connect to {}. Retrying in {} seconds", address,
-                Network::Endpoint::ConnectRetryThreshold);
-            boost::asio::steady_timer timer(
-                m_context, std::chrono::seconds(Network::Endpoint::ConnectRetryThreshold));
-            co_await timer.async_wait(
-                boost::asio::redirect_error(boost::asio::use_awaitable, timerError));
+            boost::asio::steady_timer timer(m_context, std::chrono::seconds(ConnectRetryThreshold));
+            co_await timer.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, timerError));
+
             if (timerError) { retries = std::numeric_limits<std::uint32_t>::max(); }
         }
-    } while (error && ++retries < Network::Endpoint::ConnectRetryThreshold);
+    } while (error && ++retries < ConnectRetryThreshold);
 
-    // If a connection could still not be established after some retries, handle cleaning up
-    // the connection attempts. 
+    // If a connection could still not be established after some retries, handle cleaning up the connection attempts. 
     if (error) {
         m_pPeerMediator->UndeclareResolvingPeer(address); 
         if (error.value() == boost::asio::error::connection_refused) {
@@ -620,72 +583,61 @@ bool Network::TCP::Endpoint::OnMessageReceived(
     Node::Identifier const& source,
     std::span<std::uint8_t const> message)
 {
-    std::shared_ptr<Peer::Proxy> spPeerProxy = {};
-    auto const promotedHandler = [&spPeerProxy] (ExtendedConnectionDetails& details)
+    std::shared_ptr<Peer::Proxy> spProxy = {};
+    auto const promotedHandler = [&spProxy] (ExtendedConnectionDetails& details)
     {
-        spPeerProxy = details.GetPeerProxy();
+        spProxy = details.GetPeerProxy();
         details.IncrementMessageSequence();
     };
 
-    auto const unpromotedHandler = [this, &source, &spPeerProxy] (RemoteAddress const& address) 
-        -> ExtendedConnectionDetails
+    auto const unpromotedHandler = [this, &source, &spProxy] (RemoteAddress const& address) -> ExtendedConnectionDetails
     {
-        spPeerProxy = IEndpoint::LinkPeer(source, address);
+        spProxy = IEndpoint::LinkPeer(source, address);
         
-        ExtendedConnectionDetails details(spPeerProxy);
+        ExtendedConnectionDetails details(spProxy);
         details.SetConnectionState(ConnectionState::Connected);
         details.IncrementMessageSequence();
         
-        spPeerProxy->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
+        spProxy->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
 
         return details;
     };
 
-    // Update the information about the node as it pertains to received data. The node may not be
-    // found if this is its first connection.
+    // Update the information about the node as it pertains to received data. The node may not be found if this is 
+    // its first connection.
     m_tracker.UpdateOneConnection(spSession, promotedHandler, unpromotedHandler);
 
-    return spPeerProxy->ScheduleReceive(m_identifier, message);
+    return spProxy->ScheduleReceive(m_identifier, message);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::TCP::Endpoint::OnMessageDispatched(std::shared_ptr<Session> const& spSession)
 {
-    auto const updater = [] (ExtendedConnectionDetails& details)
-        { details.IncrementMessageSequence(); };
-
+    auto const updater = [] (ExtendedConnectionDetails& details) { details.IncrementMessageSequence(); };
     m_tracker.UpdateOneConnection(spSession, updater);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::ConnectStatusCode local::IsAllowableUri(
-    std::string_view uri,
+    Network::RemoteAddress const& address,
     IEndpointMediator const* const pEndpointMediator,
     Network::TCP::Endpoint::SessionTracker const& tracker)
 {
-    using namespace Network::TCP;
+    using enum Network::TCP::ConnectStatusCode;
 
-    // Determine if the provided URI matches any of the node's hosted entrypoints. If the URI 
-    // matched an entrypoint, the connection should not be allowed as it would be a connection
-    //  to oneself.
-    if (pEndpointMediator) {
-        auto const entries = pEndpointMediator->GetEndpointEntries();
-        for (auto const& [protocol, entry]: entries) {
-            if (auto const pos = uri.find(entry); pos != std::string::npos) {
-                return ConnectStatusCode::ReflectionError;
-            }
-        }
+    // Determine if the provided URI matches any of the node's hosted entrypoints. If the URI matched an entrypoint, 
+    // the connection should not be allowed as it would be a connection to oneself.
+    if (pEndpointMediator && pEndpointMediator->IsAddressRegistered(address)) [[likely]] {
+        return ReflectionError;
     }
 
-    // If the URI matches a currently connected or resolving peer. The connection
-    // should not be allowed as it break a valid connection. 
-    if (bool const tracked = tracker.IsUriTracked(uri); tracked) {
-        return ConnectStatusCode::DuplicateError;
-    }
+    // If the URI matches a currently connected or resolving peer. The connection should not be allowed as it break 
+    // a valid connection. 
+    if (tracker.IsUriTracked(address.GetUri())) { return DuplicateError; }
 
-    return ConnectStatusCode::Success;
+    return Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

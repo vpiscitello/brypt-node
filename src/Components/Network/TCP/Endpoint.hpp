@@ -48,7 +48,7 @@ class Network::TCP::Endpoint : public Network::IEndpoint
 public:
     using SessionTracker = ConnectionTracker<std::shared_ptr<Session>>;
 
-    explicit Endpoint(Operation operation);
+    Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher);
     ~Endpoint() override;
 
     // IEndpoint{
@@ -60,14 +60,11 @@ public:
     [[nodiscard]] virtual bool Shutdown() override;
     [[nodiscard]] virtual bool IsActive() const override;
 
-    virtual void ScheduleBind(BindingAddress const& binding) override;
-
-    virtual void ScheduleConnect(RemoteAddress const& address) override;
-    virtual void ScheduleConnect(RemoteAddress&& address) override;
-    virtual void ScheduleConnect(
-        RemoteAddress&& address,
-        Node::SharedIdentifier const& spIdentifier) override;
-
+    [[nodiscard]] virtual bool ScheduleBind(BindingAddress const& binding) override;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) override;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) override;
+    [[nodiscard]] virtual bool ScheduleConnect(
+        RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) override;
     [[nodiscard]] virtual bool ScheduleSend(
         Node::Identifier const& identifier, std::string_view message) override;
     // }IEndpoint
@@ -76,28 +73,23 @@ private:
     using ExtendedConnectionDetails = ConnectionDetails<void>;
 
     using EventDeque = std::deque<std::any>;
-    using EventProcessors = std::unordered_map<
-        std::type_index, std::function<void(std::any const&)>>;
+    using EventHandlers = std::unordered_map<std::type_index, std::function<void(std::any&)>>;
 
-    void ServerWorker(std::stop_token token);    
+    void ServerWorker(std::stop_token token);
     void ClientWorker(std::stop_token token);
 
     void ProcessEvents(std::stop_token token);
-    void ProcessBindEvent(BindEvent const& event);
-    void ProcessConnectEvent(ConnectEvent const& event);
-    void ProcessDispatchEvent(DispatchEvent const& event);
+    void OnBindEvent(BindEvent const& event);
+    void OnConnectEvent(ConnectEvent const& event);
+    void OnDispatchEvent(DispatchEvent& event);
 
     [[nodiscard]] std::shared_ptr<Session> CreateSession();
 
     [[nodiscard]] bool Bind(BindingAddress const& binding);
-    [[nodiscard]] SocketProcessor ListenProcessor();
+    [[nodiscard]] SocketProcessor Listener();
 
-    [[nodiscard]] ConnectStatusCode Connect(
-        RemoteAddress const& address,
-        Node::SharedIdentifier const& spIdentifier);
-    [[nodiscard]] SocketProcessor ConnectionProcessor(
-        RemoteAddress address,
-        Node::SharedIdentifier spIdentifier);
+    [[nodiscard]] ConnectStatusCode Connect(RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier);
+    [[nodiscard]] SocketProcessor Resolver(RemoteAddress address, Node::SharedIdentifier spIdentifier);
 
     void OnSessionStarted(std::shared_ptr<Session> const& spSession);
     void OnSessionStopped(std::shared_ptr<Session> const& spSession);
@@ -118,7 +110,7 @@ private:
     
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;
-    EventProcessors m_processors;
+    EventHandlers m_handlers;
 
     SessionTracker m_tracker;
 

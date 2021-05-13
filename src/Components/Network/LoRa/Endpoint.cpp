@@ -10,8 +10,8 @@
 #include "Components/Network/EndpointDefinitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::LoRa::Endpoint::Endpoint(Operation operation)
-    : IEndpoint(operation, Protocol::LoRa)
+Network::LoRa::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher)
+    : IEndpoint(Protocol::LoRa, operation, spEventPublisher)
 {
 }
 
@@ -87,8 +87,9 @@ bool Network::LoRa::Endpoint::IsActive() const
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] BindingAddress const& binding)
+bool Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] BindingAddress const& binding)
 {
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -96,10 +97,10 @@ void Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] BindingAddress const
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleConnect(RemoteAddress const& address)
+bool Network::LoRa::Endpoint::ScheduleConnect(RemoteAddress const& address)
 {
     RemoteAddress remote = address;
-    ScheduleConnect(std::move(remote));
+    return ScheduleConnect(std::move(remote));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -107,8 +108,9 @@ void Network::LoRa::Endpoint::ScheduleConnect(RemoteAddress const& address)
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] RemoteAddress&& address)
+bool Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] RemoteAddress&& address)
 {
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -116,10 +118,10 @@ void Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] RemoteAddress&& a
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-void Network::LoRa::Endpoint::ScheduleConnect(
-    [[maybe_unused]] RemoteAddress&& address,
-    [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
+bool Network::LoRa::Endpoint::ScheduleConnect(
+    [[maybe_unused]] RemoteAddress&& address, [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
 {
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

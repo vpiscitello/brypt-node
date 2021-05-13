@@ -4,9 +4,14 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Manager.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include "Address.hpp"
 #include "Endpoint.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+#include <algorithm>
+#include <ranges>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -14,7 +19,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-void ConnectBootstraps(Network::Manager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache);
+void ConnectBootstraps(std::unique_ptr<Network::IEndpoint> const& spEndpoint, IBootstrapCache const* const pCache);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -23,12 +28,25 @@ void ConnectBootstraps(Network::Manager::SharedEndpoint const& spEndpoint, IBoot
 
 Network::Manager::Manager(
     Configuration::EndpointsSet const& endpoints,
+    std::shared_ptr<Event::Publisher> const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
-    IBootstrapCache const* const pBootstrapCache)
-    : m_endpoints()
+    IBootstrapCache const* const pBootstrapCache,
+    RuntimeContext context)
+    : m_spEventPublisher(spEventPublisher)
+    , m_endpointsMutex()
+    , m_endpoints()
+    , m_cacheMutex()
     , m_protocols()
+    , m_bindings()
 {
-    Initialize(endpoints, pPeerMediator, pBootstrapCache);
+    assert(m_spEventPublisher);
+
+    // Register an listener for when endpoints report a stop, this handler will watch for any critical errpr states 
+    spEventPublisher->RegisterListener<Event::Type::EndpointStopped>(
+        [this, context] (Endpoint::Identifier, Protocol, Operation, ShutdownCause cause)
+        { OnEndpointShutdown(context, cause); });
+
+    Initialize(endpoints, spEventPublisher, pPeerMediator, pBootstrapCache);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -40,74 +58,82 @@ Network::Manager::~Manager()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Manager::EndpointEntryMap Network::Manager::GetEndpointEntries() const
+bool Network::Manager::IsAddressRegistered(Address const& address) const
 {
-    EndpointEntryMap entries;
-    for (auto const& [identifier, spEndpoint]: m_endpoints) {
-        if (spEndpoint) {
-            if (auto const binding = spEndpoint->GetBinding(); binding.IsValid()) {
-                entries.emplace(spEndpoint->GetProtocol(), binding.GetAuthority());
-            }
-        }
-    }
-    return entries;
+    std::shared_lock lock(m_cacheMutex);
+    auto const MatchBinding = [&address] (auto const& binding) -> bool { return address.equivalent(binding); };
+    constexpr auto ProjectBinding = [] (auto const& pair) -> auto { return pair.second; };
+    return std::ranges::any_of(m_bindings, MatchBinding, ProjectBinding);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Manager::EndpointUriSet Network::Manager::GetEndpointUris() const
+void Network::Manager::UpdateBinding(Endpoint::Identifier identifier, BindingAddress const& binding)
 {
-    EndpointUriSet uris;
-    for (auto const& [identifier, spEndpoint]: m_endpoints) {
-        if (spEndpoint) {
-            if (auto const binding = spEndpoint->GetBinding(); binding.IsValid()) {
-                uris.emplace(binding.GetUri());
-            }
-        }
+    auto const MatchIdentifier = [&identifier] (auto key) -> bool { return identifier == key; };
+    constexpr auto ProjectIdentifier = [] (auto const& pair) -> auto { return pair.first; };
+    
+    // Note: The BindingCache is optimized for faster lookup than updating the binding. The idea is that lookups 
+    // are a lot more common than registering or updating a binding. 
+    // If the identifier is found updated the associated binding. Otherwise, emplace a new cache item. 
+    std::scoped_lock lock(m_cacheMutex);
+    if (auto itr = std::ranges::find_if(m_bindings, MatchIdentifier, ProjectIdentifier); itr != m_bindings.end()) {
+        itr->second = binding;
+    } else {
+        m_bindings.emplace_back(identifier, binding);
     }
-    return uris;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::Manager::Startup()
 {
-    for (auto const& [identifier, spEndpoint]: m_endpoints) {
+    std::scoped_lock lock(m_endpointsMutex);
+    constexpr auto StartEndpoint = [] (auto const& spEndpoint)
+    {
+        assert(spEndpoint);
         spEndpoint->Startup();
-    }
+    };
+    std::ranges::for_each(m_endpoints | std::views::values, StartEndpoint);
+    // std::for_each(m_endpoints.begin(), m_endpoints.end(),
+    //     [] (auto identifier, auto const& spEndpoint) { spEndpoint->Startup(); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::Manager::Shutdown()
 {
-    for (auto const& [identifier, spEndpoint]: m_endpoints) {
-        if (spEndpoint) {
-            [[maybe_unused]] bool const bStopped = spEndpoint->Shutdown();
-        }
-    }
+    std::scoped_lock lock(m_endpointsMutex);
+    constexpr auto ShutdownEndpoint = [] (auto const& spEndpoint) 
+    {
+        assert(spEndpoint);
+        [[maybe_unused]] bool const stopped = spEndpoint->Shutdown();
+        assert(stopped);
+    };
+    std::ranges::for_each(m_endpoints | std::views::values, ShutdownEndpoint);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Network::Endpoint::Identifier identifier) const
+Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Endpoint::Identifier identifier) const
 {
-    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
-        return itr->second;
-    }
-    return nullptr;
+    std::shared_lock lock(m_endpointsMutex);
+    auto const itr = m_endpoints.find(identifier);
+    return (itr != m_endpoints.end()) ? itr->second : nullptr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(
-    Network::Protocol protocol, Network::Operation operation) const
+Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Protocol protocol, Operation operation) const
 {
-    for (auto const [identifier, spEndpoint]: m_endpoints) {
-        if (protocol == spEndpoint->GetProtocol() && operation == spEndpoint->GetOperation()) {
-            return spEndpoint;
-        }
-    }
+    std::shared_lock lock(m_endpointsMutex);
+    auto const FindEndpoint = [&protocol, &operation] (auto const& spEndpoint) -> bool
+    {
+        assert(spEndpoint);
+        return spEndpoint->GetProtocol() == protocol && operation == spEndpoint->GetOperation();
+    };
+    auto const view = m_endpoints | std::views::values;
+    if (auto const itr = std::ranges::find_if(view, FindEndpoint); itr != view.end()) { return *itr; }
     return nullptr;
 }
 
@@ -115,6 +141,7 @@ Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(
 
 Network::ProtocolSet Network::Manager::GetEndpointProtocols() const
 {
+    std::shared_lock lock(m_cacheMutex);
     return m_protocols;
 }
 
@@ -122,23 +149,27 @@ Network::ProtocolSet Network::Manager::GetEndpointProtocols() const
 
 std::size_t Network::Manager::ActiveEndpointCount() const
 {
-    std::uint32_t count = 0;
-    for (auto const& [identifier, spEndpoint] : m_endpoints) {
-        if (spEndpoint && spEndpoint->IsActive()) { ++count; }
-    }
-    return count;
+    std::shared_lock lock(m_endpointsMutex);
+    constexpr auto const IsActive = [] (auto const& spEndpoint) -> bool 
+    {
+        assert(spEndpoint);
+        return spEndpoint->IsActive();
+    };
+    return std::ranges::count_if(m_endpoints | std::views::values, IsActive);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::size_t Network::Manager::ActiveProtocolCount() const
 {
-    Network::ProtocolSet protocols;
-    for (auto const& [identifier, spEndpoint] : m_endpoints) {
-        if (spEndpoint && spEndpoint->IsActive()) {
-            protocols.emplace(spEndpoint->GetProtocol());
-        }
-    }
+    std::shared_lock lock(m_endpointsMutex);
+    ProtocolSet protocols;
+    auto const AppendActiveProtocol = [&protocols] (auto const& spEndpoint) 
+    {
+        assert(spEndpoint);
+        if (spEndpoint->IsActive()) { protocols.emplace(spEndpoint->GetProtocol()); }
+    };
+    std::ranges::for_each(m_endpoints | std::views::values, AppendActiveProtocol);
     return protocols.size();
 }
 
@@ -146,10 +177,11 @@ std::size_t Network::Manager::ActiveProtocolCount() const
 
 void Network::Manager::Initialize(
     Configuration::EndpointsSet const& endpoints,
+    std::shared_ptr<Event::Publisher> const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
-    std::scoped_lock lock(m_mutex);
+    std::scoped_lock lock(m_endpointsMutex, m_cacheMutex);
     // Iterate through the provided configurations to setup the endpoints for the given technolgy
     for (auto const& options: endpoints) {
         auto const protocol = options.GetProtocol();
@@ -158,8 +190,8 @@ void Network::Manager::Initialize(
         // to re-initilize a protocol as the endpoints should exist until appliction termination.
         if (auto const itr = m_protocols.find(protocol); itr == m_protocols.end()) {         
             switch (protocol) {
-                case Network::Protocol::TCP: {
-                    InitializeTCPEndpoints(options, pPeerMediator, pBootstrapCache);
+                case Protocol::TCP: {
+                    InitializeTCPEndpoints(options, spEventPublisher, pPeerMediator, pBootstrapCache);
                 } break;
                 default: break; // No other protocols have implemented endpoints
             }
@@ -171,48 +203,68 @@ void Network::Manager::Initialize(
 
 void Network::Manager::InitializeTCPEndpoints(
     Configuration::EndpointOptions const& options,
+    std::shared_ptr<Event::Publisher> const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
 {
-    assert(options.GetProtocol() == Network::Protocol::TCP);
+    assert(options.GetProtocol() == Protocol::TCP);
 
     // Add the server based endpoint
-    SharedEndpoint spServer = Network::Endpoint::Factory(
-        options.GetProtocol(), Network::Operation::Server, this, pPeerMediator);
-
-    spServer->ScheduleBind(options.GetBinding());
-
-    m_endpoints.emplace(spServer->GetEndpointIdentifier(), spServer);
-
-    // Add the client based endpoint
-    SharedEndpoint spClient = Network::Endpoint::Factory(
-        options.GetProtocol(), Network::Operation::Client, this, pPeerMediator);
-
-    if (pBootstrapCache) {
-        local::ConnectBootstraps(spClient, pBootstrapCache);
+    {
+        auto spServer = Endpoint::Factory(Protocol::TCP, Operation::Server, spEventPublisher, this, pPeerMediator);
+        bool const scheduled = spServer->ScheduleBind(options.GetBinding());
+        assert(scheduled);
+        m_endpoints.emplace(spServer->GetEndpointIdentifier(), std::move(spServer));
     }
 
-    m_endpoints.emplace(spClient->GetEndpointIdentifier(), spClient);
+    // Add the client based endpoint
+    {
+        auto spClient = Endpoint::Factory(Protocol::TCP, Operation::Client, spEventPublisher, this, pPeerMediator);
+        if (pBootstrapCache) { local::ConnectBootstraps(spClient, pBootstrapCache); }
+        m_endpoints.emplace(spClient->GetEndpointIdentifier(), std::move(spClient));
+    }
 
     m_protocols.emplace(options.GetProtocol());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Network::Manager::OnEndpointShutdown(RuntimeContext context, ShutdownCause cause)
+{
+    switch (cause) {
+        // Only binding failures that cause an endpoint shutdown ae handled as critical network errors if
+        // the process if in the foreground. Otherwise, the user can determine how to handle the failure. 
+        // (e.g. using a different binding, shutting down, etc.)
+        case ShutdownCause::BindingFailed: {
+            if (context == RuntimeContext::Foreground) { break; }
+        } return;
+        // Any unexpected errors that cause an endpoint shutdown are handled as critical network errors. 
+        case ShutdownCause::UnexpectedError: break;
+        case ShutdownCause::ShutdownRequest: return; // We can ignore requested shutdowns as they are procedural. 
+        default: assert(false); return; // What is this?
+    }
+
+    Shutdown(); // Shutdown all processing. The assumption being the user should investigate the cause. 
+    
+    // The reported shutdown has caused a critical network failure and can not be recovered from.
+    m_spEventPublisher->RegisterEvent<Event::Type::CriticalNetworkFailure>();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void local::ConnectBootstraps(
-    Network::Manager::SharedEndpoint const& spEndpoint, IBootstrapCache const* const pCache)
+    std::unique_ptr<Network::IEndpoint> const& upEndpoint, IBootstrapCache const* const pCache)
 {
     using namespace Network;
-    assert(spEndpoint && spEndpoint->GetOperation() == Operation::Client);
+    assert(upEndpoint && upEndpoint->GetOperation() == Operation::Client);
     assert(pCache);
 
     // Iterate through the provided bootstraps for the endpoint and schedule a connect
     // for each peer in the list.
-    pCache->ForEachCachedBootstrap(
-        spEndpoint->GetProtocol(), 
-        [&spEndpoint] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
+    pCache->ForEachCachedBootstrap(upEndpoint->GetProtocol(), 
+        [&upEndpoint] (RemoteAddress const& bootstrap) -> CallbackIteration
         {
-            spEndpoint->ScheduleConnect(bootstrap);
+            upEndpoint->ScheduleConnect(bootstrap);
             return CallbackIteration::Continue;
         });
 }

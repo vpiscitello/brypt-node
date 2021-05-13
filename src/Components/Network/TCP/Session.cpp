@@ -30,7 +30,7 @@ Network::TCP::Session::Session(
     , m_outgoing()
     , m_onDispatched()
     , m_onReceived()
-    , m_onError()
+    , m_onStopped()
     , m_spLogger(spLogger)
 {
     m_timer.expires_at(std::chrono::steady_clock::time_point::max());
@@ -80,9 +80,9 @@ void Network::TCP::Session::OnMessageReceived(MessageReceivedCallback const& cal
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::OnSessionError(SessionErrorCallback const& callback)
+void Network::TCP::Session::OnStopped(StoppedCallback const& callback)
 {
-    m_onError = callback;
+    m_onStopped = callback;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -116,8 +116,7 @@ void Network::TCP::Session::Start()
             bool const error = (exception || origin == CompletionOrigin::Error);
             if (error) { 
                 spLogger->error(
-                    "An unexpected error caused the receiver for {} to shutdown!",
-                    spContext->GetAddress());
+                    "An unexpected error caused the receiver for {} to shutdown!",spContext->GetAddress());
             }
         });
 
@@ -134,8 +133,7 @@ void Network::TCP::Session::Start()
             bool const error = (exception || origin == CompletionOrigin::Error);
             if (error) { 
                 spLogger->error(
-                    "An unexpected error caused the dispatcher for {} to shutdown!",
-                    spContext->GetAddress());
+                    "An unexpected error caused the dispatcher for {} to shutdown!", spContext->GetAddress());
             }
         });
 
@@ -179,6 +177,7 @@ Network::TCP::SocketProcessor Network::TCP::Session::Receiver()
     auto const ReceiveFixedHeaderData = [&, &socket = m_socket] () -> ReceiveResult
     {
         constexpr std::size_t ExpectedHeaderSize = MessageHeader::PeekableEncodedSize();
+
         // Reserve enough space in the receiving buffer for the message's header.
         buffer.reserve(MessageHeader::PeekableEncodedSize());
 
@@ -221,8 +220,8 @@ Network::TCP::SocketProcessor Network::TCP::Session::Receiver()
 
         m_spLogger->debug("Received {} bytes from {}.", buffer.size(), m_address);
         m_spLogger->trace("[{}] Received: {:p}...", m_address,
-            spdlog::to_hex(std::string_view(reinterpret_cast<char const*>(buffer.data()),
-                    std::min(buffer.size(), MessageHeader::MaximumEncodedSize()))));
+            spdlog::to_hex(std::string_view(reinterpret_cast<char const*>(
+                buffer.data()), std::min(buffer.size(), MessageHeader::MaximumEncodedSize()))));
 
         // Decode the buffer into the message buffer after the header bytes.
         auto const size = message.size();
@@ -239,9 +238,9 @@ Network::TCP::SocketProcessor Network::TCP::Session::Receiver()
     auto const OnReceiveError = [this] (boost::system::error_code const& error) -> CompletionOrigin
     {
         if (error) {
-            return OnSessionError(error);
+            return OnSocketError(error);
         } else {
-            OnSessionError("Message was unable to be parsed");
+            OnSocketError("Message was unable to be parsed");
             return CompletionOrigin::Error;
         }
     };
@@ -281,7 +280,7 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher()
                 boost::asio::redirect_error(boost::asio::use_awaitable, error));
             assert(sent == message.size());
 
-            if (error) { co_return OnSessionError(error); }
+            if (error) { co_return OnSocketError(error); }
 
             m_spLogger->debug("Dispatched {} bytes to {}.", message.size(), m_address);
             m_spLogger->trace("[{}] Dispatched: {:p}...", m_address, 
@@ -308,13 +307,13 @@ bool Network::TCP::Session::OnMessageReceived(std::span<std::uint8_t const> rece
 
     constexpr auto MessageUpperBound = std::numeric_limits<std::uint32_t>::max();
     if (receivable.size() > MessageUpperBound) [[unlikely]] {
-        OnSessionError("Message exceeded the maximum allowable size");
+        OnSocketError("Message exceeded the maximum allowable size");
         return false;
     }
     
     auto const optIdentifier = Message::PeekSource(receivable);
     if (!optIdentifier) [[unlikely]] {
-        OnSessionError("Message was unable to be parsed");
+        OnSocketError("Message was unable to be parsed");
         return false;
     }
 
@@ -323,23 +322,22 @@ bool Network::TCP::Session::OnMessageReceived(std::span<std::uint8_t const> rece
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::CompletionOrigin Network::TCP::Session::OnSessionError(
-    boost::system::error_code const& error)
+Network::TCP::CompletionOrigin Network::TCP::Session::OnSocketError(boost::system::error_code const& error)
 {
     // Determine if the error is expected from an intentional session shutdown.  
     if (IsInducedError(error)) {
-        m_onError(shared_from_this()); // Notify the endpoint.
+        m_onStopped(shared_from_this()); // Notify the endpoint.
         return CompletionOrigin::Self;
     }
 
     // Note: The next error handler will handle notifying the endpoint. 
     switch (error.value()) {
         case boost::asio::error::eof: {
-            OnSessionError("Session ended by peer", LogLevel::Warning);
+            OnSocketError("Session ended by peer", LogLevel::Warning);
             return CompletionOrigin::Peer;
         }
         default: {
-            OnSessionError("An unexpected socket error occured");
+            OnSocketError("An unexpected socket error occured");
             return CompletionOrigin::Error;
         }
     }
@@ -347,7 +345,7 @@ Network::TCP::CompletionOrigin Network::TCP::Session::OnSessionError(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::OnSessionError(std::string_view error, LogLevel level)
+void Network::TCP::Session::OnSocketError(std::string_view error, LogLevel level)
 {
     assert(error.size() != 0);
     spdlog::level::level_enum spdlogLevel= spdlog::level::err;
@@ -355,7 +353,7 @@ void Network::TCP::Session::OnSessionError(std::string_view error, LogLevel leve
         spdlogLevel = spdlog::level::warn;
     }
     m_spLogger->log(spdlogLevel, "{} on {}.", error, m_address);
-    m_onError(shared_from_this()); // Notify the endpoint.
+    m_onStopped(shared_from_this()); // Notify the endpoint.
     Stop(); // Stop the session processors. 
 }
 

@@ -19,7 +19,7 @@ constexpr Identifier InvalidIdentifier = std::numeric_limits<Identifier>::min();
 class IdentifierGenerator;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Network::Network namespace
+} // Network::Endpoint namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class Network::Endpoint::IdentifierGenerator

@@ -23,7 +23,7 @@ class Endpoint;
 class Network::LoRa::Endpoint : public Network::IEndpoint
 {
 public:
-    explicit Endpoint(Operation operation);
+    Endpoint(Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher);
     ~Endpoint() override;
 
     // IEndpoint{
@@ -35,12 +35,11 @@ public:
     virtual void Startup() override;
     virtual bool Shutdown() override;
     
-    virtual void ScheduleBind(BindingAddress const& binding) override;
-    virtual void ScheduleConnect(RemoteAddress const& address) override;
-    virtual void ScheduleConnect(RemoteAddress&& address) override;
-    virtual void ScheduleConnect(
-        RemoteAddress&& address,
-        Node::SharedIdentifier const& spIdentifier) override;
+    [[nodiscard]] virtual bool ScheduleBind(BindingAddress const& binding) override;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) override;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) override;
+    [[nodiscard]] virtual bool ScheduleConnect(
+        RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) override;
     virtual bool ScheduleSend(
         Node::Identifier const& identifier,
         std::string_view message) override;

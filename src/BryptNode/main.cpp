@@ -3,6 +3,7 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
+#include "RuntimeContext.hpp"
 #include "StartupOptions.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Configuration/Configuration.hpp"
@@ -54,7 +55,7 @@ std::int32_t main(std::int32_t argc, char** argv)
 
     IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spPersistor.get() : nullptr;
     auto const spNetworkManager = std::make_shared<Network::Manager>(
-        upConfig->GetEndpointOptions(), spPeerManager.get(), pBootstraps);
+        upConfig->GetEndpointOptions(), spEventPublisher, spPeerManager.get(), pBootstraps, RuntimeContext::Foreground);
 
     BryptNode alpha(
         upConfig, spEventPublisher, spNetworkManager, spPeerManager, spMessageCollector, spPersistor);

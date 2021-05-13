@@ -9,6 +9,7 @@
 #include "EndpointIdentifier.hpp"
 #include "Protocol.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Event/Events.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -16,6 +17,8 @@
 #include <string>
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
+
+namespace Event { class Publisher; }
 
 namespace Peer { class Proxy; }
 
@@ -34,59 +37,74 @@ namespace Network::Endpoint {
 std::unique_ptr<IEndpoint> Factory(
     Protocol protocol,
     Operation operation,
+    std::shared_ptr<Event::Publisher> const& spEventPublisher,
     IEndpointMediator const* const pEndpointMediator,
     IPeerMediator* const pPeerMediator);
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Network::Network namespace
+} // Network::Endpoint namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class Network::IEndpoint
 {
 public:
     IEndpoint(
-        Operation operation,
-        Network::Protocol protocol = Network::Protocol::Invalid);
+        Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher);
 
     virtual ~IEndpoint() = default;
 
-    virtual Network::Protocol GetProtocol() const = 0;
-    virtual std::string GetScheme() const = 0;
-    virtual BindingAddress GetBinding() const = 0;
+    [[nodiscard]] virtual Protocol GetProtocol() const = 0;
+    [[nodiscard]] virtual std::string GetScheme() const = 0;
+    [[nodiscard]] virtual BindingAddress GetBinding() const = 0;
 
     virtual void Startup() = 0;
-	virtual bool Shutdown() = 0;
-    virtual bool IsActive() const = 0;
+	[[nodiscard]] virtual bool Shutdown() = 0;
+    [[nodiscard]] virtual bool IsActive() const = 0;
 
-    virtual void ScheduleBind(BindingAddress const& binding) = 0;
+    [[nodiscard]] virtual bool ScheduleBind(BindingAddress const& binding) = 0;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) = 0;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) = 0;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) = 0;
     
-    virtual void ScheduleConnect(RemoteAddress const& address) = 0;
-    virtual void ScheduleConnect(RemoteAddress&& address) = 0;
-    virtual void ScheduleConnect(
-        RemoteAddress&& address,
-        Node::SharedIdentifier const& spIdentifier) = 0;
-
 	virtual bool ScheduleSend(
         Node::Identifier const& destination, std::string_view message) = 0;
 
-    Network::Endpoint::Identifier GetEndpointIdentifier() const;
-    Operation GetOperation() const;
+    [[nodiscard]] Endpoint::Identifier GetEndpointIdentifier() const;
+    [[nodiscard]] Operation GetOperation() const;
 
+    void RegisterEventPublisher(IEndpointMediator const* const pMediator);
     void RegisterMediator(IEndpointMediator const* const pMediator);
     void RegisterMediator(IPeerMediator* const pMediator);
 
 protected: 
-    std::shared_ptr<Peer::Proxy> LinkPeer(
-        Node::Identifier const& identifier, RemoteAddress const& address) const;
+    using ShutdownCause = Event::Message<Event::Type::EndpointStopped>::Cause;
+
+    std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const& identifier, RemoteAddress const& address) const;
+
+    void OnStarted() const;
+    void OnStopped() const;
+    void OnBindFailed(BindingAddress const& binding) const;
+    void OnConnectFailed(RemoteAddress const& address) const;
+    void OnUnexpectedError() const;
+
+    void OnBindingUpdated(BindingAddress const& binding);
+
+    void SetShutdownCause(ShutdownCause cause) const;
     
-    Network::Endpoint::Identifier const m_identifier;
-	Operation const m_operation;
+    Endpoint::Identifier const m_identifier;
     Network::Protocol const m_protocol;
+	Operation const m_operation;
 
     BindingAddress m_binding;
 
-    IEndpointMediator const* m_pEndpointMediator;
+    std::shared_ptr<Event::Publisher> m_spEventPublisher;
+
+    IEndpointMediator* m_pEndpointMediator;
     IPeerMediator* m_pPeerMediator;
+
+private:
+    // Note: This is mutable because we shouldn't prevent capturing an error that occurs in a const method. 
+    mutable std::optional<ShutdownCause> m_optShutdownCause;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

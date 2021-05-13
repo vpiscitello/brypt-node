@@ -40,10 +40,8 @@ class Network::TCP::Session : public std::enable_shared_from_this<Session>
 public:
     using MessageDispatchedCallback = std::function<void(std::shared_ptr<Session> const&)>;
     using MessageReceivedCallback = std::function<bool(
-        std::shared_ptr<Session> const&,
-        Node::Identifier const&,
-        std::span<std::uint8_t const> message)>;
-    using SessionErrorCallback = std::function<void(std::shared_ptr<Session> const&)>;
+        std::shared_ptr<Session> const&, Node::Identifier const&, std::span<std::uint8_t const> message)>;
+    using StoppedCallback = std::function<void(std::shared_ptr<Session> const&)>;
     
     Session(boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& spLogger);
     ~Session();
@@ -54,7 +52,7 @@ public:
 
     void OnMessageDispatched(MessageDispatchedCallback const& callback);
     void OnMessageReceived(MessageReceivedCallback const& callback);
-    void OnSessionError(SessionErrorCallback const& callback);
+    void OnStopped(StoppedCallback const& callback);
     
     void Initialize(Operation source);
     void Start();
@@ -70,8 +68,8 @@ private:
 
     [[nodiscard]] bool OnMessageReceived(std::span<std::uint8_t const> receivable);
     
-    [[nodiscard]] CompletionOrigin OnSessionError(boost::system::error_code const& error);
-    void OnSessionError(std::string_view error, LogLevel level = LogLevel::Default);
+    [[nodiscard]] CompletionOrigin OnSocketError(boost::system::error_code const& error);
+    void OnSocketError(std::string_view error, LogLevel level = LogLevel::Default);
 
     std::atomic_bool m_active;
     RemoteAddress m_address;
@@ -83,7 +81,7 @@ private:
 
     MessageDispatchedCallback m_onDispatched;
     MessageReceivedCallback m_onReceived;
-    SessionErrorCallback m_onError;
+    StoppedCallback m_onStopped;
 
     std::shared_ptr<spdlog::logger> m_spLogger;
 };

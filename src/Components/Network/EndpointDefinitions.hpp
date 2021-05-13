@@ -25,5 +25,5 @@ constexpr std::chrono::seconds ConnectRetryTimeout = std::chrono::seconds(5);
 constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::nanoseconds(1000); 
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Network::Network namespace
+} // Network::Endpoint namespace
 //----------------------------------------------------------------------------------------------------------------------

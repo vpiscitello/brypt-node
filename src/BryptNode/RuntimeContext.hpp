@@ -1,23 +1,12 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: IEndpointMediator.hpp
-// Description: 
+// File: RuntimeContext.hpp
+// Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Components/Network/EndpointIdentifier.hpp"
+#include <cstdint>
 //----------------------------------------------------------------------------------------------------------------------
 
-namespace Network { class Address; class BindingAddress; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class IEndpointMediator
-{
-public:
-    virtual ~IEndpointMediator() = default;
-
-    [[nodiscard]] virtual bool IsAddressRegistered(Network::Address const& address) const = 0;
-    virtual void UpdateBinding(Network::Endpoint::Identifier identifier, Network::BindingAddress const& binding) = 0;
-};
+enum class RuntimeContext : std::uint32_t { Background, Foreground };
 
 //----------------------------------------------------------------------------------------------------------------------
