@@ -17,7 +17,7 @@ std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
     Protocol protocol,
     Operation operation,
     std::shared_ptr<Event::Publisher> const& spEventPublisher,
-    IEndpointMediator const* const pEndpointMediator,
+    IEndpointMediator* const pEndpointMediator,
     IPeerMediator* const pPeerMediator)
 {
     std::unique_ptr<IEndpoint> upEndpoint;
@@ -72,7 +72,7 @@ Network::Operation Network::IEndpoint::GetOperation() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::IEndpoint::RegisterMediator(IEndpointMediator const* const pMediator)
+void Network::IEndpoint::RegisterMediator(IEndpointMediator* const pMediator)
 {
     assert(!IsActive());
     m_pEndpointMediator = pMediator;
@@ -97,7 +97,6 @@ void Network::IEndpoint::OnStarted() const
 
 void Network::IEndpoint::OnStopped() const
 {
-    assert(m_binding.IsValid());
     m_spEventPublisher->RegisterEvent<Event::Type::EndpointStopped>(
         { m_identifier, m_protocol, m_operation, m_optShutdownCause.value_or(ShutdownCause::ShutdownRequest) });
 }
@@ -106,7 +105,7 @@ void Network::IEndpoint::OnStopped() const
 
 void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
 {
-    assert(m_operation != Operation::Client);
+    assert(m_operation == Operation::Server);
     SetShutdownCause(ShutdownCause::BindingFailed);
     m_spEventPublisher->RegisterEvent<Event::Type::BindingFailed>({ binding });
 }
@@ -115,7 +114,7 @@ void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
 
 void Network::IEndpoint::OnConnectFailed(RemoteAddress const& address) const
 {
-    assert(m_operation != Operation::Server);
+    assert(m_operation == Operation::Client);
     m_spEventPublisher->RegisterEvent<Event::Type::ConnectionFailed>({ address });
 }
 

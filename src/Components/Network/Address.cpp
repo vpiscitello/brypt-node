@@ -433,8 +433,7 @@ Network::Socket::Components Network::Socket::GetAddressComponents(Address const&
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Socket::Components::Components(
-    std::string_view const& primary, std::string_view const& secondary)
+Network::Socket::Components::Components(std::string_view const& primary, std::string_view const& secondary)
     : ip(primary)
     , port(secondary)
 {
@@ -458,19 +457,15 @@ std::string_view const& Network::Socket::Components::GetPort() const
 
 std::uint16_t Network::Socket::Components::GetPortNumber() const
 {
-    try {
-        return boost::lexical_cast<std::uint16_t>(port);
-    } catch (...) {
-        return 0;
-    }
+    try { return boost::lexical_cast<std::uint16_t>(port); }
+    catch (...) { return 0; }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 // } Network::SocketComponents
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string local::BuildBindingUri(
-    Network::Protocol protocol, std::string_view uri, std::string_view interface)
+std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view uri, std::string_view interface)
 {
     if (protocol == Network::Protocol::Invalid || uri.empty() || interface.empty()) { return {}; }
 

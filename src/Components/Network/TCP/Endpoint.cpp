@@ -186,7 +186,7 @@ bool Network::TCP::Endpoint::IsActive() const
 
 bool Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
 {
-    assert(m_operation != Operation::Server);
+    assert(m_operation == Operation::Server);
     assert(binding.IsValid());
     assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
 
@@ -199,7 +199,6 @@ bool Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
     // Greedily set the entry to the provided binding to prevent reflection connections on startup. If the binding 
     // fails or changes, it will be updated by the thread. 
     m_binding = binding;
-    IEndpoint::OnBindingUpdated(binding);
 
     return true;
 }
@@ -223,7 +222,7 @@ bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address)
 
 bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
 {
-    assert(m_operation != Operation::Server);
+    assert(m_operation == Operation::Client);
     assert(address.IsValid() && address.IsBootstrapable());
     assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
 

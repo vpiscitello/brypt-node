@@ -27,8 +27,8 @@ Peer::Proxy::Proxy(Node::Identifier const& identifier, IPeerMediator* const pPee
     , m_receiverMutex()
     , m_pMessageSink()
 {
-    // A Brypt Peer must always be constructed with an identifier that can uniquely identify the peer. 
-    assert(!identifier.IsValid() || Node::IsIdentifierReserved(identifier));
+    // We must always be constructed with an identifier that can uniquely identify the peer. 
+    assert(identifier.IsValid() && !Node::IsIdentifierReserved(identifier));
     m_spNodeIdentifier = std::make_shared<Node::Identifier const>(identifier);
 }
 

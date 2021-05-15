@@ -38,7 +38,7 @@ std::unique_ptr<IEndpoint> Factory(
     Protocol protocol,
     Operation operation,
     std::shared_ptr<Event::Publisher> const& spEventPublisher,
-    IEndpointMediator const* const pEndpointMediator,
+    IEndpointMediator* const pEndpointMediator,
     IPeerMediator* const pPeerMediator);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -72,8 +72,7 @@ public:
     [[nodiscard]] Endpoint::Identifier GetEndpointIdentifier() const;
     [[nodiscard]] Operation GetOperation() const;
 
-    void RegisterEventPublisher(IEndpointMediator const* const pMediator);
-    void RegisterMediator(IEndpointMediator const* const pMediator);
+    void RegisterMediator(IEndpointMediator* const pMediator);
     void RegisterMediator(IPeerMediator* const pMediator);
 
 protected: 

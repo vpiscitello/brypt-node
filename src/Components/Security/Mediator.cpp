@@ -106,12 +106,11 @@ Security::State Security::Mediator::GetSecurityState() const
 
 void Security::Mediator::BindPeer(std::shared_ptr<Peer::Proxy> const& spPeerProxy)
 {
+    assert(m_upStrategy || m_upExchangeProcessor);
+    assert(spPeerProxy);
+    assert(!m_spPeerProxy);
+
     std::scoped_lock lock(m_mutex);
-
-    assert(!m_upStrategy && !m_upExchangeProcessor);
-    assert(!spPeerProxy);
-    assert(m_spPeerProxy);
-
     // Capture the bound peer in order to manage the security process and to ensure the bind 
     // method is not called multuple times. 
     m_spPeerProxy = spPeerProxy;

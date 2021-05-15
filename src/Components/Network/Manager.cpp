@@ -70,18 +70,9 @@ bool Network::Manager::IsAddressRegistered(Address const& address) const
 
 void Network::Manager::UpdateBinding(Endpoint::Identifier identifier, BindingAddress const& binding)
 {
-    auto const MatchIdentifier = [&identifier] (auto key) -> bool { return identifier == key; };
-    constexpr auto ProjectIdentifier = [] (auto const& pair) -> auto { return pair.first; };
-    
-    // Note: The BindingCache is optimized for faster lookup than updating the binding. The idea is that lookups 
-    // are a lot more common than registering or updating a binding. 
-    // If the identifier is found updated the associated binding. Otherwise, emplace a new cache item. 
     std::scoped_lock lock(m_cacheMutex);
-    if (auto itr = std::ranges::find_if(m_bindings, MatchIdentifier, ProjectIdentifier); itr != m_bindings.end()) {
-        itr->second = binding;
-    } else {
-        m_bindings.emplace_back(identifier, binding);
-    }
+    UpdateBindingCache(identifier, binding);
+
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -95,8 +86,6 @@ void Network::Manager::Startup()
         spEndpoint->Startup();
     };
     std::ranges::for_each(m_endpoints | std::views::values, StartEndpoint);
-    // std::for_each(m_endpoints.begin(), m_endpoints.end(),
-    //     [] (auto identifier, auto const& spEndpoint) { spEndpoint->Startup(); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -214,6 +203,10 @@ void Network::Manager::InitializeTCPEndpoints(
         auto spServer = Endpoint::Factory(Protocol::TCP, Operation::Server, spEventPublisher, this, pPeerMediator);
         bool const scheduled = spServer->ScheduleBind(options.GetBinding());
         assert(scheduled);
+        // Cache the binding such that clients can check the anticipated bindings before servers report an update.
+        // This method is used over UpdateBinding because the shared lock is preferable to a recursive lock given 
+        // reads are more common. This is the work around to reacquiring the lock made during initialization. 
+        UpdateBindingCache(spServer->GetEndpointIdentifier(), options.GetBinding());
         m_endpoints.emplace(spServer->GetEndpointIdentifier(), std::move(spServer));
     }
 
@@ -225,6 +218,23 @@ void Network::Manager::InitializeTCPEndpoints(
     }
 
     m_protocols.emplace(options.GetProtocol());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::Manager::UpdateBindingCache(Endpoint::Identifier identifier, BindingAddress const& binding)
+{
+    auto const MatchIdentifier = [&identifier] (auto key) -> bool { return identifier == key; };
+    constexpr auto ProjectIdentifier = [] (auto const& pair) -> auto { return pair.first; };
+    
+    // Note: The BindingCache is optimized for faster lookup than updating the binding. The idea is that lookups 
+    // are a lot more common than registering or updating a binding. 
+    // If the identifier is found updated the associated binding. Otherwise, emplace a new cache item. 
+    if (auto itr = std::ranges::find_if(m_bindings, MatchIdentifier, ProjectIdentifier); itr != m_bindings.end()) {
+        itr->second = binding;
+    } else {
+        m_bindings.emplace_back(identifier, binding);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

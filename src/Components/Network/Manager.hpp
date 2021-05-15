@@ -88,6 +88,8 @@ private:
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
 
+    void UpdateBindingCache(Endpoint::Identifier identifier, BindingAddress const& binding);
+
     void OnEndpointShutdown(RuntimeContext context, ShutdownCause cause);
 
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
