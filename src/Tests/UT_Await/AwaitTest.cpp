@@ -7,6 +7,7 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -54,12 +55,11 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -68,9 +68,7 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
             EXPECT_TRUE(optMessage);
 
             Message::ValidationStatus status = optMessage->Validate();
-            if (status != Message::ValidationStatus::Success) {
-                return false;
-            }
+            if (status != Message::ValidationStatus::Success) { return false; }
             optFulfilledResponse = optMessage;
             return true;
         });
@@ -121,12 +119,11 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress, 
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -153,9 +150,7 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     auto const spSecondIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
     Await::ResponseTracker tracker(
-        spClientPeer,
-        *optRequest,
-        { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
+        spClientPeer, *optRequest, { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
 
     auto const initialResponseStatus = tracker.CheckResponseStatus();
     EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Unfulfilled);
@@ -211,12 +206,11 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -225,9 +219,7 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
             EXPECT_TRUE(optMessage);
 
             Message::ValidationStatus status = optMessage->Validate();
-            if (status != Message::ValidationStatus::Success) {
-                return false;
-            }
+            if (status != Message::ValidationStatus::Success) { return false; }
             optFulfilledResponse = optMessage;
             return true;
         });
@@ -267,12 +259,11 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -300,9 +291,7 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
     auto const spSecondIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
     Await::ResponseTracker tracker(
-        spClientPeer,
-        *optRequest,
-        { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
+        spClientPeer, *optRequest, { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
 
     auto const initialResponseStatus = tracker.CheckResponseStatus();
     EXPECT_EQ(initialResponseStatus, Await::ResponseStatus::Unfulfilled);
@@ -352,12 +341,11 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -366,9 +354,7 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
             EXPECT_TRUE(optMessage);
 
             Message::ValidationStatus status = optMessage->Validate();
-            if (status != Message::ValidationStatus::Success) {
-                return false;
-            }
+            if (status != Message::ValidationStatus::Success) { return false; }
             optFulfilledResponse = optMessage;
             return true;
         });
@@ -412,12 +398,11 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -426,9 +411,7 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
             EXPECT_TRUE(optMessage);
 
             Message::ValidationStatus status = optMessage->Validate();
-            if (status != Message::ValidationStatus::Success) {
-                return false;
-            }
+            if (status != Message::ValidationStatus::Success) { return false; }
             optFulfilledResponse = optMessage;
             return true;
         });
@@ -467,12 +450,11 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
-    spClientPeer->RegisterEndpoint(
+    spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
@@ -481,9 +463,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
             EXPECT_TRUE(optMessage);
 
             Message::ValidationStatus status = optMessage->Validate();
-            if (status != Message::ValidationStatus::Success) {
-                return false;
-            }
+            if (status != Message::ValidationStatus::Success) { return false; }
             optFulfilledResponse = optMessage;
             return true;
         });
@@ -501,9 +481,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
 
     Await::TrackingManager manager;
     auto const key = manager.PushRequest(
-        spClientPeer,
-        *optRequest,
-        { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
+        spClientPeer, *optRequest, { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
     EXPECT_GT(key, std::uint32_t(0));
 
     auto const optResponse = ApplicationMessage::Builder()
@@ -554,12 +532,9 @@ MessageContext local::GenerateMessageContext()
             { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type 
-            { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type 
-            { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type 
-            { return 0; });
+        [] (auto&) -> Security::Signator::result_type  { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 
     return context;
 }

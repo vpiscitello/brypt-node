@@ -15,6 +15,7 @@
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/Z85.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -91,20 +92,15 @@ public:
     virtual Security::SynchronizationResult PrepareSynchronization() override;
     virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override;
 
-    virtual Security::OptionalBuffer Encrypt(
-        Security::ReadableView, std::uint64_t) const override;
-    virtual Security::OptionalBuffer Decrypt(
-        Security::ReadableView, std::uint64_t) const override;
+    virtual Security::OptionalBuffer Encrypt(Security::ReadableView, std::uint64_t) const override;
+    virtual Security::OptionalBuffer Decrypt(Security::ReadableView, std::uint64_t) const override;
 
     virtual std::int32_t Sign(Security::Buffer&) const override;
     virtual Security::VerificationStatus Verify(Security::ReadableView) const override;
 
 private: 
-    virtual std::int32_t Sign(
-        Security::ReadableView, Security::Buffer&) const override;
-
-    virtual Security::OptionalBuffer GenerateSignature(
-        Security::ReadableView, Security::ReadableView) const override;
+    virtual std::int32_t Sign(Security::ReadableView, Security::Buffer&) const override;
+    virtual Security::OptionalBuffer GenerateSignature(Security::ReadableView, Security::ReadableView) const override;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -150,7 +146,7 @@ TEST(SecurityMediatorSuite, ExchangeProcessorLifecycleTest)
 
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-    spPeerProxy->RegisterEndpoint(registration);
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
 
     auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
@@ -184,7 +180,7 @@ TEST(SecurityMediatorSuite, SuccessfulExchangeTest)
 
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-    spPeerProxy->RegisterEndpoint(registration);
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
 
     auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
@@ -224,7 +220,7 @@ TEST(SecurityMediatorSuite, FailedExchangeTest)
 
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, {});
     upSecurityMediator->BindSecurityContext(registration.GetWritableMessageContext());
-    spPeerProxy->RegisterEndpoint(registration);
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
     
     auto const optMessage = NetworkMessage::Builder()
         .SetSource(*test::ServerIdentifier)
@@ -270,14 +266,13 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteServerAddress,
-            [&spServerPeer] (
-                [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spServerPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
                 return spServerPeer->ScheduleReceive(test::EndpointIdentifier, message);
             });
 
         upClientMediator->BindSecurityContext(registration.GetWritableMessageContext());
-        spClientPeer->RegisterEndpoint(registration);
+        spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(registration);
     }
 
     // Setup the servers's view of the exchange.
@@ -291,14 +286,13 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteClientAddress,
-            [&spClientPeer] (
-                [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spClientPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
                 return spClientPeer->ScheduleReceive(test::EndpointIdentifier, message);
             });
 
         upServerMediator->BindSecurityContext(registration.GetWritableMessageContext());
-        spServerPeer->RegisterEndpoint(registration);
+        spServerPeer->RegisterSilentEndpoint<InvokeContext::Test>(registration);
     }
 
     // Setup an exchange through the mediator as the initiator

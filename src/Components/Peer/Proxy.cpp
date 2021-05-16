@@ -309,3 +309,35 @@ bool Peer::Proxy::IsAuthorized() const
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+template <>
+void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(Registration const& registration)
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    m_endpoints.try_emplace(registration.GetEndpointIdentifier(), registration);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
+    Network::Endpoint::Identifier identifier,
+    Network::Protocol protocol,
+    Network::RemoteAddress const& address,
+    MessageScheduler const& scheduler)
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    m_endpoints.try_emplace(identifier, identifier, protocol, address, scheduler);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+void Peer::Proxy::WithdrawSilentEndpoint<InvokeContext::Test>(
+    Network::Endpoint::Identifier identifier, [[maybe_unused]] Network::Protocol protocol)
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    m_endpoints.erase(identifier);
+}
+
+//----------------------------------------------------------------------------------------------------------------------

@@ -69,49 +69,44 @@ Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
 {
     std::scoped_lock resolvingLock(m_resolvingMutex);
 
-    // Disallow endpoints from connecting to the same uri. If an endpoint has connection retry
-    // logic, it should store the connection request message. However, there exists a race 
-    // condition when the peer wakes up while the endpoint is still not sure a peer exists 
-    // at that particular uri. In this case the peer may send a bootstrap request causing the 
-    // endpoint to check if we are currently resolving that uri. 
+    // Disallow endpoints from connecting to the same uri. If an endpoint has connection retry logic, it should store
+    // the connection request message. However, there exists a race  condition when the peer wakes up while the endpoint
+    // is still not sure a peer exists at that particular uri. In this case the peer may send a bootstrap request causing 
+    // the endpoint to check if we are currently resolving that uri. 
     if (auto const itr = m_resolving.find(address); itr != m_resolving.end()) { return {}; }
 
-    // If the we are provided an identifier for the peer, prefer short circuiting the exchange 
-    // and send a hearbeat request to instantiate the endpoint's connection. Otherwise, a new
-    // security mediator needs to be created and an exchange to be intialized. 
+    // If the we are provided an identifier for the peer, prefer short circuiting the exchange and send a hearbeat 
+    // request to instantiate the endpoint's connection. Otherwise, a new security mediator needs to be created and an 
+    // exchange to be intialized. 
     if (spPeerIdentifier) {
         assert(spPeerIdentifier->IsValid());
         std::scoped_lock peersLock(m_peersMutex);
         // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
         // Otherwise, we should fallthrough to generate an exchange handler. 
-        if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalValue()); itr != m_peers.end()) {
-            // Generate the heartbeat request.
-            auto const optRequest = NetworkMessage::Builder()
-                .SetSource(*m_spNodeIdentifier)
-                .SetDestination(*spPeerIdentifier)
-                .MakeHeartbeatRequest()
-                .ValidatedBuild();
-            assert(optRequest);
-
-            return optRequest->GetPack();
-        }
-    } else {
-        auto upSecurityMediator = std::make_unique<Security::Mediator>(
-            m_spNodeIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
-
-        auto const optRequest = upSecurityMediator->SetupExchangeInitiator(m_strategyType, m_spConnectProtocol);
+        if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalValue()); itr == m_peers.end()) { return {}; }
+        // Generate the heartbeat request.
+        auto const optRequest = NetworkMessage::Builder()
+            .SetSource(*m_spNodeIdentifier)
+            .SetDestination(*spPeerIdentifier)
+            .MakeHeartbeatRequest()
+            .ValidatedBuild();
         assert(optRequest);
-        
-        // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
-        // to the full peer proxy
-        if (optRequest) { m_resolving[address] = std::move(upSecurityMediator); }
 
-        // Return the ticket number and the initial connection message
-        return optRequest;  
+        return optRequest->GetPack();
     }
+    
+    auto upSecurityMediator = std::make_unique<Security::Mediator>(
+        m_spNodeIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
-    assert(false); // What condition causes both generators to fallthrough? 
-    return {};
+    auto const optRequest = upSecurityMediator->SetupExchangeInitiator(m_strategyType, m_spConnectProtocol);
+    assert(optRequest);
+    
+    // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
+    // to the full peer proxy
+    if (optRequest) { m_resolving[address] = std::move(upSecurityMediator); }
+
+    // Return the ticket number and the initial connection message
+    return optRequest;  
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -129,43 +124,37 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
     Node::Identifier const& identifier, Network::RemoteAddress const& address)
 {
     std::shared_ptr<Peer::Proxy> spPeerProxy = {};
+    std::scoped_lock peersLock(m_peersMutex);
+    // If the provided peer has an identifier that matches an already tracked peer, the tracked peer needs to be 
+    // returned to the caller. 
+    // Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
+    if(auto const itr = m_peers.find(identifier.GetInternalValue()); itr != m_peers.end()) {
+        m_resolving.erase(address); // Ensure the provided address is not marked as resolving.
+        m_peers.modify(itr, [&spPeerProxy](std::shared_ptr<Peer::Proxy>& spTrackedPeer)
+            { assert(spTrackedPeer);  spPeerProxy = spTrackedPeer; });
+    } else {
+        // Make a peer proxy that can be shared with the endpoint. 
+        spPeerProxy = std::make_shared<Peer::Proxy>(identifier, this);
 
-    {
-        std::scoped_lock peersLock(m_peersMutex);
-        // If the provided peer has an identifier that matches an already tracked peer, the 
-        // tracked peer needs to be returned to the caller. 
-        // Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
-        if(auto const itr = m_peers.find(identifier.GetInternalValue()); itr != m_peers.end()) {
-            m_resolving.erase(address); // Ensure the provided address is not marked as resolving.
-            m_peers.modify(itr, [&spPeerProxy](std::shared_ptr<Peer::Proxy>& spTrackedPeer)
-            {
-                assert(spTrackedPeer);  // The tracked peer should always exist while in the container. 
-                spPeerProxy = spTrackedPeer;
-            });
+        // If the endpoint has a resolving ticket it means that we initiated the connection and we need
+        // to move the SecurityStrategy out of the resolving map and give it to the SecurityMediator. 
+        // Otherwise, it is assumed are accepting the connection and we need to make an accepting strategy.
+        std::unique_ptr<Security::Mediator> upSecurityMediator;
+        if (auto itr = m_resolving.find(address); itr != m_resolving.end()) {
+            std::scoped_lock resolvingLock(m_resolvingMutex);
+            upSecurityMediator = std::move(itr->second);
+            m_resolving.erase(itr);
         } else {
-            // Make a peer proxy that can be shared with the endpoint. 
-            spPeerProxy = std::make_shared<Peer::Proxy>(identifier, this);
+            upSecurityMediator = std::make_unique<Security::Mediator>(
+                m_spNodeIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
 
-            // If the endpoint has a resolving ticket it means that we initiated the connection and we need
-            // to move the SecurityStrategy out of the resolving map and give it to the SecurityMediator. 
-            // Otherwise, it is assumed are accepting the connection and we need to make an accepting strategy.
-            std::unique_ptr<Security::Mediator> upSecurityMediator;
-            if (auto itr = m_resolving.find(address); itr != m_resolving.end()) {
-                std::scoped_lock resolvingLock(m_resolvingMutex);
-                upSecurityMediator = std::move(itr->second);
-                m_resolving.erase(itr);
-            } else {
-                upSecurityMediator = std::make_unique<Security::Mediator>(
-                    m_spNodeIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
-
-                bool const success = upSecurityMediator->SetupExchangeAcceptor(m_strategyType);
-                if (!success) {  return {}; }
-            }
-            
-            spPeerProxy->AttachSecurityMediator(std::move(upSecurityMediator));
-
-            m_peers.emplace(spPeerProxy);
+            bool const success = upSecurityMediator->SetupExchangeAcceptor(m_strategyType);
+            if (!success) {  return {}; }
         }
+        
+        spPeerProxy->AttachSecurityMediator(std::move(upSecurityMediator));
+
+        m_peers.emplace(spPeerProxy);
     }
 
     return spPeerProxy;

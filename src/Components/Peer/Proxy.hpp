@@ -13,6 +13,7 @@
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/MessageSink.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
 #include <memory>
@@ -90,6 +91,21 @@ public:
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;
     // } Security Methods
+
+    // Testing Methods {
+    template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
+    void RegisterSilentEndpoint(Registration const& registration);
+
+    template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
+    void RegisterSilentEndpoint(
+        Network::Endpoint::Identifier identifier,
+        Network::Protocol protocol,
+        Network::RemoteAddress const& address = {},
+        MessageScheduler const& scheduler = {});
+
+    template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
+    void WithdrawSilentEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
+    // } Testing Methods
     
 private:
     using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;

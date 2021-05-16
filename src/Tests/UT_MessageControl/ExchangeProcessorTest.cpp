@@ -9,6 +9,7 @@
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/ExchangeObserver.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -112,12 +113,11 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     {
         // Make the client peer and register a mock endpoint to handle exchange messages.
         spClientPeer = std::make_shared<Peer::Proxy>(*test::ServerIdentifier);
-        spClientPeer->RegisterEndpoint(
+        spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteServerAddress,
-            [&spServerPeer] (
-                [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spServerPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
                 return spServerPeer->ScheduleReceive(test::EndpointIdentifier, message);
             });
@@ -143,12 +143,11 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     {
         // Make the server peer and register a mock endpoint to handle exchange messages.
         spServerPeer = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
-        spServerPeer->RegisterEndpoint(
+        spServerPeer->RegisterSilentEndpoint<InvokeContext::Test>(
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteClientAddress,
-            [&spClientPeer] (
-                [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spClientPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
             {
                 return spClientPeer->ScheduleReceive(test::EndpointIdentifier, message);
             });

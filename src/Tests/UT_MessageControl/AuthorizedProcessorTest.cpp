@@ -6,6 +6,7 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -57,7 +58,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
-    spPeerProxy->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(local::GenerateCaptureRegistration(optCapturedMessage));
 
     // Get the message context for the endpoint that was registered.
     auto const optMessageContext = spPeerProxy->GetMessageContext(test::EndpointIdentifier);
@@ -129,7 +130,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
-    spPeerProxy->RegisterEndpoint(local::GenerateCaptureRegistration(optCapturedMessage));
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(local::GenerateCaptureRegistration(optCapturedMessage));
 
     // Get the message context for the endpoint that was registered.
     auto const optMessageContext = spPeerProxy->GetMessageContext(test::EndpointIdentifier);
@@ -199,8 +200,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Registration local::GenerateCaptureRegistration(
-    std::optional<ApplicationMessage>& optCapturedMessage)
+Peer::Registration local::GenerateCaptureRegistration(std::optional<ApplicationMessage>& optCapturedMessage)
 {
     Peer::Registration registration(
         test::EndpointIdentifier,
@@ -224,12 +224,9 @@ Peer::Registration local::GenerateCaptureRegistration(
             { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     registration.GetWritableMessageContext().BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type
-            { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type
-            { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type
-            { return 0; });
+        [] (auto&) -> Security::Signator::result_type { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 
     return registration;
 }

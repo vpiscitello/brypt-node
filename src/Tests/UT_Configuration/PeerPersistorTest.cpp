@@ -7,6 +7,7 @@
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/NodeUtils.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -138,7 +139,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
 
     // Create a new peer and notify the persistor
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
-    spPeerProxy->RegisterEndpoint(test::EndpointIdentifier, test::PeerProtocol, address, {});
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(test::EndpointIdentifier, test::PeerProtocol, address, {});
 
     persistor.HandlePeerStateChange(
         spPeerProxy, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Connected);
@@ -149,8 +150,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     bool bFoundConnectedBootstrap;
     persistor.ForEachCachedBootstrap(
         test::PeerProtocol,
-        [&bFoundConnectedBootstrap, &address] (Network::RemoteAddress const& bootstrap) 
-            -> CallbackIteration
+        [&bFoundConnectedBootstrap, &address] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
         {
             if (bootstrap == address) {
                 bFoundConnectedBootstrap = true;
@@ -171,8 +171,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
         bool bFoundCheckBootstrap;
         persistor.ForEachCachedBootstrap(
             test::PeerProtocol,
-            [&bFoundCheckBootstrap, &address] (Network::RemoteAddress const& bootstrap)
-                -> CallbackIteration
+            [&bFoundCheckBootstrap, &address] (Network::RemoteAddress const& bootstrap)  -> CallbackIteration
             {
                 if (bootstrap == address) {
                     bFoundCheckBootstrap = true;
@@ -188,7 +187,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     // Tell the persistor the new peer has been disconnected
     persistor.HandlePeerStateChange(
         spPeerProxy, test::EndpointIdentifier, test::PeerProtocol, ConnectionState::Disconnected);
-    spPeerProxy->WithdrawEndpoint(test::EndpointIdentifier, test::PeerProtocol);
+    spPeerProxy->WithdrawSilentEndpoint<InvokeContext::Test>(test::EndpointIdentifier, test::PeerProtocol);
 
     persistor.FetchBootstraps(); // Force the persitor to re-query the persistor file
     EXPECT_EQ(persistor.CachedBootstrapCount(test::PeerProtocol), std::size_t(1));
