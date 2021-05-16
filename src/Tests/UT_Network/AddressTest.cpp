@@ -24,8 +24,7 @@ namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
 constexpr std::string_view TcpInterface = "lo";
-using TcpExpectations = std::vector<
-    std::tuple<std::string, std::string, Network::Socket::Type, bool>>;
+using TcpExpectations = std::vector<std::tuple<std::string, std::string, Network::Socket::Type, bool>>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -119,12 +118,12 @@ TEST(AddressTest, TcpBindingAddressValidationTest)
         { "[ffgg:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:35216", "", Network::Socket::Type::Invalid, false }
     };
 
-    for (auto const& [input, expected, type, validity] : expectations) {
+    for (auto const& [input, expected, type, valid] : expectations) {
         Network::BindingAddress const address(Network::Protocol::TCP, input, test::TcpInterface);
-        EXPECT_EQ(address.GetProtocol(), Network::Protocol::TCP);
+        EXPECT_EQ(address.GetProtocol(), (valid) ? Network::Protocol::TCP : Network::Protocol::Invalid);
         EXPECT_EQ(address.GetUri(), expected);
         EXPECT_EQ(address.GetSize(), expected.size());
-        EXPECT_EQ(address.IsValid(), validity);
+        EXPECT_EQ(address.IsValid(), valid);
         EXPECT_EQ(address.GetInterface(), test::TcpInterface);
         EXPECT_EQ(Network::Socket::ParseAddressType(address), type);
 
@@ -141,9 +140,7 @@ TEST(AddressTest, TcpBindingAddressComponentTest)
 {
     // IPv4 Address
     {
-        Network::BindingAddress const address(
-            Network::Protocol::TCP, "*:35216", test::TcpInterface);
-
+        Network::BindingAddress const address( Network::Protocol::TCP, "*:35216", test::TcpInterface);
         auto const components = Network::Socket::GetAddressComponents(address);
         auto const& [ip, port] = components;
 
@@ -154,9 +151,7 @@ TEST(AddressTest, TcpBindingAddressComponentTest)
 
     // IPv6 Address
     {
-        Network::BindingAddress const address(
-            Network::Protocol::TCP, "[::ffff:127.0.0.1]:35216", test::TcpInterface);
-
+        Network::BindingAddress const address(Network::Protocol::TCP, "[::ffff:127.0.0.1]:35216", test::TcpInterface);
         auto const components = Network::Socket::GetAddressComponents(address);
         auto const& [ip, port] = components;
 
@@ -282,12 +277,12 @@ TEST(AddressTest, TcpRemoteAddressValidationTest)
         { "tcp://[ffgg:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:35216", "", Network::Socket::Type::Invalid, false }
     };
 
-    for (auto const& [input, expected, type, validity] : expectations) {
+    for (auto const& [input, expected, type, valid] : expectations) {
         Network::RemoteAddress const address(Network::Protocol::TCP, input, true);
-        EXPECT_EQ(address.GetProtocol(), Network::Protocol::TCP);
+        EXPECT_EQ(address.GetProtocol(), (valid) ? Network::Protocol::TCP : Network::Protocol::Invalid);
         EXPECT_EQ(address.GetUri(), expected);
         EXPECT_EQ(address.GetSize(), expected.size());
-        EXPECT_EQ(address.IsValid(), validity);
+        EXPECT_EQ(address.IsValid(), valid);
         EXPECT_EQ(Network::Socket::ParseAddressType(address), type);
 
         if (!expected.empty()) {
@@ -305,9 +300,7 @@ TEST(AddressTest, TcpRemoteAddressComponentTest)
 {
     // IPv4 Address
     {
-        Network::RemoteAddress const address(
-            Network::Protocol::TCP, "127.0.0.1:35216", true);
-
+        Network::RemoteAddress const address(Network::Protocol::TCP, "127.0.0.1:35216", true);
         auto const components = Network::Socket::GetAddressComponents(address);
         auto const& [ip, port] = components;
 
@@ -318,9 +311,7 @@ TEST(AddressTest, TcpRemoteAddressComponentTest)
 
     // IPv6 Address
     {
-        Network::RemoteAddress const address(
-            Network::Protocol::TCP, "[::ffff:127.0.0.1]:35216", true);
-
+        Network::RemoteAddress const address(Network::Protocol::TCP, "[::ffff:127.0.0.1]:35216", true);
         auto const components = Network::Socket::GetAddressComponents(address);
         auto const& [ip, port] = components;
 
