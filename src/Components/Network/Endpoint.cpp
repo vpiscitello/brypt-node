@@ -107,7 +107,7 @@ void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
 {
     assert(m_operation == Operation::Server);
     SetShutdownCause(ShutdownCause::BindingFailed);
-    m_spEventPublisher->RegisterEvent<Event::Type::BindingFailed>({ binding });
+    m_spEventPublisher->RegisterEvent<Event::Type::BindingFailed>({ m_identifier, binding });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
 void Network::IEndpoint::OnConnectFailed(RemoteAddress const& address) const
 {
     assert(m_operation == Operation::Client);
-    m_spEventPublisher->RegisterEvent<Event::Type::ConnectionFailed>({ address });
+    m_spEventPublisher->RegisterEvent<Event::Type::ConnectionFailed>({ m_identifier, address });
 }
 
 //----------------------------------------------------------------------------------------------------------------------

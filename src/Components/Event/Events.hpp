@@ -94,10 +94,10 @@ template <>
 class Event::Message<Event::Type::BindingFailed> : public Event::IMessage
 {
     // Schema: The network protocol of the endpoint and the uri.
-    EVENT_MESSAGE_CONTENT_STORE(Network::BindingAddress)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::BindingAddress const&)
-    EVENT_MESSAGE_CORE(Event::Type::BindingFailed)
+    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::BindingAddress)
+    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::BindingAddress const&)
 };
+    EVENT_MESSAGE_CORE(Event::Type::BindingFailed)
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -105,8 +105,8 @@ template <>
 class Event::Message<Event::Type::ConnectionFailed> : public Event::IMessage
 {
     // Schema: The network protocol of the endpoint and the uri.
-    EVENT_MESSAGE_CONTENT_STORE(Network::RemoteAddress)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::RemoteAddress const&)
+    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::RemoteAddress)
+    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::RemoteAddress const&)
     EVENT_MESSAGE_CORE(Event::Type::ConnectionFailed)
 };
 
