@@ -46,7 +46,7 @@ void IRuntimePolicy::ProcessEvents()
     }
 
     m_instance.m_spAwaitManager->ProcessFulfilledRequests();
-    m_instance.m_spEventPublisher->PublishEvents();
+    m_instance.m_spEventPublisher->Dispatch();
     
     std::this_thread::sleep_for(local::CycleTimeout);
 }

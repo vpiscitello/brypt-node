@@ -96,8 +96,8 @@ class Event::Message<Event::Type::BindingFailed> : public Event::IMessage
     // Schema: The network protocol of the endpoint and the uri.
     EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::BindingAddress)
     EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::BindingAddress const&)
-};
     EVENT_MESSAGE_CORE(Event::Type::BindingFailed)
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 

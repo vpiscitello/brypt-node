@@ -10,7 +10,41 @@ Event::Publisher::Publisher()
     , m_listeners()
     , m_eventsMutex()
     , m_events()
+    , m_advertisedMutex()
+    , m_advertised()
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Event::Publisher::Advertise(Type type)
+{
+    std::scoped_lock lock(m_advertisedMutex);
+    m_advertised.emplace(type);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Event::Publisher::Advertise(EventAdvertisements&& advertised)
+{
+    std::scoped_lock lock(m_advertisedMutex);
+    m_advertised.merge(advertised);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Event::Publisher::IsSubscribed(Type type) const
+{
+    std::scoped_lock Lock(m_listenersMutex);
+    return m_listeners.find(type) != m_listeners.end();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Event::Publisher::IsAdvertised(Type type) const
+{
+    std::shared_lock Lock(m_advertisedMutex);
+    return m_advertised.find(type) != m_advertised.end();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -31,7 +65,15 @@ std::size_t Event::Publisher::ListenerCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Event::Publisher::PublishEvents()
+std::size_t Event::Publisher::AdvertisedCount() const
+{
+    std::shared_lock Lock(m_advertisedMutex);
+    return m_advertised.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Event::Publisher::Dispatch()
 {
     // Pull and clear the publisher's queued events to quickly unblock future events.
     auto const events = (std::scoped_lock{m_eventsMutex}, std::exchange(m_events, {}));

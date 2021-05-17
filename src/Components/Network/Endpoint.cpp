@@ -54,6 +54,10 @@ Network::IEndpoint::IEndpoint(
 {
     assert(m_operation != Operation::Invalid);
     assert(m_spEventPublisher);
+    {
+        using enum Event::Type;
+        spEventPublisher->Advertise({EndpointStarted, EndpointStopped, BindingFailed, ConnectionFailed});
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -90,14 +94,14 @@ void Network::IEndpoint::RegisterMediator(IPeerMediator* const pMediator)
 
 void Network::IEndpoint::OnStarted() const
 {
-    m_spEventPublisher->RegisterEvent<Event::Type::EndpointStarted>({ m_identifier, m_protocol, m_operation });
+    m_spEventPublisher->Publish<Event::Type::EndpointStarted>({ m_identifier, m_protocol, m_operation });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::IEndpoint::OnStopped() const
 {
-    m_spEventPublisher->RegisterEvent<Event::Type::EndpointStopped>(
+    m_spEventPublisher->Publish<Event::Type::EndpointStopped>(
         { m_identifier, m_protocol, m_operation, m_optShutdownCause.value_or(ShutdownCause::ShutdownRequest) });
 }
 
@@ -107,7 +111,7 @@ void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
 {
     assert(m_operation == Operation::Server);
     SetShutdownCause(ShutdownCause::BindingFailed);
-    m_spEventPublisher->RegisterEvent<Event::Type::BindingFailed>({ m_identifier, binding });
+    m_spEventPublisher->Publish<Event::Type::BindingFailed>({ m_identifier, binding });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -115,7 +119,7 @@ void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
 void Network::IEndpoint::OnConnectFailed(RemoteAddress const& address) const
 {
     assert(m_operation == Operation::Client);
-    m_spEventPublisher->RegisterEvent<Event::Type::ConnectionFailed>({ m_identifier, address });
+    m_spEventPublisher->Publish<Event::Type::ConnectionFailed>({ m_identifier, address });
 }
 
 //----------------------------------------------------------------------------------------------------------------------

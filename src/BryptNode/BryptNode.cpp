@@ -85,8 +85,10 @@ bool BryptNode::Shutdown()
 
     m_upRuntime.reset();
 
-    m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStopped>({ Event::Cause::Expected });
-    m_spEventPublisher->PublishEvents(); // Flush any pending events. 
+    using StopCause = Event::Message<Event::Type::RuntimeStopped>::Cause;
+    m_spEventPublisher->Publish<Event::Type::RuntimeStopped>({ StopCause::ShutdownRequest });
+
+    m_spEventPublisher->Dispatch(); // Flush any pending events. 
 
     return stopped;
 }
@@ -185,7 +187,7 @@ bool BryptNode::StartComponents()
 
     m_spLogger->info("Starting up brypt node instance.");
     m_spNetworkManager->Startup();
-    m_spEventPublisher->RegisterEvent<Event::Type::RuntimeStarted>();
+    m_spEventPublisher->Publish<Event::Type::RuntimeStarted>();
 
     return true;
 }

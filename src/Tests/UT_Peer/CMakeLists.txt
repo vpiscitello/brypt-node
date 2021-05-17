@@ -17,7 +17,7 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Peer Network Security MessageControl Network Configuration BryptMessage BryptIdentifier
+    Peer Network Security MessageControl Network Configuration Event BryptMessage BryptIdentifier
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

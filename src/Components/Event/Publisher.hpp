@@ -9,6 +9,8 @@
 #include <concepts>
 #include <memory>
 #include <mutex>
+#include <set>
+#include <shared_mutex>
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -25,6 +27,8 @@ class Publisher;
 class Event::Publisher
 {
 public:
+    using EventAdvertisements = std::set<Type>;
+
     Publisher();
     ~Publisher() = default;
 
@@ -33,40 +37,50 @@ public:
     Publisher& operator=(Publisher const&) = delete; 
     Publisher& operator=(Publisher&&) = delete; 
 
-    template <Event::Type EventType> requires MessageWithContent<EventType>
-    void RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback);
+    template <Type EventType> requires MessageWithContent<EventType>
+    void Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback);
 
-    template <Event::Type EventType> requires MessageWithoutContent<EventType>
-    void RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback);
-
-    template <Event::Type EventType> requires MessageWithContent<EventType>
-    void RegisterEvent(typename Event::Message<EventType>::EventContent&& content);
-
-    template <Event::Type EventType> requires MessageWithoutContent<EventType>
-    void RegisterEvent();
+    template <Type EventType> requires MessageWithoutContent<EventType>
+    void Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback);
     
+    void Advertise(Type type);
+    void Advertise(EventAdvertisements&& advertised);
+
+    template <Type EventType> requires MessageWithContent<EventType>
+    void Publish(typename Event::Message<EventType>::EventContent&& content);
+
+    template <Type EventType> requires MessageWithoutContent<EventType>
+    void Publish();
+
+    bool IsSubscribed(Type type) const;
+    bool IsAdvertised(Type type) const;
+
     std::size_t EventCount() const;
     std::size_t ListenerCount() const;
+    std::size_t AdvertisedCount() const;
 
-    std::size_t PublishEvents();
+    std::size_t Dispatch();
 
 private:
-    using EventProxy = std::unique_ptr<Event::IMessage>;
-    using EventListenerProxy = std::function<void(EventProxy const& upEventProxy)>;
-    using EventListeners = std::unordered_map<Event::Type, std::vector<EventListenerProxy>>;
+    using EventProxy = std::unique_ptr<IMessage>;
     using EventQueue = std::deque<EventProxy>;
+    using ListenerProxy = std::function<void(EventProxy const& upEventProxy)>;
+    using Listeners = std::unordered_map<Type, std::vector<ListenerProxy>>;
 
     mutable std::mutex m_listenersMutex;
-    EventListeners m_listeners;
+    Listeners m_listeners;
     
     mutable std::mutex m_eventsMutex;
     EventQueue m_events;
+
+    mutable std::shared_mutex m_advertisedMutex;
+    EventAdvertisements m_advertised;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
 template <Event::Type EventType> requires Event::MessageWithContent<EventType>
-void Event::Publisher::RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback)
+void Event::Publisher::Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback)
 {
     // In the case of events with content, the listener will need to cast to the derived event type to access the 
     // event's content and then forward them to the supplied handler. 
@@ -74,7 +88,7 @@ void Event::Publisher::RegisterListener(typename Event::Message<EventType>::Call
     m_listeners[EventType].emplace_back(
         [callback] (EventProxy const& upEventProxy) {
             auto const* const pEvent = dynamic_cast<Event::Message<EventType> const* const>(upEventProxy.get());
-            assert(pEvent); // PublishEvents needs to ensure this callback is provided the correct event. 
+            assert(pEvent); // Dispatch needs to ensure this callback is provided the correct event. 
             std::apply(callback, pEvent->GetContent());
         });
 }
@@ -82,19 +96,18 @@ void Event::Publisher::RegisterListener(typename Event::Message<EventType>::Call
 //----------------------------------------------------------------------------------------------------------------------
 
 template <Event::Type EventType> requires Event::MessageWithoutContent<EventType>
-void Event::Publisher::RegisterListener(typename Event::Message<EventType>::CallbackTrait const& callback)
+void Event::Publisher::Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback)
 {
     // In the case of events without content, the listener will simply invoke the callback without needing to care 
     // about the event details. 
     std::scoped_lock lock(m_listenersMutex);
-    m_listeners[EventType].emplace_back(
-        [callback] ([[maybe_unused]] EventProxy const&) { std::invoke(callback); });
+    m_listeners[EventType].emplace_back([callback] (EventProxy const&) { std::invoke(callback); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 template <Event::Type EventType> requires Event::MessageWithContent<EventType>
-void Event::Publisher::RegisterEvent(typename Event::Message<EventType>::EventContent&& content)
+void Event::Publisher::Publish(typename Event::Message<EventType>::EventContent&& content)
 {
     // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
     // should be registered before starting the node. 
@@ -114,7 +127,7 @@ void Event::Publisher::RegisterEvent(typename Event::Message<EventType>::EventCo
 //----------------------------------------------------------------------------------------------------------------------
 
 template <Event::Type EventType> requires Event::MessageWithoutContent<EventType>
-void Event::Publisher::RegisterEvent()
+void Event::Publisher::Publish()
 {
     // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
     // should be registered before starting the node. 

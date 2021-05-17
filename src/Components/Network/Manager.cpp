@@ -40,9 +40,10 @@ Network::Manager::Manager(
     , m_bindings()
 {
     assert(m_spEventPublisher);
+    spEventPublisher->Advertise(Event::Type::CriticalNetworkFailure);
 
     // Register an listener for when endpoints report a stop, this handler will watch for any critical errpr states 
-    spEventPublisher->RegisterListener<Event::Type::EndpointStopped>(
+    spEventPublisher->Subscribe<Event::Type::EndpointStopped>(
         [this, context] (Endpoint::Identifier, Protocol, Operation, ShutdownCause cause)
         { OnEndpointShutdown(context, cause); });
 
@@ -257,7 +258,7 @@ void Network::Manager::OnEndpointShutdown(RuntimeContext context, ShutdownCause 
     Shutdown(); // Shutdown all processing. The assumption being the user should investigate the cause. 
     
     // The reported shutdown has caused a critical network failure and can not be recovered from.
-    m_spEventPublisher->RegisterEvent<Event::Type::CriticalNetworkFailure>();
+    m_spEventPublisher->Publish<Event::Type::CriticalNetworkFailure>();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
