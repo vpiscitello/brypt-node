@@ -40,7 +40,7 @@ class Session;
 class Endpoint;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // TCP namespace
+} // Network::TCP namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class Network::TCP::Endpoint : public Network::IEndpoint
@@ -70,7 +70,7 @@ public:
     // }IEndpoint
     
 private:
-    using ExtendedConnectionDetails = ConnectionDetails<void>;
+    using ExtendedDetails = ConnectionDetails<void>;
 
     using EventDeque = std::deque<std::any>;
     using EventHandlers = std::unordered_map<std::type_index, std::function<void(std::any&)>>;
@@ -98,7 +98,6 @@ private:
         std::shared_ptr<Session> const& spSession,
         Node::Identifier const& source,
         std::span<std::uint8_t const> message);
-    void OnMessageDispatched(std::shared_ptr<Session> const& spSession);
 
     mutable std::shared_mutex m_detailsMutex;
 	std::atomic_bool m_active;

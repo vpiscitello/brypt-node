@@ -18,8 +18,8 @@
 #include <deque>
 #include <functional>
 #include <memory>
-#include <string>
 #include <span>
+#include <string>
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -32,13 +32,12 @@ namespace Network::TCP {
 class Session;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // TCP namespace
+} // Network::TCP namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class Network::TCP::Session : public std::enable_shared_from_this<Session>
 {
 public:
-    using MessageDispatchedCallback = std::function<void(std::shared_ptr<Session> const&)>;
     using MessageReceivedCallback = std::function<bool(
         std::shared_ptr<Session> const&, Node::Identifier const&, std::span<std::uint8_t const> message)>;
     using StoppedCallback = std::function<void(std::shared_ptr<Session> const&)>;
@@ -50,7 +49,6 @@ public:
     [[nodiscard]] RemoteAddress const& GetAddress() const;
     [[nodiscard]] boost::asio::ip::tcp::socket& GetSocket();
 
-    void OnMessageDispatched(MessageDispatchedCallback const& callback);
     void OnMessageReceived(MessageReceivedCallback const& callback);
     void OnStopped(StoppedCallback const& callback);
     
@@ -79,7 +77,6 @@ private:
 
     std::deque<std::string> m_outgoing;
 
-    MessageDispatchedCallback m_onDispatched;
     MessageReceivedCallback m_onReceived;
     StoppedCallback m_onStopped;
 

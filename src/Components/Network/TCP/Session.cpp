@@ -28,7 +28,6 @@ Network::TCP::Session::Session(
     , m_socket(context)
     , m_timer(m_socket.get_executor())
     , m_outgoing()
-    , m_onDispatched()
     , m_onReceived()
     , m_onStopped()
     , m_spLogger(spLogger)
@@ -62,13 +61,6 @@ Network::RemoteAddress const& Network::TCP::Session::GetAddress() const
 boost::asio::ip::tcp::socket& Network::TCP::Session::GetSocket()
 {
     return m_socket;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Network::TCP::Session::OnMessageDispatched(MessageDispatchedCallback const& callback)
-{
-    m_onDispatched = callback;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -286,9 +278,6 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher()
             m_spLogger->trace("[{}] Dispatched: {:p}...", m_address, 
                 spdlog::to_hex(std::string_view(message.data(), std::min(
                     message.size(), MessageHeader::MaximumEncodedSize()))));
-
-            // Notify the message dispatch watcher of a successfully sent message. 
-            m_onDispatched(shared_from_this());
 
             // Remove the message from the outgoing queue, it is no longer safe to use
             // the message reference.

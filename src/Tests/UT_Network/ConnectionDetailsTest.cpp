@@ -227,29 +227,23 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
 
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spFirstPeer = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
-    firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spSecondPeer = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
-    secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spThirdPeer = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
-    thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 
@@ -304,29 +298,23 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
     TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
     
     std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spFirstPeer = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
-    firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spSecondPeer = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
-    secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spThirdPeer = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
-    thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 
@@ -369,90 +357,6 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(ConnectionTrackerSuite, MessageSequenceFilterTest)
-{
-    using namespace std::chrono_literals;
-    ConnectionTracker<std::string> tracker;
-
-    TimeUtils::Timepoint timepoint = TimeUtils::GetSystemTimepoint();
-    
-    std::string const firstConnectionIdentifier = "1";
-    auto const spFirstPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
-    ConnectionDetails<> firstConnectionDetails(spFirstPeer);
-    firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
-    firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
-    firstConnectionDetails.SetUpdatedTimepoint(timepoint);
-
-    std::string const secondConnectionIdentifier = "2";
-    auto const spSecondPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
-    ConnectionDetails<> secondConnectionDetails(spSecondPeer);
-    secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
-    secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
-    secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
-
-    std::string const thirdConnectionIdentifier = "3";
-    auto const spThirdPeer = std::make_shared<Peer::Proxy>(
-        Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
-    ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
-    thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
-    thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
-    thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
-
-    std::string const fourthConnectionIdentifier = "4";
-
-    tracker.TrackConnection(firstConnectionIdentifier, firstConnectionDetails);
-    tracker.TrackConnection(secondConnectionIdentifier, secondConnectionDetails);
-    tracker.TrackConnection(thirdConnectionIdentifier, thirdConnectionDetails);
-    tracker.TrackConnection(fourthConnectionIdentifier);
-
-    std::vector<std::string> readFoundIdentifiers;
-    tracker.ReadEachConnection(
-        [&readFoundIdentifiers](auto const& id, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
-        {
-            readFoundIdentifiers.push_back(id);
-            return CallbackIteration::Continue;
-        },
-        MessageSequenceFilter::MatchPredicate,
-        [](std::uint32_t sequenceNumber) -> bool
-        {
-            return (sequenceNumber > 100);
-        }
-    );
-
-    EXPECT_EQ(readFoundIdentifiers.size(), std::size_t(1));
-    auto const foundThirdIdentifierInRead = std::find(
-        readFoundIdentifiers.begin(), readFoundIdentifiers.end(), thirdConnectionIdentifier);
-    EXPECT_NE(foundThirdIdentifierInRead, readFoundIdentifiers.end());
-
-    std::vector<std::string> updateFoundIdentifiers;
-    tracker.ReadEachConnection(
-        [&updateFoundIdentifiers](auto const& id, [[maybe_unused]] auto const& optDetails) -> CallbackIteration
-        {
-            updateFoundIdentifiers.push_back(id);
-            return CallbackIteration::Continue;
-        },
-        MessageSequenceFilter::MatchPredicate,
-        [](std::uint32_t sequenceNumber) -> bool
-        {
-            return (sequenceNumber < 100);
-        }
-    );
-    EXPECT_EQ(updateFoundIdentifiers.size(), std::size_t(2));
-    auto const foundFirstIdentifierInUpdate = std::find(
-        updateFoundIdentifiers.begin(), updateFoundIdentifiers.end(), firstConnectionIdentifier);
-    auto const foundSecondIdentifierInUpdate = std::find(
-        updateFoundIdentifiers.begin(), updateFoundIdentifiers.end(), secondConnectionIdentifier);
-    EXPECT_NE(foundFirstIdentifierInUpdate, updateFoundIdentifiers.end());
-    EXPECT_NE(foundSecondIdentifierInUpdate, updateFoundIdentifiers.end());
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
 TEST(ConnectionTrackerSuite, TimepointFilterTest)
 {
     using namespace std::chrono_literals;
@@ -465,7 +369,6 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
         Node::Identifier{ Node::GenerateIdentifier() });
     auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
-    firstConnectionDetails.SetMessageSequenceNumber(std::uint32_t(57));
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
@@ -474,7 +377,6 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
         Node::Identifier{ Node::GenerateIdentifier() });
     auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
-    secondConnectionDetails.SetMessageSequenceNumber(std::uint32_t(12));
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
@@ -483,7 +385,6 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
         Node::Identifier{ Node::GenerateIdentifier() });
     auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
-    thirdConnectionDetails.SetMessageSequenceNumber(std::uint32_t(492));
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
 

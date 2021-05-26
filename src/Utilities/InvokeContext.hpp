@@ -10,6 +10,6 @@
 enum class InvokeContext : std::uint32_t { Production, Test };
 
 template<InvokeContext ContextType>
-concept TestingContext = requires() { ContextType == InvokeContext::Test; };
+concept TestingContext = requires { ContextType == InvokeContext::Test; };
 
 //----------------------------------------------------------------------------------------------------------------------

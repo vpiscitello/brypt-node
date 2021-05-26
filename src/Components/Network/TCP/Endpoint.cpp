@@ -363,7 +363,6 @@ std::shared_ptr<Network::TCP::Session> Network::TCP::Endpoint::CreateSession()
 {
     auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
 
-    spSession->OnMessageDispatched([this] (auto const& spSession) { OnMessageDispatched(spSession); });
     spSession->OnMessageReceived(
         [this] (auto const& spSession, auto const& source, auto message) -> bool
         { return OnMessageReceived(spSession, source, message); });
@@ -562,7 +561,7 @@ void Network::TCP::Endpoint::OnSessionStarted(std::shared_ptr<Session> const& sp
 
 void Network::TCP::Endpoint::OnSessionStopped(std::shared_ptr<Session> const& spSession)
 {
-    auto const updater = [this] (ExtendedConnectionDetails& details)
+    auto const updater = [this] (ExtendedDetails& details)
     { 
         details.SetConnectionState(ConnectionState::Disconnected);
         if (auto const spPeerProxy = details.GetPeerProxy(); spPeerProxy) {
@@ -583,20 +582,17 @@ bool Network::TCP::Endpoint::OnMessageReceived(
     std::span<std::uint8_t const> message)
 {
     std::shared_ptr<Peer::Proxy> spProxy = {};
-    auto const promotedHandler = [&spProxy] (ExtendedConnectionDetails& details)
+    auto const promotedHandler = [&spProxy] (ExtendedDetails& details)
     {
         spProxy = details.GetPeerProxy();
-        details.IncrementMessageSequence();
     };
 
-    auto const unpromotedHandler = [this, &source, &spProxy] (RemoteAddress const& address) -> ExtendedConnectionDetails
+    auto const unpromotedHandler = [this, &source, &spProxy] (RemoteAddress const& address) -> ExtendedDetails
     {
         spProxy = IEndpoint::LinkPeer(source, address);
         
-        ExtendedConnectionDetails details(spProxy);
+        ExtendedDetails details(spProxy);
         details.SetConnectionState(ConnectionState::Connected);
-        details.IncrementMessageSequence();
-        
         spProxy->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
 
         return details;
@@ -607,14 +603,6 @@ bool Network::TCP::Endpoint::OnMessageReceived(
     m_tracker.UpdateOneConnection(spSession, promotedHandler, unpromotedHandler);
 
     return spProxy->ScheduleReceive(m_identifier, message);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Network::TCP::Endpoint::OnMessageDispatched(std::shared_ptr<Session> const& spSession)
-{
-    auto const updater = [] (ExtendedConnectionDetails& details) { details.IncrementMessageSequence(); };
-    m_tracker.UpdateOneConnection(spSession, updater);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -7,11 +7,6 @@
 #include <cstdint>
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class ConnectionState : std::uint8_t {
-    Connected,
-    Disconnected,
-    Resolving,
-    Unknown
-};
+enum class ConnectionState : std::uint8_t { Connected, Disconnected, Resolving, Unknown};
 
 //----------------------------------------------------------------------------------------------------------------------
