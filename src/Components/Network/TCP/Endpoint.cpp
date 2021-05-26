@@ -374,10 +374,17 @@ std::shared_ptr<Network::TCP::Session> Network::TCP::Endpoint::CreateSession()
 {
     auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
 
-    spSession->OnMessageReceived(
+    spSession->Subscribe<Session::Event::Receive>(
         [this] (auto const& spSession, auto const& source, auto message) -> bool
-        { return OnMessageReceived(spSession, source, message); });
-    spSession->OnStopped([this] (auto const& spSession) { OnSessionStopped(spSession); });
+        {
+            return OnMessageReceived(spSession, source, message);
+        });
+
+    spSession->Subscribe<Session::Event::Stop>(
+        [this] (auto const& spSession)
+        {
+            OnSessionStopped(spSession);
+        });
 
     return spSession;
 }
