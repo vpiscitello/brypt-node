@@ -129,19 +129,41 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::string_view message) const
+bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::string&& message) const
 {
-    {
-        std::scoped_lock lock(m_dataMutex);
-        m_statistics.IncrementSentCount();
-    }
+    assert(!message.empty());
 
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock endpointLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        {
+            std::scoped_lock dataLock(m_dataMutex);
+            m_statistics.IncrementSentCount();
+        }
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
         assert(m_spNodeIdentifier && scheduler);
-        return scheduler(*m_spNodeIdentifier, message);
+        return scheduler(*m_spNodeIdentifier, Network::MessageVariant{std::move(message)});
+    }
+
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::ScheduleSend(
+    Network::Endpoint::Identifier identifier, Message::ShareablePack const& spSharedPack) const
+{
+    assert(spSharedPack && !spSharedPack->empty());
+    std::scoped_lock endpointLock(m_endpointsMutex);
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        {
+            std::scoped_lock dataLock(m_dataMutex);
+            m_statistics.IncrementSentCount();
+        }
+        auto const& [key, endpoint] = *itr;
+        auto const& scheduler = endpoint.GetScheduler();
+        assert(m_spNodeIdentifier && scheduler);
+        return scheduler(*m_spNodeIdentifier, Network::MessageVariant{spSharedPack});
     }
 
     return false;
@@ -173,7 +195,7 @@ void Peer::Proxy::RegisterEndpoint(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
-    MessageScheduler const& scheduler)
+    Network::MessageScheduler const& scheduler)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -324,7 +346,7 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
-    MessageScheduler const& scheduler)
+    Network::MessageScheduler const& scheduler)
 {
     std::scoped_lock lock(m_endpointsMutex);
     m_endpoints.try_emplace(identifier, identifier, protocol, address, scheduler);

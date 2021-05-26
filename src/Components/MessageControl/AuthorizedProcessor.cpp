@@ -56,14 +56,14 @@ bool AuthorizedProcessor::CollectMessage(
 			return HandleMessage(wpPeerProxy, *optMessage);
 		} 
         case Message::Protocol::Application: {
-			auto const optMessage = ApplicationMessage::Builder()
+			auto optMessage = ApplicationMessage::Builder()
 				.SetMessageContext(context)
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
 			if (!optMessage) { return false; }
 
-			return QueueMessage(wpPeerProxy, *optMessage);
+			return QueueMessage(wpPeerProxy, std::move(*optMessage));
 		}
         case Message::Protocol::Invalid:
 		default: return false;
@@ -85,7 +85,7 @@ std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage()
 	std::scoped_lock lock(m_incomingMutex);
 	if (m_incoming.empty()) { return {}; }
 
-	auto const message = m_incoming.front();
+	auto const message = std::move(m_incoming.front());
 	m_incoming.pop();
 
 	return message;
@@ -93,10 +93,10 @@ std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
+bool AuthorizedProcessor::QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message)
 {
 	std::scoped_lock lock(m_incomingMutex);
-	m_incoming.emplace(AssociatedMessage{ wpPeerProxy, message });
+	m_incoming.emplace(AssociatedMessage{ wpPeerProxy, std::move(message) });
 	return true;
 }
 

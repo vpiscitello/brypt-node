@@ -31,18 +31,18 @@ public:
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
-        MessageScheduler const& scheduler = {});
+        Network::MessageScheduler const& scheduler = {});
 
     [[nodiscard]] MessageContext const& GetMessageContext() const;
     [[nodiscard]] MessageContext& GetWritableMessageContext();
     [[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
     [[nodiscard]] Network::Protocol GetEndpointProtocol() const;
     [[nodiscard]] Network::RemoteAddress const& GetAddress() const;
-    [[nodiscard]] MessageScheduler const& GetScheduler() const;
+    [[nodiscard]] Network::MessageScheduler const& GetScheduler() const;
 
 private:
     MessageContext m_context;
-    MessageScheduler const m_scheduler;
+    Network::MessageScheduler const m_scheduler;
     Network::RemoteAddress const m_address;
 };
 

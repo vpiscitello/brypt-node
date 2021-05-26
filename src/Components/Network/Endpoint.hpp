@@ -8,7 +8,9 @@
 #include "EndpointTypes.hpp"
 #include "EndpointIdentifier.hpp"
 #include "Protocol.hpp"
+#include "MessageScheduler.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ShareablePack.hpp"
 #include "Components/Event/Events.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
@@ -48,9 +50,7 @@ std::unique_ptr<IEndpoint> Factory(
 class Network::IEndpoint
 {
 public:
-    IEndpoint(
-        Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher);
-
+    IEndpoint(Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher);
     virtual ~IEndpoint() = default;
 
     [[nodiscard]] virtual Protocol GetProtocol() const = 0;
@@ -65,9 +65,10 @@ public:
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) = 0;
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) = 0;
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) = 0;
-    
-	virtual bool ScheduleSend(
-        Node::Identifier const& destination, std::string_view message) = 0;
+	[[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& destination, std::string&& message) = 0;
+    [[nodiscard]] virtual bool ScheduleSend(
+        Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) = 0;
+    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message) = 0;
 
     [[nodiscard]] Endpoint::Identifier GetEndpointIdentifier() const;
     [[nodiscard]] Operation GetOperation() const;

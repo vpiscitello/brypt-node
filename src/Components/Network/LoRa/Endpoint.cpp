@@ -130,8 +130,29 @@ bool Network::LoRa::Endpoint::ScheduleConnect(
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 bool Network::LoRa::Endpoint::ScheduleSend(
-    [[maybe_unused]] Node::Identifier const& identifier,
-    [[maybe_unused]] std::string_view message)
+    [[maybe_unused]] Node::Identifier const& identifier, [[maybe_unused]] std::string&& message)
+{
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------------------------------
+// Description:
+//----------------------------------------------------------------------------------------------------------------------
+bool Network::LoRa::Endpoint::ScheduleSend(
+    [[maybe_unused]] Node::Identifier const& identifier, [[maybe_unused]] Message::ShareablePack const& spSharedPack)
+{
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------------------------------
+// Description:
+//----------------------------------------------------------------------------------------------------------------------
+bool Network::LoRa::Endpoint::ScheduleSend(
+    [[maybe_unused]] Node::Identifier const& identifier, [[maybe_unused]] MessageVariant&& message)
 {
     return false;
 }

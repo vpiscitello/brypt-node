@@ -8,6 +8,7 @@
 #include "Statistics.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageTypes.hpp"
+#include "BryptMessage/ShareablePack.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -54,17 +55,19 @@ public:
     [[nodiscard]] std::uint32_t GetReceivedCount() const;
     // } Statistic Methods
 
-    // Message Receiving Methods {
+    // Message Receipt Methods {
     void SetReceiver(IMessageSink* const pMessageSink);
     [[nodiscard]] bool ScheduleReceive(
         Network::Endpoint::Identifier identifier, std::string_view buffer);
     [[nodiscard]] bool ScheduleReceive(
         Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer);
-    // } Message Receiving Methods
+    // } Message Receipt Methods
 
-    // Message Sending Methods {
-    [[nodiscard]] bool ScheduleSend(Network::Endpoint::Identifier identifier, std::string_view message) const;
-    // } Message Sending Methods
+    // Message Dispatch Methods {
+    [[nodiscard]] bool ScheduleSend(Network::Endpoint::Identifier identifier, std::string&& message) const;
+    [[nodiscard]] bool ScheduleSend(
+        Network::Endpoint::Identifier identifier, Message::ShareablePack const& spSharedPack) const;
+    // } Message Dispatch Methods
 
     // Endpoint Association Methods {
     void RegisterEndpoint(Registration const& registration);
@@ -72,7 +75,7 @@ public:
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
-        MessageScheduler const& scheduler = {});
+        Network::MessageScheduler const& scheduler = {});
 
     void WithdrawEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
@@ -101,7 +104,7 @@ public:
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
-        MessageScheduler const& scheduler = {});
+        Network::MessageScheduler const& scheduler = {});
 
     template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
     void WithdrawSilentEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol);

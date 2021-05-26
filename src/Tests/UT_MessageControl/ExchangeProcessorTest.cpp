@@ -117,9 +117,9 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteServerAddress,
-            [&spServerPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spServerPeer] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
             {
-                return spServerPeer->ScheduleReceive(test::EndpointIdentifier, message);
+                return spServerPeer->ScheduleReceive(test::EndpointIdentifier, std::get<std::string>(message));
             });
 
         // Setup an observer for the client processor.
@@ -147,9 +147,9 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteClientAddress,
-            [&spClientPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spClientPeer] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
             {
-                return spClientPeer->ScheduleReceive(test::EndpointIdentifier, message);
+                return spClientPeer->ScheduleReceive(test::EndpointIdentifier, std::get<std::string>(message));
             });
 
         // Setup an observer for the server processor.
@@ -168,7 +168,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
 
     // Prepare the client processor for the exchange. The processor will tell us if the exchange 
     // could be prepared and the request that needs to sent to the server. 
-    auto const clientPrepareResult = upClientProcessor->Prepare();
+    auto clientPrepareResult = upClientProcessor->Prepare();
     EXPECT_TRUE(clientPrepareResult.first);
     EXPECT_GT(clientPrepareResult.second.size(), std::uint32_t(0));
 
@@ -180,7 +180,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
 
     // Start of the exchange by manually telling the client peer to send the exchange request.
     // This will cause the exchange transaction to occur of the stack. 
-    EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, clientPrepareResult.second));
+    EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, std::move(clientPrepareResult.second)));
 
     // We expect that the connect protocol has been used once. 
     EXPECT_TRUE(spConnectProtocol->CalledOnce());

@@ -42,8 +42,8 @@ std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::IEndpoint::IEndpoint(
-    Network::Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher)
-    : m_identifier(Network::Endpoint::IdentifierGenerator::Instance().Generate())
+    Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher)
+    : m_identifier(Endpoint::IdentifierGenerator::Instance().Generate())
     , m_protocol(protocol)
     , m_operation(operation)
     , m_binding()

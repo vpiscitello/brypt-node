@@ -100,8 +100,7 @@ bool MessageSinkStub::CollectMessage(
 
 					// Obtain the peer and send the heartbeat response.
 					if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
-						return spPeerProxy->ScheduleSend(
-							context.GetEndpointIdentifier(), optResponse->GetPack());
+						return spPeerProxy->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack());
 					} else {
 						++m_invalidMessageCount;
 						return false;

@@ -9,7 +9,7 @@ Peer::Registration::Registration(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
-    MessageScheduler const& scheduler)
+    Network::MessageScheduler const& scheduler)
     : m_context(identifier, protocol)
     , m_scheduler(scheduler)
     , m_address(address)
@@ -46,7 +46,7 @@ Network::Protocol Peer::Registration::GetEndpointProtocol() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageScheduler const& Peer::Registration::GetScheduler() const
+Network::MessageScheduler const& Peer::Registration::GetScheduler() const
 {
     return m_scheduler;
 }

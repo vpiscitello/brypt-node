@@ -266,9 +266,9 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteServerAddress,
-            [&spServerPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spServerPeer] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
             {
-                return spServerPeer->ScheduleReceive(test::EndpointIdentifier, message);
+                return spServerPeer->ScheduleReceive(test::EndpointIdentifier, std::get<std::string>(message));
             });
 
         upClientMediator->BindSecurityContext(registration.GetWritableMessageContext());
@@ -286,9 +286,9 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
             test::EndpointIdentifier,
             test::EndpointProtocol,
             test::RemoteClientAddress,
-            [&spClientPeer] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [&spClientPeer] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
             {
-                return spClientPeer->ScheduleReceive(test::EndpointIdentifier, message);
+                return spClientPeer->ScheduleReceive(test::EndpointIdentifier, std::get<std::string>(message));
             });
 
         upServerMediator->BindSecurityContext(registration.GetWritableMessageContext());
@@ -296,16 +296,17 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
     }
 
     // Setup an exchange through the mediator as the initiator
-    auto const optRequest = upClientMediator->SetupExchangeInitiator(
-        Security::Strategy::PQNISTL3, spConnectProtocol);
-    ASSERT_TRUE(optRequest);
-    upClientMediator->BindPeer(spClientPeer); // Bind the client mediator to the client peer. 
-    
-    // Setup an exchange through the mediator as the acceptor. 
-    EXPECT_TRUE(upServerMediator->SetupExchangeAcceptor(Security::Strategy::PQNISTL3));
-    upServerMediator->BindPeer(spServerPeer); // Bind the server mediator to the server peer. 
+    {
+        auto optRequest = upClientMediator->SetupExchangeInitiator(Security::Strategy::PQNISTL3, spConnectProtocol);
+        ASSERT_TRUE(optRequest);
+        upClientMediator->BindPeer(spClientPeer); // Bind the client mediator to the client peer. 
+        
+        // Setup an exchange through the mediator as the acceptor. 
+        EXPECT_TRUE(upServerMediator->SetupExchangeAcceptor(Security::Strategy::PQNISTL3));
+        upServerMediator->BindPeer(spServerPeer); // Bind the server mediator to the server peer. 
 
-    EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, *optRequest));
+        EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, std::move(*optRequest)));
+    }
 
     // We expect that the connect protocol has been used once. 
     EXPECT_TRUE(spConnectProtocol->CalledOnce());
@@ -333,7 +334,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
     ASSERT_TRUE(optApplicationRequest);
 
     std::string const request = optApplicationRequest->GetPack();
-    EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, request));
+    EXPECT_TRUE(spClientPeer->ScheduleSend(test::EndpointIdentifier, std::string(request)));
     EXPECT_EQ(spCollector->GetCollectedPack(), request);
 
     auto const optServerContext = spServerPeer->GetMessageContext(test::EndpointIdentifier);
@@ -349,7 +350,7 @@ TEST(SecurityMediatorSuite, PQNISTL3SuccessfulExchangeTest)
     ASSERT_TRUE(optApplicationResponse);
 
     std::string const response = optApplicationResponse->GetPack();
-    EXPECT_TRUE(spServerPeer->ScheduleSend(test::EndpointIdentifier, response));
+    EXPECT_TRUE(spServerPeer->ScheduleSend(test::EndpointIdentifier, std::string(response)));
     EXPECT_EQ(spCollector->GetCollectedPack(), response);
 }
 

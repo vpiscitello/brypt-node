@@ -206,11 +206,11 @@ Peer::Registration local::GenerateCaptureRegistration(std::optional<ApplicationM
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&registration, &optCapturedMessage] (auto const&, auto message) -> bool
+        [&registration, &optCapturedMessage] (auto const&, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(registration.GetMessageContext())
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
             optCapturedMessage = optMessage;

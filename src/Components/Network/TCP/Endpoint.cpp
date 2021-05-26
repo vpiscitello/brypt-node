@@ -71,9 +71,9 @@ Network::TCP::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::P
         },
     };
 
-    m_scheduler = [this] (auto const& destination, auto message) -> bool
+    m_scheduler = [this] (Node::Identifier const& destination, MessageVariant&& message) -> bool
     {
-        return ScheduleSend(destination, message);
+        return ScheduleSend(destination, std::move(message));
     };
 }
 
@@ -239,20 +239,33 @@ bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address, Node::Shar
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::TCP::Endpoint::ScheduleSend(
-    Node::Identifier const& identifier, std::string_view message)
+bool Network::TCP::Endpoint::ScheduleSend(Node::Identifier const& identifier, std::string&& message)
 {
-    // If the message provided is empty, do not send anything
-    if (message.empty()) { return false; }
+    assert(!message.empty()); // We assert the caller must not send an empty message. 
+    return ScheduleSend(identifier, MessageVariant{std::move(message)});
+}
 
-    // Get the socket descriptor of the intended destination. If it is not found, drop the message.
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::TCP::Endpoint::ScheduleSend(
+    Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack)
+{
+    assert(spSharedPack && !spSharedPack->empty()); // We assert the caller must not send an empty message. 
+    return ScheduleSend(identifier, MessageVariant{spSharedPack});
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::TCP::Endpoint::ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message)
+{
     auto const spSession = m_tracker.Translate(identifier);
+    // If the associated session can't be found or inactive, drop the message. 
     if (!spSession || !spSession->IsActive()) { return false; }
 
     // Schedule the outgoing message event
     {
         std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(DispatchEvent(spSession, message));
+        m_events.emplace_back(DispatchEvent(spSession, std::move(message)));
     }
 
     return true;
@@ -349,11 +362,9 @@ void Network::TCP::Endpoint::OnConnectEvent(ConnectEvent const& event)
 
 void Network::TCP::Endpoint::OnDispatchEvent(DispatchEvent& event)
 {
-    // If the message provided is empty, do not send anything
+    assert(event.IsValid());
     auto const& spSession = event.GetSession();
-    auto const& message = event.GetMessage();
-    assert(spSession && !message.empty());
-    [[maybe_unused]] bool const success = spSession->ScheduleSend(message);
+    [[maybe_unused]] bool const success = spSession->ScheduleSend(event.ReleaseMessage());
     assert(success);
 }
 
@@ -535,9 +546,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Resolver(
 
     OnSessionStarted(spSession);
     
-    if (!spSession->ScheduleSend(*optConnectionRequest)) {
-        co_return CompletionOrigin::Error;
-    }
+    if (!spSession->ScheduleSend(std::move(*optConnectionRequest))) { co_return CompletionOrigin::Error; }
 
     // Send the initial request to the peer. 
     co_return CompletionOrigin::Self;

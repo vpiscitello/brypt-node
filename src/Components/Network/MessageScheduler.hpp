@@ -6,10 +6,14 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/ShareablePack.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
 //----------------------------------------------------------------------------------------------------------------------
 
-using MessageScheduler = std::function<bool(Node::Identifier const& destination, std::string_view message)>;
+namespace Network {
+    using MessageVariant = std::variant<std::string, Message::ShareablePack>;
+    using MessageScheduler = std::function<bool(Node::Identifier const& destination, MessageVariant&& message)>;
+}
 
 //----------------------------------------------------------------------------------------------------------------------

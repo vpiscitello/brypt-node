@@ -65,8 +65,10 @@ public:
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) override;
     [[nodiscard]] virtual bool ScheduleConnect(
         RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) override;
+    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, std::string&& message) override;
     [[nodiscard]] virtual bool ScheduleSend(
-        Node::Identifier const& identifier, std::string_view message) override;
+        Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) override;
+    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message) override;
     // }IEndpoint
     
 private:
@@ -95,9 +97,7 @@ private:
     void OnSessionStopped(std::shared_ptr<Session> const& spSession);
 
     [[nodiscard]] bool OnMessageReceived(
-        std::shared_ptr<Session> const& spSession,
-        Node::Identifier const& source,
-        std::span<std::uint8_t const> message);
+        std::shared_ptr<Session> const& spSession, Node::Identifier const& source, std::span<std::uint8_t const> message);
 
     mutable std::shared_mutex m_detailsMutex;
 	std::atomic_bool m_active;

@@ -46,7 +46,7 @@ public:
 
 private:
     [[nodiscard]] bool QueueMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message);
     [[nodiscard]] bool HandleMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
         

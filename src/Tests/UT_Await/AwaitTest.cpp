@@ -59,11 +59,11 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 
@@ -123,11 +123,11 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress, 
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 
@@ -210,11 +210,11 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 
@@ -263,11 +263,11 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 
@@ -345,11 +345,11 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 
@@ -402,11 +402,11 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 
@@ -454,11 +454,11 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, std::string_view message) -> bool
+        [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
                 .SetMessageContext(context)
-                .FromEncodedPack(message)
+                .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
 

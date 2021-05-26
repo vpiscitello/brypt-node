@@ -400,10 +400,10 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
         clientContext.GetEndpointIdentifier(), clientContext.GetEndpointProtocol(),
         clientAddress,
         [&spServerPeer, &serverContext] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             EXPECT_TRUE(spServerPeer->ScheduleReceive(
-                serverContext.GetEndpointIdentifier(), message));
+                serverContext.GetEndpointIdentifier(), std::get<std::string>(message)));
             return true;
         });
 
@@ -419,10 +419,10 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
         serverContext.GetEndpointIdentifier(), serverContext.GetEndpointProtocol(),
         test::RemoteServerAddress,
         [&spClientPeer, &clientContext] (
-            [[maybe_unused]] auto const& destination, std::string_view message) -> bool
+            [[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
             EXPECT_TRUE(spClientPeer->ScheduleReceive(
-                clientContext.GetEndpointIdentifier(), message));
+                clientContext.GetEndpointIdentifier(), std::get<std::string>(message)));
             return true;
         });
 

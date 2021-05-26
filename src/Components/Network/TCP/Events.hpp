@@ -5,8 +5,9 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
-#include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/Address.hpp"
+#include "Components/Network/EndpointTypes.hpp"
+#include "Components/Network/MessageScheduler.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <memory>
 #include <string>
@@ -55,9 +56,7 @@ private:
 class Network::TCP::ConnectEvent : public Network::TCP::Event
 {
 public:
-    explicit ConnectEvent(
-        RemoteAddress&& address,
-        Node::SharedIdentifier const& session = nullptr);
+    explicit ConnectEvent(RemoteAddress&& address, Node::SharedIdentifier const& session = nullptr);
     Node::SharedIdentifier const& GetNodeIdentifier() const;
     RemoteAddress const& GetRemoteAddress() const;
 
@@ -71,13 +70,14 @@ private:
 class Network::TCP::DispatchEvent : public Network::TCP::Event
 {
 public:
-    DispatchEvent(std::shared_ptr<Session> const& session, std::string_view message);
+    DispatchEvent(std::shared_ptr<Session> const& session, MessageVariant&& message);
     std::shared_ptr<Session> const& GetSession() const;
-    std::string const& GetMessage() const;
+    MessageVariant&& ReleaseMessage();
+    bool IsValid() const;
 
 private:
     std::shared_ptr<Session> m_spSession;
-    std::string m_message;
+    MessageVariant m_message;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
