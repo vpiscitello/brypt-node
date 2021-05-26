@@ -220,6 +220,13 @@ std::string ApplicationMessage::GetPack() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::ShareablePack ApplicationMessage::GetShareablePack() const
+{
+	return std::make_shared<std::string const>(GetPack());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::ValidationStatus ApplicationMessage::Validate() const
 {	
 	// A message must have a valid header

@@ -151,6 +151,13 @@ std::string NetworkMessage::GetPack() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::ShareablePack NetworkMessage::GetShareablePack() const
+{
+	return std::make_shared<std::string const>(GetPack());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::ValidationStatus NetworkMessage::Validate() const
 {	
 	// A message must have a valid header

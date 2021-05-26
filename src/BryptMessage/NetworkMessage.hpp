@@ -7,6 +7,7 @@
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
+#include "ShareablePack.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <optional>
@@ -52,6 +53,7 @@ public:
 
     std::size_t GetPackSize() const;
 	std::string GetPack() const;
+	Message::ShareablePack GetShareablePack() const;
 	Message::ValidationStatus Validate() const;
 
 private:
