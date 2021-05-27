@@ -62,7 +62,7 @@ Network::IEndpoint::IEndpoint(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Endpoint::Identifier Network::IEndpoint::GetEndpointIdentifier() const
+Network::Endpoint::Identifier Network::IEndpoint::GetIdentifier() const
 {
     return m_identifier;
 }

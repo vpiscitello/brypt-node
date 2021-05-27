@@ -16,11 +16,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Proxy::Proxy(Node::Identifier const& identifier, IPeerMediator* const pPeerMediator)
-    : m_pPeerMediator(pPeerMediator)
-    , m_dataMutex()
-    , m_spNodeIdentifier()
+    : m_spIdentifier()
     , m_statistics()
-    , m_mediatorMutex()
+    , m_pPeerMediator(pPeerMediator)
+    , m_securityMutex()
     , m_upSecurityMediator()
     , m_endpointsMutex()
     , m_endpoints()
@@ -29,7 +28,7 @@ Peer::Proxy::Proxy(Node::Identifier const& identifier, IPeerMediator* const pPee
 {
     // We must always be constructed with an identifier that can uniquely identify the peer. 
     assert(identifier.IsValid() && !Node::IsIdentifierReserved(identifier));
-    m_spNodeIdentifier = std::make_shared<Node::Identifier const>(identifier);
+    m_spIdentifier = std::make_shared<Node::Identifier const>(identifier);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -42,24 +41,21 @@ Peer::Proxy::~Proxy()
 
 Node::SharedIdentifier Peer::Proxy::GetNodeIdentifier() const
 {
-    std::scoped_lock lock(m_dataMutex);
-    return m_spNodeIdentifier;
+    return m_spIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Node::Internal::Identifier::Type Peer::Proxy::GetInternalIdentifier() const
 {
-    std::scoped_lock lock(m_dataMutex);
-    assert(m_spNodeIdentifier);
-    return m_spNodeIdentifier->GetInternalValue();
+    assert(m_spIdentifier);
+    return m_spIdentifier->GetInternalValue();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::uint32_t Peer::Proxy::GetSentCount() const
 {
-    std::scoped_lock lock(m_dataMutex);
     return m_statistics.GetSentCount();
 }
 
@@ -67,7 +63,6 @@ std::uint32_t Peer::Proxy::GetSentCount() const
 
 std::uint32_t Peer::Proxy::GetReceivedCount() const
 {
-    std::scoped_lock lock(m_dataMutex);
     return m_statistics.GetReceivedCount();
 }
 
@@ -83,13 +78,10 @@ void Peer::Proxy::SetReceiver(IMessageSink* const pMessageSink)
 
 bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std::string_view buffer)
 {
-    {
-        std::scoped_lock lock(m_dataMutex);
-        m_statistics.IncrementReceivedCount();
-    }
-
     std::scoped_lock endpointsLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        m_statistics.IncrementReceivedCount();
+
         auto const& [key, registration] = *itr;
         auto const& context = registration.GetMessageContext();
 
@@ -107,13 +99,10 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
 
 bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
 {
-    {
-        std::scoped_lock lock(m_dataMutex);
-        m_statistics.IncrementReceivedCount();
-    }
-
     std::scoped_lock endpointsLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
+        m_statistics.IncrementReceivedCount();
+
         auto const& [key, registration] = *itr;
         auto const& context = registration.GetMessageContext();
 
@@ -135,14 +124,12 @@ bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::st
 
     std::scoped_lock endpointLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
-        {
-            std::scoped_lock dataLock(m_dataMutex);
-            m_statistics.IncrementSentCount();
-        }
+        m_statistics.IncrementSentCount();
+
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
-        assert(m_spNodeIdentifier && scheduler);
-        return scheduler(*m_spNodeIdentifier, Network::MessageVariant{std::move(message)});
+        assert(m_spIdentifier && scheduler);
+        return scheduler(*m_spIdentifier, Network::MessageVariant{std::move(message)});
     }
 
     return false;
@@ -154,16 +141,15 @@ bool Peer::Proxy::ScheduleSend(
     Network::Endpoint::Identifier identifier, Message::ShareablePack const& spSharedPack) const
 {
     assert(spSharedPack && !spSharedPack->empty());
+
     std::scoped_lock endpointLock(m_endpointsMutex);
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
-        {
-            std::scoped_lock dataLock(m_dataMutex);
-            m_statistics.IncrementSentCount();
-        }
+        m_statistics.IncrementSentCount();
+
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetScheduler();
-        assert(m_spNodeIdentifier && scheduler);
-        return scheduler(*m_spNodeIdentifier, Network::MessageVariant{spSharedPack});
+        assert(m_spIdentifier && scheduler);
+        return scheduler(*m_spIdentifier, Network::MessageVariant{spSharedPack});
     }
 
     return false;
@@ -244,8 +230,7 @@ bool Peer::Proxy::IsActive() const
 bool Peer::Proxy::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
-    auto const itr = m_endpoints.find(identifier);
-    return (itr != m_endpoints.end());
+    return (m_endpoints.find(identifier) != m_endpoints.end());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -288,7 +273,7 @@ std::size_t Peer::Proxy::RegisteredEndpointCount() const
 
 void Peer::Proxy::AttachSecurityMediator(std::unique_ptr<Security::Mediator>&& upSecurityMediator)
 {
-    std::scoped_lock mediatorLock(m_mediatorMutex);
+    std::scoped_lock mediatorLock(m_securityMutex);
     m_upSecurityMediator = std::move(upSecurityMediator);  // Take ownership of the mediator.
     assert(m_upSecurityMediator);
 

@@ -61,9 +61,10 @@ Network::Manager::~Manager()
 
 bool Network::Manager::IsAddressRegistered(Address const& address) const
 {
-    std::shared_lock lock(m_cacheMutex);
     auto const MatchBinding = [&address] (auto const& binding) -> bool { return address.equivalent(binding); };
     constexpr auto ProjectBinding = [] (auto const& pair) -> auto { return pair.second; };
+
+    std::shared_lock lock(m_cacheMutex);
     return std::ranges::any_of(m_bindings, MatchBinding, ProjectBinding);
 }
 
@@ -73,19 +74,19 @@ void Network::Manager::UpdateBinding(Endpoint::Identifier identifier, BindingAdd
 {
     std::scoped_lock lock(m_cacheMutex);
     UpdateBindingCache(identifier, binding);
-
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::Manager::Startup()
 {
-    std::scoped_lock lock(m_endpointsMutex);
     constexpr auto StartEndpoint = [] (auto const& spEndpoint)
     {
         assert(spEndpoint);
         spEndpoint->Startup();
     };
+
+    std::scoped_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, StartEndpoint);
 }
 
@@ -93,13 +94,13 @@ void Network::Manager::Startup()
 
 void Network::Manager::Shutdown()
 {
-    std::scoped_lock lock(m_endpointsMutex);
     constexpr auto ShutdownEndpoint = [] (auto const& spEndpoint) 
     {
         assert(spEndpoint);
         [[maybe_unused]] bool const stopped = spEndpoint->Shutdown();
         assert(stopped);
     };
+    std::scoped_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, ShutdownEndpoint);
 }
 
@@ -116,12 +117,13 @@ Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Endpoint::Identif
 
 Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Protocol protocol, Operation operation) const
 {
-    std::shared_lock lock(m_endpointsMutex);
     auto const FindEndpoint = [&protocol, &operation] (auto const& spEndpoint) -> bool
     {
         assert(spEndpoint);
         return spEndpoint->GetProtocol() == protocol && operation == spEndpoint->GetOperation();
     };
+
+    std::shared_lock lock(m_endpointsMutex);
     auto const view = m_endpoints | std::views::values;
     if (auto const itr = std::ranges::find_if(view, FindEndpoint); itr != view.end()) { return *itr; }
     return nullptr;
@@ -139,12 +141,13 @@ Network::ProtocolSet Network::Manager::GetEndpointProtocols() const
 
 std::size_t Network::Manager::ActiveEndpointCount() const
 {
-    std::shared_lock lock(m_endpointsMutex);
     constexpr auto const IsActive = [] (auto const& spEndpoint) -> bool 
     {
         assert(spEndpoint);
         return spEndpoint->IsActive();
     };
+
+    std::shared_lock lock(m_endpointsMutex);
     return std::ranges::count_if(m_endpoints | std::views::values, IsActive);
 }
 
@@ -152,13 +155,14 @@ std::size_t Network::Manager::ActiveEndpointCount() const
 
 std::size_t Network::Manager::ActiveProtocolCount() const
 {
-    std::shared_lock lock(m_endpointsMutex);
     ProtocolSet protocols;
     auto const AppendActiveProtocol = [&protocols] (auto const& spEndpoint) 
     {
         assert(spEndpoint);
         if (spEndpoint->IsActive()) { protocols.emplace(spEndpoint->GetProtocol()); }
     };
+
+    std::shared_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, AppendActiveProtocol);
     return protocols.size();
 }
@@ -207,15 +211,15 @@ void Network::Manager::InitializeTCPEndpoints(
         // Cache the binding such that clients can check the anticipated bindings before servers report an update.
         // This method is used over UpdateBinding because the shared lock is preferable to a recursive lock given 
         // reads are more common. This is the work around to reacquiring the lock made during initialization. 
-        UpdateBindingCache(spServer->GetEndpointIdentifier(), options.GetBinding());
-        m_endpoints.emplace(spServer->GetEndpointIdentifier(), std::move(spServer));
+        UpdateBindingCache(spServer->GetIdentifier(), options.GetBinding());
+        m_endpoints.emplace(spServer->GetIdentifier(), std::move(spServer));
     }
 
     // Add the client based endpoint
     {
         auto spClient = Endpoint::Factory(Protocol::TCP, Operation::Client, spEventPublisher, this, pPeerMediator);
         if (pBootstrapCache) { local::ConnectBootstraps(spClient, pBootstrapCache); }
-        m_endpoints.emplace(spClient->GetEndpointIdentifier(), std::move(spClient));
+        m_endpoints.emplace(spClient->GetIdentifier(), std::move(spClient));
     }
 
     m_protocols.emplace(options.GetProtocol());
@@ -225,6 +229,9 @@ void Network::Manager::InitializeTCPEndpoints(
 
 void Network::Manager::UpdateBindingCache(Endpoint::Identifier identifier, BindingAddress const& binding)
 {
+    // Note: The cache mutex must be locked before calling this method. We don't acquire the lock here to allow a 
+    // single lock during initialization. 
+
     auto const MatchIdentifier = [&identifier] (auto key) -> bool { return identifier == key; };
     constexpr auto ProjectIdentifier = [] (auto const& pair) -> auto { return pair.first; };
     

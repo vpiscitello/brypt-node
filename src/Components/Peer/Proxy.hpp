@@ -113,13 +113,12 @@ public:
 private:
     using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;
 
-    IPeerMediator* const m_pPeerMediator;
-
-    mutable std::recursive_mutex m_dataMutex;
-    Node::SharedIdentifier m_spNodeIdentifier;
+    Node::SharedIdentifier m_spIdentifier;
     mutable Statistics m_statistics;
 
-    mutable std::recursive_mutex m_mediatorMutex;
+    IPeerMediator* const m_pPeerMediator;
+    
+    mutable std::recursive_mutex m_securityMutex;
     std::unique_ptr<Security::Mediator> m_upSecurityMediator;
 
     mutable std::recursive_mutex m_endpointsMutex;

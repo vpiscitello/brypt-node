@@ -70,7 +70,7 @@ public:
         Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) = 0;
     [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message) = 0;
 
-    [[nodiscard]] Endpoint::Identifier GetEndpointIdentifier() const;
+    [[nodiscard]] Endpoint::Identifier GetIdentifier() const;
     [[nodiscard]] Operation GetOperation() const;
 
     void RegisterMediator(IEndpointMediator* const pMediator);
