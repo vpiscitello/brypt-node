@@ -1,7 +1,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -43,10 +45,7 @@ constexpr std::string_view ServerEntry = "127.0.0.1:35216";
 class local::BootstrapCacheStub : public IBootstrapCache
 {
 public:
-    BootstrapCacheStub()
-        : m_protocols()
-    {
-    }
+    BootstrapCacheStub() : m_protocols() {}
 
     void AddBootstrap(Network::RemoteAddress const& bootstrap)
     {
@@ -63,8 +62,7 @@ public:
         return false;
     }
 
-    bool ForEachCachedBootstrap(
-        Network::Protocol protocol, OneProtocolReadFunction const& readFunction) const override
+    bool ForEachCachedBootstrap(Network::Protocol protocol, OneProtocolReadFunction const& readFunction) const override
     {
         auto const itr = m_protocols.find(protocol);
         if (itr == m_protocols.end()) { return false; }   
@@ -78,16 +76,8 @@ public:
         return true;
     }
 
-    std::size_t CachedBootstrapCount() const override
-    {
-        return 0;
-    }
-
-    std::size_t CachedBootstrapCount(
-        [[maybe_unused]] Network::Protocol protocol) const override
-    {
-        return 0;
-    }
+    std::size_t CachedBootstrapCount() const override { return 0; }
+    std::size_t CachedBootstrapCount([[maybe_unused]] Network::Protocol protocol) const override { return 0; }
     // } IBootstrapCache
 
 private:
@@ -107,7 +97,9 @@ TEST(NetworkManagerSuite, EndpointStartupTest)
     Network::RemoteAddress address(test::ProtocolType, test::ServerEntry, true);
     spPeerCache->AddBootstrap(address);
 
-    auto upNetworkManager = std::make_unique<Network::Manager>(endpoints, nullptr, spPeerCache.get());
+    auto const spPublisher = std::make_shared<Event::Publisher>();
+    auto const upNetworkManager = std::make_unique<Network::Manager>(
+        endpoints, spPublisher, nullptr, spPeerCache.get(), RuntimeContext::Foreground);
         
     std::size_t const initialActiveEndpoints = upNetworkManager->ActiveEndpointCount();
     std::size_t const initialActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
