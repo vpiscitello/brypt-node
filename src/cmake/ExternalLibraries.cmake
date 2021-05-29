@@ -3,6 +3,8 @@
 include(ExternalProject)
 include(FetchContent)
 
+add_custom_target(external)
+
 set(DEPENDENCY_DIRECTORY ${CMAKE_SOURCE_DIR}/external)
 set(DEPENDENCY_TEMP_DIRECTORY ${DEPENDENCY_DIRECTORY}/temp)
 set(DEPENDENCY_DOWNLOAD_DIRECTORY ${DEPENDENCY_DIRECTORY}/download)
@@ -104,12 +106,23 @@ if (NOT Boost_FOUND)
         COMMAND
             ${BOOST_FIXUP_DYLIBS}
         INSTALL_COMMAND ""
-        INSTALL_DIR ${BOOST_DIRECTORY})
+        INSTALL_DIR ${BOOST_DIRECTORY}
+        EXCLUDE_FROM_ALL TRUE)
 
-    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include)
-    set(Boost_LIBRARIES
-        ${BOOST_DIRECTORY}/lib/libboost_system.${SHARED_EXTENSION}
-        ${BOOST_DIRECTORY}/lib/libboost_program_options.${SHARED_EXTENSION})
+    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+    add_library(Boost::system SHARED IMPORTED)
+    set_target_properties(Boost::system PROPERTIES
+        IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_system.${SHARED_EXTENSION})
+
+    add_library(Boost::program_options SHARED IMPORTED)
+    set_target_properties(Boost::program_options PROPERTIES
+        IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_program_options.${SHARED_EXTENSION})
+
+    set(Boost_LIBRARIES "-Wl,-rpath,${BOOST_DIRECTORY}/lib/"
+        Boost::system Boost::program_options CACHE FILEPATH "" FORCE)
+
+    add_dependencies(external boost)
 endif()
 
 message(DEBUG "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
@@ -165,10 +178,17 @@ if (NOT GTEST_FOUND)
         DOWNLOAD_COMMAND ""
         UPDATE_COMMAND ""
         CMAKE_ARGS ${GOOGLETEST_CONFIGURE_PARAMS}
-        INSTALL_DIR ${GOOGLETEST_DIRECTORY})
-
-    set(GTEST_INCLUDE_DIRS ${GOOGLETEST_DIRECTORY}/include)
-    set(GTEST_LIBRARIES ${GOOGLETEST_DIRECTORY}/lib/libgtest.${STATIC_EXTENSION})
+        INSTALL_DIR ${GOOGLETEST_DIRECTORY}
+        EXCLUDE_FROM_ALL TRUE)
+        
+    set(GTEST_INCLUDE_DIRS ${GOOGLETEST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+    
+    add_library(GTest::gtest STATIC IMPORTED)
+    set_target_properties(GTest::gtest PROPERTIES
+        IMPORTED_LOCATION ${GOOGLETEST_DIRECTORY}/lib/libgtest.${STATIC_EXTENSION})
+    set(GTEST_LIBRARIES GTest::gtest CACHE FILEPATH "" FORCE)
+   
+    add_dependencies(external googletest)
 endif()
 
 message(DEBUG "GTEST_INCLUDE_DIRS: ${GTEST_INCLUDE_DIRS}")
@@ -204,7 +224,7 @@ if (NOT EXISTS "${LITHIUM_JSON_DIRECTORY}/${LITHIUM_JSON_FILE}")
 endif()
 
 # Always set the Lithium JSON include directory given it is not findable. 
-set(LITHIUM_JSON_INCLUDE_DIR ${LITHIUM_JSON_DIRECTORY})
+set(LITHIUM_JSON_INCLUDE_DIR ${LITHIUM_JSON_DIRECTORY} CACHE FILEPATH "" FORCE)
 message(DEBUG "LITHIUM_JSON_INCLUDE_DIR: ${LITHIUM_JSON_INCLUDE_DIR}")
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -224,9 +244,12 @@ if(NOT DEFINED OPENSSL_ROOT_DIR)
 endif()
 
 find_package(OpenSSL ${OPENSSL_VERSION} QUIET)
-if (NOT OPENSSL_FOUND)
-    set(OPENSSL_BUILD_REQUIRED true)
-
+# I'm still figuring out how to properly use CMake given the constraints of wanting pre-fetch, building if not found, 
+# and setting the rpath for the custom builds. 
+# Basically, OPENSSL_CUSTOM_BUILD acts a canary such that we can re-add the custom OpenSSL target. Otherwise, CMake 
+# won't know what OpenSSL::Crypto is on the second run. The intention of overriding find_package's exports is to make 
+# the ExternalProject custom builds act the same as if it was found with find_package.  
+if (NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD})
     if (NOT EXISTS ${OPENSSL_DOWNLOAD_DIRECTORY})
         message(STATUS "OpenSSL was not found. Downloading now...")
 
@@ -268,6 +291,7 @@ if (NOT OPENSSL_FOUND)
 
     find_program(OPENSSL_BUILD make REQUIRED)
 
+    set(OPENSSL_CUSTOM_BUILD TRUE CACHE BOOL INTERNAL)
     ExternalProject_Add(
         openssl
         PREFIX ${OPENSSL_DOWNLOAD_DIRECTORY}
@@ -287,10 +311,17 @@ if (NOT OPENSSL_FOUND)
             ${OPENSSL_BUILD} ${OPENSSL_INSTALL_TARGET}
         COMMAND
             ${OPENSSL_FIXUP_DYLIBS}
-        INSTALL_DIR ${OPENSSL_DIRECTORY})
+        INSTALL_DIR ${OPENSSL_DIRECTORY}
+        EXCLUDE_FROM_ALL TRUE)
 
-    set(OPENSSL_INCLUDE_DIR ${OPENSSL_DIRECTORY}/include)
-    set(OPENSSL_CRYPTO_LIBRARY ${OPENSSL_DIRECTORY}/lib/libcrypto.${SHARED_EXTENSION})    
+    set(OPENSSL_INCLUDE_DIR ${OPENSSL_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+    add_library(OpenSSL::Crypto SHARED IMPORTED)
+    set_target_properties(OpenSSL::Crypto PROPERTIES
+        IMPORTED_LOCATION ${OPENSSL_DIRECTORY}/lib/libcrypto.${SHARED_EXTENSION})
+    set(OPENSSL_CRYPTO_LIBRARY "-Wl,-rpath,${OPENSSL_DIRECTORY}/lib/" OpenSSL::Crypto CACHE FILEPATH "" FORCE)
+
+    add_dependencies(external openssl)
 endif()
 
 message(DEBUG "OPENSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
@@ -327,7 +358,7 @@ if (NOT EXISTS ${OQS_DOWNLOAD_DIRECTORY})
     message(STATUS "Open Quantum Safe (liboqs) downloaded to ${DEPENDENCY_DOWNLOAD_DIRECTORY}")
 endif()
 
-if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION})
+if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION} AND NOT DEFINED CACHE{OQS_LIBRARIES})
     set(OQS_CONFIGURE_GENERATOR "Ninja")
     set(OQS_CONFIGURE_PARAMS
         -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
@@ -349,16 +380,19 @@ if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION})
         CMAKE_GENERATOR ${OQS_CONFIGURE_GENERATOR}
         CMAKE_ARGS ${OQS_CONFIGURE_PARAMS}
         BUILD_COMMAND ${OQS_BUILD}
-        INSTALL_DIR ${OQS_DIRECTORY})
+        INSTALL_DIR ${OQS_DIRECTORY}
+        DEPENDS openssl # Ensures this project is built after openssl
+        EXCLUDE_FROM_ALL TRUE)
 
-    # If we are building OpenSSL, we must add a dependency to liboqs to ensure it is using the correct version
-    if (OPENSSL_BUILD_REQUIRED)
-        add_dependencies(liboqs openssl)
-    endif()
+    add_dependencies(external liboqs)
 endif()
 
-set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/include)
-set(OQS_LIBRARIES ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION})    
+set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+add_library(OQS::oqs SHARED IMPORTED)
+set_target_properties(OQS::oqs PROPERTIES
+    IMPORTED_LOCATION ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION})
+set(OQS_LIBRARIES "-Wl,-rpath,${OQS_DIRECTORY}/lib/" OQS::oqs CACHE FILEPATH "" FORCE)
 
 message(DEBUG "OQS_INCLUDE_DIRS: ${OQS_INCLUDE_DIRS}")
 message(DEBUG "OQS_LIBRARIES: ${OQS_LIBRARIES}")
@@ -394,7 +428,7 @@ if (NOT EXISTS ${OQSCPP_DIRECTORY})
     message(STATUS "Open Quantum Safe (liboqs-cpp) downloaded to ${OQSCPP_DIRECTORY}")
 endif()
 
-set(OQSCPP_INCLUDE_DIRS ${OQSCPP_DIRECTORY}/include)
+set(OQSCPP_INCLUDE_DIRS ${OQSCPP_DIRECTORY}/include CACHE FILEPATH "" FORCE)
 
 message(DEBUG "OQSCPP_INCLUDE_DIRS: ${OQSCPP_INCLUDE_DIRS}")
 
@@ -427,7 +461,7 @@ if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY})
     message(STATUS "spdlog downloaded to ${SPDLOG_DIRECTORY}")
 endif()
     
-if (NOT EXISTS ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION})
+if (NOT EXISTS ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION} AND NOT DEFINED CACHE{spdlog_LIBRARIES})
     set(SPDLOG_CONFIGURE_PARAMS
         -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
         -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY}
@@ -443,11 +477,17 @@ if (NOT EXISTS ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION})
         DOWNLOAD_COMMAND ""
         UPDATE_COMMAND ""
         CMAKE_ARGS ${SPDLOG_CONFIGURE_PARAMS}
-        INSTALL_DIR ${SPDLOG_DIRECTORY})
+        INSTALL_DIR ${SPDLOG_DIRECTORY}
+        EXCLUDE_FROM_ALL TRUE)
+
+    add_dependencies(external spdlog)
 endif()
 
-set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/include)
-set(spdlog_LIBRARIES ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION})
+set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+add_library(Spdlog::spdlog SHARED IMPORTED)
+set_target_properties(Spdlog::spdlog PROPERTIES
+    IMPORTED_LOCATION ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION})
+set(spdlog_LIBRARIES "-Wl,-rpath,${SPDLOG_DIRECTORY}/lib/" Spdlog::spdlog CACHE FILEPATH "" FORCE)
 
 message(DEBUG "spdlog_INCLUDE_DIRS: ${spdlog_INCLUDE_DIRS}")
 message(DEBUG "spdlog_LIBRARIES: ${spdlog_LIBRARIES}")

@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------------------------------------------------
 message(STATUS "Configuring brypt Binary...")
 #-----------------------------------------------------------------------------------------------------------------------
-project(brypt-bin LANGUAGES CXX)
+project(brypt-executable LANGUAGES CXX)
 add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -36,12 +36,12 @@ set(INTERNAL_LIBRARIES
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME brypt)
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-    # TODO: Implement the install for the brypt binary 
+    # TODO: Implement the install for the brypt executable 
     set(MACOS_INSTALL_RPATH
         "@executable_path/../lib/"
         "@executable_path/../external/lib/")
 
-    set_target_properties(brypt-bin
+    set_target_properties(brypt-executable
         PROPERTIES
         SKIP_BUILD_RPATH TRUE
         BUILD_WITH_INSTALL_RPATH FALSE
@@ -51,16 +51,16 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
     set(MACOS_EXTERNAL_DIR "@executable_path/../../external/")
 
     # Fixup the binary on MacOS to run without installing
-    add_custom_command(TARGET brypt-bin 
+    add_custom_command(TARGET brypt-executable 
         POST_BUILD
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}boost/${BOOST_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}boost/${BOOST_VERSION}/lib/" $<TARGET_FILE:brypt-executable>
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}liboqs/${OQS_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}liboqs/${OQS_VERSION}/lib/" $<TARGET_FILE:brypt-executable>
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}openssl/${OPENSSL_VERSION}/lib/" $<TARGET_FILE:brypt-bin>
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}openssl/${OPENSSL_VERSION}/lib/" $<TARGET_FILE:brypt-executable>
         COMMAND 
-            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}spdlog/${SPDLOG_VERSION}/lib/" $<TARGET_FILE:brypt-bin>)
+            ${CMAKE_INSTALL_NAME_TOOL} -add_rpath "${MACOS_EXTERNAL_DIR}spdlog/${SPDLOG_VERSION}/lib/" $<TARGET_FILE:brypt-executable>)
 endif()
 
 # Internal include dependencies
