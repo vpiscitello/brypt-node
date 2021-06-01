@@ -87,8 +87,9 @@ void Event::Publisher::Subscribe(typename Event::Message<EventType>::CallbackTra
     std::scoped_lock lock(m_listenersMutex);
     m_listeners[EventType].emplace_back(
         [callback] (EventProxy const& upEventProxy) {
-            auto const* const pEvent = dynamic_cast<Event::Message<EventType> const* const>(upEventProxy.get());
-            assert(pEvent); // Dispatch needs to ensure this callback is provided the correct event. 
+            // Dispatch needs to ensure this callback is provided the correct event. 
+            assert(upEventProxy && upEventProxy->Type() == EventType);
+            auto const pEvent = static_cast<Event::Message<EventType> const*>(upEventProxy.get());
             std::apply(callback, pEvent->GetContent());
         });
 }
