@@ -157,9 +157,16 @@ bool Network::TCP::Session::OnReceived(Node::Identifier const& identifier, std::
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::OnStopped()
+void Network::TCP::Session::OnPeerDisconnected()
 {
-    m_onStopped(shared_from_this());
+    OnSocketError(spdlog::level::warn, "Session ended by peer", StopCause::PeerDisconnect);   
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::TCP::Session::OnUnexpectedError(std::string_view error)
+{
+    OnSocketError(spdlog::level::err, error, StopCause::UnexpectedError);   
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -168,35 +175,25 @@ Network::TCP::CompletionOrigin Network::TCP::Session::OnSocketError(boost::syste
 {
     // Determine if the error is expected from an intentional session shutdown.  
     if (IsInducedError(error)) {
-        m_onStopped(shared_from_this()); // Notify the endpoint.
+        m_onStopped(shared_from_this(), StopCause::Requested); // Notify the endpoint.
         return CompletionOrigin::Self;
     }
 
     // Note: The next error handler will handle notifying the endpoint. 
     switch (error.value()) {
-        case boost::asio::error::eof: {
-            OnSocketError("Session ended by peer", LogLevel::Warning);
-            return CompletionOrigin::Peer;
-        }
-        default: {
-            OnSocketError("An unexpected socket error occured");
-            return CompletionOrigin::Error;
-        }
+        case boost::asio::error::eof: { OnPeerDisconnected(); } return CompletionOrigin::Peer;
+        default: { OnUnexpectedError("An unexpected socket error occured");  } return CompletionOrigin::Error;
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::OnSocketError(std::string_view error, LogLevel level)
+void Network::TCP::Session::OnSocketError(spdlog::level::level_enum level, std::string_view error, StopCause cause)
 {
     assert(error.size() != 0);
-    spdlog::level::level_enum spdlogLevel= spdlog::level::err;
-    if (level == LogLevel::Warning) {
-        spdlogLevel = spdlog::level::warn;
-    }
-    m_spLogger->log(spdlogLevel, "{} on {}.", error, m_address);
-    m_onStopped(shared_from_this()); // Notify the endpoint.
-    Stop(); // Stop the session processors. 
+    m_spLogger->log(level, "{} on {}.", error, m_address);
+    m_onStopped(shared_from_this(), cause); // Notify the endpoint.
+    Stop(); // Stop the session processors. If the socket has already been stopped this is a no-op. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -305,13 +302,13 @@ bool Network::TCP::Session::Receiver::OnReceived(std::span<std::uint8_t const> r
     constexpr auto MessageUpperBound = std::numeric_limits<std::uint32_t>::max();
 
     if (receivable.size() > MessageUpperBound) [[unlikely]] {
-        m_instance.OnSocketError("Message exceeded the maximum allowable size");
+        m_instance.OnUnexpectedError("Message exceeded the maximum allowable size");
         return false;
     }
     
     auto const optIdentifier = Message::PeekSource(receivable);
     if (!optIdentifier) [[unlikely]] {
-        m_instance.OnSocketError("Message was unable to be parsed");
+        m_instance.OnUnexpectedError("Message was unable to be parsed");
         return false;
     }
 
@@ -323,7 +320,7 @@ bool Network::TCP::Session::Receiver::OnReceived(std::span<std::uint8_t const> r
 Network::TCP::CompletionOrigin Network::TCP::Session::Receiver::OnReceiveError(boost::system::error_code const& error)
 {
     if (error) { return m_instance.OnSocketError(error); }
-    m_instance.OnSocketError("Message was unable to be parsed");
+    m_instance.OnUnexpectedError("Message was unable to be parsed");
     return CompletionOrigin::Error;
 }
 
@@ -343,8 +340,8 @@ Network::TCP::Session::Dispatcher::Dispatcher(SessionInstance instance)
 Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher::operator()()
 {
     auto const& active = m_instance.m_active;
+    auto const& spLogger = m_instance.m_spLogger;
     auto& socket = m_instance.m_socket;
-    auto const spLogger = m_instance.m_spLogger;
     while (active) {
         // If there are no messages scheduled for sending, wait for a signal to continue dispatching. 
         if (m_switchboard.empty()) {

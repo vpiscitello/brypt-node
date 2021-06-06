@@ -36,17 +36,19 @@ namespace spdlog { class logger; }
 namespace Network::TCP {
 //----------------------------------------------------------------------------------------------------------------------
 
-class Session;
 class Endpoint;
+
+class Session;
+using SharedSession = std::shared_ptr<Session>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Network::TCP namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Network::TCP::Endpoint : public Network::IEndpoint
+class Network::TCP::Endpoint final : public Network::IEndpoint
 {
 public:
-    using SessionTracker = ConnectionTracker<std::shared_ptr<Session>>;
+    using SessionTracker = ConnectionTracker<SharedSession>;
 
     Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher);
     ~Endpoint() override;
@@ -72,47 +74,55 @@ public:
     // }IEndpoint
     
 private:
+    using EndpointInstance = Endpoint&;
     using ExtendedDetails = ConnectionDetails<void>;
 
     using EventDeque = std::deque<std::any>;
     using EventHandlers = std::unordered_map<std::type_index, std::function<void(std::any&)>>;
 
-    void ServerWorker(std::stop_token token);
-    void ClientWorker(std::stop_token token);
+    class RuntimePolicy {
+    public: 
+        RuntimePolicy();
+        virtual ~RuntimePolicy() = default;
+        [[nodiscard]] virtual Operation Type() const = 0;
+        virtual void Start() = 0;
+        [[nodiscard]] virtual bool Stop();
+        [[nodiscard]] virtual bool IsActive() const;
 
+    protected: 
+        std::atomic_bool m_active;
+        std::jthread m_worker;
+    };
+
+    class Server;
+    class Client;
+
+    void PollContext();
     void ProcessEvents(std::stop_token token);
     void OnBindEvent(BindEvent const& event);
-    void OnConnectEvent(ConnectEvent const& event);
+    void OnConnectEvent(ConnectEvent& event);
     void OnDispatchEvent(DispatchEvent& event);
 
-    [[nodiscard]] std::shared_ptr<Session> CreateSession();
+    [[nodiscard]] SharedSession CreateSession();
 
-    [[nodiscard]] bool Bind(BindingAddress const& binding);
-    [[nodiscard]] SocketProcessor Listener();
-
-    [[nodiscard]] ConnectStatusCode Connect(RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier);
-    [[nodiscard]] SocketProcessor Resolver(RemoteAddress address, Node::SharedIdentifier spIdentifier);
-
-    void OnSessionStarted(std::shared_ptr<Session> const& spSession);
-    void OnSessionStopped(std::shared_ptr<Session> const& spSession);
+    void OnSessionStarted(SharedSession const& spSession);
+    void OnSessionStopped(SharedSession const& spSession);
 
     [[nodiscard]] bool OnMessageReceived(
-        std::shared_ptr<Session> const& spSession, Node::Identifier const& source, std::span<std::uint8_t const> message);
+        SharedSession const& spSession, Node::Identifier const& source, std::span<std::uint8_t const> message);
+
+    [[nodiscard]] ConnectStatus IsConflictingAddress(RemoteAddress const& address) const;
 
     mutable std::shared_mutex m_detailsMutex;
-	std::atomic_bool m_active;
-    std::jthread m_worker;
 
     boost::asio::io_context m_context;
-    boost::asio::ip::tcp::acceptor m_acceptor;
-    boost::asio::ip::tcp::resolver m_resolver;
+    std::unique_ptr<RuntimePolicy> m_upRuntime;
     
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;
     EventHandlers m_handlers;
 
     SessionTracker m_tracker;
-
     MessageScheduler m_scheduler;
 
     std::shared_ptr<spdlog::logger> m_spLogger;

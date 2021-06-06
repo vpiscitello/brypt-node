@@ -94,7 +94,7 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::UndeclareResolvingPeer(
+void SinglePeerMediatorStub::RescindResolvingPeer(
     [[maybe_unused]] Network::RemoteAddress const& address)
 {
 }

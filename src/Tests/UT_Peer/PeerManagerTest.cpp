@@ -193,7 +193,7 @@ TEST(PeerManagerSuite, UndeclarePeerTest)
     EXPECT_GT(optRequest->size(), std::size_t(0));
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(1));
 
-    manager.UndeclareResolvingPeer(test::RemoteServerAddress);
+    manager.RescindResolvingPeer(test::RemoteServerAddress);
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
 }
 

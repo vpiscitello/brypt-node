@@ -54,7 +54,7 @@ public:
     virtual OptionalRequest DeclareResolvingPeer(
         Network::RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier = nullptr) override;
 
-    virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) override;
+    virtual void RescindResolvingPeer(Network::RemoteAddress const& address) override;
 
     virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) override;

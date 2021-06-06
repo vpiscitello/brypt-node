@@ -14,8 +14,7 @@ namespace Network::TCP {
 constexpr std::string_view Scheme = "tcp";
 constexpr Protocol ProtocolType = Protocol::TCP;
 
-enum class ConnectStatusCode : std::uint8_t {
-    Success, GenericError, RetryError, ReflectionError, DuplicateError };
+enum class ConnectStatus : std::uint32_t { Success, RetryError, ReflectionError, DuplicateError };
 
 //----------------------------------------------------------------------------------------------------------------------
 } // TCP namespace

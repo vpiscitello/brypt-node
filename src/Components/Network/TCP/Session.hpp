@@ -14,6 +14,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <spdlog/common.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <cstdint>
@@ -33,6 +34,7 @@ namespace Network::TCP {
 //----------------------------------------------------------------------------------------------------------------------
 
 class Session;
+using SharedSession = std::shared_ptr<Session>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Network::TCP namespace
@@ -42,11 +44,12 @@ class Network::TCP::Session : public std::enable_shared_from_this<Session>
 {
 public:
     enum class Event : std::uint32_t { Receive, Stop };
-    template <Event EventName> struct Callback;
+    enum class StopCause : std::uint32_t { Requested, PeerDisconnect, UnexpectedError };
 
+    template <Event EventName> struct Callback;
     using ReceiveCallback = std::function<
-        bool(std::shared_ptr<Session> const&, Node::Identifier const&, std::span<std::uint8_t const>)>;
-    using StopCallback = std::function<void(std::shared_ptr<Session> const&)>;
+        bool(SharedSession const&, Node::Identifier const&, std::span<std::uint8_t const>)>;
+    using StopCallback = std::function<void(SharedSession const&, StopCause cause)>;
     
     Session(boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& spLogger);
     ~Session();
@@ -65,20 +68,17 @@ public:
     [[nodiscard]] bool ScheduleSend(Network::MessageVariant&& message);
 
 private:
-    enum class LogLevel : std::uint8_t { Default, Warning };
-
     using SessionInstance = Session&;
 
     struct Receiver {
-        explicit Receiver(SessionInstance instance);
-        SocketProcessor operator()();
-
         using ReceiveResult = boost::asio::awaitable<std::optional<std::size_t>>;
-
-        ReceiveResult ReceiveHeader();
-        ReceiveResult ReceiveMessage(std::size_t processed);
-        bool OnReceived(std::span<std::uint8_t const> receivable);
-        CompletionOrigin OnReceiveError(boost::system::error_code const& error);
+        
+        explicit Receiver(SessionInstance instance);
+        [[nodiscard]] SocketProcessor operator()();
+        [[nodiscard]] ReceiveResult ReceiveHeader();
+        [[nodiscard]] ReceiveResult ReceiveMessage(std::size_t processed);
+        [[nodiscard]] bool OnReceived(std::span<std::uint8_t const> receivable);
+        [[nodiscard]] CompletionOrigin OnReceiveError(boost::system::error_code const& error);
 
         SessionInstance m_instance;
         boost::system::error_code m_error;
@@ -88,15 +88,14 @@ private:
     };
 
     struct Dispatcher {
-        explicit Dispatcher(SessionInstance instance);
-        SocketProcessor operator()();
-
-        [[nodiscard]] bool ScheduleSend(Network::MessageVariant&& spSharedPack);
-
         using DispatcherInstance = Dispatcher&;
         using Switchboard = std::deque<Network::MessageVariant>;
 
         class Dispatchable;
+
+        explicit Dispatcher(SessionInstance instance);
+        [[nodiscard]] SocketProcessor operator()();
+        [[nodiscard]] bool ScheduleSend(Network::MessageVariant&& spSharedPack);
 
         SessionInstance m_instance;
         boost::asio::steady_timer m_timer;
@@ -105,11 +104,12 @@ private:
         Switchboard m_switchboard;
     };
     
-    bool OnReceived(Node::Identifier const& identifier, std::span<std::uint8_t const> message);
-    void OnStopped();
+    [[nodiscard]] bool OnReceived(Node::Identifier const& identifier, std::span<std::uint8_t const> message);
 
+    void OnPeerDisconnected();
+    void OnUnexpectedError(std::string_view error);
     [[nodiscard]] CompletionOrigin OnSocketError(boost::system::error_code const& error);
-    void OnSocketError(std::string_view error, LogLevel level = LogLevel::Default);
+    void OnSocketError(spdlog::level::level_enum level, std::string_view error, StopCause cause);
 
     std::shared_ptr<spdlog::logger> m_spLogger;
     std::atomic_bool m_active;

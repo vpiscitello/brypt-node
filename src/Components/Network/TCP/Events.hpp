@@ -58,7 +58,7 @@ class Network::TCP::ConnectEvent : public Network::TCP::Event
 public:
     explicit ConnectEvent(RemoteAddress&& address, Node::SharedIdentifier const& session = nullptr);
     Node::SharedIdentifier const& GetNodeIdentifier() const;
-    RemoteAddress const& GetRemoteAddress() const;
+    RemoteAddress&& ReleaseAddress();
 
 private:
     Node::SharedIdentifier m_spIdentifier;

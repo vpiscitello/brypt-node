@@ -11,7 +11,6 @@
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
-#include <random>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -111,7 +110,7 @@ Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::UndeclareResolvingPeer(Network::RemoteAddress const& address)
+void Peer::Manager::RescindResolvingPeer(Network::RemoteAddress const& address)
 {
     std::scoped_lock lock(m_resolvingMutex);
     [[maybe_unused]] std::size_t const result = m_resolving.erase(address);

@@ -125,11 +125,9 @@ bool MessageSinkStub::CollectMessage(
 std::optional<AssociatedMessage> MessageSinkStub::GetNextMessage()
 {
 	std::scoped_lock lock(m_mutex);
-	if (m_incoming.empty()) {
-		return {};
-	}
+	if (m_incoming.empty()) { return {}; }
 
-	auto const message = m_incoming.front();
+	auto const message = std::move(m_incoming.front());
 	m_incoming.pop();
 
 	return message;

@@ -34,7 +34,7 @@ public:
     virtual OptionalRequest DeclareResolvingPeer(
         Network::RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier = nullptr) = 0;
 
-    virtual void UndeclareResolvingPeer(Network::RemoteAddress const& address) = 0;
+    virtual void RescindResolvingPeer(Network::RemoteAddress const& address) = 0;
 
     virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) = 0;

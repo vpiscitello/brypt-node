@@ -50,9 +50,9 @@ Node::SharedIdentifier const& Network::TCP::ConnectEvent::GetNodeIdentifier() co
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::RemoteAddress const& Network::TCP::ConnectEvent::GetRemoteAddress() const
+Network::RemoteAddress&& Network::TCP::ConnectEvent::ReleaseAddress()
 {
-    return m_address;
+    return std::move(m_address);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
