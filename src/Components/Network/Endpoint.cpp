@@ -134,9 +134,7 @@ void Network::IEndpoint::OnUnexpectedError() const
 void Network::IEndpoint::OnBindingUpdated(BindingAddress const& binding)
 {
     // If a binding failure was marked as a potential cause of the shutdown, reset the captured shutdown error.
-    if (m_optShutdownCause && *m_optShutdownCause == ShutdownCause::BindingFailed) {
-        m_optShutdownCause.reset();
-    }
+    if (m_optShutdownCause && *m_optShutdownCause == ShutdownCause::BindingFailed) { m_optShutdownCause.reset(); }
     if (m_pEndpointMediator) [[likely]] { m_pEndpointMediator->UpdateBinding(m_identifier, binding); }
 }
 
@@ -153,16 +151,9 @@ void Network::IEndpoint::SetShutdownCause(ShutdownCause cause) const
 std::shared_ptr<Peer::Proxy> Network::IEndpoint::LinkPeer(
     Node::Identifier const& identifier, RemoteAddress const& address) const
 {
-    std::shared_ptr<Peer::Proxy> spPeerProxy;
-
-    // If the endpoint has a known peer mediator then we should use the mediator to acquire or 
-    // link this endpoint with a unified peer identified by the provided Brypt Identifier. 
-    // Otherwise, the endpoint can make a self contained Brypt Peer. Note: This conditional branch
-    // should only be hit in unit tests of the endpoint. 
-    if(m_pPeerMediator) { spPeerProxy = m_pPeerMediator->LinkPeer(identifier, address); } 
-    else { spPeerProxy = std::make_shared<Peer::Proxy>(identifier); }
-
-    return spPeerProxy;
+    assert(m_pPeerMediator);
+    // Use the peer mediator to acquire and link a peer proxy for specified node identifier and address to this endpoint. 
+    return m_pPeerMediator->LinkPeer(identifier, address);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

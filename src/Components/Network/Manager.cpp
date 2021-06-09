@@ -206,7 +206,7 @@ void Network::Manager::InitializeTCPEndpoints(
     // Add the server based endpoint
     {
         auto spServer = Endpoint::Factory(Protocol::TCP, Operation::Server, spEventPublisher, this, pPeerMediator);
-        bool const scheduled = spServer->ScheduleBind(options.GetBinding());
+        [[maybe_unused]] bool const scheduled = spServer->ScheduleBind(options.GetBinding());
         assert(scheduled);
         // Cache the binding such that clients can check the anticipated bindings before servers report an update.
         // This method is used over UpdateBinding because the shared lock is preferable to a recursive lock given 

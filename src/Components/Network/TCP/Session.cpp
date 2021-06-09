@@ -135,7 +135,7 @@ void Network::TCP::Session::Start()
 
 void Network::TCP::Session::Stop()
 {
-    if (m_active) {  m_spLogger->info("Shutting down session with {}.", m_address); }
+    if (m_active) { m_spLogger->info("Shutting down session with {}.", m_address); }
     m_socket.close();
     m_dispatcher.m_timer.cancel();
     m_active = false;

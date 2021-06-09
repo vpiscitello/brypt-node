@@ -80,16 +80,21 @@ private:
     using EventDeque = std::deque<std::any>;
     using EventHandlers = std::unordered_map<std::type_index, std::function<void(std::any&)>>;
 
-    class RuntimePolicy {
-    public: 
-        RuntimePolicy();
-        virtual ~RuntimePolicy() = default;
+    class Agent {
+    public:
+        explicit Agent(EndpointInstance endpoint);
+        virtual ~Agent() = default;
         [[nodiscard]] virtual Operation Type() const = 0;
-        virtual void Start() = 0;
-        [[nodiscard]] virtual bool Stop();
         [[nodiscard]] virtual bool IsActive() const;
+        [[nodiscard]] bool Launched() const;
 
-    protected: 
+    protected:
+        void Launch(std::function<void()> const& setup, std::function<void()> const& teardown);
+        void Stop();
+        virtual void Setup() = 0;
+        virtual void Teardown() = 0;
+
+        EndpointInstance m_endpoint;
         std::atomic_bool m_active;
         std::jthread m_worker;
     };
@@ -116,7 +121,7 @@ private:
     mutable std::shared_mutex m_detailsMutex;
 
     boost::asio::io_context m_context;
-    std::unique_ptr<RuntimePolicy> m_upRuntime;
+    std::unique_ptr<Agent> m_upAgent;
     
     mutable std::mutex m_eventsMutex;
     EventDeque m_events;

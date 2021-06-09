@@ -18,6 +18,7 @@
 #include <cassert>
 #include <coroutine>
 #include <map>
+#include <ranges>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -30,21 +31,18 @@ namespace local {
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Network::TCP::Endpoint::Server final : public Network::TCP::Endpoint::RuntimePolicy
+class Network::TCP::Endpoint::Server final : public Network::TCP::Endpoint::Agent
 {
 public:
     explicit Server(EndpointInstance endpoint);
-
-    // RuntimePolicy {
+    ~Server();
     [[nodiscard]] virtual Operation Type() const override;
-    virtual void Start() override;
-    [[nodiscard]] virtual bool Stop() override;
-    // } RuntimePolicy
-
     [[nodiscard]] bool Bind(BindingAddress const& binding);
 
 private:
     using ServerInstance = Server&;
+    virtual void Setup() override;
+    virtual void Teardown() override;
 
     struct Listener {
         Listener(ServerInstance server, boost::asio::io_context& context);
@@ -55,62 +53,61 @@ private:
         boost::asio::ip::tcp::acceptor m_acceptor;
     };
 
-    EndpointInstance m_endpoint;
     Listener m_listener;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Network::TCP::Endpoint::Client final : public Network::TCP::Endpoint::RuntimePolicy
+class Network::TCP::Endpoint::Client final : public Network::TCP::Endpoint::Agent
 {
 public:
     explicit Client(EndpointInstance instance);
+    ~Client();
 
-    // RuntimePolicy {
     [[nodiscard]] virtual Operation Type() const override;
-    virtual void Start() override;
-    [[nodiscard]] virtual bool Stop() override;
-    // } RuntimePolicy
-
     void Connect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
 
 private:
     using ClientInstance = Client&;
     using TicketNumber = std::size_t;
 
-    struct Resolver {
+    virtual void Setup() override;
+    virtual void Teardown() override;
+
+    struct Delegate {
         enum class Status : std::uint32_t { Indeterminate, Success, Canceled, Refused, UnexpectedError };
         using ResolveResult = boost::asio::awaitable<bool>;
         using ConnectResult = boost::asio::awaitable<void>;
 
-        Resolver(ClientInstance client, RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
+        Delegate(ClientInstance client, RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
         [[nodiscard]] RemoteAddress const& GetAddress() const;
 
         [[nodiscard]] SocketProcessor operator()();
         [[nodiscard]] ResolveResult Resolve(boost::asio::ip::tcp::resolver::results_type& resolved);
-        [[nodiscard]] ConnectResult TryConnect(
-            SharedSession const& spSession, boost::asio::ip::tcp::resolver::results_type const& resolved);
+        [[nodiscard]] ConnectResult TryConnect(boost::asio::ip::tcp::resolver::results_type const& resolved);
         [[nodiscard]] CompletionOrigin GetCompletionOrigin() const;
+        void Cancel();
 
         ClientInstance m_client;
         RemoteAddress m_address;
         Node::SharedIdentifier m_spIdentifier;
+        SharedSession m_spSession;
         std::uint32_t m_attempts;
         Status m_status;
     };
 
-    EndpointInstance m_endpoint;
     boost::asio::ip::tcp::resolver m_resolver;
-    std::map<TicketNumber, Resolver> m_resolvers;
+    std::map<TicketNumber, Delegate> m_delegates;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher)
     : IEndpoint(Protocol::TCP, operation, spEventPublisher)
+    , m_times()
     , m_detailsMutex()
     , m_context(1)
-    , m_upRuntime()
+    , m_upAgent()
     , m_eventsMutex()
     , m_events()
     , m_handlers()
@@ -177,18 +174,17 @@ Network::BindingAddress Network::TCP::Endpoint::GetBinding() const
 
 void Network::TCP::Endpoint::Startup()
 {
-    if (m_upRuntime && m_upRuntime->IsActive()) { return; } // Only one runtime may exist at a time. 
+    if (m_upAgent && m_upAgent->IsActive()) { return; } // Only one agent may exist at a time. 
 
-    // Create and start a new tcp runtime based on the constructred operation type. The Server and Client runtimes
+    // Create and start a new tcp agent based on the constructred operation type. The Server and Client agents
     // will manage the event loop and resources of this endpoint in a thread. 
     switch (m_operation) {
-        case Operation::Server: m_upRuntime = std::make_unique<Server>(*this); break;
-        case Operation::Client: m_upRuntime = std::make_unique<Client>(*this); break;
+        case Operation::Server: m_upAgent = std::make_unique<Server>(*this); break;
+        case Operation::Client: m_upAgent = std::make_unique<Client>(*this); break;
         default: return;
     }
-    assert(m_upRuntime);
 
-    m_upRuntime->Start();
+    assert(m_upAgent && m_upAgent->Launched());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -197,17 +193,13 @@ bool Network::TCP::Endpoint::Shutdown()
 {
     // Determine if any of the endpoint's resources are active. If at least one is operating, then proceed with the 
     // shutdown. As a post condition, the operating state should be false. 
-    bool const operating = m_upRuntime || !m_context.stopped() || !m_tracker.IsEmpty();
+    bool const operating = m_upAgent || !m_context.stopped() || !m_tracker.IsEmpty();
     if (!operating) { return true; }
 
     m_spLogger->info("Shutting down endpoint.");
     
-    // Shutdown the active runtime if one has been created. 
-    if (m_upRuntime) {
-        [[maybe_unused]] bool const success = m_upRuntime->Stop();
-        assert(success);
-        m_upRuntime.reset();
-    }
+    // Shutdown the active agent if one has been created. 
+    if (m_upAgent) { m_upAgent.reset(); }
 
     // Stop any active sessions and poll the asio context to ensure the completion handlers have been called. 
     auto const StopSession = [this] (auto const& spSession, auto const&) -> CallbackIteration
@@ -228,7 +220,7 @@ bool Network::TCP::Endpoint::Shutdown()
 
 bool Network::TCP::Endpoint::IsActive() const
 {
-    return (m_upRuntime && m_upRuntime->IsActive());
+    return (m_upAgent && m_upAgent->IsActive());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -365,9 +357,9 @@ void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
 
 void Network::TCP::Endpoint::OnBindEvent(BindEvent const& event)
 {
-    assert(m_upRuntime && m_upRuntime->Type() == Operation::Server);
-    auto const pServerRuntime = static_cast<Server*>(m_upRuntime.get());
-    bool success = pServerRuntime->Bind(event.GetBinding());
+    assert(m_upAgent && m_upAgent->Type() == Operation::Server);
+    auto const pServerAgent = static_cast<Server*>(m_upAgent.get());
+    bool success = pServerAgent->Bind(event.GetBinding());
     if (!success) {
         m_spLogger->error("A listener on {} could not be established!", event.GetBinding());
         IEndpoint::OnBindFailed(event.GetBinding());
@@ -378,9 +370,9 @@ void Network::TCP::Endpoint::OnBindEvent(BindEvent const& event)
 
 void Network::TCP::Endpoint::OnConnectEvent(ConnectEvent& event)
 {
-    assert(m_upRuntime && m_upRuntime->Type() == Operation::Client);
-    auto const pClientRuntime = static_cast<Client*>(m_upRuntime.get());
-    pClientRuntime->Connect(event.ReleaseAddress(), event.GetNodeIdentifier());}
+    assert(m_upAgent && m_upAgent->Type() == Operation::Client);
+    auto const pClientAgent = static_cast<Client*>(m_upAgent.get());
+    pClientAgent->Connect(event.ReleaseAddress(), event.GetNodeIdentifier());}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -491,39 +483,73 @@ Network::TCP::ConnectStatus Network::TCP::Endpoint::IsConflictingAddress(RemoteA
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::RuntimePolicy::RuntimePolicy()
-    : m_active(false)
+Network::TCP::Endpoint::Agent::Agent(EndpointInstance endpoint)
+    : m_endpoint(endpoint)
+    , m_active(false)
     , m_worker()
 {
+    // The thread's creation is deferred until Launch() is called. This is to prevent the base classfrom accessing
+    // the derived's unitialized members. Derived classes must call Launch() in its constructor body. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::TCP::Endpoint::RuntimePolicy::IsActive() const
+bool Network::TCP::Endpoint::Agent::IsActive() const
 {
-    return m_active || m_worker.joinable();
+    return m_active;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::TCP::Endpoint::RuntimePolicy::Stop()
+bool Network::TCP::Endpoint::Agent::Launched() const
 {
-    // Shutdown worker resources. The worker must be stopped first to ensure new data and sessions are generated as we 
-    // process the endpoint's shutdown procedure. 
-    if (m_active) {
-        m_worker.request_stop();
-        if (m_worker.joinable()) { m_worker.join(); }
-    }
-    
-    return true;
+    return m_worker.joinable();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::TCP::Endpoint::Agent::Launch(
+    std::function<void()> const& setup, std::function<void()> const& teardown)
+{
+    // The core event loop remains unchanged between the server and client. The difference between the two are the 
+    // resources created and the processable events. 
+    m_worker = std::jthread([this, setup, teardown] (std::stop_token token)
+        {
+            setup();
+            m_active = true;
+            m_endpoint.ProcessEvents(token);
+            m_active = false;
+            teardown();
+        });
+
+    assert(m_worker.joinable());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::TCP::Endpoint::Agent::Stop()
+{
+    // Note: A derived must call this method during destruction. Otherwise, the teardown method of the thread will 
+    // reference a destoryed virtual method. 
+    m_worker.request_stop();
+    if (m_worker.joinable()) { m_worker.join(); }
+    assert(!m_active && !m_worker.joinable());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::Endpoint::Server::Server(EndpointInstance endpoint)
-    : m_endpoint(endpoint)
+    : Agent(endpoint)
     , m_listener(*this, endpoint.m_context)
 {
+    Agent::Launch(std::bind(&Server::Setup, this), std::bind(&Server::Teardown, this));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::TCP::Endpoint::Server::~Server()
+{
+    Agent::Stop();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -535,58 +561,40 @@ Network::Operation Network::TCP::Endpoint::Server::Type() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::Server::Start()
+void Network::TCP::Endpoint::Server::Setup()
 {
-    m_active = true; // Indicate that the endpoint has begun spinning up.
-    m_worker = std::jthread([this] (std::stop_token token)
+    boost::asio::co_spawn(m_endpoint.m_context, m_listener(),
+        [this] (std::exception_ptr exception, TCP::CompletionOrigin origin)
         {
-            // Launch the session acceptor coroutine. 
-            boost::asio::co_spawn(
-                m_endpoint.m_context, m_listener(),
-                [this] (std::exception_ptr exception, TCP::CompletionOrigin origin)
-                {
-                    if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
-                        m_endpoint.m_spLogger->error(
-                            "An unexpected error caused the listener on {} to shutdown", m_endpoint.m_binding);
-                        m_active = false;
-                        m_endpoint.OnUnexpectedError();
-                    }
-                });
-
-            m_endpoint.ProcessEvents(token); // Start the endpoint's event loop 
-            m_active = false; // Indicate that the worker has stopped. 
-        }); 
-
-    assert(m_worker.joinable());
+            constexpr std::string_view ErrorMessage = "An unexpected error caused the listener on {} to shutdown";
+            if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
+                m_endpoint.m_spLogger->error(ErrorMessage, m_endpoint.m_binding);
+                m_endpoint.OnUnexpectedError();
+                m_worker.request_stop();
+            }
+        });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::TCP::Endpoint::Server::Stop()
+void Network::TCP::Endpoint::Server::Teardown()
 {
-    // The runtime thread must be stopped before stopping the server's resources. This should prevent a race condition 
-    // when closing the listener. Otherwise, the coroutine could resume on a seperate thread. 
-    bool success = RuntimePolicy::Stop();
     m_listener.m_acceptor.close(); 
-    return success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
 {
-    assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
-    m_endpoint.m_spLogger->info("Opening endpoint on {}.", binding);
-
     // Note: This method must always be called from the thread managing the lifecycle of the listener's coroutine. 
     // Otherwise, the coroutine could resume while we are updating it's resources. 
-    bool const binded = m_listener.Bind(binding);
-    if (binded) {
-        assert(m_endpoint.m_binding == binding); // Currently, we greedily set the binding in the scheduler. 
-        m_endpoint.OnBindingUpdated(binding);
-    }
+    assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
+    assert(m_endpoint.m_binding == binding); // Currently, we greedily set the binding in the scheduler. 
+    m_endpoint.m_spLogger->info("Opening endpoint on {}.", binding);
 
-    return binded;
+    if (!m_listener.Bind(binding)) { return false; }
+    m_endpoint.OnBindingUpdated(binding);
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -663,9 +671,17 @@ bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& bindin
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::Endpoint::Client::Client(EndpointInstance endpoint)
-    : m_endpoint(endpoint)
+    : Agent(endpoint)
     , m_resolver(m_endpoint.m_context)
 {
+    Agent::Launch(std::bind(&Client::Setup, this), std::bind(&Client::Teardown, this));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::TCP::Endpoint::Client::~Client()
+{
+    Agent::Stop();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -677,35 +693,24 @@ Network::Operation Network::TCP::Endpoint::Client::Type() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::Client::Start()
+void Network::TCP::Endpoint::Client::Setup()
 {
-    m_active = true; // Indicate that the endpoint has begun spinning up.
-    m_worker = std::jthread([this] (std::stop_token token)
-        {
-            m_endpoint.ProcessEvents(token); // Start the endpoint's event loop 
-            m_active = false; // Indicate that the worker has stopped. 
-        }); 
-
-    assert(m_worker.joinable());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::TCP::Endpoint::Client::Stop()
+void Network::TCP::Endpoint::Client::Teardown()
 {
-    // The runtime thread must be stopped before closing the listener's resources. This should ensure there isn't a 
-    // a race condition when closing the coroutine's resources from a different thread. 
-    bool success = RuntimePolicy::Stop();
-    m_resolver.cancel(); // Ensure there are no connections being resolved.
-    return success;
+    m_resolver.cancel();
+    std::ranges::for_each(m_delegates | std::views::values, [] (auto& delegate) { delegate.Cancel(); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
 {
-    constexpr std::string_view DuplicateConnectionMessage = "Ignoring duplicate connection attempt to {}.";
-    constexpr std::string_view ReflectiveConnectionMessage = "Ignoring reflective connection attempt to {}.";
+    constexpr std::string_view DuplicateWarning = "Ignoring duplicate connection attempt to {}.";
+    constexpr std::string_view ReflectiveWarning = "Ignoring reflective connection attempt to {}.";
     constexpr auto TicketGenerator = AddressHasher<RemoteAddress>{};
     assert(m_endpoint.m_pPeerMediator);
 
@@ -715,42 +720,44 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
         switch (m_endpoint.IsConflictingAddress(address)) {
             case Success: break; // If the address doesn't conflict with any existing address we can proceed. 
             // If an error has occured, log a debugging statement and early return.
-            case DuplicateError: { spLogger->debug(DuplicateConnectionMessage, address); } return;
-            case ReflectionError: { spLogger->debug(ReflectiveConnectionMessage, address); } return;
+            case DuplicateError: { spLogger->debug(DuplicateWarning, address); } return;
+            case ReflectionError: { spLogger->debug(ReflectiveWarning, address); } return;
             case RetryError: assert(false); break; // We should be given Retry error code from this check. 
         }
     }
 
     // Construct a new resolver coroutine element. The ticket number will be generated using the std::hash of the 
     // address. If an element is not emplaced, implying this is a duplicate connection attempt and should return early. 
-    auto const [itr, emplaced] = m_resolvers.try_emplace(
+    auto const [itr, emplaced] = m_delegates.try_emplace(
         TicketGenerator(address), *this, std::move(address), spIdentifier);
-    if (!emplaced) { spLogger->debug(DuplicateConnectionMessage, address); return; }
-    auto& [ticket, resolver] = *itr;  
+    if (!emplaced) { spLogger->debug(DuplicateWarning, address); return; }
+    auto& [ticket, delegate] = *itr;  
 
     // Launch the resolver as a coroutine. Instead of capturing the address by value we capture the ticket number for
     // the completion handler. We the coroutine finishes execution the lifetime of the resolver will be completed. 
     boost::asio::co_spawn(
-        m_endpoint.m_context, resolver(),
+        m_endpoint.m_context, delegate(),
         [this, ticket] (std::exception_ptr exception, TCP::CompletionOrigin origin)
         {
+            constexpr std::string_view ResolverError = "Unable to connect to {} due to an unexpected error.";
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
-                auto const itr = m_resolvers.find(ticket); assert(itr != m_resolvers.end());
+                auto const itr = m_delegates.find(ticket); assert(itr != m_delegates.end());
                 auto const& address = itr->second.GetAddress();
-                m_endpoint.m_spLogger->warn("Unable to connect to {} due to an unexpected error.", address);
+                m_endpoint.m_spLogger->warn(ResolverError, address);
                 m_endpoint.OnConnectFailed(address);
             }
-            m_resolvers.erase(ticket); // The lifetime of the resolving coroutine is now complete. 
+            m_delegates.erase(ticket); // The lifetime of the resolving coroutine is now complete. 
         });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::Client::Resolver::Resolver(
+Network::TCP::Endpoint::Client::Delegate::Delegate(
     ClientInstance client, RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
     : m_client(client)
     , m_address(std::move(address))
     , m_spIdentifier(spIdentifier)
+    , m_spSession()
     , m_attempts(0)
     , m_status(Status::Indeterminate)
 {
@@ -758,14 +765,14 @@ Network::TCP::Endpoint::Client::Resolver::Resolver(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::RemoteAddress const& Network::TCP::Endpoint::Client::Resolver::GetAddress() const
+Network::RemoteAddress const& Network::TCP::Endpoint::Client::Delegate::GetAddress() const
 {
     return m_address;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Resolver::operator()()
+Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator()()
 {
     // Get the connection request message from the peer mediator. The mediator will decide whether or not the address 
     // or identifier takes precedence when generating the message. Currently, it is assumed that if we are not provided
@@ -778,29 +785,31 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Resolver::operator
     boost::asio::ip::tcp::resolver::results_type resolved;
     if (bool const result = co_await Resolve(resolved); !result) { co_return GetCompletionOrigin(); }
 
-    auto const spSession = m_client.m_endpoint.CreateSession();
+    m_spSession = m_client.m_endpoint.CreateSession();
+    assert(m_spSession);
+
     m_client.m_endpoint.m_spLogger->info("Attempting a connection with {}.", m_address);
 
     // Start attempting the connection to the peer. If the connection fails for any reason, the connection processor 
     // will wait a period of time until retrying until the number of retries exceeds a predefined limit. 
-    do { co_await TryConnect(spSession, resolved); } while (m_status == Status::Indeterminate);
+    do { co_await TryConnect(resolved); } while (m_status == Status::Indeterminate);
     if (m_status != Status::Success) {
          // If a connection could not be established, handle cleaning up the connection attempt. 
         pPeerMediator->RescindResolvingPeer(m_address); 
         co_return GetCompletionOrigin();
     }
 
-    m_client.m_endpoint.OnSessionStarted(spSession); // The session must be started before sending the initial request. 
+    m_client.m_endpoint.OnSessionStarted(m_spSession); // The session must be started before sending the initial request. 
 
     // Send the initial connection request to the peer. If there is an error indicate the session need
-    if (!spSession->ScheduleSend(std::move(*optConnectionRequest))) { co_return CompletionOrigin::Error; }
+    if (!m_spSession->ScheduleSend(std::move(*optConnectionRequest))) { co_return CompletionOrigin::Error; }
 
     co_return GetCompletionOrigin();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::Client::Resolver::ResolveResult Network::TCP::Endpoint::Client::Resolver::Resolve(
+Network::TCP::Endpoint::Client::Delegate::ResolveResult Network::TCP::Endpoint::Client::Delegate::Resolve(
     boost::asio::ip::tcp::resolver::results_type& resolved)
 {
     constexpr std::string_view ResolveWarning = "Unable to resolve an endpoint for {}";
@@ -827,15 +836,15 @@ Network::TCP::Endpoint::Client::Resolver::ResolveResult Network::TCP::Endpoint::
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::Client::Resolver::ConnectResult Network::TCP::Endpoint::Client::Resolver::TryConnect(
-    SharedSession const& spSession, boost::asio::ip::tcp::resolver::results_type const& resolved)
+Network::TCP::Endpoint::Client::Delegate::ConnectResult Network::TCP::Endpoint::Client::Delegate::TryConnect(
+    boost::asio::ip::tcp::resolver::results_type const& resolved)
 {
     constexpr std::string_view RetryWarning= "Unable to connect to {}. Retrying in {} seconds";
 
     ++m_attempts; // Increment the number of attempts made to establish a connection. 
     boost::system::error_code error;
     co_await boost::asio::async_connect(
-        spSession->GetSocket(), resolved, boost::asio::redirect_error(boost::asio::use_awaitable, error));
+        m_spSession->GetSocket(), resolved, boost::asio::redirect_error(boost::asio::use_awaitable, error));
 
     // If the connection succeeded, indicate a success such that the resolver can continue to the next process step. 
     if (!error) { m_status = Status::Success; co_return; }
@@ -863,7 +872,7 @@ Network::TCP::Endpoint::Client::Resolver::ConnectResult Network::TCP::Endpoint::
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::CompletionOrigin Network::TCP::Endpoint::Client::Resolver::GetCompletionOrigin() const
+Network::TCP::CompletionOrigin Network::TCP::Endpoint::Client::Delegate::GetCompletionOrigin() const
 {
     using enum CompletionOrigin;
     auto const& spLogger = m_client.m_endpoint.m_spLogger;
@@ -877,6 +886,14 @@ Network::TCP::CompletionOrigin Network::TCP::Endpoint::Client::Resolver::GetComp
         case Status::UnexpectedError: return Error;
         default: assert(false); return Error;
     }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::TCP::Endpoint::Client::Delegate::Cancel()
+{
+    // If the resolver has an active session, close the socket as it hasn't been added to the tracker yet. 
+    if (m_spSession) { m_spSession->GetSocket().close(); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
