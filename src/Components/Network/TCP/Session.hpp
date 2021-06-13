@@ -11,6 +11,7 @@
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/MessageScheduler.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+// #define BOOST_ASIO_NO_DEPRECATED
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -98,7 +99,7 @@ private:
         [[nodiscard]] bool ScheduleSend(Network::MessageVariant&& spSharedPack);
 
         SessionInstance m_instance;
-        boost::asio::steady_timer m_timer;
+        boost::asio::steady_timer m_signal;
         boost::system::error_code m_error;
 
         Switchboard m_switchboard;

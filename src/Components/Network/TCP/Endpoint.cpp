@@ -51,8 +51,10 @@ private:
 
         ServerInstance m_server;
         boost::asio::ip::tcp::acceptor m_acceptor;
+        boost::system::error_code m_error;
     };
 
+    boost::asio::steady_timer m_signal;
     Listener m_listener;
 };
 
@@ -540,8 +542,10 @@ void Network::TCP::Endpoint::Agent::Stop()
 
 Network::TCP::Endpoint::Server::Server(EndpointInstance endpoint)
     : Agent(endpoint)
+    , m_signal(endpoint.m_context)
     , m_listener(*this, endpoint.m_context)
 {
+    m_signal.expires_at(std::chrono::steady_clock::time_point::max());
     Agent::Launch(std::bind(&Server::Setup, this), std::bind(&Server::Teardown, this));
 }
 
@@ -579,6 +583,7 @@ void Network::TCP::Endpoint::Server::Setup()
 
 void Network::TCP::Endpoint::Server::Teardown()
 {
+    m_signal.cancel();
     m_listener.m_acceptor.close(); 
 }
 
@@ -593,6 +598,8 @@ bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
     m_endpoint.m_spLogger->info("Opening endpoint on {}.", binding);
 
     if (!m_listener.Bind(binding)) { return false; }
+    m_signal.cancel_one(); // Wake the awaiting listener coroutine after the acceptor has been bound. 
+
     m_endpoint.OnBindingUpdated(binding);
     return true;
 }
@@ -602,6 +609,7 @@ bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
 Network::TCP::Endpoint::Server::Listener::Listener(ServerInstance server, boost::asio::io_context& context)
     : m_server(server)
     , m_acceptor(context)
+    , m_error()
 {
 }
 
@@ -610,27 +618,28 @@ Network::TCP::Endpoint::Server::Listener::Listener(ServerInstance server, boost:
 Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator()()
 {
     auto& endpoint = m_server.m_endpoint;
-    boost::system::error_code error;
     while (m_server.m_active) {
-        if (!m_acceptor.is_open()) { continue; }
+        if (!m_acceptor.is_open()) {
+            co_await m_server.m_signal.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
+        } else {
+            // Create a new session that can be used for the peer that connects. 
+            auto const spSession = endpoint.CreateSession();
 
-        // Create a new session that can be used for the peer that connects. 
-        auto const spSession = endpoint.CreateSession();
+            // Await the next connection request. 
+            co_await m_acceptor.async_accept(
+                spSession->GetSocket(), boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
 
-        // Await the next connection request. 
-        co_await m_acceptor.async_accept(
-            spSession->GetSocket(), boost::asio::redirect_error(boost::asio::use_awaitable, error));
+            // If an error occured accepting the connect, log the error. 
+            if (m_error) {
+                // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
+                if (IsInducedError(m_error)) { co_return CompletionOrigin::Self; }
+                endpoint.m_spLogger->error(
+                    "An unexpected error occured while accepting a connection on {}!", endpoint.m_binding);
+                co_return CompletionOrigin::Error;
+            }
 
-        // If an error occured accepting the connect, log the error. 
-        if (error) {
-            // If the error is caused by an intentional operation (i.e. shutdown), then don't treat it as unexpected. 
-            if (IsInducedError(error)) { co_return CompletionOrigin::Self; }
-            endpoint.m_spLogger->error(
-                "An unexpected error occured while accepting a connection on {}!", endpoint.m_binding);
-            co_return CompletionOrigin::Error;
+            endpoint.OnSessionStarted(spSession);
         }
-
-        endpoint.OnSessionStarted(spSession);
     }
 
     co_return CompletionOrigin::Self;
