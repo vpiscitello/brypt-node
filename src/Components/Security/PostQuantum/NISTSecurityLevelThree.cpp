@@ -275,18 +275,17 @@ bool Security::PQNISTL3::SynchronizationTracker::ResetState()
 Security::PQNISTL3::Strategy::Strategy(Role role, Security::Context context)
     : m_role(role)
     , m_context(context)
-    , m_synchronization()
     , m_spSessionContext()
-    , m_kem(KeyEncapsulationSchme.data())
+    , m_synchronization()
     , m_store()
 {
     switch (context) {
         case Security::Context::Unique: {
-            m_spSessionContext = std::make_shared<Context>(KeyEncapsulationSchme);
+            m_spSessionContext = std::make_shared<Context>(KeyEncapsulationScheme);
         } break;
         case Security::Context::Application: {
             if (!m_spSharedContext) [[unlikely]] {
-                throw std::runtime_error("Shared Application Context has not been initialized!");
+                throw std::runtime_error("Application security context has not been initialized!");
             }
             m_spSessionContext = m_spSharedContext;
         } break;
@@ -566,7 +565,7 @@ Security::VerificationStatus Security::PQNISTL3::Strategy::Verify(ReadableView b
 void Security::PQNISTL3::Strategy::InitializeApplicationContext()
 {
     if (!m_spSharedContext) {
-        m_spSharedContext = std::make_shared<Context>(KeyEncapsulationSchme);
+        m_spSharedContext = std::make_shared<Context>(KeyEncapsulationScheme);
     }
 }
 

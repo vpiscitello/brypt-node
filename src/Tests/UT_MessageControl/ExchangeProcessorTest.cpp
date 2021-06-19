@@ -132,11 +132,11 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
         // Setup the client processor. 
         upClientProcessor = std::make_unique<ExchangeProcessor>(
             test::ClientIdentifier,
+            std::move(upClientStrategy),
             spConnectProtocol,
-            upClientObserver.get(),
-            std::move(upClientStrategy));
+            upClientObserver.get());
 
-        spClientPeer->SetReceiver(upClientProcessor.get());
+        spClientPeer->SetReceiver<InvokeContext::Test>(upClientProcessor.get());
     }
 
     // Setup the server's view of the exchange.
@@ -161,9 +161,9 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
 
         // Setup the server processor. 
         upServerProcessor = std::make_unique<ExchangeProcessor>(
-            test::ServerIdentifier, nullptr, upServerObserver.get(), std::move(upServerStrategy));
+            test::ServerIdentifier, std::move(upServerStrategy), nullptr, upServerObserver.get());
 
-        spServerPeer->SetReceiver(upServerProcessor.get());
+        spServerPeer->SetReceiver<InvokeContext::Test>(upServerProcessor.get());
     }
 
     // Prepare the client processor for the exchange. The processor will tell us if the exchange 

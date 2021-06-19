@@ -44,7 +44,7 @@ public:
     constexpr static std::size_t PublicKeySize = 930;
     constexpr static std::size_t EncapsulationSize = 930;
 
-    Context(std::string_view kem);
+    explicit Context(std::string_view kem);
 
     [[nodiscard]] std::size_t GetPublicKeySize() const;
     [[nodiscard]] Buffer GetPublicKey() const;
@@ -58,6 +58,7 @@ public:
     Context(Context const&) = delete;
     Context(Context&&) = delete;
     void operator=(Context const&) = delete;
+    void operator=(Context&&) = delete;
 
 private:
     mutable std::shared_mutex m_kemMutex;
@@ -112,7 +113,7 @@ class Security::PQNISTL3::Strategy : public ISecurityStrategy {
 public:
     constexpr static Security::Strategy Type = Security::Strategy::PQNISTL3;
 
-    constexpr static std::string_view KeyEncapsulationSchme = "NTRU-HPS-2048-677";
+    constexpr static std::string_view KeyEncapsulationScheme = "NTRU-HPS-2048-677";
     constexpr static std::string_view EncryptionScheme = "AES-256-CTR";
     constexpr static std::string_view MessageAuthenticationScheme = "SHA384";
 
@@ -178,14 +179,12 @@ private:
  
     Role m_role;
     Security::Context m_context;
-    SynchronizationTracker m_synchronization;
 
     static std::shared_ptr<Context> m_spSharedContext;
     std::shared_ptr<Context> m_spSessionContext;
 
-    oqs::KeyEncapsulation m_kem;
+    SynchronizationTracker m_synchronization;
     Security::KeyStore m_store;
-
 };
 
 //----------------------------------------------------------------------------------------------------------------------

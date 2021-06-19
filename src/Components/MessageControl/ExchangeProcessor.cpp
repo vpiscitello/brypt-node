@@ -26,30 +26,25 @@ namespace local {
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: 
-//----------------------------------------------------------------------------------------------------------------------
 ExchangeProcessor::ExchangeProcessor(
-    Node::SharedIdentifier const& spNodeIdentifier,
-    std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
-    IExchangeObserver* const pExchangeObserver,
-    std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
+    Node::SharedIdentifier const& spIdentifier,
+    std::unique_ptr<ISecurityStrategy>&& upStrategy,
+    std::shared_ptr<IConnectProtocol> const& spConnector,
+    IExchangeObserver* const pExchangeObserver)
     : m_stage(ProcessStage::Synchronization)
     , m_expiration(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
-    , m_spNodeIdentifier(spNodeIdentifier)
-    , m_spConnectProtocol(spConnectProtocol)
+    , m_spIdentifier(spIdentifier)
+    , m_upStrategy(std::move(upStrategy))
+    , m_spConnector(spConnector)
     , m_pExchangeObserver(pExchangeObserver)
-    , m_upSecurityStrategy(std::move(upSecurityStrategy))
 {
-    assert(m_upSecurityStrategy);
+    assert(m_upStrategy);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    MessageContext const& context,
-	std::string_view buffer)
+	std::weak_ptr<Peer::Proxy> const& wpProxy, MessageContext const& context, std::string_view buffer)
 {
     // If the exchange has been invalidated do not process the message.
     if (m_stage == ProcessStage::Invalid) { return false; }
@@ -58,13 +53,13 @@ bool ExchangeProcessor::CollectMessage(
     Message::Buffer const decoded = Z85::Decode(buffer);
 
     // Pass on the message collection to the decoded buffer method. 
-    return CollectMessage(wpPeerProxy, context, decoded);
+    return CollectMessage(wpProxy, context, decoded);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+	std::weak_ptr<Peer::Proxy> const& wpProxy,
     MessageContext const& context,
 	std::span<std::uint8_t const> buffer)
 {
@@ -91,14 +86,10 @@ bool ExchangeProcessor::CollectMessage(
         .ValidatedBuild();
 
     // If the message could not be unpacked, the message cannot be handled any further. 
-    if (!optMessage || optMessage->GetMessageType() != Message::Network::Type::Handshake) {
-        return false;
-    }
+    if (!optMessage || optMessage->GetMessageType() != Message::Network::Type::Handshake) { return false; }
 
     // The message may only be handled if the associated peer can be acquired. 
-    if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy)  [[likely]] {
-	    return HandleMessage(spPeerProxy, *optMessage);
-    }
+    if (auto const spProxy = wpProxy.lock(); spProxy)  [[likely]] { return HandleMessage(spProxy, *optMessage); }
 
     return false;
 }
@@ -107,45 +98,38 @@ bool ExchangeProcessor::CollectMessage(
 
 ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 {
-    auto const [status, buffer] = m_upSecurityStrategy->PrepareSynchronization();
+    auto const [status, buffer] = m_upStrategy->PrepareSynchronization();
 
     if (status == Security::SynchronizationStatus::Error) {
         m_stage = ProcessStage::Invalid;
-        if (m_pExchangeObserver)  [[likely]] {
-            m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed);
-        }
+        if (m_pExchangeObserver)  [[likely]] { m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed); }
         return { false, "" };
     }
 
-    if (buffer.size() != 0) {
-        auto const optRequest = NetworkMessage::Builder()
-            .SetSource(*m_spNodeIdentifier)
-            .MakeHandshakeMessage()
-            .SetPayload(buffer)
-            .ValidatedBuild();
-        assert(optRequest);
-        return { true, optRequest->GetPack() };
-    } else {
-        return { true, "" };
-    }
+    if (buffer.size() == 0) { return { true, "" }; }
+
+    auto const optRequest = NetworkMessage::Builder()
+        .SetSource(*m_spIdentifier)
+        .MakeHandshakeMessage()
+        .SetPayload(std::move(buffer))
+        .ValidatedBuild();
+    assert(optRequest);
+    return { true, optRequest->GetPack() };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleMessage(
-    std::shared_ptr<Peer::Proxy> const& spPeerProxy, NetworkMessage const& message)
+    std::shared_ptr<Peer::Proxy> const& spProxy, NetworkMessage const& message)
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
-            // If the message handling succeeded, break out of the switch statement. Otherwise,
-            // fallthrough to the error handler. 
-            if (HandleSynchronizationMessage(spPeerProxy, message)) { break; }
+            // If the handler succeeded, break out of the switch statement. Otherwise, use the error fallthrough. 
+            if (HandleSynchronizationMessage(spProxy, message)) { break; }
         } [[fallthrough]];
         case ProcessStage::Invalid:
         default: {
-            if (m_pExchangeObserver) [[likely]] {
-                m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed);
-            }
+            if (m_pExchangeObserver) [[likely]] {  m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed); }
             return false;
         }
     }
@@ -156,15 +140,15 @@ bool ExchangeProcessor::HandleMessage(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleSynchronizationMessage(
-    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
+    std::shared_ptr<Peer::Proxy> const& spProxy,
     NetworkMessage const& message)
 {
-    assert(m_upSecurityStrategy);
-    assert(m_spNodeIdentifier);
+    assert(m_upStrategy);
+    assert(m_spIdentifier);
 
     // Provide the attached SecurityStrategy the synchronization message. 
     // If for some reason, the message could not be handled return an error. 
-    auto const [status, buffer] = m_upSecurityStrategy->Synchronize(message.GetPayload());
+    auto const [status, buffer] = m_upStrategy->Synchronize(message.GetPayload());
     if (status == Security::SynchronizationStatus::Error) { return false; }
 
     // Get the destination from the message. If the message does not have an attached identifier
@@ -179,7 +163,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         // Build a response to the message from the synchronization result of the strategy. 
         auto const optResponse = NetworkMessage::Builder()
             .SetMessageContext(context)
-            .SetSource(*m_spNodeIdentifier)
+            .SetSource(*m_spIdentifier)
             .SetDestination(message.GetSourceIdentifier())
             .MakeHandshakeMessage()
             .SetPayload(buffer)
@@ -187,10 +171,8 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         assert(optResponse);
 
         // Send the exchange message to the peer. 
-        if (!spPeerProxy->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack())) {
-            if (m_pExchangeObserver) [[likely]] {
-                m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed);
-            }
+        if (!spProxy->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack())) {
+            if (m_pExchangeObserver) [[likely]] { m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Failed); }
         }
     }
 
@@ -199,23 +181,17 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         // key sharing has completed and application messages can now be completed. 
         case Security::SynchronizationStatus::Ready: {
             // If there is an excnage observer, provide it the prepared security strategy. 
-            if (m_pExchangeObserver) [[likely]] {
-                m_pExchangeObserver->OnFulfilledStrategy(std::move(m_upSecurityStrategy));
-            }
+            if (m_pExchangeObserver) [[likely]] { m_pExchangeObserver->OnFulfilledStrategy(std::move(m_upStrategy)); }
 
-            // If we do not interface defining the application connection protocol or if
-            // that protocol fails, return an error
-            if (m_spConnectProtocol) [[likely]] {
-                auto const success = m_spConnectProtocol->SendRequest(
-                    m_spNodeIdentifier, spPeerProxy, context);
+            // If there is a provided connection protocol, provide it with the proxy to send the final request. 
+            if (m_spConnector) [[likely]] {
+                auto const success = m_spConnector->SendRequest(m_spIdentifier, spProxy, context);
                 if (!success) { return false; }
             }
 
             // If there is an excnage observer, notify the observe that the exchange has 
             // successfully completed and provide it the prepared security strategy. 
-            if (m_pExchangeObserver) [[likely]] {
-                m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Success);
-            }
+            if (m_pExchangeObserver) [[likely]] { m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Success); }
         } break;
         // There is no additional handling needed while the exchange is processing. 
         case Security::SynchronizationStatus::Processing: break;
