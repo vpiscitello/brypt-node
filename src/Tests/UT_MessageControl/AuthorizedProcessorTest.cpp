@@ -21,7 +21,9 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Registration GenerateCaptureRegistration(std::optional<ApplicationMessage>& optCapturedMessage);
+using MessageContextProvider = std::function<std::optional<MessageContext>()>;
+Peer::Registration GenerateCaptureRegistration(
+    std::optional<ApplicationMessage>& optCapturedMessage, MessageContextProvider const& getMessageContext);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -58,7 +60,10 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
-    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(local::GenerateCaptureRegistration(optCapturedMessage));
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(
+        local::GenerateCaptureRegistration(
+            optCapturedMessage,
+            [&spPeerProxy] ()  -> auto { return spPeerProxy->GetMessageContext(test::EndpointIdentifier); }));
 
     // Get the message context for the endpoint that was registered.
     auto const optMessageContext = spPeerProxy->GetMessageContext(test::EndpointIdentifier);
@@ -130,7 +135,10 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
 
     // Register an endpoint with the peer that will capture any messages sent through it.
-    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(local::GenerateCaptureRegistration(optCapturedMessage));
+    spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(
+        local::GenerateCaptureRegistration(
+            optCapturedMessage,
+            [&spPeerProxy] () -> auto { return spPeerProxy->GetMessageContext(test::EndpointIdentifier); }));
 
     // Get the message context for the endpoint that was registered.
     auto const optMessageContext = spPeerProxy->GetMessageContext(test::EndpointIdentifier);
@@ -200,16 +208,17 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Registration local::GenerateCaptureRegistration(std::optional<ApplicationMessage>& optCapturedMessage)
+Peer::Registration local::GenerateCaptureRegistration(
+    std::optional<ApplicationMessage>& optCapturedMessage, MessageContextProvider const& getMessageContext)
 {
     Peer::Registration registration(
         test::EndpointIdentifier,
         test::EndpointProtocol,
         test::RemoteClientAddress,
-        [&registration, &optCapturedMessage] (auto const&, auto&& message) -> bool
+        [&optCapturedMessage, getMessageContext] (auto const&, auto&& message) -> bool
         {
             auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(registration.GetMessageContext())
+                .SetMessageContext(*getMessageContext())
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);

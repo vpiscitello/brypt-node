@@ -34,7 +34,7 @@ set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_RELEASE_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
 
-find_package(Boost ${BOOST_VERSION} COMPONENTS system program_options HINTS ${BOOST_DIRECTORY} QUIET)
+find_package(Boost ${BOOST_VERSION} COMPONENTS program_options system HINTS ${BOOST_DIRECTORY} QUIET)
 if (NOT Boost_FOUND)
     if (NOT EXISTS ${BOOST_DOWNLOAD_DIRECTORY})
         message(STATUS "Boost was not found. Downloading now...")
@@ -111,16 +111,16 @@ if (NOT Boost_FOUND)
 
     set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
 
-    add_library(Boost::system SHARED IMPORTED)
-    set_target_properties(Boost::system PROPERTIES
-        IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_system.${SHARED_EXTENSION})
-
     add_library(Boost::program_options SHARED IMPORTED)
     set_target_properties(Boost::program_options PROPERTIES
         IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_program_options.${SHARED_EXTENSION})
 
+    add_library(Boost::system SHARED IMPORTED)
+    set_target_properties(Boost::system PROPERTIES
+        IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_system.${SHARED_EXTENSION})
+
     set(Boost_LIBRARIES "-Wl,-rpath,${BOOST_DIRECTORY}/lib/"
-        Boost::system Boost::program_options CACHE FILEPATH "" FORCE)
+        Boost::program_options Boost::system CACHE FILEPATH "" FORCE)
 
     add_dependencies(external boost)
 endif()

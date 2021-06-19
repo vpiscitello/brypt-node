@@ -118,6 +118,7 @@ class Network::BindingAddress : public Network::Address
 public:
     BindingAddress();
     BindingAddress(Protocol protocol, std::string_view uri, std::string_view interface);
+    ~BindingAddress() = default;
 
     BindingAddress& operator=(BindingAddress const& other) = default;
     BindingAddress(BindingAddress const& other) = default;
@@ -141,7 +142,8 @@ class Network::RemoteAddress : public Network::Address
 public:
     RemoteAddress();
     RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable);
-    
+    ~RemoteAddress() = default;
+
     RemoteAddress& operator=(RemoteAddress const& other) = default;
     RemoteAddress(RemoteAddress const& other) = default;
     RemoteAddress& operator=(RemoteAddress&& other) = default;

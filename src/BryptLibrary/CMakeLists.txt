@@ -42,12 +42,12 @@ set(
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Endpoint.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Events.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Session.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Manager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Proxy.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Registration.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Manager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Statistics.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/KeyStore.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/Mediator.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecureBuffer.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecurityUtils.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/PostQuantum/NISTSecurityLevelThree.cpp)

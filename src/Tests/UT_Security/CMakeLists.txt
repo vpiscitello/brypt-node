@@ -12,7 +12,6 @@ target_sources(
     PRIVATE
     # Source Files
     PQNISTL3StrategyTest.cpp
-    SecurityMediatorTest.cpp
     UT_Security.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
