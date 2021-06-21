@@ -100,6 +100,7 @@ private:
         std::span<std::uint8_t const>::iterator const& end);
 
     NetworkMessage m_message;
+	bool m_hasStageFailure;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

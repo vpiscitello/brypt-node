@@ -228,21 +228,15 @@ Message::ShareablePack ApplicationMessage::GetShareablePack() const
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::ValidationStatus ApplicationMessage::Validate() const
-{	
+{		
 	// A message must have a valid header
-	if (!m_header.IsValid()) {
-		return Message::ValidationStatus::Error;
-	}
+	if (!m_header.IsValid()) { return Message::ValidationStatus::Error; }
 
 	// A message must identify a valid brypt command
-	if (m_command == Handler::Type::Invalid) {
-		return Message::ValidationStatus::Error;
-	}
+	if (m_command == Handler::Type::Invalid) { return Message::ValidationStatus::Error; }
 
 	// A message must identify the time it was created
-	if (m_timestamp == TimeUtils::Timestamp()) {
-		return Message::ValidationStatus::Error;
-	}
+	if (m_timestamp == TimeUtils::Timestamp()) { return Message::ValidationStatus::Error; }
 
 	return Message::ValidationStatus::Success;
 }
@@ -278,6 +272,7 @@ constexpr std::size_t ApplicationMessage::FixedAwaitExtensionSize() const
 
 ApplicationBuilder::ApplicationBuilder()
     : m_message()
+	, m_hasStageFailure(false)
 {
 	m_message.m_header.m_protocol = Message::Protocol::Application;
 }
@@ -378,10 +373,9 @@ ApplicationBuilder& ApplicationBuilder::SetPayload(std::string_view buffer)
 ApplicationBuilder& ApplicationBuilder::SetPayload(std::span<std::uint8_t const> buffer)
 {
 	assert(m_message.m_context.HasSecurityHandlers());
-	auto const optData = m_message.m_context.Encrypt(buffer, m_message.m_timestamp);
-	if(optData) {
-		m_message.m_payload = *optData;
-	}
+	auto optData = m_message.m_context.Encrypt(buffer, m_message.m_timestamp);
+	if(optData) { m_message.m_payload = std::move(*optData); }
+	else { m_hasStageFailure = true; }
     return *this;
 }
 
@@ -408,16 +402,12 @@ ApplicationBuilder& ApplicationBuilder::BindAwaitTracker(
 
 ApplicationBuilder& ApplicationBuilder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
-    if (buffer.empty()) {
-        return *this;
-    }
+    if (buffer.empty()) { return *this; }
 
 	assert(m_message.m_context.HasSecurityHandlers());
-    if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
-        return *this;
-    }
+    if (m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success) { Unpack(buffer); }
+	else { m_hasStageFailure = true; }
 
-	Unpack(buffer);
     return *this;
 }
 
@@ -425,17 +415,13 @@ ApplicationBuilder& ApplicationBuilder::FromDecodedPack(std::span<std::uint8_t c
 
 ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
 {
-    if (pack.empty()) {
-        return *this;
-    }
+    if (pack.empty()) { m_hasStageFailure = true; return *this; }
     
 	auto const buffer = Z85::Decode(pack);
 	assert(m_message.m_context.HasSecurityHandlers());
-    if (m_message.m_context.Verify(buffer) != Security::VerificationStatus::Success) {
-        return *this;
-    }
+    if (m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success) { Unpack(buffer); }
+	else { m_hasStageFailure = true; }
 
-    Unpack(buffer);
     return *this;
 }
 
@@ -444,7 +430,6 @@ ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
 ApplicationMessage&& ApplicationBuilder::Build()
 {
 	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
-
     return std::move(m_message);
 }
 
@@ -453,11 +438,7 @@ ApplicationMessage&& ApplicationBuilder::Build()
 ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
 {
 	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
-
-    if (m_message.Validate() != Message::ValidationStatus::Success) {
-        return {};
-    }
-
+    if (m_hasStageFailure || m_message.Validate() != Message::ValidationStatus::Success) { return {}; }
     return std::move(m_message);
 }
 

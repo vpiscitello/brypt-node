@@ -187,6 +187,7 @@ constexpr std::size_t NetworkMessage::FixedPackSize() const
 
 NetworkBuilder::NetworkBuilder()
     : m_message()
+	, m_hasStageFailure(false)
 {
 	m_message.m_header.m_protocol = Message::Protocol::Network;
 }
@@ -292,10 +293,8 @@ NetworkBuilder& NetworkBuilder::SetPayload(std::span<std::uint8_t const> buffer)
 
 NetworkBuilder& NetworkBuilder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
-    if (buffer.empty()) { return *this; }
-
-	Unpack(buffer);
-    
+    if (!buffer.empty()) { Unpack(buffer); }
+	else { m_hasStageFailure = true; }
     return *this;
 }
 
@@ -303,12 +302,8 @@ NetworkBuilder& NetworkBuilder::FromDecodedPack(std::span<std::uint8_t const> bu
 
 NetworkBuilder& NetworkBuilder::FromEncodedPack(std::string_view pack)
 {
-    if (pack.empty()) {
-        return *this;
-    }
-
-	Unpack(Z85::Decode(pack));
-    
+    if (!pack.empty()) { Unpack(Z85::Decode(pack)); }
+	else { m_hasStageFailure = true; }
     return *this;
 }
 
@@ -327,9 +322,7 @@ NetworkBuilder::OptionalMessage NetworkBuilder::ValidatedBuild()
 {
 	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
 
-    if (m_message.Validate() != Message::ValidationStatus::Success) {
-        return {};
-    }
+    if (m_hasStageFailure || m_message.Validate() != Message::ValidationStatus::Success) { return {}; }
     return std::move(m_message);
 }
 

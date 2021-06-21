@@ -117,6 +117,7 @@ private:
         std::span<std::uint8_t const>::iterator const& end);
 
     ApplicationMessage m_message;
+	bool m_hasStageFailure;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
