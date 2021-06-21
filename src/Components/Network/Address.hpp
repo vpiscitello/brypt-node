@@ -41,6 +41,9 @@ enum class Type : std::uint8_t { IPv4, IPv6, Invalid };
 struct Components;
 
 [[nodiscard]] Type ParseAddressType(Address const& address);
+[[nodiscard]] Type ParseAddressType(std::string_view const& partition);
+[[nodiscard]] bool IsValidAddressSize(Address const& address);
+[[nodiscard]] bool IsValidPortNumber(std::string_view const& partition);
 [[nodiscard]] Components GetAddressComponents(Address const& address);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -75,6 +78,7 @@ public:
 
     // Socket Address Helpers {
     friend Socket::Type Socket::ParseAddressType(Address const& address);
+    friend bool Socket::IsValidAddressSize(Address const& address);
     friend Socket::Components Socket::GetAddressComponents(Address const& address);
     // } Socket Address Helpers
 
@@ -83,6 +87,8 @@ protected:
     Address(Protocol protocol, std::string_view uri, bool bootstrapable);
 
     [[nodiscard]] bool CacheAddressPartitions();
+    [[nodiscard]] std::size_t GetSchemeBoundary();
+    [[nodiscard]] std::size_t PrependScheme();
     void Reset();
 
     Protocol m_protocol;

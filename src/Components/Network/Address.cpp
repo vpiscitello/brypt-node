@@ -189,63 +189,57 @@ bool Network::Address::IsValid() const
 
 bool Network::Address::CacheAddressPartitions()
 {
-    auto begin = m_uri.begin();
-    auto end = m_uri.end();
+    if (m_uri.empty()) { return false; }
 
     // The uri may not contain any whitespace characters. 
-    if (m_uri.empty()) { return false; }
-    if (bool const whitespace = std::any_of(begin, end, [] (auto c) { return std::isspace(c); });
-        whitespace) { return false; }
+    if (bool const spaces = std::any_of(
+        m_uri.begin(), m_uri.end(), [] (auto c) { return std::isspace(c); }); spaces) { return false; }
 
-    // Cache the scheme section of the uri. (e.g. <tcp>://127.0.0.1:1024)
-    std::size_t schemeStart = m_uri.find(Network::SchemeSeperator);
-    
-    // If there is no scheme, append the prepend one to the 
-    if (schemeStart == std::string::npos) {
-        std::ostringstream oss;
-        std::string_view scheme;
-        switch (m_protocol) {
-            case Protocol::TCP: { scheme = Network::TCP::Scheme; } break;
-            case Protocol::LoRa: { scheme = Network::LoRa::Scheme; } break;
-            default: assert(false); return false;
-        }
-        oss << scheme << Network::SchemeSeperator << m_uri;
-        m_uri = oss.str();
+    auto const schemeBoundary = GetSchemeBoundary();
+    m_scheme = { m_uri.begin(), m_uri.begin() + schemeBoundary }; // Cache representation: <tcp>://127.0.0.1:1024.
 
-        begin = m_uri.begin();
-        end = m_uri.end();
-        schemeStart = Network::TCP::Scheme.size();
-    }
+    // Check to ensure the provided uri has a component seperator that we can parition. 
+    std::size_t componentBoundary = m_uri.find_last_of(Network::ComponentSeperator);
+    // Ensure the component boundary can be used to parition the string. 
+    if (componentBoundary == std::string::npos || componentBoundary == m_uri.size()) { return false; }
 
-    // Cache the scheme parition of the uri. 
-    m_scheme = { m_uri.begin(), m_uri.begin() + schemeStart };
-    begin += schemeStart + Network::SchemeSeperator.size();
-
-    std::size_t seperatorStart = m_uri.find_last_of(Network::ComponentSeperator);
-    if (seperatorStart == std::string::npos) { return false; }
-    seperatorStart -= schemeStart + Network::SchemeSeperator.size();
-
-    // Cache the authority parition of the uri. (e.g. tcp://<127.0.0.1:1024>)
-    m_authority = { begin, end };
-
-    // Cache the primary address parition of the uri. (e.g. tcp://<127.0.0.1>:1024)
-    m_primary = { begin, begin + seperatorStart };
-
-    // Cache the secondary address parition of the uri. (e.g. tcp://127.0.0.1:<1024>)
-    m_secondary = { begin + seperatorStart + 1, end };
+    std::string::const_iterator const primary = m_uri.begin() + (m_scheme.size() + Network::SchemeSeperator.size());
+    std::string::const_iterator const secondary = m_uri.begin() + componentBoundary + 1;
+    m_authority = { primary, m_uri.end() }; // Cache representation: e.g. tcp://<127.0.0.1:1024>.
+    m_primary = { primary, secondary - 1 }; // Cache representation: e.g. tcp://<127.0.0.1>:1024.
+    m_secondary = { secondary, m_uri.end() }; // Cache representation:e.g. tcp://127.0.0.1:<1024>.
 
     // Validate the uri based on the protocol type. 
-    bool validated = false;
     switch (m_protocol) {
-        case Protocol::TCP: {
-            auto const result = Socket::ParseAddressType(*this);
-            if (result != Socket::Type::Invalid) { validated = true; }
-        } break;
-        case Protocol::LoRa: { return true; }
+        case Protocol::TCP: return (Socket::ParseAddressType(*this) != Socket::Type::Invalid);
+        case Protocol::LoRa: return true;
         default: return false;
     }
+    return false;
+}
 
-    return validated;
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Network::Address::GetSchemeBoundary()
+{
+    std::size_t end = m_uri.find(Network::SchemeSeperator);
+    return (end != std::string::npos) ? end : PrependScheme(); // If there is no scheme, append the prepend one.
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Network::Address::PrependScheme()
+{
+    std::ostringstream oss;
+    std::string_view scheme;
+    switch (m_protocol) {
+        case Protocol::TCP: { scheme = Network::TCP::Scheme; } break;
+        case Protocol::LoRa: { scheme = Network::LoRa::Scheme; } break;
+        default: assert(false); return 0;
+    }
+    oss << scheme << Network::SchemeSeperator << m_uri; // <scheme>://<uri>
+    m_uri = oss.str(); // Replace the uri with the scheme prepended. 
+    return scheme.size(); // Notify the caller of the number of characters appended. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -376,51 +370,59 @@ bool Network::RemoteAddress::IsBootstrapable() const
 Network::Socket::Type Network::Socket::ParseAddressType(Address const& address)
 {
     if (address.m_protocol != Protocol::TCP) { return Type::Invalid; }
+    if (!IsValidAddressSize(address)) { return Type::Invalid; }
+    if (!IsValidPortNumber(address.m_secondary)) { return Type::Invalid; }
+    return ParseAddressType(address.m_primary);
+}
 
-    // General URI and Partition Size Checks
-    {
-        constexpr std::size_t MinimumLength = 9;
-        constexpr std::size_t MaximumLength = 53;
-        if (auto const size = address.m_uri.size(); size < MinimumLength || size > MaximumLength) {
-            return Type::Invalid;
-        }
-        if (address.m_primary.empty() || address.m_secondary.empty()) { return Type::Invalid; }
-    }
+//----------------------------------------------------------------------------------------------------------------------
 
-    // Port Range Checks (Acceptable: 1 - 65535);
-    {
-        auto const& partition = address.m_secondary;
-        if (partition[0] == '-') { return Type::Invalid; }
-        try {
-            constexpr std::uint16_t MinimumValue = 1;
-            constexpr std::uint16_t MaximumValue = std::numeric_limits<std::uint16_t>::max();
-            auto const port = boost::lexical_cast<std::uint16_t>(partition);
-            if (port < MinimumValue || port > MaximumValue) { return Type::Invalid; }
-        } catch (...) { return Type::Invalid; }
-    }
+Network::Socket::Type Network::Socket::ParseAddressType(std::string_view const& partition)
+{
+    // IPv6 Addresses must be wrapped with [..]. This is done to explicitly distinguish the types. 
+    // A copy of the partition must be made boost::asio only accepts null terminated strings. 
+    auto const check = (partition[0] == '[' && partition[partition.size() - 1] == ']') ? 
+        std::string { partition.data() + 1, partition.size() - 2 } :
+        std::string { partition.data(), partition.size() };
 
-    // IP Address Checks. IPv6 Addresses must be wrapped in brakets (i.e. [..]). This is done 
-    // to explicitly distinguish them. 
-    {
-        auto const& partition = address.m_primary;
+    boost::system::error_code error;
+    auto const ip = boost::asio::ip::address::from_string(check, error);
+    if (error) { return Type::Invalid; }
 
-        // Unwrap the IPv6 address to pass to the address parser. 
-        std::string check;
-        if (partition[0] == '[' && partition[partition.size() - 1] == ']') {
-            check = { partition.data() + 1, partition.size() - 2 };
-        } else {
-            check = { partition.data(), partition.size() };
-        }
-
-        boost::system::error_code error;
-        auto const ip = boost::asio::ip::address::from_string(check, error);
-        if (error) { return Type::Invalid; }
-
-        if (ip.is_v4()) { return Type::IPv4; }
-        if (ip.is_v6() && partition[0] == '[') { return Type::IPv6; }
-    }
+    if (ip.is_v4()) { return Type::IPv4; }
+    if (partition[0] == '[' && ip.is_v6()) { return Type::IPv6; }
 
     return Type::Invalid;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::Socket::IsValidAddressSize(Address const& address)
+{
+    constexpr std::size_t MinimumLength = 9;
+    constexpr std::size_t MaximumLength = 53;
+    if (address.m_primary.empty() || address.m_secondary.empty()) { return false; }
+    bool const isOutOfRange = (address.m_uri.size() < MinimumLength || address.m_uri.size() > MaximumLength);
+    return !isOutOfRange;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::Socket::IsValidPortNumber(std::string_view const& partition)
+{
+    if (partition[0] == '-') { return false; } // Quickly check that the port is not a negative number. 
+
+    // Port Range Checks (Acceptable: 1 - 65535);
+    constexpr std::uint16_t MinimumValue = 1;
+    constexpr std::uint16_t MaximumValue = std::numeric_limits<std::uint16_t>::max();
+    try {
+        auto const port = boost::lexical_cast<std::uint16_t>(partition);
+        if (port < MinimumValue || port > MaximumValue) { return false; }
+    } catch(boost::bad_lexical_cast& exception) {
+        return false;
+    }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
