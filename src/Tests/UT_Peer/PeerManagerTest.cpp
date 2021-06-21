@@ -73,22 +73,15 @@ public:
         : m_mediator(mediator)
         , m_spPeer()
         , m_state(ConnectionState::Unknown)
-    {
-        m_mediator->RegisterObserver(this);
-    }
+    { m_mediator->RegisterObserver(this); }
 
     PeerObserverStub(PeerObserverStub&& other)
         : m_mediator(other.m_mediator)
         , m_spPeer(std::move(other.m_spPeer))
         , m_state(other.m_state)
-    {
-        m_mediator->RegisterObserver(this);
-    }
+    {  m_mediator->RegisterObserver(this); }
 
-    ~PeerObserverStub()
-    {
-        m_mediator->UnpublishObserver(this);
-    }
+    ~PeerObserverStub() { m_mediator->UnpublishObserver(this); }
 
     // IPeerObserver {
     void HandlePeerStateChange(
@@ -99,27 +92,16 @@ public:
     {
         m_state = change;
         switch(m_state) {
-            case ConnectionState::Connected: {
-                m_spPeer = wpPeerProxy.lock();
-            } break;
-            case ConnectionState::Disconnected: {
-                m_spPeer.reset();
-            } break;
+            case ConnectionState::Connected: { m_spPeer = wpPeerProxy.lock(); } break;
+            case ConnectionState::Disconnected: { m_spPeer.reset(); } break;
             // Not currently testing other connection states for the observer
             default: break;
         }
     }
     // } IPeerObserver
 
-    std::shared_ptr<Peer::Proxy> GetPeerProxy() const
-    {
-        return m_spPeer;
-    }
-
-    ConnectionState GetConnectionState() const
-    {
-        return m_state;
-    }
+    std::shared_ptr<Peer::Proxy> GetPeerProxy() const { return m_spPeer; }
+    ConnectionState GetConnectionState() const { return m_state; }
 
 private:
     IPeerMediator* m_mediator;
@@ -341,7 +323,7 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
-    manager.LinkPeer(*test::ClientIdentifier, secondAddress);
+    EXPECT_TRUE(manager.LinkPeer(*test::ClientIdentifier, secondAddress));
 
     auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 

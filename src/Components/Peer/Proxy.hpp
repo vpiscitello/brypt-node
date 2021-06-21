@@ -5,6 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "Registration.hpp"
+#include "Resolver.hpp"
 #include "Statistics.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageTypes.hpp"
@@ -14,22 +15,24 @@
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/MessageSink.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <span>
+#include <shared_mutex>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
 class MessageContext;
-namespace Security{ class Mediator; }
-namespace Network { class Address; }
-
+class IConnectProtocol;
 class IPeerMediator;
+
+namespace Network { class Address; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Peer {
@@ -44,7 +47,11 @@ class Proxy;
 class Peer::Proxy final : public std::enable_shared_from_this<Peer::Proxy>
 {
 public:
-    explicit Proxy(Node::Identifier const& identifier, IPeerMediator* const pPeerMediator = nullptr);
+    explicit Proxy(
+        Node::Identifier const& identifier,
+        IPeerMediator* const pPeerMediator = nullptr,
+        std::weak_ptr<IMessageSink> const& wpAuthorizedProcessor = { });
+    
     ~Proxy();
 
     [[nodiscard]] Node::SharedIdentifier GetNodeIdentifier() const;
@@ -56,7 +63,6 @@ public:
     // } Statistic Methods
 
     // Message Receipt Methods {
-    void SetReceiver(IMessageSink* const pMessageSink);
     [[nodiscard]] bool ScheduleReceive(
         Network::Endpoint::Identifier identifier, std::string_view buffer);
     [[nodiscard]] bool ScheduleReceive(
@@ -89,43 +95,48 @@ public:
     // } Endpoint Association Methods
 
     // Security Methods {
-    void AttachSecurityMediator(std::unique_ptr<Security::Mediator>&& upSecurityMediator);
+    [[nodiscard]] bool AttachResolver(std::unique_ptr<Resolver>&& upResolver);
+    [[nodiscard]] bool StartExchange(
+        Security::Strategy strategy, Security::Role role, std::shared_ptr<IConnectProtocol> const& spProtocol);
     [[nodiscard]] Security::State GetSecurityState() const;
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;
     // } Security Methods
 
     // Testing Methods {
-    template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
-    void RegisterSilentEndpoint(Registration const& registration);
-
-    template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
-    void RegisterSilentEndpoint(
-        Network::Endpoint::Identifier identifier,
-        Network::Protocol protocol,
-        Network::RemoteAddress const& address = {},
-        Network::MessageScheduler const& scheduler = {});
-
-    template <InvokeContext ContextType = InvokeContext::Production> requires TestingContext<ContextType>
-    void WithdrawSilentEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
+    UT_SupportMethod(void SetReceiver(IMessageSink* const pMessageSink));
+    UT_SupportMethod(void AttachSecurityStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy));
+    UT_SupportMethod(void DetachResolver());
+    UT_SupportMethod(void RegisterSilentEndpoint(Registration const& registration));
+    UT_SupportMethod(
+        void RegisterSilentEndpoint(
+            Network::Endpoint::Identifier identifier,
+            Network::Protocol protocol,
+            Network::RemoteAddress const& address = {},
+            Network::MessageScheduler const& scheduler = {}));
+    UT_SupportMethod(void WithdrawSilentEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol));
     // } Testing Methods
     
 private:
     using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;
+    
+    void BindSecurityContext(MessageContext& context) const;
 
     Node::SharedIdentifier m_spIdentifier;
-    mutable Statistics m_statistics;
-
     IPeerMediator* const m_pPeerMediator;
     
-    mutable std::recursive_mutex m_securityMutex;
-    std::unique_ptr<Security::Mediator> m_upSecurityMediator;
+    mutable std::shared_mutex m_securityMutex;
+    Security::State m_state;
+    std::unique_ptr<Resolver> m_upResolver;
+    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;
 
     mutable std::recursive_mutex m_receiverMutex;
-    IMessageSink* m_pMessageSink;
+    IMessageSink* m_pEnabledProcessor;
+    std::weak_ptr<IMessageSink> m_wpAuthorizedProcessor;
+    mutable Statistics m_statistics;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

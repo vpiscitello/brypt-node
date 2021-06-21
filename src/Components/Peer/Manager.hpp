@@ -5,11 +5,11 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "Proxy.hpp"
+#include "Resolver.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
-#include "Components/Security/Mediator.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Interfaces/PeerCache.hpp"
 #include "Interfaces/PeerMediator.hpp"
@@ -52,11 +52,11 @@ public:
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
     virtual OptionalRequest DeclareResolvingPeer(
-        Network::RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier = nullptr) override;
+        Network::RemoteAddress const& address, Node::SharedIdentifier const& spPeerIdentifier = nullptr) override;
 
     virtual void RescindResolvingPeer(Network::RemoteAddress const& address) override;
 
-    virtual std::shared_ptr<Peer::Proxy> LinkPeer(
+    [[nodiscard]] virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) override;
 
     virtual void DispatchPeerStateChange(
@@ -90,7 +90,11 @@ private:
                     Proxy, Node::Internal::Identifier::Type, &Proxy::GetInternalIdentifier>>>>;
 
     using ResolvingPeerMap = std::unordered_map<
-        Network::RemoteAddress, std::unique_ptr<Security::Mediator>, Network::AddressHasher<Network::RemoteAddress>>;
+        Network::RemoteAddress, std::unique_ptr<Resolver>, Network::AddressHasher<Network::RemoteAddress>>;
+
+    [[nodiscard]] OptionalRequest GenerateShortCircuitRequest(Node::SharedIdentifier const& spPeerIdentifier) const;
+    [[nodiscard]] std::shared_ptr<Peer::Proxy> CreatePeer(
+        Node::Identifier const& identifier, Network::RemoteAddress const& address);
 
     std::size_t PeerCount(Filter filter) const;
 
@@ -106,11 +110,11 @@ private:
     mutable std::mutex m_observersMutex;
     ObserverSet m_observers;
 
+    mutable std::shared_mutex m_resolvingMutex;
+    ResolvingPeerMap m_resolving;
+    
     mutable std::shared_mutex m_peersMutex;
     PeerTrackingMap m_peers;
-
-    mutable std::recursive_mutex m_resolvingMutex;
-    ResolvingPeerMap m_resolving;
     
     std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
     std::weak_ptr<IMessageSink> const m_wpPromotedProcessor;

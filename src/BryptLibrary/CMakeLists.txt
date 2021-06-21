@@ -45,7 +45,7 @@ set(
     ${CMAKE_SOURCE_DIR}/Components/Peer/Manager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Proxy.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Registration.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Manager.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Resolver.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Statistics.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/KeyStore.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecureBuffer.cpp

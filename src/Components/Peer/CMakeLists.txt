@@ -11,9 +11,10 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    Manager.cpp
     Proxy.cpp
     Registration.cpp
-    Manager.cpp
+    Resolver.cpp
     Statistics.cpp)
 
 # Exported include dependencies

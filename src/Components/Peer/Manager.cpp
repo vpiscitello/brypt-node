@@ -35,10 +35,10 @@ Peer::Manager::Manager(
     , m_strategyType(strategy)
     , m_observersMutex()
     , m_observers()
-    , m_peersMutex()
-    , m_peers()
     , m_resolvingMutex()
     , m_resolving()
+    , m_peersMutex()
+    , m_peers()
     , m_spConnectProtocol(spConnectProtocol)
     , m_wpPromotedProcessor(wpPromotedProcessor)
 {
@@ -66,46 +66,25 @@ void Peer::Manager::UnpublishObserver(IPeerObserver* const observer)
 Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
     Network::RemoteAddress const& address, Node::SharedIdentifier const& spPeerIdentifier)
 {
-    std::scoped_lock resolvingLock(m_resolvingMutex);
-
     // Disallow endpoints from connecting to the same uri. If an endpoint has connection retry logic, it should store
     // the connection request message. However, there exists a race  condition when the peer wakes up while the endpoint
     // is still not sure a peer exists at that particular uri. In this case the peer may send a bootstrap request causing 
     // the endpoint to check if we are currently resolving that uri. 
+    std::scoped_lock lock(m_resolvingMutex);
     if (auto const itr = m_resolving.find(address); itr != m_resolving.end()) { return {}; }
 
     // If the we are provided an identifier for the peer, prefer short circuiting the exchange and send a hearbeat 
-    // request to instantiate the endpoint's connection. Otherwise, a new security mediator needs to be created and an 
-    // exchange to be intialized. 
-    if (spPeerIdentifier) {
-        assert(spPeerIdentifier->IsValid());
-        std::scoped_lock peersLock(m_peersMutex);
-        // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
-        // Otherwise, we should fallthrough to generate an exchange handler. 
-        if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalValue()); itr == m_peers.end()) { return {}; }
-        // Generate the heartbeat request.
-        auto const optRequest = NetworkMessage::Builder()
-            .SetSource(*m_spNodeIdentifier)
-            .SetDestination(*spPeerIdentifier)
-            .MakeHeartbeatRequest()
-            .ValidatedBuild();
-        assert(optRequest);
-
-        return optRequest->GetPack();
-    }
+    // request to instantiate the endpoint's connection. Otherwise, create a resolver to initiate the exchange. 
+    if (spPeerIdentifier) { return GenerateShortCircuitRequest(spPeerIdentifier); }
     
-    auto upSecurityMediator = std::make_unique<Security::Mediator>(
-        m_spNodeIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
-
-    auto const optRequest = upSecurityMediator->SetupExchangeInitiator(m_strategyType, m_spConnectProtocol);
+    // Store the resolver such that when the endpoint links the peer it can be attached to the real peer proxy. 
+    auto upResolver = std::make_unique<Resolver>(m_spNodeIdentifier, Security::Context::Unique);
+    auto optRequest = upResolver->SetupExchangeInitiator(m_strategyType, m_spConnectProtocol);
     assert(optRequest);
-    
-    // Store the SecurityStrategy such that when the endpoint links the peer it can be attached
-    // to the full peer proxy
-    if (optRequest) { m_resolving[address] = std::move(upSecurityMediator); }
 
-    // Return the ticket number and the initial connection message
-    return optRequest;  
+    m_resolving[address] = std::move(upResolver);
+
+    return optRequest; 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -122,41 +101,20 @@ void Peer::Manager::RescindResolvingPeer(Network::RemoteAddress const& address)
 std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
     Node::Identifier const& identifier, Network::RemoteAddress const& address)
 {
-    std::shared_ptr<Peer::Proxy> spPeerProxy = {};
-    std::scoped_lock peersLock(m_peersMutex);
     // If the provided peer has an identifier that matches an already tracked peer, the tracked peer needs to be 
-    // returned to the caller. 
-    // Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
-    if(auto const itr = m_peers.find(identifier.GetInternalValue()); itr != m_peers.end()) {
+    // returned to the caller. Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
+    std::scoped_lock lock(m_resolvingMutex, m_peersMutex);
+    if (auto const itr = m_peers.find(identifier.GetInternalValue()); itr != m_peers.end()) {
         m_resolving.erase(address); // Ensure the provided address is not marked as resolving.
-        m_peers.modify(itr, [&spPeerProxy](std::shared_ptr<Peer::Proxy>& spTrackedPeer)
-            { assert(spTrackedPeer);  spPeerProxy = spTrackedPeer; });
-    } else {
-        // Make a peer proxy that can be shared with the endpoint. 
-        spPeerProxy = std::make_shared<Peer::Proxy>(identifier, this);
 
-        // If the endpoint has a resolving ticket it means that we initiated the connection and we need
-        // to move the SecurityStrategy out of the resolving map and give it to the SecurityMediator. 
-        // Otherwise, it is assumed are accepting the connection and we need to make an accepting strategy.
-        std::unique_ptr<Security::Mediator> upSecurityMediator;
-        if (auto itr = m_resolving.find(address); itr != m_resolving.end()) {
-            std::scoped_lock resolvingLock(m_resolvingMutex);
-            upSecurityMediator = std::move(itr->second);
-            m_resolving.erase(itr);
-        } else {
-            upSecurityMediator = std::make_unique<Security::Mediator>(
-                m_spNodeIdentifier, Security::Context::Unique, m_wpPromotedProcessor);
+        std::shared_ptr<Peer::Proxy> spUnified;
+        m_peers.modify(itr, 
+            [&spUnified] (std::shared_ptr<Peer::Proxy>& spTracked) { assert(spTracked); spUnified = spTracked; });
 
-            bool const success = upSecurityMediator->SetupExchangeAcceptor(m_strategyType);
-            if (!success) {  return {}; }
-        }
-        
-        spPeerProxy->AttachSecurityMediator(std::move(upSecurityMediator));
-
-        m_peers.emplace(spPeerProxy);
+        return spUnified; // Return the unified peer to the endpoint. 
     }
 
-    return spPeerProxy;
+    return CreatePeer(identifier, address); // Create the new peer proxy if one could not be found. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -184,9 +142,7 @@ bool Peer::Manager::ForEachCachedIdentifier(IdentifierReadFunction const& callba
             default: assert(false); // What is this?
         }
 
-        if (isIncluded) {
-            if (callback(spPeerProxy->GetNodeIdentifier()) != CallbackIteration::Continue) { break; }
-        }
+        if (isIncluded && callback(spPeerProxy->GetNodeIdentifier()) != CallbackIteration::Continue) { break; }
     }
 
     return true;
@@ -217,7 +173,7 @@ std::size_t Peer::Manager::ObservedPeerCount() const
 
 std::size_t Peer::Manager::ResolvingPeerCount() const
 {
-    std::scoped_lock lock(m_resolvingMutex);
+    std::shared_lock lock(m_resolvingMutex);
     return m_resolving.size();
 }
 
@@ -227,7 +183,7 @@ bool Peer::Manager::ForEachPeer(ForEachPeerFunction const& callback, Filter filt
 {
     std::shared_lock lock(m_peersMutex);
     for (auto const& spPeerProxy: m_peers) {
-        bool isIncluded = true;
+        bool isIncluded = false;
         switch (filter) {
             case Filter::Active: { isIncluded = spPeerProxy->IsActive(); } break;
             case Filter::Inactive: { isIncluded = !spPeerProxy->IsActive(); } break;
@@ -235,9 +191,7 @@ bool Peer::Manager::ForEachPeer(ForEachPeerFunction const& callback, Filter filt
             default: assert(false); // What is this?
         }
 
-        if (isIncluded) {
-            if (callback(spPeerProxy) != CallbackIteration::Continue) { break; }
-        }
+        if (isIncluded&& callback(spPeerProxy) != CallbackIteration::Continue) { break; }
     }
 
     return true;
@@ -245,17 +199,65 @@ bool Peer::Manager::ForEachPeer(ForEachPeerFunction const& callback, Filter filt
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
+    Node::SharedIdentifier const& spPeerIdentifier) const
+{
+    // Note: The peers mutex must be locked before calling this method. 
+    assert(spPeerIdentifier && spPeerIdentifier->IsValid());
+
+    // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
+    if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalValue()); itr == m_peers.end()) { return {}; }
+
+    // Currently, the short circuiting method is to notify the peer via a heatbeat request. 
+    auto const optRequest = NetworkMessage::Builder()
+        .SetSource(*m_spNodeIdentifier)
+        .SetDestination(*spPeerIdentifier)
+        .MakeHeartbeatRequest()
+        .ValidatedBuild();
+    assert(optRequest);
+
+    return optRequest->GetPack();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
+    Node::Identifier const& identifier, Network::RemoteAddress const& address)
+{
+    // Note: The resolving and peers mutexes must be locked before calling this method. 
+    auto const spProxy = std::make_shared<Peer::Proxy>(identifier, this, m_wpPromotedProcessor);
+
+    // If the endppint has declared the address as a resolving peer, this implies that we were the connection initiator. 
+    // In this case, we need to attach the external resolver to the full proxy to handle incoming responses. 
+    // Otherwise, we are accepting a new request from an unknown address, in which we need to tell the proxy to start 
+    // an resolver to process the messages. 
+    if (auto itr = m_resolving.find(address); itr != m_resolving.end()) {
+        [[maybe_unused]] bool const result = spProxy->AttachResolver(std::move(itr->second));
+        assert(result);
+        m_resolving.erase(itr);
+    } else {
+        bool const result = spProxy->StartExchange(m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
+        assert(result);
+    }
+
+    m_peers.emplace(spProxy);
+
+    return spProxy; // Provide the newly created proxy to the caller. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::size_t Peer::Manager::PeerCount(Filter filter) const
 {
-    std::size_t count = 0;
-
     std::shared_lock lock(m_peersMutex);
-    for (auto const& spPeerProxy: m_peers) {
-        bool isIncluded = true;
+    if (filter == Filter::None) { return m_peers.size(); } // Short circuit the peer active state iteration. 
+
+    std::size_t count = 0;
+    for (auto const& spProxy: m_peers) {
+        bool isIncluded = false;
         switch (filter) {
-            case Filter::Active: { isIncluded = spPeerProxy->IsActive(); } break;
-            case Filter::Inactive: { isIncluded = !spPeerProxy->IsActive(); } break;
-            case Filter::None: { isIncluded = true; } break;
+            case Filter::Active: { isIncluded = spProxy->IsActive(); } break;
+            case Filter::Inactive: { isIncluded = !spProxy->IsActive(); } break;
             default: assert(false); // What is this?
         }
         
@@ -271,16 +273,12 @@ template<typename FunctionType, typename...Args>
 void Peer::Manager::NotifyObservers(FunctionType const& function, Args&&...args)
 {
     for (auto itr = m_observers.cbegin(); itr != m_observers.cend();) {
-        auto const& observer = *itr; // Get a refernce to the current observer pointer
-        // If the observer is no longer valid erase the dangling pointer from the set
-        // Otherwise, send the observer the notification
-        if (!observer) {
-            itr = m_observers.erase(itr);
-        } else {
-            auto const binder = std::bind(function, observer, std::forward<Args>(args)...);
-            binder();
-            ++itr;
-        }
+        auto const& observer = *itr; // Get a refernce to the current observer pointer.
+        // If the observer is no longer valid erase the dangling pointer from the set.
+        if (!observer) { itr = m_observers.erase(itr); continue; } 
+        auto const binder = std::bind(function, observer, std::forward<Args>(args)...);
+        binder(); // Call the observer with the provided arguments. 
+        ++itr; // Move to the next observer in the set. 
     }
 }
 

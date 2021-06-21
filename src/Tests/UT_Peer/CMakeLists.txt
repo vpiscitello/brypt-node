@@ -12,6 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     PeerManagerTest.cpp
+    ResolverTest.cpp
     UT_Peer.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})

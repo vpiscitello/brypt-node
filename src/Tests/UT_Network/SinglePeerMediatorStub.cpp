@@ -5,7 +5,6 @@
 #include "SinglePeerMediatorStub.hpp"
 #include "BryptMessage/NetworkMessage.hpp"
 #include "Components/Peer/Proxy.hpp"
-#include "Components/Security/Mediator.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -94,8 +93,7 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::RescindResolvingPeer(
-    [[maybe_unused]] Network::RemoteAddress const& address)
+void SinglePeerMediatorStub::RescindResolvingPeer([[maybe_unused]] Network::RemoteAddress const& address)
 {
 }
 
@@ -106,13 +104,8 @@ std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
     [[maybe_unused]] Network::RemoteAddress const& address)
 {
     m_spPeer = std::make_shared<Peer::Proxy>(identifier, this);
-
-    auto upSecurityStrategy = std::make_unique<local::SecurityStrategyStub>();
-    auto upSecurityMediator = std::make_unique<Security::Mediator>(m_spNodeIdentifier, std::move(upSecurityStrategy));
-
-    m_spPeer->AttachSecurityMediator(std::move(upSecurityMediator));
-    m_spPeer->SetReceiver(m_pMessageSink);
-
+    m_spPeer->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::SecurityStrategyStub>());
+    m_spPeer->SetReceiver<InvokeContext::Test>(m_pMessageSink);
     return m_spPeer;
 }
 
