@@ -83,8 +83,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     auto upServerEndpoint = local::MakeTcpServer(spEventPublisher, spServerMediator);
     EXPECT_EQ(upServerEndpoint->GetProtocol(), Network::Protocol::TCP);
     EXPECT_EQ(upServerEndpoint->GetOperation(), Network::Operation::Server);
-    // The scheduled binding is accessible before the listener has started. 
-    ASSERT_EQ(upServerEndpoint->GetBinding(), test::ServerBinding);
+    ASSERT_EQ(upServerEndpoint->GetBinding(), test::ServerBinding); // The binding should be cached before start. 
 
     // Create the client resources. The peer mediator stub will store a single Peer::Proxy representing the server.
     auto upClientProcessor = std::make_unique<MessageSinkStub>(test::ClientIdentifier);
@@ -163,11 +162,15 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     // from the processors. 
     for (std::uint32_t iterations = 0; iterations < test::Iterations; ++iterations) {
         // Wait a period of time to ensure the request has been sent and received. 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         // Handle the reciept of a request sent to the server.
         {
-            auto const optAssociatedRequest = upServerProcessor->GetNextMessage();
+            std::optional<AssociatedMessage> optAssociatedRequest;
+            do {
+                optAssociatedRequest = upServerProcessor->GetNextMessage();
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (!optAssociatedRequest);
             ASSERT_TRUE(optAssociatedRequest);
 
             // Verify the received request matches the one that was sent through the client.
@@ -181,11 +184,15 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
         }
 
         // Wait a period of time to ensure the response has been sent and received. 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         // Handle the reciept of a response sent to the client.
         {
-            auto const optAssociatedResponse = upClientProcessor->GetNextMessage();
+            std::optional<AssociatedMessage> optAssociatedResponse;
+            do {
+                optAssociatedResponse = upClientProcessor->GetNextMessage();
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            } while (!optAssociatedResponse);
             ASSERT_TRUE(optAssociatedResponse);
 
             // Verify the received response matches the one that was sent through the server.
@@ -201,8 +208,8 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
 
     // Shutdown the endpoints. Note: The endpoints destructor can handle the shutdown for us. However, we will 
     // need to test the state and events fired after shutdown. 
-    upClientEndpoint->Shutdown();
-    upServerEndpoint->Shutdown();
+    EXPECT_TRUE(upClientEndpoint->Shutdown());
+    EXPECT_TRUE(upServerEndpoint->Shutdown());
 
     EXPECT_EQ(upServerProcessor->InvalidMessageCount(), std::uint32_t(0));
     EXPECT_EQ(upClientProcessor->InvalidMessageCount(), std::uint32_t(0));
@@ -215,11 +222,9 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpServer(
     std::shared_ptr<Event::Publisher> const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     auto upServerEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Server, spEventPublisher);
-
     upServerEndpoint->RegisterMediator(spPeerMediator.get());
-    upServerEndpoint->ScheduleBind(test::ServerBinding);
-
-    return upServerEndpoint;
+    bool const result = upServerEndpoint->ScheduleBind(test::ServerBinding);
+    return (result) ? std::move(upServerEndpoint) : nullptr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -228,12 +233,10 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpClient(
     std::shared_ptr<Event::Publisher> const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Client, spEventPublisher);
-        
     Network::RemoteAddress address(test::ProtocolType, test::ServerBinding.GetUri(), true);
     upClientEndpoint->RegisterMediator(spPeerMediator.get());
-    upClientEndpoint->ScheduleConnect(std::move(address));
-
-    return upClientEndpoint;
+    bool const result = upClientEndpoint->ScheduleConnect(std::move(address));
+    return (result) ? std::move(upClientEndpoint) : nullptr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -5,6 +5,7 @@
 #include "Endpoint.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "EndpointDefinitions.hpp"
+#include "SignalService.hpp"
 #include "Session.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
 #include "Components/Peer/Proxy.hpp"
@@ -49,12 +50,16 @@ private:
         [[nodiscard]] SocketProcessor operator()();
         [[nodiscard]] bool Bind(BindingAddress const& binding);
 
+        template<typename ...Arguments>
+        [[nodiscard]] CompletionOrigin OnError(std::string_view message, Arguments&&...arguments) const;
+
         ServerInstance m_server;
         boost::asio::ip::tcp::acceptor m_acceptor;
+        bool m_rebinding;
         boost::system::error_code m_error;
     };
 
-    boost::asio::steady_timer m_signal;
+    ExclusiveSignalService m_signal;
     Listener m_listener;
 };
 
@@ -106,7 +111,6 @@ private:
 
 Network::TCP::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher)
     : IEndpoint(Protocol::TCP, operation, spEventPublisher)
-    , m_times()
     , m_detailsMutex()
     , m_context(1)
     , m_upAgent()
@@ -327,7 +331,6 @@ void Network::TCP::Endpoint::PollContext()
 
 void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
 {
-    IEndpoint::OnStarted();
     while(!token.stop_requested()) {
         EventDeque events;
         {
@@ -336,7 +339,7 @@ void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
                 // If there are no messages left in the outgoing message queue, break from copying the items into the
                 // temporary queue.
                 if (m_events.size() == 0) { break; }
-                events.emplace_back(m_events.front());
+                events.emplace_back(std::move(m_events.front()));
                 m_events.pop_front();
             }
         }
@@ -348,11 +351,9 @@ void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
             } else { assert(false); }
         }
 
-        PollContext();
+        PollContext(); // Give the event ready handlers a chance to complete. 
         std::this_thread::sleep_for(Network::Endpoint::CycleTimeout);
     }
-
-    IEndpoint::OnStopped();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -510,21 +511,23 @@ bool Network::TCP::Endpoint::Agent::Launched() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::Agent::Launch(
-    std::function<void()> const& setup, std::function<void()> const& teardown)
+void Network::TCP::Endpoint::Agent::Launch(std::function<void()> const& setup, std::function<void()> const& teardown)
 {
     // The core event loop remains unchanged between the server and client. The difference between the two are the 
     // resources created and the processable events. 
     m_worker = std::jthread([this, setup, teardown] (std::stop_token token)
-        {
-            setup();
-            m_active = true;
-            m_endpoint.ProcessEvents(token);
-            m_active = false;
-            teardown();
-        });
+    {
+        setup(); // Notify the derived agent that it should setup resources for the thread. 
+        m_active = true; // Indicate that the event processing loop has begun. 
+        m_endpoint.OnStarted(); // Trigger the EndpointStarted event after the thread is in a fully ready state. 
+        m_endpoint.ProcessEvents(token); // Handle the event loop, this will block until a stop is requested. 
+        m_active = false; // Indicate that the event processing loop has ended. 
+        teardown(); // Notify the derived agent that it should teardown resources used is the thread. 
+        m_endpoint.PollContext(); // Give any waiting teardown handlers a chance to run. 
+        m_endpoint.OnStopped(); // Trigger the EndpointStipped event after the thread is in a fully stopped state. 
+    });
 
-    assert(m_worker.joinable());
+    assert(m_worker.joinable()); // A thread must be spawned as a result of Launch(). 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -535,17 +538,16 @@ void Network::TCP::Endpoint::Agent::Stop()
     // reference a destoryed virtual method. 
     m_worker.request_stop();
     if (m_worker.joinable()) { m_worker.join(); }
-    assert(!m_active && !m_worker.joinable());
+    assert(!m_active && !m_worker.joinable()); // The event loop and worker thread should not be active after Stop(). 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::Endpoint::Server::Server(EndpointInstance endpoint)
     : Agent(endpoint)
-    , m_signal(endpoint.m_context)
+    , m_signal(endpoint.m_context.get_executor())
     , m_listener(*this, endpoint.m_context)
 {
-    m_signal.expires_at(std::chrono::steady_clock::time_point::max());
     Agent::Launch(std::bind(&Server::Setup, this), std::bind(&Server::Teardown, this));
 }
 
@@ -553,6 +555,8 @@ Network::TCP::Endpoint::Server::Server(EndpointInstance endpoint)
 
 Network::TCP::Endpoint::Server::~Server()
 {
+    // Ensuring the rebinding flag is false will cause the listener to treat cancellation as a shutdown request. 
+    m_listener.m_rebinding = false;
     Agent::Stop();
 }
 
@@ -598,8 +602,7 @@ bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
     m_endpoint.m_spLogger->info("Opening endpoint on {}.", binding);
 
     if (!m_listener.Bind(binding)) { return false; }
-    m_signal.cancel_one(); // Wake the awaiting listener coroutine after the acceptor has been bound. 
-
+    m_signal.notify(); // Wake the waiting listener after binding. 
     m_endpoint.OnBindingUpdated(binding);
     return true;
 }
@@ -609,6 +612,7 @@ bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
 Network::TCP::Endpoint::Server::Listener::Listener(ServerInstance server, boost::asio::io_context& context)
     : m_server(server)
     , m_acceptor(context)
+    , m_rebinding(false)
     , m_error()
 {
 }
@@ -617,28 +621,29 @@ Network::TCP::Endpoint::Server::Listener::Listener(ServerInstance server, boost:
 
 Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator()()
 {
+    constexpr std::string_view WaitError = "An unexpected error occured while waiting for a binding!";
+    constexpr std::string_view AcceptError = "An unexpected error occured while accepting a connection on {}!";
+
     auto& endpoint = m_server.m_endpoint;
     while (m_server.m_active) {
         if (!m_acceptor.is_open()) {
             co_await m_server.m_signal.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
+            if (m_error) { co_return OnError(WaitError); }
         } else {
             // Create a new session that can be used for the peer that connects. 
             auto const spSession = endpoint.CreateSession();
 
-            // Await the next connection request. 
+            // Start the acceptor coroutine, if successful the session's socket will be open on return. 
             co_await m_acceptor.async_accept(
                 spSession->GetSocket(), boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
-
-            // If an error occured accepting the connect, log the error. 
-            if (m_error) {
-                // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
-                if (IsInducedError(m_error)) { co_return CompletionOrigin::Self; }
-                endpoint.m_spLogger->error(
-                    "An unexpected error occured while accepting a connection on {}!", endpoint.m_binding);
-                co_return CompletionOrigin::Error;
+            if (m_error) { 
+                // If the error is due to a rebinding operation, drop the session and skip to the next loop iteration. 
+                if (m_rebinding) { m_rebinding = false; continue; } 
+                // Otherwise, the error should be handled normally (e.g. shutdowns or unexpected errors).
+                co_return OnError(AcceptError, endpoint.m_binding); 
             }
 
-            endpoint.OnSessionStarted(spSession);
+            endpoint.OnSessionStarted(spSession); // Notify the endpoint that a new connection has been made. 
         }
     }
 
@@ -649,9 +654,12 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator
 
 bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& binding)
 {
-    auto const OnBindError = [&acceptor = m_acceptor] () -> bool { acceptor.close(); return false; };
+    auto const OnBindError = [&acceptor = m_acceptor, &rebinding = m_rebinding] () -> bool 
+        { acceptor.close(); rebinding = false; return false; };
 
-    if (m_acceptor.is_open()) { m_acceptor.cancel(); }
+    // If the acceptor has already been open, set the rebinding flag and cancel any existing acceptor operations. 
+    // The rebinding flag will be used to prevent he listener for treating the cancellation as a shutdown request. 
+    if (m_acceptor.is_open()) { m_rebinding = true; m_acceptor.close(); }
 
     auto const components = Network::Socket::GetAddressComponents(binding);
     boost::system::error_code error;
@@ -675,6 +683,18 @@ bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& bindin
     if (error) [[unlikely]] { return OnBindError(); }
 
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<typename ...Arguments>
+Network::TCP::CompletionOrigin Network::TCP::Endpoint::Server::Listener::OnError(
+    std::string_view message, Arguments&&...arguments) const
+{
+    // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
+    if (IsInducedError(m_error)) { return CompletionOrigin::Self; }
+    m_server.m_endpoint.m_spLogger->error(message, std::forward<Arguments>(arguments)...);
+    return CompletionOrigin::Error;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

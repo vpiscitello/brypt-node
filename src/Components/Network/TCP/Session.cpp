@@ -328,11 +328,10 @@ Network::TCP::CompletionOrigin Network::TCP::Session::Receiver::OnReceiveError(b
 
 Network::TCP::Session::Dispatcher::Dispatcher(SessionInstance instance)
     : m_instance(instance)
+    , m_switchboard()
     , m_signal(instance.m_socket.get_executor())
     , m_error()
-    , m_switchboard()
 {
-    m_signal.expires_at(std::chrono::steady_clock::time_point::max());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -346,6 +345,7 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher::operator()()
         // If there are no messages scheduled for sending, wait for a signal to continue dispatching. 
         if (m_switchboard.empty()) {
             co_await m_signal.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
+            if (m_error) { co_return m_instance.OnSocketError(m_error); }
         } else {
             auto const message = Dispatchable::FetchMessage(*this);
             [[maybe_unused]] std::size_t sent = co_await boost::asio::async_write(socket,
@@ -369,7 +369,7 @@ bool Network::TCP::Session::Dispatcher::ScheduleSend(Network::MessageVariant&& m
     // is not true, at best the queues become out of sync and at worst memory becomes corrupted. 
     assert(m_instance.m_active && m_instance.m_socket.is_open());
     m_switchboard.emplace_back(std::move(message));   // Store the message for the dispatcher coroutine.
-    m_signal.cancel_one();   // Wake the dispatcher if it is waiting for data. 
+    m_signal.notify();   // Wake the dispatcher if it is waiting for data. 
     return true;
 }
 
