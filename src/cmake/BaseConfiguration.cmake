@@ -4,6 +4,9 @@
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(ENABLE_ADDRESS_SANITIZER "Complie with AddressSanitizer and LeakSanitizer. Only applies to Debug builds." OFF)
+
 #-----------------------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -46,7 +49,10 @@ endif()
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "Configuring Debug Build...")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        set(CMAKE_CXX_FLAGS_DEBUG "-g3 -ggdb3 -O0" CACHE STRING "" FORCE)
+        if(ENABLE_ADDRESS_SANITIZER)
+          set(GCC_EXTRA_FLAGS "-fsanitize=address -fno-omit-frame-pointer")
+        endif()
+        set(CMAKE_CXX_FLAGS_DEBUG "-g3 -ggdb3 -O0 ${GCC_EXTRA_FLAGS}" CACHE STRING "" FORCE)
     endif()
 else()
     message(STATUS "Configuring Release Build...")
