@@ -6,6 +6,7 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -20,6 +21,8 @@
 namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
+
+class StrategyStub;
 
 using MessageContextProvider = std::function<std::optional<MessageContext>()>;
 Peer::Registration GenerateCaptureRegistration(
@@ -51,6 +54,41 @@ constexpr std::uint32_t Iterations = 10000;
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
+class local::StrategyStub : public ISecurityStrategy
+{
+public:
+    StrategyStub() {}
+
+    virtual Security::Strategy GetStrategyType() const override { return Security::Strategy::Invalid; }
+    virtual Security::Role GetRoleType() const override { return Security::Role::Initiator; }
+    virtual Security::Context GetContextType() const override { return Security::Context::Unique; }
+    virtual std::size_t GetSignatureSize() const override { return 0; }
+
+    virtual std::uint32_t GetSynchronizationStages() const override { return 0; }
+    virtual Security::SynchronizationStatus GetSynchronizationStatus() const override
+        { return Security::SynchronizationStatus::Processing; }
+    virtual Security::SynchronizationResult PrepareSynchronization() override
+        { return { Security::SynchronizationStatus::Processing, {} }; }
+    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override
+        { return { Security::SynchronizationStatus::Processing, {} }; }
+
+    virtual Security::OptionalBuffer Encrypt(Security::ReadableView buffer, std::uint64_t) const override
+        { return Security::Buffer(buffer.begin(), buffer.end()); }
+    virtual Security::OptionalBuffer Decrypt(Security::ReadableView buffer, std::uint64_t) const override
+        { return Security::Buffer(buffer.begin(), buffer.end()); }
+
+    virtual std::int32_t Sign(Security::Buffer&) const override { return 0; }
+    virtual Security::VerificationStatus Verify(Security::ReadableView) const override
+        { return Security::VerificationStatus::Success; }
+
+private: 
+    virtual std::int32_t Sign(Security::ReadableView, Security::Buffer&) const override { return 0; }
+    virtual Security::OptionalBuffer GenerateSignature(Security::ReadableView, Security::ReadableView) const override
+        { return {}; }
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
 TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
     AuthorizedProcessor processor(test::ServerIdentifier);
@@ -58,6 +96,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
     // Create a peer representing a connection to a client.
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    spPeerProxy->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::StrategyStub>());
 
     // Register an endpoint with the peer that will capture any messages sent through it.
     spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(
@@ -77,22 +116,18 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
         .SetCommand(test::Handler, test::RequestPhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
+    ASSERT_TRUE(optRequest);
 
-    // Use the authorized processor to collect the request. During runtime this would be called 
-    // through the peer's ScheduleReceive method. 
+    // Use the authorized processor to collect the request. During runtime this would be called  through the peer's 
+    // ScheduleReceive method. 
     processor.CollectMessage(spPeerProxy, *optMessageContext, optRequest->GetPack());
 
-    // Verify that the processor correctly queued the message to be processed by the the main
-    // event loop.
+    // Verify that the processor correctly queued the message to be processed by the the main event loop.
     EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(1));
     
     // Pop the queued request to verify it was properly handled.
     auto const optAssociatedMessage = processor.GetNextMessage();
-
-    // Verify the queue count was decreased after popping a message.
-    EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(0));
-
-    // Destructure the associated message to get the provided peer and request.
+    EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(0));    
     ASSERT_TRUE(optAssociatedMessage);
     auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
 
@@ -110,16 +145,14 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
     // Obtain the peer associated the reqest.
     if (auto const spAssociatedPeer = wpAssociatedPeer.lock(); spAssociatedPeer) {
-        // Verify that the peer that was used to send the request matches the peer that was
-        // associated with the message.
+        // Verify the peer that was used to send the request matches the peer that was associated with the message.
         EXPECT_EQ(spAssociatedPeer, spPeerProxy);
         
         // Send a message through the peer to further verify that it is correct.
         EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
     }
 
-    // Verify that the response passed through the capturing endpoint and matches the correct
-    // message. 
+    // Verify that the response passed through the capturing endpoint and matches the correct message. 
     ASSERT_TRUE(optCapturedMessage);
     EXPECT_EQ(optCapturedMessage->GetPack(), optResponse->GetPack());
 }
@@ -133,6 +166,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
     // Create a peer representing a connection to a client.
     auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    spPeerProxy->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::StrategyStub>());
 
     // Register an endpoint with the peer that will capture any messages sent through it.
     spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(
@@ -154,14 +188,14 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
             .SetCommand(test::Handler, test::RequestPhase)
             .SetPayload(test::Message)
             .ValidatedBuild();
+        ASSERT_TRUE(optRequest);
 
-        // Use the authorized processor to collect the request. During runtime this would be called 
-        // through the peer's ScheduleReceive method. 
+        // Use the authorized processor to collect the request. During runtime this would be called  through the peer's
+        // ScheduleReceive method. 
         processor.CollectMessage(spPeerProxy, *optMessageContext, optRequest->GetPack());
     }
 
-    // Verify that the processor correctly queued the messages to be processed by the the main
-    // event loop.
+    // Verify that the processor correctly queued the messages to be processed by the the main  event loop.
     std::uint32_t expectedQueueCount = test::Iterations;
     EXPECT_EQ(processor.QueuedMessageCount(), expectedQueueCount);
     
@@ -169,11 +203,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     // processor's functionality and state.
     while (auto const optAssociatedMessage = processor.GetNextMessage()) {
         --expectedQueueCount;
-
-        // Verify the queue count was decreased after popping a message.
-        EXPECT_EQ(processor.QueuedMessageCount(), expectedQueueCount);
-
-        // Destructure the associated message to get the provided peer and request.
+        EXPECT_EQ(processor.QueuedMessageCount(), expectedQueueCount);        
         ASSERT_TRUE(optAssociatedMessage);
         auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
 
@@ -188,16 +218,13 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
         // Obtain the peer associated the reqest.
         if (auto const spAssociatedPeer = wpAssociatedPeer.lock(); spAssociatedPeer) {
-            // Verify that the peer that was used to send the request matches the peer that was
-            // associated with the message.
+            // Verify the peer that was used to send the request matches the peer that was associated with the message.
             EXPECT_EQ(spAssociatedPeer, spPeerProxy);
-            
             // Send a message through the peer to further verify that it is correct.
             EXPECT_TRUE(spAssociatedPeer->ScheduleSend(test::EndpointIdentifier, optResponse->GetPack()));
         }
 
-        // Verify that the response passed through the capturing endpoint and matches the correct
-        // message. 
+        // Verify that the response passed through the capturing endpoint and matches the correct  message. 
         ASSERT_TRUE(optCapturedMessage);
         EXPECT_EQ(optCapturedMessage->GetPack(), optResponse->GetPack());
     }
@@ -226,17 +253,6 @@ Peer::Registration local::GenerateCaptureRegistration(
             return true;
         });
     
-    registration.GetWritableMessageContext().BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type
-            {  return Security::Buffer(buffer.begin(), buffer.end()); },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type
-            { return Security::Buffer(buffer.begin(), buffer.end()); });
-
-    registration.GetWritableMessageContext().BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
-
     return registration;
 }
 
