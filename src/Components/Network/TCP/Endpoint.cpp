@@ -254,8 +254,7 @@ bool Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
 
 bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress const& address)
 {
-    RemoteAddress remote = address;
-    return ScheduleConnect(std::move(remote));
+    return ScheduleConnect(RemoteAddress{ address }, nullptr);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -473,7 +472,7 @@ Network::TCP::ConnectStatus Network::TCP::Endpoint::IsConflictingAddress(RemoteA
 {
     // Determine if the provided URI matches any of the node's hosted entrypoints. If the URI matched an entrypoint, 
     // the connection should not be allowed as it would be a connection to oneself.
-    if (m_pEndpointMediator && m_pEndpointMediator->IsAddressRegistered(address)) {
+    if (m_pEndpointMediator && m_pEndpointMediator->IsRegisteredAddress(address)) {
         return ConnectStatus::ReflectionError;
     }
 

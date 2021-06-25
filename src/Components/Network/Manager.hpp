@@ -58,7 +58,7 @@ public:
     ~Manager();
 
     // IEndpointMediator {
-    [[nodiscard]] virtual bool IsAddressRegistered(Address const& address) const override;
+    [[nodiscard]] virtual bool IsRegisteredAddress(Address const& address) const override;
     virtual void UpdateBinding(Endpoint::Identifier identifier, BindingAddress const& binding) override;
     // } IEndpointMediator
     
@@ -67,9 +67,15 @@ public:
 
     [[nodiscard]] SharedEndpoint GetEndpoint(Endpoint::Identifier identifier) const;
     [[nodiscard]] SharedEndpoint GetEndpoint(Protocol protocol, Operation operation) const;
-    [[nodiscard]] Network::ProtocolSet GetEndpointProtocols() const;
+    [[nodiscard]] ProtocolSet GetEndpointProtocols() const;
+    [[nodiscard]] BindingAddress GetEndpointBinding(Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t ActiveEndpointCount() const;
     [[nodiscard]] std::size_t ActiveProtocolCount() const;
+
+    [[nodiscard]] bool ScheduleBind(BindingAddress const& binding);
+    [[nodiscard]] bool ScheduleConnect(RemoteAddress const& address);
+    [[nodiscard]] bool ScheduleConnect(RemoteAddress&& address);
+    [[nodiscard]] bool ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
 
 private:
     using EndpointMap = std::unordered_map<Endpoint::Identifier, SharedEndpoint>;

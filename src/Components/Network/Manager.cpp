@@ -59,7 +59,7 @@ Network::Manager::~Manager()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::Manager::IsAddressRegistered(Address const& address) const
+bool Network::Manager::IsRegisteredAddress(Address const& address) const
 {
     auto const MatchBinding = [&address] (auto const& binding) -> bool { return address.equivalent(binding); };
     constexpr auto ProjectBinding = [] (auto const& pair) -> auto { return pair.second; };
@@ -120,7 +120,7 @@ Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Protocol protocol
     auto const FindEndpoint = [&protocol, &operation] (auto const& spEndpoint) -> bool
     {
         assert(spEndpoint);
-        return spEndpoint->GetProtocol() == protocol && operation == spEndpoint->GetOperation();
+        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetOperation() == operation;
     };
 
     std::shared_lock lock(m_endpointsMutex);
@@ -135,6 +135,20 @@ Network::ProtocolSet Network::Manager::GetEndpointProtocols() const
 {
     std::shared_lock lock(m_cacheMutex);
     return m_protocols;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::BindingAddress Network::Manager::GetEndpointBinding(Endpoint::Identifier identifier) const
+{
+    auto const MatchFn = [&identifier] (auto key) -> bool { return identifier == key; };
+    constexpr auto ProjectionFn = [] (auto const& pair) -> auto { return pair.first; };
+   
+    std::shared_lock lock(m_cacheMutex);
+    if (auto const itr = std::ranges::find_if(m_bindings, MatchFn, ProjectionFn); itr != m_bindings.end()) {
+        return itr->second;
+    }
+    return {};
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -165,6 +179,60 @@ std::size_t Network::Manager::ActiveProtocolCount() const
     std::shared_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, AppendActiveProtocol);
     return protocols.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::Manager::ScheduleBind(BindingAddress const& binding)
+{
+    auto const FindEndpoint = [protocol = binding.GetProtocol()] (auto const& spEndpoint) -> bool
+    {
+        assert(spEndpoint);
+        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetOperation() == Operation::Server;
+    };
+
+    std::shared_lock lock(m_endpointsMutex);
+    auto const view = m_endpoints | std::views::values;
+    if (auto const itr = std::ranges::find_if(view, FindEndpoint); itr != view.end()) {
+        auto const& spEndpoint = *itr;
+        return spEndpoint->ScheduleBind(binding);
+    }
+
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::Manager::ScheduleConnect(RemoteAddress const& address)
+{
+    return ScheduleConnect(Network::RemoteAddress{ address }, nullptr);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::Manager::ScheduleConnect(RemoteAddress&& address)
+{
+    return ScheduleConnect(std::move(address), nullptr);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::Manager::ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
+{
+    auto const FindEndpoint = [protocol = address.GetProtocol()] (auto const& spEndpoint) -> bool
+    {
+        assert(spEndpoint);
+        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetOperation() == Operation::Client;
+    };
+
+    std::shared_lock lock(m_endpointsMutex);
+    auto const view = m_endpoints | std::views::values;
+    if (auto const itr = std::ranges::find_if(view, FindEndpoint); itr != view.end()) {
+        auto const& spEndpoint = *itr;
+        return spEndpoint->ScheduleConnect(std::move(address), spIdentifier);
+    }
+
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -231,7 +299,6 @@ void Network::Manager::UpdateBindingCache(Endpoint::Identifier identifier, Bindi
 {
     // Note: The cache mutex must be locked before calling this method. We don't acquire the lock here to allow a 
     // single lock during initialization. 
-
     auto const MatchIdentifier = [&identifier] (auto key) -> bool { return identifier == key; };
     constexpr auto ProjectIdentifier = [] (auto const& pair) -> auto { return pair.first; };
     
@@ -281,10 +348,7 @@ void local::ConnectBootstraps(
     // for each peer in the list.
     pCache->ForEachCachedBootstrap(upEndpoint->GetProtocol(), 
         [&upEndpoint] (RemoteAddress const& bootstrap) -> CallbackIteration
-        {
-            upEndpoint->ScheduleConnect(bootstrap);
-            return CallbackIteration::Continue;
-        });
+        { upEndpoint->ScheduleConnect(bootstrap); return CallbackIteration::Continue; });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
