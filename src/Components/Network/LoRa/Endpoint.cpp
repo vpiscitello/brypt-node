@@ -10,7 +10,7 @@
 #include "Components/Network/EndpointDefinitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::LoRa::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher)
+Network::LoRa::Endpoint::Endpoint(Operation operation, Event::SharedPublisher const& spEventPublisher)
     : IEndpoint(Protocol::LoRa, operation, spEventPublisher)
 {
 }

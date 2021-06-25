@@ -4,6 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Components/Event/SharedPublisher.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -24,7 +25,7 @@ class Endpoint;
 class Network::LoRa::Endpoint : public Network::IEndpoint
 {
 public:
-    Endpoint(Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher);
+    Endpoint(Operation operation, Event::SharedPublisher const& spEventPublisher);
     ~Endpoint() override;
 
     // IEndpoint{

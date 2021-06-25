@@ -7,6 +7,7 @@
 #include "EndpointDefinitions.hpp"
 #include "SignalService.hpp"
 #include "Session.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/LogUtils.hpp"
@@ -109,7 +110,7 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher)
+Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher const& spEventPublisher)
     : IEndpoint(Protocol::TCP, operation, spEventPublisher)
     , m_detailsMutex()
     , m_context(1)

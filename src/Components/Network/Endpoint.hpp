@@ -12,6 +12,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ShareablePack.hpp"
 #include "Components/Event/Events.hpp"
+#include "Components/Event/SharedPublisher.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -19,8 +20,6 @@
 #include <string>
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
-
-namespace Event { class Publisher; }
 
 namespace Peer { class Proxy; }
 
@@ -39,7 +38,7 @@ namespace Network::Endpoint {
 std::unique_ptr<IEndpoint> Factory(
     Protocol protocol,
     Operation operation,
-    std::shared_ptr<Event::Publisher> const& spEventPublisher,
+    Event::SharedPublisher const& spEventPublisher,
     IEndpointMediator* const pEndpointMediator,
     IPeerMediator* const pPeerMediator);
 
@@ -50,7 +49,7 @@ std::unique_ptr<IEndpoint> Factory(
 class Network::IEndpoint
 {
 public:
-    IEndpoint(Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher);
+    IEndpoint(Protocol protocol, Operation operation, Event::SharedPublisher const& spEventPublisher);
     virtual ~IEndpoint() = default;
 
     [[nodiscard]] virtual Protocol GetProtocol() const = 0;
@@ -97,8 +96,7 @@ protected:
 
     BindingAddress m_binding;
 
-    std::shared_ptr<Event::Publisher> m_spEventPublisher;
-
+    Event::SharedPublisher m_spEventPublisher;
     IEndpointMediator* m_pEndpointMediator;
     IPeerMediator* m_pPeerMediator;
 

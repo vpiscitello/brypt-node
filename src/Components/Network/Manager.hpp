@@ -12,6 +12,7 @@
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/PeerPersistor.hpp"
 #include "Components/Event/Events.hpp"
+#include "Components/Event/SharedPublisher.hpp"
 #include "Components/Peer/Manager.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/MessageSink.hpp"
@@ -26,8 +27,6 @@
 #include <unordered_map>
 #include <utility>
 //----------------------------------------------------------------------------------------------------------------------
-
-namespace Event { class Publisher; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Network {
@@ -47,7 +46,7 @@ public:
 
     Manager(
         Configuration::EndpointsSet const& endpoints,
-        std::shared_ptr<Event::Publisher> const& spEventPublisher,
+        Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache,
         RuntimeContext context);
@@ -84,13 +83,13 @@ private:
 
     void Initialize(
         Configuration::EndpointsSet const& endpoints,
-        std::shared_ptr<Event::Publisher> const& spEventPublisher,
+        Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
         
     void InitializeTCPEndpoints(
         Configuration::EndpointOptions const& options,
-        std::shared_ptr<Event::Publisher> const& spEventPublisher,
+        Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
 
@@ -98,7 +97,7 @@ private:
 
     void OnEndpointShutdown(RuntimeContext context, ShutdownCause cause);
 
-    std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    Event::SharedPublisher m_spEventPublisher;
 
     mutable std::shared_mutex m_endpointsMutex;
     EndpointMap m_endpoints;

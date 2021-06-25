@@ -16,7 +16,7 @@
 std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
     Protocol protocol,
     Operation operation,
-    std::shared_ptr<Event::Publisher> const& spEventPublisher,
+    Event::SharedPublisher const& spEventPublisher,
     IEndpointMediator* const pEndpointMediator,
     IPeerMediator* const pPeerMediator)
 {
@@ -41,8 +41,7 @@ std::unique_ptr<Network::IEndpoint> Network::Endpoint::Factory(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::IEndpoint::IEndpoint(
-    Protocol protocol, Operation operation, std::shared_ptr<Event::Publisher> const& spEventPublisher)
+Network::IEndpoint::IEndpoint(Protocol protocol, Operation operation, Event::SharedPublisher const& spEventPublisher)
     : m_identifier(Endpoint::IdentifierGenerator::Instance().Generate())
     , m_protocol(protocol)
     , m_operation(operation)

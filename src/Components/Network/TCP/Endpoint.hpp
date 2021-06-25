@@ -8,6 +8,7 @@
 #include "EndpointDefinitions.hpp"
 #include "Events.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Event/SharedPublisher.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionDetails.hpp"
 #include "Components/Network/ConnectionTracker.hpp"
@@ -50,7 +51,7 @@ class Network::TCP::Endpoint final : public Network::IEndpoint
 public:
     using SessionTracker = ConnectionTracker<SharedSession>;
 
-    Endpoint(Operation operation, std::shared_ptr<::Event::Publisher> const& spEventPublisher);
+    Endpoint(Operation operation, ::Event::SharedPublisher const& spEventPublisher);
     ~Endpoint() override;
 
     // IEndpoint{
