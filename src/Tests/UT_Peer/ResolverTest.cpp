@@ -114,7 +114,7 @@ private:
 
 TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 {
-    auto const spProxy = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
+    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier);
     
     {
         auto upStrategyStub = std::make_unique<local::StrategyStub>();
@@ -146,7 +146,7 @@ TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 TEST(PeerResolverSuite, SuccessfulExchangeTest)
 {
     auto const spCollector = std::make_shared<local::ProcessorStub>();
-    auto const spProxy = std::make_shared<Peer::Proxy>(*test::ClientIdentifier, nullptr, spCollector);
+    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector);
     Peer::Resolver* pCapturedResolver = nullptr;
     {
         auto upStrategyStub = std::make_unique<local::StrategyStub>();
@@ -181,7 +181,7 @@ TEST(PeerResolverSuite, SuccessfulExchangeTest)
 TEST(PeerResolverSuite, FailedExchangeTest)
 {
     auto spCollector = std::make_shared<local::ProcessorStub>();
-    auto const spProxy = std::make_shared<Peer::Proxy>(*test::ClientIdentifier, nullptr, spCollector);
+    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector);
     Peer::Resolver* pCapturedResolver = nullptr;
     {
         auto upStrategyStub = std::make_unique<local::StrategyStub>();

@@ -54,7 +54,7 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -118,7 +118,7 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     MessageContext const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -205,7 +205,7 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -258,7 +258,7 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -340,7 +340,7 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -397,7 +397,7 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
     MessageContext const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,
@@ -449,7 +449,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
     MessageContext const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
-    auto const spClientPeer = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
         test::EndpointIdentifier,
         test::EndpointProtocol,

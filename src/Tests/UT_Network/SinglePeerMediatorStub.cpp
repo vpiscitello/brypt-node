@@ -103,7 +103,7 @@ std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
     Node::Identifier const& identifier,
     [[maybe_unused]] Network::RemoteAddress const& address)
 {
-    m_spPeer = std::make_shared<Peer::Proxy>(identifier, this);
+    m_spPeer = Peer::Proxy::CreateInstance(identifier, std::weak_ptr<IMessageSink>{}, this);
     m_spPeer->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::SecurityStrategyStub>());
     m_spPeer->SetReceiver<InvokeContext::Test>(m_pMessageSink);
     return m_spPeer;

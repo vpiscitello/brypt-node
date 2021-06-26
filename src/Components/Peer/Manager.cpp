@@ -225,7 +225,7 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
     Node::Identifier const& identifier, Network::RemoteAddress const& address)
 {
     // Note: The resolving and peers mutexes must be locked before calling this method. 
-    auto const spProxy = std::make_shared<Peer::Proxy>(identifier, this, m_wpPromotedProcessor);
+    auto const spProxy = Proxy::CreateInstance(identifier, m_wpPromotedProcessor, this);
 
     // If the endppint has declared the address as a resolving peer, this implies that we were the connection initiator. 
     // In this case, we need to attach the external resolver to the full proxy to handle incoming responses. 

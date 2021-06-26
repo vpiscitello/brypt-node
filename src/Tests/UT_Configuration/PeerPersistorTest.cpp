@@ -138,7 +138,7 @@ TEST(PeerPersistorSuite, PeerStateChangeTest)
     Network::RemoteAddress const address(Network::Protocol::TCP, "127.0.0.1:35220", true);
 
     // Create a new peer and notify the persistor
-    auto const spPeerProxy = std::make_shared<Peer::Proxy>(Node::Identifier{ Node::GenerateIdentifier() });
+    auto const spPeerProxy = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
     spPeerProxy->RegisterSilentEndpoint<InvokeContext::Test>(test::EndpointIdentifier, test::PeerProtocol, address, {});
 
     persistor.HandlePeerStateChange(

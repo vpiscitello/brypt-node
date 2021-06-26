@@ -95,7 +95,7 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
-    auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spPeerProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spPeerProxy->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::StrategyStub>());
 
     // Register an endpoint with the peer that will capture any messages sent through it.
@@ -165,7 +165,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
-    auto const spPeerProxy = std::make_shared<Peer::Proxy>(test::ClientIdentifier);
+    auto const spPeerProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier);
     spPeerProxy->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::StrategyStub>());
 
     // Register an endpoint with the peer that will capture any messages sent through it.

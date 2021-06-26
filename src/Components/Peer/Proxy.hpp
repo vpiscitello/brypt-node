@@ -17,6 +17,7 @@
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
+#include "Utilities/TokenizedInstance.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
 #include <memory>
@@ -44,14 +45,17 @@ class Proxy;
 } // Peer namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Peer::Proxy final : public std::enable_shared_from_this<Peer::Proxy>
+class Peer::Proxy final : public std::enable_shared_from_this<Proxy>, public TokenizedInstance<Proxy>
 {
 public:
+    // Note: An instance of the proxy must be created through the inherited CreateInstance() method. This is to ensure
+    // all instances are held within an std::shared_ptr, otherwise shared_from_this() can lead to undefined behavior. 
     explicit Proxy(
+        InstanceToken,
         Node::Identifier const& identifier,
-        IPeerMediator* const pPeerMediator = nullptr,
-        std::weak_ptr<IMessageSink> const& wpAuthorizedProcessor = { });
-    
+        std::weak_ptr<IMessageSink> const& wpProcessor = {},
+        IPeerMediator* const pMediator = nullptr);
+
     ~Proxy();
 
     [[nodiscard]] Node::SharedIdentifier GetNodeIdentifier() const;

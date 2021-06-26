@@ -112,7 +112,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     // Setup the client's view of the exchange.
     {
         // Make the client peer and register a mock endpoint to handle exchange messages.
-        spClientPeer = std::make_shared<Peer::Proxy>(*test::ServerIdentifier);
+        spClientPeer = Peer::Proxy::CreateInstance(*test::ServerIdentifier);
         spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
             test::EndpointIdentifier,
             test::EndpointProtocol,
@@ -142,7 +142,7 @@ TEST(ExchangeProcessorSuite, PQNISTL3KeyShareTest)
     // Setup the server's view of the exchange.
     {
         // Make the server peer and register a mock endpoint to handle exchange messages.
-        spServerPeer = std::make_shared<Peer::Proxy>(*test::ClientIdentifier);
+        spServerPeer = Peer::Proxy::CreateInstance(*test::ClientIdentifier);
         spServerPeer->RegisterSilentEndpoint<InvokeContext::Test>(
             test::EndpointIdentifier,
             test::EndpointProtocol,

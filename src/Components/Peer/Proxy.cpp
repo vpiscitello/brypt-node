@@ -16,11 +16,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Proxy::Proxy(
+    InstanceToken,
     Node::Identifier const& identifier,
-    IPeerMediator* const pPeerMediator,
-    std::weak_ptr<IMessageSink> const& wpAuthorizedProcessor)
+    std::weak_ptr<IMessageSink> const& wpProcessor,
+    IPeerMediator* const pMediator)
     : m_spIdentifier()
-    , m_pPeerMediator(pPeerMediator)
+    , m_pPeerMediator(pMediator)
     , m_securityMutex()
     , m_state(Security::State::Unauthorized)
     , m_upResolver()
@@ -29,7 +30,7 @@ Peer::Proxy::Proxy(
     , m_endpoints()
     , m_receiverMutex()
     , m_pEnabledProcessor()
-    , m_wpAuthorizedProcessor(wpAuthorizedProcessor)
+    , m_wpAuthorizedProcessor(wpProcessor)
     , m_statistics()
 {
     // We must always be constructed with an identifier that can uniquely identify the peer. 
