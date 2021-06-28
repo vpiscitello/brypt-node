@@ -43,7 +43,7 @@ concept AllowableSignal = requires()
     std::is_member_function_pointer_v<decltype(&Signal::AsyncWait)>;
 };
 
-template <AllowableSignal Signal, typename Executor = boost::asio::any_io_executor> 
+template<AllowableSignal Signal, typename Executor = boost::asio::any_io_executor> 
 class SignalService;
 
 using ExclusiveSignalService = SignalService<Awaitable::ExclusiveSignal, boost::asio::any_io_executor>;
@@ -52,12 +52,12 @@ using ExclusiveSignalService = SignalService<Awaitable::ExclusiveSignal, boost::
 } // Network::TCP namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Network::TCP::AllowableSignal Signal, typename Executor>
+template<Network::TCP::AllowableSignal Signal, typename Executor>
 class Network::TCP::SignalService
 {
 public:
     using executor_type = Executor;
-    template <typename OtherExecutor> struct rebind_executor { using other = SignalService<OtherExecutor>; };
+    template<typename OtherExecutor> struct rebind_executor { using other = SignalService<OtherExecutor>; };
 
     explicit SignalService(executor_type const& executor) : m_impl(0, executor) { }
 

@@ -27,10 +27,12 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
+class EventObserver;
+
 std::unique_ptr<Network::TCP::Endpoint> MakeTcpServer(
-    std::shared_ptr<Event::Publisher> const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator);
+    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator);
 std::unique_ptr<Network::TCP::Endpoint> MakeTcpClient(
-    std::shared_ptr<Event::Publisher> const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator);
+    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -46,27 +48,25 @@ Network::BindingAddress ServerBinding(ProtocolType, "*:35216", "lo");
 
 constexpr std::uint32_t Iterations = 1000;
 
-class EventObserver;
-
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class test::EventObserver
+class local::EventObserver
 {
 public:
     using EndpointIdentifiers = std::vector<Network::Endpoint::Identifier>;
     using EventRecord = std::vector<Event::Type>;
     using EventTracker = std::unordered_map<Network::Endpoint::Identifier, EventRecord>;
 
-    EventObserver(std::shared_ptr<Event::Publisher> const& spPublisher, EndpointIdentifiers const& identifiers);
+    EventObserver(Event::SharedPublisher const& spPublisher, EndpointIdentifiers const& identifiers);
     bool SubscribedToAllAdvertisedEvents() const;
     bool ExpectedEventSequenceReceived() const;
 
 private:
     constexpr static std::uint32_t ExpectedEventCount = 2; // The number of events each endpoint should fire. 
-    std::shared_ptr<Event::Publisher> m_spPublisher;
+    Event::SharedPublisher m_spPublisher;
     EventTracker m_tracker;
 };
 
@@ -95,9 +95,10 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
 
     // Initialize the endpoint event tester before starting the endpoints. Otherwise, it's a race to subscribe to 
     // the emitted events before the threads can emit them. 
-    test::EventObserver observer(
+    local::EventObserver observer(
         spEventPublisher, { upServerEndpoint->GetIdentifier(), upClientEndpoint->GetIdentifier() });
     ASSERT_TRUE(observer.SubscribedToAllAdvertisedEvents());
+    spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
 
     upServerEndpoint->Startup(); // Start the server endpoint before the client. 
 
@@ -219,7 +220,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
 //----------------------------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpServer(
-    std::shared_ptr<Event::Publisher> const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
+    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     auto upServerEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Server, spEventPublisher);
     upServerEndpoint->RegisterMediator(spPeerMediator.get());
@@ -230,7 +231,7 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpServer(
 //----------------------------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpClient(
-    std::shared_ptr<Event::Publisher> const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
+    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
     auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Client, spEventPublisher);
     Network::RemoteAddress address(test::ProtocolType, test::ServerBinding.GetUri(), true);
@@ -241,8 +242,8 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpClient(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-test::EventObserver::EventObserver(
-    std::shared_ptr<Event::Publisher> const& spPublisher, EndpointIdentifiers const& identifiers)
+local::EventObserver::EventObserver(
+    Event::SharedPublisher const& spPublisher, EndpointIdentifiers const& identifiers)
     : m_spPublisher(spPublisher)
     , m_tracker()
 {
@@ -291,12 +292,11 @@ test::EventObserver::EventObserver(
                 itr->second.emplace_back(Event::Type::ConnectionFailed);
             }
         });
-
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool test::EventObserver::SubscribedToAllAdvertisedEvents() const
+bool local::EventObserver::SubscribedToAllAdvertisedEvents() const
 {
     // We expect to be subscribed to all events advertised by an endpoint. A failure here is most likely caused
     // by this test fixture being outdated. 
@@ -305,7 +305,7 @@ bool test::EventObserver::SubscribedToAllAdvertisedEvents() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool test::EventObserver::ExpectedEventSequenceReceived() const
+bool local::EventObserver::ExpectedEventSequenceReceived() const
 {
     if (m_spPublisher->Dispatch() == 0) { return false; } // We expect that events have been published. 
 
@@ -318,7 +318,6 @@ bool test::EventObserver::ExpectedEventSequenceReceived() const
             if (record[1] != Event::Type::EndpointStopped) { return false; }
             return true;
         });
-
 
     // We expect that all endpoints tracked meet the event sequence expectations. 
     if (count != m_tracker.size()) { return false; }

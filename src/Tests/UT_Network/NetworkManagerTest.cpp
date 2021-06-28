@@ -1,4 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
+#include "MessageSinkStub.hpp"
+#include "SinglePeerMediatorStub.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Configuration.hpp"
@@ -7,6 +9,7 @@
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Components/Network/TCP/Endpoint.hpp"
 #include "Interfaces/BootstrapCache.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -14,9 +17,12 @@
 #include <cstdint>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
+#include <tuple>
+#include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -24,7 +30,15 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
+class EventObserver;
 class BootstrapCacheStub;
+
+using ConfigurationResources = std::pair<Configuration::EndpointsSet, std::unique_ptr<IBootstrapCache>>;
+std::optional<ConfigurationResources> CreateConfigurationResources(std::string_view const& uri);
+
+using TargetResources = std::tuple<
+    std::unique_ptr<Network::IEndpoint>, std::unique_ptr<IPeerMediator>, std::unique_ptr<IMessageSink>>;
+std::optional<TargetResources> CreateTargetResources();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -32,14 +46,36 @@ class BootstrapCacheStub;
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-constexpr Network::Protocol ProtocolType = Network::Protocol::TCP;
+auto const OriginIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+auto const TargetIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+
 constexpr std::string_view Interface = "lo";
-constexpr std::string_view ServerBinding = "*:35216";
-constexpr std::string_view ServerEntry = "127.0.0.1:35216";
+constexpr std::string_view OriginBinding = "*:35216";
+constexpr std::size_t ExpectedEndpoints = 2;
+
+Network::BindingAddress const TargetBinding(Network::Protocol::TCP, "*:35217", Interface);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // test namespace
 } // namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class local::EventObserver
+{
+public:
+    explicit EventObserver(Event::SharedPublisher const& spPublisher);
+    bool SubscribedToAllAdvertisedEvents() const;
+    bool ReceivedExpectedEvents(Event::Type type, std::size_t count) { return m_events[type] == count; }
+    bool ReceivedAnyErrorEvents() const { return m_hasUnexpectedError; }
+
+private:
+    using EventCounter = std::unordered_map<Event::Type, std::size_t>;
+
+    Event::SharedPublisher m_spPublisher;
+    EventCounter m_events;
+    bool m_hasUnexpectedError; // A flag for any errors we don't explicitly test for. 
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 
 class local::BootstrapCacheStub : public IBootstrapCache
@@ -57,10 +93,7 @@ public:
     // IBootstrapCache {
     bool ForEachCachedBootstrap(
         [[maybe_unused]] AllProtocolsReadFunction const& readFunction,
-        [[maybe_unused]] AllProtocolsErrorFunction const& errorFunction) const override
-    {
-        return false;
-    }
+        [[maybe_unused]] AllProtocolsErrorFunction const& errorFunction) const override { return false; }
 
     bool ForEachCachedBootstrap(Network::Protocol protocol, OneProtocolReadFunction const& readFunction) const override
     {
@@ -86,37 +119,218 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkManagerSuite, EndpointStartupTest)
+class NetworkManagerSuite : public testing::Test
 {
-    Configuration::EndpointsSet endpoints;
-    Configuration::EndpointOptions options(Network::Protocol::TCP, test::Interface, test::ServerBinding);
-    ASSERT_TRUE(options.Initialize());
-    endpoints.emplace_back(options);
-    
-    auto const spPeerCache = std::make_shared<local::BootstrapCacheStub>();
-    Network::RemoteAddress address(test::ProtocolType, test::ServerEntry, true);
-    spPeerCache->AddBootstrap(address);
+protected:
+    static void SetUpTestSuite()
+    {
+        // Make a target endpoint that the managed endpoints can connect to. Currently, we do not test any information
+        // on the target resources directly.
+        auto optTargetResources = local::CreateTargetResources();
+        ASSERT_TRUE(optTargetResources);
+        m_target = std::move(*optTargetResources);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the target a chance to spin up. 
+    }
 
-    auto const spPublisher = std::make_shared<Event::Publisher>();
+    void SetUp() override
+    {
+        // Create the resources required for each instance of a test. 
+        m_spPublisher = std::make_shared<Event::Publisher>();
+        m_upEventObserver = std::make_unique<local::EventObserver>(m_spPublisher);
+        m_upProcessor = std::make_unique<MessageSinkStub>(test::OriginIdentifier);
+        m_upMediator = std::make_unique<SinglePeerMediatorStub>(test::OriginIdentifier, m_upProcessor.get());
+    }
+
+    void TearDown() override { }
+
+    static local::TargetResources m_target;
+    Event::SharedPublisher m_spPublisher;
+    std::unique_ptr<local::EventObserver> m_upEventObserver;
+    std::unique_ptr<IMessageSink> m_upProcessor;
+    std::unique_ptr<IPeerMediator> m_upMediator;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+local::TargetResources NetworkManagerSuite::m_target = {};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(NetworkManagerSuite, LifecycleTest)
+{
+    // Make the configuration resources for our Network::Manager. 
+    auto optConfiguration = local::CreateConfigurationResources(test::OriginBinding);
+    ASSERT_TRUE(optConfiguration);
+    auto const& [configurations, upBootstrapCache] = *optConfiguration;
+    ASSERT_EQ(configurations.size() * 2, test::ExpectedEndpoints);
+    
+    // Create our Network::Manager to start the tests of its operations and state. 
     auto const upNetworkManager = std::make_unique<Network::Manager>(
-        endpoints, spPublisher, nullptr, spPeerCache.get(), RuntimeContext::Foreground);
-        
-    std::size_t const initialActiveEndpoints = upNetworkManager->ActiveEndpointCount();
-    std::size_t const initialActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
-    EXPECT_EQ(initialActiveEndpoints, std::size_t(0));
-    EXPECT_EQ(initialActiveProtocolsCount, std::size_t(0));
+        configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get(), RuntimeContext::Foreground);
+    
+    EXPECT_TRUE(m_upEventObserver->SubscribedToAllAdvertisedEvents());
+    m_spPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
+    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t(0));
+    EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), std::size_t(0));
 
     upNetworkManager->Startup();
-    std::size_t const startupActiveEndpoints = upNetworkManager->ActiveEndpointCount();
-    std::size_t const startupActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
-    EXPECT_GT(startupActiveEndpoints, std::size_t(0));
-    EXPECT_EQ(startupActiveProtocolsCount, endpoints.size());
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the endpoints a chance to spin up. 
+    EXPECT_GT(m_spPublisher->Dispatch(), std::size_t(0));
 
+    // Test the effects and state of starting up the manager. 
+    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), test::ExpectedEndpoints);
+    EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), configurations.size());
+    EXPECT_TRUE(upNetworkManager->IsRegisteredAddress(configurations.front().GetBinding()));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStarted, test::ExpectedEndpoints));
+
+    auto const spServerEndpoint = upNetworkManager->GetEndpoint(Network::Protocol::TCP, Network::Operation::Server);
+    EXPECT_TRUE(spServerEndpoint);
+    EXPECT_EQ(spServerEndpoint, upNetworkManager->GetEndpoint(spServerEndpoint->GetIdentifier()));
+    EXPECT_EQ(upNetworkManager->GetEndpointBinding(
+            spServerEndpoint->GetIdentifier()), configurations.front().GetBinding());
+
+    auto const spClientEndpoint = upNetworkManager->GetEndpoint(Network::Protocol::TCP, Network::Operation::Client);
+    EXPECT_TRUE(spClientEndpoint);
+    EXPECT_EQ(spClientEndpoint, upNetworkManager->GetEndpoint(spClientEndpoint->GetIdentifier()));
+    EXPECT_EQ(upNetworkManager->GetEndpointBinding(spClientEndpoint->GetIdentifier()), Network::BindingAddress{});
+    
     upNetworkManager->Shutdown();
-    std::size_t const shutdownActiveEndpoints = upNetworkManager->ActiveEndpointCount();
-    std::size_t const shutdownActiveProtocolsCount = upNetworkManager->ActiveProtocolCount();
-    EXPECT_EQ(shutdownActiveEndpoints, std::size_t(0));
-    EXPECT_EQ(shutdownActiveProtocolsCount, std::size_t(0));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the endpoints a chance to shutdown. 
+    EXPECT_GT(m_spPublisher->Dispatch(), std::size_t(0));
+
+    // Test the effects and state of shutting down the manager. 
+    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t(0));
+    EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), std::size_t(0));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStopped, test::ExpectedEndpoints));
+    EXPECT_FALSE(m_upEventObserver->ReceivedAnyErrorEvents());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(NetworkManagerSuite, CriticalShutdownTest)
+{
+    // Make a configuration that will cause an unrecoverable error in a spawned endpoint. We need to use a binding 
+    // that will fail for reason other than being malformed, becuase those errore would be caught by initalizing the 
+    // address in the settings. Here are using the target's binding because it is known to be in use. 
+    auto optConfiguration = local::CreateConfigurationResources(test::TargetBinding.GetUri());
+    ASSERT_TRUE(optConfiguration);
+    auto const& [configurations, upBootstrapCache] = *optConfiguration;
+    ASSERT_EQ(configurations.size() * 2, test::ExpectedEndpoints);
+
+    // Create our Network::Manager to start the tests of its operations and state. 
+    // Note: Most of the stored state in the manager should be the same as the lifecycle tests, the differences will 
+    // be primarily observed through the events published. 
+    auto const upNetworkManager = std::make_unique<Network::Manager>(
+        configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get(), RuntimeContext::Foreground);
+    
+    EXPECT_TRUE(m_upEventObserver->SubscribedToAllAdvertisedEvents());
+    m_spPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
+    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t(0));
+    EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), std::size_t(0));
+
+    upNetworkManager->Startup();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the endpoints a chance to spin up. 
+
+    // The network shutdown event will be published when the binding failure handler is invoked in this call. 
+    // The events fired by an event handler are currently handled on the next dispatch cycle. 
+    EXPECT_GT(m_spPublisher->Dispatch(), std::size_t(0));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStarted, test::ExpectedEndpoints));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::BindingFailed, configurations.size()));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the endpoints a chance to shutdown. 
+
+    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t(0));
+    EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), std::size_t(0));
+
+    // We need to call dispatch a second time to fire the events published during the first invocation. 
+    EXPECT_GT(m_spPublisher->Dispatch(), std::size_t(0)); 
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::CriticalNetworkFailure, 1));
+
+    // The cache state before a network shutdown should not be cleared when a critical error occurs. 
+    EXPECT_TRUE(upNetworkManager->IsRegisteredAddress(configurations.front().GetBinding())); 
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStopped, test::ExpectedEndpoints));
+    
+    m_spPublisher->Dispatch(); // Verify that only one critical error has been published. 
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::CriticalNetworkFailure, 1));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<local::ConfigurationResources> local::CreateConfigurationResources(std::string_view const& uri)
+{
+    Configuration::EndpointsSet configured;
+    {
+        Configuration::EndpointOptions options(Network::Protocol::TCP, test::Interface, uri);
+        if (!options.Initialize()) { return {}; }
+        configured.emplace_back(options);
+    }
+
+    auto upBootstraps = std::make_unique<local::BootstrapCacheStub>();
+    {
+        auto const& binding = configured.front().GetBinding();
+        Network::RemoteAddress address(binding.GetProtocol(), binding.GetUri(), true);
+        upBootstraps->AddBootstrap(address);
+    }
+
+    return std::make_pair(std::move(configured), std::move(upBootstraps));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<local::TargetResources> local::CreateTargetResources()
+{
+    // Create a test server for the endpoints created through the network manager to connect to. 
+    auto upProcessor = std::make_unique<MessageSinkStub>(test::TargetIdentifier);
+    auto upMediator = std::make_unique<SinglePeerMediatorStub>(
+        test::TargetIdentifier, upProcessor.get());
+    auto const spPublisher = std::make_shared<Event::Publisher>();
+    spPublisher->SuspendSubscriptions(); // We don't need to subscribe to any of the target's events. 
+
+    auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(
+        Network::Operation::Server, spPublisher);
+    upEndpoint->RegisterMediator(upMediator.get());
+
+    if (!upEndpoint->ScheduleBind(test::TargetBinding)) { return {}; }
+    upEndpoint->Startup();
+
+    return std::make_tuple(std::move(upEndpoint), std::move(upMediator), std::move(upProcessor));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+local::EventObserver::EventObserver(Event::SharedPublisher const& spPublisher)
+    : m_spPublisher(spPublisher)
+    , m_events()
+    , m_hasUnexpectedError(false)
+{
+    using namespace Network;
+    using StopCause = Event::Message<Event::Type::EndpointStopped>::Cause;
+
+    // Subscribe to all events fired by an endpoint. Each listener should only record valid events. 
+    spPublisher->Subscribe<Event::Type::EndpointStarted>(
+        [&] (Endpoint::Identifier, Protocol, Operation) { ++m_events[Event::Type::EndpointStarted]; });
+
+    spPublisher->Subscribe<Event::Type::EndpointStopped>(
+        [&] (Endpoint::Identifier, Protocol, Operation, StopCause) { ++m_events[Event::Type::EndpointStopped]; });
+
+    spPublisher->Subscribe<Event::Type::BindingFailed>(
+        [&] (Endpoint::Identifier, Network::BindingAddress const&)
+        { m_hasUnexpectedError = true; ++m_events[Event::Type::BindingFailed]; });
+
+    spPublisher->Subscribe<Event::Type::ConnectionFailed>(
+        [&] (Endpoint::Identifier, Network::RemoteAddress const&)
+        { m_hasUnexpectedError = true; ++m_events[Event::Type::ConnectionFailed]; });
+
+    spPublisher->Subscribe<Event::Type::CriticalNetworkFailure>(
+        [&] () { m_hasUnexpectedError = true; ++m_events[Event::Type::CriticalNetworkFailure]; });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool local::EventObserver::SubscribedToAllAdvertisedEvents() const
+{
+    // We expect to be subscribed to all events advertised by an endpoint. A failure here is most likely caused
+    // by this test fixture being outdated. 
+    return m_spPublisher->ListenerCount() == m_spPublisher->AdvertisedCount();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
