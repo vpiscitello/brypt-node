@@ -11,18 +11,26 @@
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Security/Flags.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <boost/preprocessor/seq/for_each_i.hpp>
+#include <boost/preprocessor/facilities/empty.hpp>
+#include <boost/preprocessor/facilities/va_opt.hpp>
+#include <boost/preprocessor/punctuation/comma_if.hpp>
+#include <boost/preprocessor/variadic/to_seq.hpp>
+//----------------------------------------------------------------------------------------------------------------------
 #include <concepts>
 #include <cstdint>
 #include <functional>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Event {
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class Type : std::uint32_t {
+enum class Type : std::uint32_t
+{
     BindingFailed,
     ConnectionFailed,
     CriticalNetworkFailure,
@@ -31,19 +39,20 @@ enum class Type : std::uint32_t {
     PeerConnected,
     PeerDisconnected,
     RuntimeStarted,
-    RuntimeStopped,
+    RuntimeStopped
 };
 
 class IMessage;
 
-template <Type EventType>
-class Message;
+// By default, the message constructor is deleted to prevent usage of unspecialized types. 
+template<Type SpecificType>
+class Message { Message() = delete; }; 
 
-template<Type EventType>
-concept MessageWithContent = requires { typename Message<EventType>::EventContent; };
+template<Type SpecificType>
+concept MessageWithContent = requires { typename Message<SpecificType>::EventContent; };
 
-template<Type EventType>
-concept MessageWithoutContent = !MessageWithContent<EventType>;
+template<Type SpecificType>
+concept MessageWithoutContent = !MessageWithContent<SpecificType>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Event namespace
@@ -53,142 +62,150 @@ class Event::IMessage
 {
 public:
     virtual ~IMessage() = default;
-    virtual Event::Type Type() = 0;
+    virtual Event::Type GetType() = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
-// Note: Helpful boilerplate macros to define the required class types, methods, and variables that should be present
-// in all derived events. Each macro should used in the order listed below. This breakout is done to provide a decent 
-// level of flexibility between the content, callback trait, and allow additional methods. 
+// Note: The following macros define the boilerplate  types, methods, and variables that should be present in event 
+// specializations. This breakout is done to provide a decent level of flexibility between the traits as well as 
+// enable further customization if needed. 
 //----------------------------------------------------------------------------------------------------------------------
 
-#define EVENT_MESSAGE_CAUSE(...)\
-public:\
-    enum class Cause : std::uint32_t {__VA_ARGS__};
+// Allows the event to define custom causes, (e.g. the event fired because of a defined error).
+#define EVENT_MESSAGE_CAUSE(...) \
+public: enum class Cause : std::uint32_t { __VA_ARGS__ };
 
-#define EVENT_MESSAGE_CONTENT_STORE(...)\
+// Converts a callback type into an unqualified content store type (e.g. std::string const& becomes std::string).
+#define EVENT_MESSAGE_CONTENT_STORE_TYPES(r, data, i, elem) BOOST_PP_COMMA_IF(i) std::remove_cvref_t<elem>
+// Converts a callback type into a named parameter (e.g. std::string const& becomes std::string const& arg_0).
+#define EVENT_MESSAGE_CONTENT_STORE_ARGS(r, data, i, elem) BOOST_PP_COMMA_IF(i) elem arg_##i
+// Converted a callback type into the name argument (e.g. std::string const& becomes arg_0)
+#define EVENT_MESSAGE_CONTENT_STORE_NAMES(r, data, i, elem) BOOST_PP_COMMA_IF(i) arg_##i
+
+// Creates the types, methods, and variables needed to support storing and providing callback content. 
+#define EVENT_MESSAGE_CONTENT_STORE(...) \
 public:\
-    using EventContent = std::tuple<__VA_ARGS__>;\
-    explicit Message(EventContent&& content) : m_content(std::move(content)) {}\
-    auto const& GetContent() const { return m_content; }\
-private:\
+    using EventContent = std::tuple<\
+        BOOST_PP_SEQ_FOR_EACH_I(EVENT_MESSAGE_CONTENT_STORE_TYPES, _, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))>; \
+    explicit Message(BOOST_PP_SEQ_FOR_EACH_I(\
+        EVENT_MESSAGE_CONTENT_STORE_ARGS, _, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__))) \
+        : m_content(std::make_tuple(BOOST_PP_SEQ_FOR_EACH_I( \
+            EVENT_MESSAGE_CONTENT_STORE_NAMES, _, BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)))) {} \
+    explicit Message(EventContent&& content) : m_content(std::move(content)) {} \
+    auto const& GetContent() const { return m_content; } \
+private: \
     EventContent m_content;
+#define EVENT_MESSAGE_CONTENT_STORE_EMPTY \
+private: \
+    using EventContent = void;
 
-#define EVENT_MESSAGE_CALLBACK_TRAIT(...)\
+// Creates the core types and methods needed to define an event specialization. 
+#define EVENT_MESSAGE_CORE(type, ...) \
 public:\
-    using CallbackTrait = std::function<void(__VA_ARGS__)>;
-
-#define EVENT_MESSAGE_CORE(type)\
-public:\
-    static constexpr Event::Type EventType = type;\
-    Message() = default;\
-    ~Message() = default;\
-    Message(Message const&) = delete;\
-    Message(Message&& ) = default;\
-    Message& operator=(Message const&) = delete;\
-    Message& operator=(Message&&) = default;\
-    virtual Event::Type Type() override { return EventType; }
+    using CallbackTrait = std::function<void(__VA_ARGS__)>; \
+    static constexpr Event::Type Type = type; \
+    Message() = default; \
+    ~Message() = default; \
+    Message(Message const&) = delete; \
+    Message(Message&& ) = default; \
+    Message& operator=(Message const&) = delete; \
+    Message& operator=(Message&&) = default; \
+    virtual Event::Type GetType() override { return Type; } \
+    BOOST_PP_VA_OPT((EVENT_MESSAGE_CONTENT_STORE(__VA_ARGS__)), (EVENT_MESSAGE_CONTENT_STORE_EMPTY), __VA_ARGS__)
     
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The network protocol of the endpoint and the uri.
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::BindingFailed> : public Event::IMessage
 {
-    // Schema: The network protocol of the endpoint and the uri.
-    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::BindingAddress)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::BindingAddress const&)
-    EVENT_MESSAGE_CORE(Event::Type::BindingFailed)
+    EVENT_MESSAGE_CORE(
+        Event::Type::BindingFailed,
+        Network::Endpoint::Identifier, Network::BindingAddress const&)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The network protocol of the endpoint and the uri.
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::ConnectionFailed> : public Event::IMessage
 {
-    // Schema: The network protocol of the endpoint and the uri.
-    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::RemoteAddress)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::RemoteAddress const&)
-    EVENT_MESSAGE_CORE(Event::Type::ConnectionFailed)
+    EVENT_MESSAGE_CORE(
+        Event::Type::ConnectionFailed, Network::Endpoint::Identifier, Network::RemoteAddress const&)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: No event data to be captured. 
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::CriticalNetworkFailure> : public Event::IMessage
 {
-    // Schema: No event data to be captured. 
-    EVENT_MESSAGE_CALLBACK_TRAIT()
     EVENT_MESSAGE_CORE(Event::Type::CriticalNetworkFailure)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The network protocol of the endpoint and the uri.
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::EndpointStarted> : public Event::IMessage
 {
-    // Schema: The network protocol of the endpoint and the uri.
-    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::Protocol, Network::Operation)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::Protocol, Network::Operation)
-    EVENT_MESSAGE_CORE(Event::Type::EndpointStarted)
+    EVENT_MESSAGE_CORE(
+        Event::Type::EndpointStarted,
+        Network::Endpoint::Identifier, Network::Protocol, Network::Operation)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The network protocol of the endpoint, the uri, and the cause of the event.
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::EndpointStopped> : public Event::IMessage
 {
-    // Schema: The network protocol of the endpoint, the uri, and the cause of the event.
     EVENT_MESSAGE_CAUSE(ShutdownRequest, BindingFailed, UnexpectedError)
-    EVENT_MESSAGE_CONTENT_STORE(Network::Endpoint::Identifier, Network::Protocol, Network::Operation, Cause)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Network::Endpoint::Identifier, Network::Protocol, Network::Operation, Cause)
-    EVENT_MESSAGE_CORE(Event::Type::EndpointStopped)
+    EVENT_MESSAGE_CORE(
+        Event::Type::EndpointStopped,
+        Network::Endpoint::Identifier, Network::Protocol, Network::Operation, Cause)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The brypt identifier of the peer and the network technology of the endpoint.
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::PeerConnected> : public Event::IMessage
 {
-    // Schema: The brypt identifier of the peer and the network technology of the endpoint.
-    EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, Node::SharedIdentifier)
-    EVENT_MESSAGE_CALLBACK_TRAIT( Network::Protocol, Node::SharedIdentifier const&)
-    EVENT_MESSAGE_CORE(Event::Type::PeerConnected)
+    EVENT_MESSAGE_CORE(
+        Event::Type::PeerConnected,
+        Network::Protocol, Node::SharedIdentifier const&)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The brypt identifier of the peer, the network technology of the endpoint, and the cause of the event.
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::PeerDisconnected> : public Event::IMessage
 {
-    // Schema: The brypt identifier of the peer, the network technology of the endpoint, and the cause of the event.
     EVENT_MESSAGE_CAUSE(SessionClosure, UnexpectedError)
-    EVENT_MESSAGE_CONTENT_STORE(Network::Protocol, Node::SharedIdentifier, Cause)
-    EVENT_MESSAGE_CALLBACK_TRAIT( Network::Protocol, Node::SharedIdentifier const&, Cause)
-    EVENT_MESSAGE_CORE(Event::Type::PeerDisconnected)
+    EVENT_MESSAGE_CORE(
+        Event::Type::PeerDisconnected,
+        Network::Protocol, Node::SharedIdentifier const&, Cause)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: No event data to be captured. 
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::RuntimeStarted> : public Event::IMessage
 {
-    // Schema: No event data to be captured. 
-    EVENT_MESSAGE_CALLBACK_TRAIT()
     EVENT_MESSAGE_CORE(Event::Type::RuntimeStarted)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-template <>
+// Schema: The case of the runtime stopping. 
+//----------------------------------------------------------------------------------------------------------------------
+template<>
 class Event::Message<Event::Type::RuntimeStopped> : public Event::IMessage
 {
-    // Schema: The case of the runtime stopping. 
     EVENT_MESSAGE_CAUSE(ShutdownRequest, UnexpectedError)
-    EVENT_MESSAGE_CONTENT_STORE(Cause)
-    EVENT_MESSAGE_CALLBACK_TRAIT(Cause)
-    EVENT_MESSAGE_CORE(Event::Type::RuntimeStopped)
+    EVENT_MESSAGE_CORE(Event::Type::RuntimeStopped, Cause)
 };
 
 //----------------------------------------------------------------------------------------------------------------------

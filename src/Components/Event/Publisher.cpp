@@ -87,7 +87,7 @@ std::size_t Event::Publisher::Dispatch()
     for (auto const& upEventProxy : events) {
         // Get the listeners for the event. If there is an event to be published, it should be guarenteed that there
         // is at least one listener for that particular event. 
-        auto const& listeners = m_listeners[upEventProxy->Type()];
+        auto const& listeners = m_listeners[upEventProxy->GetType()];
         assert(listeners.size() != 0); 
         for (auto const& listenerProxy : listeners) {
             // Call the listener and event proxies to handle publishing the event for that listener. 
@@ -95,6 +95,20 @@ std::size_t Event::Publisher::Dispatch()
         }
     }
     return events.size(); // Return the number of events published.
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Event::Publisher::Publish(Type type, EventProxy&& upEventProxy)
+{
+    assert(m_hasSuspendedSubscriptions); // We assert that subscriptions has been suspended before publsihing has begun.
+
+    // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
+    // should be registered before starting the node. 
+    if (!IsSubscribed(type)) { return; }
+
+    std::scoped_lock lock(m_eventsMutex);
+    m_events.emplace_back(std::move(upEventProxy));
 }
 
 //----------------------------------------------------------------------------------------------------------------------

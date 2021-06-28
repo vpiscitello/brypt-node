@@ -52,21 +52,21 @@ public:
     Publisher& operator=(Publisher const&) = delete; 
     Publisher& operator=(Publisher&&) = delete; 
 
-    template <Type EventType> requires MessageWithContent<EventType>
-    [[maybe_unused]] bool Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback);
+    template<Type SpecificType> requires MessageWithContent<SpecificType>
+    [[maybe_unused]] bool Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback);
 
-    template <Type EventType> requires MessageWithoutContent<EventType>
-    [[maybe_unused]] bool Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback);
+    template<Type SpecificType> requires MessageWithoutContent<SpecificType>
+    [[maybe_unused]] bool Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback);
 
     void SuspendSubscriptions();
     
     void Advertise(Type type);
     void Advertise(EventAdvertisements&& advertised);
 
-    template <Type EventType> requires MessageWithContent<EventType>
-    void Publish(typename Event::Message<EventType>::EventContent&& content);
+    template<Type SpecificType, typename... Arguments> requires MessageWithContent<SpecificType>
+    void Publish(Arguments&&... arguments);
 
-    template <Type EventType> requires MessageWithoutContent<EventType>
+    template<Type SpecificType> requires MessageWithoutContent<SpecificType>
     void Publish();
 
     bool IsSubscribed(Type type) const;
@@ -84,6 +84,8 @@ private:
     using ListenerProxy = std::function<void(EventProxy const& upEventProxy)>;
     using Listeners = std::unordered_map<Type, std::vector<ListenerProxy>>;
 
+    void Publish(Type type, EventProxy&& upEventProxy);
+
     std::atomic_bool m_hasSuspendedSubscriptions;
     Listeners m_listeners;
     
@@ -96,19 +98,20 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type EventType> requires Event::MessageWithContent<EventType>
-bool Event::Publisher::Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback)
+template<Event::Type SpecificType> requires Event::MessageWithContent<SpecificType>
+bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
 {
     assert(Assertions::IsSubscriberThread());
     if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
     
     // In the case of events with content, the listener will need to cast to the derived event type to access the 
     // event's content and then forward them to the supplied handler. 
-    m_listeners[EventType].emplace_back(
-        [callback] (EventProxy const& upEventProxy) {
+    m_listeners[SpecificType].emplace_back(
+        [callback] (EventProxy const& upEventProxy)
+        {
             // Dispatch needs to ensure this callback is provided the correct event. 
-            assert(upEventProxy && upEventProxy->Type() == EventType);
-            auto const pEvent = static_cast<Event::Message<EventType> const*>(upEventProxy.get());
+            assert(upEventProxy && upEventProxy->GetType() == SpecificType);
+            auto const pEvent = static_cast<Event::Message<SpecificType> const*>(upEventProxy.get());
             std::apply(callback, pEvent->GetContent());
         });
     return true;
@@ -116,51 +119,33 @@ bool Event::Publisher::Subscribe(typename Event::Message<EventType>::CallbackTra
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type EventType> requires Event::MessageWithoutContent<EventType>
-bool Event::Publisher::Subscribe(typename Event::Message<EventType>::CallbackTrait const& callback)
+template<Event::Type SpecificType> requires Event::MessageWithoutContent<SpecificType>
+bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
 {
     assert(Assertions::IsSubscriberThread());
     if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
     
     // In the case of events without content, the listener will simply invoke the callback.
-    m_listeners[EventType].emplace_back([callback] (EventProxy const&) { std::invoke(callback); });
+    m_listeners[SpecificType].emplace_back([callback] (EventProxy const&) { std::invoke(callback); });
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type EventType> requires Event::MessageWithContent<EventType>
-void Event::Publisher::Publish(typename Event::Message<EventType>::EventContent&& content)
+template<Event::Type SpecificType, typename... Arguments> requires Event::MessageWithContent<SpecificType>
+void Event::Publisher::Publish(Arguments&&... arguments)
 {
-    assert(m_hasSuspendedSubscriptions); // We assert that subscriptions has been suspended before publsihing has begun.
-    // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
-    // should be registered before starting the node. 
-    if (!IsSubscribed(EventType)) { return; }
-
-    // In the case of events with content, we need to forward the event's content to when creating the queued event. 
-    EventProxy upEventProxy = std::make_unique<Event::Message<EventType>>(std::move(content));
-    {
-        std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(std::move(upEventProxy));
-    }
+    // In the case of events with content, we can to forward the event's content to when creating the queued event. 
+    Publish(SpecificType, std::make_unique<Event::Message<SpecificType>>(std::forward<Arguments>(arguments)...));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template <Event::Type EventType> requires Event::MessageWithoutContent<EventType>
+template<Event::Type SpecificType> requires Event::MessageWithoutContent<SpecificType>
 void Event::Publisher::Publish()
 {
-    assert(m_hasSuspendedSubscriptions); // We assert that subscriptions has been suspended before publsihing has begun.
-    // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
-    // should be registered before starting the node. 
-    if (!IsSubscribed(EventType)) { return; }
-
     // In the case of events with content, we simply need to create the event to queue it. 
-    EventProxy upEventProxy = std::make_unique<Event::Message<EventType>>();
-    {
-        std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(std::move(upEventProxy));
-    }
+    Publish(SpecificType, std::make_unique<Event::Message<SpecificType>>());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
