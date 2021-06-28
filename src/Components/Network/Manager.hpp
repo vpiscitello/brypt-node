@@ -20,12 +20,12 @@
 #include "Interfaces/PeerObserver.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <atomic>
 #include <memory>
-#include <mutex>
 #include <shared_mutex>
-#include <vector>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -95,8 +95,11 @@ private:
 
     void UpdateBindingCache(Endpoint::Identifier identifier, BindingAddress const& binding);
 
+    void OnBindingFailed(RuntimeContext context);
     void OnEndpointShutdown(RuntimeContext context, ShutdownCause cause);
+    void OnCriticalError();
 
+    std::atomic_bool m_active;
     Event::SharedPublisher m_spEventPublisher;
 
     mutable std::shared_mutex m_endpointsMutex;

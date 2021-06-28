@@ -32,7 +32,8 @@ Network::Manager::Manager(
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache,
     RuntimeContext context)
-    : m_spEventPublisher(spEventPublisher)
+    : m_active(false)
+    , m_spEventPublisher(spEventPublisher)
     , m_endpointsMutex()
     , m_endpoints()
     , m_cacheMutex()
@@ -42,7 +43,11 @@ Network::Manager::Manager(
     assert(m_spEventPublisher);
     spEventPublisher->Advertise(Event::Type::CriticalNetworkFailure);
 
-    // Register an listener for when endpoints report a stop, this handler will watch for any critical errpr states 
+    // Register listeners to watch for error states that might trigger a critical network shutdown. 
+    spEventPublisher->Subscribe<Event::Type::BindingFailed>(
+        [this, context] (Network::Endpoint::Identifier, Network::BindingAddress const&)
+        { OnBindingFailed(context); });
+
     spEventPublisher->Subscribe<Event::Type::EndpointStopped>(
         [this, context] (Endpoint::Identifier, Protocol, Operation, ShutdownCause cause)
         { OnEndpointShutdown(context, cause); });
@@ -88,6 +93,7 @@ void Network::Manager::Startup()
 
     std::scoped_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, StartEndpoint);
+    m_active = true; // Reset the signal to ensure shutdowns can be handled this cycle. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -100,8 +106,10 @@ void Network::Manager::Shutdown()
         [[maybe_unused]] bool const stopped = spEndpoint->Shutdown();
         assert(stopped);
     };
+
     std::scoped_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, ShutdownEndpoint);
+    m_active = false; // Indicate all resources are currently in a stopped state. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -314,24 +322,42 @@ void Network::Manager::UpdateBindingCache(Endpoint::Identifier identifier, Bindi
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Network::Manager::OnBindingFailed(RuntimeContext context)
+{
+    switch (context) {
+        // When operating as a background process, the end user is able to determine how to resolve the error. 
+        case RuntimeContext::Background: break;
+        // It's not currently possible to determine the error's resolution when operating in the foreground 
+        // We must shutdown and indicate that critical error occured that shutdown the network. 
+        case RuntimeContext::Foreground: OnCriticalError(); break;
+        default: assert(false); break; // What is this? 
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Network::Manager::OnEndpointShutdown(RuntimeContext context, ShutdownCause cause)
 {
     switch (cause) {
-        // Only binding failures that cause an endpoint shutdown ae handled as critical network errors if
-        // the process if in the foreground. Otherwise, the user can determine how to handle the failure. 
-        // (e.g. using a different binding, shutting down, etc.)
-        case ShutdownCause::BindingFailed: {
-            if (context == RuntimeContext::Foreground) { break; }
-        } return;
+        // We can ignore requested shutdowns as they are procedural. 
+        case ShutdownCause::ShutdownRequest: return;
+        // Let the binding error handler determine what should happen. 
+        case ShutdownCause::BindingFailed: OnBindingFailed(context); return;
         // Any unexpected errors that cause an endpoint shutdown are handled as critical network errors. 
         case ShutdownCause::UnexpectedError: break;
-        case ShutdownCause::ShutdownRequest: return; // We can ignore requested shutdowns as they are procedural. 
         default: assert(false); return; // What is this?
     }
 
+    OnCriticalError(); // The shutdown was determiend to not be procedural or recoverable. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::Manager::OnCriticalError()
+{
+    if (!m_active) { return; } // We only need handle the first instance of a critical error. 
+
     Shutdown(); // Shutdown all processing. The assumption being the user should investigate the cause. 
-    
-    // The reported shutdown has caused a critical network failure and can not be recovered from.
     m_spEventPublisher->Publish<Event::Type::CriticalNetworkFailure>();
 }
 
