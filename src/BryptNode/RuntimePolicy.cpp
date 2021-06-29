@@ -53,9 +53,12 @@ void IRuntimePolicy::ProcessEvents()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ExecutionResult IRuntimePolicy::GetShutdownCause() const
+ExecutionResult IRuntimePolicy::FinalizeShutdown() const
 {
-    return m_instance.m_optShutdownCause.value_or(ExecutionResult::RequestedShutdown);
+    // If the cause is not set, it is assumed this shutdown is intentional.
+    auto const result = m_instance.m_optShutdownCause.value_or(ExecutionResult::RequestedShutdown);
+    m_instance.OnRuntimeStopped(); // After this call our resources will be destroyed. 
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -70,21 +73,20 @@ ForegroundRuntime::ForegroundRuntime(BryptNode& instance)
 
 ExecutionResult ForegroundRuntime::Start()
 {
+    // Note: The foreground runtime can be stopped by another thread or an event due to an unrecoverable error
+    // condition. That handler should set the cause to one of the error result values. 
     assert(!m_active); // Currently, the lifecycle of the runtime only exists for one Start/Stop cycle. 
     m_active = true;
     while (m_active) { IRuntimePolicy::ProcessEvents(); }
-    // The foreground runtime can be stopped by another thread or an event due to an unrecoverable error
-    // condition. That handler should set the cause to one of the error result values. If it is not set, this shutdown
-    // must have been triggered intentionally through a call to Stop().
-    return IRuntimePolicy::GetShutdownCause();
+    return IRuntimePolicy::FinalizeShutdown();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ForegroundRuntime::Stop()
+void ForegroundRuntime::Stop()
 {
     m_active = false;
-    return true;
+    return;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -121,16 +123,13 @@ ExecutionResult BackgroundRuntime::Start()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BackgroundRuntime::Stop()
+void BackgroundRuntime::Stop()
 {
-    if (!m_active) { return true; }
+    if (!m_active) { return; }
 
     m_worker.request_stop();
-    if (m_worker.joinable()) { m_worker.join(); }
-    
     m_active = false;
-
-    return true;
+    [[maybe_unused]] auto const result = IRuntimePolicy::FinalizeShutdown();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

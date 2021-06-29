@@ -7,8 +7,13 @@
 #include <cstdint>
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class ExecutionResult : std::uint32_t {
-    InitializationFailed, AlreadyStarted, ThreadSpawned, RequestedShutdown, UnexpectedShutdown
+enum class ExecutionResult : std::uint32_t
+{
+    InitializationFailed,
+    AlreadyStarted,
+    ThreadSpawned,
+    RequestedShutdown,
+    UnexpectedShutdown
 };
 
 //----------------------------------------------------------------------------------------------------------------------

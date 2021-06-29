@@ -68,7 +68,7 @@ public:
 
     template<ValidRuntimePolicy RuntimePolicy = ForegroundRuntime>
     [[nodiscard]] ExecutionResult Startup();
-    [[nodiscard]] bool Shutdown();
+    void Shutdown();
     [[nodiscard]] bool IsInitialized() const;
     [[nodiscard]] bool IsActive() const;
 
@@ -86,6 +86,7 @@ public:
 
 private:
     [[nodiscard]] bool StartComponents();
+    void OnRuntimeStopped();
 
     bool m_initialized;
     std::shared_ptr<spdlog::logger> m_spLogger;

@@ -68,113 +68,68 @@ BryptNode::BryptNode(
     m_handlers.emplace(Handler::Type::Election, Handler::Factory(Handler::Type::Election, *this));
     m_handlers.emplace(Handler::Type::Connect, Handler::Factory(Handler::Type::Connect, *this));
 
+    spEventPublisher->Subscribe<Event::Type::CriticalNetworkFailure>(
+        [this] () { m_optShutdownCause = ExecutionResult::UnexpectedShutdown; Shutdown(); });
+
     m_initialized = true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptNode::Shutdown()
+void BryptNode::Shutdown()
 {
-    if (!m_upRuntime) { return false; }
-
+    if (!m_upRuntime) { return; }
     m_spNetworkManager->Shutdown();
-
-    bool const stopped = m_upRuntime->Stop();
-    assert(stopped);
-
-    m_upRuntime.reset();
-
-    using StopCause = Event::Message<Event::Type::RuntimeStopped>::Cause;
-    m_spEventPublisher->Publish<Event::Type::RuntimeStopped>({ StopCause::ShutdownRequest });
-
-    m_spEventPublisher->Dispatch(); // Flush any pending events. 
-
-    return stopped;
+    m_upRuntime->Stop();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptNode::IsInitialized() const
-{
-    return m_initialized;
-}
+bool BryptNode::IsInitialized() const { return m_initialized; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool BryptNode::IsActive() const
-{
-    return (m_upRuntime && m_upRuntime->IsActive());
-}
+bool BryptNode::IsActive() const { return (m_upRuntime && m_upRuntime->IsActive()); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<NodeState> BryptNode::GetNodeState() const
-{
-    return m_spNodeState;
-}
+std::weak_ptr<NodeState> BryptNode::GetNodeState() const { return m_spNodeState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<CoordinatorState> BryptNode::GetCoordinatorState() const
-{
-    return m_spCoordinatorState;
-}
+std::weak_ptr<CoordinatorState> BryptNode::GetCoordinatorState() const { return m_spCoordinatorState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<NetworkState> BryptNode::GetNetworkState() const
-{
-    return m_spNetworkState;
-}
+std::weak_ptr<NetworkState> BryptNode::GetNetworkState() const { return m_spNetworkState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<SecurityState> BryptNode::GetSecurityState() const
-{
-    return m_spSecurityState;
-}
+std::weak_ptr<SecurityState> BryptNode::GetSecurityState() const { return m_spSecurityState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<SensorState> BryptNode::GetSensorState() const
-{
-    return m_spSensorState;
-}
+std::weak_ptr<SensorState> BryptNode::GetSensorState() const { return m_spSensorState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Event::Publisher> BryptNode::GetEventPublisher() const
-{
-    return m_spEventPublisher;    
-}
+std::weak_ptr<Event::Publisher> BryptNode::GetEventPublisher() const { return m_spEventPublisher; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Network::Manager> BryptNode::GetNetworkManager() const
-{
-    return m_spNetworkManager;
-}
+std::weak_ptr<Network::Manager> BryptNode::GetNetworkManager() const { return m_spNetworkManager; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Peer::Manager> BryptNode::GetPeerManager() const
-{
-    return m_spPeerManager;
-}
+std::weak_ptr<Peer::Manager> BryptNode::GetPeerManager() const { return m_spPeerManager; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Await::TrackingManager> BryptNode::GetAwaitManager() const
-{
-    return m_spAwaitManager;
-}
+std::weak_ptr<PeerPersistor> BryptNode::GetPeerPersistor() const { return m_spPeerPersistor; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<PeerPersistor> BryptNode::GetPeerPersistor() const
-{
-    return m_spPeerPersistor;
-}
+std::weak_ptr<Await::TrackingManager> BryptNode::GetAwaitManager() const { return m_spAwaitManager; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -185,10 +140,21 @@ bool BryptNode::StartComponents()
     if (m_upRuntime) { return OnError(ExecutionResult::AlreadyStarted);  }
 
     m_spLogger->info("Starting up brypt node instance.");
-    m_spNetworkManager->Startup();
+    m_spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
     m_spEventPublisher->Publish<Event::Type::RuntimeStarted>();
+    m_spNetworkManager->Startup(); 
 
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BryptNode::OnRuntimeStopped()
+{
+    m_upRuntime.reset(); // When the runtime notifies us it has stopped, it is now safe to destroy its resources. 
+    using StopCause = Event::Message<Event::Type::RuntimeStopped>::Cause;
+    m_spEventPublisher->Publish<Event::Type::RuntimeStopped>(StopCause::ShutdownRequest);
+    m_spEventPublisher->Dispatch(); // Flush remaining events to the subscribers. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------

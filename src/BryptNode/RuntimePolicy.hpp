@@ -29,10 +29,9 @@ public:
     IRuntimePolicy& operator=(IRuntimePolicy&&) = delete; 
 
     [[nodiscard]] virtual ExecutionResult Start() = 0;
-    [[nodiscard]] virtual bool Stop() = 0;
+    virtual void Stop() = 0;
     [[nodiscard]] virtual bool IsActive() const = 0;
-
-    [[nodiscard]] ExecutionResult GetShutdownCause() const;
+    [[nodiscard]] ExecutionResult FinalizeShutdown() const;
 
 protected:
     virtual void ProcessEvents() final;
@@ -48,7 +47,7 @@ public:
     explicit ForegroundRuntime(BryptNode& instance);
 
     [[nodiscard]] virtual ExecutionResult Start() override;
-    [[nodiscard]] virtual bool Stop() override;
+    virtual void Stop() override;
     [[nodiscard]] virtual bool IsActive() const override;
 
 private:
@@ -63,7 +62,7 @@ public:
     explicit BackgroundRuntime(BryptNode& instance);
 
     [[nodiscard]] virtual ExecutionResult Start() override;
-    [[nodiscard]] virtual bool Stop() override;
+    virtual void Stop() override;
     [[nodiscard]] virtual bool IsActive() const override;
 
 private:
