@@ -4,10 +4,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
-#include "Components/Network/Protocol.hpp"
-#include "Components/Network/Address.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -15,6 +14,7 @@
 #include <string>
 //----------------------------------------------------------------------------------------------------------------------
 
+namespace Network { class RemoteAddress; }
 namespace Peer { class Proxy; }
 
 class IPeerObserver;
@@ -39,10 +39,10 @@ public:
     virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) = 0;
 
-    virtual void DispatchPeerStateChange(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+    virtual void DispatchConnectionState(
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier,
-        Network::Protocol protocol,
+        Network::RemoteAddress const& address, 
         ConnectionState change) = 0;
 };
 

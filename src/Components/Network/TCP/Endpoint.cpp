@@ -431,7 +431,7 @@ void Network::TCP::Endpoint::OnSessionStopped(SharedSession const& spSession)
     { 
         details.SetConnectionState(ConnectionState::Disconnected);
         if (auto const spPeerProxy = details.GetPeerProxy(); spPeerProxy) {
-            spPeerProxy->WithdrawEndpoint(m_identifier, m_protocol);
+            spPeerProxy->WithdrawEndpoint(m_identifier);
         }
     };
 

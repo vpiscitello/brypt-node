@@ -39,7 +39,7 @@ public:
     Node::SharedIdentifier GetNodeIdentifier() const
     {
         if (!m_spPeerProxy) { return {}; }
-        return m_spPeerProxy->GetNodeIdentifier();
+        return m_spPeerProxy->GetIdentifier();
     }
 
     void SetAddress(Network::RemoteAddress const& address){ m_address = address; }

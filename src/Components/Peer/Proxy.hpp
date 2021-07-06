@@ -19,6 +19,7 @@
 #include "Utilities/InvokeContext.hpp"
 #include "Utilities/TokenizedInstance.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -58,7 +59,7 @@ public:
 
     ~Proxy();
 
-    [[nodiscard]] Node::SharedIdentifier GetNodeIdentifier() const;
+    [[nodiscard]] Node::SharedIdentifier GetIdentifier() const;
     [[nodiscard]] Node::Internal::Identifier::Type GetInternalIdentifier() const;
 
     // Statistic Methods {
@@ -86,8 +87,7 @@ public:
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
         Network::MessageScheduler const& scheduler = {});
-
-    void WithdrawEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
+    void WithdrawEndpoint(Network::Endpoint::Identifier identifier);
 
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
@@ -129,8 +129,8 @@ private:
     Node::SharedIdentifier m_spIdentifier;
     IPeerMediator* const m_pPeerMediator;
     
+    std::atomic<Security::State> m_state;
     mutable std::shared_mutex m_securityMutex;
-    Security::State m_state;
     std::unique_ptr<Resolver> m_upResolver;
     std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 
@@ -139,7 +139,7 @@ private:
 
     mutable std::recursive_mutex m_receiverMutex;
     IMessageSink* m_pEnabledProcessor;
-    std::weak_ptr<IMessageSink> m_wpAuthorizedProcessor;
+    std::weak_ptr<IMessageSink> m_wpCoreProcessor;
     mutable Statistics m_statistics;
 };
 

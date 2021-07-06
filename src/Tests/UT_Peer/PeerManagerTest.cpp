@@ -293,7 +293,7 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
     ASSERT_TRUE(spPeerProxy);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 }
 
@@ -320,10 +320,10 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     spPeerProxy->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(loraIdentifier, Network::Protocol::LoRa);
+    spPeerProxy->WithdrawEndpoint(loraIdentifier);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 }
 
@@ -426,12 +426,12 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
     manager.ForEachCachedIdentifier(
         [&spPeerProxy] (auto const& spCheckIdentifier) -> CallbackIteration
         {
-            EXPECT_EQ(spCheckIdentifier, spPeerProxy->GetNodeIdentifier());
-            EXPECT_EQ(*spCheckIdentifier, *spPeerProxy->GetNodeIdentifier());
+            EXPECT_EQ(spCheckIdentifier, spPeerProxy->GetIdentifier());
+            EXPECT_EQ(*spCheckIdentifier, *spPeerProxy->GetIdentifier());
             return CallbackIteration::Continue;
         });
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
 
     std::uint32_t iterations = 0;
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
@@ -464,7 +464,7 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
         auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
         spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier);
             ++disconnected;
         }
     }
@@ -529,7 +529,7 @@ TEST(PeerManagerSuite, PeerCountTest)
         auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
         spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier);
             ++disconnected;
         }
     }
@@ -545,7 +545,6 @@ TEST(PeerManagerSuite, SingleObserverTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
     local::PeerObserverStub observer(&manager);
 
-    EXPECT_FALSE(observer.GetPeerProxy());
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
 
     auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
@@ -554,12 +553,10 @@ TEST(PeerManagerSuite, SingleObserverTest)
     auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
     spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
 
-    EXPECT_EQ(observer.GetPeerProxy(), spPeerProxy);
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Connected);
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
 
-    EXPECT_FALSE(observer.GetPeerProxy());
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
 }
 
@@ -575,7 +572,6 @@ TEST(PeerManagerSuite, MultipleObserverTest)
     }
 
     for (auto const& observer: observers) {
-        EXPECT_FALSE(observer.GetPeerProxy());
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
     }
 
@@ -586,11 +582,10 @@ TEST(PeerManagerSuite, MultipleObserverTest)
     spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
 
     for (auto const& observer: observers) {
-        EXPECT_EQ(observer.GetPeerProxy(), spPeerProxy);
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Connected);
     }
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
 
     for (auto const& observer: observers) {
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);

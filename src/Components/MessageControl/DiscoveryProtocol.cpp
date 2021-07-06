@@ -76,7 +76,7 @@ bool DiscoveryProtocol::SendRequest(
 {
     assert(m_data.size() != 0);
 
-    auto const spDestination = spPeerProxy->GetNodeIdentifier();
+    auto const spDestination = spPeerProxy->GetIdentifier();
     if (!spDestination) { return false; }
 
     auto const optDiscoveryRequest = ApplicationMessage::Builder()

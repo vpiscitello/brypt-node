@@ -37,10 +37,10 @@ public:
     virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) override;
 
-    virtual void DispatchPeerStateChange(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+    virtual void DispatchConnectionState(
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier,
-        Network::Protocol protocol,
+        Network::RemoteAddress const& address,
         ConnectionState change) override;
     // } IPeerMediator
 

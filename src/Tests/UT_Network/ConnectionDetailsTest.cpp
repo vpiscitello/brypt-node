@@ -44,7 +44,7 @@ TEST(ConnectionDetailsSuite, IdentifierTranslateTest)
     EXPECT_FALSE(spFirstIdentifier);
 
     auto const spPeerProxy = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spNodeIdentifier = spPeerProxy->GetNodeIdentifier();
+    auto const spNodeIdentifier = spPeerProxy->GetIdentifier();
 
     auto const firstConnectionIdentifier = tracker.Translate(*spNodeIdentifier);
     EXPECT_TRUE(firstConnectionIdentifier.empty());
@@ -129,21 +129,21 @@ TEST(ConnectionTrackerSuite, MultipleConnectionsTest)
     std::string const firstConnectionIdentifier = "1";
     auto const spFirstPeer = Peer::Proxy::CreateInstance(
         Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
+    auto const spFirstNodeIdentifier = spFirstPeer->GetIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetConnectionState(ConnectionState::Unknown);
 
     std::string const secondConnectionIdentifier = "2";
     auto const spSecondPeer = Peer::Proxy::CreateInstance(
         Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
+    auto const spSecondNodeIdentifier= spSecondPeer->GetIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetConnectionState(ConnectionState::Unknown);
 
     std::string const thirdConnectionIdentifier = "3";
     auto const spThirdPeer = Peer::Proxy::CreateInstance(
         Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
+    auto const spThirdNodeIdentifier = spThirdPeer->GetIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetConnectionState(ConnectionState::Unknown);
 
@@ -228,21 +228,21 @@ TEST(ConnectionTrackerSuite, ConnectionStateFilterTest)
 
     std::string const firstConnectionIdentifier = "1";
     auto const spFirstPeer = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
+    auto const spFirstNodeIdentifier = spFirstPeer->GetIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
     auto const spSecondPeer = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
+    auto const spSecondNodeIdentifier= spSecondPeer->GetIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
     auto const spThirdPeer = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
+    auto const spThirdNodeIdentifier = spThirdPeer->GetIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
@@ -299,21 +299,21 @@ TEST(ConnectionTrackerSuite, PromotionFilterTest)
     
     std::string const firstConnectionIdentifier = "1";
     auto const spFirstPeer = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
+    auto const spFirstNodeIdentifier = spFirstPeer->GetIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
 
     std::string const secondConnectionIdentifier = "2";
     auto const spSecondPeer = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
+    auto const spSecondNodeIdentifier= spSecondPeer->GetIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
 
     std::string const thirdConnectionIdentifier = "3";
     auto const spThirdPeer = Peer::Proxy::CreateInstance(Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
+    auto const spThirdNodeIdentifier = spThirdPeer->GetIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);
@@ -367,7 +367,7 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     std::string const firstConnectionIdentifier = "1";
     auto const spFirstPeer = Peer::Proxy::CreateInstance(
         Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spFirstNodeIdentifier = spFirstPeer->GetNodeIdentifier();
+    auto const spFirstNodeIdentifier = spFirstPeer->GetIdentifier();
     ConnectionDetails<> firstConnectionDetails(spFirstPeer);
     firstConnectionDetails.SetConnectionState(ConnectionState::Disconnected);
     firstConnectionDetails.SetUpdatedTimepoint(timepoint);
@@ -375,7 +375,7 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     std::string const secondConnectionIdentifier = "2";
     auto const spSecondPeer = Peer::Proxy::CreateInstance(
         Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spSecondNodeIdentifier= spSecondPeer->GetNodeIdentifier();
+    auto const spSecondNodeIdentifier= spSecondPeer->GetIdentifier();
     ConnectionDetails<> secondConnectionDetails(spSecondPeer);
     secondConnectionDetails.SetConnectionState(ConnectionState::Resolving);
     secondConnectionDetails.SetUpdatedTimepoint(timepoint - 10min);
@@ -383,7 +383,7 @@ TEST(ConnectionTrackerSuite, TimepointFilterTest)
     std::string const thirdConnectionIdentifier = "3";
     auto const spThirdPeer = Peer::Proxy::CreateInstance(
         Node::Identifier{ Node::GenerateIdentifier() });
-    auto const spThirdNodeIdentifier = spThirdPeer->GetNodeIdentifier();
+    auto const spThirdNodeIdentifier = spThirdPeer->GetIdentifier();
     ConnectionDetails<> thirdConnectionDetails(spThirdPeer);
     thirdConnectionDetails.SetConnectionState(ConnectionState::Connected);
     thirdConnectionDetails.SetUpdatedTimepoint(timepoint);

@@ -166,7 +166,7 @@ bool local::HandleDiscoveryRequest(
 {
     Node::SharedIdentifier spPeerIdentifier;
     if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
-        spPeerIdentifier = spPeerProxy->GetNodeIdentifier();
+        spPeerIdentifier = spPeerProxy->GetIdentifier();
     }
 
     // Parse the discovery request
@@ -271,7 +271,7 @@ bool local::HandleDiscoveryResponse(
 {
     Node::SharedIdentifier spPeerIdentifier;
     if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
-        spPeerIdentifier = spPeerProxy->GetNodeIdentifier();
+        spPeerIdentifier = spPeerProxy->GetIdentifier();
     }
 
     // Parse the discovery response

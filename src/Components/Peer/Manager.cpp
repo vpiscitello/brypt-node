@@ -119,13 +119,22 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::DispatchPeerStateChange(
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+void Peer::Manager::DispatchConnectionState(
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     Network::Endpoint::Identifier identifier,
-    Network::Protocol protocol,
+    Network::RemoteAddress const& address, 
     ConnectionState change)
 {
-    NotifyObservers(&IPeerObserver::HandlePeerStateChange, wpPeerProxy, identifier, protocol, change);
+    switch (change) {
+        case ConnectionState::Connected: {
+            NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
+        } break;
+        case ConnectionState::Disconnected: {
+            using enum Event::Message<Event::Type::PeerDisconnected>::Cause;
+            NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
+        }
+        default: break;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -142,7 +151,7 @@ bool Peer::Manager::ForEachCachedIdentifier(IdentifierReadFunction const& callba
             default: assert(false); // What is this?
         }
 
-        if (isIncluded && callback(spPeerProxy->GetNodeIdentifier()) != CallbackIteration::Continue) { break; }
+        if (isIncluded && callback(spPeerProxy->GetIdentifier()) != CallbackIteration::Continue) { break; }
     }
 
     return true;

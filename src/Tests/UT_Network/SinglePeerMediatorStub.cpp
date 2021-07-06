@@ -111,10 +111,10 @@ std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::DispatchPeerStateChange(
-    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+void SinglePeerMediatorStub::DispatchConnectionState(
+    [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     [[maybe_unused]] Network::Endpoint::Identifier identifier,
-    [[maybe_unused]] Network::Protocol protocol,
+    [[maybe_unused]] Network::RemoteAddress const& address,
     [[maybe_unused]] ConnectionState change)
 {
 }

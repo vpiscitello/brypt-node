@@ -13,6 +13,7 @@
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/ExchangeObserver.hpp"
 #include "Interfaces/MessageSink.hpp"
+#include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/Z85.hpp"
 #include "Utilities/InvokeContext.hpp"
@@ -28,8 +29,9 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-class StrategyStub;
+class MediatorStub;
 class ProcessorStub;
+class StrategyStub;
 
 void CloseExchange(Peer::Resolver* pResolver, ExchangeStatus status);
 
@@ -56,10 +58,56 @@ Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
+class local::MediatorStub : public IPeerMediator
+{
+public:
+    MediatorStub() = default;
+
+    // IPeerMediator {
+    virtual void RegisterObserver(IPeerObserver* const) override { }
+    virtual void UnpublishObserver(IPeerObserver* const) override { }
+    virtual OptionalRequest DeclareResolvingPeer(
+        Network::RemoteAddress const&, Node::SharedIdentifier const&) override { return {}; }
+    virtual void RescindResolvingPeer(Network::RemoteAddress const&) override { }
+    virtual std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const&, Network::RemoteAddress const&) override
+        { return nullptr; }
+    virtual void DispatchConnectionState(
+        std::shared_ptr<Peer::Proxy> const&,
+        Network::Endpoint::Identifier,
+        Network::RemoteAddress const&, 
+        ConnectionState) override { }
+    // } IPeerMediator
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class local::ProcessorStub : public IMessageSink
+{
+public:
+    ProcessorStub() = default;
+
+    // IMessageSink {
+    virtual bool CollectMessage(
+        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::string_view buffer) override
+        { m_pack = std::string(buffer.begin(), buffer.end()); return true; }
+        
+    virtual bool CollectMessage(
+        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::span<std::uint8_t const>) override
+        { return false; }
+    // } IMessageSink
+    
+    std::string GetCollectedPack() const { return m_pack; }
+
+private:
+    std::string m_pack;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
 class local::StrategyStub : public ISecurityStrategy
 {
 public:
-    StrategyStub() { }
+    StrategyStub() = default;
 
     virtual Security::Strategy GetStrategyType() const override { return Security::Strategy::Invalid; }
     virtual Security::Role GetRoleType() const override { return Security::Role::Initiator; }
@@ -89,32 +137,11 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class local::ProcessorStub : public IMessageSink
-{
-public:
-    ProcessorStub() : m_pack() { }
-
-    // IMessageSink {
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::string_view buffer) override
-        { m_pack = std::string(buffer.begin(), buffer.end()); return true; }
-        
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::span<std::uint8_t const>) override
-        { return false; }
-    // } IMessageSink
-    
-    std::string GetCollectedPack() const { return m_pack; }
-
-private:
-    std::string m_pack;
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
 TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 {
-    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier);
+    auto const upMediator = std::make_unique<local::MediatorStub>();
+    auto const spProxy = Peer::Proxy::CreateInstance(
+        *test::ClientIdentifier, std::weak_ptr<IMessageSink>{}, upMediator.get());
     
     {
         auto upStrategyStub = std::make_unique<local::StrategyStub>();
@@ -145,8 +172,9 @@ TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 
 TEST(PeerResolverSuite, SuccessfulExchangeTest)
 {
+    auto const upMediator = std::make_unique<local::MediatorStub>();
     auto const spCollector = std::make_shared<local::ProcessorStub>();
-    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector);
+    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector, upMediator.get());
     Peer::Resolver* pCapturedResolver = nullptr;
     {
         auto upStrategyStub = std::make_unique<local::StrategyStub>();
@@ -180,8 +208,9 @@ TEST(PeerResolverSuite, SuccessfulExchangeTest)
 
 TEST(PeerResolverSuite, FailedExchangeTest)
 {
-    auto spCollector = std::make_shared<local::ProcessorStub>();
-    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector);
+    auto const upMediator = std::make_unique<local::MediatorStub>();
+    auto const spCollector = std::make_shared<local::ProcessorStub>();
+    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector, upMediator.get());
     Peer::Resolver* pCapturedResolver = nullptr;
     {
         auto upStrategyStub = std::make_unique<local::StrategyStub>();
