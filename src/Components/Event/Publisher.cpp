@@ -13,14 +13,17 @@ Event::Publisher::Publisher()
     , m_advertisedMutex()
     , m_advertised()
 {
-    assert(Assertions::IsSubscriberThread()); // Ensure the state is set to the thread has created the publisher.
+    // There are two assumptions:
+        // 1.) All subscriptions occur on the main thread.
+        // 2.) Publishing does not begin until the main thread has suspended subscriptions. 
+    assert(Assertions::Threading::IsCoreThread());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Event::Publisher::SuspendSubscriptions()
 {
-    assert(Assertions::IsSubscriberThread()); // Only the thread that is allowed to subscribe can disable it. 
+    assert(Assertions::Threading::IsCoreThread()); // Only the main thread should suspend supscriptions.
     m_hasSuspendedSubscriptions = true;
 }
 
@@ -109,19 +112,6 @@ void Event::Publisher::Publish(Type type, EventProxy&& upEventProxy)
 
     std::scoped_lock lock(m_eventsMutex);
     m_events.emplace_back(std::move(upEventProxy));
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Event::Assertions::IsSubscriberThread()
-{
-    // The intent of this method is to verify the listener container does not need to be protected by a lock. 
-    // There are two assumptions:
-        // 1.) All subscriptions occur on the main thread.
-        // 2.) Publishing does not begin until the main thread has suspended subscriptions. 
-    // The constructor must call this method first to properly initialize the identifier to the main thread's value.  
-    static auto const thread = std::this_thread::get_id();
-    return (thread == std::this_thread::get_id());
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -15,10 +15,12 @@
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
+#include "Utilities/Assertions.hpp"
 #include "Utilities/ExecutionResult.hpp"
 #include "Utilities/LogUtils.hpp"
 #include "Utilities/Version.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <cassert>
 #include <cstdint>
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -29,8 +31,9 @@ std::int32_t main(std::int32_t argc, char** argv)
         if (status == Startup::ParseCode::ExitRequested) { return 0; }
         else { std::cout << "Unable to parse startup options!" << std::endl; return 1; }
     }
-
-    LogUtils::InitializeLoggers(options.GetVerbosityLevel());
+    
+    assert(Assertions::Threading::IsCoreThread()); // Note: We must ensure the main thread id is set.
+    LogUtils::InitializeLoggers(options.GetVerbosityLevel()); // Note: We must ensure the loggers are initialized.
     auto const spLogger = spdlog::get(LogUtils::Name::Core.data());  
 
     auto const upConfig = std::make_unique<Configuration::Manager>(options.GetConfigPath(), options.IsInteractive());

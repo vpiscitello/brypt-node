@@ -11,6 +11,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Events.hpp"
 #include "SharedPublisher.hpp"
+#include "Utilities/Assertions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <concepts>
@@ -27,14 +28,6 @@ namespace Event {
 
 class Publisher;
 
-//----------------------------------------------------------------------------------------------------------------------
-namespace Assertions {
-//----------------------------------------------------------------------------------------------------------------------
-
-[[nodiscard]] bool IsSubscriberThread();
-
-//----------------------------------------------------------------------------------------------------------------------
-} // Assertions namespace
 //----------------------------------------------------------------------------------------------------------------------
 } // Event namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -101,7 +94,7 @@ private:
 template<Event::Type SpecificType> requires Event::MessageWithContent<SpecificType>
 bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
 {
-    assert(Assertions::IsSubscriberThread());
+    assert(Assertions::Threading::IsCoreThread());
     if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
     
     // In the case of events with content, the listener will need to cast to the derived event type to access the 
@@ -122,7 +115,7 @@ bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::Callback
 template<Event::Type SpecificType> requires Event::MessageWithoutContent<SpecificType>
 bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
 {
-    assert(Assertions::IsSubscriberThread());
+    assert(Assertions::Threading::IsCoreThread());
     if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
     
     // In the case of events without content, the listener will simply invoke the callback.
