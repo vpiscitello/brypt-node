@@ -10,7 +10,7 @@
 #include "Protocol.hpp"
 #include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/SharedPublisher.hpp"
 #include "Components/Peer/Manager.hpp"

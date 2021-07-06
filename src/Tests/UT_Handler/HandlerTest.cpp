@@ -4,7 +4,7 @@
 #include "BryptNode/BryptNode.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/Manager.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"

@@ -33,7 +33,7 @@ namespace Network { class Manager; }
 namespace Peer { class Manager; }
 
 class AuthorizedProcessor;
-class PeerPersistor;
+class BootstrapService;
 
 class AuthorityState;
 class CoordinatorState;
@@ -53,7 +53,7 @@ public:
         std::shared_ptr<Network::Manager> const& spNetworkManager,
         std::shared_ptr<Peer::Manager> const& spPeerManager,
         std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
-        std::shared_ptr<PeerPersistor> const& spPeerPersistor);
+        std::shared_ptr<BootstrapService> const& spBootstrapService);
 
     BryptNode(BryptNode const& other) = delete;
     BryptNode(BryptNode&& other) = default;
@@ -81,7 +81,7 @@ public:
     [[nodiscard]] std::weak_ptr<Event::Publisher> GetEventPublisher() const;
     [[nodiscard]] std::weak_ptr<Network::Manager> GetNetworkManager() const;
     [[nodiscard]] std::weak_ptr<Peer::Manager> GetPeerManager() const;
-    [[nodiscard]] std::weak_ptr<PeerPersistor> GetPeerPersistor() const;
+    [[nodiscard]] std::weak_ptr<BootstrapService> GetBootstrapService() const;
     [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
@@ -102,7 +102,7 @@ private:
     std::shared_ptr<Peer::Manager> m_spPeerManager;
     std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
     std::shared_ptr<Await::TrackingManager> m_spAwaitManager;
-    std::shared_ptr<PeerPersistor> m_spPeerPersistor;
+    std::shared_ptr<BootstrapService> m_spBootstrapService;
 
     Handler::Map m_handlers;
     std::unique_ptr<IRuntimePolicy> m_upRuntime;

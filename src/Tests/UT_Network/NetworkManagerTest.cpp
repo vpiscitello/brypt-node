@@ -4,7 +4,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
@@ -81,40 +81,38 @@ private:
 class local::BootstrapCacheStub : public IBootstrapCache
 {
 public:
-    BootstrapCacheStub() : m_protocols() {}
+    BootstrapCacheStub() : m_bootstraps() {}
 
-    void AddBootstrap(Network::RemoteAddress const& bootstrap)
+    void InsertBootstrap(Network::RemoteAddress const& bootstrap)
     {
-        auto& upBootstrapSet = m_protocols[bootstrap.GetProtocol()]; 
-        if (!upBootstrapSet) { upBootstrapSet = std::make_unique<PeerPersistor::BootstrapSet>(); }
-        upBootstrapSet->emplace(bootstrap);
+        m_bootstraps.emplace(bootstrap);
     }
 
     // IBootstrapCache {
-    bool ForEachCachedBootstrap(
-        [[maybe_unused]] AllProtocolsReadFunction const& readFunction,
-        [[maybe_unused]] AllProtocolsErrorFunction const& errorFunction) const override { return false; }
-
-    bool ForEachCachedBootstrap(Network::Protocol protocol, OneProtocolReadFunction const& readFunction) const override
+    bool Contains(Network::RemoteAddress const& address) const override
     {
-        auto const itr = m_protocols.find(protocol);
-        if (itr == m_protocols.end()) { return false; }   
-
-        auto const& [key, spBootstrapSet] = *itr;
-        for (auto const& bootsrap: *spBootstrapSet) {
-            auto const result = readFunction(bootsrap);
-            if (result != CallbackIteration::Continue) { break; }
-        }
-
-        return true;
+        return m_bootstraps.contains(address);
     }
 
-    std::size_t CachedBootstrapCount() const override { return 0; }
-    std::size_t CachedBootstrapCount([[maybe_unused]] Network::Protocol protocol) const override { return 0; }
+    std::size_t ForEachBootstrap(BootstrapReader const&) const override { return 0; }
+    std::size_t ForEachBootstrap(Network::Protocol protocol, BootstrapReader const& reader) const override
+    {
+        if (m_bootstraps.empty()) { return 0; }   
+
+        std::size_t read = 0;
+        for (auto const& bootstrap : m_bootstraps) {
+            if (bootstrap.GetProtocol() == protocol) { continue; }
+            if (++read; reader(bootstrap) != CallbackIteration::Continue) { break; }
+        }
+        return read;
+    }
+
+    std::size_t BootstrapCount() const override { return 0; }
+    std::size_t BootstrapCount(Network::Protocol) const override { return 0; }
     // } IBootstrapCache
 
 private:
-    PeerPersistor::ProtocolMap m_protocols;
+    BootstrapService::BootstrapCache m_bootstraps;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -268,7 +266,7 @@ std::optional<local::ConfigurationResources> local::CreateConfigurationResources
     {
         auto const& binding = configured.front().GetBinding();
         Network::RemoteAddress address(binding.GetProtocol(), binding.GetUri(), true);
-        upBootstraps->AddBootstrap(address);
+        upBootstraps->InsertBootstrap(address);
     }
 
     return std::make_pair(std::move(configured), std::move(upBootstraps));

@@ -2,14 +2,12 @@
 // File: PeerObserver.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
+#include "Components/Network/EndpointIdentifier.hpp"
+//----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Components/Network/ConnectionState.hpp"
-//----------------------------------------------------------------------------------------------------------------------
-#include <memory>
-//----------------------------------------------------------------------------------------------------------------------
 
-namespace Peer { class Proxy; }
+namespace Network { class RemoteAddress; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -17,12 +15,8 @@ class IPeerObserver
 {
 public:
     virtual ~IPeerObserver() = default;
-
-    virtual void HandlePeerStateChange(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        Network::Endpoint::Identifier identifier,
-        Network::Protocol protocol,
-        ConnectionState change) = 0;
+    virtual void OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) = 0;
+    virtual void OnRemoteDisconnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -11,9 +11,9 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    BootstrapService.cpp
     Configuration.cpp
-    Manager.cpp
-    PeerPersistor.cpp)
+    Manager.cpp)
 
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE

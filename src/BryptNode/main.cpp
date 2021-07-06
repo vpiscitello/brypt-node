@@ -8,7 +8,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Configuration/Configuration.hpp"
 #include "Components/Configuration/Manager.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
@@ -42,8 +42,9 @@ std::int32_t main(std::int32_t argc, char** argv)
         return 1;
     }
 
-    auto const spPersistor = std::make_shared<PeerPersistor>(options.GetPeersPath(), upConfig->GetEndpointOptions());
-    if (!spPersistor->FetchBootstraps()) {
+    auto const spBootstrapService = std::make_shared<BootstrapService>(
+        options.GetBootstrapPath(), upConfig->GetEndpointOptions());
+    if (!spBootstrapService->FetchBootstraps()) {
         spLogger->critical("An error occured parsing bootstraps!");
         return 1;
     }
@@ -54,14 +55,13 @@ std::int32_t main(std::int32_t argc, char** argv)
     auto const spPeerManager = std::make_shared<Peer::Manager>(
         upConfig->GetNodeIdentifier(), upConfig->GetSecurityStrategy(), spDiscoveryProtocol, spMessageCollector);
 
-    spPersistor->SetMediator(spPeerManager.get());
+    spBootstrapService->SetMediator(spPeerManager.get());
 
-    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spPersistor.get() : nullptr;
+    IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spBootstrapService.get() : nullptr;
     auto const spNetworkManager = std::make_shared<Network::Manager>(
-        upConfig->GetEndpointOptions(), spEventPublisher, spPeerManager.get(), pBootstraps, RuntimeContext::Foreground);
+        upConfig->GetEndpointOptions(), spPublisher, spPeerManager.get(), pBootstraps, RuntimeContext::Foreground);
 
-    BryptNode alpha(
-        upConfig, spEventPublisher, spNetworkManager, spPeerManager, spMessageCollector, spPersistor);
+    BryptNode alpha(upConfig, spEventPublisher, spNetworkManager, spPeerManager, spMessageCollector, spBootstrapService);
     assert(alpha.IsInitialized());
 
     spLogger->info("Welcome to the Brypt Network!");

@@ -20,7 +20,7 @@
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
 #include "Components/Configuration/Manager.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -32,7 +32,7 @@ BryptNode::BryptNode(
     std::shared_ptr<Network::Manager> const& spNetworkManager,
     std::shared_ptr<Peer::Manager> const& spPeerManager,
     std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
-    std::shared_ptr<PeerPersistor> const& spPeerPersistor)
+    std::shared_ptr<BootstrapService> const& spBootstrapService)
     : m_initialized(false)
     , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_spNodeState()
@@ -45,7 +45,7 @@ BryptNode::BryptNode(
     , m_spPeerManager(spPeerManager)
     , m_spMessageProcessor(spMessageProcessor)
     , m_spAwaitManager(std::make_shared<Await::TrackingManager>())
-    , m_spPeerPersistor(spPeerPersistor)
+    , m_spBootstrapService(spBootstrapService)
     , m_handlers()
     , m_upRuntime(nullptr)
     , m_optShutdownCause()
@@ -125,7 +125,7 @@ std::weak_ptr<Peer::Manager> BryptNode::GetPeerManager() const { return m_spPeer
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<PeerPersistor> BryptNode::GetPeerPersistor() const { return m_spPeerPersistor; }
+std::weak_ptr<BootstrapService> BryptNode::GetBootstrapService() const { return m_spBootstrapService; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

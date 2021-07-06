@@ -6,6 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
 #include "Components/Await/TrackingManager.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Peer/Manager.hpp"
@@ -36,6 +37,8 @@ IRuntimePolicy::IRuntimePolicy(BryptNode& instance)
 
 void IRuntimePolicy::ProcessEvents()
 {
+    m_instance.m_spBootstrapService->UpdateCache();
+
     if (auto const optMessage = m_instance.m_spMessageProcessor->GetNextMessage(); optMessage) {
         auto const& handlers = m_instance.m_handlers;
         auto& [spPeerProxy, message] = *optMessage;

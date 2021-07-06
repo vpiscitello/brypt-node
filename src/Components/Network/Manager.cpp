@@ -372,7 +372,7 @@ void local::ConnectBootstraps(
 
     // Iterate through the provided bootstraps for the endpoint and schedule a connect
     // for each peer in the list.
-    pCache->ForEachCachedBootstrap(upEndpoint->GetProtocol(), 
+    pCache->ForEachBootstrap(upEndpoint->GetProtocol(), 
         [&upEndpoint] (RemoteAddress const& bootstrap) -> CallbackIteration
         { upEndpoint->ScheduleConnect(bootstrap); return CallbackIteration::Continue; });
 }

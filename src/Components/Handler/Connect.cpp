@@ -9,7 +9,7 @@
 #include "BryptNode/BryptNode.hpp"
 #include "BryptNode/NetworkState.hpp"
 #include "BryptNode/NodeState.hpp"
-#include "Components/Configuration/PeerPersistor.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ bool local::HandleDiscoveryRequest(
     }
 
     if (!request.entrypoints.empty()) {
-        auto spPeerPersistor = instance.GetPeerPersistor().lock();
+        auto spBootstrapService = instance.GetBootstrapService().lock();
         auto spNetworkManager = instance.GetNetworkManager().lock();
         
         // For each listed entrypoint, handle each entry for the given protocol.
@@ -194,12 +194,12 @@ bool local::HandleDiscoveryRequest(
             Network::RemoteAddress address(protocol, entrypoint.entry, true);
             if (!address.IsValid()) { spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier); }
 
-            // Notify the PeerPersistor of the entry for the protocol. By immediately 
+            // Notify the BootstrapService of the entry for the protocol. By immediately 
             // storing the  entry it may be used in bootstrapping and distribution of entries
             // for protocols to peers that have different capabilites not accessible by this 
             // node. The verification of entrypoints should be handled by a different module
             //  (i.e. the endpoint or security mechanism).
-            if (spPeerPersistor) [[likely]] { spPeerPersistor->AddBootstrapEntry(address); }
+            if (spBootstrapService) [[likely]] { spBootstrapService->InsertBootstrap(address); }
 
             if (spNetworkManager) [[likely]] {
                 // If we have an endpoint for the given protocol, schedule the connect.
@@ -235,21 +235,19 @@ std::string local::BuildDiscoveryResponse(BryptNode& instance)
     BootstrapsMap bootstraps;
     // Get the current known peers of this node. The known peers will be supplied to the requestor
     // such that they may attempt to connect to them.
-    auto const wpPeerPersistor = instance.GetPeerPersistor();
-    // If the PeerPersistor can be acquired from the node instance iterate through the known 
+    auto const wpBootstrapService = instance.GetBootstrapService();
+    // If the BootstrapService can be acquired from the node instance iterate through the known 
     // peers to obtain the entry addresses for the associated protocols. 
-    if (auto const spPeerPersistor = wpPeerPersistor.lock(); spPeerPersistor) {
+    if (auto const spBootstrapService = wpBootstrapService.lock(); spBootstrapService) {
         // For each protocol type stored in the cached peers emplace the entry into the asscoaited 
         // protocol entries vector.
-        spPeerPersistor->ForEachCachedBootstrap(
+        spBootstrapService->ForEachBootstrap(
             // Get the entries for the requestor from the cached list of peers
             [&bootstraps] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
             {
                 bootstraps[bootstrap.GetProtocol()].emplace_back(bootstrap.GetUri());
                 return CallbackIteration::Continue;
-            },
-            // Unused cache error handling function
-            [] ([[maybe_unused]] Network::Protocol protocol) {}
+            }
         );
 
         // Encode the peers list for the response
