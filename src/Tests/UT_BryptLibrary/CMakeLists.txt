@@ -31,7 +31,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 #-----------------------------------------------------------------------------------------------------------------------
 
 configure_file("config/config.json" "config/config.json" COPYONLY)
-configure_file("config/peers.json" "config/peers.json" COPYONLY)
+configure_file("config/bootstrap.json" "config/bootstrap.json" COPYONLY)
 
 #-----------------------------------------------------------------------------------------------------------------------
 gtest_discover_tests(${PROJECT_NAME})

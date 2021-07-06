@@ -27,10 +27,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC  PROJECT_OPTIONS)
 #-----------------------------------------------------------------------------------------------------------------------
 
 configure_file("files/good/config.json" "files/good/config.json" COPYONLY)
-configure_file("files/good/peers.json" "files/good/peers.json" COPYONLY)
+configure_file("files/good/bootstrap.json" "files/good/bootstrap.json" COPYONLY)
 configure_file("files/malformed/config.json" "files/malformed/config.json" COPYONLY)
-configure_file("files/malformed/peers.json" "files/malformed/peers.json" COPYONLY)
-configure_file("files/missing/peers.json" "files/missing/peers.json" COPYONLY)
+configure_file("files/malformed/bootstrap.json" "files/malformed/bootstrap.json" COPYONLY)
+configure_file("files/missing/bootstrap.json" "files/missing/bootstrap.json" COPYONLY)
 
 #-----------------------------------------------------------------------------------------------------------------------
 gtest_discover_tests(${PROJECT_NAME})

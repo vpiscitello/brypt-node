@@ -34,8 +34,8 @@ public:
     static constexpr std::string_view Verbosity = "verbosity";
     static constexpr std::string_view Quiet = "quiet";
     static constexpr std::string_view NonInteractive = "non-interactive";
-    static constexpr std::string_view Configuration = "config";
-    static constexpr std::string_view Peers = "peers";
+    static constexpr std::string_view ConfigurationFilepath = "config";
+    static constexpr std::string_view BootstrapFilepath = "bootstrap";
     static constexpr std::string_view DisableBootstrap = "disable-bootstrap";
 
     Options();
@@ -49,7 +49,7 @@ public:
     [[nodiscard]] spdlog::level::level_enum GetVerbosityLevel() const;
     [[nodiscard]] bool IsInteractive() const;
     [[nodiscard]] std::string const& GetConfigPath() const;
-    [[nodiscard]] std::string const& GetPeersPath() const;
+    [[nodiscard]] std::string const& GetBootstrapPath() const;
     [[nodiscard]] bool UseBootstraps() const;
 
 private:
@@ -61,9 +61,9 @@ private:
 
     spdlog::level::level_enum m_verbosity;
     bool m_interactive;
-    std::string m_config;
-    std::string m_peers;
-    bool m_bootstrap;
+    std::string m_configurationFilepath;
+    std::string m_bootstrapFilepath;
+    bool m_shouldBootstrap;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

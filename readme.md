@@ -37,7 +37,7 @@ make
 | Flag | Value | Default | Required | Description |
 |-----------|-----------|-----------|-----------|-----------|
 | --config | String | config.json | No | A filename or filepath for an alternative configuration file to be used. |
-| --peers | String | peers.json | No | A filename or filepath for an alternative peers cache file to be used. |
+| --bootstrap | String | bootstrap.json | No | A filename or filepath for an alternative bootstrap cache file to be used. |
 ### Running the Tests
 ```bash
 make rebuild mode=debug -C Tests/UT_Endpoints

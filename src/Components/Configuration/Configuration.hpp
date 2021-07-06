@@ -34,11 +34,11 @@ using EndpointsSet = std::vector<EndpointOptions>;
 
 std::filesystem::path const DefaultBryptFolder = "/brypt/";
 std::filesystem::path const DefaultConfigurationFilename = "config.json";
-std::filesystem::path const DefaultKnownPeersFilename = "peers.json";
+std::filesystem::path const DefaultBootstrapFilename = "bootstrap.json";
 
 std::filesystem::path GetDefaultBryptFolder();
 std::filesystem::path GetDefaultConfigurationFilepath();
-std::filesystem::path GetDefaultPeersFilepath();
+std::filesystem::path GetDefaultBootstrapFilepath();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Configuration namespace

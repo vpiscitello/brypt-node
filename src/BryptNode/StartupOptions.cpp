@@ -29,9 +29,9 @@ Startup::Options::Options()
     , m_levels()
     , m_verbosity(spdlog::level::info)
     , m_interactive(true)
-    , m_config()
-    , m_peers()
-    , m_bootstrap(true)
+    , m_configurationFilepath()
+    , m_bootstrapFilepath()
+    , m_shouldBootstrap(true)
 {
     SetupDescriptions();
 }
@@ -105,23 +105,23 @@ void Startup::Options::SetupDescriptions()
         oss << "directory. If a directory is specified \"config.json\" is assumed. ";
         oss << "If a directory is not specified, the default configuration folder will be used.";
         AddConfigurationOption(
-            Configuration.data(),
+            ConfigurationFilepath.data(),
             boost::program_options::value(
-                &m_config)->value_name("<filepath>")->default_value(
+                &m_configurationFilepath)->value_name("<filepath>")->default_value(
                     filepath.string()), oss.str().c_str());
     }
 
     // Option to set the Peer Persistance filepath.
     {
-        auto const filepath = Configuration::GetDefaultPeersFilepath();
+        auto const filepath = Configuration::GetDefaultBootstrapFilepath();
         std::ostringstream oss;
-        oss << "Set the peers filepath. This may specify a complete filepath or ";
-        oss << "directory. If a directory is specified \"peers.json\" is assumed. ";
+        oss << "Set the bootstrap filepath. This may specify a complete filepath or ";
+        oss << "directory. If a directory is specified \"bootstrap.json\" is assumed. ";
         oss << "If a directory is not specified, the default configuration folder will be used.";
         AddConfigurationOption(
-            Peers.data(),
+            BootstrapFilepath.data(),
             boost::program_options::value(
-                &m_peers)->value_name("<filepath>")->default_value(
+                &m_bootstrapFilepath)->value_name("<filepath>")->default_value(
                     filepath.string()), oss.str().c_str());
     }
 
@@ -129,7 +129,7 @@ void Startup::Options::SetupDescriptions()
     {
         AddConfigurationOption(
             DisableBootstrap.data(),
-            "Disables initial connection boostrapping to peers enumerated in the peers file.");
+            "Disables bootstrapping to addresses enumerated in the bootstrap file.");
     }
 
     m_descriptions.add(configuration);
@@ -201,7 +201,7 @@ Startup::ParseCode Startup::Options::Parse(std::int32_t argc, char** argv)
 
     if(IsOptionSupplied(m_options, Quiet)) { m_verbosity = spdlog::level::off; }
     if(IsOptionSupplied(m_options, NonInteractive)) { m_interactive = false; }
-    if(IsOptionSupplied(m_options, DisableBootstrap)) { m_bootstrap = false; }
+    if(IsOptionSupplied(m_options, DisableBootstrap)) { m_shouldBootstrap = false; }
 
     if (auto const optError = CheckConflictingOptions(m_options, Verbosity, Quiet);
         optError) {
@@ -256,21 +256,21 @@ bool Startup::Options::IsInteractive() const
 
 std::string const& Startup::Options::GetConfigPath() const
 {
-    return m_config;
+    return m_configurationFilepath;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Startup::Options::GetPeersPath() const
+std::string const& Startup::Options::GetBootstrapPath() const
 {
-    return m_peers;
+    return m_bootstrapFilepath;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Startup::Options::UseBootstraps() const
 {
-    return m_bootstrap;
+    return m_shouldBootstrap;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

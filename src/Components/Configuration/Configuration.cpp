@@ -279,9 +279,9 @@ std::filesystem::path Configuration::GetDefaultConfigurationFilepath()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::filesystem::path Configuration::GetDefaultPeersFilepath()
+std::filesystem::path Configuration::GetDefaultBootstrapFilepath()
 {
-    return GetDefaultBryptFolder() / DefaultKnownPeersFilename; // ../peers.json
+    return GetDefaultBryptFolder() / DefaultBootstrapFilename; // ../bootstrap.json
 }
 
 //----------------------------------------------------------------------------------------------------------------------
