@@ -3,7 +3,7 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/Manager.hpp"
+#include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
@@ -34,7 +34,7 @@ namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::EndpointOptions CreateEndpointOptions();
-std::unique_ptr<Configuration::Manager> CreateConfigurationManager();
+std::unique_ptr<Configuration::Parser> CreateConfigurationParser();
 
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 auto const spServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
@@ -62,7 +62,7 @@ constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 TEST(HandlerSuite, HandlerMatchingTest)
 {
-    auto const upConfiguration = test::CreateConfigurationManager();
+    auto const upConfiguration = test::CreateConfigurationParser();
 
     // The node itself will set up internal handlers that can operate on it's internal state, but in order to setup our 
     // own we need to provide the handlers a node instance and a state.
@@ -144,7 +144,7 @@ Configuration::EndpointOptions test::CreateEndpointOptions()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Configuration::Manager> test::CreateConfigurationManager()
+std::unique_ptr<Configuration::Parser> test::CreateConfigurationParser()
 {
     auto const endpointOptions = CreateEndpointOptions();
     Configuration::Settings settings(
@@ -153,7 +153,7 @@ std::unique_ptr<Configuration::Manager> test::CreateConfigurationManager()
         Configuration::SecurityOptions()
     );
 
-    return std::make_unique<Configuration::Manager>(settings);
+    return std::make_unique<Configuration::Parser>(settings);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -7,7 +7,7 @@
 #include "StartupOptions.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/Manager.hpp"
+#include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
@@ -36,36 +36,36 @@ std::int32_t main(std::int32_t argc, char** argv)
     LogUtils::InitializeLoggers(options.GetVerbosityLevel()); // Note: We must ensure the loggers are initialized.
     auto const spLogger = spdlog::get(LogUtils::Name::Core.data());  
 
-    auto const upConfig = std::make_unique<Configuration::Manager>(options.GetConfigPath(), options.IsInteractive());
-    if (auto const status = upConfig->FetchSettings(); status != Configuration::StatusCode::Success) {
+    auto const upParser = std::make_unique<Configuration::Parser>(options.GetConfigPath(), options.IsInteractive());
+    if (auto const status = upParser->FetchSettings(); status != Configuration::StatusCode::Success) {
         spLogger->critical("An unexpected error occured while parsing the configuration file!");
         return 1;
     }
 
     auto const spBootstrapService = std::make_shared<BootstrapService>(
-        options.GetBootstrapPath(), upConfig->GetEndpointOptions());
+        options.GetBootstrapPath(), upParser->GetEndpointOptions());
     if (!spBootstrapService->FetchBootstraps()) {
         spLogger->critical("An error occured parsing bootstraps!");
         return 1;
     }
 
-    auto const spEventPublisher = std::make_shared<Event::Publisher>();
-    auto const spDiscoveryProtocol = std::make_shared<DiscoveryProtocol>(upConfig->GetEndpointOptions());
-    auto const spMessageCollector = std::make_shared<AuthorizedProcessor>(upConfig->GetNodeIdentifier());
+    auto const spPublisher = std::make_shared<Event::Publisher>();
+    auto const spProtocol = std::make_shared<DiscoveryProtocol>(upParser->GetEndpointOptions());
+    auto const spProcessor = std::make_shared<AuthorizedProcessor>(upParser->GetNodeIdentifier());
     auto const spPeerManager = std::make_shared<Peer::Manager>(
-        upConfig->GetNodeIdentifier(), upConfig->GetSecurityStrategy(), spDiscoveryProtocol, spMessageCollector);
+        upParser->GetNodeIdentifier(), upParser->GetSecurityStrategy(), spProtocol, spProcessor);
 
     spBootstrapService->SetMediator(spPeerManager.get());
 
     IBootstrapCache const* const pBootstraps = (options.UseBootstraps()) ? spBootstrapService.get() : nullptr;
     auto const spNetworkManager = std::make_shared<Network::Manager>(
-        upConfig->GetEndpointOptions(), spPublisher, spPeerManager.get(), pBootstraps, RuntimeContext::Foreground);
+        upParser->GetEndpointOptions(), spPublisher, spPeerManager.get(), pBootstraps, RuntimeContext::Foreground);
 
-    BryptNode alpha(upConfig, spEventPublisher, spNetworkManager, spPeerManager, spMessageCollector, spBootstrapService);
+    BryptNode alpha(upParser, spPublisher, spNetworkManager, spPeerManager, spProcessor, spBootstrapService);
     assert(alpha.IsInitialized());
 
     spLogger->info("Welcome to the Brypt Network!");
-    spLogger->info("Brypt Identifier: {}", upConfig->GetNodeIdentifier());
+    spLogger->info("Brypt Identifier: {}", upParser->GetNodeIdentifier());
 
     ExecutionResult const result = alpha.Startup();
     if (result == ExecutionResult::UnexpectedShutdown) {

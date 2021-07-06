@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Manager.cpp 
+// File: Parser.cpp 
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-#include "Manager.hpp"
+#include "Parser.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -206,7 +206,7 @@ LI_SYMBOL(value)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Manager::Manager(
+Configuration::Parser::Parser(
     std::filesystem::path const& filepath, bool isGeneratorAllowed, bool shouldBuildPath)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_isGeneratorAllowed(isGeneratorAllowed)
@@ -231,7 +231,7 @@ Configuration::Manager::Manager(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Manager::Manager(Settings const& settings)
+Configuration::Parser::Parser(Settings const& settings)
     : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
     , m_isGeneratorAllowed(false)
     , m_filepath()
@@ -250,12 +250,12 @@ Configuration::Manager::Manager(Settings const& settings)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Manager::FetchSettings()
+Configuration::StatusCode Configuration::Parser::FetchSettings()
 {
     StatusCode status;
     if (std::filesystem::exists(m_filepath)) {
         m_spLogger->debug("Reading configuration file at: {}.", m_filepath.string());
-        status = DecodeConfigurationFile();
+        status = Deserialize();
     } else {
         if (!m_isGeneratorAllowed) {
             std::ostringstream oss;
@@ -280,7 +280,7 @@ Configuration::StatusCode Configuration::Manager::FetchSettings()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Manager::Serialize()
+Configuration::StatusCode Configuration::Parser::Serialize()
 {
     if (!m_validated) { return StatusCode::InputError; }
     if (m_filepath.empty()) { return StatusCode::FileError; }
@@ -308,7 +308,7 @@ Configuration::StatusCode Configuration::Manager::Serialize()
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Generates a new configuration file based on user handler line arguements or from user input.
 //----------------------------------------------------------------------------------------------------------------------
-Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
+Configuration::StatusCode Configuration::Parser::GenerateConfigurationFile()
 {
     // If the settings have not been provided get the desired configuration from user input
     if (m_settings.endpoints.empty()) { GetSettingsFromUser(); }
@@ -327,14 +327,14 @@ Configuration::StatusCode Configuration::Manager::GenerateConfigurationFile()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Manager::IsValidated() const
+bool Configuration::Parser::IsValidated() const
 {
     return m_validated;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier const& Configuration::Manager::GetNodeIdentifier() const
+Node::SharedIdentifier const& Configuration::Parser::GetNodeIdentifier() const
 {
     assert(m_validated);
     assert(m_settings.identifier.container && m_settings.identifier.container->IsValid());
@@ -343,7 +343,7 @@ Node::SharedIdentifier const& Configuration::Manager::GetNodeIdentifier() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Manager::GetNodeName() const
+std::string const& Configuration::Parser::GetNodeName() const
 {
     assert(m_validated);
     return m_settings.details.name;
@@ -351,7 +351,7 @@ std::string const& Configuration::Manager::GetNodeName() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Manager::GetNodeDescription() const
+std::string const& Configuration::Parser::GetNodeDescription() const
 {
     assert(m_validated);
     return m_settings.details.description;
@@ -359,7 +359,7 @@ std::string const& Configuration::Manager::GetNodeDescription() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Manager::GetNodeLocation() const
+std::string const& Configuration::Parser::GetNodeLocation() const
 {
     assert(m_validated);
     return m_settings.details.location;
@@ -367,7 +367,7 @@ std::string const& Configuration::Manager::GetNodeLocation() const
 
 //----------------------------------------------------------------------------------------------------------------------
     
-Configuration::EndpointsSet const& Configuration::Manager::GetEndpointOptions() const
+Configuration::EndpointsSet const& Configuration::Parser::GetEndpointOptions() const
 {
     assert(m_validated);
     assert(m_settings.endpoints.size() != 0);
@@ -376,7 +376,7 @@ Configuration::EndpointsSet const& Configuration::Manager::GetEndpointOptions() 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Strategy Configuration::Manager::GetSecurityStrategy() const
+Security::Strategy Configuration::Parser::GetSecurityStrategy() const
 {
     assert(m_validated);
     assert(m_settings.security.type != Security::Strategy::Invalid);
@@ -385,7 +385,7 @@ Security::Strategy Configuration::Manager::GetSecurityStrategy() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Manager::GetCentralAuthority() const
+std::string const& Configuration::Parser::GetCentralAuthority() const
 {
     assert(m_validated);
     return m_settings.security.authority;
@@ -393,7 +393,7 @@ std::string const& Configuration::Manager::GetCentralAuthority() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Manager::ValidateSettings()
+Configuration::StatusCode Configuration::Parser::ValidateSettings()
 {
     m_validated = false;
 
@@ -420,44 +420,32 @@ Configuration::StatusCode Configuration::Manager::ValidateSettings()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
+Configuration::StatusCode Configuration::Parser::Deserialize()
 {
-    // Determine the size of the file about to be read. Do not read a file
-    // that is above the given treshold. 
-    std::error_code error;
-    auto const size = std::filesystem::file_size(m_filepath, error);
-    if (error || size == 0 || size > defaults::FileSizeLimit) { return StatusCode::FileError; }
-
-    // Attempt to open the configuration file, if it fails return noopt
-    std::ifstream file(m_filepath);
-    if (file.fail()) { return StatusCode::FileError; }
+    // Determine the size of the file about to be read. Do not read a file that is above the given treshold. 
+    {
+        std::error_code error;
+        auto const size = std::filesystem::file_size(m_filepath, error);
+        if (error || size == 0 || size > defaults::FileSizeLimit) [[unlikely]] {
+            return StatusCode::FileError;
+        }
+    }
 
     std::stringstream buffer;
-    buffer << file.rdbuf(); // Read the file into the buffer stream
-    std::string json = buffer.str(); // Put the file contents into a string to be trimmed and parsed
-    // Remove newlines and tabs from the string
-    json.erase(std::remove_if(json.begin(), json.end(), &FileUtils::IsNewlineOrTab), json.end());
+    std::ifstream reader(m_filepath);
+    if (reader.fail()) [[unlikely]] { return StatusCode::FileError; }
+    buffer << reader.rdbuf(); // Read the file into the buffer stream
+    std::string_view json = buffer.view();
 
     // Decode the JSON string into the configuration struct
-    li::json_object(
+    auto const error = li::json_object(
         s::version,
-        s::identifier = li::json_object(
-            s::type,
-            s::value),
-        s::details = li::json_object(
-            s::name,
-            s::description,
-            s::location),
-        s::endpoints = li::json_vector(
-            s::protocol,
-            s::interface,
-            s::binding,
-            s::bootstrap),
-        s::security = li::json_object(
-            s::strategy,
-            s::token,
-            s::authority)
-        ).decode(json, m_settings);
+        s::identifier = li::json_object(s::type, s::value),
+        s::details = li::json_object(s::name, s::description, s::location),
+        s::endpoints = li::json_vector(s::protocol, s::interface, s::binding, s::bootstrap),
+        s::security = li::json_object(s::strategy, s::token, s::authority))
+        .decode(json, m_settings);
+    if (error.code) { return StatusCode::DecodeError; }
 
     // Valdate the decoded settings. If the settings decoded are not valid return noopt.
     return ValidateSettings();
@@ -465,7 +453,7 @@ Configuration::StatusCode Configuration::Manager::DecodeConfigurationFile()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Manager::GetSettingsFromUser()
+void Configuration::Parser::GetSettingsFromUser()
 {
     std::cout << "Generating Brypt Node Configuration Settings." << std::endl; 
     std::cout << "Please Enter your Desired Network Options.\n" << std::endl;
@@ -481,7 +469,7 @@ void Configuration::Manager::GetSettingsFromUser()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Manager::InitializeSettings()
+bool Configuration::Parser::InitializeSettings()
 {
     if (!local::InitializeIdentifierOptions(m_settings.identifier)) { return false; }
     if (!local::InitializeEndpointOptions(m_settings.endpoints, m_spLogger)) { return false; }

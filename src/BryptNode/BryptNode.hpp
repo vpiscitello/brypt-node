@@ -27,7 +27,7 @@ namespace Await {
     class TrackingManager;
 }
 
-namespace Configuration { class Manager; }
+namespace Configuration { class Parser; }
 namespace Event { class Publisher; }
 namespace Network { class Manager; }
 namespace Peer { class Manager; }
@@ -48,7 +48,7 @@ class BryptNode final
 {
 public:
     BryptNode(
-        std::unique_ptr<Configuration::Manager> const& upConfiguration,
+        std::unique_ptr<Configuration::Parser> const& upConfiguration,
         std::shared_ptr<Event::Publisher> const& spEventPublisher,
         std::shared_ptr<Network::Manager> const& spNetworkManager,
         std::shared_ptr<Peer::Manager> const& spPeerManager,

@@ -19,7 +19,7 @@
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
-#include "Components/Configuration/Manager.hpp"
+#include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 BryptNode::BryptNode(
-    std::unique_ptr<Configuration::Manager> const& upConfiguration,
+    std::unique_ptr<Configuration::Parser> const& upConfiguration,
     std::shared_ptr<Event::Publisher> const& spEventPublisher,
     std::shared_ptr<Network::Manager> const& spNetworkManager,
     std::shared_ptr<Peer::Manager> const& spPeerManager,
@@ -50,7 +50,7 @@ BryptNode::BryptNode(
     , m_upRuntime(nullptr)
     , m_optShutdownCause()
 {
-    // An Network::Manager, Peer::Manager, and Configuration::Manager are required for the node to operate
+    // An Network::Manager, Peer::Manager, and Configuration::Parser are required for the node to operate
     assert(m_spLogger && upConfiguration && m_spNetworkManager && m_spPeerManager);
     assert(upConfiguration->IsValidated());
 

@@ -13,7 +13,7 @@ target_sources(
     # Source Files
     BootstrapService.cpp
     Configuration.cpp
-    Manager.cpp)
+    Parser.cpp)
 
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE

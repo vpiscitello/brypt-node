@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Manager.hpp
+// File: Parser.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -20,17 +20,17 @@ namespace spdlog { class logger; }
 namespace Configuration {
 //----------------------------------------------------------------------------------------------------------------------
 
-class Manager;
+class Parser;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Configuration namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Configuration::Manager final
+class Configuration::Parser final
 {
 public:
-    Manager(std::filesystem::path const& filepath, bool interactive, bool shouldBuildPath = true);
-    explicit Manager(Settings const& settings);
+    Parser(std::filesystem::path const& filepath, bool interactive, bool shouldBuildPath = true);
+    explicit Parser(Settings const& settings);
 
     [[nodiscard]] StatusCode FetchSettings();
     [[nodiscard]] StatusCode Serialize();
@@ -49,7 +49,7 @@ public:
 
 private:
     [[nodiscard]] StatusCode ValidateSettings();
-    [[nodiscard]] StatusCode DecodeConfigurationFile();
+    [[nodiscard]] StatusCode Deserialize();
 
     void GetSettingsFromUser();
     bool InitializeSettings();

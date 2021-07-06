@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Components/Configuration/Configuration.hpp"
-#include "Components/Configuration/Manager.hpp"
+#include "Components/Configuration/Parser.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -16,6 +16,8 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
+std::filesystem::path GetFilepath(std::filesystem::path const& filename);
+
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -27,7 +29,7 @@ namespace test {
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(ConfigurationManagerSuite, GenerateConfigurationFilepathTest)
+TEST(ConfigurationParserSuite, GenerateConfigurationFilepathTest)
 {
     auto const filepath = Configuration::GetDefaultConfigurationFilepath();
     EXPECT_TRUE(filepath.has_parent_path());
@@ -39,33 +41,36 @@ TEST(ConfigurationManagerSuite, GenerateConfigurationFilepathTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(ConfigurationManagerSuite, ParseGoodFileTest)
+TEST(ConfigurationParserSuite, ParseGoodFileTest)
 {
-    std::filesystem::path const filepath = "files/good/config.json";
-    Configuration::Manager manager(filepath.c_str(), false);
-    auto const status = manager.FetchSettings();
-    EXPECT_EQ(status, Configuration::StatusCode::Success);
+    Configuration::Parser parser(local::GetFilepath("good/config.json"), false);
+    EXPECT_EQ(parser.FetchSettings(), Configuration::StatusCode::Success);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(ConfigurationManagerSuite, ParseMalformedFileTest)
+TEST(ConfigurationParserSuite, ParseMalformedFileTest)
 {
-    std::filesystem::path const filepath = "files/malformed/config.json";
-    Configuration::Manager manager(filepath.c_str(), false);
-    auto const status = manager.FetchSettings();
-    EXPECT_NE(status, Configuration::StatusCode::Success);
+    Configuration::Parser parser(local::GetFilepath("malformed/config.json"), false);
+    EXPECT_NE(parser.FetchSettings(), Configuration::StatusCode::Success);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 
-TEST(ConfigurationManagerSuite, ParseMissingFileTest)
+TEST(ConfigurationParserSuite, ParseMissingFileTest)
 {
-    std::filesystem::path const filepath = "files/missing/config.json";
-    Configuration::Manager manager(filepath.c_str(), false);
-    auto const status = manager.FetchSettings();
-    EXPECT_EQ(status, Configuration::StatusCode::FileError);
+    Configuration::Parser parser(local::GetFilepath("missing/config.json"), false);
+    EXPECT_EQ(parser.FetchSettings(), Configuration::StatusCode::FileError);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
+{
+    auto const pwd = std::filesystem::current_path();
+    return (pwd.filename() == "UT_Configuration") ?  
+        pwd / "files" / filename :  pwd / "Tests/UT_Configuration/files" / filename;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
