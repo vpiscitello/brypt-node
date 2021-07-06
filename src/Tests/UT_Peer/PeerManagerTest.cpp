@@ -71,41 +71,31 @@ class local::PeerObserverStub : public IPeerObserver
 public:
     explicit PeerObserverStub(IPeerMediator* const mediator)
         : m_mediator(mediator)
-        , m_spPeer()
         , m_state(ConnectionState::Unknown)
     { m_mediator->RegisterObserver(this); }
 
     PeerObserverStub(PeerObserverStub&& other)
         : m_mediator(other.m_mediator)
-        , m_spPeer(std::move(other.m_spPeer))
         , m_state(other.m_state)
     {  m_mediator->RegisterObserver(this); }
 
     ~PeerObserverStub() { m_mediator->UnpublishObserver(this); }
 
     // IPeerObserver {
-    void HandlePeerStateChange(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        [[maybe_unused]] Network::Endpoint::Identifier identifier,
-        [[maybe_unused]] Network::Protocol protocol,
-        ConnectionState change) override
+    void OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) override
     {
-        m_state = change;
-        switch(m_state) {
-            case ConnectionState::Connected: { m_spPeer = wpPeerProxy.lock(); } break;
-            case ConnectionState::Disconnected: { m_spPeer.reset(); } break;
-            // Not currently testing other connection states for the observer
-            default: break;
-        }
+        m_state = ConnectionState::Connected;
+    }
+    void OnRemoteDisconnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) override
+    {
+        m_state = ConnectionState::Disconnected;
     }
     // } IPeerObserver
 
-    std::shared_ptr<Peer::Proxy> GetPeerProxy() const { return m_spPeer; }
     ConnectionState GetConnectionState() const { return m_state; }
 
 private:
     IPeerMediator* m_mediator;
-    std::shared_ptr<Peer::Proxy> m_spPeer;
     ConnectionState m_state;
 };
 
@@ -603,7 +593,6 @@ TEST(PeerManagerSuite, MultipleObserverTest)
     spPeerProxy->WithdrawEndpoint(tcpIdentifier, Network::Protocol::TCP);
 
     for (auto const& observer: observers) {
-        EXPECT_FALSE(observer.GetPeerProxy());
         EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
     }
 }

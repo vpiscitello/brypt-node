@@ -12,7 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     ConfigurationTest.cpp
-    PeerPersistorTest.cpp
+    BootstrapServiceTest.cpp
     UT_Configuration.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
