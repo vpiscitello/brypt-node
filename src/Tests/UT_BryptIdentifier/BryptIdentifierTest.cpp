@@ -25,14 +25,14 @@ namespace test {
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptIdentifierSuite, BryptIdentifierGenerateTest)
+TEST(BryptIdentifierSuite, GenerateTest)
 {
     for (std::uint32_t idx = 0; idx < 10000; ++idx) {
         auto const network = Node::GenerateIdentifier();
-        auto const optInternalRepresentation = Node::ConvertToInternalRepresentation(network);
+        auto const optInternalRepresentation = Node::ToInternalIdentifier(network);
         ASSERT_TRUE(optInternalRepresentation);
 
-        auto const optNetworkRepresentation = Node::ConvertToNetworkRepresentation(*optInternalRepresentation);
+        auto const optNetworkRepresentation = Node::ToExternalIdentifier(*optInternalRepresentation);
         ASSERT_TRUE(optNetworkRepresentation);
         
         EXPECT_EQ(network, *optNetworkRepresentation);
@@ -42,16 +42,16 @@ TEST(BryptIdentifierSuite, BryptIdentifierGenerateTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptIdentifierSuite, ContainerFromInternalConstructorTest)
+TEST(BryptIdentifierSuite, FromInternalIdentifierTest)
 {
     for (std::uint32_t idx = 0; idx < 10000; ++idx) {
         auto const network = Node::GenerateIdentifier();
-        auto const optInternal = Node::ConvertToInternalRepresentation(network);
+        auto const optInternal = Node::ToInternalIdentifier(network);
         ASSERT_TRUE(optInternal);
 
         Node::Identifier identifier(*optInternal);
-        auto const checkInternal = identifier.GetInternalValue();
-        auto const checkNetwork = identifier.GetNetworkString();
+        auto const& checkInternal = static_cast<Node::Internal::Identifier const&>(identifier);
+        auto const& checkNetwork = static_cast<Node::External::Identifier const&>(identifier);
         EXPECT_EQ(*optInternal, checkInternal);
         EXPECT_EQ(network, checkNetwork);
         EXPECT_TRUE(identifier.IsValid());
@@ -60,16 +60,16 @@ TEST(BryptIdentifierSuite, ContainerFromInternalConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptIdentifierSuite, ContainerFromNetworkConstructorTest)
+TEST(BryptIdentifierSuite, FromExternalIdentifierTest)
 {
     for (std::uint32_t idx = 0; idx < 10000; ++idx) {
         auto const network = Node::GenerateIdentifier();
-        auto const optInternal = Node::ConvertToInternalRepresentation(network);
+        auto const optInternal = Node::ToInternalIdentifier(network);
         ASSERT_TRUE(optInternal);
 
         Node::Identifier identifier(network);
-        auto const checkInternal = identifier.GetInternalValue();
-        auto const checkNetwork = identifier.GetNetworkString();
+        auto const& checkInternal = static_cast<Node::Internal::Identifier const&>(identifier);
+        auto const& checkNetwork = static_cast<Node::External::Identifier const&>(identifier);
         EXPECT_EQ(*optInternal, checkInternal);
         EXPECT_EQ(network, checkNetwork);
         EXPECT_TRUE(identifier.IsValid());

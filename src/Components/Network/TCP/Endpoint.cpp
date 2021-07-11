@@ -120,14 +120,14 @@ Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher c
     , m_handlers()
     , m_tracker()
     , m_scheduler()
-    , m_spLogger()
+    , m_logger()
 {
     switch (m_operation) {
-        case Operation::Client: m_spLogger = spdlog::get(LogUtils::Name::TcpClient.data()); break;
-        case Operation::Server: m_spLogger = spdlog::get(LogUtils::Name::TcpServer.data()); break;
+        case Operation::Client: m_logger = spdlog::get(LogUtils::Name::TcpClient.data()); break;
+        case Operation::Server: m_logger = spdlog::get(LogUtils::Name::TcpServer.data()); break;
         default: assert(false); break;
     }
-    assert(m_spLogger);
+    assert(m_logger);
 
     m_handlers = {
         { 
@@ -152,7 +152,7 @@ Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher c
 
 Network::TCP::Endpoint::~Endpoint()
 {
-    if (!Shutdown()) [[unlikely]] { m_spLogger->error("An unexpected error occured during endpoint shutdown!"); }
+    if (!Shutdown()) [[unlikely]] { m_logger->error("An unexpected error occured during endpoint shutdown!"); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -203,7 +203,7 @@ bool Network::TCP::Endpoint::Shutdown()
     bool const operating = m_upAgent || !m_context.stopped() || !m_tracker.IsEmpty();
     if (!operating) { return true; }
 
-    m_spLogger->info("Shutting down endpoint.");
+    m_logger->info("Shutting down endpoint.");
     
     // Shutdown the active agent if one has been created. 
     if (m_upAgent) { m_upAgent.reset(); }
@@ -364,7 +364,7 @@ void Network::TCP::Endpoint::OnBindEvent(BindEvent const& event)
     auto const pServerAgent = static_cast<Server*>(m_upAgent.get());
     bool success = pServerAgent->Bind(event.GetBinding());
     if (!success) {
-        m_spLogger->error("A listener on {} could not be established!", event.GetBinding());
+        m_logger->error("A listener on {} could not be established!", event.GetBinding());
         IEndpoint::OnBindFailed(event.GetBinding());
     }
 }
@@ -391,7 +391,7 @@ void Network::TCP::Endpoint::OnDispatchEvent(DispatchEvent& event)
 
 Network::TCP::SharedSession Network::TCP::Endpoint::CreateSession()
 {
-    auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_spLogger);
+    auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_logger);
 
     spSession->Subscribe<Session::Event::Receive>(
         [this] (auto const& spSession, auto const& source, auto message) -> bool
@@ -576,7 +576,7 @@ void Network::TCP::Endpoint::Server::Setup()
         {
             constexpr std::string_view ErrorMessage = "An unexpected error caused the listener on {} to shutdown";
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
-                m_endpoint.m_spLogger->error(ErrorMessage, m_endpoint.m_binding);
+                m_endpoint.m_logger->error(ErrorMessage, m_endpoint.m_binding);
                 m_endpoint.OnUnexpectedError();
                 m_worker.request_stop();
             }
@@ -599,7 +599,7 @@ bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
     // Otherwise, the coroutine could resume while we are updating it's resources. 
     assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
     assert(m_endpoint.m_binding == binding); // Currently, we greedily set the binding in the scheduler. 
-    m_endpoint.m_spLogger->info("Opening endpoint on {}.", binding);
+    m_endpoint.m_logger->info("Opening endpoint on {}.", binding);
 
     if (!m_listener.Bind(binding)) { return false; }
     m_signal.notify(); // Wake the waiting listener after binding. 
@@ -693,7 +693,7 @@ Network::TCP::CompletionOrigin Network::TCP::Endpoint::Server::Listener::OnError
 {
     // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
     if (IsInducedError(m_error)) { return CompletionOrigin::Self; }
-    m_server.m_endpoint.m_spLogger->error(message, std::forward<Arguments>(arguments)...);
+    m_server.m_endpoint.m_logger->error(message, std::forward<Arguments>(arguments)...);
     return CompletionOrigin::Error;
 }
 
@@ -743,14 +743,14 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
     constexpr auto TicketGenerator = AddressHasher<RemoteAddress>{};
     assert(m_endpoint.m_pPeerMediator);
 
-    auto const& spLogger = m_endpoint.m_spLogger;
+    auto const& logger = m_endpoint.m_logger;
     {
         using enum ConnectStatus;
         switch (m_endpoint.IsConflictingAddress(address)) {
             case Success: break; // If the address doesn't conflict with any existing address we can proceed. 
             // If an error has occured, log a debugging statement and early return.
-            case DuplicateError: { spLogger->debug(DuplicateWarning, address); } return;
-            case ReflectionError: { spLogger->debug(ReflectiveWarning, address); } return;
+            case DuplicateError: { logger->debug(DuplicateWarning, address); } return;
+            case ReflectionError: { logger->debug(ReflectiveWarning, address); } return;
             case RetryError: assert(false); break; // We should be given Retry error code from this check. 
         }
     }
@@ -759,7 +759,7 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
     // address. If an element is not emplaced, implying this is a duplicate connection attempt and should return early. 
     auto const [itr, emplaced] = m_delegates.try_emplace(
         TicketGenerator(address), *this, std::move(address), spIdentifier);
-    if (!emplaced) { spLogger->debug(DuplicateWarning, address); return; }
+    if (!emplaced) { logger->debug(DuplicateWarning, address); return; }
     auto& [ticket, delegate] = *itr;  
 
     // Launch the resolver as a coroutine. Instead of capturing the address by value we capture the ticket number for
@@ -772,7 +772,7 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
                 auto const itr = m_delegates.find(ticket); assert(itr != m_delegates.end());
                 auto const& address = itr->second.GetAddress();
-                m_endpoint.m_spLogger->warn(ResolverError, address);
+                m_endpoint.m_logger->warn(ResolverError, address);
                 m_endpoint.OnConnectFailed(address);
             }
             m_delegates.erase(ticket); // The lifetime of the resolving coroutine is now complete. 
@@ -817,7 +817,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
     m_spSession = m_client.m_endpoint.CreateSession();
     assert(m_spSession);
 
-    m_client.m_endpoint.m_spLogger->info("Attempting a connection with {}.", m_address);
+    m_client.m_endpoint.m_logger->info("Attempting a connection with {}.", m_address);
 
     // Start attempting the connection to the peer. If the connection fails for any reason, the connection processor 
     // will wait a period of time until retrying until the number of retries exceeds a predefined limit. 
@@ -854,7 +854,7 @@ Network::TCP::Endpoint::Client::Delegate::ResolveResult Network::TCP::Endpoint::
         if (IsInducedError(error)) {
             m_status = Status::Canceled;
         } else {
-            m_client.m_endpoint.m_spLogger->warn(ResolveWarning, m_address);
+            m_client.m_endpoint.m_logger->warn(ResolveWarning, m_address);
             m_status = Status::UnexpectedError;
         }
         co_return false;
@@ -888,7 +888,7 @@ Network::TCP::Endpoint::Client::Delegate::ConnectResult Network::TCP::Endpoint::
     if (IsInducedError(error)) { m_status = Status::Canceled; co_return; }
 
     // If no other situation is applicable, handle the error by "scheduling" an attept in the future.
-    m_client.m_endpoint.m_spLogger->warn(RetryWarning, m_address, Network::Endpoint::RetryTimeout.count());
+    m_client.m_endpoint.m_logger->warn(RetryWarning, m_address, Network::Endpoint::RetryTimeout.count());
         
     boost::system::error_code timerError;
     boost::asio::steady_timer timer(
@@ -904,13 +904,13 @@ Network::TCP::Endpoint::Client::Delegate::ConnectResult Network::TCP::Endpoint::
 Network::TCP::CompletionOrigin Network::TCP::Endpoint::Client::Delegate::GetCompletionOrigin() const
 {
     using enum CompletionOrigin;
-    auto const& spLogger = m_client.m_endpoint.m_spLogger;
+    auto const& logger = m_client.m_endpoint.m_logger;
     switch (m_status) {
         // Completions caused intentionally, meaning an non-error state. 
         case Status::Success: 
         case Status::Canceled: return Self;
         // Completions caused by the peer (e.g. an offline peer).
-        case Status::Refused: { spLogger->warn("Connection refused by {}", m_address); } return Peer;
+        case Status::Refused: { logger->warn("Connection refused by {}", m_address); } return Peer;
         // Completions caused by an error state. 
         case Status::UnexpectedError: return Error;
         default: assert(false); return Error;

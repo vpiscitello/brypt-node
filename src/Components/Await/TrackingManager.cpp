@@ -13,9 +13,9 @@
 
 Await::TrackingManager::TrackingManager()
     : m_awaiting()
-    , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_logger(spdlog::get(LogUtils::Name::Core.data()))
 {
-    assert(m_spLogger);
+    assert(m_logger);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     Node::SharedIdentifier const& spIdentifier)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
-    m_spLogger->debug(
+    m_logger->debug(
         "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
         key, message.GetSourceIdentifier());
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, spIdentifier));
@@ -51,7 +51,7 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     std::set<Node::SharedIdentifier> const& identifiers)
 {
     Await::TrackerKey const key = KeyGenerator(message.GetPack());
-    m_spLogger->debug(
+    m_logger->debug(
         "Spawning tracker to fulfill awaiting request from {}. [request={:x}]",
         message.GetSourceIdentifier(), key);
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, identifiers));
@@ -74,7 +74,7 @@ bool Await::TrackingManager::PushResponse(ApplicationMessage const& message)
     // Try to find the awaiting object in the awaiting container
     auto const itr = m_awaiting.find(*optKey);
     if(itr == m_awaiting.end()) {
-        m_spLogger->warn(
+        m_logger->warn(
             "Unable to find an awaiting request for id={:x}."
             "The request may have exist or has expired.", *optKey);
         return false;
@@ -89,10 +89,10 @@ bool Await::TrackingManager::PushResponse(ApplicationMessage const& message)
         // The tracker will notify us if the response update was successful or if on success the
         // awaiting request became fulfilled. 
         case UpdateStatus::Success: {
-            m_spLogger->debug("Received response for awaiting request. [request={:x}].", key);
+            m_logger->debug("Received response for awaiting request. [request={:x}].", key);
         } break;
         case UpdateStatus::Fulfilled: {
-            m_spLogger->debug(
+            m_logger->debug(
                 "Await request has been fulfilled, waiting to transmit. [request={:x}]", key);
         } break;
         // Response tracker update error handling.
@@ -100,13 +100,13 @@ bool Await::TrackingManager::PushResponse(ApplicationMessage const& message)
         // allowable period. This may only occur while the response is waiting for transmission
         // and we able to determine the associated request for the message. 
         case UpdateStatus::Expired: {
-            m_spLogger->warn(
+            m_logger->warn(
                 "Expired await request for {} received a late response from {}. [request={:x}]",
                 tracker.GetSource(),
                 message.GetSourceIdentifier(), key);
         } return false;
         case UpdateStatus::Unexpected: {
-            m_spLogger->warn(
+            m_logger->warn(
                 "Await request for {} received an unexpected response from {}. [request={:x}]",
                 tracker.GetSource(), 
                 message.GetSourceIdentifier(), key);
@@ -129,11 +129,11 @@ void Await::TrackingManager::ProcessFulfilledRequests()
         if (tracker.CheckResponseStatus() == ResponseStatus::Fulfilled) {
             bool const success = tracker.SendFulfilledResponse();
             if (success) {
-                m_spLogger->debug(  
+                m_logger->debug(  
                     "Await request has been transmitted to {}. [request={:x}]",
                     tracker.GetSource(), key);
             } else {
-                m_spLogger->warn(  
+                m_logger->warn(  
                     "Unable to fulfill request from {}. [request={:x}]",
                     key, tracker.GetSource());
             }

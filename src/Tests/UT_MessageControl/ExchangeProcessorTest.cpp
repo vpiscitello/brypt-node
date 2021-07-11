@@ -67,7 +67,7 @@ public:
     bool CalledOnce() const;
 
 private:
-    mutable std::vector<Node::Internal::Identifier::Type> m_callers;
+    mutable std::vector<Node::Internal::Identifier> m_callers;
 
 };
 
@@ -210,22 +210,17 @@ local::ConnectProtocolStub::ConnectProtocolStub()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::SendRequest(
-    Node::SharedIdentifier const& spSourceIdentifier,
-    [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-    [[maybe_unused]] MessageContext const& context) const
+    Node::SharedIdentifier const& spSourceIdentifier, std::shared_ptr<Peer::Proxy> const&, MessageContext const&) const
 {
-    m_callers.emplace_back(spSourceIdentifier->GetInternalValue());
+    m_callers.emplace_back(*spSourceIdentifier);
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool local::ConnectProtocolStub::CalledBy(
-    Node::SharedIdentifier const& spNodeIdentifier) const
+bool local::ConnectProtocolStub::CalledBy(Node::SharedIdentifier const& spIdentifier) const
 {
-    auto const itr = std::find(
-        m_callers.begin(), m_callers.end(), spNodeIdentifier->GetInternalValue());
-
+    auto const itr = std::find(m_callers.begin(), m_callers.end(), *spIdentifier);
     return (itr != m_callers.end());
 }
 

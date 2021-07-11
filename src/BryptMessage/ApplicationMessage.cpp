@@ -296,7 +296,7 @@ ApplicationBuilder& ApplicationBuilder::SetSource(Node::Identifier const& identi
 //----------------------------------------------------------------------------------------------------------------------
 
 ApplicationBuilder& ApplicationBuilder::SetSource(
-    Node::Internal::Identifier::Type const& identifier)
+    Node::Internal::Identifier const& identifier)
 {
 	m_message.m_header.m_source = Node::Identifier(identifier);
 	return *this;
@@ -338,7 +338,7 @@ ApplicationBuilder& ApplicationBuilder::SetDestination(Node::Identifier const& i
 //----------------------------------------------------------------------------------------------------------------------
 
 ApplicationBuilder& ApplicationBuilder::SetDestination(
-    Node::Internal::Identifier::Type const& identifier)
+    Node::Internal::Identifier const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;

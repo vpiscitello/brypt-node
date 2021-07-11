@@ -143,7 +143,7 @@ bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMess
 bool Handler::Information::FloodHandler(
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
-    m_spLogger->debug(
+    m_logger->debug(
         "Building response for the Information request from {}.", message.GetSourceIdentifier());
 
     IHandler::SendClusterNotice(

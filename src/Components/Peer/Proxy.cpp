@@ -55,10 +55,10 @@ Node::SharedIdentifier Peer::Proxy::GetIdentifier() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Internal::Identifier::Type Peer::Proxy::GetInternalIdentifier() const
+Node::Internal::Identifier Peer::Proxy::GetInternalIdentifier() const
 {
     assert(m_spIdentifier);
-    return m_spIdentifier->GetInternalValue();
+    return *m_spIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

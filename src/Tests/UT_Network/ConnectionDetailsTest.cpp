@@ -62,9 +62,7 @@ TEST(ConnectionDetailsSuite, IdentifierTranslateTest)
     auto const spSecondIdentifier = tracker.Translate(connection);
     auto const secondConnectionIdentifier = tracker.Translate(*spNodeIdentifier);
     EXPECT_EQ(spNodeIdentifier, spSecondIdentifier);
-    EXPECT_EQ(
-        spNodeIdentifier->GetInternalValue(),
-        spSecondIdentifier->GetInternalValue());
+    EXPECT_EQ(*spNodeIdentifier, *spSecondIdentifier);
     EXPECT_EQ(connection, secondConnectionIdentifier);
 }
 

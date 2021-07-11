@@ -57,7 +57,7 @@ private:
     TrackerKey KeyGenerator(std::string_view pack) const;
 
     ResponseTrackingMap m_awaiting;
-    std::shared_ptr<spdlog::logger> m_spLogger;
+    std::shared_ptr<spdlog::logger> m_logger;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

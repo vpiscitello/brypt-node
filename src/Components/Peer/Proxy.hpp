@@ -60,7 +60,7 @@ public:
     ~Proxy();
 
     [[nodiscard]] Node::SharedIdentifier GetIdentifier() const;
-    [[nodiscard]] Node::Internal::Identifier::Type GetInternalIdentifier() const;
+    [[nodiscard]] Node::Internal::Identifier GetInternalIdentifier() const;
 
     // Statistic Methods {
     [[nodiscard]] std::uint32_t GetSentCount() const;

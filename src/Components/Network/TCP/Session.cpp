@@ -47,8 +47,8 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Session::Session(boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& spLogger)
-    : m_spLogger(spLogger)
+Network::TCP::Session::Session(boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& logger)
+    : m_logger(logger)
     , m_active(false)
     , m_socket(context)
     , m_address()
@@ -109,7 +109,7 @@ void Network::TCP::Session::Start()
     boost::asio::co_spawn(
         m_socket.get_executor(),
         m_receiver(), // Note: It is assumed that the instance of the session is kept alive externally. 
-        [self(shared_from_this()), logger(m_spLogger)] (std::exception_ptr exception, CompletionOrigin origin)
+        [self(shared_from_this()), logger(m_logger)] (std::exception_ptr exception, CompletionOrigin origin)
         {
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) { 
                 logger->error("An unexpected error caused the receiver for {} to shutdown!", self->GetAddress());
@@ -120,14 +120,14 @@ void Network::TCP::Session::Start()
     boost::asio::co_spawn(
         m_socket.get_executor(),
         m_dispatcher(), // Note: It is assumed that the instance of the session is kept alive externally. 
-        [self(shared_from_this()), logger(m_spLogger)] (std::exception_ptr exception, CompletionOrigin origin)
+        [self(shared_from_this()), logger(m_logger)] (std::exception_ptr exception, CompletionOrigin origin)
         {
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) { 
                 logger->error("An unexpected error caused the receiver for {} to shutdown!", self->GetAddress());
             }
         });
 
-    m_spLogger->info("Session started with {}.", m_address);
+    m_logger->info("Session started with {}.", m_address);
     m_active = true;
 }
 
@@ -135,7 +135,7 @@ void Network::TCP::Session::Start()
 
 void Network::TCP::Session::Stop()
 {
-    if (m_active) { m_spLogger->info("Shutting down session with {}.", m_address); }
+    if (m_active) { m_logger->info("Shutting down session with {}.", m_address); }
     m_socket.close();
     m_dispatcher.m_signal.cancel();
     m_active = false;
@@ -191,7 +191,7 @@ Network::TCP::CompletionOrigin Network::TCP::Session::OnSocketError(boost::syste
 void Network::TCP::Session::OnSocketError(spdlog::level::level_enum level, std::string_view error, StopCause cause)
 {
     assert(error.size() != 0);
-    m_spLogger->log(level, "{} on {}.", error, m_address);
+    m_logger->log(level, "{} on {}.", error, m_address);
     m_onStopped(shared_from_this(), cause); // Notify the endpoint.
     Stop(); // Stop the session processors. If the socket has already been stopped this is a no-op. 
 }
@@ -277,8 +277,8 @@ Network::TCP::Session::Receiver::ReceiveResult Network::TCP::Session::Receiver::
     // If the amount of bytes received does not match the anticipated message size something went wrong.
     if (m_error || received != expected) [[unlikely]] { co_return std::nullopt; }
 
-    m_instance.m_spLogger->debug("Received {} bytes from {}.", m_buffer.size(), m_instance.m_address);
-    m_instance.m_spLogger->trace("[{}] Received: {:p}...", m_instance.m_address,
+    m_instance.m_logger->debug("Received {} bytes from {}.", m_buffer.size(), m_instance.m_address);
+    m_instance.m_logger->trace("[{}] Received: {:p}...", m_instance.m_address,
         spdlog::to_hex(std::string_view(reinterpret_cast<char const*>(
             m_buffer.data()), std::min(m_buffer.size(), MessageHeader::MaximumEncodedSize()))));
 
@@ -339,7 +339,7 @@ Network::TCP::Session::Dispatcher::Dispatcher(SessionInstance instance)
 Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher::operator()()
 {
     auto const& active = m_instance.m_active;
-    auto const& spLogger = m_instance.m_spLogger;
+    auto const& logger = m_instance.m_logger;
     auto& socket = m_instance.m_socket;
     while (active) {
         // If there are no messages scheduled for sending, wait for a signal to continue dispatching. 
@@ -352,8 +352,8 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher::operator()()
                 boost::asio::buffer(message.get()), boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
             if (m_error || sent != message.size()) { co_return m_instance.OnSocketError(m_error); }
 
-            spLogger->debug("Dispatched {} bytes to {}.", message.size(), m_instance.m_address);
-            spLogger->trace("[{}] Dispatched: {:p}...", m_instance.m_address, spdlog::to_hex(
+            logger->debug("Dispatched {} bytes to {}.", message.size(), m_instance.m_address);
+            logger->trace("[{}] Dispatched: {:p}...", m_instance.m_address, spdlog::to_hex(
                 std::string_view(message.get().data(), std::min(message.size(), MessageHeader::MaximumEncodedSize()))));
         }
     }

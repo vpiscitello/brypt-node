@@ -51,8 +51,7 @@ void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 // maxmimum value representable by that type. If no type is provided, it assumed the source 
 // buffer is of a fixed size buffer and thus no size field will be appended. 
 //----------------------------------------------------------------------------------------------------------------------
-template<typename SizeField = void>
-	requires std::unsigned_integral<SizeField> || std::is_void_v<SizeField>
+template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField>
 inline void PackChunk(
 	std::vector<std::uint8_t> const& source, std::vector<std::uint8_t>& destination)
 {
@@ -75,8 +74,7 @@ inline void PackChunk(
 // maxmimum value representable by that type. If no type is provided, it assumed the source 
 // buffer is of a fixed size buffer and thus no size field will be appended. 
 //----------------------------------------------------------------------------------------------------------------------
-template<typename SizeField = void>
-	requires std::unsigned_integral<SizeField> || std::is_void_v<SizeField>
+template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField> 
 inline void PackChunk(
 	std::string_view source, std::vector<std::uint8_t>& destination)
 {

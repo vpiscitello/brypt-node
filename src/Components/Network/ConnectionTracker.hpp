@@ -50,14 +50,14 @@ public:
     OptionalDetails& GetUpdatableDetails() { return m_optDetails; }
     HandleType GetHandle() const { return m_connection; }
 
-    Node::Internal::Identifier::Type GetPeerIdentifier() const
+    Node::Internal::Identifier GetPeerIdentifier() const
     {
-        if (!m_optDetails) { return Node::Internal::Identifier::Invalid; }
+        if (!m_optDetails) { return Node::Internal::InvalidIdentifier; }
 
         auto const spNodeIdentifier = m_optDetails->GetNodeIdentifier();
-        if (!spNodeIdentifier) { return Node::Internal::Identifier::Invalid; }
+        if (!spNodeIdentifier) { return Node::Internal::InvalidIdentifier; }
 
-        return spNodeIdentifier->GetInternalValue();
+        return *spNodeIdentifier;
     }
     
     std::string GetUri() const
@@ -463,7 +463,7 @@ public:
     {
         std::scoped_lock lock(m_mutex);
         auto const& index = m_connections.template get<IdentifierIndex>();
-        if (auto const itr = index.find(identifier.GetInternalValue()); itr != index.end()) { return itr->GetHandle(); }
+        if (auto const itr = index.find(identifier); itr != index.end()) { return itr->GetHandle(); }
         return {};
     }
 
@@ -520,7 +520,7 @@ private:
                 boost::multi_index::tag<IdentifierIndex>,
                 boost::multi_index::const_mem_fun<
                     ConnectionEntryType,
-                    Node::Internal::Identifier::Type,
+                    Node::Internal::Identifier,
                     &ConnectionEntryType::GetPeerIdentifier>>,
             boost::multi_index::hashed_non_unique<
                 boost::multi_index::tag<UriIndex>,

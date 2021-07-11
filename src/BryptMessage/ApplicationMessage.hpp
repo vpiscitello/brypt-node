@@ -90,12 +90,12 @@ public:
 
 	ApplicationBuilder& SetMessageContext(MessageContext const& context);
 	ApplicationBuilder& SetSource(Node::Identifier const& identifier);
-	ApplicationBuilder& SetSource(Node::Internal::Identifier::Type const& identifier);
+	ApplicationBuilder& SetSource(Node::Internal::Identifier const& identifier);
 	ApplicationBuilder& SetSource(std::string_view identifier);
 	ApplicationBuilder& MakeClusterMessage();
 	ApplicationBuilder& MakeNetworkMessage();
 	ApplicationBuilder& SetDestination(Node::Identifier const& identifier);
-	ApplicationBuilder& SetDestination(Node::Internal::Identifier::Type const& identifier);
+	ApplicationBuilder& SetDestination(Node::Internal::Identifier const& identifier);
 	ApplicationBuilder& SetDestination(std::string_view identifier);
 	ApplicationBuilder& SetCommand(Handler::Type type, std::uint8_t phase);
 	ApplicationBuilder& SetPayload(std::string_view buffer);

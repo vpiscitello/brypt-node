@@ -29,7 +29,7 @@ bool HandleDiscoveryRequest(
     BryptNode& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& spLogger);
+    std::shared_ptr<spdlog::logger> const& logger);
 
 std::string BuildDiscoveryResponse(BryptNode& instance);
 
@@ -37,7 +37,7 @@ bool HandleDiscoveryResponse(
     BryptNode& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& spLogger);
+    std::shared_ptr<spdlog::logger> const& logger);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -135,7 +135,7 @@ bool Handler::Connect::DiscoveryHandler(
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
     bool const status = local::HandleDiscoveryRequest(
-        m_instance, wpPeerProxy, message, m_spLogger);
+        m_instance, wpPeerProxy, message, m_logger);
     if (!status) { return status; }
 
     auto const response = local::BuildDiscoveryResponse(m_instance);
@@ -153,7 +153,7 @@ bool Handler::Connect::DiscoveryHandler(
 bool Handler::Connect::JoinHandler(
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
 {
-    return local::HandleDiscoveryResponse(m_instance, wpPeerProxy, message, m_spLogger);
+    return local::HandleDiscoveryResponse(m_instance, wpPeerProxy, message, m_logger);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -162,7 +162,7 @@ bool local::HandleDiscoveryRequest(
     BryptNode& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& spLogger)
+    std::shared_ptr<spdlog::logger> const& logger)
 {
     Node::SharedIdentifier spPeerIdentifier;
     if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
@@ -179,7 +179,7 @@ bool local::HandleDiscoveryRequest(
                 s::protocol = std::string(), s::entry = std::string()) });
 
     if (auto error = li::json_decode(dataview, request); error.bad()) { 
-        spLogger->warn("Unable to decode discovery request from: {}", spPeerIdentifier);
+        logger->warn("Unable to decode discovery request from: {}", spPeerIdentifier);
         return false;
     }
 
@@ -192,7 +192,7 @@ bool local::HandleDiscoveryRequest(
             // Parse the technoloy type from the human readible name.
             auto const protocol = Network::ParseProtocol(entrypoint.protocol);
             Network::RemoteAddress address(protocol, entrypoint.entry, true);
-            if (!address.IsValid()) { spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier); }
+            if (!address.IsValid()) { logger->warn("Invalid boostrap received from: {}", spPeerIdentifier); }
 
             // Notify the BootstrapService of the entry for the protocol. By immediately 
             // storing the  entry it may be used in bootstrapping and distribution of entries
@@ -267,7 +267,7 @@ bool local::HandleDiscoveryResponse(
     BryptNode& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& spLogger)
+    std::shared_ptr<spdlog::logger> const& logger)
 {
     Node::SharedIdentifier spPeerIdentifier;
     if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
@@ -286,7 +286,7 @@ bool local::HandleDiscoveryResponse(
                 s::entries = std::vector<std::string>()) });
 
     if (auto error = li::json_decode(dataview, response); error.bad()) { 
-        spLogger->warn("Unable to decode discovery response from: {}", spPeerIdentifier);
+        logger->warn("Unable to decode discovery response from: {}", spPeerIdentifier);
         return false;
     }
 
@@ -305,7 +305,7 @@ bool local::HandleDiscoveryResponse(
                     if (address.IsValid()) {
                         spEndpoint->ScheduleConnect(std::move(address));
                     } else {
-                        spLogger->warn("Invalid boostrap received from: {}", spPeerIdentifier);
+                        logger->warn("Invalid boostrap received from: {}", spPeerIdentifier);
                     }
                 }
             }

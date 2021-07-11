@@ -1,6 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/IdentifierDefinitions.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/NetworkMessage.hpp"
 #include "BryptMessage/MessageUtils.hpp"
@@ -370,7 +369,7 @@ TEST(MessageHeaderSuite, PeekSourceNullBytesTest)
 
 TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 {
-    Message::Buffer const buffer(128, Node::Network::Identifier::MinimumLength);
+    Message::Buffer const buffer(128, Node::Identifier::MinimumSize);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
@@ -379,7 +378,7 @@ TEST(MessageHeaderSuite, PeekSourceInvalidIdentifierTest)
 
 TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 {
-    Message::Buffer const buffer(12, Node::Network::Identifier::MinimumLength);
+    Message::Buffer const buffer(12, Node::Identifier::MinimumSize);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
@@ -388,7 +387,7 @@ TEST(MessageHeaderSuite, PeekSourceSmallBufferTest)
 
 TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 {
-    Message::Buffer const buffer(128, Node::Network::Identifier::MaximumLength + 1);
+    Message::Buffer const buffer(128, Node::Identifier::MaximumSize + 1);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }
@@ -397,7 +396,7 @@ TEST(MessageHeaderSuite, PeekSourceSmallIdentifierSizeTest)
 
 TEST(MessageHeaderSuite, PeekSourceLargeIdentifierSizeTest)
 {
-    Message::Buffer const buffer(128, Node::Network::Identifier::MinimumLength - 1);
+    Message::Buffer const buffer(128, Node::Identifier::MinimumSize - 1);
     auto const optSource = Message::PeekSource(buffer);
     EXPECT_FALSE(optSource);
 }

@@ -28,11 +28,11 @@ struct Hasher;
 
 std::string GenerateIdentifier();
 
-std::optional<Internal::Identifier::Type> ConvertToInternalRepresentation(std::vector<std::uint8_t> const& buffer);
-std::optional<Internal::Identifier::Type> ConvertToInternalRepresentation(std::string_view identifier);
+std::optional<Internal::Identifier> ToInternalIdentifier(std::vector<std::uint8_t> const& buffer);
+std::optional<Internal::Identifier> ToInternalIdentifier(std::string_view identifier);
 
-std::optional<Network::Identifier::Type> ConvertToNetworkRepresentation(Internal::Identifier::Type const& identifier);
-std::optional<Network::Identifier::Type> ConvertToNetworkRepresentation(std::vector<std::uint8_t> const& identifier);
+std::optional<External::Identifier> ToExternalIdentifier(Internal::Identifier const& identifier);
+std::optional<External::Identifier> ToExternalIdentifier(std::vector<std::uint8_t> const& identifier);
 
 std::ostream& operator<<(std::ostream& stream, Node::Identifier const& identifier);
 std::stringstream& operator<<(std::stringstream& stream, Node::Identifier const& identifier);
@@ -45,8 +45,18 @@ std::stringstream& operator<<(std::stringstream& stream, Node::SharedIdentifier 
 class Node::Identifier 
 {
 public:
+    static constexpr std::uint8_t const PayloadBytes = 16;
+    static constexpr std::uint8_t const ChecksumBytes = 4;
+
+    static constexpr std::string_view Prefix = "bry";
+    static constexpr std::string_view Version = "0";
+    static constexpr std::string_view MetadataSeperator = ":";
+    static constexpr std::string_view Metadata = "bry0:";
+    static constexpr std::uint32_t MinimumSize = 31;
+    static constexpr std::uint32_t MaximumSize = 33;
+
     Identifier();
-    explicit Identifier(Internal::Identifier::Type const& identifier);
+    explicit Identifier(Internal::Identifier const& identifier);
     explicit Identifier(std::string_view identifier);
     explicit Identifier(std::vector<std::uint8_t> const& buffer, BufferContentType type);
 
@@ -63,17 +73,17 @@ public:
     friend std::stringstream& operator<<(std::stringstream& stream, Identifier const& identifier);
     friend std::stringstream& operator<<(std::stringstream& stream, SharedIdentifier const& spIdentifier);
 
-    Internal::Identifier::Type GetInternalValue() const;
-    Network::Identifier::Type const& GetNetworkString() const;
-    std::size_t NetworkStringSize() const;
+    operator Internal::Identifier const&() const;
+    operator External::Identifier const&() const;
+    std::size_t Size() const;
     bool IsValid() const;
 
 private:
-    void SetupFromInternalRepresentation(Internal::Identifier::Type const& identifier);
-    void SetupFromNetworkRepresentation(std::string_view identifier);
+    void FromInternalIdentifier(Internal::Identifier const& identifier);
+    void FromExternalIdentifier(std::string_view identifier);
 
-    Internal::Identifier::Type m_internal;
-    Network::Identifier::Type m_network;
+    Internal::Identifier m_internal;
+    External::Identifier m_network;
     bool m_valid;
 };
 
@@ -82,7 +92,7 @@ private:
 struct Node::Hasher  {
     std::size_t operator() (Identifier const& identifier) const
     {
-        return std::hash<Internal::Identifier::Type>()(identifier.GetInternalValue());
+        return std::hash<Internal::Identifier>()(identifier);
     }
 };
 
@@ -101,7 +111,7 @@ struct fmt::formatter<Node::Identifier>
     template <typename FormatContext>
     auto format(Node::Identifier const& identifier, FormatContext& ctx)
     {
-        return format_to(ctx.out(), "{}", identifier.GetNetworkString());
+        return format_to(ctx.out(), "{}", static_cast<Node::External::Identifier const&>(identifier));
     }
 };
 
@@ -123,7 +133,7 @@ struct fmt::formatter<Node::SharedIdentifier>
         if (!spIdentifier) {
             return format_to(ctx.out(), "[Unknown Identifier]");
         }
-        return format_to(ctx.out(), "{}", spIdentifier->GetNetworkString());
+        return format_to(ctx.out(), "{}", static_cast<Node::External::Identifier const&>(*spIdentifier));
     }
 };
 

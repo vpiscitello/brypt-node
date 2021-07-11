@@ -76,10 +76,10 @@ public:
 
 	NetworkBuilder& SetMessageContext(MessageContext const& context);
 	NetworkBuilder& SetSource(Node::Identifier const& identifier);
-	NetworkBuilder& SetSource(Node::Internal::Identifier::Type const& identifier);
+	NetworkBuilder& SetSource(Node::Internal::Identifier const& identifier);
 	NetworkBuilder& SetSource(std::string_view identifier);
 	NetworkBuilder& SetDestination(Node::Identifier const& identifier);
-	NetworkBuilder& SetDestination(Node::Internal::Identifier::Type const& identifier);
+	NetworkBuilder& SetDestination(Node::Internal::Identifier const& identifier);
 	NetworkBuilder& SetDestination(std::string_view identifier);
 	NetworkBuilder& MakeHandshakeMessage();
 	NetworkBuilder& MakeHeartbeatRequest();

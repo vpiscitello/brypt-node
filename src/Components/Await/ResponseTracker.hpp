@@ -48,10 +48,7 @@ struct Await::ResponseEntry
         assert(spNodeIdentifier);
     }
 
-    Node::Internal::Identifier::Type GetPeerIdentifier() const
-    {
-        return identifier->GetInternalValue();
-    }
+    Node::Internal::Identifier GetPeerIdentifier() const{ return *identifier; }
 
     Node::SharedIdentifier const identifier;
     std::string pack;
@@ -91,7 +88,7 @@ private:
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
                     ResponseEntry,
-                    Node::Internal::Identifier::Type,
+                    Node::Internal::Identifier,
                     &ResponseEntry::GetPeerIdentifier>>>>;
 
     Await::ResponseStatus m_status;

@@ -41,7 +41,7 @@ std::unique_ptr<Handler::IHandler> Handler::Factory(Handler::Type type, BryptNod
 Handler::IHandler::IHandler(Handler::Type type, BryptNode& instance)
     : m_type(type)
     , m_instance(instance)
-    , m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_logger(spdlog::get(LogUtils::Name::Core.data()))
 {
 }
 

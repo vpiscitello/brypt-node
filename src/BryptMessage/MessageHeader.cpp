@@ -85,9 +85,9 @@ std::optional<Node::Identifier> const& MessageHeader::GetDestinationIdentifier()
 std::size_t MessageHeader::GetPackSize() const
 {
     std::size_t size = FixedPackSize();
-    size += m_source.NetworkStringSize();
+    size += m_source.Size();
     if (m_optDestinationIdentifier) {
-        size += m_optDestinationIdentifier->NetworkStringSize();
+        size += m_optDestinationIdentifier->Size();
     }
     assert(std::in_range<std::uint16_t>(size));
     return size;
@@ -118,14 +118,14 @@ Message::Buffer MessageHeader::GetPackedBuffer() const
     PackUtils::PackChunk(m_version.first, buffer);
     PackUtils::PackChunk(m_version.second, buffer);
     PackUtils::PackChunk(m_size, buffer);
-	PackUtils::PackChunk<std::uint8_t>(m_source.GetNetworkString(), buffer);
+	PackUtils::PackChunk<std::uint8_t>(static_cast<Node::External::Identifier const&>(m_source), buffer);
     PackUtils::PackChunk(m_destination, buffer);
 
     // If a destination as been set pack the size and the identifier. 
     // Otherwise, indicate there is no destination identifier.
     if (m_optDestinationIdentifier) {
         PackUtils::PackChunk<std::uint8_t>(
-            m_optDestinationIdentifier->GetNetworkString(), buffer);
+            static_cast<Node::External::Identifier const&>(*m_optDestinationIdentifier), buffer);
     } else {
         PackUtils::PackChunk(std::uint8_t(0), buffer);
     }
@@ -215,11 +215,9 @@ std::optional<Node::Identifier> local::UnpackIdentifier(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end)
 {
-    using namespace Node::Network::Identifier;
-
     std::uint8_t size = 0; 
     if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
-    if (size < MinimumLength || size > MaximumLength) { return {}; }
+    if (size < Node::Identifier::MinimumSize || size > Node::Identifier::MaximumSize) { return {}; }
 
     std::vector<std::uint8_t> buffer;
     buffer.reserve(size);

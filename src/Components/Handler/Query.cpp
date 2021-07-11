@@ -109,7 +109,7 @@ bool Handler::Query::FloodHandler(
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message)
 {
-    m_spLogger->debug(
+    m_logger->debug(
         "Flooding query request in service for {}", message.GetSourceIdentifier());
 
     IHandler::SendClusterNotice(
@@ -132,7 +132,7 @@ bool Handler::Query::RespondHandler(
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message)
 {
-    m_spLogger->debug(
+    m_logger->debug(
         "Building response for the Query request from {}.", message.GetSourceIdentifier());
     IHandler::SendResponse(
         wpPeerProxy, message, local::GenerateReading(), static_cast<std::uint8_t>(Phase::Aggregate));

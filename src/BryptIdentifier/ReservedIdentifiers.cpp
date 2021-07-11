@@ -4,7 +4,6 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier.hpp"
-#include "IdentifierDefinitions.hpp"
 #include "ReservedIdentifiers.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
@@ -17,16 +16,16 @@
 
 bool Node::IsIdentifierReserved(std::vector<std::uint8_t> const& buffer)
 {
-    if (buffer.size() != Internal::Identifier::PayloadSize) { return true; }
-    auto const optInternalRepresentation = Node::ConvertToInternalRepresentation(buffer);
+    if (buffer.size() != Identifier::PayloadBytes) { return true; }
+    auto const optInternalRepresentation = Node::ToInternalIdentifier(buffer);
     return IsIdentifierReserved(*optInternalRepresentation);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Node::IsIdentifierReserved(Internal::Identifier::Type const& identifier)
+bool Node::IsIdentifierReserved(Internal::Identifier const& identifier)
 {
-    if (identifier == Node::Internal::Identifier::Invalid) { return true; }
+    if (identifier == Internal::InvalidIdentifier) { return true; }
     return false;
 }
 
@@ -34,7 +33,7 @@ bool Node::IsIdentifierReserved(Internal::Identifier::Type const& identifier)
 
 bool Node::IsIdentifierReserved(std::string_view identifier)
 {
-    if (identifier == Network::Identifier::Invalid) { return true; }
+    if (identifier == External::InvalidIdentifier) { return true; }
     return false;
 }
 
@@ -42,14 +41,14 @@ bool Node::IsIdentifierReserved(std::string_view identifier)
 
 bool Node::IsIdentifierReserved(Node::Identifier const& identifier)
 {
-    return IsIdentifierReserved(identifier.GetInternalValue());
+    return IsIdentifierReserved(static_cast<Node::Internal::Identifier const&>(identifier));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Node::IsIdentifierAllowed(Node::Internal::Identifier::Type const& identifier)
+bool Node::IsIdentifierAllowed(Node::Internal::Identifier const& identifier)
 {
-    if (identifier == Internal::Identifier::Invalid) { return false; }
+    if (identifier == Internal::InvalidIdentifier) { return false; }
     return true;
 }
 
@@ -57,7 +56,7 @@ bool Node::IsIdentifierAllowed(Node::Internal::Identifier::Type const& identifie
 
 bool Node::IsIdentifierAllowed(std::string_view identifier)
 {
-    if (identifier == Network::Identifier::Invalid) { return false; }
+    if (identifier == External::InvalidIdentifier) { return false; }
     return true;
 }
 
@@ -66,7 +65,7 @@ bool Node::IsIdentifierAllowed(std::string_view identifier)
 
 bool Node::IsIdentifierAllowed(Node::Identifier const& identifier)
 {
-    return IsIdentifierAllowed(identifier.GetInternalValue());
+    return IsIdentifierAllowed(static_cast<Node::Internal::Identifier const&>(identifier));
 }
 
 //----------------------------------------------------------------------------------------------------------------------

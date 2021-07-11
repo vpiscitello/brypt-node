@@ -84,7 +84,7 @@ Node::Identifier Await::ResponseTracker::GetSource() const
 //----------------------------------------------------------------------------------------------------------------------
 Await::UpdateStatus Await::ResponseTracker::UpdateResponse(ApplicationMessage const& response)
 {
-    auto const itr = m_responses.find(response.GetSourceIdentifier().GetInternalValue());
+    auto const itr = m_responses.find(response.GetSourceIdentifier());
     if(itr == m_responses.end() || !itr->pack.empty()) {
         if (m_expire < TimeUtils::GetSystemTimepoint()) { return UpdateStatus::Expired; }
         return UpdateStatus::Unexpected;

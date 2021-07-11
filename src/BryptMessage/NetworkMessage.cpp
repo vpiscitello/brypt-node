@@ -211,7 +211,7 @@ NetworkBuilder& NetworkBuilder::SetSource(Node::Identifier const& identifier)
 //----------------------------------------------------------------------------------------------------------------------
 
 NetworkBuilder& NetworkBuilder::SetSource(
-    Node::Internal::Identifier::Type const& identifier)
+    Node::Internal::Identifier const& identifier)
 {
 	m_message.m_header.m_source = Node::Identifier(identifier);
 	return *this;
@@ -236,7 +236,7 @@ NetworkBuilder& NetworkBuilder::SetDestination(Node::Identifier const& identifie
 //----------------------------------------------------------------------------------------------------------------------
 
 NetworkBuilder& NetworkBuilder::SetDestination(
-    Node::Internal::Identifier::Type const& identifier)
+    Node::Internal::Identifier const& identifier)
 {
 	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;

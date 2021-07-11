@@ -104,7 +104,7 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
     // If the provided peer has an identifier that matches an already tracked peer, the tracked peer needs to be 
     // returned to the caller. Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
     std::scoped_lock lock(m_resolvingMutex, m_peersMutex);
-    if (auto const itr = m_peers.find(identifier.GetInternalValue()); itr != m_peers.end()) {
+    if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) {
         m_resolving.erase(address); // Ensure the provided address is not marked as resolving.
 
         std::shared_ptr<Peer::Proxy> spUnified;
@@ -215,7 +215,7 @@ Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
     assert(spPeerIdentifier && spPeerIdentifier->IsValid());
 
     // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
-    if(auto const itr = m_peers.find(spPeerIdentifier->GetInternalValue()); itr == m_peers.end()) { return {}; }
+    if(auto const itr = m_peers.find(*spPeerIdentifier); itr == m_peers.end()) { return {}; }
 
     // Currently, the short circuiting method is to notify the peer via a heatbeat request. 
     auto const optRequest = NetworkMessage::Builder()

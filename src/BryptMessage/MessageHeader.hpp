@@ -7,7 +7,6 @@
 #include "MessageTypes.hpp"
 #include "PackUtils.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/IdentifierDefinitions.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -69,8 +68,8 @@ public:
         // Base the peekable encoded size 
         std::size_t size = FixedPackSize();
         // Account for the maximum possible sizes of the source and destination sizes.
-        size += Node::Network::Identifier::MaximumLength;
-        size += Node::Network::Identifier::MaximumLength;
+        size += Node::Identifier::MaximumSize;
+        size += Node::Identifier::MaximumSize;
         auto const encoded = Z85::EncodedSize(size);
         assert(std::in_range<std::uint16_t>(encoded));
         return encoded;

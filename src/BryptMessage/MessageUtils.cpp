@@ -6,7 +6,6 @@
 #include "MessageHeader.hpp"
 #include "PackUtils.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/IdentifierDefinitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Protocol> protocol)
@@ -67,8 +66,6 @@ std::optional<std::uint32_t> Message::PeekSize(std::span<std::uint8_t const> buf
 std::optional<Node::Identifier> Message::PeekSource(
     std::span<std::uint8_t const> buffer)
 {
-    using namespace Node::Network::Identifier;
-
     // The source identifier section begins after protocol type, version, and size of the message.
     // We set the expected position after the size of the identifier as we can return early if 
     // the size byte and first byte are not present. 
@@ -85,9 +82,9 @@ std::optional<Node::Identifier> Message::PeekSource(
     std::uint8_t const size = *(buffer.data() + ExpectedPosition - 1);
         
     // The provided size must not be smaller the smallest possible brypt identifier
-    if (size < MinimumLength) { return {}; }
+    if (size < Node::Identifier::MinimumSize) { return {}; }
     // The provided size must not be larger than the maximum possible brypt identifier
-    if (size > MaximumLength) { return {}; }
+    if (size > Node::Identifier::MaximumSize) { return {}; }
 
     // The provided buffer must be large enough to contain the data specified by the identifier size
     if (buffer.size() < ExpectedPosition + size) { return {}; }

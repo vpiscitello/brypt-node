@@ -131,7 +131,7 @@ private:
     SessionTracker m_tracker;
     MessageScheduler m_scheduler;
 
-    std::shared_ptr<spdlog::logger> m_spLogger;
+    std::shared_ptr<spdlog::logger> m_logger;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

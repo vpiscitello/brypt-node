@@ -81,7 +81,7 @@ protected:
         
     Handler::Type m_type;
     BryptNode& m_instance;
-    std::shared_ptr<spdlog::logger> m_spLogger;
+    std::shared_ptr<spdlog::logger> m_logger;
 
 private: 
     virtual void SendNotice(
