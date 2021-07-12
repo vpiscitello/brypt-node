@@ -12,7 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     BootstrapService.cpp
-    Configuration.cpp
+    Options.cpp
     Parser.cpp)
 
 # Internal include dependencies

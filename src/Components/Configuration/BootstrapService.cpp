@@ -28,7 +28,7 @@ using BootstrapVector = std::vector<BootstrapEntry>;
 using EndpointEntriesVector = std::vector<EndpointEntry>;
 
 void ParseDefaultBootstraps(
-    Configuration::EndpointsSet const& endpoints, BootstrapService::DefaultBootstraps& defaults);
+    Configuration::Options::Endpoints const& endpoints, BootstrapService::DefaultBootstraps& defaults);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -96,26 +96,29 @@ struct local::EndpointEntry
 //----------------------------------------------------------------------------------------------------------------------
 
 BootstrapService::BootstrapService(
-    std::filesystem::path const& filepath, Configuration::EndpointsSet const& endpoints, bool shouldBuildPath)
-    : m_spLogger(spdlog::get(LogUtils::Name::Core.data()))
+    std::filesystem::path const& filepath,
+    Configuration::Options::Endpoints const& endpoints,
+    bool useFilepathDeduction)
+    : m_logger(spdlog::get(LogUtils::Name::Core.data()))
     , m_mediator(nullptr)
     , m_filepath(filepath)
     , m_cache()
     , m_stage()
     , m_defaults()
 {
-    assert(m_spLogger);
+    assert(m_logger);
     assert(Assertions::Threading::IsCoreThread());
 
     local::ParseDefaultBootstraps(endpoints, m_defaults);
-    if (!shouldBuildPath) { return; }
 
-    // If required, fill in the default directory and filename to obtain a valid filepath.
-    if (!m_filepath.has_filename()) { m_filepath = m_filepath / Configuration::DefaultBootstrapFilename; }
-    if (!m_filepath.has_parent_path()) { m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath; }
+    if (useFilepathDeduction) {
+        // If required, fill in the default directory and filename to obtain a valid filepath.
+        if (!m_filepath.has_filename()) { m_filepath = m_filepath / Configuration::DefaultBootstrapFilename; }
+        if (!m_filepath.has_parent_path()) { m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath; }
+    }
 
     if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_spLogger->error("Failed to create the filepath at: {}!", m_filepath.string());
+        m_logger->error("Failed to create the filepath at: {}!", m_filepath.string());
     }
 }
 
@@ -123,9 +126,8 @@ BootstrapService::BootstrapService(
 
 BootstrapService::~BootstrapService()
 {
-    [[maybe_unused]] auto const status = Serialize();
-    if (status != Configuration::StatusCode::Success) {
-        m_spLogger->error("Failed to decode bootstrap file at: {}!", m_filepath.string());
+    if (auto const status = Serialize(); status != Configuration::StatusCode::Success) {
+        m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.string());
     }
 }
 
@@ -141,11 +143,11 @@ void BootstrapService::SetMediator(IPeerMediator* const mediator)
 
 bool BootstrapService::FetchBootstraps()
 {
-    if (m_filepath.empty()) {m_spLogger->error("Unable to fetch bootstraps from an unknown file!"); return false; }
+    if (m_filepath.empty()) {m_logger->error("Unable to fetch bootstraps from an unknown file!"); return false; }
 
     Configuration::StatusCode status = (std::filesystem::exists(m_filepath)) ? Deserialize() : InitializeFile();
     bool const success = (!m_cache.empty() || status == Configuration::StatusCode::Success);
-    if (!success) { m_spLogger->error("Failed to decode bootstrap file at: {}!", m_filepath.string()); }
+    if (!success) { m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.string()); }
 
     return success;
 }
@@ -219,7 +221,7 @@ Configuration::StatusCode BootstrapService::Serialize()
     UpdateCache(); // Collate any pending updates before the write. 
 
     std::ofstream writer(m_filepath, std::ofstream::out);
-    if (writer.fail()) [[unlikely]] { m_spLogger->error("Failed to serialize bootstraps!"); return FileError; }
+    if (writer.fail()) [[unlikely]] { m_logger->error("Failed to serialize bootstraps!"); return FileError; }
 
     // Transform the cache into sets mapped to the associated protocol. 
     using MappedCache = std::unordered_map<Network::Protocol, std::vector<BootstrapCache::const_iterator>>;
@@ -311,7 +313,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
 {
     using enum Configuration::StatusCode;
     assert(Assertions::Threading::IsCoreThread());
-    m_spLogger->debug("Reading bootstrap file at: {}.", m_filepath.string());
+    m_logger->debug("Reading bootstrap file at: {}.", m_filepath.string());
 
     // Determine the size of the file about to be read. Do not read a file that is above the given treshold. 
     {
@@ -354,7 +356,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
                 });
 
             if (entry.bootstraps.empty() && !MaybeAddDefaultBootstrap(protocol, bootstraps)) {
-                m_spLogger->warn("{} has no associated bootstraps.", entry.protocol);
+                m_logger->warn("{} has no associated bootstraps.", entry.protocol);
             }
         });
 
@@ -370,14 +372,14 @@ Configuration::StatusCode BootstrapService::InitializeFile()
 {
     using enum Configuration::StatusCode;
     assert(Assertions::Threading::IsCoreThread());
-    m_spLogger->debug("Generating bootstrap file at: {}.", m_filepath.string());
+    m_logger->debug("Generating bootstrap file at: {}.", m_filepath.string());
 
     for (auto const& [protocol, optDefault] : m_defaults) {
         if (optDefault && optDefault->IsValid()) [[likely]] { m_cache.emplace(*optDefault); }
     }
 
     Configuration::StatusCode const status = Serialize();
-    if (status != Success) [[unlikely]] { m_spLogger->error("Failed to serialize bootstraps!"); }
+    if (status != Success) [[unlikely]] { m_logger->error("Failed to serialize bootstraps!"); }
 
     return status;
 }
@@ -396,7 +398,7 @@ bool BootstrapService::MaybeAddDefaultBootstrap(Network::Protocol protocol, Boot
 //----------------------------------------------------------------------------------------------------------------------
 
 void local::ParseDefaultBootstraps(
-    Configuration::EndpointsSet const& endpoints, BootstrapService::DefaultBootstraps& defaults)
+    Configuration::Options::Endpoints const& endpoints, BootstrapService::DefaultBootstraps& defaults)
 {
     for (auto const& options: endpoints) {
         if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {

@@ -22,8 +22,7 @@ public:
     }
 
 protected:
-    struct InstanceToken
-    {
+    struct InstanceToken {
     private:
         constexpr InstanceToken() noexcept = default;
         template<typename... Arguments>

@@ -3,7 +3,7 @@
 #include "SinglePeerMediatorStub.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptNode/RuntimeContext.hpp"
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/Endpoint.hpp"
@@ -33,7 +33,7 @@ namespace local {
 class EventObserver;
 class BootstrapCacheStub;
 
-using ConfigurationResources = std::pair<Configuration::EndpointsSet, std::unique_ptr<IBootstrapCache>>;
+using ConfigurationResources = std::pair<Configuration::Options::Endpoints, std::unique_ptr<IBootstrapCache>>;
 std::optional<ConfigurationResources> CreateConfigurationResources(std::string_view const& uri);
 
 using TargetResources = std::tuple<
@@ -255,7 +255,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
 
 std::optional<local::ConfigurationResources> local::CreateConfigurationResources(std::string_view const& uri)
 {
-    Configuration::EndpointsSet configured;
+    Configuration::Options::Endpoints configured;
     {
         Configuration::EndpointOptions options(Network::Protocol::TCP, test::Interface, uri);
         if (!options.Initialize()) { return {}; }

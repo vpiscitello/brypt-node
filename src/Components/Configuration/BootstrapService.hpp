@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Configuration.hpp"
+#include "Options.hpp"
 #include "StatusCode.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -35,8 +35,8 @@ public:
 
     explicit BootstrapService(
         std::filesystem::path const& filepath,
-        Configuration::EndpointsSet const& endpoints = {},
-        bool shouldBuildPath = true);
+        Configuration::Options::Endpoints const& endpoints = {},
+        bool useFilepathDeduction = true);
 
     ~BootstrapService();
 
@@ -74,7 +74,7 @@ private:
     [[nodiscard]] Configuration::StatusCode InitializeFile();
     [[nodiscard]] bool MaybeAddDefaultBootstrap(Network::Protocol protocol, BootstrapCache& bootstraps);
 
-    std::shared_ptr<spdlog::logger> m_spLogger;
+    std::shared_ptr<spdlog::logger> m_logger;
     IPeerMediator* m_mediator;
 
     std::filesystem::path m_filepath;

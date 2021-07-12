@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -20,7 +20,7 @@ class MessageContext;
 class DiscoveryProtocol : public IConnectProtocol
 {
 public:
-    explicit DiscoveryProtocol(Configuration::EndpointsSet const& endpoints);
+    explicit DiscoveryProtocol(Configuration::Options::Endpoints const& endpoints);
 
     DiscoveryProtocol(DiscoveryProtocol&&) = delete;
     DiscoveryProtocol(DiscoveryProtocol const&) = delete;

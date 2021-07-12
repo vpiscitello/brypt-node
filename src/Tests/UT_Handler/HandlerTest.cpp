@@ -2,7 +2,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Handler/Handler.hpp"
@@ -148,9 +148,9 @@ std::unique_ptr<Configuration::Parser> test::CreateConfigurationParser()
 {
     auto const endpointOptions = CreateEndpointOptions();
     Configuration::Settings settings(
-        Configuration::DetailsOptions("test-node"),
+        Configuration::Options::Details("test-node"),
         {endpointOptions},
-        Configuration::SecurityOptions()
+        Configuration::Options::Security()
     );
 
     return std::make_unique<Configuration::Parser>(settings);

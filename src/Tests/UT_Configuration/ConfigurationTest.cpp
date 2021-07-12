@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -24,6 +24,15 @@ std::filesystem::path GetFilepath(std::filesystem::path const& filename);
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
+auto RuntimeOptions = Configuration::Options::Runtime
+{ 
+    .context = RuntimeContext::Foreground,
+    .verbosity = spdlog::level::debug,
+    .useInteractiveConsole = false,
+    .useBootstraps = false,
+    .useFilepathDeduction = false
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -43,25 +52,24 @@ TEST(ConfigurationParserSuite, GenerateConfigurationFilepathTest)
 
 TEST(ConfigurationParserSuite, ParseGoodFileTest)
 {
-    Configuration::Parser parser(local::GetFilepath("good/config.json"), false);
-    EXPECT_EQ(parser.FetchSettings(), Configuration::StatusCode::Success);
+    Configuration::Parser parser(local::GetFilepath("good/config.json"), test::RuntimeOptions);
+    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::Success);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 TEST(ConfigurationParserSuite, ParseMalformedFileTest)
 {
-    Configuration::Parser parser(local::GetFilepath("malformed/config.json"), false);
-    EXPECT_NE(parser.FetchSettings(), Configuration::StatusCode::Success);
+    Configuration::Parser parser(local::GetFilepath("malformed/config.json"), test::RuntimeOptions);
+    EXPECT_NE(parser.FetchOptions(), Configuration::StatusCode::Success);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-
 TEST(ConfigurationParserSuite, ParseMissingFileTest)
 {
-    Configuration::Parser parser(local::GetFilepath("missing/config.json"), false);
-    EXPECT_EQ(parser.FetchSettings(), Configuration::StatusCode::FileError);
+    Configuration::Parser parser(local::GetFilepath("missing/config.json"), test::RuntimeOptions);
+    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::FileError);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

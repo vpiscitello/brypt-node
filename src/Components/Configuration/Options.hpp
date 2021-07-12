@@ -1,15 +1,18 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Configuration.hpp
+// File: Options.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptNode/RuntimeContext.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Components/Security/SecurityUtils.hpp"
 #include "Utilities/Version.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+#include <spdlog/common.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <cstring>
@@ -24,14 +27,6 @@
 namespace Configuration {
 //----------------------------------------------------------------------------------------------------------------------
 
-struct Settings;
-struct IdentifierOptions;
-struct DetailsOptions;
-struct EndpointOptions;
-struct SecurityOptions;
-
-using EndpointsSet = std::vector<EndpointOptions>;
-
 std::filesystem::path const DefaultBryptFolder = "/brypt/";
 std::filesystem::path const DefaultConfigurationFilename = "config.json";
 std::filesystem::path const DefaultBootstrapFilename = "bootstrap.json";
@@ -41,30 +36,56 @@ std::filesystem::path GetDefaultConfigurationFilepath();
 std::filesystem::path GetDefaultBootstrapFilepath();
 
 //----------------------------------------------------------------------------------------------------------------------
+namespace Options {
+//----------------------------------------------------------------------------------------------------------------------
+
+struct Runtime;
+struct Identifier;
+struct Details;
+struct Endpoint;
+struct Security;
+
+using Endpoints = std::vector<Endpoint>;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Options namespace
+//----------------------------------------------------------------------------------------------------------------------
 } // Configuration namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-struct Configuration::IdentifierOptions
+//----------------------------------------------------------------------------------------------------------------------
+// Description: The set of options defined at runtime (e.g. cli flags or or shared library methods).
+//----------------------------------------------------------------------------------------------------------------------
+struct Configuration::Options::Runtime
 {
-    IdentifierOptions();
-    explicit IdentifierOptions(std::string_view type);
-    IdentifierOptions(std::string_view value, std::string_view type);
-
-    std::optional<std::string> value;
-    std::string type;
-
-    Node::SharedIdentifier container;
+    RuntimeContext context;
+    spdlog::level::level_enum verbosity;
+    bool useInteractiveConsole;
+    bool useBootstraps;
+    bool useFilepathDeduction;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-struct Configuration::DetailsOptions
+// Description: The set of options defined at runtime (e.g. cli flags or or shared library methods).
+//----------------------------------------------------------------------------------------------------------------------
+struct Configuration::Options::Identifier
 {
-    DetailsOptions();
-    explicit DetailsOptions(
-        std::string_view name,
-        std::string_view description = "",
-        std::string_view location = "");
+    Identifier();
+    explicit Identifier(std::string_view type);
+    Identifier(std::string_view value, std::string_view type);
+
+    std::optional<std::string> value;
+    std::string type;
+    Node::SharedIdentifier spConstructedValue;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+// Description: The set of options used to establish an identifier for the brypt node. 
+//----------------------------------------------------------------------------------------------------------------------
+struct Configuration::Options::Details
+{
+    Details();
+    explicit Details(std::string_view name, std::string_view description = "", std::string_view location = "");
 
     std::string name;
     std::string description;
@@ -72,18 +93,13 @@ struct Configuration::DetailsOptions
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-struct Configuration::EndpointOptions
+// Description: The set of options used to create an endpoint. 
+//----------------------------------------------------------------------------------------------------------------------
+struct Configuration::Options::Endpoint
 {
-    EndpointOptions();
-    EndpointOptions(
-        std::string_view protocol,
-        std::string_view interface,
-        std::string_view binding);
-    EndpointOptions(
-        Network::Protocol type,
-        std::string_view interface,
-        std::string_view binding);
+    Endpoint();
+    Endpoint(std::string_view protocol, std::string_view interface, std::string_view binding);
+    Endpoint(Network::Protocol type, std::string_view interface, std::string_view binding);
 
     [[nodiscard]] bool Initialize();
 
@@ -105,45 +121,17 @@ struct Configuration::EndpointOptions
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-
-struct Configuration::SecurityOptions
+// Description: The set of options used to configure the security strategy. 
+//----------------------------------------------------------------------------------------------------------------------
+struct Configuration::Options::Security
 {
-    SecurityOptions();
-    SecurityOptions(
-        std::string_view strategy,
-        std::string_view token,
-        std::string_view authority);
+    Security();
+    Security(std::string_view strategy, std::string_view token, std::string_view authority);
 
-    Security::Strategy type;
+    ::Security::Strategy type;
     std::string strategy;
     std::string token;
     std::string authority;
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-struct Configuration::Settings
-{
-    Settings();
-    Settings(
-        DetailsOptions const& details,
-        EndpointsSet const& endpoints,
-        SecurityOptions const& security);
-
-    Settings(Settings const& other) = default;
-    Settings& operator=(Settings const& other) = default;
-
-    [[nodiscard]] std::string const& GetVersion() const;
-    [[nodiscard]] IdentifierOptions const& GetIdentifierOptions() const;
-    [[nodiscard]] DetailsOptions const& GetDetailsOptions() const;
-    [[nodiscard]] EndpointsSet const& GetEndpointOptions() const;
-    [[nodiscard]] SecurityOptions const& GetSecurityOptions()  const;
-
-    std::string version;
-    IdentifierOptions identifier;
-    DetailsOptions details;
-    EndpointsSet endpoints;
-    SecurityOptions security;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

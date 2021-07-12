@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Configuration.hpp"
+#include "Options.hpp"
 #include "StatusCode.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
@@ -29,36 +29,45 @@ class Parser;
 class Configuration::Parser final
 {
 public:
-    Parser(std::filesystem::path const& filepath, bool interactive, bool shouldBuildPath = true);
-    explicit Parser(Settings const& settings);
+    Parser(std::filesystem::path const& filepath, Options::Runtime const& options);
 
-    [[nodiscard]] StatusCode FetchSettings();
+    [[nodiscard]] StatusCode FetchOptions();
     [[nodiscard]] StatusCode Serialize();
+    [[nodiscard]] StatusCode LaunchGenerator();
 
-    [[nodiscard]] StatusCode GenerateConfigurationFile();
-
-    [[nodiscard]] bool IsValidated() const;
-
+    [[nodiscard]] RuntimeContext GetRuntimeContext() const;
+    [[nodiscard]] spdlog::level::level_enum GetVerbosityLevel() const;
+    [[nodiscard]] bool UseInteractiveConsole() const;
+    [[nodiscard]] bool UseBootstraps() const;
+    [[nodiscard]] bool UseFilepathDeduction() const;
     [[nodiscard]] Node::SharedIdentifier const& GetNodeIdentifier() const;
     [[nodiscard]] std::string const& GetNodeName() const;
     [[nodiscard]] std::string const& GetNodeDescription() const;
     [[nodiscard]] std::string const& GetNodeLocation() const;
-    [[nodiscard]] EndpointsSet const& GetEndpointOptions() const;
+    [[nodiscard]] Options::Endpoints const& GetEndpointOptions() const;
     [[nodiscard]] Security::Strategy GetSecurityStrategy() const;
     [[nodiscard]] std::string const& GetCentralAuthority() const;
 
+    [[nodiscard]] bool IsValidated() const;
+
 private:
-    [[nodiscard]] StatusCode ValidateSettings();
+    [[nodiscard]] StatusCode ValidateOptions();
     [[nodiscard]] StatusCode Deserialize();
 
-    void GetSettingsFromUser();
-    bool InitializeSettings();
+    void GetOptionsFromUser();
+    bool InitializeOptions();
     
-    std::shared_ptr<spdlog::logger> m_spLogger;
-    bool m_isGeneratorAllowed;
+    std::shared_ptr<spdlog::logger> m_logger;
 
+    std::string m_version;
     std::filesystem::path m_filepath;
-    Settings m_settings;
+    
+    Options::Runtime m_runtime;
+    Options::Identifier m_identifier;
+    Options::Details m_details;
+    Options::Endpoints m_endpoints;
+    Options::Security m_security;
+
     bool m_validated;
 };
 

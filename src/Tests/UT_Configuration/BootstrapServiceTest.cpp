@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
@@ -26,7 +26,7 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 std::filesystem::path GetFilepath(std::filesystem::path const& filename);
-Configuration::EndpointOptions GenerateTcpOptions(std::uint16_t port);
+Configuration::Options::Endpoint GenerateTcpOptions(std::uint16_t port);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -63,7 +63,7 @@ TEST(BootstrapServiceSuite, DefualtBootstrapTest)
     std::filesystem::path const filepath = local::GetFilepath("good/defaults.json");
     EXPECT_FALSE(std::filesystem::exists(filepath)); // This test is expected to delete the generated file.
 
-    Configuration::EndpointsSet configuration;
+    Configuration::Options::Endpoints configuration;
     configuration.emplace_back(local::GenerateTcpOptions(test::TcpBasePort));
     auto const expected = configuration.front().GetBootstrap()->GetUri();
 
@@ -288,9 +288,9 @@ std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::EndpointOptions local::GenerateTcpOptions(std::uint16_t port)
+Configuration::Options::Endpoint local::GenerateTcpOptions(std::uint16_t port)
 {
-    Configuration::EndpointOptions options;
+    Configuration::Options::Endpoint options;
     options.type = Network::Protocol::TCP;
     options.interface = "lo";
     options.binding = test::TcpBootstrapBase.data() + std::to_string(port);

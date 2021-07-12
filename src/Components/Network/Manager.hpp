@@ -9,7 +9,7 @@
 #include "EndpointTypes.hpp"
 #include "Protocol.hpp"
 #include "BryptNode/RuntimeContext.hpp"
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/SharedPublisher.hpp"
@@ -45,7 +45,7 @@ public:
     using SharedEndpoint = std::shared_ptr<IEndpoint>;
 
     Manager(
-        Configuration::EndpointsSet const& endpoints,
+        Configuration::Options::Endpoints const& endpoints,
         Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache,
@@ -82,13 +82,13 @@ private:
     using BindingCache = std::vector<std::pair<Endpoint::Identifier, BindingAddress>>;
 
     void Initialize(
-        Configuration::EndpointsSet const& endpoints,
+        Configuration::Options::Endpoints const& endpoints,
         Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);
         
     void InitializeTCPEndpoints(
-        Configuration::EndpointOptions const& options,
+        Configuration::Options::Endpoint const& options,
         Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
         IBootstrapCache const* const pBootstrapCache);

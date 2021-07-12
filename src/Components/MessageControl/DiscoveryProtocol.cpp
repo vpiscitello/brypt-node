@@ -26,7 +26,7 @@ namespace local {
 constexpr Handler::Type Handler = Handler::Type::Connect;
 constexpr std::uint8_t Phase = static_cast<std::uint8_t>(Handler::Connect::Phase::Discovery);
 
-std::string GenerateDiscoveryData(Configuration::EndpointsSet const& endpoints);
+std::string GenerateDiscoveryData(Configuration::Options::Endpoints const& endpoints);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -62,7 +62,7 @@ LI_SYMBOL(protocol)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-DiscoveryProtocol::DiscoveryProtocol(Configuration::EndpointsSet const& endpoints)
+DiscoveryProtocol::DiscoveryProtocol(Configuration::Options::Endpoints const& endpoints)
     : m_data(local::GenerateDiscoveryData(endpoints))
 {
 }
@@ -93,7 +93,7 @@ bool DiscoveryProtocol::SendRequest(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string local::GenerateDiscoveryData(Configuration::EndpointsSet const& endpoints)
+std::string local::GenerateDiscoveryData(Configuration::Options::Endpoints const& endpoints)
 {
     auto request = li::mmm(
         s::entrypoints = {

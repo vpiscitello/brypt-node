@@ -27,7 +27,7 @@ void ConnectBootstraps(std::unique_ptr<Network::IEndpoint> const& spEndpoint, IB
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Manager::Manager(
-    Configuration::EndpointsSet const& endpoints,
+    Configuration::Options::Endpoints const& endpoints,
     Event::SharedPublisher const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache,
@@ -246,7 +246,7 @@ bool Network::Manager::ScheduleConnect(RemoteAddress&& address, Node::SharedIden
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::Manager::Initialize(
-    Configuration::EndpointsSet const& endpoints,
+    Configuration::Options::Endpoints const& endpoints,
     Event::SharedPublisher const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
@@ -272,7 +272,7 @@ void Network::Manager::Initialize(
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::Manager::InitializeTCPEndpoints(
-    Configuration::EndpointOptions const& options,
+    Configuration::Options::Endpoint const& options,
     Event::SharedPublisher const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
     IBootstrapCache const* const pBootstrapCache)
