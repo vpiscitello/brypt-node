@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: ExecutionResult.hpp
+// File: ExecutionStatus.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -7,8 +7,10 @@
 #include <cstdint>
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class ExecutionResult : std::uint32_t
+enum class ExecutionStatus : std::uint32_t
 {
+    Standby,
+    Executing,
     InitializationFailed,
     AlreadyStarted,
     ThreadSpawned,
