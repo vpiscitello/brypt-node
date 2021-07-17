@@ -4,6 +4,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Components/Configuration/Options.hpp"
+//----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -52,6 +54,8 @@ public:
     [[nodiscard]] std::string const& GetBootstrapPath() const;
     [[nodiscard]] bool UseBootstraps() const;
 
+    [[nodiscard]] operator Configuration::Options::Runtime() const;
+
 private:
     using VerbosityLevels = std::vector<std::pair<std::string, spdlog::level::level_enum>>;
 
@@ -63,7 +67,7 @@ private:
     bool m_interactive;
     std::string m_configurationFilepath;
     std::string m_bootstrapFilepath;
-    bool m_shouldBootstrap;
+    bool m_useBootstraps;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

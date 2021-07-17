@@ -27,11 +27,11 @@ void ConnectBootstraps(std::unique_ptr<Network::IEndpoint> const& spEndpoint, IB
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Manager::Manager(
+    RuntimeContext context,
     Configuration::Options::Endpoints const& endpoints,
     Event::SharedPublisher const& spEventPublisher,
     IPeerMediator* const pPeerMediator,
-    IBootstrapCache const* const pBootstrapCache,
-    RuntimeContext context)
+    IBootstrapCache const* const pBootstrapCache)
     : m_active(false)
     , m_spEventPublisher(spEventPublisher)
     , m_endpointsMutex()

@@ -24,8 +24,8 @@ set(
     ${CMAKE_SOURCE_DIR}/Components/Await/ResponseTracker.cpp
     ${CMAKE_SOURCE_DIR}/Components/Await/TrackingManager.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/BootstrapService.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Configuration/Configuration.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/Parser.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Configuration/Options.cpp
     ${CMAKE_SOURCE_DIR}/Components/Event/Publisher.cpp
     ${CMAKE_SOURCE_DIR}/Components/Handler/Connect.cpp
     ${CMAKE_SOURCE_DIR}/Components/Handler/Election.cpp

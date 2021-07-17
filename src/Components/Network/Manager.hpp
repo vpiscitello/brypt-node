@@ -45,11 +45,11 @@ public:
     using SharedEndpoint = std::shared_ptr<IEndpoint>;
 
     Manager(
+        RuntimeContext context,
         Configuration::Options::Endpoints const& endpoints,
         Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache,
-        RuntimeContext context);
+        IBootstrapCache const* const pBootstrapCache);
 
     Manager(Manager const& other) = delete;
     Manager& operator=(Manager const& other) = delete;

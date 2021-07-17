@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "StartupOptions.hpp"
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
@@ -22,7 +22,6 @@ std::uint32_t GetTerminalWidth();
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-
 Startup::Options::Options()
     : m_descriptions()
     , m_options()
@@ -31,7 +30,7 @@ Startup::Options::Options()
     , m_interactive(true)
     , m_configurationFilepath()
     , m_bootstrapFilepath()
-    , m_shouldBootstrap(true)
+    , m_useBootstraps(true)
 {
     SetupDescriptions();
 }
@@ -201,7 +200,7 @@ Startup::ParseCode Startup::Options::Parse(std::int32_t argc, char** argv)
 
     if(IsOptionSupplied(m_options, Quiet)) { m_verbosity = spdlog::level::off; }
     if(IsOptionSupplied(m_options, NonInteractive)) { m_interactive = false; }
-    if(IsOptionSupplied(m_options, DisableBootstrap)) { m_shouldBootstrap = false; }
+    if(IsOptionSupplied(m_options, DisableBootstrap)) { m_useBootstraps = false; }
 
     if (auto const optError = CheckConflictingOptions(m_options, Verbosity, Quiet);
         optError) {
@@ -270,7 +269,21 @@ std::string const& Startup::Options::GetBootstrapPath() const
 
 bool Startup::Options::UseBootstraps() const
 {
-    return m_shouldBootstrap;
+    return m_useBootstraps;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Startup::Options::operator Configuration::Options::Runtime() const
+{
+    // Package the parsed command line options to the runtime options aggregate.
+    return {
+        .context = RuntimeContext::Foreground,
+        .verbosity = m_verbosity,
+        .useInteractiveConsole = m_interactive,
+        .useBootstraps = m_useBootstraps,
+        .useFilepathDeduction = true
+    };
 }
 
 //----------------------------------------------------------------------------------------------------------------------

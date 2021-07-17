@@ -6,7 +6,7 @@
 #include "RuntimeContext.hpp"
 #include "StartupOptions.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/Configuration/Configuration.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
