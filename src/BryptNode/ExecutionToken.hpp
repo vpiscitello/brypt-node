@@ -54,15 +54,13 @@ public:
         return true;
     }
 
+    // Note: Only the states indicating execution completion should be provided when requesting a stop. 
+    // Additionally, the shutdown statuses do not imply execution has finished, this is only true for standby.
     [[nodiscard]] bool RequestStop(ExecutionStatus reason = ExecutionStatus::RequestedShutdown)
     {
         // If the status is not in the executing state (e.g. already stopping), a stop can not be requested.
         if (m_status != ExecutionStatus::Executing) { return false; }
         assert(m_execute == true); // In the executing state, the execution flag should be set. 
-        // Note: Only the states indicating execution completion should be provided when requesting a stop. 
-        // Additionally, these statuses do not imply execution has finished, this is only true in the standby state.
-        assert(reason == ExecutionStatus::RequestedShutdown || reason == ExecutionStatus::UnexpectedShutdown);
-
         m_execute = false; // The runtime will stop processing the event loop when this flag is false. 
         m_status = reason; // Indicate execution is in a cleanup phase. 
         return true;

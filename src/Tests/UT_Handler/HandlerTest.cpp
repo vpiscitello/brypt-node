@@ -24,7 +24,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-void SetupHandlerMap(Handler::Map& handlers, BryptNode& node);
+void SetupHandlerMap(Handler::Map& handlers, Node::Core& node);
 MessageContext GenerateMessageContext();
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -33,11 +33,10 @@ MessageContext GenerateMessageContext();
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::EndpointOptions CreateEndpointOptions();
-std::unique_ptr<Configuration::Parser> CreateConfigurationParser();
-
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 auto const spServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+
+Node::ExecutionToken ExecutionToken;
 
 constexpr std::string_view ProtocolName = "TCP";
 constexpr Network::Protocol ProtocolType = Network::Protocol::TCP;
@@ -53,6 +52,8 @@ constexpr std::string_view Message = "Hello World!";
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
+std::unique_ptr<Configuration::Parser> CreateConfigurationParser();
+
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -62,11 +63,11 @@ constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 TEST(HandlerSuite, HandlerMatchingTest)
 {
-    auto const upConfiguration = test::CreateConfigurationParser();
+    auto const upParser = test::CreateConfigurationParser();
 
     // The node itself will set up internal handlers that can operate on it's internal state, but in order to setup our 
     // own we need to provide the handlers a node instance and a state.
-    BryptNode node(upConfiguration, nullptr, nullptr, nullptr, nullptr, nullptr);
+    Node::Core node(test::ExecutionToken, upParser, nullptr);
 
     Handler::Map handlers;
     local::SetupHandlerMap(handlers, node);
@@ -132,34 +133,7 @@ TEST(HandlerSuite, HandlerMatchingTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::EndpointOptions test::CreateEndpointOptions()
-{
-    Configuration::EndpointOptions options(
-        test::ProtocolType,
-        test::Interface,
-        test::ServerBinding);
-
-    return options;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::unique_ptr<Configuration::Parser> test::CreateConfigurationParser()
-{
-    auto const endpointOptions = CreateEndpointOptions();
-    Configuration::Settings settings(
-        Configuration::Options::Details("test-node"),
-        {endpointOptions},
-        Configuration::Options::Security()
-    );
-
-    return std::make_unique<Configuration::Parser>(settings);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void local::SetupHandlerMap(
-    Handler::Map& handlers, BryptNode& node)
+void local::SetupHandlerMap(Handler::Map& handlers, Node::Core& node)
 {
     handlers.emplace(
         Handler::Type::Connect,
@@ -200,6 +174,21 @@ MessageContext local::GenerateMessageContext()
             { return 0; });
 
     return context;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::unique_ptr<Configuration::Parser> test::CreateConfigurationParser()
+{
+    return std::make_unique<Configuration::Parser>(
+        std::filesystem::path{},
+        Configuration::Options::Runtime{
+            .context = RuntimeContext::Foreground,
+            .verbosity = spdlog::level::off,
+            .useInteractiveConsole = false,
+            .useBootstraps = false,
+            .useFilepathDeduction = false
+        });
 }
 
 //----------------------------------------------------------------------------------------------------------------------

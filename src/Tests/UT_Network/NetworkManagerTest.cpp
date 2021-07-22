@@ -164,7 +164,7 @@ TEST_F(NetworkManagerSuite, LifecycleTest)
     
     // Create our Network::Manager to start the tests of its operations and state. 
     auto const upNetworkManager = std::make_unique<Network::Manager>(
-        configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get(), RuntimeContext::Foreground);
+        RuntimeContext::Foreground, configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get());
     
     EXPECT_TRUE(m_upEventObserver->SubscribedToAllAdvertisedEvents());
     m_spPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
@@ -219,7 +219,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
     // Note: Most of the stored state in the manager should be the same as the lifecycle tests, the differences will 
     // be primarily observed through the events published. 
     auto const upNetworkManager = std::make_unique<Network::Manager>(
-        configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get(), RuntimeContext::Foreground);
+        RuntimeContext::Foreground, configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get());
     
     EXPECT_TRUE(m_upEventObserver->SubscribedToAllAdvertisedEvents());
     m_spPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
@@ -257,7 +257,7 @@ std::optional<local::ConfigurationResources> local::CreateConfigurationResources
 {
     Configuration::Options::Endpoints configured;
     {
-        Configuration::EndpointOptions options(Network::Protocol::TCP, test::Interface, uri);
+        Configuration::Options::Endpoint options(Network::Protocol::TCP, test::Interface, uri);
         if (!options.Initialize()) { return {}; }
         configured.emplace_back(options);
     }

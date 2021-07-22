@@ -22,7 +22,7 @@
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Handler::IHandler> Handler::Factory(Handler::Type type, BryptNode& instance)
+std::unique_ptr<Handler::IHandler> Handler::Factory(Handler::Type type, Node::Core& instance)
 {
     switch (type) {
         case Handler::Type::Connect: return std::make_unique<Connect>(instance);
@@ -38,7 +38,7 @@ std::unique_ptr<Handler::IHandler> Handler::Factory(Handler::Type type, BryptNod
 // IHandler implementation
 //----------------------------------------------------------------------------------------------------------------------
 
-Handler::IHandler::IHandler(Handler::Type type, BryptNode& instance)
+Handler::IHandler::IHandler(Handler::Type type, Node::Core& instance)
     : m_type(type)
     , m_instance(instance)
     , m_logger(spdlog::get(LogUtils::Name::Core.data()))

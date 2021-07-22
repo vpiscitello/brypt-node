@@ -15,7 +15,7 @@ class Handler::Election : public Handler::IHandler
 public:
     enum class Phase : std::uint8_t { Probe, Precommit, Vote, Abort, Results, Close };
     
-    explicit Election(BryptNode& instance);
+    explicit Election(Node::Core& instance);
 
     // IHandler{
     bool HandleMessage(AssociatedMessage const& associatedMessage) override;

@@ -25,7 +25,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string GenerateNodeInfo(BryptNode const& node);
+std::string GenerateNodeInfo(Node::Core const& node);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -107,7 +107,7 @@ struct Json::NodeInfo
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-Handler::Information::Information(BryptNode& instance)
+Handler::Information::Information(Node::Core& instance)
     : IHandler(Handler::Type::Information, instance)
 {
 }
@@ -184,7 +184,7 @@ bool Handler::Information::CloseHandler()
 // Description: This constructs a JSON object for each of the messages from each of the endpoints.
 // Returns: The JSON structure as a string.
 //----------------------------------------------------------------------------------------------------------------------
-std::string local::GenerateNodeInfo(BryptNode const& instance)
+std::string local::GenerateNodeInfo(Node::Core const& instance)
 {
     // Get the information pertaining to the node itself
     Node::SharedIdentifier spNodeIdentifier; 

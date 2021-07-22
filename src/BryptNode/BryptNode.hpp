@@ -4,15 +4,18 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "ExecutionToken.hpp"
+#include "RuntimeContext.hpp"
 #include "RuntimePolicy.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Peer/Proxy.hpp"
-#include "Utilities/ExecutionResult.hpp"
+#include "Utilities/ExecutionStatus.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <concepts>
+#include <functional>
 #include <memory>
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -43,33 +46,37 @@ class SecurityState;
 class SensorState;
 
 //----------------------------------------------------------------------------------------------------------------------
+namespace Node {
+//----------------------------------------------------------------------------------------------------------------------
 
-class BryptNode final
+class Core;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Node namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Node::Core final
 {
 public:
-    BryptNode(
-        std::unique_ptr<Configuration::Parser> const& upConfiguration,
-        std::shared_ptr<Event::Publisher> const& spEventPublisher,
-        std::shared_ptr<Network::Manager> const& spNetworkManager,
-        std::shared_ptr<Peer::Manager> const& spPeerManager,
-        std::shared_ptr<AuthorizedProcessor> const& spMessageProcessor,
+    Core(
+        std::reference_wrapper<ExecutionToken> const& token,
+        std::unique_ptr<Configuration::Parser> const& upParser,
         std::shared_ptr<BootstrapService> const& spBootstrapService);
 
-    BryptNode(BryptNode const& other) = delete;
-    BryptNode(BryptNode&& other) = default;
-    BryptNode& operator=(BryptNode const& other) = delete;
-    BryptNode& operator=(BryptNode&& other) = default;
+    Core(Core const& other) = delete;
+    Core(Core&& other) = delete;
+    Core& operator=(Core const& other) = delete;
+    Core& operator=(Core&& other) = delete;
 
-    ~BryptNode() = default;
+    ~Core();
 
     // Runtime Handler {
     friend class IRuntimePolicy;
     // } Runtime Handler
 
     template<ValidRuntimePolicy RuntimePolicy = ForegroundRuntime>
-    [[nodiscard]] ExecutionResult Startup();
-    void Shutdown();
-    [[nodiscard]] bool IsInitialized() const;
+    [[nodiscard]] ExecutionStatus Startup();
+    ExecutionStatus Shutdown(ExecutionStatus reason = ExecutionStatus::RequestedShutdown);
     [[nodiscard]] bool IsActive() const;
 
     [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
@@ -85,11 +92,13 @@ public:
     [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
-    [[nodiscard]] bool StartComponents();
-    void OnRuntimeStopped();
+    [[nodiscard]] ExecutionStatus StartComponents();
+    void OnRuntimeStopped(ExecutionStatus status);
+    void OnUnexpectedError();
 
-    bool m_initialized;
-    std::shared_ptr<spdlog::logger> m_spLogger;
+    std::reference_wrapper<ExecutionToken> m_token;
+    std::unique_ptr<IRuntimePolicy> m_upRuntime;
+    std::shared_ptr<spdlog::logger> m_logger;
 
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<CoordinatorState> m_spCoordinatorState;
@@ -105,19 +114,29 @@ private:
     std::shared_ptr<BootstrapService> m_spBootstrapService;
 
     Handler::Map m_handlers;
-    std::unique_ptr<IRuntimePolicy> m_upRuntime;
-    std::optional<ExecutionResult> m_optShutdownCause;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<ValidRuntimePolicy RuntimePolicy>
-[[nodiscard]] ExecutionResult BryptNode::Startup()
+template<Node::ValidRuntimePolicy RuntimePolicy>
+[[nodiscard]] ExecutionStatus Node::Core::Startup()
 {
-    // If the node components could not be started successfully, return the error code.
-    if (!StartComponents()) { assert(m_optShutdownCause); return *m_optShutdownCause; }
-    m_upRuntime = std::make_unique<RuntimePolicy>(*this); // Create a new runtime of the provided type. 
-    return m_upRuntime->Start();
+    if (m_token.get().Status() != ExecutionStatus::Standby) { return ExecutionStatus::AlreadyStarted; }
+    assert(!m_upRuntime); // Currently, if the token is standby there must not be an existing runtime object. 
+
+    // If we fail to prepare for the execution, return the reason why. 
+    if (auto const result = StartComponents(); result != ExecutionStatus::Standby) { return result; }
+
+    m_upRuntime = std::make_unique<RuntimePolicy>(*this, m_token); // Create a new runtime of the provided type. 
+    ExecutionStatus result = m_upRuntime->Start(); // Start the execution of the main event loop. 
+    if (result != ExecutionStatus::ThreadSpawned) {
+        // Note: At this point it's assumed that if the start call returned anything other than a notification of 
+        // a spawned thread, it has fully completed exuction. Given we have already returned if the runtime is 
+        // in an executing state, the runtime is no longer needed and a subsequent call to start should be possible. 
+        m_upRuntime.reset();
+    }
+
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

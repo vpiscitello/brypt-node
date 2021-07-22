@@ -10,7 +10,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-Handler::Election::Election(BryptNode& instance)
+Handler::Election::Election(Node::Core& instance)
     : IHandler(Handler::Type::Election, instance)
 {
 }

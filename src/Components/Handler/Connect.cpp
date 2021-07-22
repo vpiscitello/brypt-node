@@ -26,15 +26,15 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 bool HandleDiscoveryRequest(
-    BryptNode& instance,
+    Node::Core& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& logger);
 
-std::string BuildDiscoveryResponse(BryptNode& instance);
+std::string BuildDiscoveryResponse(Node::Core& instance);
 
 bool HandleDiscoveryResponse(
-    BryptNode& instance,
+    Node::Core& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& logger);
@@ -99,7 +99,7 @@ LI_SYMBOL(protocol)
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-Handler::Connect::Connect(BryptNode& instance)
+Handler::Connect::Connect(Node::Core& instance)
     : IHandler(Handler::Type::Connect, instance)
 {
 }
@@ -159,7 +159,7 @@ bool Handler::Connect::JoinHandler(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::HandleDiscoveryRequest(
-    BryptNode& instance,
+    Node::Core& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& logger)
@@ -216,7 +216,7 @@ bool local::HandleDiscoveryRequest(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string local::BuildDiscoveryResponse(BryptNode& instance)
+std::string local::BuildDiscoveryResponse(Node::Core& instance)
 {
     // Make a response message to filled out by the handler
     auto response = li::mmm(
@@ -264,7 +264,7 @@ std::string local::BuildDiscoveryResponse(BryptNode& instance)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::HandleDiscoveryResponse(
-    BryptNode& instance,
+    Node::Core& instance,
     std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
     ApplicationMessage const& message,
     std::shared_ptr<spdlog::logger> const& logger)

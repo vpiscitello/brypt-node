@@ -15,7 +15,8 @@ enum class ExecutionStatus : std::uint32_t
     AlreadyStarted,
     ThreadSpawned,
     RequestedShutdown,
-    UnexpectedShutdown
+    ResourceShutdown,
+    UnexpectedShutdown,
 };
 
 //----------------------------------------------------------------------------------------------------------------------

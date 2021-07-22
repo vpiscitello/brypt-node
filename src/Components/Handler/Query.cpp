@@ -71,7 +71,7 @@ struct Json::Reading
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-Handler::Query::Query(BryptNode& instance)
+Handler::Query::Query(Node::Core& instance)
     : IHandler(Handler::Type::Query, instance)
 {
 }

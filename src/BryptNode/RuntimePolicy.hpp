@@ -4,8 +4,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "ExecutionToken.hpp"
+#include "RuntimeContext.hpp"
 #include "Components/MessageControl/AssociatedMessage.hpp"
-#include "Utilities/ExecutionResult.hpp"
+#include "Utilities/ExecutionStatus.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <concepts>
@@ -13,14 +15,26 @@
 #include <thread>
 //----------------------------------------------------------------------------------------------------------------------
 
-class BryptNode;
-
+//----------------------------------------------------------------------------------------------------------------------
+namespace Node {
 //----------------------------------------------------------------------------------------------------------------------
 
-class IRuntimePolicy
+class Core;
+class IRuntimePolicy;
+class ForegroundRuntime;
+class BackgroundRuntime;
+    
+template<typename RuntimePolicy>
+concept ValidRuntimePolicy = std::derived_from<RuntimePolicy, IRuntimePolicy>;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Node namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Node::IRuntimePolicy
 {
 public:
-    explicit IRuntimePolicy(BryptNode& instance);
+    IRuntimePolicy(Core& instance, std::reference_wrapper<ExecutionToken> const& token);
     virtual ~IRuntimePolicy() = default;
 
     IRuntimePolicy(IRuntimePolicy const&) = delete; 
@@ -28,53 +42,42 @@ public:
     IRuntimePolicy& operator=(IRuntimePolicy const&) = delete; 
     IRuntimePolicy& operator=(IRuntimePolicy&&) = delete; 
 
-    [[nodiscard]] virtual ExecutionResult Start() = 0;
-    virtual void Stop() = 0;
-    [[nodiscard]] virtual bool IsActive() const = 0;
-    [[nodiscard]] ExecutionResult FinalizeShutdown() const;
+    [[nodiscard]] virtual RuntimeContext Type() const = 0;
+    [[nodiscard]] virtual ExecutionStatus Start() = 0;
 
 protected:
-    virtual void ProcessEvents() final;
+    [[nodiscard]] bool IsExecutionRequested() const;
+    void SetExecutionStatus(ExecutionStatus status);
+    void OnExecutionStarted();
+    ExecutionStatus OnExecutionStopped() const;
+    void ProcessEvents();
 
-    BryptNode& m_instance;
+    Core& m_instance;
+    std::reference_wrapper<ExecutionToken> m_token;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class ForegroundRuntime final : public IRuntimePolicy
+class Node::ForegroundRuntime final : public IRuntimePolicy
 {
 public:
-    explicit ForegroundRuntime(BryptNode& instance);
-
-    [[nodiscard]] virtual ExecutionResult Start() override;
-    virtual void Stop() override;
-    [[nodiscard]] virtual bool IsActive() const override;
-
-private:
-    std::atomic_bool m_active;
+    ForegroundRuntime(Core& instance, std::reference_wrapper<ExecutionToken> const& token);
+    [[nodiscard]] virtual RuntimeContext Type() const override;
+    [[nodiscard]] virtual ExecutionStatus Start() override;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class BackgroundRuntime final : public IRuntimePolicy
+class Node::BackgroundRuntime final : public IRuntimePolicy
 {
 public:
-    explicit BackgroundRuntime(BryptNode& instance);
-
-    [[nodiscard]] virtual ExecutionResult Start() override;
-    virtual void Stop() override;
-    [[nodiscard]] virtual bool IsActive() const override;
+    BackgroundRuntime(Core& instance, std::reference_wrapper<ExecutionToken> const& token);
+    [[nodiscard]] virtual RuntimeContext Type() const override;
+    [[nodiscard]] virtual ExecutionStatus Start() override;
 
 private:
     void BackgroundProcessor(std::stop_token token);
-
-    std::atomic_bool m_active;
     std::jthread m_worker;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<typename RuntimePolicy>
-concept ValidRuntimePolicy = std::derived_from<RuntimePolicy, IRuntimePolicy>;
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -19,9 +19,9 @@
 
 namespace spdlog { class logger; }
 
+namespace Node { class Core; }
 namespace Peer { class Proxy; }
 
-class BryptNode;
 class ApplicationMessage;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ class Election;
 class Information;
 class Query;
 
-std::unique_ptr<IHandler> Factory(Handler::Type handlerType, BryptNode& instance);
+std::unique_ptr<IHandler> Factory(Handler::Type handlerType, Node::Core& instance);
 
 using Map = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
 
@@ -49,7 +49,7 @@ using Map = std::unordered_map<Handler::Type, std::unique_ptr<IHandler>>;
 class Handler::IHandler
 {
 public:
-    IHandler(Handler::Type type, BryptNode& instance);
+    IHandler(Handler::Type type, Node::Core& instance);
     virtual ~IHandler() = default;
     
     virtual Handler::Type GetType() const final;
@@ -80,7 +80,7 @@ protected:
         std::uint8_t responsePhase) final;
         
     Handler::Type m_type;
-    BryptNode& m_instance;
+    Node::Core& m_instance;
     std::shared_ptr<spdlog::logger> m_logger;
 
 private: 

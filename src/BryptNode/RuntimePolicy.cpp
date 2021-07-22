@@ -28,14 +28,48 @@ constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-IRuntimePolicy::IRuntimePolicy(BryptNode& instance)
+Node::IRuntimePolicy::IRuntimePolicy(Node::Core& instance, std::reference_wrapper<ExecutionToken> const& token)
     : m_instance(instance)
+    , m_token(token)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void IRuntimePolicy::ProcessEvents()
+bool Node::IRuntimePolicy::IsExecutionRequested() const
+{
+    return m_token.get().IsExecutionRequested();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Node::IRuntimePolicy::SetExecutionStatus(ExecutionStatus status)
+{
+    m_token.get().SetStatus({}, status);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Node::IRuntimePolicy::OnExecutionStarted()
+{
+    assert(IsExecutionRequested()); // A start notification should only occur when it has been requested.
+    m_token.get().OnExecutionStarted({}); // Put the execution token into the executing state.
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+ExecutionStatus Node::IRuntimePolicy::OnExecutionStopped() const
+{
+    // If the cause is not set, it is assumed this shutdown is intentional.
+    auto const result = m_token.get().Status();
+    m_token.get().OnExecutionStopped({}); // Put the execution token into the standby state.
+    m_instance.OnRuntimeStopped(result); // After this call our resources will be destroyed. 
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Node::IRuntimePolicy::ProcessEvents()
 {
     m_instance.m_spBootstrapService->UpdateCache();
 
@@ -56,90 +90,59 @@ void IRuntimePolicy::ProcessEvents()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ExecutionResult IRuntimePolicy::FinalizeShutdown() const
-{
-    // If the cause is not set, it is assumed this shutdown is intentional.
-    auto const result = m_instance.m_optShutdownCause.value_or(ExecutionResult::RequestedShutdown);
-    m_instance.OnRuntimeStopped(); // After this call our resources will be destroyed. 
-    return result;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-ForegroundRuntime::ForegroundRuntime(BryptNode& instance)
-    : IRuntimePolicy(instance)
-    , m_active(false)
+Node::ForegroundRuntime::ForegroundRuntime(Node::Core& instance, std::reference_wrapper<ExecutionToken> const& token)
+    : IRuntimePolicy(instance, token)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ExecutionResult ForegroundRuntime::Start()
+RuntimeContext Node::ForegroundRuntime::Type() const
+{
+    return RuntimeContext::Foreground;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+ExecutionStatus Node::ForegroundRuntime::Start()
 {
     // Note: The foreground runtime can be stopped by another thread or an event due to an unrecoverable error
     // condition. That handler should set the cause to one of the error result values. 
-    assert(!m_active); // Currently, the lifecycle of the runtime only exists for one Start/Stop cycle. 
-    m_active = true;
-    while (m_active) { IRuntimePolicy::ProcessEvents(); }
-    return IRuntimePolicy::FinalizeShutdown();
+    IRuntimePolicy::OnExecutionStarted();
+    while (IRuntimePolicy::IsExecutionRequested()) { IRuntimePolicy::ProcessEvents(); }
+    return IRuntimePolicy::OnExecutionStopped();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void ForegroundRuntime::Stop()
-{
-    m_active = false;
-    return;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool ForegroundRuntime::IsActive() const
-{
-    return m_active;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-BackgroundRuntime::BackgroundRuntime(BryptNode& instance)
-    : IRuntimePolicy(instance)
-    , m_active(false)
+Node::BackgroundRuntime::BackgroundRuntime(Node::Core& instance, std::reference_wrapper<ExecutionToken> const& token)
+    : IRuntimePolicy(instance, token)
     , m_worker()
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ExecutionResult BackgroundRuntime::Start()
+RuntimeContext Node::BackgroundRuntime::Type() const
 {
-    assert(!m_active); // Currently, the lifecycle of the runtime only exists for one Start/Stop cycle. 
-    m_active = true;
-    m_worker = std::jthread([&] (std::stop_token token)
+    return RuntimeContext::Background;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+ExecutionStatus Node::BackgroundRuntime::Start()
+{
+    IRuntimePolicy::SetExecutionStatus(ExecutionStatus::ThreadSpawned);
+    m_worker = std::jthread([&]
         {
-            while (!token.stop_requested()) { IRuntimePolicy::ProcessEvents(); }
+            IRuntimePolicy::OnExecutionStarted();
+            while (IRuntimePolicy::IsExecutionRequested()) { IRuntimePolicy::ProcessEvents(); }
+            IRuntimePolicy::OnExecutionStopped();
         });
 
-    // Here we indicate the runtime has been spawned. Unlike the foreground runtime, shutdown causes shall be 
-    // propogated entirely through the event system. 
-    return ExecutionResult::ThreadSpawned;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void BackgroundRuntime::Stop()
-{
-    if (!m_active) { return; }
-
-    m_worker.request_stop();
-    m_active = false;
-    [[maybe_unused]] auto const result = IRuntimePolicy::FinalizeShutdown();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool BackgroundRuntime::IsActive() const
-{
-    return m_active;
+    // Indicate a thread for the runtime has been spawned. Unlike the foreground runtime, shutdown causes shall be 
+    // propogated through the event publisher. 
+    return ExecutionStatus::ThreadSpawned;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
