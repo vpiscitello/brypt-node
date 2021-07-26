@@ -29,6 +29,7 @@ using EndpointEntriesVector = std::vector<EndpointEntry>;
 
 void ParseDefaultBootstraps(
     Configuration::Options::Endpoints const& endpoints, BootstrapService::DefaultBootstraps& defaults);
+[[nodiscard]] bool HasDefaultBootstraps(BootstrapService::DefaultBootstraps& defaults);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -126,9 +127,8 @@ BootstrapService::BootstrapService(
 
 BootstrapService::~BootstrapService()
 {
-    if (auto const status = Serialize(); status != Configuration::StatusCode::Success) {
-        m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.string());
-    }
+    [[maybe_unused]] auto const status = Serialize();
+    assert(status == Configuration::StatusCode::Success); 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -143,12 +143,10 @@ void BootstrapService::SetMediator(IPeerMediator* const mediator)
 
 bool BootstrapService::FetchBootstraps()
 {
-    if (m_filepath.empty()) {m_logger->error("Unable to fetch bootstraps from an unknown file!"); return false; }
+    if (m_filepath.empty()) { m_logger->error("Failed to determine the bootstrap filepath!"); return false; }
 
     Configuration::StatusCode status = (std::filesystem::exists(m_filepath)) ? Deserialize() : InitializeFile();
     bool const success = (!m_cache.empty() || status == Configuration::StatusCode::Success);
-    if (!success) { m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.string()); }
-
     return success;
 }
 
@@ -217,7 +215,6 @@ Configuration::StatusCode BootstrapService::Serialize()
     assert(Assertions::Threading::IsCoreThread()); // Currently, only the main thread may serialize the bootstraps. 
     assert(!m_filepath.empty());
 
-    if (m_cache.empty()) [[unlikely]] { return InputError; }
     UpdateCache(); // Collate any pending updates before the write. 
 
     std::ofstream writer(m_filepath, std::ofstream::out);
@@ -247,6 +244,9 @@ Configuration::StatusCode BootstrapService::Serialize()
     });
     writer << "\n]\n";
     writer.close();
+
+    // If the failbit was set after the write, log an error and provide the caller with an error code. 
+    if (writer.fail()) [[unlikely]] { m_logger->error("Failed to serialize bootstraps!"); return FileError; }
 
     return Success;
 }
@@ -331,25 +331,33 @@ Configuration::StatusCode BootstrapService::Deserialize()
         std::ifstream reader(m_filepath);
         if (reader.fail()) [[unlikely]] { return FileError; }
         buffer << reader.rdbuf(); // Read the file into the buffer stream
+
         std::string_view json = buffer.view();
         auto const error = li::json_vector(s::protocol, s::bootstraps = li::json_vector(s::target))
             .decode(json, deserialized);
+        
         if (error.code) { return DecodeError; }
     }
 
     // Transform the decoded bootstraps and emplace them into the cache.
     BootstrapCache bootstraps;
-    bootstraps.reserve(deserialized.size());    
+    bool hasTransformError = false; // A flag to detect decode errors when transforming the decoded bootstraps. 
+    bootstraps.reserve(deserialized.size());
     std::ranges::for_each(deserialized, 
-        [this, &bootstraps] (local::EndpointEntry& entry)
+        [this, &bootstraps, &hasTransformError] (local::EndpointEntry& entry)
         {
+            if (hasTransformError) { return; } // If we encoutnered a prior error continue from this iteration early.
+
             auto const protocol = Network::ParseProtocol(entry.protocol);
-            if (protocol == Network::Protocol::Invalid) { return; }
+            if (protocol == Network::Protocol::Invalid) { hasTransformError = true; return; }
             
             bootstraps.reserve(bootstraps.size() + entry.bootstraps.size());
             std::ranges::for_each(entry.bootstraps, 
                 [&] (Network::RemoteAddress bootstrap) {
-                    if (bootstrap.IsBootstrapable()) { bootstraps.emplace(std::move(bootstrap)); }
+                    // If there was a prior error or the bootstrap is invalid continue from this iteration early.
+                    if (hasTransformError || !bootstrap.IsValid()) { hasTransformError = true; return; }
+                    assert(bootstrap.IsBootstrapable()); // The address should always be marked as bootstrapable. 
+                    bootstraps.emplace(std::move(bootstrap));
                 }, 
                 [&] (local::BootstrapEntry const& bootstrap) -> Network::RemoteAddress {
                     return { protocol, bootstrap.target, true };
@@ -360,8 +368,15 @@ Configuration::StatusCode BootstrapService::Deserialize()
             }
         });
 
-    if (bootstraps.empty()) [[unlikely]] { return DecodeError; }
     m_cache = std::move(bootstraps);
+
+    // If the cache is still empty when we have defauts an error occured. It's valid to have an empty cache when 
+    // it is intentional to have this node not have initial connections (e.g. the first run of the "root" node).
+    bool const error = hasTransformError || (m_cache.empty() && local::HasDefaultBootstraps(m_defaults));
+    if (error) [[unlikely]] {
+        m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.string());
+        return DecodeError;
+    }
 
     return Success;
 }
@@ -378,10 +393,7 @@ Configuration::StatusCode BootstrapService::InitializeFile()
         if (optDefault && optDefault->IsValid()) [[likely]] { m_cache.emplace(*optDefault); }
     }
 
-    Configuration::StatusCode const status = Serialize();
-    if (status != Success) [[unlikely]] { m_logger->error("Failed to serialize bootstraps!"); }
-
-    return status;
+    return Serialize();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -407,6 +419,15 @@ void local::ParseDefaultBootstraps(
             defaults.emplace(options.type, std::nullopt);
         }
     }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool local::HasDefaultBootstraps(BootstrapService::DefaultBootstraps& defaults)
+{
+    return std::ranges::any_of(
+        defaults | std::views::values,
+        [] (auto const& optBootstrap) -> bool { return optBootstrap.has_value(); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
