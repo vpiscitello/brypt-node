@@ -139,10 +139,10 @@ TEST(BootstrapServiceSuite, ParseMalformedFileTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BootstrapServiceSuite, ParseMissingFileTest)
+TEST(BootstrapServiceSuite, ParseMissingBootstrapsTest)
 {
     BootstrapService service(local::GetFilepath("missing/bootstrap.json"));
-    EXPECT_FALSE(service.FetchBootstraps());
+    EXPECT_TRUE(service.FetchBootstraps()); // Verify that file with no bootstraps can be read. 
     EXPECT_EQ(service.BootstrapCount(), std::size_t(0));
     EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), std::size_t(0));
     std::size_t const read = service.ForEachBootstrap(Network::Protocol::TCP,

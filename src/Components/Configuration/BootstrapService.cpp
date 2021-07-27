@@ -223,6 +223,12 @@ Configuration::StatusCode BootstrapService::Serialize()
     // Transform the cache into sets mapped to the associated protocol. 
     using MappedCache = std::unordered_map<Network::Protocol, std::vector<BootstrapCache::const_iterator>>;
     MappedCache mapped;
+
+    // Initialize the mapped cache with the configured protocols. 
+    std::ranges::for_each(m_defaults | std::views::keys,
+        [&mapped] (auto protocol) { mapped.emplace(protocol, std::vector<BootstrapCache::const_iterator>{}); });
+
+    // Map the bootstraps into protocol buckets.
     for (auto itr = m_cache.cbegin(); itr != m_cache.cend(); ++itr) {
         assert(itr->GetProtocol() != Network::Protocol::Invalid);
         mapped[itr->GetProtocol()].emplace_back(itr);
@@ -333,10 +339,13 @@ Configuration::StatusCode BootstrapService::Deserialize()
         buffer << reader.rdbuf(); // Read the file into the buffer stream
 
         std::string_view json = buffer.view();
+        if (json.empty()) { return InputError; } // Report an error if there is nothing in the file. 
+
         auto const error = li::json_vector(s::protocol, s::bootstraps = li::json_vector(s::target))
             .decode(json, deserialized);
         
-        if (error.code) { return DecodeError; }
+        // Report an error if the decoder reported an error or the desrialized container is still empty. 
+        if (error.code || deserialized.empty()) { return DecodeError; }
     }
 
     // Transform the decoded bootstraps and emplace them into the cache.
