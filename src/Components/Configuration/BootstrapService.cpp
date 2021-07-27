@@ -373,7 +373,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
                 });
 
             if (entry.bootstraps.empty() && !MaybeAddDefaultBootstrap(protocol, bootstraps)) {
-                m_logger->warn("{} has no associated bootstraps.", entry.protocol);
+                m_logger->warn("The {} network protocol has no associated bootstraps.", entry.protocol);
             }
         });
 

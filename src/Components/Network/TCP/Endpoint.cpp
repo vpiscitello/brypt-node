@@ -203,7 +203,7 @@ bool Network::TCP::Endpoint::Shutdown()
     bool const operating = m_upAgent || !m_context.stopped() || !m_tracker.IsEmpty();
     if (!operating) { return true; }
 
-    m_logger->info("Shutting down endpoint.");
+    m_logger->debug("Shutting down endpoint.");
     
     // Shutdown the active agent if one has been created. 
     if (m_upAgent) { m_upAgent.reset(); }

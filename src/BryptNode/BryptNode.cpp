@@ -114,12 +114,14 @@ ExecutionStatus Node::Core::Shutdown(ExecutionStatus reason)
 
     bool const success = m_token.get().RequestStop(reason);
     assert(IsTokenInExpectedState(success, m_token)); // Ensure the token is in a non-executing state.
-    if (success && (m_upRuntime && m_upRuntime->Type() == RuntimeContext::Background)) {
+    
+    if (success) {
         // Note: Given this call was able to request the stop and the runtime is operating in a thread, the runtime
         // is expected to have fully completed execution and the resources can be destroyed. In the foreground context,
         // this is handled by the call to the start method. 
-        m_upRuntime.reset();
+        if (m_upRuntime && m_upRuntime->Type() == RuntimeContext::Background) { m_upRuntime.reset(); }
     }
+
     return m_token.get().Status();
 }
 
@@ -174,7 +176,6 @@ std::weak_ptr<Await::TrackingManager> Node::Core::GetAwaitManager() const { retu
 
 ExecutionStatus Node::Core::StartComponents()
 {
-    m_logger->info("Starting up brypt node instance.");
     if (!m_token.get().RequestStart({})) { return ExecutionStatus::AlreadyStarted; }
 
     assert(m_spEventPublisher->EventCount() == std::size_t(0)); // All events should be flushed between cycles. 
@@ -190,6 +191,7 @@ ExecutionStatus Node::Core::StartComponents()
 void Node::Core::OnRuntimeStopped(ExecutionStatus status)
 {
     m_spNetworkManager->Shutdown();
+
     // Note: Durning the destruction of the core it is no longer safe to use the event publisher. Some subscribers
     // may have been destroyed and may not be executed. 
     if (status != ExecutionStatus::ResourceShutdown) {

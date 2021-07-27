@@ -10,8 +10,9 @@
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Peer/Manager.hpp"
-//----------------------------------------------------------------------------------------------------------------------
 #include "Utilities/CallbackIteration.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+#include <spdlog/spdlog.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
@@ -53,6 +54,7 @@ void Node::IRuntimePolicy::SetExecutionStatus(ExecutionStatus status)
 void Node::IRuntimePolicy::OnExecutionStarted()
 {
     assert(IsExecutionRequested()); // A start notification should only occur when it has been requested.
+    m_instance.m_logger->debug("Starting the node's core runtime.");
     m_token.get().OnExecutionStarted({}); // Put the execution token into the executing state.
 }
 
@@ -62,6 +64,7 @@ ExecutionStatus Node::IRuntimePolicy::OnExecutionStopped() const
 {
     // If the cause is not set, it is assumed this shutdown is intentional.
     auto const result = m_token.get().Status();
+    m_instance.m_logger->debug("Stopping the node's core runtime.");
     m_token.get().OnExecutionStopped({}); // Put the execution token into the standby state.
     m_instance.OnRuntimeStopped(result); // After this call our resources will be destroyed. 
     return result;
