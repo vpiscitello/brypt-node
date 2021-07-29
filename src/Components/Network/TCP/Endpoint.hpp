@@ -78,9 +78,6 @@ private:
     using EndpointInstance = Endpoint&;
     using ExtendedDetails = ConnectionDetails<void>;
 
-    using EventDeque = std::deque<std::any>;
-    using EventHandlers = std::unordered_map<std::type_index, std::function<void(std::any&)>>;
-
     class Agent {
     public:
         explicit Agent(EndpointInstance endpoint);
@@ -123,11 +120,6 @@ private:
 
     boost::asio::io_context m_context;
     std::unique_ptr<Agent> m_upAgent;
-    
-    mutable std::mutex m_eventsMutex;
-    EventDeque m_events;
-    EventHandlers m_handlers;
-
     SessionTracker m_tracker;
     MessageScheduler m_scheduler;
 

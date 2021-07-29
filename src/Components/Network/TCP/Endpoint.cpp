@@ -115,9 +115,6 @@ Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher c
     , m_detailsMutex()
     , m_context(1)
     , m_upAgent()
-    , m_eventsMutex()
-    , m_events()
-    , m_handlers()
     , m_tracker()
     , m_scheduler()
     , m_logger()
@@ -128,21 +125,6 @@ Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher c
         default: assert(false); break;
     }
     assert(m_logger);
-
-    m_handlers = {
-        { 
-            std::type_index(typeid(BindEvent)),
-            [this] (std::any& event) { OnBindEvent(std::any_cast<BindEvent&>(event)); }
-        },
-        { 
-            std::type_index(typeid(ConnectEvent)),
-            [this] (std::any& event) { OnConnectEvent(std::any_cast<ConnectEvent&>(event)); }
-        },
-        { 
-            std::type_index(typeid(DispatchEvent)),
-            [this] (std::any& event) { OnDispatchEvent(std::any_cast<DispatchEvent&>(event)); }
-        },
-    };
 
     m_scheduler = [this] (Node::Identifier const& destination, MessageVariant&& message) -> bool
         { return ScheduleSend(destination, std::move(message)); };
@@ -238,11 +220,8 @@ bool Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
     assert(binding.IsValid());
     assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
 
-    BindEvent event(binding);
-    {
-        std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(std::move(event));
-    }
+    auto handler = std::bind(&Endpoint::OnBindEvent, this, BindEvent{ binding });
+    boost::asio::post(m_context, std::move(handler));
 
     // Greedily set the entry to the provided binding to prevent reflection connections on startup. If the binding 
     // fails or changes, it will be updated by the thread. 
@@ -273,13 +252,8 @@ bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address, Node::Shar
     assert(address.IsValid() && address.IsBootstrapable());
     assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
 
-    ConnectEvent event(std::move(address), spIdentifier);
-
-    // Schedule the Connect network instruction event
-    {
-        std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(event);
-    }
+    auto handler = std::bind(&Endpoint::OnConnectEvent, this, ConnectEvent{ std::move(address), spIdentifier });
+    boost::asio::post(m_context, std::move(handler));
 
     return true;
 }
@@ -309,11 +283,8 @@ bool Network::TCP::Endpoint::ScheduleSend(Node::Identifier const& identifier, Me
     // If the associated session can't be found or inactive, drop the message. 
     if (!spSession || !spSession->IsActive()) { return false; }
 
-    // Schedule the outgoing message event
-    {
-        std::scoped_lock lock(m_eventsMutex);
-        m_events.emplace_back(DispatchEvent(spSession, std::move(message)));
-    }
+    auto handler = std::bind(&Endpoint::OnDispatchEvent, this, DispatchEvent{ spSession, std::move(message) });
+    boost::asio::post(m_context, std::move(handler));
 
     return true;
 }
@@ -322,8 +293,9 @@ bool Network::TCP::Endpoint::ScheduleSend(Node::Identifier const& identifier, Me
 
 void Network::TCP::Endpoint::PollContext()
 {
-    // If the context has been stopped, restart to ensure the next poll is valid. 
-    if (m_context.stopped()) { m_context.restart(); }
+    // Note: Context polling should only occur when the main io_context.run() is not active. This method is used to 
+    // help ensure completion handlers are called before and after ProcessEvents() has been called. 
+    if (m_context.stopped()) { m_context.restart(); } // Ensure the next io_context.poll() call is valid. 
     m_context.poll(); // Poll the context for any ready handlers. 
 }
 
@@ -331,28 +303,13 @@ void Network::TCP::Endpoint::PollContext()
 
 void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
 {
+    // Keep the event loop running while the thread should be active. Relying on the stopped state of the asio context 
+    // is not suffcient as io_context.run() may return any time no work is available. Not having ready handlers does
+    // not imply the endpoint has received a requested shutdown. 
     while(!token.stop_requested()) {
-        EventDeque events;
-        {
-            std::scoped_lock lock(m_eventsMutex);
-            for (std::uint32_t idx = 0; idx < Network::Endpoint::EventLimit; ++idx) {
-                // If there are no messages left in the outgoing message queue, break from copying the items into the
-                // temporary queue.
-                if (m_events.size() == 0) { break; }
-                events.emplace_back(std::move(m_events.front()));
-                m_events.pop_front();
-            }
-        }
-
-        for (auto& event: events) {
-            if (auto const itr = m_handlers.find(std::type_index(event.type())); itr != m_handlers.cend()) {
-                auto const& [type, processor] = *itr;
-                processor(event);
-            } else { assert(false); }
-        }
-
-        PollContext(); // Give the event ready handlers a chance to complete. 
-        std::this_thread::sleep_for(Network::Endpoint::CycleTimeout);
+        if (m_context.stopped()) { m_context.restart(); } // Ensure the next io_context.run() call is valid. 
+        m_context.run(); // Run the asio context until there is no more work to be done. 
+        std::this_thread::yield(); // Wait a small period of time before starting the next cycle. 
     }
 }
 
@@ -536,7 +493,8 @@ void Network::TCP::Endpoint::Agent::Stop()
 {
     // Note: A derived must call this method during destruction. Otherwise, the teardown method of the thread will 
     // reference a destoryed virtual method. 
-    m_worker.request_stop();
+    m_worker.request_stop(); // Notify the worker that the endpoint has received a shutdown request. 
+    m_endpoint.m_context.stop(); // Stop the asio context such that the thread can check for the shutdown request. 
     if (m_worker.joinable()) { m_worker.join(); }
     assert(!m_active && !m_worker.joinable()); // The event loop and worker thread should not be active after Stop(). 
 }
