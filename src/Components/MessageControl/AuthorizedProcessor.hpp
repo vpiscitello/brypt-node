@@ -42,13 +42,11 @@ public:
     // }IMessageSink
     
     std::optional<AssociatedMessage> GetNextMessage();
-    std::size_t QueuedMessageCount() const;
+    std::size_t MessageCount() const;
 
 private:
-    [[nodiscard]] bool QueueMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message);
-    [[nodiscard]] bool HandleMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
+    [[nodiscard]] bool QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message);
+    [[nodiscard]] bool HandleMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
         
     Node::SharedIdentifier m_spNodeIdentifier;
     

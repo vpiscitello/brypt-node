@@ -31,7 +31,7 @@ make
 ## Usage
 ### Running the Node
 ```bash
-./bin/BryptNode
+./bin/brypt
 ```
 #### Command Line Arguments
 | Flag | Value | Default | Required | Description |

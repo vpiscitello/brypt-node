@@ -123,11 +123,11 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     processor.CollectMessage(spPeerProxy, *optMessageContext, optRequest->GetPack());
 
     // Verify that the processor correctly queued the message to be processed by the the main event loop.
-    EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(1));
+    EXPECT_EQ(processor.MessageCount(), std::uint32_t(1));
     
     // Pop the queued request to verify it was properly handled.
     auto const optAssociatedMessage = processor.GetNextMessage();
-    EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(0));    
+    EXPECT_EQ(processor.MessageCount(), std::uint32_t(0));    
     ASSERT_TRUE(optAssociatedMessage);
     auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
 
@@ -197,13 +197,13 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 
     // Verify that the processor correctly queued the messages to be processed by the the main  event loop.
     std::uint32_t expectedQueueCount = test::Iterations;
-    EXPECT_EQ(processor.QueuedMessageCount(), expectedQueueCount);
+    EXPECT_EQ(processor.MessageCount(), expectedQueueCount);
     
     // While there are messages to processed in the authorized processor's queue validate the
     // processor's functionality and state.
     while (auto const optAssociatedMessage = processor.GetNextMessage()) {
         --expectedQueueCount;
-        EXPECT_EQ(processor.QueuedMessageCount(), expectedQueueCount);        
+        EXPECT_EQ(processor.MessageCount(), expectedQueueCount);        
         ASSERT_TRUE(optAssociatedMessage);
         auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
 
@@ -230,7 +230,7 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     }
 
     // Verify the processor's message queue has been depleted. 
-    EXPECT_EQ(processor.QueuedMessageCount(), std::uint32_t(0));
+    EXPECT_EQ(processor.MessageCount(), std::uint32_t(0));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
