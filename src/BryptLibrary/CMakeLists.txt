@@ -50,7 +50,9 @@ set(
     ${CMAKE_SOURCE_DIR}/Components/Security/KeyStore.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecureBuffer.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecurityUtils.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/PostQuantum/NISTSecurityLevelThree.cpp)
+    ${CMAKE_SOURCE_DIR}/Components/Security/PostQuantum/NISTSecurityLevelThree.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Scheduler/Delegate.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Scheduler/Service.cpp)
 
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES} brypt.cpp)
 
