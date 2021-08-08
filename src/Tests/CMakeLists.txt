@@ -11,6 +11,7 @@ if(NOT SKIP_BINARY)
     add_subdirectory(UT_Network)
     add_subdirectory(UT_Peer)
     add_subdirectory(UT_Security)
+    add_subdirectory(UT_Scheduler)
 endif()
 
 #-----------------------------------------------------------------------------------------------------------------------
