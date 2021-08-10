@@ -91,7 +91,12 @@ std::int32_t main(std::int32_t argc, char** argv)
     auto const status = core.Startup(); // Start the core, the runtime will block will until execution completes.
     switch (status) {
         case ExecutionStatus::RequestedShutdown: break;
-        // Log out an error and return a non-success code if the runtime is shutdown due to an unexpected error. 
+        // Log an error and return a non-success code if the core fails to begin execution due to an initialization error. 
+        case ExecutionStatus::InitializationFailed: {
+            logger->critical("Failed to initialize core resources!");
+            return 1;
+        }
+        // Log an error and return a non-success code if the runtime is shutdown due to an unexpected error. 
         case ExecutionStatus::UnexpectedShutdown: {
             logger->critical("An unexpected error caused the node to shutdown!");
             return 1;

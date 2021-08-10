@@ -6,6 +6,7 @@
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Utilities/NodeUtils.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -69,7 +70,10 @@ TEST(BootstrapServiceSuite, DefualtBootstrapTest)
 
     // Verify we can initalize the cache state and generate the file from the provided configuration.
     {
+        auto const spScheduler = std::make_shared<Scheduler::Service>();
         BootstrapService service(filepath, configuration);
+        service.Register(spScheduler);
+
         EXPECT_TRUE(service.FetchBootstraps());
         EXPECT_EQ(service.BootstrapCount(), std::size_t(1));
         EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), std::size_t(1));
@@ -86,7 +90,10 @@ TEST(BootstrapServiceSuite, DefualtBootstrapTest)
 
     // Verify we can read the file generated from the defaults. 
     {
+        auto const spScheduler = std::make_shared<Scheduler::Service>();
         BootstrapService service(filepath);
+        service.Register(spScheduler);
+
         EXPECT_TRUE(service.FetchBootstraps());
         EXPECT_EQ(service.BootstrapCount(), std::size_t(1));
         EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), std::size_t(1));
@@ -111,7 +118,10 @@ TEST(BootstrapServiceSuite, ParseGoodFileTest)
     std::ranges::generate(expectations.begin(), expectations.end(), 
         [current = std::uint16_t(test::TcpBasePort)] () mutable { return test::BootstrapGenerator(current++); });
 
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
     BootstrapService service(local::GetFilepath("good/bootstrap.json"));
+    service.Register(spScheduler);
+
     ASSERT_TRUE(service.FetchBootstraps()); // Verify we can read a non default generated file. 
     EXPECT_EQ(service.BootstrapCount(), test::FileStoredCount);
     EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), test::FileStoredCount);
@@ -128,7 +138,10 @@ TEST(BootstrapServiceSuite, ParseGoodFileTest)
 
 TEST(BootstrapServiceSuite, ParseMalformedFileTest)
 {
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
     BootstrapService service(local::GetFilepath("malformed/bootstrap.json"));
+    service.Register(spScheduler);
+    
     EXPECT_FALSE(service.FetchBootstraps()); // Verify that reading a malformed file will not cause an exception. 
     EXPECT_EQ(service.BootstrapCount(), std::size_t(0));
     EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), std::size_t(0));
@@ -141,7 +154,10 @@ TEST(BootstrapServiceSuite, ParseMalformedFileTest)
 
 TEST(BootstrapServiceSuite, ParseMissingBootstrapsTest)
 {
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
     BootstrapService service(local::GetFilepath("missing/bootstrap.json"));
+    service.Register(spScheduler);
+
     EXPECT_TRUE(service.FetchBootstraps()); // Verify that file with no bootstraps can be read. 
     EXPECT_EQ(service.BootstrapCount(), std::size_t(0));
     EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), std::size_t(0));
@@ -154,8 +170,11 @@ TEST(BootstrapServiceSuite, ParseMissingBootstrapsTest)
 
 TEST(BootstrapServiceSuite, CacheSearchTest)
 {
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
     std::filesystem::path const filepath = local::GetFilepath("good/bootstrap.json");
     BootstrapService service(filepath);
+    service.Register(spScheduler);
+
     ASSERT_TRUE(service.FetchBootstraps());
     EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), test::FileStoredCount);
 
@@ -191,8 +210,11 @@ TEST(BootstrapServiceSuite, CacheUpdateTest)
     std::bernoulli_distribution sampler{ 0.25 };
 
     // Create the service to read the good file.
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
     std::filesystem::path const filepath = local::GetFilepath("good/bootstrap.json");
     BootstrapService service(filepath);
+    service.Register(spScheduler);
+
     ASSERT_TRUE(service.FetchBootstraps());
 
     // Add a series of new bootstraps to the cache stage.
@@ -214,7 +236,10 @@ TEST(BootstrapServiceSuite, CacheUpdateTest)
 
     // Verify we can read the bootstraps, by simulating the next start of the application.
     {
+        auto const spOtherScheduler = std::make_shared<Scheduler::Service>();
         BootstrapService verifier(filepath);
+        verifier.Register(spOtherScheduler);
+
         EXPECT_TRUE(verifier.FetchBootstraps());
         EXPECT_EQ(service.BootstrapCount(), test::FileStoredCount + ExpectedUpdateCount);
         EXPECT_EQ(service.BootstrapCount(Network::Protocol::TCP), test::FileStoredCount + ExpectedUpdateCount);

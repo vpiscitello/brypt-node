@@ -7,6 +7,7 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -479,7 +480,8 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
     auto const spFirstIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
     auto const spSecondIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
-    Await::TrackingManager manager;
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    Await::TrackingManager manager(spScheduler);
     auto const key = manager.PushRequest(
         spClientPeer, *optRequest, { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
     EXPECT_GT(key, std::uint32_t(0));
@@ -515,7 +517,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
     EXPECT_TRUE(manager.PushResponse(*optFirstResponse));
     EXPECT_TRUE(manager.PushResponse(*optSecondResponse));
 
-    manager.ProcessFulfilledRequests();
+    EXPECT_EQ(manager.ProcessFulfilledRequests(), 1);
     EXPECT_TRUE(optFulfilledResponse);
 }
 

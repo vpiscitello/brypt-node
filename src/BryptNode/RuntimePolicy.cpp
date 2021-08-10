@@ -10,6 +10,8 @@
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Peer/Manager.hpp"
+#include "Components/Scheduler/Service.hpp"
+#include "Utilities/Assertions.hpp"
 #include "Utilities/CallbackIteration.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/spdlog.h>
@@ -22,7 +24,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-constexpr std::chrono::nanoseconds CycleTimeout = std::chrono::milliseconds(1);
+constexpr auto WorkTimeout = std::chrono::milliseconds{ 250 };
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -75,21 +77,11 @@ ExecutionStatus Node::IRuntimePolicy::OnExecutionStopped() const
 
 void Node::IRuntimePolicy::ProcessEvents()
 {
-    m_instance.m_spBootstrapService->UpdateCache();
-
-    if (auto const optMessage = m_instance.m_spMessageProcessor->GetNextMessage(); optMessage) {
-        auto const& handlers = m_instance.m_handlers;
-        auto& [spPeerProxy, message] = *optMessage;
-        if (auto const itr = handlers.find(message.GetCommand()); itr != handlers.end()) {
-            auto const& [type, handler] = *itr;
-            handler->HandleMessage(*optMessage);
-        }
-    }
-
-    m_instance.m_spAwaitManager->ProcessFulfilledRequests();
-    m_instance.m_spEventPublisher->Dispatch();
-    
-    std::this_thread::sleep_for(local::CycleTimeout);
+    // Execute the ready services then wait for the next available task. The timeout is used to ensure a task 
+    // notification is not missed from the scheduler. 
+    m_instance.m_spScheduler->Execute();
+    m_instance.m_spScheduler->AwaitTask(local::WorkTimeout);
+    std::this_thread::yield(); // Give other threads an opportunity to run inbetween the execution cycles.  
 }
 
 //----------------------------------------------------------------------------------------------------------------------

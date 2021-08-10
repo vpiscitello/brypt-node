@@ -30,6 +30,7 @@ set(INTERNAL_LIBRARIES
     Configuration
     MessageControl
     Event
+    Scheduler
     BryptMessage
     BryptIdentifier)
 

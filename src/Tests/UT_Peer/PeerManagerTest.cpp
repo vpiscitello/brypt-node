@@ -2,12 +2,14 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Manager.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
@@ -124,7 +126,11 @@ public:
 
 TEST(PeerManagerSuite, PeerDeclarationTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
@@ -138,7 +144,11 @@ TEST(PeerManagerSuite, PeerDeclarationTest)
 
 TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
@@ -156,7 +166,11 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 TEST(PeerManagerSuite, UndeclarePeerTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
@@ -173,7 +187,11 @@ TEST(PeerManagerSuite, UndeclarePeerTest)
 
 TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
@@ -195,7 +213,11 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
@@ -214,7 +236,11 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, ExistingPeerLinkTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
@@ -244,7 +270,11 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
 
 TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
@@ -282,7 +312,11 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 
 TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
@@ -301,7 +335,11 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
+
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
@@ -331,10 +369,14 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 {
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
     auto const spConnectProtocol = std::make_shared<local::ConnectProtocolStub>();
     auto const spMessageCollector = std::make_shared<local::MessageCollector>();
+    spEventPublisher->SuspendSubscriptions();
 
-    Peer::Manager manager(test::ClientIdentifier, Security::Strategy::PQNISTL3, spConnectProtocol, spMessageCollector);
+    Peer::Manager manager(
+        test::ClientIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, spConnectProtocol, spMessageCollector);
     EXPECT_EQ(manager.ObservedPeerCount(), std::size_t(0));
 
     // Declare the client and server peers. 
@@ -411,7 +453,10 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 
 TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
@@ -448,7 +493,10 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -514,7 +562,10 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, PeerCountTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
 
     std::random_device device;
     std::mt19937 generator(device());
@@ -542,8 +593,11 @@ TEST(PeerManagerSuite, PeerCountTest)
 
 TEST(PeerManagerSuite, SingleObserverTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     local::PeerObserverStub observer(&manager);
+    spEventPublisher->SuspendSubscriptions();
 
     EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
 
@@ -564,7 +618,10 @@ TEST(PeerManagerSuite, SingleObserverTest)
 
 TEST(PeerManagerSuite, MultipleObserverTest)
 {
-    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, nullptr);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
+    spEventPublisher->SuspendSubscriptions();
 
     std::vector<local::PeerObserverStub> observers;
     for (std::uint32_t idx = 0; idx < 12; ++idx) {

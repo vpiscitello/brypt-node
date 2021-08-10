@@ -18,6 +18,11 @@ namespace spdlog { class logger; }
 
 namespace Peer { class Proxy; }
 
+namespace Scheduler {
+    class Delegate;
+    class Service;
+}
+
 class ApplicationMessage;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -36,7 +41,7 @@ class TrackingManager;
 class Await::TrackingManager
 {
 public:
-    TrackingManager();
+    explicit TrackingManager(std::shared_ptr<Scheduler::Service> const& spScheduler);
 
     TrackerKey PushRequest(
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
@@ -49,13 +54,14 @@ public:
         std::set<Node::SharedIdentifier> const& spIdentifier);
 
     bool PushResponse(ApplicationMessage const& message);
-    void ProcessFulfilledRequests();
+    [[nodiscard]] std::size_t ProcessFulfilledRequests();
 
 private:
     using ResponseTrackingMap = std::unordered_map<TrackerKey, ResponseTracker>;
 
     TrackerKey KeyGenerator(std::string_view pack) const;
 
+    std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     ResponseTrackingMap m_awaiting;
     std::shared_ptr<spdlog::logger> m_logger;
 };

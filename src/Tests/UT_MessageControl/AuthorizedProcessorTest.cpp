@@ -6,6 +6,7 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -91,7 +92,8 @@ private:
 
 TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
-    AuthorizedProcessor processor(test::ServerIdentifier);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    AuthorizedProcessor processor(test::ServerIdentifier, {}, spScheduler);
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
@@ -161,7 +163,8 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
 TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 {
-    AuthorizedProcessor processor(test::ServerIdentifier);
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    AuthorizedProcessor processor(test::ServerIdentifier, {}, spScheduler);
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.

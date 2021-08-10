@@ -3,6 +3,8 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "BootstrapService.hpp"
+#include "Components/Scheduler/Delegate.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/FileUtils.hpp"
 #include "Utilities/LogUtils.hpp"
@@ -101,6 +103,7 @@ BootstrapService::BootstrapService(
     Configuration::Options::Endpoints const& endpoints,
     bool useFilepathDeduction)
     : m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_spDelegate()
     , m_mediator(nullptr)
     , m_filepath(filepath)
     , m_cache()
@@ -108,7 +111,6 @@ BootstrapService::BootstrapService(
     , m_defaults()
 {
     assert(m_logger);
-    assert(Assertions::Threading::IsCoreThread());
 
     local::ParseDefaultBootstraps(endpoints, m_defaults);
 
@@ -133,10 +135,26 @@ BootstrapService::~BootstrapService()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BootstrapService::SetMediator(IPeerMediator* const mediator)
+void BootstrapService::Register(IPeerMediator* const mediator)
 {
     assert(!m_mediator);
     if (m_mediator = mediator; m_mediator) [[unlikely]] { m_mediator->RegisterObserver(this); }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::Register(std::shared_ptr<Scheduler::Service> const& spScheduler)
+{
+    assert(Assertions::Threading::IsCoreThread());
+    assert(!m_spDelegate);
+
+    m_spDelegate = spScheduler->Register<BootstrapService>([this] () -> std::size_t {
+        // Update the bootstrap cache with any changes that have occured since this last cycle. 
+        auto const& [applied, difference] = UpdateCache();
+        return applied;  // Provide the number of tasks executed to the scheduler. 
+    }); 
+
+    assert(m_spDelegate);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -175,6 +193,7 @@ void BootstrapService::OnRemoteConnected(Network::Endpoint::Identifier, Network:
     if (!address.IsBootstrapable()) { return; }
     std::scoped_lock lock(m_stage.mutex);
     m_stage.updates.emplace_back(address, CacheUpdate::Insert);
+    m_spDelegate->OnTaskAvailable(); // Notify the scheduler that a task is available to be executed. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -184,6 +203,7 @@ void BootstrapService::OnRemoteDisconnected(Network::Endpoint::Identifier, Netwo
     if (!address.IsBootstrapable()) { return; }
     std::scoped_lock lock(m_stage.mutex);
     m_stage.updates.emplace_back(address, CacheUpdate::Remove);
+    m_spDelegate->OnTaskAvailable(); // Notify the scheduler that a task is available to be executed. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------

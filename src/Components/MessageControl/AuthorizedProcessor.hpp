@@ -6,6 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "AssociatedMessage.hpp"
 #include "BryptMessage/MessageTypes.hpp"
+#include "Components/Handler/Handler.hpp"
 #include "Interfaces/MessageSink.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -18,6 +19,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 namespace Peer { class Proxy; }
+namespace Scheduler { class Delegate; class Service; }
 
 class ApplicationMessage;
 class NetworkMessage;
@@ -25,9 +27,13 @@ class MessageContext;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class AuthorizedProcessor : public IMessageSink {
+class AuthorizedProcessor : public IMessageSink
+{
 public:
-    explicit AuthorizedProcessor(Node::SharedIdentifier const& spNodeIdentifier);
+    AuthorizedProcessor(
+        Node::SharedIdentifier const& spNodeIdentifier,
+        Handler::Map const& handlers,
+        std::shared_ptr<Scheduler::Service> const& spScheduler);
 
     // IMessageSink {
     virtual bool CollectMessage(
@@ -45,9 +51,12 @@ public:
     std::size_t MessageCount() const;
 
 private:
-    [[nodiscard]] bool QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message);
-    [[nodiscard]] bool HandleMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
+    [[nodiscard]] bool OnMessageCollected(
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message);
+    [[nodiscard]] bool OnMessageCollected(
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
         
+    std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     Node::SharedIdentifier m_spNodeIdentifier;
     
     mutable std::shared_mutex m_incomingMutex;

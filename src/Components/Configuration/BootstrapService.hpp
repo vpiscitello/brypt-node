@@ -23,6 +23,11 @@
 
 namespace spdlog { class logger; }
 
+namespace Scheduler {
+    class Delegate;
+    class Service;
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 
 class BootstrapService : public IPeerObserver, public IBootstrapCache
@@ -40,7 +45,8 @@ public:
 
     ~BootstrapService();
 
-    void SetMediator(IPeerMediator* const mediator);
+    void Register(IPeerMediator* const mediator);
+    void Register(std::shared_ptr<Scheduler::Service> const& spScheduler);
 
     [[nodiscard]] bool FetchBootstraps();
     void InsertBootstrap(Network::RemoteAddress const& bootstrap);
@@ -75,6 +81,7 @@ private:
     [[nodiscard]] bool MaybeAddDefaultBootstrap(Network::Protocol protocol, BootstrapCache& bootstraps);
 
     std::shared_ptr<spdlog::logger> m_logger;
+    std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     IPeerMediator* m_mediator;
 
     std::filesystem::path m_filepath;

@@ -13,6 +13,8 @@
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Await/TrackingManager.hpp"
+#include "Components/Configuration/Parser.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Handler/Handler.hpp"
 #include "Components/MessageControl/AssociatedMessage.hpp"
@@ -20,8 +22,7 @@
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
-#include "Components/Configuration/Parser.hpp"
-#include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Utilities/LogUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -32,6 +33,7 @@ Node::Core::Core(
     std::unique_ptr<Configuration::Parser> const& upParser,
     std::shared_ptr<BootstrapService> const& spBootstrapService)
     : m_token(token)
+    , m_spScheduler(std::make_shared<Scheduler::Service>())
     , m_upRuntime(nullptr)
     , m_logger(spdlog::get(LogUtils::Name::Core.data()))
     , m_spNodeState()
@@ -40,11 +42,11 @@ Node::Core::Core(
     , m_spSecurityState(std::make_shared<SecurityState>(
         upParser->GetSecurityStrategy(), upParser->GetCentralAuthority()))
     , m_spSensorState(std::make_shared<SensorState>())
-    , m_spEventPublisher(std::make_shared<Event::Publisher>())
+    , m_spEventPublisher()
     , m_spNetworkManager()
     , m_spPeerManager()
-    , m_spMessageProcessor(std::make_shared<AuthorizedProcessor>(upParser->GetNodeIdentifier()))
-    , m_spAwaitManager(std::make_shared<Await::TrackingManager>())
+    , m_spMessageProcessor()
+    , m_spAwaitManager()
     , m_spBootstrapService(spBootstrapService)
     , m_handlers()
 {
@@ -59,6 +61,15 @@ Node::Core::Core(
         m_handlers.emplace(Handler::Type::Query, Handler::Factory(Handler::Type::Query, *this));
         m_handlers.emplace(Handler::Type::Election, Handler::Factory(Handler::Type::Election, *this));
         m_handlers.emplace(Handler::Type::Connect, Handler::Factory(Handler::Type::Connect, *this));
+    }
+
+    {
+        // Create the main execution services, these components will drive the main execution loop by notifying 
+        // the scheduler when work becomes available. 
+        m_spEventPublisher = std::make_shared<Event::Publisher>(m_spScheduler);
+        m_spMessageProcessor = std::make_shared<AuthorizedProcessor>(
+            upParser->GetNodeIdentifier(), m_handlers, m_spScheduler);
+        m_spAwaitManager = std::make_shared<Await::TrackingManager>(m_spScheduler);
     }
 
     {
@@ -86,7 +97,8 @@ Node::Core::Core(
     m_spNodeState = std::make_shared<NodeState>(
         upParser->GetNodeIdentifier(), m_spNetworkManager->GetEndpointProtocols());
 
-    spBootstrapService->SetMediator(m_spPeerManager.get());
+    m_spBootstrapService->Register(m_spPeerManager.get());
+    m_spBootstrapService->Register(m_spScheduler);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -178,6 +190,10 @@ std::weak_ptr<Await::TrackingManager> Node::Core::GetAwaitManager() const { retu
 ExecutionStatus Node::Core::StartComponents()
 {
     if (!m_token.get().RequestStart({})) { return ExecutionStatus::AlreadyStarted; }
+
+    // Initialize the scheduler to set the priority of execution. If it fails, one of the executable services must have
+    // a cyclic dependency. 
+    if (!m_spScheduler->Initialize()) { return ExecutionStatus::InitializationFailed; }
 
     assert(m_spEventPublisher->EventCount() == std::size_t(0)); // All events should be flushed between cycles. 
     m_spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.

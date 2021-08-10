@@ -81,6 +81,7 @@ template<typename ServiceType> requires std::is_class_v<ServiceType>
 std::shared_ptr<Scheduler::Delegate> Scheduler::Service::Register(OnExecute const& callback)
 {
     assert(Assertions::Threading::IsCoreThread());
+    assert(!GetDelegate<ServiceType>()); // Currently, only one delegate per service type is supported. 
     auto const spService = m_delegates.emplace_back(
         std::make_shared<Delegate>(typeid(ServiceType).hash_code(), callback, shared_from_this()));
     return spService;

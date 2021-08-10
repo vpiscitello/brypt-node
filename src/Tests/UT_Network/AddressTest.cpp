@@ -31,7 +31,7 @@ using TcpExpectations = std::vector<std::tuple<std::string, std::string, Network
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpBindingAddressValidationTest)
+TEST(NetworkAddressSuite, TcpBindingAddressValidationTest)
 {
     test::TcpExpectations const expectations = {
         { "*:35216", "tcp://127.0.0.1:35216", Network::Socket::Type::IPv4, true },
@@ -136,7 +136,7 @@ TEST(AddressTest, TcpBindingAddressValidationTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpBindingAddressComponentTest)
+TEST(NetworkAddressSuite, TcpBindingAddressComponentTest)
 {
     // IPv4 Address
     {
@@ -163,7 +163,7 @@ TEST(AddressTest, TcpBindingAddressComponentTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpBindingAddressMoveTest)
+TEST(NetworkAddressSuite, TcpBindingAddressMoveTest)
 {
     constexpr std::string_view Expected = "tcp://127.0.0.1:35216";
     Network::BindingAddress initial(Network::Protocol::TCP, "*:35216", test::TcpInterface);
@@ -190,7 +190,7 @@ TEST(AddressTest, TcpBindingAddressMoveTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpRemoteAddressValidationTest)
+TEST(NetworkAddressSuite, TcpRemoteAddressValidationTest)
 {
     test::TcpExpectations const expectations = {
         { "tcp://127.0.0.1:35216", "tcp://127.0.0.1:35216", Network::Socket::Type::IPv4, true },
@@ -296,7 +296,7 @@ TEST(AddressTest, TcpRemoteAddressValidationTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpRemoteAddressComponentTest)
+TEST(NetworkAddressSuite, TcpRemoteAddressComponentTest)
 {
     // IPv4 Address
     {
@@ -323,7 +323,7 @@ TEST(AddressTest, TcpRemoteAddressComponentTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpRemoteAddressBootstrapableTest)
+TEST(NetworkAddressSuite, TcpRemoteAddressBootstrapableTest)
 {
     using BootstrapExpectations = std::vector<std::tuple<std::string, bool, bool>>;
     BootstrapExpectations const expectations = {
@@ -341,7 +341,7 @@ TEST(AddressTest, TcpRemoteAddressBootstrapableTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(AddressTest, TcpRemoteAddressMoveTest)
+TEST(NetworkAddressSuite, TcpRemoteAddressMoveTest)
 {
     constexpr std::string_view Expected = "tcp://127.0.0.1:35216";
     Network::RemoteAddress initial(Network::Protocol::TCP, "127.0.0.1:35216", true);

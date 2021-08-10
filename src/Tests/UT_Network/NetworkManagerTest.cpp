@@ -10,6 +10,7 @@
 #include "Components/Network/Manager.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
+#include "Components/Scheduler/Service.hpp"
 #include "Interfaces/BootstrapCache.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -133,7 +134,8 @@ protected:
     void SetUp() override
     {
         // Create the resources required for each instance of a test. 
-        m_spPublisher = std::make_shared<Event::Publisher>();
+        m_spScheduler = std::make_shared<Scheduler::Service>();
+        m_spPublisher = std::make_shared<Event::Publisher>(m_spScheduler);
         m_upEventObserver = std::make_unique<local::EventObserver>(m_spPublisher);
         m_upProcessor = std::make_unique<MessageSinkStub>(test::OriginIdentifier);
         m_upMediator = std::make_unique<SinglePeerMediatorStub>(test::OriginIdentifier, m_upProcessor.get());
@@ -142,6 +144,7 @@ protected:
     void TearDown() override { }
 
     static local::TargetResources m_target;
+    std::shared_ptr<Scheduler::Service> m_spScheduler;
     Event::SharedPublisher m_spPublisher;
     std::unique_ptr<local::EventObserver> m_upEventObserver;
     std::unique_ptr<IMessageSink> m_upProcessor;
@@ -280,7 +283,9 @@ std::optional<local::TargetResources> local::CreateTargetResources()
     auto upProcessor = std::make_unique<MessageSinkStub>(test::TargetIdentifier);
     auto upMediator = std::make_unique<SinglePeerMediatorStub>(
         test::TargetIdentifier, upProcessor.get());
-    auto const spPublisher = std::make_shared<Event::Publisher>();
+
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spPublisher = std::make_shared<Event::Publisher>(spScheduler);
     spPublisher->SuspendSubscriptions(); // We don't need to subscribe to any of the target's events. 
 
     auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(

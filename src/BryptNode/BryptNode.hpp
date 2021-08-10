@@ -34,6 +34,7 @@ namespace Configuration { class Parser; }
 namespace Event { class Publisher; }
 namespace Network { class Manager; }
 namespace Peer { class Manager; }
+namespace Scheduler { class Service; }
 
 class AuthorizedProcessor;
 class BootstrapService;
@@ -97,6 +98,7 @@ private:
     void OnUnexpectedError();
 
     std::reference_wrapper<ExecutionToken> m_token;
+    std::shared_ptr<Scheduler::Service> m_spScheduler;
     std::unique_ptr<IRuntimePolicy> m_upRuntime;
     std::shared_ptr<spdlog::logger> m_logger;
 

@@ -3,20 +3,30 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "Publisher.hpp"
+#include "Components/Scheduler/Delegate.hpp"
+#include "Components/Scheduler/Service.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-Event::Publisher::Publisher()
-    : m_hasSuspendedSubscriptions(false)
+Event::Publisher::Publisher(std::shared_ptr<Scheduler::Service> const& spScheduler)
+    : m_spDelegate()
+    , m_hasSuspendedSubscriptions(false)
     , m_listeners()
     , m_eventsMutex()
     , m_events()
     , m_advertisedMutex()
     , m_advertised()
 {
+    assert(Assertions::Threading::IsCoreThread());
+
     // There are two assumptions:
         // 1.) All subscriptions occur on the main thread.
         // 2.) Publishing does not begin until the main thread has suspended subscriptions. 
-    assert(Assertions::Threading::IsCoreThread());
+
+    m_spDelegate = spScheduler->Register<Publisher>([this] () -> std::size_t {
+        return Dispatch();  // Dispatch any generated events that have been published since the last cycle. 
+    }); 
+    
+    assert(m_spDelegate);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -86,7 +96,7 @@ std::size_t Event::Publisher::AdvertisedCount() const
 std::size_t Event::Publisher::Dispatch()
 {
     // Pull and clear the publisher's queued events to quickly unblock future events.
-    auto const events = (std::scoped_lock{m_eventsMutex}, std::exchange(m_events, {}));
+    auto const events = ( std::scoped_lock{ m_eventsMutex }, std::exchange(m_events, {}) );
     for (auto const& upEventProxy : events) {
         // Get the listeners for the event. If there is an event to be published, it should be guarenteed that there
         // is at least one listener for that particular event. 
@@ -112,6 +122,7 @@ void Event::Publisher::Publish(Type type, EventProxy&& upEventProxy)
 
     std::scoped_lock lock(m_eventsMutex);
     m_events.emplace_back(std::move(upEventProxy));
+    m_spDelegate->OnTaskAvailable();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

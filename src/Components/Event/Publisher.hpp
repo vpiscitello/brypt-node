@@ -22,6 +22,8 @@
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
+namespace Scheduler { class Delegate; class Service; }
+
 //----------------------------------------------------------------------------------------------------------------------
 namespace Event {
 //----------------------------------------------------------------------------------------------------------------------
@@ -37,7 +39,7 @@ class Event::Publisher
 public:
     using EventAdvertisements = std::set<Type>;
 
-    Publisher();
+    explicit Publisher(std::shared_ptr<Scheduler::Service> const& spScheduler);
     ~Publisher() = default;
 
     Publisher(Publisher const&) = delete; 
@@ -79,6 +81,7 @@ private:
 
     void Publish(Type type, EventProxy&& upEventProxy);
 
+    std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     std::atomic_bool m_hasSuspendedSubscriptions;
     Listeners m_listeners;
     
