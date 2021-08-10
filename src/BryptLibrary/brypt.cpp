@@ -97,6 +97,9 @@ brypt_service_t* brypt_service_create(char const* base_path, size_t base_path_si
 
 BRYPT_EXPORT brypt_status_t brypt_service_initialize(brypt_service_t* const service)
 {
+    // Set the core thread such that any non-direct core resources can assert during initialization. 
+    assert(Assertions::Threading::SetCoreThread());
+    
     if (!service) { return BRYPT_EINVALIDARGUMENT; }
     if (service->node && !service->node->Shutdown()) { return BRYPT_EOPERNOTSUPPORTED; }
    

@@ -68,7 +68,8 @@ extern "C" void Signal::OnShutdownRequested(std::int32_t signal)
 
 std::int32_t main(std::int32_t argc, char** argv)
 {
-    assert(Assertions::Threading::IsCoreThread()); // Note: We must ensure the main thread id is set.
+    // Set the core thread such that any non-direct core resources can assert during initialization. 
+    assert(Assertions::Threading::SetCoreThread());
 
     // Register listeners such that we can properly handle shutdown requests via process signals. 
     if (SIG_ERR == std::signal(SIGINT, Signal::OnShutdownRequested)) { return 1; }

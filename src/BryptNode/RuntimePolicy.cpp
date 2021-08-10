@@ -53,6 +53,7 @@ void Node::IRuntimePolicy::SetExecutionStatus(ExecutionStatus status)
 
 void Node::IRuntimePolicy::OnExecutionStarted()
 {
+    assert(Assertions::Threading::SetCoreThread()); // Set the core thread to the thread context of the runtime. 
     assert(IsExecutionRequested()); // A start notification should only occur when it has been requested.
     m_instance.m_logger->debug("Starting the node's core runtime.");
     m_token.get().OnExecutionStarted({}); // Put the execution token into the executing state.
