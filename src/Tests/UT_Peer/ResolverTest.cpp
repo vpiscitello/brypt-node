@@ -75,7 +75,7 @@ public:
         std::shared_ptr<Peer::Proxy> const&,
         Network::Endpoint::Identifier,
         Network::RemoteAddress const&, 
-        ConnectionState) override { }
+        Network::Connection::State) override { }
     // } IPeerMediator
 };
 

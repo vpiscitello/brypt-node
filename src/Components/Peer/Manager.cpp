@@ -123,13 +123,14 @@ void Peer::Manager::DispatchConnectionState(
     std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     Network::Endpoint::Identifier identifier,
     Network::RemoteAddress const& address, 
-    ConnectionState change)
+    Network::Connection::State change)
 {
+    using enum Network::Connection::State;
     switch (change) {
-        case ConnectionState::Connected: {
+        case Connected: {
             NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
         } break;
-        case ConnectionState::Disconnected: {
+        case Disconnected: {
             using enum Event::Message<Event::Type::PeerDisconnected>::Cause;
             NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
         }

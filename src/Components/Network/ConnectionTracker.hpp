@@ -7,6 +7,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "ConnectionDetails.hpp"
+#include "ConnectionState.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
@@ -68,7 +69,7 @@ public:
 
     void SetConnectionDetails(ExtendedDetails&& details)
     {
-        if (m_optDetails && m_optDetails->GetConnectionState() == ConnectionState::Resolving) {
+        if (m_optDetails && m_optDetails->GetConnectionState() == Network::Connection::State::Resolving) {
             details.SetAddress(m_optDetails->GetAddress());
         }
         m_optDetails = std::move(details);
@@ -109,14 +110,14 @@ enum class UpdateTimepointFilter : std::uint32_t { MatchPredicate };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-inline ConnectionStateFilter ConnectionStateToFilter(ConnectionState state)
+inline ConnectionStateFilter ConnectionStateToFilter(Network::Connection::State state)
 {
-    static const std::unordered_map<ConnectionState, ConnectionStateFilter> equivalents = 
+    static const std::unordered_map<Network::Connection::State, ConnectionStateFilter> equivalents = 
     {
-        { ConnectionState::Connected, ConnectionStateFilter::Connected },
-        { ConnectionState::Disconnected, ConnectionStateFilter::Disconnected },
-        { ConnectionState::Resolving, ConnectionStateFilter::Resolving},
-        { ConnectionState::Unknown, ConnectionStateFilter::Unknown }
+        { Network::Connection::State::Connected, ConnectionStateFilter::Connected },
+        { Network::Connection::State::Disconnected, ConnectionStateFilter::Disconnected },
+        { Network::Connection::State::Resolving, ConnectionStateFilter::Resolving},
+        { Network::Connection::State::Unknown, ConnectionStateFilter::Unknown }
     };
 
     if (auto const itr = equivalents.find(state); itr != equivalents.end()) { return itr->second; }

@@ -115,7 +115,7 @@ void SinglePeerMediatorStub::DispatchConnectionState(
     [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     [[maybe_unused]] Network::Endpoint::Identifier identifier,
     [[maybe_unused]] Network::RemoteAddress const& address,
-    [[maybe_unused]] ConnectionState change)
+    [[maybe_unused]] Network::Connection::State change)
 {
 }
 

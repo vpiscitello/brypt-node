@@ -63,7 +63,7 @@ public:
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::RemoteAddress const& address, 
-        ConnectionState change) override;
+        Network::Connection::State change) override;
     // } IPeerMediator
 
     // IPeerCache {

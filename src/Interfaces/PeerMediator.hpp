@@ -43,7 +43,7 @@ public:
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::RemoteAddress const& address, 
-        ConnectionState change) = 0;
+        Network::Connection::State change) = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

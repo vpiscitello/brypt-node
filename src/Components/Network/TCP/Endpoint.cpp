@@ -386,7 +386,7 @@ void Network::TCP::Endpoint::OnSessionStopped(SharedSession const& spSession)
 {
     auto const updater = [this] (ExtendedDetails& details)
     { 
-        details.SetConnectionState(ConnectionState::Disconnected);
+        details.SetConnectionState(Connection::State::Disconnected);
         if (auto const spPeerProxy = details.GetPeerProxy(); spPeerProxy) {
             spPeerProxy->WithdrawEndpoint(m_identifier);
         }
@@ -411,7 +411,7 @@ bool Network::TCP::Endpoint::OnMessageReceived(
         spProxy = IEndpoint::LinkPeer(source, address);
         
         ExtendedDetails details(spProxy);
-        details.SetConnectionState(ConnectionState::Connected);
+        details.SetConnectionState(Connection::State::Connected);
         spProxy->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
 
         return details;

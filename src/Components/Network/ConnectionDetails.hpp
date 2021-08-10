@@ -19,7 +19,7 @@ public:
     explicit ConnectionDetailsBase(Network::RemoteAddress const& address)
         : m_address(address)
         , m_updated()
-        , m_state(ConnectionState::Resolving)
+        , m_state(Network::Connection::State::Resolving)
         , m_spPeerProxy()
     {
     }
@@ -27,14 +27,14 @@ public:
     explicit ConnectionDetailsBase(std::shared_ptr<Peer::Proxy> const& spPeerProxy)
         : m_address()
         , m_updated()
-        , m_state(ConnectionState::Resolving)
+        , m_state(Network::Connection::State::Resolving)
         , m_spPeerProxy(spPeerProxy)
     {
     }
 
     Network::RemoteAddress GetAddress() const { return m_address; }
     TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updated; }
-    ConnectionState GetConnectionState() const { return m_state; }
+    Network::Connection::State GetConnectionState() const { return m_state; }
     std::shared_ptr<Peer::Proxy> GetPeerProxy() const { return m_spPeerProxy; }
     Node::SharedIdentifier GetNodeIdentifier() const
     {
@@ -44,7 +44,7 @@ public:
 
     void SetAddress(Network::RemoteAddress const& address){ m_address = address; }
     void SetUpdatedTimepoint(TimeUtils::Timepoint const& timepoint) { m_updated = timepoint; }
-    void SetConnectionState(ConnectionState state) { m_state = state; Updated(); }
+    void SetConnectionState(Network::Connection::State state) { m_state = state; Updated(); }
     void SetPeerProxy(std::shared_ptr<Peer::Proxy> const& spPeerProxy) { m_spPeerProxy = spPeerProxy; }
     void Updated() { m_updated = TimeUtils::GetSystemTimepoint(); }
     bool HasAssociatedPeer() const { return m_spPeerProxy != nullptr; }
@@ -52,7 +52,7 @@ public:
 protected: 
     Network::RemoteAddress m_address;
     TimeUtils::Timepoint m_updated;
-    ConnectionState m_state;
+    Network::Connection::State m_state;
     std::shared_ptr<Peer::Proxy> m_spPeerProxy;
 };
 
