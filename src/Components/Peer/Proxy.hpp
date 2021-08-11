@@ -102,13 +102,14 @@ public:
     [[nodiscard]] bool AttachResolver(std::unique_ptr<Resolver>&& upResolver);
     [[nodiscard]] bool StartExchange(
         Security::Strategy strategy, Security::Role role, std::shared_ptr<IConnectProtocol> const& spProtocol);
-    [[nodiscard]] Security::State GetSecurityState() const;
+    [[nodiscard]] Security::State GetAuthorization() const;
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;
     // } Security Methods
 
     // Testing Methods {
     UT_SupportMethod(void SetReceiver(IMessageSink* const pMessageSink));
+    UT_SupportMethod(void SetAuthorization(Security::State state));
     UT_SupportMethod(void AttachSecurityStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy));
     UT_SupportMethod(void DetachResolver());
     UT_SupportMethod(void RegisterSilentEndpoint(Registration const& registration));
@@ -129,7 +130,7 @@ private:
     Node::SharedIdentifier m_spIdentifier;
     IPeerMediator* const m_pPeerMediator;
     
-    std::atomic<Security::State> m_state;
+    std::atomic<Security::State> m_authorization;
     mutable std::shared_mutex m_securityMutex;
     std::unique_ptr<Resolver> m_upResolver;
     std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;

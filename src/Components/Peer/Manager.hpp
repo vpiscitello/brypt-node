@@ -7,6 +7,7 @@
 #include "Proxy.hpp"
 #include "Resolver.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Event/SharedPublisher.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -44,6 +45,7 @@ public:
     Manager(
         Node::SharedIdentifier const& spNodeIdentifier,
         Security::Strategy strategy,
+        Event::SharedPublisher const& spEventPublisher,
         std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
         std::weak_ptr<IMessageSink> const& wpPromotedProcessor = {});
 
@@ -104,7 +106,8 @@ private:
     template<typename FunctionType, typename...Args>
     void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
-    Node::SharedIdentifier m_spNodeIdentifier;
+    Node::SharedIdentifier const m_spNodeIdentifier;
+    Event::SharedPublisher const m_spEventPublisher;
     Security::Strategy m_strategyType;
     
     mutable std::mutex m_observersMutex;

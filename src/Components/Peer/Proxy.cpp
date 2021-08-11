@@ -8,6 +8,7 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "Components/Network/Address.hpp"
+#include "Components/Network/ConnectionState.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
@@ -22,7 +23,7 @@ Peer::Proxy::Proxy(
     IPeerMediator* const pMediator)
     : m_spIdentifier()
     , m_pPeerMediator(pMediator)
-    , m_state(Security::State::Unauthorized)
+    , m_authorization(Security::State::Unauthorized)
     , m_securityMutex()
     , m_upResolver()
     , m_upSecurityStrategy()
@@ -168,14 +169,14 @@ void Peer::Proxy::RegisterEndpoint(Registration const& registration)
 
     // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notidication
     // is deferred until an exchange is successfully completed. 
-    if (m_state == Security::State::Authorized) {
+    if (m_authorization == Security::State::Authorized) {
         assert(m_pPeerMediator);
-        m_pPeerMediator->DispatchConnectionState(
-            shared_from_this(),
-            registration.GetEndpointIdentifier(),
-            registration.GetAddress(),
-            ConnectionState::Connected);
+        using enum Network::Connection::State;
+        auto const& identifier = registration.GetEndpointIdentifier();
+        auto const& address = registration.GetAddress();
+        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Connected);
     }
+
     assert(m_pPeerMediator);
 }
 
@@ -199,9 +200,10 @@ void Peer::Proxy::RegisterEndpoint(
 
     // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notidication
     // is deferred until an exchange is successfully completed. 
-    if (m_state == Security::State::Authorized) {
+    if (m_authorization == Security::State::Authorized) {
         assert(m_pPeerMediator);
-        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, ConnectionState::Connected);
+        using enum Network::Connection::State;
+        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Connected);
     }
 }
 
@@ -216,13 +218,13 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier)
     }
 
     // When an endpoint withdraws its registration from the peer, the mediator needs to notify observer's that peer 
-    // has been disconnected from that endpoint. 
-    assert(m_pPeerMediator);
-    m_pPeerMediator->DispatchConnectionState(
-        shared_from_this(),
-        extracted.mapped().GetEndpointIdentifier(), 
-        extracted.mapped().GetAddress(),
-        ConnectionState::Disconnected);
+    // has been disconnected from that endpoint if the known connection state has been updated. 
+    if (m_authorization == Security::State::Authorized) {
+        assert(m_pPeerMediator);
+        using enum Network::Connection::State;
+        auto const& address = extracted.mapped().GetAddress();
+        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Disconnected);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -299,11 +301,11 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
 
             // Set the security state and enabled processor to the default state. If this is a success notification,
             // they will be set accordingly. 
-            m_state = Security::State::Unauthorized; // Unset the authorization state. 
+            m_authorization = Security::State::Unauthorized; // Unset the authorization state. 
             m_pEnabledProcessor = nullptr; // Unset the processor such that messages are dropped.
 
             if (status == ExchangeStatus::Success) {
-                m_state = Security::State::Authorized; // The peer is authorized and allowed into the core. 
+                m_authorization = Security::State::Authorized; // The peer is authorized and allowed into the core. 
                 // If we can obtain the core's message processor (i.e. not in shutdown state), set the enabled processor
                 // such that received messages are forwarded into the core. 
                 if (auto const spProcessor = m_wpCoreProcessor.lock(); spProcessor) [[likely]] {
@@ -314,11 +316,9 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
                 // connected addresses. 
                 for (auto const& [identifier, registration] : m_endpoints) {
                     assert(m_pPeerMediator);
-                    m_pPeerMediator->DispatchConnectionState(
-                        shared_from_this(),
-                        registration.GetEndpointIdentifier(),
-                        registration.GetAddress(),
-                        ConnectionState::Connected);
+                    using enum Network::Connection::State;
+                    auto const& address = registration.GetAddress();
+                    m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Connected);
                 }
             }
 
@@ -334,7 +334,9 @@ bool Peer::Proxy::StartExchange(
     Security::Strategy strategy, Security::Role role, std::shared_ptr<IConnectProtocol> const& spProtocol)
 {
     if (m_upResolver) [[unlikely]] { return false; }
+
     auto upResolver = std::make_unique<Resolver>(m_spIdentifier, Security::Context::Unique);
+
     switch (role) {
         case Security::Role::Acceptor: {
             bool const result = upResolver->SetupExchangeAcceptor(strategy);
@@ -348,15 +350,17 @@ bool Peer::Proxy::StartExchange(
         }
         default: assert(false); return false; // What is this?
     }
-    assert(false); return false; // How did we fallthrough to here? 
+
+    assert(false);
+    return false; // How did we fallthrough to here? 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::State Peer::Proxy::GetSecurityState() const
+Security::State Peer::Proxy::GetAuthorization() const
 {
     std::shared_lock lock(m_securityMutex);
-    return m_state;
+    return m_authorization;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -364,7 +368,7 @@ Security::State Peer::Proxy::GetSecurityState() const
 bool Peer::Proxy::IsFlagged() const
 {
     std::shared_lock lock(m_securityMutex);
-    return m_state == Security::State::Flagged;
+    return m_authorization == Security::State::Flagged;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -372,7 +376,7 @@ bool Peer::Proxy::IsFlagged() const
 bool Peer::Proxy::IsAuthorized() const
 {
     std::shared_lock lock(m_securityMutex);
-    return m_state == Security::State::Authorized;
+    return m_authorization == Security::State::Authorized;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -423,6 +427,14 @@ void Peer::Proxy::SetReceiver<InvokeContext::Test>(IMessageSink* const pMessageS
 {
     std::scoped_lock lock(m_receiverMutex);
     m_pEnabledProcessor = pMessageSink;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+void Peer::Proxy::SetAuthorization<InvokeContext::Test>(Security::State state)
+{
+    m_authorization = state;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -5,6 +5,8 @@
 #include "Manager.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/NetworkMessage.hpp"
+#include "Components/Event/Events.hpp"
+#include "Components/Event/Publisher.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerObserver.hpp"
@@ -29,9 +31,11 @@ namespace local {
 Peer::Manager::Manager(
     Node::SharedIdentifier const& spNodeIdentifier,
     Security::Strategy strategy,
+    Event::SharedPublisher const& spEventPublisher,
     std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
     std::weak_ptr<IMessageSink> const& wpPromotedProcessor)
     : m_spNodeIdentifier(spNodeIdentifier)
+    , m_spEventPublisher(spEventPublisher)
     , m_strategyType(strategy)
     , m_observersMutex()
     , m_observers()
@@ -43,6 +47,11 @@ Peer::Manager::Manager(
     , m_wpPromotedProcessor(wpPromotedProcessor)
 {
     assert(m_strategyType != Security::Strategy::Invalid);
+    assert(m_spEventPublisher);
+    {
+        using enum Event::Type;
+        spEventPublisher->Advertise({ PeerConnected, PeerDisconnected });
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -129,10 +138,14 @@ void Peer::Manager::DispatchConnectionState(
     switch (change) {
         case Connected: {
             NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
+            m_spEventPublisher->Publish<Event::Type::PeerConnected>(
+                address.GetProtocol(), spPeerProxy->GetIdentifier());
         } break;
         case Disconnected: {
             using enum Event::Message<Event::Type::PeerDisconnected>::Cause;
             NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
+            m_spEventPublisher->Publish<Event::Type::PeerDisconnected>(
+                address.GetProtocol(), spPeerProxy->GetIdentifier(), SessionClosure);
         }
         default: break;
     }
