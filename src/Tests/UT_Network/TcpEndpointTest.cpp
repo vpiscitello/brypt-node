@@ -63,7 +63,7 @@ public:
 
     EventObserver(Event::SharedPublisher const& spPublisher, EndpointIdentifiers const& identifiers);
     bool SubscribedToAllAdvertisedEvents() const;
-    bool ExpectedEventSequenceReceived() const;
+    bool ReceivedExpectedEventSequence() const;
 
 private:
     constexpr static std::uint32_t ExpectedEventCount = 2; // The number of events each endpoint should fire. 
@@ -216,7 +216,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
 
     EXPECT_EQ(upServerProcessor->InvalidMessageCount(), std::uint32_t(0));
     EXPECT_EQ(upClientProcessor->InvalidMessageCount(), std::uint32_t(0));
-    EXPECT_TRUE(observer.ExpectedEventSequenceReceived());
+    EXPECT_TRUE(observer.ReceivedExpectedEventSequence());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -307,7 +307,7 @@ bool local::EventObserver::SubscribedToAllAdvertisedEvents() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool local::EventObserver::ExpectedEventSequenceReceived() const
+bool local::EventObserver::ReceivedExpectedEventSequence() const
 {
     if (m_spPublisher->Dispatch() == 0) { return false; } // We expect that events have been published. 
 

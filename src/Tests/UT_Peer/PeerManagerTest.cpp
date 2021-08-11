@@ -7,8 +7,9 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
-#include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Manager.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/Resolver.hpp"
 #include "Components/Scheduler/Service.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/PeerMediator.hpp"
@@ -18,8 +19,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <iostream>
 #include <cstdint>
-#include <string>
 #include <random>
+#include <ranges>
+#include <string>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -28,8 +30,9 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 class ConnectProtocolStub;
-class PeerObserverStub;
 class MessageCollector;
+class SynchronousObserver;
+class AsynchronousObserver;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -51,16 +54,18 @@ constexpr std::string_view const ConnectMessage = "Connection Request";
 class local::ConnectProtocolStub : public IConnectProtocol
 {
 public:
-    ConnectProtocolStub();
+    ConnectProtocolStub() : m_count(0) {}
 
     // IConnectProtocol {
     virtual bool SendRequest(
-        Node::SharedIdentifier const& spSourceIdentifier,
-        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-        MessageContext const& context) const override;
+        Node::SharedIdentifier const&, std::shared_ptr<Peer::Proxy> const&, MessageContext const&) const override 
+    {
+        ++m_count;
+        return true;
+    }
     // } IConnectProtocol 
 
-    bool CalledOnce() const;
+    bool CalledOnce() const { return m_count == 1; }
 
 private:
     mutable std::uint32_t m_count;
@@ -68,58 +73,56 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class local::PeerObserverStub : public IPeerObserver
+class local::MessageCollector : public IMessageSink
 {
 public:
-    explicit PeerObserverStub(IPeerMediator* const mediator)
-        : m_mediator(mediator)
-        , m_state(ConnectionState::Unknown)
-    { m_mediator->RegisterObserver(this); }
+    MessageCollector() = default;
 
-    PeerObserverStub(PeerObserverStub&& other)
-        : m_mediator(other.m_mediator)
-        , m_state(other.m_state)
-    {  m_mediator->RegisterObserver(this); }
-
-    ~PeerObserverStub() { m_mediator->UnpublishObserver(this); }
-
-    // IPeerObserver {
-    void OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) override
-    {
-        m_state = ConnectionState::Connected;
-    }
-    void OnRemoteDisconnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) override
-    {
-        m_state = ConnectionState::Disconnected;
-    }
-    // } IPeerObserver
-
-    ConnectionState GetConnectionState() const { return m_state; }
-
-private:
-    IPeerMediator* m_mediator;
-    ConnectionState m_state;
+    // IMessageSink {
+    virtual bool CollectMessage(
+        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::string_view) override { return true; }
+    virtual bool CollectMessage(
+        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::span<std::uint8_t const>) override { return false; }
+    // }IMessageSink
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class local::MessageCollector : public IMessageSink
+class local::SynchronousObserver : public IPeerObserver
 {
 public:
-    MessageCollector();
+    explicit SynchronousObserver(IPeerMediator* const mediator);
+    SynchronousObserver(SynchronousObserver&& other);
+    ~SynchronousObserver();
 
-    // IMessageSink {
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
-        std::string_view buffer) override;
-        
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
-        std::span<std::uint8_t const> buffer) override;
-    // }IMessageSink
+    // IPeerObserver {
+    void OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) override;
+    void OnRemoteDisconnected(Network::Endpoint::Identifier, Network::RemoteAddress const&) override;
+    // } IPeerObserver
 
+    Network::Connection::State GetConnectionState() const;
+
+private:
+    IPeerMediator* m_mediator;
+    Network::Connection::State m_state;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class local::AsynchronousObserver
+{
+public:
+    using EventRecord = std::vector<Event::Type>;
+    using EventTracker = std::unordered_map<Node::Identifier, EventRecord, Node::IdentifierHasher>;
+
+    AsynchronousObserver(Event::SharedPublisher const& spPublisher, Node::Identifier const& identifier);
+    [[nodiscard]] bool SubscribedToAllAdvertisedEvents() const;
+    [[nodiscard]] bool ReceivedExpectedEventSequence() const;
+
+private:
+    constexpr static std::uint32_t ExpectedEventCount = 2; // The number of events each peer should fire. 
+    Event::SharedPublisher m_spPublisher;
+    EventTracker m_tracker;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -596,22 +599,31 @@ TEST(PeerManagerSuite, SingleObserverTest)
     auto const spScheduler = std::make_shared<Scheduler::Service>();
     auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
-    local::PeerObserverStub observer(&manager);
-    spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
+    local::SynchronousObserver synchronous(&manager);
+    local::AsynchronousObserver asynchronous(spEventPublisher, *test::ClientIdentifier);
+    ASSERT_TRUE(asynchronous.SubscribedToAllAdvertisedEvents());
+    spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
 
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
-
+    auto const identifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
-    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
 
-    EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Connected);
+    // The observers should not be notified of a connected peer when the peer has not yet completed the exchange. 
+    spPeerProxy->RegisterEndpoint(identifier, Network::Protocol::TCP, address, {});
+    EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Unknown);
+    spPeerProxy->WithdrawEndpoint(identifier);
+    EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Unknown);
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+    spPeerProxy->SetAuthorization<InvokeContext::Test>(Security::State::Authorized); // Simulate an authorized peer. 
 
-    EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
+    // The observer should be notified of a new endpoint connection when the peer is authorized. 
+    spPeerProxy->RegisterEndpoint(identifier, Network::Protocol::TCP, address, {});
+    EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Connected);
+    spPeerProxy->WithdrawEndpoint(identifier);
+    EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Disconnected);
+
+    EXPECT_TRUE(asynchronous.ReceivedExpectedEventSequence());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -621,83 +633,138 @@ TEST(PeerManagerSuite, MultipleObserverTest)
     auto const spScheduler = std::make_shared<Scheduler::Service>();
     auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
-    spEventPublisher->SuspendSubscriptions();
 
-    std::vector<local::PeerObserverStub> observers;
+    local::AsynchronousObserver asynchronous(spEventPublisher, *test::ClientIdentifier);
+    ASSERT_TRUE(asynchronous.SubscribedToAllAdvertisedEvents());
+    spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
+
+    std::vector<local::SynchronousObserver> observers;
     for (std::uint32_t idx = 0; idx < 12; ++idx) {
-        observers.emplace_back(local::PeerObserverStub(&manager));
+        observers.emplace_back(local::SynchronousObserver(&manager));
     }
 
-    for (auto const& observer: observers) {
-        EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Unknown);
-    }
-
-    auto const tcpIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
-
+    auto const identifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
-    spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
+    spPeerProxy->SetAuthorization<InvokeContext::Test>(Security::State::Authorized); // Simulate an authorized peer. 
+    spPeerProxy->RegisterEndpoint(identifier, Network::Protocol::TCP, address, {});
 
-    for (auto const& observer: observers) {
-        EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Connected);
+    for (auto const& synchronous: observers) {
+        EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Connected);
     }
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+    spPeerProxy->WithdrawEndpoint(identifier);
 
-    for (auto const& observer: observers) {
-        EXPECT_EQ(observer.GetConnectionState(), ConnectionState::Disconnected);
+    for (auto const& synchronous: observers) {
+        EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Disconnected);
     }
+
+    EXPECT_TRUE(asynchronous.ReceivedExpectedEventSequence());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::ConnectProtocolStub::ConnectProtocolStub()
-    : m_count(0)
+local::SynchronousObserver::SynchronousObserver(IPeerMediator* const mediator)
+    : m_mediator(mediator)
+    , m_state(Network::Connection::State::Unknown)
 {
+    m_mediator->RegisterObserver(this);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool local::ConnectProtocolStub::SendRequest(
-    [[maybe_unused]] Node::SharedIdentifier const& spSourceIdentifier,
-    [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-    [[maybe_unused]] MessageContext const& context) const
+local::SynchronousObserver::SynchronousObserver(SynchronousObserver&& other)
+    : m_mediator(other.m_mediator)
+    , m_state(other.m_state)
 {
-    ++m_count;
+    m_mediator->RegisterObserver(this);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+local::SynchronousObserver::~SynchronousObserver() { m_mediator->UnpublishObserver(this); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void local::SynchronousObserver::OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const&)
+{
+    m_state = Network::Connection::State::Connected;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void local::SynchronousObserver::OnRemoteDisconnected(Network::Endpoint::Identifier, Network::RemoteAddress const&)
+{
+    m_state = Network::Connection::State::Disconnected;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::Connection::State local::SynchronousObserver::GetConnectionState() const { return m_state; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+local::AsynchronousObserver::AsynchronousObserver(
+    Event::SharedPublisher const& spPublisher, Node::Identifier const& identifier)
+    : m_spPublisher(spPublisher)
+    , m_tracker()
+{
+    using DisconnectCause = Event::Message<Event::Type::PeerDisconnected>::Cause;
+
+    m_tracker.emplace(identifier, EventRecord{}); // Make an event record using the provided peer identifier. 
+
+    // Subscribe to all events fired by an endpoint. Each listener should only record valid events. 
+    spPublisher->Subscribe<Event::Type::PeerConnected>(
+        [&tracker = m_tracker]
+        (Network::Protocol protocol, Node::SharedIdentifier const& spIdentifier)
+        {
+            if (protocol == Network::Protocol::Invalid || !spIdentifier) { return; }
+            if (auto const itr = tracker.find(*spIdentifier); itr != tracker.end()) {
+                itr->second.emplace_back(Event::Type::PeerConnected);
+            }
+        });
+
+    spPublisher->Subscribe<Event::Type::PeerDisconnected>(
+        [&tracker = m_tracker] 
+        (Network::Protocol protocol, Node::SharedIdentifier const& spIdentifier, DisconnectCause cause)
+        {
+            if (protocol == Network::Protocol::Invalid || !spIdentifier) { return; }
+            if (cause != DisconnectCause::SessionClosure) { return; }
+            if (auto const itr = tracker.find(*spIdentifier); itr != tracker.end()) {
+                itr->second.emplace_back(Event::Type::PeerDisconnected);
+            }
+        });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool local::AsynchronousObserver::SubscribedToAllAdvertisedEvents() const
+{
+    // We expect to be subscribed to all events advertised by an endpoint. A failure here is most likely caused
+    // by this test fixture being outdated. 
+    return m_spPublisher->ListenerCount() == m_spPublisher->AdvertisedCount();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool local::AsynchronousObserver::ReceivedExpectedEventSequence() const
+{
+    if (m_spPublisher->Dispatch() == 0) { return false; } // We expect that events have been published. 
+
+    // Count the number of peers that match the expected number and sequence of events (e.g. start becomes stop). 
+    std::size_t const count = std::ranges::count_if(m_tracker | std::views::values,
+        [] (EventRecord const& record) -> bool
+        {
+            if (record.size() != ExpectedEventCount) { return false; }
+            if (record[0] != Event::Type::PeerConnected) { return false; }
+            if (record[1] != Event::Type::PeerDisconnected) { return false; }
+            return true;
+        });
+
+    // We expect that all endpoints tracked meet the event sequence expectations. 
+    if (count != m_tracker.size()) { return false; }
+
     return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool local::ConnectProtocolStub::CalledOnce() const
-{
-    return (m_count == 1);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-local::MessageCollector::MessageCollector()
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool local::MessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    [[maybe_unused]] MessageContext const& context,
-    [[maybe_unused]] std::string_view buffer)
-{
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool local::MessageCollector::CollectMessage(
-    [[maybe_unused]] std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    [[maybe_unused]] MessageContext const& context,
-    [[maybe_unused]] std::span<std::uint8_t const> buffer)
-{
-    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

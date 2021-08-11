@@ -199,7 +199,7 @@ TEST(PeerResolverSuite, SuccessfulExchangeTest)
 
     // Verify the receiver is swapped to the authorized processor when resolver is notified of a sucessful exchange. 
     local::CloseExchange(pCapturedResolver, ExchangeStatus::Success);
-    EXPECT_EQ(spProxy->GetSecurityState(), Security::State::Authorized);
+    EXPECT_EQ(spProxy->GetAuthorization(), Security::State::Authorized);
     EXPECT_TRUE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
     EXPECT_EQ(spCollector->GetCollectedPack(), pack);  // Verify the stub message sink received the message
 }
@@ -236,7 +236,7 @@ TEST(PeerResolverSuite, FailedExchangeTest)
 
     // Verify the peer receiver is dropped when the resolver has been notified of a failed exchange. 
     local::CloseExchange(pCapturedResolver, ExchangeStatus::Failed);
-    EXPECT_EQ(spProxy->GetSecurityState(), Security::State::Unauthorized);
+    EXPECT_EQ(spProxy->GetAuthorization(), Security::State::Unauthorized);
     EXPECT_FALSE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
 }
 
