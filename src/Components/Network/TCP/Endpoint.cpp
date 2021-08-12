@@ -332,7 +332,8 @@ void Network::TCP::Endpoint::OnConnectEvent(ConnectEvent& event)
 {
     assert(m_upAgent && m_upAgent->Type() == Operation::Client);
     auto const pClientAgent = static_cast<Client*>(m_upAgent.get());
-    pClientAgent->Connect(event.ReleaseAddress(), event.GetNodeIdentifier());}
+    pClientAgent->Connect(event.ReleaseAddress(), event.GetNodeIdentifier());
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 

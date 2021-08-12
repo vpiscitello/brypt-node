@@ -331,11 +331,15 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Peer::Proxy::StartExchange(
-    Security::Strategy strategy, Security::Role role, std::shared_ptr<IConnectProtocol> const& spProtocol)
+    Node::SharedIdentifier const& spSource,
+    Security::Strategy strategy,
+    Security::Role role,
+    std::shared_ptr<IConnectProtocol> const& spProtocol)
 {
-    if (m_upResolver) [[unlikely]] { return false; }
+    assert(*spSource != *m_spIdentifier);
 
-    auto upResolver = std::make_unique<Resolver>(m_spIdentifier, Security::Context::Unique);
+    if (m_upResolver) [[unlikely]] { return false; }
+    auto upResolver = std::make_unique<Resolver>(spSource, Security::Context::Unique);
 
     switch (role) {
         case Security::Role::Acceptor: {
@@ -343,7 +347,7 @@ bool Peer::Proxy::StartExchange(
             return result && AttachResolver(std::move(upResolver));
         }
         case Security::Role::Initiator: {
-            assert(false); // Currently, we only accept starting an accepting resolver. 
+            assert(false); // Currently, we only support starting an accepting resolver. 
             auto optRequest = upResolver->SetupExchangeInitiator(strategy, spProtocol);
             if (!optRequest || !AttachResolver(std::move(upResolver))) { return false; }
             return ScheduleSend(std::numeric_limits<std::uint32_t>::max(), std::move(*optRequest));
@@ -351,7 +355,6 @@ bool Peer::Proxy::StartExchange(
         default: assert(false); return false; // What is this?
     }
 
-    assert(false);
     return false; // How did we fallthrough to here? 
 }
 

@@ -372,84 +372,71 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 {
+    using enum Security::Strategy;
+    
     auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
-    auto const spConnectProtocol = std::make_shared<local::ConnectProtocolStub>();
-    auto const spMessageCollector = std::make_shared<local::MessageCollector>();
-    spEventPublisher->SuspendSubscriptions();
+    auto const spPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spProcessor = std::make_shared<local::MessageCollector>();
+    auto const spProtocol = std::make_shared<local::ConnectProtocolStub>();
+    spPublisher->SuspendSubscriptions();
 
-    Peer::Manager manager(
-        test::ClientIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, spConnectProtocol, spMessageCollector);
-    EXPECT_EQ(manager.ObservedPeerCount(), std::size_t(0));
+    Peer::Manager client(test::ClientIdentifier, PQNISTL3, spPublisher, spProtocol, spProcessor);
+    MessageContext const serverContext = { 
+        Network::Endpoint::IdentifierGenerator::Instance().Generate(), Network::Protocol::TCP };
+    std::shared_ptr<Peer::Proxy> spServerProxy; // The server peer is associated with the client's manager. 
 
-    // Declare the client and server peers. 
-    std::shared_ptr<Peer::Proxy> spClientPeer;
-    std::shared_ptr<Peer::Proxy> spServerPeer;
+    Peer::Manager server(test::ServerIdentifier, PQNISTL3, spPublisher, spProtocol, spProcessor);
+    MessageContext const clientContext = { 
+        Network::Endpoint::IdentifierGenerator::Instance().Generate(), Network::Protocol::TCP };
+    std::shared_ptr<Peer::Proxy> spClientProxy; // The client peer is associated with the server's manager. 
 
-    // Simulate an endpoint delcaring that it is attempting to resolve a peer at a
-    // given uri. 
-    auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
+    // Simulate an endpoint delcaring that it is attempting to resolve a peer at a given uri. 
+    auto const optRequest = client.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t(0));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(client.ActivePeerCount(), std::size_t(0));
 
     // Simulate the server receiving the connection request. 
     Network::RemoteAddress clientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
-    spClientPeer = manager.LinkPeer(*test::ClientIdentifier, clientAddress);
-    EXPECT_FALSE(spClientPeer->IsAuthorized());
-    EXPECT_FALSE(spClientPeer->IsFlagged());
-    EXPECT_EQ(manager.ObservedPeerCount(), std::size_t(1));
-
-    // Create a mock endpoint identifier for the simulated endpoint the client has connected on. 
-    auto const clientEndpoint = Network::Endpoint::IdentifierGenerator::Instance().Generate();
-
-    // Create a mock message context for messages passed through the client peer. 
-    auto const clientContext = MessageContext(clientEndpoint, Network::Protocol::TCP);
-
-    // Create a mock endpoint identifier for the simulated endpoint the server has responded to. 
-    auto const serverEndpoint = Network::Endpoint::IdentifierGenerator::Instance().Generate();
-
-    // Create a mock message context for messages passed through the server peer. 
-    auto const serverContext = MessageContext(serverEndpoint, Network::Protocol::TCP);
+    spClientProxy = server.LinkPeer(*test::ClientIdentifier, clientAddress);
+    EXPECT_FALSE(spClientProxy->IsAuthorized());
+    EXPECT_FALSE(spClientProxy->IsFlagged());
+    EXPECT_EQ(server.ObservedPeerCount(), std::size_t(1));
 
     // Simulate the server's endpoint registering itself to the given client peer. 
-    spClientPeer->RegisterEndpoint(
-        clientContext.GetEndpointIdentifier(), clientContext.GetEndpointProtocol(),
-        clientAddress,
-        [&spServerPeer, &serverContext] (
-            [[maybe_unused]] auto const& destination, auto&& message) -> bool
+    spClientProxy->RegisterEndpoint(
+        clientContext.GetEndpointIdentifier(), clientContext.GetEndpointProtocol(), clientAddress,
+        [&spServerProxy, &serverContext] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            EXPECT_TRUE(spServerPeer->ScheduleReceive(
+            EXPECT_TRUE(spServerProxy->ScheduleReceive(
                 serverContext.GetEndpointIdentifier(), std::get<std::string>(message)));
             return true;
         });
 
     // In practice the client would receive a response from the server before linking a peer. 
     // However, we need to create a peer to properly handle the exchange on the stack. 
-    spServerPeer = manager.LinkPeer(*test::ServerIdentifier, test::RemoteServerAddress);
-    EXPECT_FALSE(spServerPeer->IsAuthorized());
-    EXPECT_FALSE(spServerPeer->IsFlagged());
-    EXPECT_EQ(manager.ObservedPeerCount(), std::size_t(2));
+    spServerProxy = client.LinkPeer(*test::ServerIdentifier, test::RemoteServerAddress);
+    EXPECT_FALSE(spServerProxy->IsAuthorized());
+    EXPECT_FALSE(spServerProxy->IsFlagged());
+    EXPECT_EQ(client.ObservedPeerCount(), std::size_t(1));
 
     // Simulate the clients's endpoint registering itself to the given server peer. 
-    spServerPeer->RegisterEndpoint(
-        serverContext.GetEndpointIdentifier(), serverContext.GetEndpointProtocol(),
-        test::RemoteServerAddress,
-        [&spClientPeer, &clientContext] (
-            [[maybe_unused]] auto const& destination, auto&& message) -> bool
+    spServerProxy->RegisterEndpoint(
+        serverContext.GetEndpointIdentifier(), serverContext.GetEndpointProtocol(), test::RemoteServerAddress,
+        [&spClientProxy, &clientContext] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            EXPECT_TRUE(spClientPeer->ScheduleReceive(
+            EXPECT_TRUE(spClientProxy->ScheduleReceive(
                 clientContext.GetEndpointIdentifier(), std::get<std::string>(message)));
             return true;
         });
 
     // Cause the key exchange setup by the peer manager to occur on the stack. 
-    EXPECT_TRUE(spClientPeer->ScheduleReceive(clientContext.GetEndpointIdentifier(), *optRequest));
+    EXPECT_TRUE(spClientProxy->ScheduleReceive(clientContext.GetEndpointIdentifier(), *optRequest));
 
     // Verify the results of the key exchange
-    EXPECT_TRUE(spConnectProtocol->CalledOnce());
-    EXPECT_TRUE(spClientPeer->IsAuthorized());
-    EXPECT_TRUE(spServerPeer->IsAuthorized());
+    EXPECT_TRUE(spProtocol->CalledOnce());
+    EXPECT_TRUE(spClientProxy->IsAuthorized());
+    EXPECT_TRUE(spServerProxy->IsAuthorized());
 }
 
 //----------------------------------------------------------------------------------------------------------------------

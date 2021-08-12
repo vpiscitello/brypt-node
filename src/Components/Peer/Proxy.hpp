@@ -101,7 +101,10 @@ public:
     // Security Methods {
     [[nodiscard]] bool AttachResolver(std::unique_ptr<Resolver>&& upResolver);
     [[nodiscard]] bool StartExchange(
-        Security::Strategy strategy, Security::Role role, std::shared_ptr<IConnectProtocol> const& spProtocol);
+        Node::SharedIdentifier const& spSource,
+        Security::Strategy strategy,
+        Security::Role role,
+        std::shared_ptr<IConnectProtocol> const& spProtocol);
     [[nodiscard]] Security::State GetAuthorization() const;
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;

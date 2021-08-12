@@ -34,7 +34,7 @@ public:
     using PreparationResult = std::pair<bool, std::string>;
 
     ExchangeProcessor(
-        Node::SharedIdentifier const& spIdentifier,
+        Node::SharedIdentifier const& spSource,
         std::unique_ptr<ISecurityStrategy>&& upStrategy,
         std::shared_ptr<IConnectProtocol> const& spConnector,
         IExchangeObserver* const pExchangeObserver);
@@ -65,7 +65,7 @@ private:
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;
 
-    Node::SharedIdentifier const m_spIdentifier;
+    Node::SharedIdentifier const m_spSource;
     std::unique_ptr<ISecurityStrategy> m_upStrategy;
     std::shared_ptr<IConnectProtocol> m_spConnector;
     IExchangeObserver* const m_pExchangeObserver;

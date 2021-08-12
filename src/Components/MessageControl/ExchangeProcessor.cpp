@@ -27,13 +27,13 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 ExchangeProcessor::ExchangeProcessor(
-    Node::SharedIdentifier const& spIdentifier,
+    Node::SharedIdentifier const& spSource,
     std::unique_ptr<ISecurityStrategy>&& upStrategy,
     std::shared_ptr<IConnectProtocol> const& spConnector,
     IExchangeObserver* const pExchangeObserver)
     : m_stage(ProcessStage::Synchronization)
     , m_expiration(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
-    , m_spIdentifier(spIdentifier)
+    , m_spSource(spSource)
     , m_upStrategy(std::move(upStrategy))
     , m_spConnector(spConnector)
     , m_pExchangeObserver(pExchangeObserver)
@@ -109,7 +109,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
     if (buffer.size() == 0) { return { true, "" }; }
 
     auto const optRequest = NetworkMessage::Builder()
-        .SetSource(*m_spIdentifier)
+        .SetSource(*m_spSource)
         .MakeHandshakeMessage()
         .SetPayload(std::move(buffer))
         .ValidatedBuild();
@@ -143,8 +143,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
     std::shared_ptr<Peer::Proxy> const& spProxy,
     NetworkMessage const& message)
 {
-    assert(m_upStrategy);
-    assert(m_spIdentifier);
+    assert(m_spSource && m_upStrategy);
 
     // Provide the attached SecurityStrategy the synchronization message. 
     // If for some reason, the message could not be handled return an error. 
@@ -163,7 +162,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         // Build a response to the message from the synchronization result of the strategy. 
         auto const optResponse = NetworkMessage::Builder()
             .SetMessageContext(context)
-            .SetSource(*m_spIdentifier)
+            .SetSource(*m_spSource)
             .SetDestination(message.GetSourceIdentifier())
             .MakeHandshakeMessage()
             .SetPayload(buffer)
@@ -185,7 +184,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
 
             // If there is a provided connection protocol, provide it with the proxy to send the final request. 
             if (m_spConnector) [[likely]] {
-                auto const success = m_spConnector->SendRequest(m_spIdentifier, spProxy, context);
+                auto const success = m_spConnector->SendRequest(m_spSource, spProxy, context);
                 if (!success) { return false; }
             }
 

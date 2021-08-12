@@ -36,7 +36,7 @@ public:
     using OnExchangeCompleted = std::function<void(ExchangeStatus)>;
     using OnStrategyFulfilled = std::function<void(std::unique_ptr<ISecurityStrategy>&& upStrategy)>;
 
-    Resolver(Node::SharedIdentifier const& spIdentifier, Security::Context context);
+    Resolver(Node::SharedIdentifier const& spSource, Security::Context context);
     ~Resolver();
 
     Resolver(Resolver&& other) = delete;
@@ -67,7 +67,7 @@ private:
     mutable std::shared_mutex m_mutex;
 
     Security::Context m_context;
-    Node::SharedIdentifier m_spIdentifier;
+    Node::SharedIdentifier m_spSource;
     std::unique_ptr<ExchangeProcessor> m_upExchange;
     OnStrategyFulfilled m_onStrategyFulfilled;
     OnExchangeCompleted m_onExchangeCompleted;

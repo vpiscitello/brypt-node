@@ -17,10 +17,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-Peer::Resolver::Resolver(Node::SharedIdentifier const& spIdentifier, Security::Context context)
+Peer::Resolver::Resolver(Node::SharedIdentifier const& spSource, Security::Context context)
     : m_mutex()
     , m_context(context)
-    , m_spIdentifier(spIdentifier)
+    , m_spSource(spSource)
     , m_upExchange()
     , m_onStrategyFulfilled()
     , m_onExchangeCompleted()
@@ -33,7 +33,7 @@ Peer::Resolver::Resolver(Node::SharedIdentifier const& spIdentifier, Security::C
 Peer::Resolver& Peer::Resolver::operator=(Resolver&& other)
 {
     m_context = other.m_context;
-    m_spIdentifier = std::move(other.m_spIdentifier);
+    m_spSource = std::move(other.m_spSource);
     m_upExchange = std::move(other.m_upExchange);
     m_onStrategyFulfilled = std::move(other.m_onStrategyFulfilled);
     m_onExchangeCompleted = std::move(other.m_onExchangeCompleted);
@@ -127,7 +127,7 @@ bool Peer::Resolver::SetupExchangeProcessor(
 {
     assert(!m_completed);
     if (m_upExchange || !upStrategy) [[unlikely]] { return false; }
-    m_upExchange = std::make_unique<ExchangeProcessor>(m_spIdentifier, std::move(upStrategy), spProtocol, this);
+    m_upExchange = std::make_unique<ExchangeProcessor>(m_spSource, std::move(upStrategy), spProtocol, this);
     return true;
 }
 

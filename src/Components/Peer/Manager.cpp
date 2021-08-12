@@ -259,7 +259,8 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
         assert(result);
         m_resolving.erase(itr);
     } else {
-        bool const result = spProxy->StartExchange(m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
+        bool const result = spProxy->StartExchange(
+            m_spNodeIdentifier, m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
         assert(result);
     }
 
