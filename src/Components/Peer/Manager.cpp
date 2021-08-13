@@ -128,26 +128,32 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::DispatchConnectionState(
+void Peer::Manager::OnEndpointRegistered(
+    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
+    Network::Endpoint::Identifier identifier,
+    Network::RemoteAddress const& address)
+{
+    using enum Event::Type;
+    NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
+    m_spEventPublisher->Publish<PeerConnected>(address.GetProtocol(), spPeerProxy->GetIdentifier());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Peer::Manager::OnEndpointWithdrawn(
     std::shared_ptr<Peer::Proxy> const& spPeerProxy,
     Network::Endpoint::Identifier identifier,
     Network::RemoteAddress const& address, 
-    Network::Connection::State change)
+    WithdrawalCause cause)
 {
-    using enum Network::Connection::State;
-    switch (change) {
-        case Connected: {
-            NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
-            m_spEventPublisher->Publish<Event::Type::PeerConnected>(
-                address.GetProtocol(), spPeerProxy->GetIdentifier());
-        } break;
-        case Disconnected: {
-            using enum Event::Message<Event::Type::PeerDisconnected>::Cause;
-            NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
-            m_spEventPublisher->Publish<Event::Type::PeerDisconnected>(
-                address.GetProtocol(), spPeerProxy->GetIdentifier(), SessionClosure);
-        }
-        default: break;
+    // Withdrawing a registed endpoint is only a dispatchable event when not caused by a shutdown request and the
+    // peer been authorized (indicating a prior connect event has been dispatched for the peer). 
+    auto const authorization = spPeerProxy->GetAuthorization();
+    bool dispatchable = cause != WithdrawalCause::ShutdownRequest && authorization == Security::State::Authorized;
+    if (dispatchable) {
+        using enum Event::Type;
+        NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
+        m_spEventPublisher->Publish<PeerDisconnected>(address.GetProtocol(), spPeerProxy->GetIdentifier(), cause);
     }
 }
 

@@ -171,10 +171,9 @@ void Peer::Proxy::RegisterEndpoint(Registration const& registration)
     // is deferred until an exchange is successfully completed. 
     if (m_authorization == Security::State::Authorized) {
         assert(m_pPeerMediator);
-        using enum Network::Connection::State;
         auto const& identifier = registration.GetEndpointIdentifier();
         auto const& address = registration.GetAddress();
-        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Connected);
+        m_pPeerMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
     }
 
     assert(m_pPeerMediator);
@@ -202,14 +201,13 @@ void Peer::Proxy::RegisterEndpoint(
     // is deferred until an exchange is successfully completed. 
     if (m_authorization == Security::State::Authorized) {
         assert(m_pPeerMediator);
-        using enum Network::Connection::State;
-        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Connected);
+        m_pPeerMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier)
+void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, WithdrawalCause cause)
 {
     RegisteredEndpoints::node_type extracted;
     {
@@ -217,14 +215,9 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier)
         if (extracted = m_endpoints.extract(identifier); !extracted) { return; }
     }
 
-    // When an endpoint withdraws its registration from the peer, the mediator needs to notify observer's that peer 
-    // has been disconnected from that endpoint if the known connection state has been updated. 
-    if (m_authorization == Security::State::Authorized) {
-        assert(m_pPeerMediator);
-        using enum Network::Connection::State;
-        auto const& address = extracted.mapped().GetAddress();
-        m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Disconnected);
-    }
+    assert(m_pPeerMediator);
+    auto const& address = extracted.mapped().GetAddress();
+    m_pPeerMediator->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -316,9 +309,8 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
                 // connected addresses. 
                 for (auto const& [identifier, registration] : m_endpoints) {
                     assert(m_pPeerMediator);
-                    using enum Network::Connection::State;
                     auto const& address = registration.GetAddress();
-                    m_pPeerMediator->DispatchConnectionState(shared_from_this(), identifier, address, Connected);
+                    m_pPeerMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
                 }
             }
 

@@ -22,6 +22,7 @@
 #include <deque>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -50,13 +51,14 @@ public:
     template <Event EventName> struct Callback;
     using ReceiveCallback = std::function<
         bool(SharedSession const&, Node::Identifier const&, std::span<std::uint8_t const>)>;
-    using StopCallback = std::function<void(SharedSession const&, StopCause cause)>;
+    using StopCallback = std::function<void(SharedSession const&)>;
     
     Session(boost::asio::io_context& context, std::shared_ptr<spdlog::logger> const& logger);
     ~Session();
 
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] RemoteAddress const& GetAddress() const;
+    [[nodiscard]] StopCause GetStopCause() const;
     [[nodiscard]] boost::asio::ip::tcp::socket& GetSocket();
 
     template <Event EventName>
@@ -111,6 +113,8 @@ private:
     [[nodiscard]] CompletionOrigin OnSocketError(boost::system::error_code const& error);
     void OnSocketError(spdlog::level::level_enum level, std::string_view error, StopCause cause);
 
+    void ResetResources();
+
     std::shared_ptr<spdlog::logger> m_logger;
     std::atomic_bool m_active;
     boost::asio::ip::tcp::socket m_socket;
@@ -121,6 +125,7 @@ private:
 
     ReceiveCallback m_onReceived;
     StopCallback m_onStopped;
+    std::optional<StopCause> m_optStopCause;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

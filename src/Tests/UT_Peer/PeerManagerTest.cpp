@@ -330,7 +330,7 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
     ASSERT_TRUE(spPeerProxy);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 }
 
@@ -361,10 +361,10 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     spPeerProxy->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(loraIdentifier);
+    spPeerProxy->WithdrawEndpoint(loraIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
 }
 
@@ -466,7 +466,7 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
             return CallbackIteration::Continue;
         });
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
 
     std::uint32_t iterations = 0;
     EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
@@ -502,7 +502,7 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
         auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
         spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
             ++disconnected;
         }
     }
@@ -570,7 +570,7 @@ TEST(PeerManagerSuite, PeerCountTest)
         auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
         spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spPeerProxy->WithdrawEndpoint(tcpIdentifier);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
             ++disconnected;
         }
     }
@@ -599,7 +599,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
     // The observers should not be notified of a connected peer when the peer has not yet completed the exchange. 
     spPeerProxy->RegisterEndpoint(identifier, Network::Protocol::TCP, address, {});
     EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Unknown);
-    spPeerProxy->WithdrawEndpoint(identifier);
+    spPeerProxy->WithdrawEndpoint(identifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
     EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Unknown);
 
     spPeerProxy->SetAuthorization<InvokeContext::Test>(Security::State::Authorized); // Simulate an authorized peer. 
@@ -607,7 +607,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
     // The observer should be notified of a new endpoint connection when the peer is authorized. 
     spPeerProxy->RegisterEndpoint(identifier, Network::Protocol::TCP, address, {});
     EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Connected);
-    spPeerProxy->WithdrawEndpoint(identifier);
+    spPeerProxy->WithdrawEndpoint(identifier, Peer::Proxy::WithdrawalCause::SessionClosure);
     EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Disconnected);
 
     EXPECT_TRUE(asynchronous.ReceivedExpectedEventSequence());
@@ -640,7 +640,7 @@ TEST(PeerManagerSuite, MultipleObserverTest)
         EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Connected);
     }
 
-    spPeerProxy->WithdrawEndpoint(identifier);
+    spPeerProxy->WithdrawEndpoint(identifier, Peer::Proxy::WithdrawalCause::SessionClosure);
 
     for (auto const& synchronous: observers) {
         EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Disconnected);

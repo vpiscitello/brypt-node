@@ -183,7 +183,7 @@ class Event::Message<Event::Type::PeerConnected> : public Event::IMessage
 template<>
 class Event::Message<Event::Type::PeerDisconnected> : public Event::IMessage
 {
-    EVENT_MESSAGE_CAUSE(SessionClosure, UnexpectedError)
+    EVENT_MESSAGE_CAUSE(ShutdownRequest, SessionClosure, UnexpectedError)
     EVENT_MESSAGE_CORE(
         Event::Type::PeerDisconnected,
         Network::Protocol, Node::SharedIdentifier const&, Cause)

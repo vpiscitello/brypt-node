@@ -245,8 +245,10 @@ Configuration::StatusCode BootstrapService::Serialize()
     MappedCache mapped;
 
     // Initialize the mapped cache with the configured protocols. 
-    std::ranges::for_each(m_defaults | std::views::keys,
-        [&mapped] (auto protocol) { mapped.emplace(protocol, std::vector<BootstrapCache::const_iterator>{}); });
+    std::ranges::for_each(m_defaults, [this, &mapped] (auto const& entry) { 
+        if (entry.second) { m_cache.emplace(*entry.second); }  // Ensure the cache always has the default bootstrap. 
+        mapped.emplace(entry.first, std::vector<BootstrapCache::const_iterator>{}); 
+    });
 
     // Map the bootstraps into protocol buckets.
     for (auto itr = m_cache.cbegin(); itr != m_cache.cend(); ++itr) {

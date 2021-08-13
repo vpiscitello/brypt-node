@@ -173,6 +173,7 @@ void Network::TCP::Endpoint::Startup()
         default: return;
     }
 
+    m_upAgent->OnEndpointReady(); // Notify the agent thread that all resources have been created and work can proceed. 
     assert(m_upAgent && m_upAgent->Launched());
 }
 
@@ -185,10 +186,10 @@ bool Network::TCP::Endpoint::Shutdown()
     bool const operating = m_upAgent || !m_context.stopped() || !m_tracker.IsEmpty();
     if (!operating) { return true; }
 
+    IEndpoint::OnShutdownRequested();
     m_logger->debug("Shutting down endpoint.");
     
-    // Shutdown the active agent if one has been created. 
-    if (m_upAgent) { m_upAgent.reset(); }
+    if (m_upAgent) { m_upAgent.reset(); } // Shutdown the active agent if one has been created. 
 
     // Stop any active sessions and poll the asio context to ensure the completion handlers have been called. 
     auto const StopSession = [this] (auto const& spSession, auto const&) -> CallbackIteration
@@ -352,17 +353,12 @@ Network::TCP::SharedSession Network::TCP::Endpoint::CreateSession()
     auto const spSession = std::make_shared<Network::TCP::Session>(m_context, m_logger);
 
     spSession->Subscribe<Session::Event::Receive>(
-        [this] (auto const& spSession, auto const& source, auto message) -> bool
-        {
+        [this] (auto const& spSession, auto const& source, auto message) -> bool {
             return OnMessageReceived(spSession, source, message);
         });
 
     spSession->Subscribe<Session::Event::Stop>(
-        [this] (auto const& spSession, Session::StopCause cause)
-        {
-            OnSessionStopped(spSession);
-            if (cause != Session::StopCause::Requested) { m_tracker.UntrackConnection(spSession); }
-        });
+        [this] (auto const& spSession) { OnSessionStopped(spSession); });
 
     return spSession;
 }
@@ -371,29 +367,39 @@ Network::TCP::SharedSession Network::TCP::Endpoint::CreateSession()
 
 void Network::TCP::Endpoint::OnSessionStarted(SharedSession const& spSession)
 {
-    // Initialize the session.
-    spSession->Initialize(m_operation);
-
-    // Start tracking the descriptor for communication.
-    m_tracker.TrackConnection(spSession, spSession->GetAddress());
-
-    // Start the session handlers. 
-    spSession->Start();
+    spSession->Initialize(m_operation); // Initialize the session.
+    m_tracker.TrackConnection(spSession, spSession->GetAddress()); // Start tracking the session's for communication.
+    spSession->Start(); // Start the session's dispatcher and receiver handlers. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::TCP::Endpoint::OnSessionStopped(SharedSession const& spSession)
 {
-    auto const updater = [this] (ExtendedDetails& details)
+
+    auto const updater = [this, &spSession] (ExtendedDetails& details)
     { 
         details.SetConnectionState(Connection::State::Disconnected);
         if (auto const spPeerProxy = details.GetPeerProxy(); spPeerProxy) {
-            spPeerProxy->WithdrawEndpoint(m_identifier);
+            using enum Peer::Proxy::WithdrawalCause;
+            auto cause = ShutdownRequest; // Default the endpoint withdrawal reason to indicate it has been requested. 
+
+            // If the endpoint is not shutting down, determine the withdrawal reason from the session's stop cause. 
+            if (!IEndpoint::IsStopping()) {
+                switch (spSession->GetStopCause()) {
+                    case Session::StopCause::PeerDisconnect: cause = SessionClosure; break;
+                    case Session::StopCause::UnexpectedError: cause = UnexpectedError; break;
+                    default: break;
+                }
+            }
+
+            spPeerProxy->WithdrawEndpoint(m_identifier, cause);
         }
     };
 
     m_tracker.UpdateOneConnection(spSession, updater);
+
+    if (spSession->GetStopCause() != Session::StopCause::Requested) { m_tracker.UntrackConnection(spSession); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -446,6 +452,7 @@ Network::TCP::ConnectStatus Network::TCP::Endpoint::IsConflictingAddress(RemoteA
 
 Network::TCP::Endpoint::Agent::Agent(EndpointInstance endpoint)
     : m_endpoint(endpoint)
+    , m_latch(2)
     , m_active(false)
     , m_worker()
 {
@@ -469,13 +476,20 @@ bool Network::TCP::Endpoint::Agent::Launched() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Network::TCP::Endpoint::Agent::OnEndpointReady()
+{
+    m_latch.count_down();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Network::TCP::Endpoint::Agent::Launch(std::function<void()> const& setup, std::function<void()> const& teardown)
 {
     // The core event loop remains unchanged between the server and client. The difference between the two are the 
     // resources created and the processable events. 
-    m_worker = std::jthread([this, setup, teardown] (std::stop_token token)
-    {
+    m_worker = std::jthread([this, setup, teardown] (std::stop_token token) {
         setup(); // Notify the derived agent that it should setup resources for the thread. 
+        m_latch.arrive_and_wait(); // Await a ready signal from the spawning thread to ensure resources are accessible. 
         m_active = true; // Indicate that the event processing loop has begun. 
         m_endpoint.OnStarted(); // Trigger the EndpointStarted event after the thread is in a fully ready state. 
         m_endpoint.ProcessEvents(token); // Handle the event loop, this will block until a stop is requested. 

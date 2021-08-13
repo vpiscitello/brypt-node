@@ -5,7 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
-#include "Components/Network/ConnectionState.hpp"
+#include "Components/Event/Events.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -25,6 +25,7 @@ class IPeerMediator
 {
 public:
     using OptionalRequest = std::optional<std::string>;
+    using WithdrawalCause = Event::Message<Event::Type::PeerDisconnected>::Cause;
 
     virtual ~IPeerMediator() = default;
 
@@ -39,11 +40,16 @@ public:
     virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) = 0;
 
-    virtual void DispatchConnectionState(
+    virtual void OnEndpointRegistered(
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
+        Network::Endpoint::Identifier identifier,
+        Network::RemoteAddress const& address) = 0;
+
+    virtual void OnEndpointWithdrawn(
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::RemoteAddress const& address, 
-        Network::Connection::State change) = 0;
+        WithdrawalCause cause) = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

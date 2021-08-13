@@ -56,6 +56,7 @@ Network::TCP::Session::Session(boost::asio::io_context& context, std::shared_ptr
     , m_dispatcher(*this)
     , m_onReceived()
     , m_onStopped()
+    , m_optStopCause()
 {
 }
 
@@ -63,7 +64,7 @@ Network::TCP::Session::Session(boost::asio::io_context& context, std::shared_ptr
 
 Network::TCP::Session::~Session()
 {
-    Stop(); // Ensure the socket resources are cleaned up on destruction. 
+    ResetResources(); // Ensure the socket resources are cleaned up on destruction. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -78,6 +79,13 @@ bool Network::TCP::Session::IsActive() const
 Network::RemoteAddress const& Network::TCP::Session::GetAddress() const
 {
     return m_address;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::TCP::Session::StopCause Network::TCP::Session::GetStopCause() const
+{
+    return m_optStopCause.value_or(StopCause::Requested);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -129,16 +137,15 @@ void Network::TCP::Session::Start()
 
     m_logger->info("Session started with {}.", m_address);
     m_active = true;
+    m_optStopCause.reset(); // Ensure the stop cause has been reset for this cycle. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::TCP::Session::Stop()
 {
-    if (m_active) { m_logger->info("Shutting down session with {}.", m_address); }
-    m_socket.close();
-    m_dispatcher.m_signal.cancel();
-    m_active = false;
+    if (m_active) { m_logger->debug("Stopping session with {}.", m_address); }
+    ResetResources();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -175,7 +182,12 @@ Network::TCP::CompletionOrigin Network::TCP::Session::OnSocketError(boost::syste
 {
     // Determine if the error is expected from an intentional session shutdown.  
     if (IsInducedError(error)) {
-        m_onStopped(shared_from_this(), StopCause::Requested); // Notify the endpoint.
+        // If the stop cause has not yet been set, notify the endpoint. We should dispatch one stop event per cycle. 
+        if (!m_optStopCause) {
+            m_optStopCause = StopCause::Requested;
+            m_onStopped(shared_from_this()); // Notify the endpoint that the session has stopped.
+        }
+
         return CompletionOrigin::Self;
     }
 
@@ -192,8 +204,23 @@ void Network::TCP::Session::OnSocketError(spdlog::level::level_enum level, std::
 {
     assert(error.size() != 0);
     m_logger->log(level, "{} on {}.", error, m_address);
-    m_onStopped(shared_from_this(), cause); // Notify the endpoint.
-    Stop(); // Stop the session processors. If the socket has already been stopped this is a no-op. 
+
+    // If the stop cause has not yet been set, notify the endpoint. We should dispatch one stop event per cycle. 
+    if (!m_optStopCause) {
+        m_optStopCause = cause; // Capture the provided cause of the stop. 
+        m_onStopped(shared_from_this()); // Notify the endpoint that the session has stopped.
+    }
+
+    ResetResources(); // Stop the session processors. If the socket has already been stopped this is a no-op. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::TCP::Session::ResetResources()
+{
+    m_socket.close();
+    m_dispatcher.m_signal.cancel();
+    m_active = false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

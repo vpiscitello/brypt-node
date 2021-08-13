@@ -61,11 +61,16 @@ public:
     [[nodiscard]] virtual std::shared_ptr<Peer::Proxy> LinkPeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address) override;
 
-    virtual void DispatchConnectionState(
+    virtual void OnEndpointRegistered(
+        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
+        Network::Endpoint::Identifier identifier,
+        Network::RemoteAddress const& address) override;
+
+    virtual void OnEndpointWithdrawn(
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
         Network::Endpoint::Identifier identifier,
         Network::RemoteAddress const& address, 
-        Network::Connection::State change) override;
+        WithdrawalCause cause) override;
     // } IPeerMediator
 
     // IPeerCache {

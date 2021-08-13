@@ -10,6 +10,7 @@
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageTypes.hpp"
 #include "BryptMessage/ShareablePack.hpp"
+#include "Components/Event/Events.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -81,13 +82,15 @@ public:
     // } Message Dispatch Methods
 
     // Endpoint Association Methods {
+    using WithdrawalCause = Event::Message<Event::Type::PeerDisconnected>::Cause;
+
     void RegisterEndpoint(Registration const& registration);
     void RegisterEndpoint(
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
         Network::MessageScheduler const& scheduler = {});
-    void WithdrawEndpoint(Network::Endpoint::Identifier identifier);
+    void WithdrawEndpoint(Network::Endpoint::Identifier identifier, WithdrawalCause cause);
 
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;

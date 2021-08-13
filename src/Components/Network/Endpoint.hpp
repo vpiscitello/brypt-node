@@ -80,15 +80,16 @@ protected:
 
     std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const& identifier, RemoteAddress const& address) const;
 
+    [[nodiscard]] bool IsStopping() const;
+
     void OnStarted() const;
     void OnStopped() const;
-    void OnBindFailed(BindingAddress const& binding) const;
-    void OnConnectFailed(RemoteAddress const& address) const;
-    void OnUnexpectedError() const;
 
     void OnBindingUpdated(BindingAddress const& binding);
-
-    void SetShutdownCause(ShutdownCause cause) const;
+    void OnBindFailed(BindingAddress const& binding) const;
+    void OnConnectFailed(RemoteAddress const& address) const;
+    void OnShutdownRequested() const;
+    void OnUnexpectedError() const;
     
     Endpoint::Identifier const m_identifier;
     Network::Protocol const m_protocol;
@@ -101,6 +102,8 @@ protected:
     IPeerMediator* m_pPeerMediator;
 
 private:
+    void SetShutdownCause(ShutdownCause cause) const;
+
     // Note: This is mutable because we shouldn't prevent capturing an error that occurs in a const method. 
     mutable std::optional<ShutdownCause> m_optShutdownCause;
 };

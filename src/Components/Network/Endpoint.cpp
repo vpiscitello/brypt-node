@@ -91,8 +91,16 @@ void Network::IEndpoint::RegisterMediator(IPeerMediator* const pMediator)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Network::IEndpoint::IsStopping() const
+{
+    return m_optShutdownCause.has_value();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Network::IEndpoint::OnStarted() const
 {
+    m_optShutdownCause.reset(); // Ensure the shutdown cause has been reset for this cycle.
     m_spEventPublisher->Publish<Event::Type::EndpointStarted>(m_identifier, m_protocol, m_operation);
 }
 
@@ -102,6 +110,15 @@ void Network::IEndpoint::OnStopped() const
 {
     m_spEventPublisher->Publish<Event::Type::EndpointStopped>(
         m_identifier, m_protocol, m_operation, m_optShutdownCause.value_or(ShutdownCause::ShutdownRequest));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::IEndpoint::OnBindingUpdated(BindingAddress const& binding)
+{
+    // If a binding failure was marked as a potential cause of the shutdown, reset the captured shutdown error.
+    if (m_optShutdownCause && *m_optShutdownCause == ShutdownCause::BindingFailed) { m_optShutdownCause.reset(); }
+    if (m_pEndpointMediator) [[likely]] { m_pEndpointMediator->UpdateBinding(m_identifier, binding); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -123,26 +140,16 @@ void Network::IEndpoint::OnConnectFailed(RemoteAddress const& address) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Network::IEndpoint::OnShutdownRequested() const
+{
+    SetShutdownCause(ShutdownCause::ShutdownRequest);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Network::IEndpoint::OnUnexpectedError() const
 {
     SetShutdownCause(ShutdownCause::UnexpectedError);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Network::IEndpoint::OnBindingUpdated(BindingAddress const& binding)
-{
-    // If a binding failure was marked as a potential cause of the shutdown, reset the captured shutdown error.
-    if (m_optShutdownCause && *m_optShutdownCause == ShutdownCause::BindingFailed) { m_optShutdownCause.reset(); }
-    if (m_pEndpointMediator) [[likely]] { m_pEndpointMediator->UpdateBinding(m_identifier, binding); }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Network::IEndpoint::SetShutdownCause(ShutdownCause cause) const
-{
-    if (m_optShutdownCause) { return; } // Don't overwrite the initial value of the shutdown error. 
-    m_optShutdownCause = cause;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -153,6 +160,14 @@ std::shared_ptr<Peer::Proxy> Network::IEndpoint::LinkPeer(
     assert(m_pPeerMediator);
     // Use the peer mediator to acquire and link a peer proxy for specified node identifier and address to this endpoint. 
     return m_pPeerMediator->LinkPeer(identifier, address);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::IEndpoint::SetShutdownCause(ShutdownCause cause) const
+{
+    if (m_optShutdownCause) { return; } // Don't overwrite the initial value of the shutdown error. 
+    m_optShutdownCause = cause;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

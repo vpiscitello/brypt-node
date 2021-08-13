@@ -111,15 +111,17 @@ std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::DispatchConnectionState(
-    [[maybe_unused]] std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-    [[maybe_unused]] Network::Endpoint::Identifier identifier,
-    [[maybe_unused]] Network::RemoteAddress const& address,
-    [[maybe_unused]] Network::Connection::State change)
+void SinglePeerMediatorStub::OnEndpointRegistered(
+    std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&)
 {
-}
+};
 
 //----------------------------------------------------------------------------------------------------------------------
+
+void SinglePeerMediatorStub::OnEndpointWithdrawn(
+    std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&, WithdrawalCause)
+{
+};
 
 std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::GetPeer() const
 {

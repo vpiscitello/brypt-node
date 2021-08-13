@@ -23,6 +23,7 @@
 #include <any>
 #include <atomic>
 #include <deque>
+#include <latch>
 #include <mutex>
 #include <shared_mutex>
 #include <span>
@@ -85,6 +86,7 @@ private:
         [[nodiscard]] virtual Operation Type() const = 0;
         [[nodiscard]] virtual bool IsActive() const;
         [[nodiscard]] bool Launched() const;
+        void OnEndpointReady();
 
     protected:
         void Launch(std::function<void()> const& setup, std::function<void()> const& teardown);
@@ -93,6 +95,7 @@ private:
         virtual void Teardown() = 0;
 
         EndpointInstance m_endpoint;
+        std::latch m_latch;
         std::atomic_bool m_active;
         std::jthread m_worker;
     };

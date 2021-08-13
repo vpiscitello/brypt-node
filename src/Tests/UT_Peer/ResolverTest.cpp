@@ -69,13 +69,12 @@ public:
     virtual OptionalRequest DeclareResolvingPeer(
         Network::RemoteAddress const&, Node::SharedIdentifier const&) override { return {}; }
     virtual void RescindResolvingPeer(Network::RemoteAddress const&) override { }
-    virtual std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const&, Network::RemoteAddress const&) override
-        { return nullptr; }
-    virtual void DispatchConnectionState(
-        std::shared_ptr<Peer::Proxy> const&,
-        Network::Endpoint::Identifier,
-        Network::RemoteAddress const&, 
-        Network::Connection::State) override { }
+    virtual std::shared_ptr<Peer::Proxy> LinkPeer(
+        Node::Identifier const&, Network::RemoteAddress const&) override { return nullptr; }
+    void OnEndpointRegistered(
+        std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&) { }
+    void OnEndpointWithdrawn(
+        std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&, WithdrawalCause) { }
     // } IPeerMediator
 };
 
