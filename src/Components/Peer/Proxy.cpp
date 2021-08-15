@@ -209,15 +209,25 @@ void Peer::Proxy::RegisterEndpoint(
 
 void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, WithdrawalCause cause)
 {
+    bool reset = false;
     RegisteredEndpoints::node_type extracted;
     {
         std::scoped_lock lock(m_endpointsMutex);
+        reset = m_endpoints.empty();
         if (extracted = m_endpoints.extract(identifier); !extracted) { return; }
     }
 
     assert(m_pPeerMediator);
     auto const& address = extracted.mapped().GetAddress();
     m_pPeerMediator->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
+
+    // If this was the last registered endpoint for the peer, unset the authorization state and enabled processor
+    // if this peer reconnects another exchnage will need to be conducted as nodes do not save keys to the disk. 
+    if (reset) {
+        std::scoped_lock lock(m_receiverMutex);
+        m_authorization = Security::State::Unauthorized;
+        m_pEnabledProcessor = nullptr;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

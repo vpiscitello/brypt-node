@@ -120,6 +120,14 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
         m_peers.modify(itr, 
             [&spUnified] (std::shared_ptr<Peer::Proxy>& spTracked) { assert(spTracked); spUnified = spTracked; });
 
+        // If the peer exists for the given identifier, but there are no registered endpoints the peer is reconnecting
+        // and an exchange is needed to establish keys. 
+        if (spUnified->RegisteredEndpointCount() == 0) {
+            bool const result = spUnified->StartExchange(
+                m_spNodeIdentifier, m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
+            assert(result);
+        }
+
         return spUnified; // Return the unified peer to the endpoint. 
     }
 
