@@ -488,6 +488,7 @@ void Network::TCP::Endpoint::Agent::Launch(std::function<void()> const& setup, s
     // The core event loop remains unchanged between the server and client. The difference between the two are the 
     // resources created and the processable events. 
     m_worker = std::jthread([this, setup, teardown] (std::stop_token token) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         setup(); // Notify the derived agent that it should setup resources for the thread. 
         m_latch.arrive_and_wait(); // Await a ready signal from the spawning thread to ensure resources are accessible. 
         m_active = true; // Indicate that the event processing loop has begun. 
