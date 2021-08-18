@@ -94,7 +94,7 @@ private:
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
-                    Proxy, Node::Internal::Identifier, &Proxy::GetInternalIdentifier>>>>;
+                    Proxy, Node::Internal::Identifier const&, &Proxy::GetIdentifier<Node::Internal::Identifier>>>>>;
 
     using ResolvingPeerMap = std::unordered_map<
         Network::RemoteAddress, std::unique_ptr<Resolver>, Network::AddressHasher<Network::RemoteAddress>>;

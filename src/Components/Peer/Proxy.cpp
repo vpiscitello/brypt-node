@@ -49,17 +49,28 @@ Peer::Proxy::~Proxy()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier Peer::Proxy::GetIdentifier() const
+template<>
+Node::SharedIdentifier const& Peer::Proxy::GetIdentifier<Node::SharedIdentifier>() const
 {
     return m_spIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Internal::Identifier Peer::Proxy::GetInternalIdentifier() const
+template<>
+Node::Internal::Identifier const& Peer::Proxy::GetIdentifier<Node::Internal::Identifier>() const
 {
     assert(m_spIdentifier);
-    return *m_spIdentifier;
+    return static_cast<Node::Internal::Identifier const&>(*m_spIdentifier);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+Node::External::Identifier const& Peer::Proxy::GetIdentifier<Node::External::Identifier>() const
+{
+    assert(m_spIdentifier);
+    return static_cast<Node::External::Identifier const&>(*m_spIdentifier);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

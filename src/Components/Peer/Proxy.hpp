@@ -43,6 +43,9 @@ namespace Peer {
 
 class Proxy;
 
+template<typename Type>
+concept AllowableGetIdentiferType = std::is_same_v<Type, Node::SharedIdentifier> || Node::SupportedIdentifierCast<Type>;
+
 //----------------------------------------------------------------------------------------------------------------------
 } // Peer namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -60,8 +63,8 @@ public:
 
     ~Proxy();
 
-    [[nodiscard]] Node::SharedIdentifier GetIdentifier() const;
-    [[nodiscard]] Node::Internal::Identifier GetInternalIdentifier() const;
+    template<AllowableGetIdentiferType Type = Node::SharedIdentifier>
+    [[nodiscard]] Type const& GetIdentifier() const;
 
     // Statistic Methods {
     [[nodiscard]] std::uint32_t GetSentCount() const;
