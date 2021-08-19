@@ -703,22 +703,24 @@ local::AsynchronousObserver::AsynchronousObserver(
     // Subscribe to all events fired by an endpoint. Each listener should only record valid events. 
     spPublisher->Subscribe<Event::Type::PeerConnected>(
         [&tracker = m_tracker]
-        (Network::Protocol protocol, Node::SharedIdentifier const& spIdentifier)
+        (std::weak_ptr<Peer::Proxy> const& wpProxy, Network::RemoteAddress const& address)
         {
-            if (protocol == Network::Protocol::Invalid || !spIdentifier) { return; }
-            if (auto const itr = tracker.find(*spIdentifier); itr != tracker.end()) {
-                itr->second.emplace_back(Event::Type::PeerConnected);
+            if (auto const spProxy = wpProxy.lock(); spProxy && address.GetProtocol() != Network::Protocol::Invalid) {
+                if (auto const itr = tracker.find(*spProxy->GetIdentifier()); itr != tracker.end()) {
+                    itr->second.emplace_back(Event::Type::PeerConnected);
+                }
             }
         });
 
     spPublisher->Subscribe<Event::Type::PeerDisconnected>(
         [&tracker = m_tracker] 
-        (Network::Protocol protocol, Node::SharedIdentifier const& spIdentifier, DisconnectCause cause)
+        (std::weak_ptr<Peer::Proxy> const& wpProxy, Network::RemoteAddress const& address, DisconnectCause cause)
         {
-            if (protocol == Network::Protocol::Invalid || !spIdentifier) { return; }
             if (cause != DisconnectCause::SessionClosure) { return; }
-            if (auto const itr = tracker.find(*spIdentifier); itr != tracker.end()) {
-                itr->second.emplace_back(Event::Type::PeerDisconnected);
+            if (auto const spProxy = wpProxy.lock(); spProxy && address.GetProtocol() != Network::Protocol::Invalid) {
+                if (auto const itr = tracker.find(*spProxy->GetIdentifier()); itr != tracker.end()) {
+                    itr->second.emplace_back(Event::Type::PeerDisconnected);
+                }
             }
         });
 }

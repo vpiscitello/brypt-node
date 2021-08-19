@@ -143,7 +143,7 @@ void Peer::Manager::OnEndpointRegistered(
 {
     using enum Event::Type;
     NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
-    m_spEventPublisher->Publish<PeerConnected>(address.GetProtocol(), spPeerProxy->GetIdentifier());
+    m_spEventPublisher->Publish<PeerConnected>(spPeerProxy, address);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -161,7 +161,7 @@ void Peer::Manager::OnEndpointWithdrawn(
     if (dispatchable) {
         using enum Event::Type;
         NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
-        m_spEventPublisher->Publish<PeerDisconnected>(address.GetProtocol(), spPeerProxy->GetIdentifier(), cause);
+        m_spEventPublisher->Publish<PeerDisconnected>(spPeerProxy, address, cause);
     }
 }
 
