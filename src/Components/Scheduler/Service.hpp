@@ -23,13 +23,35 @@ namespace spdlog { class logger; }
 namespace Scheduler {
 //----------------------------------------------------------------------------------------------------------------------
 
+class Sentinel;
 class Service;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Scheduler namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Scheduler::Service : public std::enable_shared_from_this<Service>
+class Scheduler::Sentinel
+{
+public:
+    Sentinel();
+    virtual ~Sentinel() = default;
+
+    bool AwaitTask(std::chrono::milliseconds timeout);
+    [[nodiscard]] std::size_t AvailableTasks() const;
+    void OnTaskAvailable(std::size_t available);
+
+protected:
+    void OnTaskCompleted(std::size_t completed);
+
+private:
+    mutable std::mutex m_mutex;
+    std::condition_variable m_waiter;
+    std::atomic_size_t m_available;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class Scheduler::Service : public Scheduler::Sentinel
 {
 public:
     using Delegates = std::vector<std::shared_ptr<Delegate>>;
@@ -39,10 +61,6 @@ public:
     [[nodiscard]] bool Initialize();
     void Execute();
 
-    [[nodiscard]] std::size_t AvailableTasks() const;
-    void OnTaskAvailable(Delegate::Identifier identifier, std::size_t available);
-    bool AwaitTask(std::chrono::milliseconds timeout);
-
     template<typename ServiceType> requires std::is_class_v<ServiceType>
     std::shared_ptr<Delegate> Register(OnExecute const& callback);
 
@@ -50,27 +68,11 @@ public:
     std::shared_ptr<Delegate> GetDelegate() const;
 
 private:
-    class Sentinel {
-    public:
-        Sentinel();
-
-        [[nodiscard]] std::size_t AvailableTasks() const;
-        void OnTaskAvailable(std::size_t available);
-        void OnTaskCompleted(std::size_t completed);
-        bool AwaitTask(std::chrono::milliseconds timeout);
-
-    private:
-        std::atomic_size_t m_available;
-        mutable std::mutex m_mutex;
-        std::condition_variable m_waiter;
-    };
-
     std::shared_ptr<Delegate> GetDelegate(Delegate::Identifier identifier) const;
     [[nodiscard]] bool ResolveDependencies();
     [[nodiscard]] bool UpdatePriorityOrder();
 
     std::shared_ptr<spdlog::logger> m_logger;
-    Sentinel m_sentinel;
     Delegates m_delegates;
     bool m_initialized;
 };
@@ -83,7 +85,7 @@ std::shared_ptr<Scheduler::Delegate> Scheduler::Service::Register(OnExecute cons
     assert(Assertions::Threading::IsCoreThread());
     assert(!GetDelegate<ServiceType>()); // Currently, only one delegate per service type is supported. 
     auto const spService = m_delegates.emplace_back(
-        std::make_shared<Delegate>(typeid(ServiceType).hash_code(), callback, shared_from_this()));
+        std::make_shared<Delegate>(typeid(ServiceType).hash_code(), callback, this));
     return spService;
 }
 

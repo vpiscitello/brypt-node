@@ -11,9 +11,46 @@
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
+Scheduler::Sentinel::Sentinel()
+    : m_mutex()
+    , m_waiter()
+    , m_available(0)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Scheduler::Sentinel::AwaitTask(std::chrono::milliseconds timeout)
+{
+    if (m_available) { return false; } // If there are ready tasks, there is no need to wait. 
+    std::unique_lock lock(m_mutex);
+    m_waiter.wait_for(lock, timeout);
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Scheduler::Sentinel::AvailableTasks() const { return m_available; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Scheduler::Sentinel::OnTaskAvailable(std::size_t available)
+{
+    // Increment the count of available work. If this is the first notification of work we've had recently, try 
+    // waking the runtime thread early in order to process the work as soon as possible. 
+    if (auto const result = m_available += available; result == 1) {
+        m_waiter.notify_one();
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Scheduler::Sentinel::OnTaskCompleted(std::size_t completed) { m_available -= completed; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Scheduler::Service::Service()
     : m_logger(spdlog::get(LogUtils::Name::Core.data()))
-    , m_sentinel()
     , m_delegates()
     , m_initialized(false)
 {
@@ -42,35 +79,11 @@ void Scheduler::Service::Execute()
         return delegate->IsReady();
     };
 
-    auto const execute = [this] (auto const& delegate)
-    { 
+    std::ranges::for_each(m_delegates | std::views::filter(ready), [this] (auto const& delegate) { 
        std::size_t const executed = delegate->Execute({});
        assert(executed != 0); // The delegate should always indicate at least one task was executed. 
-       m_sentinel.OnTaskCompleted(executed);
-    };
-
-    std::ranges::for_each(m_delegates | std::views::filter(ready), execute);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Scheduler::Service::AvailableTasks() const
-{
-    return m_sentinel.AvailableTasks();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Scheduler::Service::OnTaskAvailable([[maybe_unused]] Delegate::Identifier identifier, std::size_t available)
-{
-    m_sentinel.OnTaskAvailable(available);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Scheduler::Service::AwaitTask(std::chrono::milliseconds timeout)
-{
-    return m_sentinel.AwaitTask(timeout);
+       OnTaskCompleted(executed);
+    });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -184,47 +197,6 @@ bool Scheduler::Service::UpdatePriorityOrder()
     // the most most dependent delegates are executed last. 
     std::ranges::swap_ranges(m_delegates, resolved | std::views::reverse);
 
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Scheduler::Service::Sentinel::Sentinel()
-    : m_available(0)
-    , m_mutex()
-    , m_waiter()
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Scheduler::Service::Sentinel::AvailableTasks() const { return m_available; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Scheduler::Service::Sentinel::OnTaskAvailable(std::size_t available)
-{
-    // Increment the count of available work. If this is the first notification of work we've had recently, try 
-    // waking the runtime thread early in order to process the work as soon as possible. 
-    if (auto const result = m_available += available; result == 1) {
-        m_waiter.notify_one();
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Scheduler::Service::Sentinel::OnTaskCompleted(std::size_t completed)
-{
-    m_available -= completed;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Scheduler::Service::Sentinel::AwaitTask(std::chrono::milliseconds timeout)
-{
-    if (m_available) { return false; } // If there are ready tasks, there is no need to wait. 
-    std::unique_lock lock(m_mutex);
-    m_waiter.wait_for(lock, timeout);
     return true;
 }
 

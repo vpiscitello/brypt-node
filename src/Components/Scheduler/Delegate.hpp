@@ -18,7 +18,7 @@ namespace Scheduler {
 using OnExecute = std::function<std::size_t()>;
 
 class Delegate;
-class Service;
+class Sentinel;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Scheduler namespace
@@ -33,7 +33,7 @@ public:
     // Note: Only the scheduler should be used to set the priority and  execute the service. 
     class ExecuteKey { public: friend class Service; private: ExecuteKey() = default; };
 
-    Delegate(Identifier const& identifier, OnExecute const& callback, std::shared_ptr<Service> const& scheduler);
+    Delegate(Identifier const& identifier, OnExecute const& callback, Sentinel* const sentinel);
 
     [[nodiscard]] Identifier GetIdentifier() const;
     [[nodiscard]] std::size_t GetPriority() const;
@@ -61,7 +61,7 @@ private:
     std::atomic_size_t m_available;
     OnExecute const m_execute;
     Dependencies m_dependencies;
-    std::shared_ptr<Service> const m_scheduler;
+    Sentinel* const m_sentinel;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

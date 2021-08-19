@@ -8,15 +8,15 @@
 #include <limits>
 //----------------------------------------------------------------------------------------------------------------------
 
-Scheduler::Delegate::Delegate(
-    Identifier const& identifier, OnExecute const& callback, std::shared_ptr<Service> const& scheduler)
+Scheduler::Delegate::Delegate(Identifier const& identifier, OnExecute const& callback, Sentinel* const sentinel)
     : m_identifier(identifier)
     , m_priority(std::numeric_limits<std::size_t>::max())
     , m_available(0)
     , m_execute(callback)
     , m_dependencies()
-    , m_scheduler(scheduler)
+    , m_sentinel(sentinel)
 {
+    assert(m_sentinel);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -44,7 +44,7 @@ bool Scheduler::Delegate::IsReady() const { return m_available != 0; }
 void Scheduler::Delegate::OnTaskAvailable(std::size_t available)
 {
     m_available += available;
-    m_scheduler->OnTaskAvailable(m_identifier, available);
+    m_sentinel->OnTaskAvailable(available);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
