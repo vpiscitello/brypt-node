@@ -140,10 +140,7 @@ ExecutionStatus Node::Core::Shutdown(ExecutionStatus reason)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Node::Core::IsActive() const
-{
-    return m_token.get().IsExecutionActive();
-}
+bool Node::Core::IsActive() const noexcept { return m_token.get().IsExecutionActive(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 

@@ -78,7 +78,7 @@ public:
     template<ValidRuntimePolicy RuntimePolicy = ForegroundRuntime>
     [[nodiscard]] ExecutionStatus Startup();
     ExecutionStatus Shutdown(ExecutionStatus reason = ExecutionStatus::RequestedShutdown);
-    [[nodiscard]] bool IsActive() const;
+    [[nodiscard]] bool IsActive() const noexcept;
 
     [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
     [[nodiscard]] std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
