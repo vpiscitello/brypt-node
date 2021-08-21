@@ -6,7 +6,7 @@
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Scheduler/Delegate.hpp"
 #include "Components/Scheduler/Service.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <openssl/md5.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -21,7 +21,7 @@ class AuthorizedProcessor;
 Await::TrackingManager::TrackingManager(std::shared_ptr<Scheduler::Service> const& spScheduler)
     : m_spDelegate()
     , m_awaiting()
-    , m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_logger(spdlog::get(Logger::Name::Core.data()))
 {
     assert(Assertions::Threading::IsCoreThread());
     assert(m_logger);

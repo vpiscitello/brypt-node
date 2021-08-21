@@ -17,7 +17,7 @@
 #include "Components/Peer/Manager.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/ExecutionStatus.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 #include "Utilities/Version.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/core/quick_exit.hpp>
@@ -82,7 +82,7 @@ std::int32_t main(std::int32_t argc, char** argv)
         case Startup::ParseCode::Malformed: return 1;
     }
 
-    auto const logger = spdlog::get(LogUtils::Name::Core.data());  
+    auto const logger = spdlog::get(Logger::Name::Core.data());  
     logger->info("Welcome to the Brypt Network!");
     logger->info("Brypt Identifier: {}", upParser->GetNodeIdentifier());
 
@@ -126,8 +126,8 @@ Startup::Resources Startup::InitializeResources(std::int32_t argc, char** argv)
     }
     
     // Initialize the logging resources for the application. 
-    LogUtils::InitializeLoggers(options.GetVerbosityLevel()); 
-    auto const logger = spdlog::get(LogUtils::Name::Core.data()); // From here on we should use the logger for errors. 
+    Logger::Initialize(options.GetVerbosityLevel()); 
+    auto const logger = spdlog::get(Logger::Name::Core.data()); // From here on we should use the logger for errors. 
 
     // Create a configuration parser to read the configuration file at the provided location. If we fail to read the
     // file log an error and return early. 

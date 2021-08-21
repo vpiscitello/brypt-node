@@ -7,7 +7,7 @@
 #include "Components/Scheduler/Service.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/FileUtils.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ BootstrapService::BootstrapService(
     std::filesystem::path const& filepath,
     Configuration::Options::Endpoints const& endpoints,
     bool useFilepathDeduction)
-    : m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_spDelegate()
     , m_mediator(nullptr)
     , m_filepath(filepath)

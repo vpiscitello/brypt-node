@@ -10,7 +10,7 @@
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
 #include "Components/Peer/Proxy.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/connect.hpp>
@@ -120,8 +120,8 @@ Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher c
     , m_logger()
 {
     switch (m_operation) {
-        case Operation::Client: m_logger = spdlog::get(LogUtils::Name::TcpClient.data()); break;
-        case Operation::Server: m_logger = spdlog::get(LogUtils::Name::TcpServer.data()); break;
+        case Operation::Client: m_logger = spdlog::get(Logger::Name::TcpClient.data()); break;
+        case Operation::Server: m_logger = spdlog::get(Logger::Name::TcpServer.data()); break;
         default: assert(false); break;
     }
     assert(m_logger);

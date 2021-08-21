@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "StartupOptions.hpp"
 #include "Components/Configuration/Options.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cstdint>

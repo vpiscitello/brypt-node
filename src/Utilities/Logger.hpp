@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: LogUtils.hpp
+// File: Logger.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -17,12 +17,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace LogUtils {
+namespace Logger {
 //----------------------------------------------------------------------------------------------------------------------
 
-void InitializeLoggers(spdlog::level::level_enum verbosity = spdlog::level::debug);
-
-using Logger = std::shared_ptr<spdlog::logger>;
+void Initialize(spdlog::level::level_enum verbosity = spdlog::level::debug);
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Name {
@@ -65,35 +63,39 @@ constexpr spdlog::string_view_t Trace = "\x1b[38;2;255;255;255m";
 
 constexpr std::string_view Reset = "\x1b[0m";
 
-std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> CreateTrueColorConsole();
+std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> CreateTrueColorSink();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Color namespace
 } // FileUtils namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-inline void LogUtils::InitializeLoggers(spdlog::level::level_enum verbosity)
+inline void Logger::Initialize(spdlog::level::level_enum verbosity)
 {
-    auto spCoreLogger = std::make_shared<spdlog::logger>(
-        Name::Core.data(), Color::CreateTrueColorConsole()); 
-    spCoreLogger->set_pattern(Pattern::Generate(Color::Core, {"core"}));
-    spdlog::register_logger(spCoreLogger);
+    auto spCore = spdlog::get(Name::Core.data());
+    if (spCore) {
+        assert(spdlog::get(Name::TcpServer.data()));
+        assert(spdlog::get(Name::TcpClient.data()));
+        return; // There is nothing to do if the core logger has already been initialized. 
+    }
 
-    auto spTcpServerLogger = std::make_shared<spdlog::logger>(
-        Name::TcpServer.data(), Color::CreateTrueColorConsole());
-    spTcpServerLogger->set_pattern(Pattern::Generate(Color::TCP, {"tcp", "server"}));
-    spdlog::register_logger(spTcpServerLogger);
+    spCore = std::make_shared<spdlog::logger>(Name::Core.data(), Color::CreateTrueColorSink()); 
+    spCore->set_pattern(Pattern::Generate(Color::Core, { "core" }));
+    spdlog::register_logger(spCore);
 
-    auto spTcpClientLogger = std::make_shared<spdlog::logger>(
-        Name::TcpClient.data(), Color::CreateTrueColorConsole());
-    spTcpClientLogger->set_pattern(Pattern::Generate(Color::TCP, {"tcp", "client"}));
-    spdlog::register_logger(spTcpClientLogger);
+    auto const spTcpServer = std::make_shared<spdlog::logger>(Name::TcpServer.data(), Color::CreateTrueColorSink());
+    spTcpServer->set_pattern(Pattern::Generate(Color::TCP, { "tcp", "server" }));
+    spdlog::register_logger(spTcpServer);
+
+    auto const spTcpClient = std::make_shared<spdlog::logger>(Name::TcpClient.data(), Color::CreateTrueColorSink());
+    spTcpClient->set_pattern(Pattern::Generate(Color::TCP, { "tcp", "client" }));
+    spdlog::register_logger(spTcpClient);
 
     spdlog::set_level(verbosity);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-inline std::string LogUtils::Pattern::Generate(
+inline std::string Logger::Pattern::Generate(
     std::string_view color, std::vector<std::string> const& tags)
 {
     std::ostringstream oss;
@@ -107,7 +109,7 @@ inline std::string LogUtils::Pattern::Generate(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-inline std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> LogUtils::Color::CreateTrueColorConsole()
+inline std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> Logger::Color::CreateTrueColorSink()
 {
     auto spColorSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 

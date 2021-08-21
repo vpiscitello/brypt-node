@@ -12,7 +12,7 @@
 #include "BryptNode/NetworkState.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Peer/Manager.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------

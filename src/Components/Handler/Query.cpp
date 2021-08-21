@@ -11,7 +11,7 @@
 #include "Components/Await/TrackingManager.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Utilities/TimeUtils.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 #include "BryptMessage/MessageHeader.hpp"
 #include "BryptMessage/MessageUtils.hpp"
 #include "Utilities/Z85.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/co_spawn.hpp>

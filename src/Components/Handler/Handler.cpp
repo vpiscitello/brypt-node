@@ -17,7 +17,7 @@
 #include "Components/Await/TrackingManager.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Manager.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
@@ -41,7 +41,7 @@ std::unique_ptr<Handler::IHandler> Handler::Factory(Handler::Type type, Node::Co
 Handler::IHandler::IHandler(Handler::Type type, Node::Core& instance)
     : m_type(type)
     , m_instance(instance)
-    , m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_logger(spdlog::get(Logger::Name::Core.data()))
 {
 }
 

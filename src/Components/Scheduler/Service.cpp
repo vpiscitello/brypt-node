@@ -3,7 +3,7 @@
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #include "Service.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <deque>
@@ -50,7 +50,7 @@ void Scheduler::Sentinel::OnTaskCompleted(std::size_t completed) { m_available -
 //----------------------------------------------------------------------------------------------------------------------
 
 Scheduler::Service::Service()
-    : m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_delegates()
     , m_initialized(false)
 {

@@ -8,7 +8,7 @@
 #include "BryptNode/StartupOptions.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/FileUtils.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/algorithm/string.hpp>
 #include <lithium_json.hh>
@@ -221,7 +221,7 @@ struct local::OptionsStore
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Runtime const& runtimeOptions)
-    : m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_version()
     , m_filepath(filepath)
     , m_runtime(runtimeOptions)

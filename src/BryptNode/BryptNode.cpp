@@ -23,7 +23,7 @@
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
 #include "Components/Scheduler/Service.hpp"
-#include "Utilities/LogUtils.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,7 +35,7 @@ Node::Core::Core(
     : m_token(token)
     , m_spScheduler(std::make_shared<Scheduler::Service>())
     , m_upRuntime(nullptr)
-    , m_logger(spdlog::get(LogUtils::Name::Core.data()))
+    , m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_spNodeState()
     , m_spCoordinatorState(std::make_shared<CoordinatorState>())
     , m_spNetworkState(std::make_shared<NetworkState>())
