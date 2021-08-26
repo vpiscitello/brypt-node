@@ -35,6 +35,8 @@ public:
         Handler::Map const& handlers,
         std::shared_ptr<Scheduler::Service> const& spScheduler);
 
+    ~AuthorizedProcessor();
+
     // IMessageSink {
     virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,

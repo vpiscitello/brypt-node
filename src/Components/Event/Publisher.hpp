@@ -40,7 +40,7 @@ public:
     using EventAdvertisements = std::set<Type>;
 
     explicit Publisher(std::shared_ptr<Scheduler::Service> const& spScheduler);
-    ~Publisher() = default;
+    ~Publisher();
 
     Publisher(Publisher const&) = delete; 
     Publisher(Publisher&& ) = delete; 

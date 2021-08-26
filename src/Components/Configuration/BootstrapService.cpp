@@ -131,6 +131,8 @@ BootstrapService::~BootstrapService()
 {
     [[maybe_unused]] auto const status = Serialize();
     assert(status == Configuration::StatusCode::Success); 
+    
+    m_spDelegate->Delist();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

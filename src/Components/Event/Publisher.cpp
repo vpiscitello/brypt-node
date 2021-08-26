@@ -31,6 +31,13 @@ Event::Publisher::Publisher(std::shared_ptr<Scheduler::Service> const& spSchedul
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Event::Publisher::~Publisher()
+{
+    m_spDelegate->Delist();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Event::Publisher::SuspendSubscriptions()
 {
     assert(Assertions::Threading::IsCoreThread()); // Only the main thread should suspend supscriptions.

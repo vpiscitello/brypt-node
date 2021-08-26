@@ -35,6 +35,7 @@ public:
     explicit IndependentExecutor(std::shared_ptr<Scheduler::Service> const& spScheduler);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
+    void ResetExecutionStatus() { m_executed = false; }
 private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     bool m_executed;
@@ -48,6 +49,7 @@ public:
     explicit DependentExecutorAlpha(std::shared_ptr<Scheduler::Service> const& spScheduler);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
+    void ResetExecutionStatus() { m_executed = false; }
 private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     bool m_executed;
@@ -61,6 +63,7 @@ public:
     explicit DependentExecutorBeta(std::shared_ptr<Scheduler::Service> const& spScheduler);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
+    void ResetExecutionStatus() { m_executed = false; }
 private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     bool m_executed;
@@ -74,6 +77,7 @@ public:
     explicit DependentExecutorGamma(std::shared_ptr<Scheduler::Service> const& spScheduler);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
+    void ResetExecutionStatus() { m_executed = false; }
 private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     bool m_executed;
@@ -153,6 +157,74 @@ TEST(SchedulerSchedulerSuite, CyclicDependencyTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+TEST(SchedulerSchedulerSuite, DelistTest)
+{
+    auto const spScheduler = std::make_shared<Scheduler::Service>();
+    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spScheduler);
+    auto const spDependentExecutorBeta = std::make_shared<local::DependentExecutorBeta>(spScheduler);
+    auto const spDependentExecutorGamma = std::make_shared<local::DependentExecutorGamma>(spScheduler);
+    auto spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spScheduler);
+
+    EXPECT_TRUE(spScheduler->Initialize());
+
+    EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
+    EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), 3);
+    EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 4);
+    EXPECT_EQ(spDependentExecutorGamma->GetPriority(), 2);
+
+    EXPECT_EQ(spScheduler->AvailableTasks(), 4);
+
+    {
+        auto const spDelegate = spScheduler->GetDelegate<local::DependentExecutorAlpha>();
+        ASSERT_TRUE(spDelegate);
+        spDelegate->Delist();
+        EXPECT_EQ(spDelegate->GetPriority(), std::numeric_limits<std::size_t>::max());
+        EXPECT_EQ(spScheduler->AvailableTasks(), 3);
+    }
+
+    spScheduler->Execute();
+
+    EXPECT_TRUE(spIndependentExecutor->Executed());
+    EXPECT_FALSE(spDependentExecutorAlpha->Executed());
+    EXPECT_TRUE(spDependentExecutorBeta->Executed());
+    EXPECT_TRUE(spDependentExecutorGamma->Executed());
+    EXPECT_EQ(spScheduler->AvailableTasks(), 0);
+
+    {
+        auto const spDelegate = spScheduler->GetDelegate<local::DependentExecutorAlpha>();
+        EXPECT_FALSE(spDelegate);
+    }
+
+    EXPECT_TRUE(spScheduler->Initialize());
+    EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
+    EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), std::numeric_limits<std::size_t>::max());
+    EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 3);
+    EXPECT_EQ(spDependentExecutorGamma->GetPriority(), 2);
+    
+    spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spScheduler);
+    EXPECT_EQ(spScheduler->AvailableTasks(), 1);
+
+    EXPECT_TRUE(spScheduler->Initialize());
+    EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
+    EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), 3);
+    EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 4);
+    EXPECT_EQ(spDependentExecutorGamma->GetPriority(), 2);
+
+    spIndependentExecutor->ResetExecutionStatus();
+    spDependentExecutorAlpha->ResetExecutionStatus();
+    spDependentExecutorBeta->ResetExecutionStatus();
+    spDependentExecutorGamma->ResetExecutionStatus();
+    
+    spScheduler->Execute();
+    EXPECT_FALSE(spIndependentExecutor->Executed());
+    EXPECT_TRUE(spDependentExecutorAlpha->Executed());
+    EXPECT_FALSE(spDependentExecutorBeta->Executed());
+    EXPECT_FALSE(spDependentExecutorGamma->Executed());
+    EXPECT_EQ(spScheduler->AvailableTasks(), 0);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 local::IndependentExecutor::IndependentExecutor(std::shared_ptr<Scheduler::Service> const& spScheduler)
     : m_spDelegate()
     , m_executed(false)
@@ -182,7 +254,7 @@ local::DependentExecutorBeta::DependentExecutorBeta(std::shared_ptr<Scheduler::S
 {
     auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
     m_spDelegate = spScheduler->Register<DependentExecutorBeta>(OnExecute);
-    m_spDelegate->Depends<DependentExecutorAlpha>();
+    m_spDelegate->Depends<DependentExecutorAlpha, DependentExecutorGamma>();
     m_spDelegate->OnTaskAvailable();
 }
 

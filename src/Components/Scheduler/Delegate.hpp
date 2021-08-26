@@ -55,6 +55,8 @@ public:
     template<typename... ServiceTypes>
     void Depends() { Depends({ typeid(ServiceTypes).hash_code()... }); }
 
+    void Delist();
+
 private:
     Identifier const m_identifier;
     std::size_t m_priority;

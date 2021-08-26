@@ -36,6 +36,8 @@ public:
     Sentinel();
     virtual ~Sentinel() = default;
 
+    virtual void Delist(Delegate::Identifier identifier) = 0;
+
     bool AwaitTask(std::chrono::milliseconds timeout);
     [[nodiscard]] std::size_t AvailableTasks() const;
     void OnTaskAvailable(std::size_t available);
@@ -66,6 +68,10 @@ public:
 
     template<typename ServiceType> requires std::is_class_v<ServiceType>
     std::shared_ptr<Delegate> GetDelegate() const;
+
+    // Sentinel {
+    virtual void Delist(Delegate::Identifier identifier) override;
+    // } Sentinel
 
 private:
     std::shared_ptr<Delegate> GetDelegate(Delegate::Identifier identifier) const;

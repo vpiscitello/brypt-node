@@ -47,6 +47,13 @@ AuthorizedProcessor::AuthorizedProcessor(
 
 //----------------------------------------------------------------------------------------------------------------------
 
+AuthorizedProcessor::~AuthorizedProcessor()
+{
+	m_spDelegate->Delist();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool AuthorizedProcessor::CollectMessage(
 	std::weak_ptr<Peer::Proxy> const& wpPeerProxy, MessageContext const& context, std::string_view buffer)
 {

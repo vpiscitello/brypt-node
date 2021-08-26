@@ -36,6 +36,11 @@ Await::TrackingManager::TrackingManager(std::shared_ptr<Scheduler::Service> cons
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Await::TrackingManager::~TrackingManager()
+{
+    m_spDelegate->Delist();
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Creates an await key for a message. Registers the key and the newly created
 // ResponseTracker (Single peer) into the AwaitMap for this container
@@ -55,8 +60,6 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
 // Description: Creates an await key for a message. Registers the key and the newly created
 // ResponseTracker (Multiple peers) into the AwaitMap for this container
 // Returns: the key for the AwaitMap
@@ -73,8 +76,6 @@ Await::TrackerKey Await::TrackingManager::PushRequest(
     m_awaiting.emplace(key, ResponseTracker(wpRequestor, message, identifiers));
     return key;
 }
-
-//----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Pushes a response message onto the await object, finds the key from the message await identifier.

@@ -88,6 +88,21 @@ void Scheduler::Service::Execute()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Scheduler::Service::Delist(Delegate::Identifier identifier)
+{
+    assert(Assertions::Threading::IsCoreThread());
+    auto const itr = std::ranges::find_if(m_delegates, [&identifier] (auto const& delegate) {
+        return delegate->GetIdentifier() == identifier;
+    });
+
+    if (itr != m_delegates.end()) { 
+        OnTaskCompleted(itr->get()->AvailableTasks()); // The task count should not include tasks of delisted delegates.
+        m_delegates.erase(itr); // Delist the delegate from the execution set. 
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::shared_ptr<Scheduler::Delegate> Scheduler::Service::GetDelegate(Delegate::Identifier identifier) const
 {
     constexpr auto projection = [] (auto const& delegate) -> auto { return delegate->GetIdentifier(); };
@@ -112,7 +127,14 @@ bool Scheduler::Service::ResolveDependencies()
             if (!resolved.contains(dependency)) {
                  // If the dependency is also being resolved, we've encountered a cyclic dependency chain. 
                 if (unresolved.contains(dependency)) { return false; }
-                if (!resolve(GetDelegate(dependency), resolved, unresolved)) { return false; }
+
+                // If the dependency is registered, its dependencies are implicitly added. Otherwise, preserve 
+                // it in the set such that it can be resolved in a furture run. 
+                if (auto const next = GetDelegate(dependency); next) { 
+                     if (!resolve(next, resolved, unresolved)) { return false; }
+                } else {
+                    resolved.emplace(dependency); // If the dependency is not regi
+                }
             }
         }
         resolved.emplace(delegate->GetIdentifier()); // After resolving, add the current delegate to the set. 
@@ -170,11 +192,18 @@ bool Scheduler::Service::UpdatePriorityOrder()
 
     auto dependents = ComputeDependents(m_delegates); // Compute the number of dependents each delegate has. 
     ReadyDelegates ready; // Store for the delegates without remaining dependents. 
-    // Determine which delegates have no dependents, these will be the pushed intro the priority set. 
-    std::ranges::for_each(dependents, [this, &ready] (auto const& entry) {
-        auto const& [identifier, dependents] = entry;
-        if (dependents == 0) { ready.emplace_back(GetDelegate(identifier)); }
-    });
+    
+    // Process the dependents in order to seed the priority set and remove any unregistered delegates. 
+    for (auto itr = dependents.begin(); itr != dependents.end();) {
+        auto const& [identifier, dependent] = *itr;
+        auto const delegate = GetDelegate(identifier);
+        if (delegate) {
+            if (dependent == 0) { ready.emplace_back(GetDelegate(identifier)); }
+            ++itr;
+        } else {
+            itr = dependents.erase(itr);
+        }
+    }
 
     Delegates resolved; 
     resolved.reserve(m_delegates.size());
@@ -189,7 +218,12 @@ bool Scheduler::Service::UpdatePriorityOrder()
 
         // Decrement the degrees on each dependency that this delegates is dependent on.
         for (auto const dependency : spDelegate->GetDependencies()) {
-            if (--dependents[dependency] == 0) { ready.emplace_back(GetDelegate(dependency)); }
+            // We need to check if the dependency can be found before updating the dependent count. If it does not have 
+            // an associated dependent count, it has been delisted and should not be included in the execution set.
+            if (auto itr = dependents.find(dependency); itr != dependents.end()) {
+                auto& [identifier, dependent] = *itr;
+                if (--dependent == 0) { ready.emplace_back(GetDelegate(dependency)); }
+            }
         }
     }
 

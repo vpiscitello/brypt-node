@@ -42,6 +42,7 @@ class Await::TrackingManager
 {
 public:
     explicit TrackingManager(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    ~TrackingManager();
 
     TrackerKey PushRequest(
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
