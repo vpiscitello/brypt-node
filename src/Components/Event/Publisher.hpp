@@ -102,14 +102,12 @@ bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::Callback
     
     // In the case of events with content, the listener will need to cast to the derived event type to access the 
     // event's content and then forward them to the supplied handler. 
-    m_listeners[SpecificType].emplace_back(
-        [callback] (EventProxy const& upEventProxy)
-        {
-            // Dispatch needs to ensure this callback is provided the correct event. 
-            assert(upEventProxy && upEventProxy->GetType() == SpecificType);
-            auto const pEvent = static_cast<Event::Message<SpecificType> const*>(upEventProxy.get());
-            std::apply(callback, pEvent->GetContent());
-        });
+    m_listeners[SpecificType].emplace_back([callback] (EventProxy const& upEventProxy) {
+        // Dispatch needs to ensure this callback is provided the correct event. 
+        assert(upEventProxy && upEventProxy->GetType() == SpecificType);
+        auto const pEvent = static_cast<Event::Message<SpecificType> const*>(upEventProxy.get());
+        std::apply(callback, pEvent->GetContent());
+    });
     return true;
 }
 

@@ -291,6 +291,7 @@ TEST(NetworkAddressSuite, TcpRemoteAddressValidationTest)
         }
 
         EXPECT_EQ(address.IsBootstrapable(), (type != Network::Socket::Type::Invalid));
+        EXPECT_EQ(address.GetOrigin(), Network::RemoteAddress::Origin::Network);
     }
 }
 
@@ -343,8 +344,9 @@ TEST(NetworkAddressSuite, TcpRemoteAddressBootstrapableTest)
 
 TEST(NetworkAddressSuite, TcpRemoteAddressMoveTest)
 {
+    using Origin = Network::RemoteAddress::Origin;
     constexpr std::string_view Expected = "tcp://127.0.0.1:35216";
-    Network::RemoteAddress initial(Network::Protocol::TCP, "127.0.0.1:35216", true);
+    Network::RemoteAddress initial(Network::Protocol::TCP, "127.0.0.1:35216", true, Origin::User);
     Network::RemoteAddress address(std::move(initial));
 
     EXPECT_EQ(initial.GetProtocol(), Network::Protocol::Invalid);
@@ -363,6 +365,7 @@ TEST(NetworkAddressSuite, TcpRemoteAddressMoveTest)
     EXPECT_EQ(address.GetSize(), Expected.size());
     EXPECT_EQ(address.IsValid(), true);
     EXPECT_TRUE(address.IsBootstrapable());
+    EXPECT_EQ(initial.GetOrigin(), Origin::User);
     EXPECT_EQ(Network::Socket::ParseAddressType(address), Network::Socket::Type::IPv4);
 }
 

@@ -44,13 +44,16 @@ Network::Manager::Manager(
     spEventPublisher->Advertise(Event::Type::CriticalNetworkFailure);
 
     // Register listeners to watch for error states that might trigger a critical network shutdown. 
+    using BindingFailure = Event::Message<Event::Type::BindingFailed>::Cause;
     spEventPublisher->Subscribe<Event::Type::BindingFailed>(
-        [this, context] (Network::Endpoint::Identifier, Network::BindingAddress const&)
-        { OnBindingFailed(context); });
+        [this, context] (Network::Endpoint::Identifier, Network::BindingAddress const&, BindingFailure) {
+            OnBindingFailed(context);
+        });
 
     spEventPublisher->Subscribe<Event::Type::EndpointStopped>(
-        [this, context] (Endpoint::Identifier, Protocol, Operation, ShutdownCause cause)
-        { OnEndpointShutdown(context, cause); });
+        [this, context] (Endpoint::Identifier, Protocol, Operation, ShutdownCause cause) {
+            OnEndpointShutdown(context, cause);
+        });
 
     Initialize(endpoints, spEventPublisher, pPeerMediator, pBootstrapCache);
 }

@@ -117,7 +117,7 @@ private:
     [[nodiscard]] bool OnMessageReceived(
         SharedSession const& spSession, Node::Identifier const& source, std::span<std::uint8_t const> message);
 
-    [[nodiscard]] ConnectStatus IsConflictingAddress(RemoteAddress const& address) const;
+    [[nodiscard]] ConflictResult IsConflictingAddress(RemoteAddress const& address) const;
 
     mutable std::shared_mutex m_detailsMutex;
 

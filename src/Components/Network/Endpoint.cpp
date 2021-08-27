@@ -55,7 +55,7 @@ Network::IEndpoint::IEndpoint(Protocol protocol, Operation operation, Event::Sha
     assert(m_spEventPublisher);
     {
         using enum Event::Type;
-        spEventPublisher->Advertise({EndpointStarted, EndpointStopped, BindingFailed, ConnectionFailed});
+        spEventPublisher->Advertise({ EndpointStarted, EndpointStopped, BindingFailed, ConnectionFailed });
     }
 }
 
@@ -123,19 +123,22 @@ void Network::IEndpoint::OnBindingUpdated(BindingAddress const& binding)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::IEndpoint::OnBindFailed(BindingAddress const& binding) const
+void Network::IEndpoint::OnBindingFailed(BindingAddress const& binding, BindingFailure failure) const
 {
     assert(m_operation == Operation::Server);
     SetShutdownCause(ShutdownCause::BindingFailed);
-    m_spEventPublisher->Publish<Event::Type::BindingFailed>(m_identifier, binding);
+    m_spEventPublisher->Publish<Event::Type::BindingFailed>(m_identifier, binding, failure);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::IEndpoint::OnConnectFailed(RemoteAddress const& address) const
+void Network::IEndpoint::OnConnectionFailed(RemoteAddress const& address, ConnectionFailure failure) const
 {
     assert(m_operation == Operation::Client);
-    m_spEventPublisher->Publish<Event::Type::ConnectionFailed>(m_identifier, address);
+    // Currently, we only publish failed connections if the address originated from user input. 
+    if (address.GetOrigin() == RemoteAddress::Origin::User) {
+        m_spEventPublisher->Publish<Event::Type::ConnectionFailed>(m_identifier, address, failure);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

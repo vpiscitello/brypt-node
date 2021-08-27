@@ -121,9 +121,10 @@ public:\
 template<>
 class Event::Message<Event::Type::BindingFailed> : public Event::IMessage
 {
+    EVENT_MESSAGE_CAUSE(Canceled, AddressInUse, Offline, Unreachable, Permissions, UnexpectedError)
     EVENT_MESSAGE_CORE(
         Event::Type::BindingFailed,
-        Network::Endpoint::Identifier, Network::BindingAddress const&)
+        Network::Endpoint::Identifier, Network::BindingAddress const&, Cause)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -132,8 +133,10 @@ class Event::Message<Event::Type::BindingFailed> : public Event::IMessage
 template<>
 class Event::Message<Event::Type::ConnectionFailed> : public Event::IMessage
 {
+    EVENT_MESSAGE_CAUSE(
+        Canceled, InProgress, Duplicate, Reflective, Refused, Offline, Unreachable, Permissions, UnexpectedError)
     EVENT_MESSAGE_CORE(
-        Event::Type::ConnectionFailed, Network::Endpoint::Identifier, Network::RemoteAddress const&)
+        Event::Type::ConnectionFailed, Network::Endpoint::Identifier, Network::RemoteAddress const&, Cause)
 };
 
 //----------------------------------------------------------------------------------------------------------------------

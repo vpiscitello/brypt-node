@@ -393,7 +393,8 @@ Configuration::StatusCode BootstrapService::Deserialize()
                     bootstraps.emplace(std::move(bootstrap));
                 }, 
                 [&] (local::BootstrapEntry const& bootstrap) -> Network::RemoteAddress {
-                    return { protocol, bootstrap.target, true };
+                    using Origin = Network::RemoteAddress::Origin;
+                    return { protocol, bootstrap.target, true, Origin::Cache };
                 });
 
             if (entry.bootstraps.empty() && !MaybeAddDefaultBootstrap(protocol, bootstraps)) {

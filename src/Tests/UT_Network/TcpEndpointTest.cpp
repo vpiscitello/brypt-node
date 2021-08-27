@@ -235,8 +235,9 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpServer(
 std::unique_ptr<Network::TCP::Endpoint> local::MakeTcpClient(
     Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
 {
+    using Origin = Network::RemoteAddress::Origin;
     auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Client, spEventPublisher);
-    Network::RemoteAddress address(test::ProtocolType, test::ServerBinding.GetUri(), true);
+    Network::RemoteAddress address(test::ProtocolType, test::ServerBinding.GetUri(), true, Origin::User);
     upClientEndpoint->RegisterMediator(spPeerMediator.get());
     bool const result = upClientEndpoint->ScheduleConnect(std::move(address));
     return (result) ? std::move(upClientEndpoint) : nullptr;
@@ -251,6 +252,8 @@ local::EventObserver::EventObserver(
 {
     using namespace Network;
     using StopCause = Event::Message<Event::Type::EndpointStopped>::Cause;
+    using BindingFailure = Event::Message<Event::Type::BindingFailed>::Cause;
+    using ConnectionFailure = Event::Message<Event::Type::ConnectionFailed>::Cause;
 
     // Convert the provided identifiers to an event record. 
     std::transform(
@@ -259,38 +262,32 @@ local::EventObserver::EventObserver(
 
     // Subscribe to all events fired by an endpoint. Each listener should only record valid events. 
     spPublisher->Subscribe<Event::Type::EndpointStarted>(
-        [&tracker = m_tracker]
-        (Endpoint::Identifier identifier, Protocol protocol, Operation operation)
-        {
+        [&] (Endpoint::Identifier identifier, Protocol protocol, Operation operation) {
             if (protocol == Protocol::Invalid || operation == Operation::Invalid) { return; }
-            if (auto const itr = tracker.find(identifier); itr != tracker.end()) {
+            if (auto const itr = m_tracker.find(identifier); itr != m_tracker.end()) {
                 itr->second.emplace_back(Event::Type::EndpointStarted);
             }
         });
 
     spPublisher->Subscribe<Event::Type::EndpointStopped>(
-        [&tracker = m_tracker] 
-        (Endpoint::Identifier identifier, Protocol protocol, Operation operation, StopCause cause)
-        {
+        [&] (Endpoint::Identifier identifier, Protocol protocol, Operation operation, StopCause cause) {
             if (protocol == Protocol::Invalid || operation == Operation::Invalid) { return; }
             if (cause != StopCause::ShutdownRequest) { return; }
-            if (auto const itr = tracker.find(identifier); itr != tracker.end()) {
+            if (auto const itr = m_tracker.find(identifier); itr != m_tracker.end()) {
                 itr->second.emplace_back(Event::Type::EndpointStopped);
             }
         });
 
     spPublisher->Subscribe<Event::Type::BindingFailed>(
-        [&tracker = m_tracker] (Endpoint::Identifier identifier, Network::BindingAddress const&)
-        {
-            if (auto const itr = tracker.find(identifier); itr != tracker.end()) {
+        [&] (Endpoint::Identifier identifier, Network::BindingAddress const&, BindingFailure) {
+            if (auto const itr = m_tracker.find(identifier); itr != m_tracker.end()) {
                 itr->second.emplace_back(Event::Type::BindingFailed);
             }
         });
 
     spPublisher->Subscribe<Event::Type::ConnectionFailed>(
-        [&tracker = m_tracker] (Endpoint::Identifier identifier, Network::RemoteAddress const&)
-        {
-            if (auto const itr = tracker.find(identifier); itr != tracker.end()) {
+        [&] (Endpoint::Identifier identifier, Network::RemoteAddress const&, ConnectionFailure) {
+            if (auto const itr = m_tracker.find(identifier); itr != m_tracker.end()) {
                 itr->second.emplace_back(Event::Type::ConnectionFailed);
             }
         });

@@ -77,6 +77,8 @@ public:
 
 protected: 
     using ShutdownCause = Event::Message<Event::Type::EndpointStopped>::Cause;
+    using BindingFailure = Event::Message<Event::Type::BindingFailed>::Cause;
+    using ConnectionFailure = Event::Message<Event::Type::ConnectionFailed>::Cause;
 
     std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const& identifier, RemoteAddress const& address) const;
 
@@ -86,8 +88,8 @@ protected:
     void OnStopped() const;
 
     void OnBindingUpdated(BindingAddress const& binding);
-    void OnBindFailed(BindingAddress const& binding) const;
-    void OnConnectFailed(RemoteAddress const& address) const;
+    void OnBindingFailed(BindingAddress const& binding, BindingFailure failure) const;
+    void OnConnectionFailed(RemoteAddress const& address, ConnectionFailure failure) const;
     void OnShutdownRequested() const;
     void OnUnexpectedError() const;
     

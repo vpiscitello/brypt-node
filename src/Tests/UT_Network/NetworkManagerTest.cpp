@@ -38,7 +38,10 @@ using ConfigurationResources = std::pair<Configuration::Options::Endpoints, std:
 std::optional<ConfigurationResources> CreateConfigurationResources(std::string_view const& uri);
 
 using TargetResources = std::tuple<
-    std::unique_ptr<Network::IEndpoint>, std::unique_ptr<IPeerMediator>, std::unique_ptr<IMessageSink>>;
+    std::unique_ptr<Network::IEndpoint>,
+    std::unique_ptr<IPeerMediator>,
+    std::unique_ptr<IMessageSink>,
+    std::shared_ptr<Scheduler::Service>>;
 std::optional<TargetResources> CreateTargetResources();
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -64,16 +67,20 @@ Network::BindingAddress const TargetBinding(Network::Protocol::TCP, "*:35217", I
 class local::EventObserver
 {
 public:
+    using BindingFailure = Event::Message<Event::Type::BindingFailed>::Cause;
+
     explicit EventObserver(Event::SharedPublisher const& spPublisher);
     bool SubscribedToAllAdvertisedEvents() const;
     bool ReceivedExpectedEvents(Event::Type type, std::size_t count) { return m_events[type] == count; }
     bool ReceivedAnyErrorEvents() const { return m_hasUnexpectedError; }
+    bool ReceivedExpectedFailure(BindingFailure failure) const { return m_optFailure && *m_optFailure == failure; }
 
 private:
     using EventCounter = std::unordered_map<Event::Type, std::size_t>;
 
     Event::SharedPublisher m_spPublisher;
     EventCounter m_events;
+    std::optional<BindingFailure> m_optFailure;
     bool m_hasUnexpectedError; // A flag for any errors we don't explicitly test for. 
 };
 
@@ -131,6 +138,11 @@ protected:
         std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the target a chance to spin up. 
     }
 
+    static void TearDownTestSuite()
+    {
+        m_target = {}; // Destroy our static resources before implicit destruction occurs. 
+    }
+
     void SetUp() override
     {
         // Create the resources required for each instance of a test. 
@@ -140,8 +152,6 @@ protected:
         m_upProcessor = std::make_unique<MessageSinkStub>(test::OriginIdentifier);
         m_upMediator = std::make_unique<SinglePeerMediatorStub>(test::OriginIdentifier, m_upProcessor.get());
     }
-
-    void TearDown() override { }
 
     static local::TargetResources m_target;
     std::shared_ptr<Scheduler::Service> m_spScheduler;
@@ -244,6 +254,8 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
 
     // We need to call dispatch a second time to fire the events published during the first invocation. 
     EXPECT_GT(m_spPublisher->Dispatch(), std::size_t(0)); 
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::BindingFailed, 1));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedFailure(local::EventObserver::BindingFailure::AddressInUse));
     EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::CriticalNetworkFailure, 1));
 
     // The cache state before a network shutdown should not be cleared when a critical error occurs. 
@@ -267,8 +279,9 @@ std::optional<local::ConfigurationResources> local::CreateConfigurationResources
 
     auto upBootstraps = std::make_unique<local::BootstrapCacheStub>();
     {
+        using Origin = Network::RemoteAddress::Origin;
         auto const& binding = configured.front().GetBinding();
-        Network::RemoteAddress address(binding.GetProtocol(), binding.GetUri(), true);
+        Network::RemoteAddress address(binding.GetProtocol(), binding.GetUri(), true, Origin::User);
         upBootstraps->InsertBootstrap(address);
     }
 
@@ -288,14 +301,14 @@ std::optional<local::TargetResources> local::CreateTargetResources()
     auto const spPublisher = std::make_shared<Event::Publisher>(spScheduler);
     spPublisher->SuspendSubscriptions(); // We don't need to subscribe to any of the target's events. 
 
-    auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(
-        Network::Operation::Server, spPublisher);
+    auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Server, spPublisher);
     upEndpoint->RegisterMediator(upMediator.get());
 
     if (!upEndpoint->ScheduleBind(test::TargetBinding)) { return {}; }
     upEndpoint->Startup();
 
-    return std::make_tuple(std::move(upEndpoint), std::move(upMediator), std::move(upProcessor));
+    return std::make_tuple(
+        std::move(upEndpoint), std::move(upMediator), std::move(upProcessor), std::move(spScheduler));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -305,26 +318,30 @@ local::EventObserver::EventObserver(Event::SharedPublisher const& spPublisher)
     , m_events()
     , m_hasUnexpectedError(false)
 {
-    using namespace Network;
-    using StopCause = Event::Message<Event::Type::EndpointStopped>::Cause;
-
     // Subscribe to all events fired by an endpoint. Each listener should only record valid events. 
-    spPublisher->Subscribe<Event::Type::EndpointStarted>(
-        [&] (Endpoint::Identifier, Protocol, Operation) { ++m_events[Event::Type::EndpointStarted]; });
+    spPublisher->Subscribe<Event::Type::EndpointStarted>([&] (auto, auto, auto) {
+        ++m_events[Event::Type::EndpointStarted];
+    });
 
-    spPublisher->Subscribe<Event::Type::EndpointStopped>(
-        [&] (Endpoint::Identifier, Protocol, Operation, StopCause) { ++m_events[Event::Type::EndpointStopped]; });
+    spPublisher->Subscribe<Event::Type::EndpointStopped>([&] (auto, auto, auto, auto) {
+        ++m_events[Event::Type::EndpointStopped];
+    });
 
-    spPublisher->Subscribe<Event::Type::BindingFailed>(
-        [&] (Endpoint::Identifier, Network::BindingAddress const&)
-        { m_hasUnexpectedError = true; ++m_events[Event::Type::BindingFailed]; });
+    spPublisher->Subscribe<Event::Type::BindingFailed>([&] (auto, auto const&, auto failure) {
+        m_hasUnexpectedError = true;
+        ++m_events[Event::Type::BindingFailed];
+        m_optFailure = failure;
+    });
 
-    spPublisher->Subscribe<Event::Type::ConnectionFailed>(
-        [&] (Endpoint::Identifier, Network::RemoteAddress const&)
-        { m_hasUnexpectedError = true; ++m_events[Event::Type::ConnectionFailed]; });
+    spPublisher->Subscribe<Event::Type::ConnectionFailed>([&] (auto, auto const&, auto) {
+        m_hasUnexpectedError = true;
+        ++m_events[Event::Type::ConnectionFailed];
+    });
 
-    spPublisher->Subscribe<Event::Type::CriticalNetworkFailure>(
-        [&] () { m_hasUnexpectedError = true; ++m_events[Event::Type::CriticalNetworkFailure]; });
+    spPublisher->Subscribe<Event::Type::CriticalNetworkFailure>([&] () {
+        m_hasUnexpectedError = true;
+        ++m_events[Event::Type::CriticalNetworkFailure];
+    });
 }
 
 //----------------------------------------------------------------------------------------------------------------------

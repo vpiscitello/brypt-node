@@ -50,6 +50,7 @@ private:
         Listener(ServerInstance server, boost::asio::io_context& context);
         [[nodiscard]] SocketProcessor operator()();
         [[nodiscard]] bool Bind(BindingAddress const& binding);
+        [[nodiscard]] BindingFailure GetFailure(boost::system::error_code const& error) const;
 
         template<typename ...Arguments>
         [[nodiscard]] CompletionOrigin OnError(std::string_view message, Arguments&&...arguments) const;
@@ -83,9 +84,8 @@ private:
     virtual void Teardown() override;
 
     struct Delegate {
-        enum class Status : std::uint32_t { Indeterminate, Success, Canceled, Refused, UnexpectedError };
         using ResolveResult = boost::asio::awaitable<bool>;
-        using ConnectResult = boost::asio::awaitable<void>;
+        using ConnectResult = boost::asio::awaitable<std::optional<bool>>;
 
         Delegate(ClientInstance client, RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
         [[nodiscard]] RemoteAddress const& GetAddress() const;
@@ -93,6 +93,7 @@ private:
         [[nodiscard]] SocketProcessor operator()();
         [[nodiscard]] ResolveResult Resolve(boost::asio::ip::tcp::resolver::results_type& resolved);
         [[nodiscard]] ConnectResult TryConnect(boost::asio::ip::tcp::resolver::results_type const& resolved);
+        [[nodiscard]] ConnectionFailure GetFailure(boost::system::error_code const& error) const;
         [[nodiscard]] CompletionOrigin GetCompletionOrigin() const;
         void Cancel();
 
@@ -101,7 +102,7 @@ private:
         Node::SharedIdentifier m_spIdentifier;
         SharedSession m_spSession;
         std::uint32_t m_attempts;
-        Status m_status;
+        boost::system::error_code m_error;
     };
 
     boost::asio::ip::tcp::resolver m_resolver;
@@ -320,10 +321,8 @@ void Network::TCP::Endpoint::OnBindEvent(BindEvent const& event)
 {
     assert(m_upAgent && m_upAgent->Type() == Operation::Server);
     auto const pServerAgent = static_cast<Server*>(m_upAgent.get());
-    bool success = pServerAgent->Bind(event.GetBinding());
-    if (!success) {
+    if (bool const success = pServerAgent->Bind(event.GetBinding()); !success) {
         m_logger->error("A listener on {} could not be established!", event.GetBinding());
-        IEndpoint::OnBindFailed(event.GetBinding());
     }
 }
 
@@ -433,19 +432,19 @@ bool Network::TCP::Endpoint::OnMessageReceived(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::ConnectStatus Network::TCP::Endpoint::IsConflictingAddress(RemoteAddress const& address) const
+Network::TCP::ConflictResult Network::TCP::Endpoint::IsConflictingAddress(RemoteAddress const& address) const
 {
     // Determine if the provided URI matches any of the node's hosted entrypoints. If the URI matched an entrypoint, 
     // the connection should not be allowed as it would be a connection to oneself.
     if (m_pEndpointMediator && m_pEndpointMediator->IsRegisteredAddress(address)) {
-        return ConnectStatus::ReflectionError;
+        return ConflictResult::Reflective;
     }
 
     // If the URI matches a currently connected or resolving peer. The connection should not be allowed as it break 
     // a valid connection. 
-    if (m_tracker.IsUriTracked(address.GetUri())) { return ConnectStatus::DuplicateError; }
+    if (m_tracker.IsUriTracked(address.GetUri())) { return ConflictResult::Duplicate; }
 
-    return ConnectStatus::Success;
+    return ConflictResult::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -545,16 +544,14 @@ Network::Operation Network::TCP::Endpoint::Server::Type() const
 
 void Network::TCP::Endpoint::Server::Setup()
 {
-    boost::asio::co_spawn(m_endpoint.m_context, m_listener(),
-        [this] (std::exception_ptr exception, TCP::CompletionOrigin origin)
-        {
-            constexpr std::string_view ErrorMessage = "An unexpected error caused the listener on {} to shutdown";
-            if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
-                m_endpoint.m_logger->error(ErrorMessage, m_endpoint.m_binding);
-                m_endpoint.OnUnexpectedError();
-                m_worker.request_stop();
-            }
-        });
+    boost::asio::co_spawn(m_endpoint.m_context, m_listener(), [this] (std::exception_ptr exception, auto origin) {
+        constexpr std::string_view ErrorMessage = "An unexpected error caused the listener on {} to shutdown";
+        if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
+            m_endpoint.m_logger->error(ErrorMessage, m_endpoint.m_binding);
+            m_endpoint.OnUnexpectedError();
+            m_worker.request_stop();
+        }
+    });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -573,12 +570,15 @@ bool Network::TCP::Endpoint::Server::Bind(BindingAddress const& binding)
     // Otherwise, the coroutine could resume while we are updating it's resources. 
     assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
     assert(m_endpoint.m_binding == binding); // Currently, we greedily set the binding in the scheduler. 
-    m_endpoint.m_logger->info("Opening endpoint on {}.", binding);
+    m_endpoint.m_logger->info("Opening listener on {}.", binding);
 
-    if (!m_listener.Bind(binding)) { return false; }
-    m_signal.notify(); // Wake the waiting listener after binding. 
-    m_endpoint.OnBindingUpdated(binding);
-    return true;
+    bool const success = m_listener.Bind(binding);
+    if (success) {    
+        m_signal.notify(); // Wake the waiting listener after binding. 
+        m_endpoint.OnBindingUpdated(binding);
+    }
+
+    return success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -628,9 +628,6 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator
 
 bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& binding)
 {
-    auto const OnBindError = [&acceptor = m_acceptor, &rebinding = m_rebinding] () -> bool 
-        { acceptor.close(); rebinding = false; return false; };
-
     // If the acceptor has already been open, set the rebinding flag and cancel any existing acceptor operations. 
     // The rebinding flag will be used to prevent he listener for treating the cancellation as a shutdown request. 
     if (m_acceptor.is_open()) { m_rebinding = true; m_acceptor.close(); }
@@ -640,6 +637,13 @@ bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& bindin
     boost::asio::ip::tcp::endpoint endpoint(
         boost::asio::ip::address::from_string(std::string(components.ip.data(), components.ip.size())),
         components.GetPortNumber());
+
+    auto const OnBindError = [&] () -> bool {
+        m_acceptor.close();
+        m_rebinding = false;
+        m_server.m_endpoint.OnBindingFailed(binding, GetFailure(error));
+        return false;
+    };
 
     m_acceptor.open(endpoint.protocol(), error);
     if (error) [[unlikely]] { return OnBindError(); }
@@ -668,7 +672,24 @@ Network::TCP::CompletionOrigin Network::TCP::Endpoint::Server::Listener::OnError
     // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
     if (IsInducedError(m_error)) { return CompletionOrigin::Self; }
     m_server.m_endpoint.m_logger->error(message, std::forward<Arguments>(arguments)...);
+    m_server.m_endpoint.OnBindingFailed(m_server.m_endpoint.m_binding, GetFailure(m_error));
     return CompletionOrigin::Error;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::TCP::Endpoint::BindingFailure Network::TCP::Endpoint::Server::Listener::GetFailure(
+    boost::system::error_code const& error) const
+{
+    switch (error.value()) {
+        case boost::asio::error::operation_aborted:
+        case boost::asio::error::shut_down: return BindingFailure::Canceled;
+        case boost::asio::error::address_in_use: return BindingFailure::AddressInUse;
+        case boost::asio::error::network_down: return BindingFailure::Offline;
+        case boost::asio::error::network_unreachable: return BindingFailure::Unreachable;
+        case boost::asio::error::no_permission: return BindingFailure::Permissions;
+        default: return BindingFailure::UnexpectedError;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -718,15 +739,18 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
     assert(m_endpoint.m_pPeerMediator);
 
     auto const& logger = m_endpoint.m_logger;
-    {
-        using enum ConnectStatus;
-        switch (m_endpoint.IsConflictingAddress(address)) {
-            case Success: break; // If the address doesn't conflict with any existing address we can proceed. 
-            // If an error has occured, log a debugging statement and early return.
-            case DuplicateError: { logger->debug(DuplicateWarning, address); } return;
-            case ReflectionError: { logger->debug(ReflectiveWarning, address); } return;
-            case RetryError: assert(false); break; // We should be given Retry error code from this check. 
-        }
+    switch (m_endpoint.IsConflictingAddress(address)) {
+        case ConflictResult::Success: break; // If the address doesn't conflict with any existing address we can proceed. 
+        // If an error has occured, log a debugging statement and early return.
+        case ConflictResult::Duplicate: { 
+            logger->debug(DuplicateWarning, address);
+            m_endpoint.OnConnectionFailed(address, ConnectionFailure::Duplicate);
+        } return;
+        case ConflictResult::Reflective: {
+            logger->debug(ReflectiveWarning, address);
+            m_endpoint.OnConnectionFailed(address, ConnectionFailure::Reflective);
+        } return;
+        default: assert(false); break;
     }
 
     // Construct a new resolver coroutine element. The ticket number will be generated using the std::hash of the 
@@ -734,23 +758,19 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
     auto const [itr, emplaced] = m_delegates.try_emplace(
         TicketGenerator(address), *this, std::move(address), spIdentifier);
     if (!emplaced) { logger->debug(DuplicateWarning, address); return; }
-    auto& [ticket, delegate] = *itr;  
 
     // Launch the resolver as a coroutine. Instead of capturing the address by value we capture the ticket number for
     // the completion handler. We the coroutine finishes execution the lifetime of the resolver will be completed. 
-    boost::asio::co_spawn(
-        m_endpoint.m_context, delegate(),
-        [this, ticket] (std::exception_ptr exception, TCP::CompletionOrigin origin)
-        {
-            constexpr std::string_view ResolverError = "Unable to connect to {} due to an unexpected error.";
-            if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
-                auto const itr = m_delegates.find(ticket); assert(itr != m_delegates.end());
-                auto const& address = itr->second.GetAddress();
-                m_endpoint.m_logger->warn(ResolverError, address);
-                m_endpoint.OnConnectFailed(address);
-            }
-            m_delegates.erase(ticket); // The lifetime of the resolving coroutine is now complete. 
-        });
+    auto& [ticket, delegate] = *itr;  
+    boost::asio::co_spawn(m_endpoint.m_context, delegate(), [this, ticket] (std::exception_ptr exception, auto origin) {
+        constexpr std::string_view ResolverError = "Unable to connect to {} due to an error.";
+        if (bool const error = (exception || origin == CompletionOrigin::Error); error) {
+            auto const itr = m_delegates.find(ticket); assert(itr != m_delegates.end());
+            auto const& address = itr->second.GetAddress();
+            m_endpoint.m_logger->warn(ResolverError, address);
+        }
+        m_delegates.erase(ticket); // The lifetime of the resolving coroutine is now complete. 
+    });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -762,7 +782,7 @@ Network::TCP::Endpoint::Client::Delegate::Delegate(
     , m_spIdentifier(spIdentifier)
     , m_spSession()
     , m_attempts(0)
-    , m_status(Status::Indeterminate)
+    , m_error()
 {
 }
 
@@ -783,7 +803,10 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
     // launched and is activley trying to establish a connection 
     auto const pPeerMediator = m_client.m_endpoint.m_pPeerMediator;
     std::optional<std::string> optConnectionRequest = pPeerMediator->DeclareResolvingPeer(m_address, m_spIdentifier);
-    if (!optConnectionRequest) { co_return CompletionOrigin::Self; }
+    if (!optConnectionRequest) {
+        m_client.m_endpoint.OnConnectionFailed(m_address, ConnectionFailure::InProgress);
+        co_return CompletionOrigin::Self;
+    }
 
     boost::asio::ip::tcp::resolver::results_type resolved;
     if (bool const result = co_await Resolve(resolved); !result) { co_return GetCompletionOrigin(); }
@@ -795,9 +818,11 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
 
     // Start attempting the connection to the peer. If the connection fails for any reason, the connection processor 
     // will wait a period of time until retrying until the number of retries exceeds a predefined limit. 
-    do { co_await TryConnect(resolved); } while (m_status == Status::Indeterminate);
-    if (m_status != Status::Success) {
-         // If a connection could not be established, handle cleaning up the connection attempt. 
+    std::optional<bool> optConnectStatus;
+    do { optConnectStatus = co_await TryConnect(resolved); } while (!optConnectStatus);
+
+    // If a connection could not be established, handle cleaning up the connection attempt. 
+    if (optConnectStatus.value() == false) {
         pPeerMediator->RescindResolvingPeer(m_address); 
         co_return GetCompletionOrigin();
     }
@@ -815,26 +840,20 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
 Network::TCP::Endpoint::Client::Delegate::ResolveResult Network::TCP::Endpoint::Client::Delegate::Resolve(
     boost::asio::ip::tcp::resolver::results_type& resolved)
 {
-    constexpr std::string_view ResolveWarning = "Unable to resolve an endpoint for {}";
+    constexpr std::string_view ResolveWarning = "Unable to resolve {}";
     assert(Network::Socket::ParseAddressType(m_address) != Socket::Type::Invalid);
 
-    boost::system::error_code error;
     auto const [ip, port] = Network::Socket::GetAddressComponents(m_address);
     resolved = co_await m_client.m_resolver.async_resolve(
-        ip, port, boost::asio::redirect_error(boost::asio::use_awaitable, error));
-    if (error) {
-        // If the operation was canceled due to the endpoint shutting down, indicate the resolver should return early.
-        // Otherwise, log a warning and indicate an unexpected error. 
-        if (IsInducedError(error)) {
-            m_status = Status::Canceled;
-        } else {
-            m_client.m_endpoint.m_logger->warn(ResolveWarning, m_address);
-            m_status = Status::UnexpectedError;
-        }
-        co_return false;
+        ip, port, boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
+
+    // If an error has occured, indicate an error and log a warning if not caused by cancellation. 
+    if (m_error) {
+        if (!IsInducedError(m_error)) { m_client.m_endpoint.m_logger->warn(ResolveWarning, m_address); }
+        co_return false; // Instruct the delgate to halt the connection attempt. 
     }
     
-    co_return true;
+    co_return true; // Indicates that the connection attempt can proceed. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -844,51 +863,56 @@ Network::TCP::Endpoint::Client::Delegate::ConnectResult Network::TCP::Endpoint::
 {
     constexpr std::string_view RetryWarning= "Unable to connect to {}. Retrying in {} seconds";
 
-    ++m_attempts; // Increment the number of attempts made to establish a connection. 
-    boost::system::error_code error;
     co_await boost::asio::async_connect(
-        m_spSession->GetSocket(), resolved, boost::asio::redirect_error(boost::asio::use_awaitable, error));
+        m_spSession->GetSocket(), resolved, boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
 
-    // If the connection succeeded, indicate a success such that the resolver can continue to the next process step. 
-    if (!error) { m_status = Status::Success; co_return; }
+    if (!m_error) { co_return true; } // On success return early such that the client can continue the exchange. 
+    if (IsInducedError(m_error)) { co_return false; } // Return early when the operation has been canceled. 
 
-    // If we have reached the maximum allowed connection attempts, indicate if the reason was caused by the peer or not. 
-    if (m_attempts > Network::Endpoint::RetryLimit) {
-        m_status = (error == boost::asio::error::connection_refused) ? Status::Refused : Status::UnexpectedError;
-        co_return;
-    }
+    // Return early if we have exceeded our available attempts. 
+    if (++m_attempts > Network::Endpoint::RetryLimit) { co_return false; } 
 
-    // If the operation was canceled due to the endpoint shutting down, indicate the resolver should return early.
-    if (IsInducedError(error)) { m_status = Status::Canceled; co_return; }
-
-    // If no other situation is applicable, handle the error by "scheduling" an attept in the future.
+    // If we have reached this point the connection can be scheduled for a future attempt. 
     m_client.m_endpoint.m_logger->warn(RetryWarning, m_address, Network::Endpoint::RetryTimeout.count());
-        
-    boost::system::error_code timerError;
+
+    m_error = boost::system::error_code{}; // Enasure the error code has been reset for the timer. 
     boost::asio::steady_timer timer(
         m_client.m_endpoint.m_context, std::chrono::seconds(Network::Endpoint::RetryTimeout));
-    co_await timer.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, timerError));
-    if (timerError) { m_status = Status::Canceled; } // All timer errors are currently treated as cancellations. 
+    co_await timer.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
+    if (m_error) { co_return false; } // All timer errors are currently treated as cancellations. 
 
-    co_return;
+    co_return std::nullopt; // Indicates that another connection attempt can be made. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::TCP::CompletionOrigin Network::TCP::Endpoint::Client::Delegate::GetCompletionOrigin() const
 {
-    using enum CompletionOrigin;
     auto const& logger = m_client.m_endpoint.m_logger;
-    switch (m_status) {
-        // Completions caused intentionally, meaning an non-error state. 
-        case Status::Success: 
-        case Status::Canceled: return Self;
-        // Completions caused by the peer (e.g. an offline peer).
-        case Status::Refused: { logger->warn("Connection refused by {}", m_address); } return Peer;
-        // Completions caused by an error state. 
-        case Status::UnexpectedError: return Error;
-        default: assert(false); return Error;
+
+    if (!m_error) { return CompletionOrigin::Self; } // If there is no error the connection attempt was successful. 
+
+    auto failure = ConnectionFailure::UnexpectedError;
+    auto origin = CompletionOrigin::Error;
+    switch (m_error.value()) {
+        case boost::asio::error::operation_aborted:
+        case boost::asio::error::shut_down: {
+            failure = ConnectionFailure::Canceled;
+            origin = CompletionOrigin::Self;
+        } break;
+        case boost::asio::error::connection_refused: {
+            logger->warn("Connection refused by {}", m_address);
+            failure = ConnectionFailure::Refused;
+            origin = CompletionOrigin::Peer;
+        } break;
+        case boost::asio::error::network_down: failure = ConnectionFailure::Offline; break;
+        case boost::asio::error::network_unreachable: failure = ConnectionFailure::Unreachable; break;
+        case boost::asio::error::no_permission: failure = ConnectionFailure::Permissions; break;
+        default: break;
     }
+
+    m_client.m_endpoint.OnConnectionFailed(m_address, failure);
+    return origin;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -146,8 +146,10 @@ private:
 class Network::RemoteAddress : public Network::Address
 {
 public:
+    enum class Origin : std::uint32_t { Invalid, Cache, Network, User };
+
     RemoteAddress();
-    RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable);
+    RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable, Origin origin = Origin::Network);
     ~RemoteAddress() = default;
 
     RemoteAddress& operator=(RemoteAddress const& other) = default;
@@ -160,6 +162,10 @@ public:
     [[nodiscard]] bool operator!=(RemoteAddress const& other) const;
 
     [[nodiscard]] bool IsBootstrapable() const;
+    [[nodiscard]] Origin GetOrigin() const;
+
+private:
+    Origin m_origin;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

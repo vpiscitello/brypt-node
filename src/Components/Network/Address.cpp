@@ -326,8 +326,9 @@ Network::RemoteAddress::RemoteAddress()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::RemoteAddress::RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable)
+Network::RemoteAddress::RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable, Origin origin)
     : Address(protocol, uri, bootstrapable)
+    , m_origin(origin)
 {
 }
 
@@ -360,7 +361,14 @@ bool Network::RemoteAddress::IsBootstrapable() const
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-// Network::RemoteAddress {
+
+Network::RemoteAddress::Origin Network::RemoteAddress::GetOrigin() const
+{
+    return m_origin;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+// } Network::RemoteAddress
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
