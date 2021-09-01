@@ -39,7 +39,6 @@ namespace Scheduler { class Service; }
 class AuthorizedProcessor;
 class BootstrapService;
 
-class AuthorityState;
 class CoordinatorState;
 class NetworkState;
 class NodeState;

@@ -161,9 +161,7 @@ Startup::ParseCode Startup::Options::Parse(std::int32_t argc, char** argv)
 
     try {
         boost::program_options::store(
-            boost::program_options::command_line_parser(
-                argc, argv).options(m_descriptions).run(),
-            m_options);
+            boost::program_options::command_line_parser(argc, argv).options(m_descriptions).run(), m_options);
     } catch (std::exception& e) {
         std::cout << "An error occured parsing startup options due to: ";
         std::cout << e.what() << "." << std::endl;
@@ -184,11 +182,9 @@ Startup::ParseCode Startup::Options::Parse(std::int32_t argc, char** argv)
 
     if(IsOptionSupplied(m_options, Verbosity)) {
         auto const& argument = m_options[Verbosity.data()].as<std::string>();
-        VerbosityLevels::iterator const itr = std::find_if(
-            m_levels.begin(), m_levels.end(), [&argument] (auto const& item) -> bool
-            {
-                return (argument == item.first);
-            });
+        VerbosityLevels::iterator const itr = std::ranges::find_if(m_levels, [&argument] (auto const& item) -> bool {
+            return (argument == item.first);
+        });
 
         if (itr == m_levels.end()) {
             std::cout << "Unreconized verbosity level!" << std::endl;
@@ -202,14 +198,22 @@ Startup::ParseCode Startup::Options::Parse(std::int32_t argc, char** argv)
     if(IsOptionSupplied(m_options, NonInteractive)) { m_interactive = false; }
     if(IsOptionSupplied(m_options, DisableBootstrap)) { m_useBootstraps = false; }
 
-    if (auto const optError = CheckConflictingOptions(m_options, Verbosity, Quiet);
-        optError) {
+    if (m_configurationFilepath.empty()) { 
+        std::cout << "The configuration filepath cannot be empty." << std::endl;
+        return ParseCode::Malformed;
+    }
+
+    if (m_bootstrapFilepath.empty()) { 
+        std::cout << "The boostrap filepath cannot be empty." << std::endl;
+        return ParseCode::Malformed;
+    }
+
+    if (auto const optError = CheckConflictingOptions(m_options, Verbosity, Quiet); optError) {
         std::cout << *optError << std::endl;
         return ParseCode::Malformed;
     }
 
-    if (auto const optError = CheckConflictingOptions(m_options, NonInteractive, Quiet);
-        optError) {
+    if (auto const optError = CheckConflictingOptions(m_options, NonInteractive, Quiet); optError) {
         std::cout << *optError << std::endl;
         return ParseCode::Malformed;
     }
@@ -239,7 +243,7 @@ std::string Startup::Options::GenerateVersionText([[maybe_unused]] std::int32_t 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-spdlog::level::level_enum Startup::Options::GetVerbosityLevel() const
+spdlog::level::level_enum Startup::Options::GetVerbosity() const
 {
     return m_verbosity;
 }

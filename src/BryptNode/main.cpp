@@ -126,7 +126,7 @@ Startup::Resources Startup::InitializeResources(std::int32_t argc, char** argv)
     }
     
     // Initialize the logging resources for the application. 
-    Logger::Initialize(options.GetVerbosityLevel()); 
+    Logger::Initialize(options.GetVerbosity()); 
     auto const logger = spdlog::get(Logger::Name::Core.data()); // From here on we should use the logger for errors. 
 
     // Create a configuration parser to read the configuration file at the provided location. If we fail to read the

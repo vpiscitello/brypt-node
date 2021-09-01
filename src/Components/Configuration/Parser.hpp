@@ -29,14 +29,19 @@ class Parser;
 class Configuration::Parser final
 {
 public:
+    Parser();
     Parser(std::filesystem::path const& filepath, Options::Runtime const& options);
+    ~Parser();
 
     [[nodiscard]] StatusCode FetchOptions();
     [[nodiscard]] StatusCode Serialize();
     [[nodiscard]] StatusCode LaunchGenerator();
 
+    void SetFilepath(std::filesystem::path const& filepath);
+    void DisableFilesystem();
+
     [[nodiscard]] RuntimeContext GetRuntimeContext() const;
-    [[nodiscard]] spdlog::level::level_enum GetVerbosityLevel() const;
+    [[nodiscard]] spdlog::level::level_enum GetVerbosity() const;
     [[nodiscard]] bool UseInteractiveConsole() const;
     [[nodiscard]] bool UseBootstraps() const;
     [[nodiscard]] bool UseFilepathDeduction() const;
@@ -46,11 +51,26 @@ public:
     [[nodiscard]] std::string const& GetNodeLocation() const;
     [[nodiscard]] Options::Endpoints const& GetEndpointOptions() const;
     [[nodiscard]] Security::Strategy GetSecurityStrategy() const;
-    [[nodiscard]] std::string const& GetCentralAuthority() const;
+    [[nodiscard]] std::string const& GetNetworkToken() const;
 
-    [[nodiscard]] bool IsValidated() const;
+    [[nodiscard]] bool Validated() const;
+    [[nodiscard]] bool Changed() const;
+
+    void SetRuntimeContext(RuntimeContext context);
+    void SetVerbosity(spdlog::level::level_enum level);
+    void SetUseBootstraps(bool used);
+    void SetIdentifierType(Options::Identifier::Type type);
+    void SetNodeName(std::string_view const& name);
+    void SetNodeDescription(std::string_view const& description);
+    void SetNodeLocation(std::string_view const& location);
+    [[nodiscard]] bool UpsertEndpoint(Options::Endpoint&& options);
+    [[nodiscard]] bool RemoveEndpoint(Network::BindingAddress const& binding);
+    void SetSecurityStrategy(Security::Strategy strategy);
+    void SetNetworkToken(std::string_view const& token);
 
 private:
+    void OnFilepathChanged();
+    [[nodiscard]] StatusCode ProcessFile();
     [[nodiscard]] StatusCode ValidateOptions();
     [[nodiscard]] StatusCode Deserialize();
 
@@ -69,6 +89,7 @@ private:
     Options::Security m_security;
 
     bool m_validated;
+    bool m_changed;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

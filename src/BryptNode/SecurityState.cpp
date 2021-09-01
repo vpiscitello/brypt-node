@@ -2,10 +2,9 @@
 #include "SecurityState.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-SecurityState::SecurityState(Security::Strategy strategy, std::string_view authority)
+SecurityState::SecurityState(Security::Strategy strategy)
     : m_mutex()
     , m_strategy(strategy)
-    , m_authority(authority)
     , m_token()
 {
 }
@@ -14,16 +13,7 @@ SecurityState::SecurityState(Security::Strategy strategy, std::string_view autho
 
 Security::Strategy SecurityState::GetStrategy() const
 {
-    std::shared_lock lock(m_mutex);
     return m_strategy;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::string SecurityState::GetAuthority() const 
-{
-    std::shared_lock lock(m_mutex);
-    return m_authority;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -38,16 +28,7 @@ std::string SecurityState::GetToken() const
 
 void SecurityState::SetStrategy(Security::Strategy strategy)
 {
-    std::unique_lock lock(m_mutex);
     m_strategy = strategy;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void SecurityState::SetAuthority(std::string_view authority)
-{
-    std::unique_lock lock(m_mutex);
-    m_authority = authority;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

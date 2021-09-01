@@ -48,7 +48,7 @@ public:
     [[nodiscard]] std::string GenerateHelpText(std::int32_t argc, char** argv);
     [[nodiscard]] std::string GenerateVersionText(std::int32_t argc, char** argv);
 
-    [[nodiscard]] spdlog::level::level_enum GetVerbosityLevel() const;
+    [[nodiscard]] spdlog::level::level_enum GetVerbosity() const;
     [[nodiscard]] bool IsInteractive() const;
     [[nodiscard]] std::string const& GetConfigPath() const;
     [[nodiscard]] std::string const& GetBootstrapPath() const;

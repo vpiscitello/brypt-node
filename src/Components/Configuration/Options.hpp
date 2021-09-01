@@ -70,13 +70,19 @@ struct Configuration::Options::Runtime
 //----------------------------------------------------------------------------------------------------------------------
 struct Configuration::Options::Identifier
 {
-    Identifier();
-    explicit Identifier(std::string_view type);
-    Identifier(std::string_view value, std::string_view type);
+    enum Type : std::uint32_t { Invalid, Ephemeral, Persistent};
+    struct ConstructedValues { Type type; Node::SharedIdentifier value; };
 
-    std::optional<std::string> value;
+    Identifier();
+    explicit Identifier(std::string_view type, std::string_view value = "");
+
+    void Merge(Identifier& other);
+    [[nodiscard]] bool Initialize();
+
     std::string type;
-    Node::SharedIdentifier spConstructedValue;
+    std::optional<std::string> value;
+
+    ConstructedValues constructed;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -86,6 +92,8 @@ struct Configuration::Options::Details
 {
     Details();
     explicit Details(std::string_view name, std::string_view description = "", std::string_view location = "");
+
+    void Merge(Details& other);
 
     std::string name;
     std::string description;
@@ -97,27 +105,30 @@ struct Configuration::Options::Details
 //----------------------------------------------------------------------------------------------------------------------
 struct Configuration::Options::Endpoint
 {
+    struct ConstructedValues { 
+        Network::Protocol protocol;
+        Network::BindingAddress binding;
+        std::optional<Network::RemoteAddress> bootstrap;
+    };
+
     Endpoint();
     Endpoint(std::string_view protocol, std::string_view interface, std::string_view binding);
-    Endpoint(Network::Protocol type, std::string_view interface, std::string_view binding);
 
+    void Merge(Endpoint& other);
     [[nodiscard]] bool Initialize();
 
     [[nodiscard]] Network::Protocol GetProtocol() const;
-    [[nodiscard]] std::string const& GetProtocolName() const;
+    [[nodiscard]] std::string const& GetProtocolString() const;
     [[nodiscard]] std::string const& GetInterface() const;
     [[nodiscard]] Network::BindingAddress const& GetBinding() const;
     [[nodiscard]] std::optional<Network::RemoteAddress> const& GetBootstrap() const;
 
-    Network::Protocol type;
     std::string protocol;
     std::string interface;
-
     std::string binding;
-    Network::BindingAddress bindingAddress;
-
     std::optional<std::string> bootstrap;
-    std::optional<Network::RemoteAddress> optBootstrapAddress;
+
+    ConstructedValues constructed;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -125,13 +136,18 @@ struct Configuration::Options::Endpoint
 //----------------------------------------------------------------------------------------------------------------------
 struct Configuration::Options::Security
 {
-    Security();
-    Security(std::string_view strategy, std::string_view token, std::string_view authority);
+    struct ConstructedValues { ::Security::Strategy strategy; };
 
-    ::Security::Strategy type;
+    Security();
+    Security(std::string_view strategy, std::string_view token);
+
+    void Merge(Security& other);
+    [[nodiscard]] bool Initialize();
+
     std::string strategy;
     std::string token;
-    std::string authority;
+
+    ConstructedValues constructed;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

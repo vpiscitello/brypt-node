@@ -316,7 +316,7 @@ std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
 Configuration::Options::Endpoint local::GenerateTcpOptions(std::uint16_t port)
 {
     Configuration::Options::Endpoint options;
-    options.type = Network::Protocol::TCP;
+    options.protocol = "TCP";
     options.interface = "lo";
     options.binding = test::TcpBootstrapBase.data() + std::to_string(port);
     options.bootstrap = test::TcpBootstrapBase.data() + std::to_string(port);

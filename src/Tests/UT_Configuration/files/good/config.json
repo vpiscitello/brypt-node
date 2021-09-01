@@ -17,7 +17,6 @@
 	],
 	"security": {
 		"strategy": "PQNISTL3",
-		"token": "",
-		"authority": ""
+		"token": ""
 	}
 }

@@ -7,6 +7,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptNode/StartupOptions.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Utilities/Assertions.hpp"
 #include "Utilities/FileUtils.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -40,11 +41,6 @@ Configuration::Options::Details GetDetailFromUser();
 Configuration::Options::Endpoints GetEndpointFromUser();
 Configuration::Options::Security GetSecurityFromUser();
 
-[[nodiscard]] bool InitializeIdentifier(Configuration::Options::Identifier& options);
-[[nodiscard]] bool InitializeEndpoints(
-    Configuration::Options::Endpoints& endpoints, std::shared_ptr<spdlog::logger> const& logger);
-void InitializeSecurityOptions(Configuration::Options::Security& options);
-
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -63,7 +59,6 @@ constexpr std::string_view LoRaBindingAddress = "915:71";
 
 constexpr std::string_view SecurityStrategy = "PQNISTL3";
 constexpr std::string_view NetworkToken = "";
-constexpr std::string_view CentralAutority = "https://bridge.brypt.com";
 
 //----------------------------------------------------------------------------------------------------------------------
 } // default namespace
@@ -72,7 +67,7 @@ namespace allowable {
 //----------------------------------------------------------------------------------------------------------------------
 
 std::array<std::string_view, 2> IdentifierTypes = { "Ephemeral", "Persistent" };
-std::array<std::string_view, 2> EndpointTypes = { "LoRa", "TCP" };
+std::array<std::string_view, 2> EndpointTypes = { "TCP" };
 std::array<std::string_view, 1> StrategyTypes = { "PQNISTL3" };
 
 template <typename ArrayType, std::size_t ArraySize>
@@ -80,12 +75,13 @@ std::optional<std::string> IfAllowableGetValue(
     std::array<ArrayType, ArraySize> const& values,
     std::string_view value)
 {
-    auto const found = std::find_if(
-        values.begin(), values.end(),
-        [&value] (std::string_view const& entry) { return (boost::iequals(value, entry));  });
+    if (value.empty()) { return {}; }
 
-    if (found == values.end()) {  return {}; }
+    auto const found = std::ranges::find_if(values, [&value] (std::string_view const& entry) { 
+        return (boost::iequals(value, entry)); 
+    });
 
+    if (found == values.end()) { return {}; }
     return std::string(found->begin(), found->end());
 }
 
@@ -154,14 +150,9 @@ LI_SYMBOL(security)
 #endif
 // "security": {
 //     "strategy": String,
-//     "token": String,
-//     "authority": String
+//     "token": String
 // }
 
-#ifndef LI_SYMBOL_authority
-#define LI_SYMBOL_authority
-LI_SYMBOL(authority)
-#endif
 #ifndef LI_SYMBOL_binding
 #define LI_SYMBOL_binding
 LI_SYMBOL(binding)
@@ -220,6 +211,23 @@ struct local::OptionsStore
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Configuration::Parser::Parser()
+    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    , m_version()
+    , m_filepath()
+    , m_runtime()
+    , m_identifier()
+    , m_details()
+    , m_endpoints()
+    , m_security()
+    , m_validated(false)
+    , m_changed(false)
+{
+    assert(m_logger);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Runtime const& runtimeOptions)
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_version()
@@ -230,22 +238,19 @@ Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Ru
     , m_endpoints()
     , m_security()
     , m_validated(false)
+    , m_changed(false)
 {
     assert(m_logger);
+    OnFilepathChanged();
+}
 
-    // If we are allowed to deduce the filepath, update the configured path using the defaults when applicable.
-    if (m_runtime.useFilepathDeduction) {
-        // If the filepath does not have a filename, attach the default config.json
-        if (!m_filepath.has_filename()) { m_filepath = m_filepath / DefaultConfigurationFilename; }
+//----------------------------------------------------------------------------------------------------------------------
 
-        // If the filepath does not have a parent path, get and attach the default brypt folder
-        if (!m_filepath.has_parent_path()) {  m_filepath = GetDefaultBryptFolder() / m_filepath; }
-    }
-
-    // If we are allowed to generate the missing file based on user input, check and create the folders in the 
-    // filesystem if they do not exist. If we fail to create the path, log out an error message.
-    if (m_runtime.useInteractiveConsole && !FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_logger->error("Failed to create the filepath at: {}!", m_filepath.string());
+Configuration::Parser::~Parser()
+{
+    if (m_changed) {
+        [[maybe_unused]] auto const status = Serialize();
+        assert(status == Configuration::StatusCode::Success); 
     }
 }
 
@@ -253,39 +258,29 @@ Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Ru
 
 Configuration::StatusCode Configuration::Parser::FetchOptions()
 {
-    StatusCode status;
-    if (std::filesystem::exists(m_filepath)) {
-        // If we have been provided a path to an existing file, deserialize the options. 
-        m_logger->debug("Reading configuration file at: {}.", m_filepath.string());
-        status = Deserialize();
-    } else if (m_runtime.useInteractiveConsole) {
-        // If we have not been provided a path to a configutation file, deserialize the options. 
-        m_logger->warn(
-            "A configuration file could not be found. Launching configuration generator for: {}.", m_filepath.string());
-        status = LaunchGenerator();
-    } else {
-        std::ostringstream oss;
-        oss << "Unable to locate: {}; The configuration generator could not be launched ";
-        oss << "with \"--non-interactive\" enabled.";
-        m_logger->error(oss.str(), m_filepath.string());
-        status = StatusCode::FileError;
+    // If we have a filepath, we must first process the file. 
+    if (auto const status = ProcessFile(); status != StatusCode::Success) { return status; } 
+    if (auto const status = ValidateOptions(); status != StatusCode::Success) { return status; }
+    if (auto const initialized = InitializeOptions(); !initialized) { return StatusCode::InputError; }
+    
+    // Update the configuration file as the initialization of options may create new values for certain options.
+    // Currently, this only caused by generated identifiers.
+    if (auto const status = Serialize(); status != StatusCode::Success) {
+        m_logger->error("Failed to update configuration file at: {}!", m_filepath.c_str());
+        return status;
     }
 
-    // Return early to capture the correct status code.
-    if (status != StatusCode::Success) {
-        return status;
-    } 
-
-    // If the options could be initialized, indicate a successful parsing. Otherwise, an input error occured. 
-    return (InitializeOptions() ? StatusCode::Success : StatusCode::InputError);
+    m_changed = false; // On success, reset the changed flag to indicate all changes have been processed. 
+    return StatusCode::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::StatusCode Configuration::Parser::Serialize()
 {
+    if (m_filepath.empty()) { return StatusCode::Success; }
+
     if (!m_validated) { return StatusCode::InputError; }
-    if (m_filepath.empty()) { return StatusCode::FileError; }
 
     std::ofstream out(m_filepath, std::ofstream::out);
     if (out.fail()) { return StatusCode::FileError; }
@@ -306,8 +301,6 @@ Configuration::StatusCode Configuration::Parser::Serialize()
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
 // Description: Generates a new configuration file based on user handler line arguements or from user input.
 //----------------------------------------------------------------------------------------------------------------------
 Configuration::StatusCode Configuration::Parser::LaunchGenerator()
@@ -319,11 +312,29 @@ Configuration::StatusCode Configuration::Parser::LaunchGenerator()
 
     // If for some reason we could not serialize the options 
     if (StatusCode status = Serialize(); status != StatusCode::Success) {
-        m_logger->error("Failed to save configuration options to: {}!", m_filepath.string());
+        m_logger->error("Failed to save configuration options to: {}!", m_filepath.c_str());
         return status;
     }
 
     return StatusCode::Success;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetFilepath(std::filesystem::path const& filepath)
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    m_changed = true; // Setting the changed flag to true, will cause the options to be serialized to the new file. 
+    m_filepath = filepath;
+    OnFilepathChanged();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::DisableFilesystem()
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    m_filepath.clear(); // This is not considered a change as it does not have serializable side effects. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -335,7 +346,7 @@ RuntimeContext Configuration::Parser::GetRuntimeContext() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-spdlog::level::level_enum Configuration::Parser::GetVerbosityLevel() const
+spdlog::level::level_enum Configuration::Parser::GetVerbosity() const
 {
     return m_runtime.verbosity;
 }
@@ -366,8 +377,8 @@ bool Configuration::Parser::UseFilepathDeduction() const
 Node::SharedIdentifier const& Configuration::Parser::GetNodeIdentifier() const
 {
     assert(m_validated);
-    assert(m_identifier.spConstructedValue && m_identifier.spConstructedValue->IsValid());
-    return m_identifier.spConstructedValue;
+    assert(m_identifier.constructed.value && m_identifier.constructed.value->IsValid());
+    return m_identifier.constructed.value;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -408,30 +419,218 @@ Configuration::Options::Endpoints const& Configuration::Parser::GetEndpointOptio
 Security::Strategy Configuration::Parser::GetSecurityStrategy() const
 {
     assert(m_validated);
-    assert(m_security.type != Security::Strategy::Invalid);
-    return m_security.type;
+    assert(m_security.constructed.strategy != Security::Strategy::Invalid);
+    return m_security.constructed.strategy;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Parser::GetCentralAuthority() const
-{
-    assert(m_validated);
-    return m_security.authority;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Parser::IsValidated() const
+bool Configuration::Parser::Validated() const
 {
     return m_validated;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Configuration::Parser::Changed() const
+{
+    return m_changed;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetRuntimeContext(RuntimeContext context)
+{
+    m_changed = true;
+    m_runtime.context = context;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetVerbosity(spdlog::level::level_enum level)
+{
+    m_changed = true;
+    m_runtime.verbosity = level;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetUseBootstraps(bool useBootstraps)
+{
+    m_changed = true;
+    m_runtime.useBootstraps = useBootstraps;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetIdentifierType(Options::Identifier::Type type)
+{
+    m_changed = true;
+
+    // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    m_identifier.constructed.type = type;
+    switch (type) {
+        case Options::Identifier::Type::Ephemeral: m_identifier.type = "Ephemeral"; break;
+        case Options::Identifier::Type::Persistent: m_identifier.type = "Persistent"; break;
+        default: assert(false); break;
+    }
+
+     // Currently, changes  to the identifier type will always update the actual identifier. 
+    [[maybe_unused]] bool const initialized = m_identifier.Initialize();
+    assert(initialized); // We control the "parsed" values, so initialization should never fail. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetNodeName(std::string_view const& name)
+{
+    m_changed = true;
+    m_details.name = name;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetNodeDescription(std::string_view const& description)
+{
+    m_changed = true;
+    m_details.description = description;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetNodeLocation(std::string_view const& location)
+{
+    m_changed = true;
+    m_details.location = location;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
+{
+    if (!options.Initialize()) { return false; } // If the provided options are invalid, return false. 
+
+    m_changed = true;
+
+    // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    auto const itr = std::ranges::find_if(m_endpoints, [&options] (Options::Endpoint const& existing) {
+        return options.binding == existing.binding;
+    });
+
+    // If options for the binding were found, update the stored value. Otherwise, add the options to endpoints set.
+    if (itr != m_endpoints.end()) { *itr = std::move(options); } else { m_endpoints.emplace_back(options); }
+    return true; 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::RemoveEndpoint(Network::BindingAddress const& binding)
+{
+    m_changed = true;
+    auto const itr = std::ranges::find_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
+        return binding == existing.constructed.binding;
+    });
+
+    bool const found = itr != m_endpoints.end();
+    m_endpoints.erase(itr);
+    return found;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetSecurityStrategy(Security::Strategy strategy)
+{
+    m_changed = true;
+
+    // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    m_security.constructed.strategy = strategy;
+    switch (strategy) {
+        case Security::Strategy::PQNISTL3: m_security.strategy = "PQNISTL3"; break;
+        default: assert(false); break;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetNetworkToken(std::string_view const& token)
+{
+    m_changed = true;
+    m_security.token = token;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::OnFilepathChanged()
+{
+    if (m_filepath.empty()) { return; } // If the filepath is empty, there is nothing to do.  
+
+    // If we are allowed to deduce the filepath, update the configured path using the defaults when applicable.
+    if (m_runtime.useFilepathDeduction) {
+        // If the filepath does not have a filename, attach the default config.json
+        if (!m_filepath.has_filename()) { m_filepath = m_filepath / DefaultConfigurationFilename; }
+
+        // If the filepath does not have a parent path, get and attach the default brypt folder
+        if (!m_filepath.has_parent_path()) { m_filepath = GetDefaultBryptFolder() / m_filepath; }
+    }
+
+    // Create the folder structure for a new configuration file, if one does not exist. If we fail to create the file
+    // path, log out an error and disable filesystem usage. 
+    #if defined(BRYPT_SHARED)
+    bool const failed = !FileUtils::CreateFolderIfNoneExist(m_filepath);
+    #else
+    // If running inside the console application, only create the new folder only if we can launch the generator.
+    bool const failed = m_runtime.useInteractiveConsole && !FileUtils::CreateFolderIfNoneExist(m_filepath);
+    #endif
+    if (failed) { 
+        m_logger->error("Failed to creatSe the filepath at: {}!", m_filepath.c_str());
+        DisableFilesystem(); // If we failed to create the filepath, we are unable to use the filesystem. 
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::StatusCode Configuration::Parser::ProcessFile()
+{
+    if (m_filepath.empty()) { return StatusCode::Success; } // If filesystem usage is disabled, there is nothing to do.
+    if (m_validated && !m_changed) { return StatusCode::Success; } // If there are no changes, there is nothing to do.
+
+    bool const found = std::filesystem::exists(m_filepath); // Determine if we have an existing file to process.
+    bool const create = m_changed && !m_validated && !found; // Can we create the file without the generator?
+    bool const updated = m_changed && m_validated && found; // Have read a file and are now applying changes?
+    if (create || updated) { return StatusCode::Success; } // If either condition is true, there is nothing to do.
+
+    // If the file is found and this is the first time we are reading the file, the deserializer should handle
+    // the rest of the file processing. 
+    if (found) {
+        m_logger->debug("Reading configuration file at: {}.", m_filepath.c_str());
+        return Deserialize();
+    }
+
+    // If we have reached this point, we couldn't quite determine what we should do. The resolution is dependent
+    // the context of the binary. 
+    #if defined(BRYPT_SHARED)
+    // If we have been built as a shared library, we need to indicate to the user that an error has occured and
+    // they need to resolve the options they have supplied. 
+    m_logger->error("Failed to locate a configuration file at: {}", m_filepath.c_str());
+    #else
+    // If we have been built as a console application, we may be able to launch the command line configuration 
+    // generator to initialize the options. 
+    m_logger->warn("Failed to locate a configuration file at: {}", m_filepath.c_str());
+    if (m_runtime.useInteractiveConsole) {
+        m_logger->info("Launching configuration generator for: {}.", m_filepath.c_str());
+        return LaunchGenerator();
+    }
+    m_logger->error("Unable to launch the configuration generator with \"--non-interactive\" enabled.");
+    #endif
+
+    return StatusCode::FileError;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Configuration::StatusCode Configuration::Parser::ValidateOptions()
 {
-    m_validated = false;
+    m_validated = false; // Explicitly disable the validation result in case anything fails. 
 
     if (m_identifier.type.empty()) { return StatusCode::DecodeError; }
     if (!allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_identifier.type)) {
@@ -449,8 +648,7 @@ Configuration::StatusCode Configuration::Parser::ValidateOptions()
         return StatusCode::DecodeError;
     }
 
-    m_validated = true;
-
+    m_validated = true; // If all values are valid and allowable, the options have been validated. 
     return StatusCode::Success;
 }
 
@@ -458,6 +656,9 @@ Configuration::StatusCode Configuration::Parser::ValidateOptions()
 
 Configuration::StatusCode Configuration::Parser::Deserialize()
 {
+    // If the filepath is empty, filesystem usage has been disabled. 
+    if (m_filepath.empty()) { return StatusCode::Success; }
+
     // Determine the size of the file about to be read. Do not read a file that is above the given treshold. 
     {
         std::error_code error;
@@ -480,18 +681,23 @@ Configuration::StatusCode Configuration::Parser::Deserialize()
         s::identifier = li::json_object(s::type, s::value),
         s::details = li::json_object(s::name, s::description, s::location),
         s::endpoints = li::json_vector(s::protocol, s::interface, s::binding, s::bootstrap),
-        s::security = li::json_object(s::strategy, s::token, s::authority))
+        s::security = li::json_object(s::strategy, s::token))
         .decode(json, store);
     if (error.code) { return StatusCode::DecodeError; }
 
     m_version = std::move(store.version);
-    m_identifier = std::move(store.identifier);
-    m_details = std::move(store.details);
-    m_endpoints = std::move(store.endpoints);
-    m_security = std::move(store.security);
+    m_identifier.Merge(store.identifier);
+    m_details.Merge(store.details);
+    m_security.Merge(store.security);
+    
+    std::ranges::for_each(store.endpoints, [this] (Options::Endpoint& options) {
+        auto const itr = std::ranges::find_if(m_endpoints, [&options] (Options::Endpoint const& existing) {
+            return options.binding == existing.binding;
+        });
+        if (itr == m_endpoints.end()) { m_endpoints.emplace_back(options); } else { itr->Merge(options); }
+    });
 
-    // Valdate the decoded settings. If the settings decoded are not valid return noopt.
-    return ValidateOptions();
+    return StatusCode::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -500,8 +706,6 @@ void Configuration::Parser::GetOptionsFromUser()
 {
     std::cout << "Generating Brypt Node Configuration Settings." << std::endl; 
     std::cout << "Please Enter your Desired Network Options.\n" << std::endl;
-
-    // Clear the cin stream 
     std::cin.clear(); std::cin.sync();
 
     m_identifier = local::GetIdentifierFromUser();
@@ -514,20 +718,18 @@ void Configuration::Parser::GetOptionsFromUser()
 
 bool Configuration::Parser::InitializeOptions()
 {
-    if (!local::InitializeIdentifier(m_identifier)) { return false; }
-    if (!local::InitializeEndpoints(m_endpoints, m_logger)) { return false; }
+    if (!m_identifier.Initialize()) { return false; }
+    if (!m_security.Initialize()) { return false; }
 
-    local::InitializeSecurityOptions(m_security);
+    bool const initialized = std::ranges::all_of(m_endpoints, [&logger = m_logger] (auto& options) {
+        bool const success = options.Initialize();
+        if (!success) {
+            logger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolString());
+        }
+        return success;
+    });
 
-    // Update the configuration file as the initialization of options may create new values 
-    // for certain options. Currently, this only caused by the generation of Brypt Identifiers.
-    auto const status = Serialize();
-    if (status != StatusCode::Success) {
-        m_logger->error("Failed to update configuration file at: {}!", m_filepath.string());
-        return false;
-    }
-
-    return true;
+    return initialized;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -589,8 +791,7 @@ void local::SerializeSecurity(Configuration::Options::Security const& options, s
 {
     out << "\t\"security\": {\n";
     out << "\t\t\"strategy\": \"" << options.strategy << "\",\n";
-    out << "\t\t\"token\": \"" << options.token << "\",\n";
-    out << "\t\t\"authority\": \"" << options.authority << "\"\n";
+    out << "\t\t\"token\": \"" << options.token << "\"\n";
     out << "\t}\n";
 }
 
@@ -599,22 +800,23 @@ void local::SerializeSecurity(Configuration::Options::Security const& options, s
 Configuration::Options::Identifier local::GetIdentifierFromUser()
 {
     Configuration::Options::Identifier options(defaults::IdentifierType);
-
-    // Get the network interface that the node will be bound too
-    std::string type(defaults::IdentifierType);
-    std::cout << "Identifier Type: (" << defaults::IdentifierType << ") " << std::flush;
-    std::getline(std::cin, type);
-    if (!type.empty()) {
-        if (auto const optValue = allowable::IfAllowableGetValue(allowable::IdentifierTypes, type); optValue) {
-            options.type = *optValue;
-        } else {
-            std::cout << "Specified identifier type is not allowed! Allowable types include: ";
-            allowable::OutputValues(allowable::IdentifierTypes);
-            std::cout << std::endl;
-            return local::GetIdentifierFromUser();
+    bool isAllowable = false; // Ensure the loop condition is initialized for the exit condition.
+    do {
+        // Get the network interface that the node will be bound too
+        std::string type{ defaults::IdentifierType };
+        std::cout << "Identifier Type: (" << defaults::IdentifierType << ") " << std::flush;
+        std::getline(std::cin, type);
+        if (!type.empty()) {
+            if (auto const optValue = allowable::IfAllowableGetValue(allowable::IdentifierTypes, type); optValue) {
+                options.type = *optValue;
+            } else {
+                std::cout << "Specified identifier type is not allowed! Allowable types include: ";
+                allowable::OutputValues(allowable::IdentifierTypes);
+                isAllowable = false;
+            }
         }
-    }
-    std::cout << std::endl;
+        std::cout << std::endl;
+    } while(!isAllowable);
 
     return options;
 }
@@ -635,8 +837,6 @@ Configuration::Options::Details local::GetDetailFromUser()
     std::getline(std::cin, decription);
     if (!decription.empty()) { options.description = decription; }
 
-    // TODO: Possibly expand on location to have different types. Possible types could include
-    // worded description, geographic coordinates, custom map coordinates, etc.
     std::string location = "";
     std::cout << "Node Location: " << std::flush;
     std::getline(std::cin, location);
@@ -656,40 +856,35 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
     bool bAddEndpointOption = false;
     do {
         Configuration::Options::Endpoint options(
-            defaults::EndpointType,
-            defaults::NetworkInterface,
-            defaults::TcpBindingAddress);
+            defaults::EndpointType, defaults::NetworkInterface, defaults::TcpBindingAddress);
 
-        // Get the desired primary protocol type for the node
-        bool bAllowableEndpointType = true;
-        std::string protocol = "";
+        bool isAllowable = true;
+        std::string protocol = ""; 
         std::cout << "EndpointType: (" << defaults::EndpointType << ") " << std::flush;
-        std::getline(std::cin, protocol);
+        std::getline(std::cin, protocol); // Get the desired primary protocol type for the node
         if (!protocol.empty()) {
             if (auto const optValue = allowable::IfAllowableGetValue(allowable::EndpointTypes, protocol); optValue) {
                 options.protocol = *optValue;
-                options.type = Network::ParseProtocol(*optValue);
+                options.constructed.protocol = Network::ParseProtocol(*optValue);
             } else {
                 std::cout << "Specified endpoint type is not allowed! Allowable types include: ";
                 allowable::OutputValues(allowable::EndpointTypes);
-                bAllowableEndpointType = false;
+                isAllowable = false;
             }
         }
 
-        if (bAllowableEndpointType) {
-            // Get the network interface that the node will be bound too
+        if (isAllowable) {
             std::string interface = "";
             std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
-            std::getline(std::cin, interface);
+            std::getline(std::cin, interface); // Get the network interface that the node will be bound to.
             if (!interface.empty()) { options.interface = interface; }
 
-            // Get the primary and secondary network address components
-            // Currently, this may be the IP and port for TCP/IP based nodes
-            // or frequency and channel for LoRa.
+            // Get the primary and secondary network address componentsCurrently, this may be the IP and port for TCP/IP
+            // based nodes or frequency and channel for LoRa.
             std::string binding = "";
             std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
             bindingOutputMessage.append(defaults::TcpBindingAddress.data());
-            if (options.type == Network::Protocol::LoRa) {
+            if (options.constructed.protocol == Network::Protocol::LoRa) {
                 bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
                 bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
                 options.binding = defaults::LoRaBindingAddress;
@@ -700,13 +895,12 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
             std::getline(std::cin, binding);
             if (!binding.empty()) { options.binding = binding; }
 
-            // Get the default bootstrap entry for the protocol
-            if (options.type != Network::Protocol::LoRa) {
+            
+            if (options.constructed.protocol != Network::Protocol::LoRa) {
                 options.bootstrap = defaults::TcpBootstrapEntry;
-
                 std::string bootstrap = "";
                 std::cout << "Default Bootstrap Entry: (" << defaults::TcpBootstrapEntry << ") " << std::flush;
-                std::getline(std::cin, bootstrap);
+                std::getline(std::cin, bootstrap); // Get the default bootstrap entry for the protocol
                 if (!bootstrap.empty()) { options.bootstrap = bootstrap; }
             }
 
@@ -727,105 +921,35 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
 
 Configuration::Options::Security local::GetSecurityFromUser()
 {
-    Configuration::Options::Security options(
-        defaults::SecurityStrategy, defaults::NetworkToken, defaults::CentralAutority);
+    Configuration::Options::Security options(defaults::SecurityStrategy, defaults::NetworkToken);
     
-    bool bAllowableStrategyType;
+    bool isAllowable = true; // Ensure the loop condition is initialized for the exit condition.
     do {
-        // Ensure the loop condition is initialized for the exit condition.
-        bAllowableStrategyType = true;
-
         // Get the desired security strategy from the user.
-        std::string strategy(defaults::SecurityStrategy);
+        std::string strategy{ defaults::SecurityStrategy };
         std::cout << "Security Strategy: (" << defaults::SecurityStrategy << ") " << std::flush;
         std::getline(std::cin, strategy);
         if (!strategy.empty()) {
             if (auto const optValue = allowable::IfAllowableGetValue(allowable::StrategyTypes, strategy); optValue) {
                 options.strategy = strategy;
-                options.type = Security::ConvertToStrategy(strategy);
+                options.constructed.strategy = Security::ConvertToStrategy(strategy);
             } else {
                 std::cout << "Specified strategy is not allowed! Allowable types include: ";
                 allowable::OutputValues(allowable::StrategyTypes);
-                bAllowableStrategyType = false;
+                isAllowable = false;
+            }
+
+            if (isAllowable) {
+                std::string token{ defaults::NetworkToken };
+                std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
+                std::getline(std::cin, token);
+                if (!token.empty()) { options.token = token; }
             }
         }
-
-        if (bAllowableStrategyType) {
-            std::string token(defaults::NetworkToken);
-            std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
-            std::getline(std::cin, token);
-            if (!token.empty()) { options.token = token; }
-
-            std::string authority(defaults::CentralAutority);
-            std::cout << "Central Authority: (" << defaults::CentralAutority << ") " << std::flush;
-            std::getline(std::cin, authority);
-            if (!authority.empty()) { options.authority = authority; }
-        }
-
         std::cout << "\n";
-    } while(!bAllowableStrategyType);
+    } while(!isAllowable);
 
     return options;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool local::InitializeIdentifier(Configuration::Options::Identifier& options)
-{
-    // If the identifier type is Ephemeral, then a new identifier should be generated. 
-    // If the identifier type is Persistent, the we shall attempt to use provided value.
-    // Would should never hit this function before the the options have been validated.
-    if (options.type == "Ephemeral") {
-        // Generate a new Brypt Identifier and store the network representation as the value.
-        options.spConstructedValue = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
-        assert(options.spConstructedValue);
-        options.value = *options.spConstructedValue;
-    } else if (options.type == "Persistent") {
-        // If an identifier value has been parsed, attempt to use the provided value as
-        // the identifier. We need to check the validity of the identifier to ensure the
-        // value was properly formatted. 
-        // Otherwise, a new Brypt Identifier must be be generated. 
-        if (options.value) {
-            options.spConstructedValue = std::make_shared<Node::Identifier const>(*options.value);
-            assert(options.spConstructedValue);
-            if (!options.spConstructedValue->IsValid()) {
-                options.value.reset();
-                return false;
-            }
-        } else {
-            options.spConstructedValue = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
-            assert(options.spConstructedValue);
-            options.value = *options.spConstructedValue;  
-        }
-    } else {
-        assert(false); // How did these identifier options pass validation?
-    }
-
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool local::InitializeEndpoints(
-    Configuration::Options::Endpoints& endpoints, std::shared_ptr<spdlog::logger> const& logger)
-{
-    bool success = true;
-    std::for_each(endpoints.begin(), endpoints.end(),
-        [&success, &logger] (auto& options)
-        {
-            if (!options.Initialize()) {
-                logger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolName());
-                success = false;
-            }
-        });
-    return success;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void local::InitializeSecurityOptions(Configuration::Options::Security& options)
-{
-    options.type = Security::ConvertToStrategy(options.strategy);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

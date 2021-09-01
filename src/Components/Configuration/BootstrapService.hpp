@@ -54,6 +54,9 @@ public:
     CacheUpdateResult UpdateCache();
     [[nodiscard]] Configuration::StatusCode Serialize();
 
+    void SetFilepath(std::filesystem::path const& filepath);
+    void DisableFilesystem();
+
     // IPeerObserver {
     virtual void OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const& address) override;
     virtual void OnRemoteDisconnected(Network::Endpoint::Identifier, Network::RemoteAddress const& address) override;

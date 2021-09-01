@@ -103,7 +103,7 @@ std::string local::GenerateDiscoveryData(Configuration::Options::Endpoints const
 
     for (auto const& options: endpoints) {
         auto& entrypoint = request.entrypoints.emplace_back();
-        entrypoint.protocol = options.GetProtocolName();
+        entrypoint.protocol = options.GetProtocolString();
         entrypoint.entry = options.GetBinding().GetUri();
     }
 

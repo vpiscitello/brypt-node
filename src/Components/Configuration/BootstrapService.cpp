@@ -114,14 +114,18 @@ BootstrapService::BootstrapService(
 
     local::ParseDefaultBootstraps(endpoints, m_defaults);
 
-    if (useFilepathDeduction) {
-        // If required, fill in the default directory and filename to obtain a valid filepath.
-        if (!m_filepath.has_filename()) { m_filepath = m_filepath / Configuration::DefaultBootstrapFilename; }
-        if (!m_filepath.has_parent_path()) { m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath; }
-    }
+    // An empty filepath indicates that filesystem usage has been disabled. The service can still be used to 
+    // store runtime state, but no bootstraps will be cached between runs. 
+    if (!m_filepath.empty()) {
+        if (useFilepathDeduction) {
+            // If required, fill in the default directory and filename to obtain a valid filepath.
+            if (!m_filepath.has_filename()) { m_filepath = m_filepath / Configuration::DefaultBootstrapFilename; }
+            if (!m_filepath.has_parent_path()) { m_filepath = Configuration::GetDefaultBryptFolder() / m_filepath; }
+        }
 
-    if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
-        m_logger->error("Failed to create the filepath at: {}!", m_filepath.string());
+        if (!FileUtils::CreateFolderIfNoneExist(m_filepath)) {
+            m_logger->error("Failed to create the filepath at: {}!", m_filepath.string());
+        }
     }
 }
 
@@ -163,7 +167,7 @@ void BootstrapService::Register(std::shared_ptr<Scheduler::Service> const& spSch
 
 bool BootstrapService::FetchBootstraps()
 {
-    if (m_filepath.empty()) { m_logger->error("Failed to determine the bootstrap filepath!"); return false; }
+    if (m_filepath.empty()) { return true; } // There is nothing to do if filesystem usage has been disabled. 
 
     Configuration::StatusCode status = (std::filesystem::exists(m_filepath)) ? Deserialize() : InitializeFile();
     bool const success = (!m_cache.empty() || status == Configuration::StatusCode::Success);
@@ -235,7 +239,7 @@ Configuration::StatusCode BootstrapService::Serialize()
 {
     using enum Configuration::StatusCode;
     assert(Assertions::Threading::IsCoreThread()); // Currently, only the main thread may serialize the bootstraps. 
-    assert(!m_filepath.empty());
+    if (m_filepath.empty()) { return Success; } // If the filepath is empty, filesystem usage has been disabled. 
 
     UpdateCache(); // Collate any pending updates before the write. 
 
@@ -279,6 +283,22 @@ Configuration::StatusCode BootstrapService::Serialize()
     if (writer.fail()) [[unlikely]] { m_logger->error("Failed to serialize bootstraps!"); return FileError; }
 
     return Success;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::SetFilepath(std::filesystem::path const& filepath)
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    m_filepath = filepath;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::DisableFilesystem()
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    m_filepath.clear();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -343,6 +363,8 @@ Configuration::StatusCode BootstrapService::Deserialize()
 {
     using enum Configuration::StatusCode;
     assert(Assertions::Threading::IsCoreThread());
+    if (m_filepath.empty()) { return Success; } // If the filepath is empty, filesystem usage has been disabled. 
+
     m_logger->debug("Reading bootstrap file at: {}.", m_filepath.string());
 
     // Determine the size of the file about to be read. Do not read a file that is above the given treshold. 
@@ -408,7 +430,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
     // it is intentional to have this node not have initial connections (e.g. the first run of the "root" node).
     bool const error = hasTransformError || (m_cache.empty() && local::HasDefaultBootstraps(m_defaults));
     if (error) [[unlikely]] {
-        m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.string());
+        m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.c_str());
         return DecodeError;
     }
 
@@ -421,6 +443,8 @@ Configuration::StatusCode BootstrapService::InitializeFile()
 {
     using enum Configuration::StatusCode;
     assert(Assertions::Threading::IsCoreThread());
+    if (m_filepath.empty()) { return Success; } // An empty filepath indicates serialization has been disabled. 
+
     m_logger->debug("Generating bootstrap file at: {}.", m_filepath.string());
 
     for (auto const& [protocol, optDefault] : m_defaults) {
@@ -448,9 +472,9 @@ void local::ParseDefaultBootstraps(
 {
     for (auto const& options: endpoints) {
         if (auto const optBootstrap = options.GetBootstrap(); optBootstrap) {
-            defaults.emplace(options.type, optBootstrap);
+            defaults.emplace(options.GetProtocol(), optBootstrap);
         } else {
-            defaults.emplace(options.type, std::nullopt);
+            defaults.emplace(options.GetProtocol(), std::nullopt);
         }
     }
 }
@@ -459,8 +483,7 @@ void local::ParseDefaultBootstraps(
 
 bool local::HasDefaultBootstraps(BootstrapService::DefaultBootstraps& defaults)
 {
-    return std::ranges::any_of(
-        defaults | std::views::values,
+    return std::ranges::any_of(defaults | std::views::values,
         [] (auto const& optBootstrap) -> bool { return optBootstrap.has_value(); });
 }
 
