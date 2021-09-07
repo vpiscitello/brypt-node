@@ -133,10 +133,38 @@ BootstrapService::BootstrapService(
 
 BootstrapService::~BootstrapService()
 {
+    // Note: There is a static destruction order issue caused by asserting the serialize method is only called on the 
+    // core thread. This issue should only occur when the node core is declared as a static variable (e.g. in the 
+    // shared library test suites). The assertion is still valuable, so the tests must ensure the static core variable
+    // can be manually destroyed before implicit static destruction takes effect. 
     [[maybe_unused]] auto const status = Serialize();
     assert(status == Configuration::StatusCode::Success); 
     
     m_spDelegate->Delist();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::filesystem::path const& BootstrapService::GetFilepath() const
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    return m_filepath;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::SetFilepath(std::filesystem::path const& filepath)
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    m_filepath = filepath;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::DisableFilesystem()
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    m_filepath.clear();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -283,22 +311,6 @@ Configuration::StatusCode BootstrapService::Serialize()
     if (writer.fail()) [[unlikely]] { m_logger->error("Failed to serialize bootstraps!"); return FileError; }
 
     return Success;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void BootstrapService::SetFilepath(std::filesystem::path const& filepath)
-{
-    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
-    m_filepath = filepath;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void BootstrapService::DisableFilesystem()
-{
-    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
-    m_filepath.clear();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

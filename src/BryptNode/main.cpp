@@ -140,7 +140,7 @@ Startup::Resources Startup::InitializeResources(std::int32_t argc, char** argv)
     // Create the bootstrap service and read the initial bootstraps from the file. If we fail to fetch the bootstraps,
     // log an error and return early. 
     auto spBootstrapService = std::make_shared<BootstrapService>(
-        options.GetBootstrapPath(), upParser->GetEndpointOptions(), upParser->UseFilepathDeduction());
+        options.GetBootstrapPath(), upParser->GetEndpoints(), upParser->UseFilepathDeduction());
     if (!spBootstrapService->FetchBootstraps()) {
         logger->critical("An error occured parsing bootstraps!");
         return { ParseCode::Malformed, nullptr, nullptr };

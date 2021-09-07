@@ -5,7 +5,7 @@
 #include "Parser.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptNode/StartupOptions.hpp"
+#include "BryptNode/RuntimeContext.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/FileUtils.hpp"
@@ -13,6 +13,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/algorithm/string.hpp>
 #include <lithium_json.hh>
+#include <spdlog/spdlog.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
@@ -211,11 +212,11 @@ struct local::OptionsStore
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Parser::Parser()
+Configuration::Parser::Parser(Options::Runtime const& options)
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_version()
     , m_filepath()
-    , m_runtime()
+    , m_runtime(options)
     , m_identifier()
     , m_details()
     , m_endpoints()
@@ -248,7 +249,7 @@ Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Ru
 
 Configuration::Parser::~Parser()
 {
-    if (m_changed) {
+    if (!m_filepath.empty() && m_changed) {
         [[maybe_unused]] auto const status = Serialize();
         assert(status == Configuration::StatusCode::Success); 
     }
@@ -261,16 +262,13 @@ Configuration::StatusCode Configuration::Parser::FetchOptions()
     // If we have a filepath, we must first process the file. 
     if (auto const status = ProcessFile(); status != StatusCode::Success) { return status; } 
     if (auto const status = ValidateOptions(); status != StatusCode::Success) { return status; }
-    if (auto const initialized = InitializeOptions(); !initialized) { return StatusCode::InputError; }
     
     // Update the configuration file as the initialization of options may create new values for certain options.
-    // Currently, this only caused by generated identifiers.
     if (auto const status = Serialize(); status != StatusCode::Success) {
         m_logger->error("Failed to update configuration file at: {}!", m_filepath.c_str());
         return status;
     }
 
-    m_changed = false; // On success, reset the changed flag to indicate all changes have been processed. 
     return StatusCode::Success;
 }
 
@@ -278,9 +276,16 @@ Configuration::StatusCode Configuration::Parser::FetchOptions()
 
 Configuration::StatusCode Configuration::Parser::Serialize()
 {
-    if (m_filepath.empty()) { return StatusCode::Success; }
+    // If the options the options have changed, validate them to ensure they are valid values and have been initialized.
+    if (m_changed) {
+        if (auto const status = ValidateOptions(); status != StatusCode::Success) { return status; }
+    }
 
-    if (!m_validated) { return StatusCode::InputError; }
+    // If the filesystem is disabled, there is nothing to do.
+    if (m_filepath.empty()) {
+        m_changed = false; // Mark 
+        return StatusCode::Success;
+    }
 
     std::ofstream out(m_filepath, std::ofstream::out);
     if (out.fail()) { return StatusCode::FileError; }
@@ -296,6 +301,7 @@ Configuration::StatusCode Configuration::Parser::Serialize()
     out << "}" << std::flush;
 
     out.close();
+    m_changed = false; // On success, reset the changed flag to indicate all changes have been processed. 
 
     return StatusCode::Success;
 }
@@ -321,6 +327,14 @@ Configuration::StatusCode Configuration::Parser::LaunchGenerator()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::filesystem::path const& Configuration::Parser::GetFilepath() const
+{
+    assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
+    return m_filepath;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Configuration::Parser::SetFilepath(std::filesystem::path const& filepath)
 {
     assert(Assertions::Threading::IsCoreThread()); // Only the core thread should control the filepath. 
@@ -339,103 +353,104 @@ void Configuration::Parser::DisableFilesystem()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-RuntimeContext Configuration::Parser::GetRuntimeContext() const
+RuntimeContext Configuration::Parser::GetRuntimeContext() const { return m_runtime.context; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+spdlog::level::level_enum Configuration::Parser::GetVerbosity() const { return m_runtime.verbosity; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::UseInteractiveConsole() const { return m_runtime.useInteractiveConsole; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::UseBootstraps() const { return m_runtime.useBootstraps; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::UseFilepathDeduction() const { return m_runtime.useFilepathDeduction; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::Identifier::Type Configuration::Parser::GetIdentifierType() const { return m_identifier.constructed.type; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::SharedIdentifier const& Configuration::Parser::GetNodeIdentifier() const { return m_identifier.constructed.value; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string const& Configuration::Parser::GetNodeName() const { return m_details.name; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string const& Configuration::Parser::GetNodeDescription() const { return m_details.description; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string const& Configuration::Parser::GetNodeLocation() const { return m_details.location; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::Endpoints const& Configuration::Parser::GetEndpoints() const { return m_endpoints; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(Network::BindingAddress const& binding) const
 {
-    return m_runtime.context;
+    auto const itr = std::ranges::find_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
+        return binding == existing.constructed.binding;
+    });
+
+    if (itr == m_endpoints.end()) { return {}; }
+    return *itr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-spdlog::level::level_enum Configuration::Parser::GetVerbosity() const
+Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(std::string_view const& uri) const
 {
-    return m_runtime.verbosity;
+    auto const itr = std::ranges::find_if(m_endpoints, [&uri] (Options::Endpoint const& existing) {
+        return uri == existing.constructed.binding.GetUri();
+    });
+
+    if (itr == m_endpoints.end()) { return {}; }
+    return *itr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::UseInteractiveConsole() const
+Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(
+    Network::Protocol protocol, std::string_view const& binding) const
 {
-    return m_runtime.useInteractiveConsole;
+    auto const itr = std::ranges::find_if(m_endpoints, [&protocol, &binding] (Options::Endpoint const& existing) {
+        return protocol == existing.constructed.protocol && binding == existing.binding;
+    });
+
+    if (itr == m_endpoints.end()) { return {}; }
+    return *itr;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::UseBootstraps() const
-{
-    return m_runtime.useBootstraps;
-}
+Security::Strategy Configuration::Parser::GetSecurityStrategy() const { return m_security.constructed.strategy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::UseFilepathDeduction() const
-{
-    return m_runtime.useFilepathDeduction;
-}
+std::string const& Configuration::Parser::GetNetworkToken() const { return m_security.token; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier const& Configuration::Parser::GetNodeIdentifier() const
-{
-    assert(m_validated);
-    assert(m_identifier.constructed.value && m_identifier.constructed.value->IsValid());
-    return m_identifier.constructed.value;
-}
+bool Configuration::Parser::Validated() const { return m_validated && !m_changed; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Parser::GetNodeName() const
-{
-    assert(m_validated);
-    return m_details.name;
-}
+bool Configuration::Parser::Changed() const { return m_changed; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Parser::GetNodeDescription() const
-{
-    assert(m_validated);
-    return m_details.description;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::string const& Configuration::Parser::GetNodeLocation() const
-{
-    assert(m_validated);
-    return m_details.location;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-    
-Configuration::Options::Endpoints const& Configuration::Parser::GetEndpointOptions() const
-{
-    assert(m_validated);
-    assert(m_endpoints.size() != 0);
-    return m_endpoints;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Security::Strategy Configuration::Parser::GetSecurityStrategy() const
-{
-    assert(m_validated);
-    assert(m_security.constructed.strategy != Security::Strategy::Invalid);
-    return m_security.constructed.strategy;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Parser::Validated() const
-{
-    return m_validated;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Parser::Changed() const
-{
-    return m_changed;
-}
+bool Configuration::Parser::FilesystemDisabled() const { return m_filepath.empty(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -455,19 +470,34 @@ void Configuration::Parser::SetVerbosity(spdlog::level::level_enum level)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetUseBootstraps(bool useBootstraps)
+void Configuration::Parser::SetUseInteractiveConsole(bool use)
 {
     m_changed = true;
-    m_runtime.useBootstraps = useBootstraps;
+    m_runtime.useInteractiveConsole = use;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetIdentifierType(Options::Identifier::Type type)
+void Configuration::Parser::SetUseBootstraps(bool use)
 {
     m_changed = true;
+    m_runtime.useBootstraps = use;
+}
 
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetUseFilepathDeduction(bool use)
+{
+    m_changed = true;
+    m_runtime.useFilepathDeduction = use;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
+{
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    m_changed = true;
     m_identifier.constructed.type = type;
     switch (type) {
         case Options::Identifier::Type::Ephemeral: m_identifier.type = "Ephemeral"; break;
@@ -510,9 +540,8 @@ bool Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 {
     if (!options.Initialize()) { return false; } // If the provided options are invalid, return false. 
 
-    m_changed = true;
-
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    m_changed = true;
     auto const itr = std::ranges::find_if(m_endpoints, [&options] (Options::Endpoint const& existing) {
         return options.binding == existing.binding;
     });
@@ -527,22 +556,40 @@ bool Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 bool Configuration::Parser::RemoveEndpoint(Network::BindingAddress const& binding)
 {
     m_changed = true;
-    auto const itr = std::ranges::find_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
+    auto const count = std::erase_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
         return binding == existing.constructed.binding;
     });
+    return count == 1;
+}
 
-    bool const found = itr != m_endpoints.end();
-    m_endpoints.erase(itr);
-    return found;
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::RemoveEndpoint(std::string_view const& uri)
+{
+    m_changed = true;
+    auto const count = std::erase_if(m_endpoints, [&uri] (Options::Endpoint const& existing) {
+        return uri == existing.constructed.binding.GetUri();
+    });
+    return count == 1;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::RemoveEndpoint(Network::Protocol protocol, std::string_view const& binding)
+{
+    m_changed = true;
+    auto const count = std::erase_if(m_endpoints, [&protocol, &binding] (Options::Endpoint const& existing) {
+        return protocol == existing.constructed.protocol && binding == existing.binding;
+    });
+    return count == 1;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Configuration::Parser::SetSecurityStrategy(Security::Strategy strategy)
 {
-    m_changed = true;
-
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    m_changed = true;
     m_security.constructed.strategy = strategy;
     switch (strategy) {
         case Security::Strategy::PQNISTL3: m_security.strategy = "PQNISTL3"; break;
@@ -595,9 +642,8 @@ Configuration::StatusCode Configuration::Parser::ProcessFile()
     if (m_validated && !m_changed) { return StatusCode::Success; } // If there are no changes, there is nothing to do.
 
     bool const found = std::filesystem::exists(m_filepath); // Determine if we have an existing file to process.
-    bool const create = m_changed && !m_validated && !found; // Can we create the file without the generator?
     bool const updated = m_changed && m_validated && found; // Have read a file and are now applying changes?
-    if (create || updated) { return StatusCode::Success; } // If either condition is true, there is nothing to do.
+    if (updated) { return StatusCode::Success; } // If either condition is true, there is nothing to do.
 
     // If the file is found and this is the first time we are reading the file, the deserializer should handle
     // the rest of the file processing. 
@@ -616,7 +662,8 @@ Configuration::StatusCode Configuration::Parser::ProcessFile()
     // If we have been built as a console application, we may be able to launch the command line configuration 
     // generator to initialize the options. 
     m_logger->warn("Failed to locate a configuration file at: {}", m_filepath.c_str());
-    if (m_runtime.useInteractiveConsole) {
+    bool const create = m_runtime.useInteractiveConsole && !m_validated && !found; // Can we launch the generator?
+    if (create) {
         m_logger->info("Launching configuration generator for: {}.", m_filepath.c_str());
         return LaunchGenerator();
     }
@@ -632,24 +679,37 @@ Configuration::StatusCode Configuration::Parser::ValidateOptions()
 {
     m_validated = false; // Explicitly disable the validation result in case anything fails. 
 
-    if (m_identifier.type.empty()) { return StatusCode::DecodeError; }
-    if (!allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_identifier.type)) {
-        return StatusCode::DecodeError;
-    }
+    if (!AreOptionsAllowable()) { return StatusCode::DecodeError; }
 
-    if (m_endpoints.empty()) { return StatusCode::DecodeError; }
-    for (auto const& endpoint: m_endpoints) {
-        if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) {
-            return StatusCode::DecodeError;
+    if (!m_identifier.Initialize()) { return StatusCode::InputError; }
+    if (!m_security.Initialize()) { return StatusCode::InputError; }
+
+    m_validated = std::ranges::all_of(m_endpoints, [&logger = m_logger] (auto& options) {
+        bool const success = options.Initialize();
+        if (!success) {
+            logger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolString());
         }
+        return success;
+    });
+
+    return (m_validated) ? StatusCode::Success : StatusCode::InputError;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::AreOptionsAllowable() const
+{
+    if (m_identifier.type.empty()) { return false; }
+    if (!allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_identifier.type)) { return false; }
+
+    if (m_endpoints.empty()) { return false; }
+    for (auto const& endpoint: m_endpoints) {
+        if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) { return false; }
     }
 
-    if (!allowable::IfAllowableGetValue(allowable::StrategyTypes, m_security.strategy)) {
-        return StatusCode::DecodeError;
-    }
+    if (!allowable::IfAllowableGetValue(allowable::StrategyTypes, m_security.strategy)) { return false; }
 
-    m_validated = true; // If all values are valid and allowable, the options have been validated. 
-    return StatusCode::Success;
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -712,24 +772,6 @@ void Configuration::Parser::GetOptionsFromUser()
     m_details = local::GetDetailFromUser();
     m_endpoints = local::GetEndpointFromUser();
     m_security = local::GetSecurityFromUser();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Parser::InitializeOptions()
-{
-    if (!m_identifier.Initialize()) { return false; }
-    if (!m_security.Initialize()) { return false; }
-
-    bool const initialized = std::ranges::all_of(m_endpoints, [&logger = m_logger] (auto& options) {
-        bool const success = options.Initialize();
-        if (!success) {
-            logger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolString());
-        }
-        return success;
-    });
-
-    return initialized;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

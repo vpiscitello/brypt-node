@@ -14,6 +14,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/common.h>
 //----------------------------------------------------------------------------------------------------------------------
+#include <compare>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
@@ -75,6 +76,8 @@ struct Configuration::Options::Identifier
 
     Identifier();
     explicit Identifier(std::string_view type, std::string_view value = "");
+    [[nodiscard]] std::strong_ordering operator<=>(Identifier const& other) const noexcept;
+    [[nodiscard]] bool operator==(Identifier const& other) const noexcept;
 
     void Merge(Identifier& other);
     [[nodiscard]] bool Initialize();
@@ -112,7 +115,19 @@ struct Configuration::Options::Endpoint
     };
 
     Endpoint();
-    Endpoint(std::string_view protocol, std::string_view interface, std::string_view binding);
+    Endpoint(
+        Network::Protocol protocol,
+        std::string_view interface,
+        std::string_view binding,
+        std::optional<std::string> const& bootstrap = {});
+    Endpoint(
+        std::string_view protocol,
+        std::string_view interface,
+        std::string_view binding,
+        std::optional<std::string> const& bootstrap = {});
+
+    [[nodiscard]] std::strong_ordering operator<=>(Endpoint const& other) const noexcept;
+    [[nodiscard]] bool operator==(Endpoint const& other) const noexcept;
 
     void Merge(Endpoint& other);
     [[nodiscard]] bool Initialize();
@@ -140,6 +155,8 @@ struct Configuration::Options::Security
 
     Security();
     Security(std::string_view strategy, std::string_view token);
+    [[nodiscard]] std::strong_ordering operator<=>(Security const& other) const noexcept;
+    [[nodiscard]] bool operator==(Security const& other) const noexcept;
 
     void Merge(Security& other);
     [[nodiscard]] bool Initialize();

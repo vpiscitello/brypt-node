@@ -45,6 +45,10 @@ public:
 
     ~BootstrapService();
 
+    std::filesystem::path const& GetFilepath() const;
+    void SetFilepath(std::filesystem::path const& filepath);
+    void DisableFilesystem();
+
     void Register(IPeerMediator* const mediator);
     void Register(std::shared_ptr<Scheduler::Service> const& spScheduler);
 
@@ -53,9 +57,6 @@ public:
     void RemoveBootstrap(Network::RemoteAddress const& bootstrap);
     CacheUpdateResult UpdateCache();
     [[nodiscard]] Configuration::StatusCode Serialize();
-
-    void SetFilepath(std::filesystem::path const& filepath);
-    void DisableFilesystem();
 
     // IPeerObserver {
     virtual void OnRemoteConnected(Network::Endpoint::Identifier, Network::RemoteAddress const& address) override;

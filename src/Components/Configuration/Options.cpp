@@ -70,13 +70,29 @@ Configuration::Options::Identifier::Identifier()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Identifier::Identifier(std::string_view type, std::string_view value)
-    : type(type)
-    , value(value)
+Configuration::Options::Identifier::Identifier(std::string_view _type, std::string_view _value)
+    : type(_type)
+    , value(_value)
     , constructed({
         .type = Type::Invalid
     })
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::strong_ordering Configuration::Options::Identifier::operator<=>(Identifier const& other) const noexcept
+{
+    if (auto const result = type <=> other.type; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = value <=> other.value; result != std::strong_ordering::equal) { return result; }
+    return std::strong_ordering::equal;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Identifier::operator==(Identifier const& other) const noexcept
+{
+    return type == other.type && value == other.value;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -89,7 +105,7 @@ void Configuration::Options::Identifier::Merge(Identifier& other)
         constructed.type = other.constructed.type;
     }
 
-    if (value.has_value()) { 
+    if (!value.has_value()) { 
         value = std::move(other.value);
         constructed.value = std::move(other.constructed.value);
     }
@@ -142,10 +158,10 @@ Configuration::Options::Details::Details()
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Details::Details(
-    std::string_view name, std::string_view description, std::string_view location)
-    : name(name)
-    , description(description)
-    , location(location)
+    std::string_view _name, std::string_view _description, std::string_view _location)
+    : name(_name)
+    , description(_description)
+    , location(_location)
 {
 }
 
@@ -156,7 +172,7 @@ void Configuration::Options::Details::Merge(Details& other)
     // The existing values of this object is chosen over the other's values. 
     if (name.empty()) { name = std::move(other.name); }
     if (description.empty()) { description = std::move(other.description); }
-    if (location.empty()) { description = std::move(other.location); }
+    if (location.empty()) { location = std::move(other.location); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -175,15 +191,72 @@ Configuration::Options::Endpoint::Endpoint()
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Endpoint::Endpoint(
-    std::string_view protocol, std::string_view interface, std::string_view binding)
-    : protocol(protocol)
-    , interface(interface)
-    , binding(binding)
-    , bootstrap()
+    Network::Protocol _protocol,
+    std::string_view _interface,
+    std::string_view _binding,
+    std::optional<std::string> const& _bootstrap)
+    : protocol()
+    , interface(_interface)
+    , binding(_binding)
+    , bootstrap(_bootstrap)
+    , constructed({
+        .protocol = _protocol
+    })
+{
+    switch (constructed.protocol) {
+        case Network::Protocol::TCP: protocol = "TCP"; break;
+        case Network::Protocol::LoRa: protocol = "LoRa"; break;
+        default: assert(false); break;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::Endpoint::Endpoint(
+    std::string_view _protocol,
+    std::string_view _interface,
+    std::string_view _binding,
+    std::optional<std::string> const& _bootstrap)
+    : protocol(_protocol)
+    , interface(_interface)
+    , binding(_binding)
+    , bootstrap(_bootstrap)
     , constructed({
         .protocol = Network::Protocol::Invalid
     })
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::strong_ordering Configuration::Options::Endpoint::operator<=>(Endpoint const& other) const noexcept
+{
+    if (auto const result = protocol <=> other.protocol; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = interface <=> other.interface; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = binding <=> other.binding; result != std::strong_ordering::equal) { return result; }
+    
+    // First compare if each side's optional bootstrap has a value. If they don't return that result. Otherwise,
+    // if that status is equal and it's because both have a value, return the comparison of the values. 
+    auto result = static_cast<bool>(bootstrap) <=> static_cast<bool>(other.bootstrap);
+    if (result == std::strong_ordering::equal && bootstrap && other.bootstrap) {
+        return bootstrap.value() <=> other.bootstrap.value();
+    }
+
+    return result;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Endpoint::operator==(Endpoint const& other) const noexcept
+{
+    auto const equals = protocol == other.protocol && 
+        interface == other.interface && 
+        binding == other.binding &&
+        static_cast<bool>(bootstrap) == static_cast<bool>(other.bootstrap);
+
+    // If everything else is equivalant and both sides have a bootstrap, return the equality of the bootstrap values. 
+    if (equals && bootstrap && other.bootstrap) { return bootstrap.value() == other.bootstrap.value(); }
+    return equals;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -218,7 +291,7 @@ bool Configuration::Options::Endpoint::Initialize()
     }
 
     if (bootstrap && !bootstrap->empty()) {
-        constructed.bootstrap = { constructed.protocol, *bootstrap, true };
+        constructed.bootstrap = { constructed.protocol, *bootstrap, true, Network::RemoteAddress::Origin::Cache };
         if (!constructed.bootstrap->IsValid()) { 
             constructed.bootstrap.reset();
             return false;
@@ -261,13 +334,29 @@ Configuration::Options::Security::Security()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Security::Security(std::string_view strategy, std::string_view token)
-    : strategy(strategy)
-    , token(token)
+Configuration::Options::Security::Security(std::string_view _strategy, std::string_view _token)
+    : strategy(_strategy)
+    , token(_token)
     , constructed({
         .strategy = ::Security::Strategy::Invalid
     })
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::strong_ordering Configuration::Options::Security::operator<=>(Security const& other) const noexcept
+{
+    if (auto const result = strategy <=> other.strategy; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = token <=> other.token; result != std::strong_ordering::equal) { return result; }
+    return std::strong_ordering::equal;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Security::operator==(Security const& other) const noexcept
+{
+    return strategy == other.strategy && token == other.token;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
