@@ -48,6 +48,8 @@ constexpr auto BootstrapGenerator = [] (std::size_t port) mutable -> Network::Re
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
+// TODO: Disable disabled file usage
+
 TEST(BootstrapServiceSuite, GenerateBootstrapFilepathTest)
 {
     auto const filepath = Configuration::GetDefaultBootstrapFilepath();
@@ -306,9 +308,13 @@ TEST(BootstrapServiceSuite, CacheUpdateTest)
 
 std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
 {
-    auto const pwd = std::filesystem::current_path();
-    return (pwd.filename() == "UT_Configuration") ?  
-        pwd / "files" / filename :  pwd / "Tests/UT_Configuration/files" / filename;
+    auto path = std::filesystem::current_path();
+    if (path.filename() == "UT_Configuration") { 
+        return path / "files" / filename;
+    } else {
+        if (path.filename() == "bin") { path.remove_filename(); }
+        return path / "Tests/UT_Configuration/files" / filename;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
