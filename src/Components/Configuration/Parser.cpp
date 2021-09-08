@@ -841,10 +841,11 @@ void local::SerializeSecurity(Configuration::Options::Security const& options, s
 
 Configuration::Options::Identifier local::GetIdentifierFromUser()
 {
-    Configuration::Options::Identifier options(defaults::IdentifierType);
-    bool isAllowable = false; // Ensure the loop condition is initialized for the exit condition.
+    Configuration::Options::Identifier options{ defaults::IdentifierType };
+    bool allowable = true; // Ensure the loop condition is initialized for the exit condition.
     do {
         // Get the network interface that the node will be bound too
+        allowable = true;
         std::string type{ defaults::IdentifierType };
         std::cout << "Identifier Type: (" << defaults::IdentifierType << ") " << std::flush;
         std::getline(std::cin, type);
@@ -854,11 +855,11 @@ Configuration::Options::Identifier local::GetIdentifierFromUser()
             } else {
                 std::cout << "Specified identifier type is not allowed! Allowable types include: ";
                 allowable::OutputValues(allowable::IdentifierTypes);
-                isAllowable = false;
+                allowable = false;
             }
         }
         std::cout << std::endl;
-    } while(!isAllowable);
+    } while(!allowable);
 
     return options;
 }
@@ -895,12 +896,12 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
 {
     Configuration::Options::Endpoints endpoints;
 
-    bool bAddEndpointOption = false;
+    bool addEndpoint = false;
     do {
-        Configuration::Options::Endpoint options(
-            defaults::EndpointType, defaults::NetworkInterface, defaults::TcpBindingAddress);
+        Configuration::Options::Endpoint options{
+            defaults::EndpointType, defaults::NetworkInterface, defaults::TcpBindingAddress };
 
-        bool isAllowable = true;
+        bool allowable = true;
         std::string protocol = ""; 
         std::cout << "EndpointType: (" << defaults::EndpointType << ") " << std::flush;
         std::getline(std::cin, protocol); // Get the desired primary protocol type for the node
@@ -911,11 +912,11 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
             } else {
                 std::cout << "Specified endpoint type is not allowed! Allowable types include: ";
                 allowable::OutputValues(allowable::EndpointTypes);
-                isAllowable = false;
+                allowable = false;
             }
         }
 
-        if (isAllowable) {
+        if (allowable) {
             std::string interface = "";
             std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
             std::getline(std::cin, interface); // Get the network interface that the node will be bound to.
@@ -936,8 +937,7 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
             std::cout << bindingOutputMessage << std::flush;
             std::getline(std::cin, binding);
             if (!binding.empty()) { options.binding = binding; }
-
-            
+ 
             if (options.constructed.protocol != Network::Protocol::LoRa) {
                 options.bootstrap = defaults::TcpBootstrapEntry;
                 std::string bootstrap = "";
@@ -952,9 +952,9 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
         std::string sContinueChoice;
         std::cout << "Enter any key to setup a new endpoint configuration (Press enter to continue): " << std::flush;
         std::getline(std::cin, sContinueChoice);
-        bAddEndpointOption = !sContinueChoice.empty();
+        addEndpoint = !sContinueChoice.empty() || endpoints.empty();
         std::cout << "\n";
-    } while(bAddEndpointOption);
+    } while(addEndpoint);
 
     return endpoints;
 }
@@ -963,11 +963,12 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
 
 Configuration::Options::Security local::GetSecurityFromUser()
 {
-    Configuration::Options::Security options(defaults::SecurityStrategy, defaults::NetworkToken);
+    Configuration::Options::Security options{ defaults::SecurityStrategy, defaults::NetworkToken };
     
-    bool isAllowable = true; // Ensure the loop condition is initialized for the exit condition.
+    bool allowable = true; // Ensure the loop condition is initialized for the exit condition.
     do {
         // Get the desired security strategy from the user.
+        allowable = true;
         std::string strategy{ defaults::SecurityStrategy };
         std::cout << "Security Strategy: (" << defaults::SecurityStrategy << ") " << std::flush;
         std::getline(std::cin, strategy);
@@ -978,10 +979,10 @@ Configuration::Options::Security local::GetSecurityFromUser()
             } else {
                 std::cout << "Specified strategy is not allowed! Allowable types include: ";
                 allowable::OutputValues(allowable::StrategyTypes);
-                isAllowable = false;
+                allowable = false;
             }
 
-            if (isAllowable) {
+            if (allowable) {
                 std::string token{ defaults::NetworkToken };
                 std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
                 std::getline(std::cin, token);
@@ -989,7 +990,7 @@ Configuration::Options::Security local::GetSecurityFromUser()
             }
         }
         std::cout << "\n";
-    } while(!isAllowable);
+    } while(!allowable);
 
     return options;
 }
