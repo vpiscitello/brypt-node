@@ -51,6 +51,7 @@ public:
 
     void Register(IPeerMediator* const mediator);
     void Register(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    void UnregisterServices();
 
     [[nodiscard]] bool FetchBootstraps();
     void InsertBootstrap(Network::RemoteAddress const& bootstrap);

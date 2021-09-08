@@ -139,8 +139,6 @@ BootstrapService::~BootstrapService()
     // can be manually destroyed before implicit static destruction takes effect. 
     [[maybe_unused]] auto const status = Serialize();
     assert(status == Configuration::StatusCode::Success); 
-    
-    m_spDelegate->Delist();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -189,6 +187,16 @@ void BootstrapService::Register(std::shared_ptr<Scheduler::Service> const& spSch
     }); 
 
     assert(m_spDelegate);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::UnregisterServices()
+{
+    assert(Assertions::Threading::IsCoreThread());
+    m_mediator = nullptr;
+    m_spDelegate->Delist();
+    m_spDelegate.reset();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
