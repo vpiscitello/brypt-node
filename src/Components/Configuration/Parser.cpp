@@ -353,6 +353,10 @@ void Configuration::Parser::DisableFilesystem()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Configuration::Parser::FilesystemDisabled() const { return m_filepath.empty(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 RuntimeContext Configuration::Parser::GetRuntimeContext() const { return m_runtime.context; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -450,29 +454,25 @@ bool Configuration::Parser::Changed() const { return m_changed; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::FilesystemDisabled() const { return m_filepath.empty(); }
-
-//----------------------------------------------------------------------------------------------------------------------
-
 void Configuration::Parser::SetRuntimeContext(RuntimeContext context)
 {
-    m_changed = true;
+    m_changed = context != m_runtime.context;
     m_runtime.context = context;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetVerbosity(spdlog::level::level_enum level)
+void Configuration::Parser::SetVerbosity(spdlog::level::level_enum verbosity)
 {
-    m_changed = true;
-    m_runtime.verbosity = level;
+    m_changed = verbosity != m_runtime.verbosity;
+    m_runtime.verbosity = verbosity;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Configuration::Parser::SetUseInteractiveConsole(bool use)
 {
-    m_changed = true;
+    m_changed = m_runtime.useInteractiveConsole != use;
     m_runtime.useInteractiveConsole = use;
 }
 
@@ -480,7 +480,7 @@ void Configuration::Parser::SetUseInteractiveConsole(bool use)
 
 void Configuration::Parser::SetUseBootstraps(bool use)
 {
-    m_changed = true;
+    m_changed = m_runtime.useBootstraps != use;
     m_runtime.useBootstraps = use;
 }
 
@@ -488,7 +488,7 @@ void Configuration::Parser::SetUseBootstraps(bool use)
 
 void Configuration::Parser::SetUseFilepathDeduction(bool use)
 {
-    m_changed = true;
+    m_changed = m_runtime.useFilepathDeduction != use;
     m_runtime.useFilepathDeduction = use;
 }
 
@@ -497,6 +497,7 @@ void Configuration::Parser::SetUseFilepathDeduction(bool use)
 void Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
 {
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
+    // Additionally, setting the type should always cause a change in the identifier. 
     m_changed = true;
     m_identifier.constructed.type = type;
     switch (type) {
@@ -514,24 +515,30 @@ void Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
 
 void Configuration::Parser::SetNodeName(std::string_view const& name)
 {
-    m_changed = true;
-    m_details.name = name;
+    if (name != m_details.name) {
+        m_changed = true;
+        m_details.name = name;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Configuration::Parser::SetNodeDescription(std::string_view const& description)
 {
-    m_changed = true;
-    m_details.description = description;
+    if (description != m_details.description) {
+        m_changed = true;
+        m_details.description = description;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Configuration::Parser::SetNodeLocation(std::string_view const& location)
 {
-    m_changed = true;
-    m_details.location = location;
+    if (location != m_details.location) {
+        m_changed = true;
+        m_details.location = location;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -548,7 +555,7 @@ bool Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 
     // If options for the binding were found, update the stored value. Otherwise, add the options to endpoints set.
     if (itr != m_endpoints.end()) { *itr = std::move(options); } else { m_endpoints.emplace_back(options); }
-    return true; 
+    return m_changed; 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -559,18 +566,21 @@ bool Configuration::Parser::RemoveEndpoint(Network::BindingAddress const& bindin
     auto const count = std::erase_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
         return binding == existing.constructed.binding;
     });
-    return count == 1;
+
+    m_changed = count == 1;
+    return m_changed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Parser::RemoveEndpoint(std::string_view const& uri)
 {
-    m_changed = true;
     auto const count = std::erase_if(m_endpoints, [&uri] (Options::Endpoint const& existing) {
         return uri == existing.constructed.binding.GetUri();
     });
-    return count == 1;
+
+    m_changed = count == 1;
+    return m_changed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -581,7 +591,9 @@ bool Configuration::Parser::RemoveEndpoint(Network::Protocol protocol, std::stri
     auto const count = std::erase_if(m_endpoints, [&protocol, &binding] (Options::Endpoint const& existing) {
         return protocol == existing.constructed.protocol && binding == existing.binding;
     });
-    return count == 1;
+
+    m_changed = count == 1;
+    return m_changed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -589,11 +601,13 @@ bool Configuration::Parser::RemoveEndpoint(Network::Protocol protocol, std::stri
 void Configuration::Parser::SetSecurityStrategy(Security::Strategy strategy)
 {
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
-    m_changed = true;
-    m_security.constructed.strategy = strategy;
-    switch (strategy) {
-        case Security::Strategy::PQNISTL3: m_security.strategy = "PQNISTL3"; break;
-        default: assert(false); break;
+    if (strategy != m_security.constructed.strategy) {
+        m_changed = true;
+        m_security.constructed.strategy = strategy;
+        switch (strategy) {
+            case Security::Strategy::PQNISTL3: m_security.strategy = "PQNISTL3"; break;
+            default: assert(false); break;
+        }
     }
 }
 
@@ -601,8 +615,10 @@ void Configuration::Parser::SetSecurityStrategy(Security::Strategy strategy)
 
 void Configuration::Parser::SetNetworkToken(std::string_view const& token)
 {
-    m_changed = true;
-    m_security.token = token;
+    if (token != m_security.token) {
+        m_changed = true;
+        m_security.token = token;
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

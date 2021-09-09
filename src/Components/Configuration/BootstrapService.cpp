@@ -98,10 +98,21 @@ struct local::EndpointEntry
 
 //----------------------------------------------------------------------------------------------------------------------
 
-BootstrapService::BootstrapService(
-    std::filesystem::path const& filepath,
-    Configuration::Options::Endpoints const& endpoints,
-    bool useFilepathDeduction)
+BootstrapService::BootstrapService()
+    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    , m_spDelegate()
+    , m_mediator(nullptr)
+    , m_filepath()
+    , m_cache()
+    , m_stage()
+    , m_defaults()
+{
+    assert(m_logger);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+BootstrapService::BootstrapService(std::filesystem::path const& filepath, bool useFilepathDeduction)
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_spDelegate()
     , m_mediator(nullptr)
@@ -111,8 +122,6 @@ BootstrapService::BootstrapService(
     , m_defaults()
 {
     assert(m_logger);
-
-    local::ParseDefaultBootstraps(endpoints, m_defaults);
 
     // An empty filepath indicates that filesystem usage has been disabled. The service can still be used to 
     // store runtime state, but no bootstraps will be cached between runs. 
@@ -167,6 +176,17 @@ void BootstrapService::DisableFilesystem()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool BootstrapService::FilesystemDisabled() const { return m_filepath.empty(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void BootstrapService::SetDefaults(Configuration::Options::Endpoints const& endpoints)
+{
+    local::ParseDefaultBootstraps(endpoints, m_defaults);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void BootstrapService::Register(IPeerMediator* const mediator)
 {
     assert(!m_mediator);
@@ -203,9 +223,10 @@ void BootstrapService::UnregisterServices()
 
 bool BootstrapService::FetchBootstraps()
 {
-    if (m_filepath.empty()) { return true; } // There is nothing to do if filesystem usage has been disabled. 
+    // We should not process the file if filesystem usage has been disabled or the cache is in use. 
+    if (m_filepath.empty() || !m_cache.empty()) { return true; }
 
-    Configuration::StatusCode status = (std::filesystem::exists(m_filepath)) ? Deserialize() : InitializeFile();
+    Configuration::StatusCode status = (std::filesystem::exists(m_filepath)) ? Deserialize() : InitializeCache();
     bool const success = (!m_cache.empty() || status == Configuration::StatusCode::Success);
     return success;
 }
@@ -459,18 +480,18 @@ Configuration::StatusCode BootstrapService::Deserialize()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode BootstrapService::InitializeFile()
+Configuration::StatusCode BootstrapService::InitializeCache()
 {
     using enum Configuration::StatusCode;
     assert(Assertions::Threading::IsCoreThread());
-    if (m_filepath.empty()) { return Success; } // An empty filepath indicates serialization has been disabled. 
-
-    m_logger->debug("Generating bootstrap file at: {}.", m_filepath.string());
 
     for (auto const& [protocol, optDefault] : m_defaults) {
         if (optDefault && optDefault->IsValid()) [[likely]] { m_cache.emplace(*optDefault); }
     }
 
+    if (m_filepath.empty()) { return Success; } // If filesystem usage is disabled, there is nothing more to do. 
+
+    m_logger->debug("Generating bootstrap file at: {}.", m_filepath.string());
     return Serialize();
 }
 

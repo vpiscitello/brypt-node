@@ -38,16 +38,16 @@ public:
 
     struct CacheUpdateResult { std::size_t applied; std::int32_t difference; };
 
-    explicit BootstrapService(
-        std::filesystem::path const& filepath,
-        Configuration::Options::Endpoints const& endpoints = {},
-        bool useFilepathDeduction = true);
-
+    BootstrapService();
+    explicit BootstrapService(std::filesystem::path const& filepath, bool useFilepathDeduction = true);
     ~BootstrapService();
 
     std::filesystem::path const& GetFilepath() const;
     void SetFilepath(std::filesystem::path const& filepath);
     void DisableFilesystem();
+    [[nodiscard]] bool FilesystemDisabled() const;
+
+    void SetDefaults(Configuration::Options::Endpoints const& endpoints);
 
     void Register(IPeerMediator* const mediator);
     void Register(std::shared_ptr<Scheduler::Service> const& spScheduler);
@@ -82,7 +82,7 @@ private:
     };
 
     [[nodiscard]] Configuration::StatusCode Deserialize();
-    [[nodiscard]] Configuration::StatusCode InitializeFile();
+    [[nodiscard]] Configuration::StatusCode InitializeCache();
     [[nodiscard]] bool MaybeAddDefaultBootstrap(Network::Protocol protocol, BootstrapCache& bootstraps);
 
     std::shared_ptr<spdlog::logger> m_logger;

@@ -112,7 +112,7 @@ std::int32_t main(std::int32_t argc, char** argv)
 
 Startup::Resources Startup::InitializeResources(std::int32_t argc, char** argv)
 {
-    Options options; 
+    Startup::Options options; 
     switch (options.Parse(argc, argv)) {
         // On success, we can continue directly to initializing the runtime resources. 
         case ParseCode::Success: break;
@@ -139,8 +139,9 @@ Startup::Resources Startup::InitializeResources(std::int32_t argc, char** argv)
 
     // Create the bootstrap service and read the initial bootstraps from the file. If we fail to fetch the bootstraps,
     // log an error and return early. 
-    auto spBootstrapService = std::make_shared<BootstrapService>(
-        options.GetBootstrapPath(), upParser->GetEndpoints(), upParser->UseFilepathDeduction());
+    auto spBootstrapService = std::make_shared<BootstrapService>(options.GetBootstrapPath(), options.IsInteractive());
+    spBootstrapService->SetDefaults(upParser->GetEndpoints());
+
     if (!spBootstrapService->FetchBootstraps()) {
         logger->critical("An error occured parsing bootstraps!");
         return { ParseCode::Malformed, nullptr, nullptr };

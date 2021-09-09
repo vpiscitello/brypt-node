@@ -73,7 +73,8 @@ TEST(BootstrapServiceSuite, DefualtBootstrapTest)
     // Verify we can initalize the cache state and generate the file from the provided configuration.
     {
         auto const spScheduler = std::make_shared<Scheduler::Service>();
-        BootstrapService service(filepath, configuration);
+        BootstrapService service(filepath);
+        service.SetDefaults(configuration);
         service.Register(spScheduler);
 
         EXPECT_TRUE(service.FetchBootstraps());

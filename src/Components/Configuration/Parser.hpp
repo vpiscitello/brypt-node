@@ -42,6 +42,7 @@ public:
     std::filesystem::path const& GetFilepath() const;
     void SetFilepath(std::filesystem::path const& filepath);
     void DisableFilesystem();
+    [[nodiscard]] bool FilesystemDisabled() const;
 
     [[nodiscard]] RuntimeContext GetRuntimeContext() const;
     [[nodiscard]] spdlog::level::level_enum GetVerbosity() const;
@@ -62,10 +63,9 @@ public:
 
     [[nodiscard]] bool Validated() const;
     [[nodiscard]] bool Changed() const;
-    [[nodiscard]] bool FilesystemDisabled() const;
 
     void SetRuntimeContext(RuntimeContext context);
-    void SetVerbosity(spdlog::level::level_enum level);
+    void SetVerbosity(spdlog::level::level_enum verbosity);
     void SetUseInteractiveConsole(bool use);
     void SetUseBootstraps(bool use);
     void SetUseFilepathDeduction(bool use);
