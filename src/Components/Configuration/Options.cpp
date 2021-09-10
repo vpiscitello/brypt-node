@@ -99,13 +99,11 @@ bool Configuration::Options::Identifier::operator==(Identifier const& other) con
 
 void Configuration::Options::Identifier::Merge(Identifier& other)
 {
-    // The existing values of this object is chosen over the other's values. 
-    if (type.empty()) {
+    // If this option set is an ephemeral and the other's is persistent, choose the other's value. Otherwise, the 
+    // current values shall remain as there's no need to generate a new identifier. 
+    if (constructed.type == Type::Invalid || (constructed.type == Type::Ephemeral && other.type == "Persistent")) {
         type = std::move(other.type);
         constructed.type = other.constructed.type;
-    }
-
-    if (!value.has_value()) { 
         value = std::move(other.value);
         constructed.value = std::move(other.constructed.value);
     }
@@ -119,8 +117,11 @@ bool Configuration::Options::Identifier::Initialize()
         // Generate a new Brypt Identifier and store the network representation as the value.
         constructed.value = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
         value = *constructed.value;
-        return true;
+        return constructed.value->IsValid();
     };
+
+    // If we already have a constructed value and is valid, don't regenerate the identifier. 
+    if (constructed.value && constructed.value->IsValid()) { return true; }
 
     // If the identifier type is Ephemeral, then a new identifier should be generated. 
     if (type == "Ephemeral") { 

@@ -69,7 +69,7 @@ public:
     void SetUseInteractiveConsole(bool use);
     void SetUseBootstraps(bool use);
     void SetUseFilepathDeduction(bool use);
-    void SetNodeIdentifier(Options::Identifier::Type type);
+    [[nodiscard]] bool SetNodeIdentifier(Options::Identifier::Type type);
     void SetNodeName(std::string_view const& name);
     void SetNodeDescription(std::string_view const& description);
     void SetNodeLocation(std::string_view const& location);

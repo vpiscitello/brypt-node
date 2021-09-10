@@ -131,7 +131,7 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     parser.SetUseFilepathDeduction(true);
     EXPECT_TRUE(parser.UseFilepathDeduction());
 
-    parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent);
+    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent));
     EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Persistent);
     EXPECT_TRUE(parser.GetNodeIdentifier());
 
@@ -206,7 +206,7 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     Configuration::Parser parser(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
     if (std::filesystem::exists(parser.GetFilepath())) { std::filesystem::remove(parser.GetFilepath()); }
 
-    parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent);
+    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent));
     parser.SetNodeName("original_name");
     parser.SetNodeDescription("original_description");
     parser.SetNodeLocation("original_location");
@@ -221,7 +221,7 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     Configuration::Parser merger(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
 
     // Set some values before deserializing the configuration file. 
-    merger.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral);
+    EXPECT_TRUE(merger.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral));
     merger.SetNodeLocation("merge_location");
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35216", "127.0.0.1:35217" }));
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35226" }));
@@ -233,8 +233,7 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
 
     // Verify the merged values have been chosen correctly. Values that were set before, reading the file should
     // be selected over the values from the file. 
-    EXPECT_NE(merger.GetIdentifierType(), parser.GetIdentifierType()); // The identifier type should differ. 
-    EXPECT_EQ(merger.GetIdentifierType(), Configuration::Options::Identifier::Type::Ephemeral);
+    EXPECT_EQ(merger.GetIdentifierType(), parser.GetIdentifierType()); // The persistent identifier should be chosen.
     EXPECT_EQ(merger.GetNodeName(), parser.GetNodeName());
     EXPECT_EQ(merger.GetNodeDescription(), parser.GetNodeDescription());
     EXPECT_NE(merger.GetNodeLocation(), parser.GetNodeLocation()); // The node location should differ. 
@@ -248,7 +247,7 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
         auto const spIdentifier = parser.GetNodeIdentifier();
         auto const spCheckIdentifier = merger.GetNodeIdentifier();
         ASSERT_TRUE(spCheckIdentifier && spIdentifier);
-        EXPECT_NE(*spCheckIdentifier, *spIdentifier); // The identifier value should differ. 
+        EXPECT_EQ(*spCheckIdentifier, *spIdentifier); // The identifier value should differ. 
     }
 
     {
@@ -306,7 +305,7 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_EQ(parser.GetNetworkToken(), "");
 
     // The parser should flip the changed flag when a field has been set. 
-    parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral);
+    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral));
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
 

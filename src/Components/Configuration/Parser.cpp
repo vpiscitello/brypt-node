@@ -251,7 +251,6 @@ Configuration::Parser::~Parser()
 {
     if (!m_filepath.empty() && m_changed) {
         [[maybe_unused]] auto const status = Serialize();
-        assert(status == Configuration::StatusCode::Success); 
     }
 }
 
@@ -494,7 +493,7 @@ void Configuration::Parser::SetUseFilepathDeduction(bool use)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
+bool Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
 {
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     // Additionally, setting the type should always cause a change in the identifier. 
@@ -506,9 +505,9 @@ void Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
         default: assert(false); break;
     }
 
-     // Currently, changes  to the identifier type will always update the actual identifier. 
-    [[maybe_unused]] bool const initialized = m_identifier.Initialize();
-    assert(initialized); // We control the "parsed" values, so initialization should never fail. 
+    // Currently, changes  to the identifier type will always update the actual identifier. 
+    m_identifier.constructed.value.reset(); 
+    return m_identifier.Initialize();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
