@@ -70,9 +70,9 @@ public:
     void SetUseBootstraps(bool use);
     void SetUseFilepathDeduction(bool use);
     [[nodiscard]] bool SetNodeIdentifier(Options::Identifier::Type type);
-    void SetNodeName(std::string_view const& name);
-    void SetNodeDescription(std::string_view const& description);
-    void SetNodeLocation(std::string_view const& location);
+    [[nodiscard]] bool SetNodeName(std::string_view const& name);
+    [[nodiscard]] bool SetNodeDescription(std::string_view const& description);
+    [[nodiscard]] bool SetNodeLocation(std::string_view const& location);
     [[nodiscard]] bool UpsertEndpoint(Options::Endpoint&& options);
     [[nodiscard]] bool RemoveEndpoint(Network::BindingAddress const& binding);
     [[nodiscard]] bool RemoveEndpoint(std::string_view const& uri);

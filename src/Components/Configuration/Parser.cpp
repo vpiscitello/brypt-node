@@ -506,38 +506,54 @@ bool Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
     }
 
     // Currently, changes  to the identifier type will always update the actual identifier. 
+    m_identifier.value.reset();
     m_identifier.constructed.value.reset(); 
     return m_identifier.Initialize();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetNodeName(std::string_view const& name)
+bool Configuration::Parser::SetNodeName(std::string_view const& name)
 {
+    constexpr std::size_t limit = 64;
+    if (name.size() > limit) { return false; }
+
     if (name != m_details.name) {
         m_changed = true;
         m_details.name = name;
     }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetNodeDescription(std::string_view const& description)
+bool Configuration::Parser::SetNodeDescription(std::string_view const& description)
 {
+    constexpr std::size_t limit = 256;
+    if (description.size() > limit) { return false; }
+
     if (description != m_details.description) {
         m_changed = true;
         m_details.description = description;
     }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetNodeLocation(std::string_view const& location)
+bool Configuration::Parser::SetNodeLocation(std::string_view const& location)
 {
+    constexpr std::size_t limit = 256;
+    if (location.size() > limit) { return false; }
+
     if (location != m_details.location) {
         m_changed = true;
         m_details.location = location;
     }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
