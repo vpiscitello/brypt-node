@@ -12,7 +12,8 @@ target_sources(
     PRIVATE
     # Source Files
     Delegate.cpp
-    Registrar.cpp)
+    Registrar.cpp
+    TaskService.cpp)
 
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
