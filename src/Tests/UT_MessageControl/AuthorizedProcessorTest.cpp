@@ -6,7 +6,7 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -92,8 +92,8 @@ private:
 
 TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    AuthorizedProcessor processor(test::ServerIdentifier, {}, spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    AuthorizedProcessor processor(test::ServerIdentifier, {}, spRegistrar);
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.
@@ -163,8 +163,8 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
 
 TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    AuthorizedProcessor processor(test::ServerIdentifier, {}, spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    AuthorizedProcessor processor(test::ServerIdentifier, {}, spRegistrar);
     std::optional<ApplicationMessage> optCapturedMessage;
 
     // Create a peer representing a connection to a client.

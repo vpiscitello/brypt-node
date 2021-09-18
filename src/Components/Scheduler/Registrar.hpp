@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Service.hpp
+// File: Registrar.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -24,7 +24,7 @@ namespace Scheduler {
 //----------------------------------------------------------------------------------------------------------------------
 
 class Sentinel;
-class Service;
+class Registrar;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Scheduler namespace
@@ -53,15 +53,15 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Scheduler::Service : public Scheduler::Sentinel
+class Scheduler::Registrar : public Scheduler::Sentinel
 {
 public:
     using Delegates = std::vector<std::shared_ptr<Delegate>>;
 
-    Service();
+    Registrar();
 
     [[nodiscard]] bool Initialize();
-    void Execute();
+    std::size_t Execute();
 
     template<typename ServiceType> requires std::is_class_v<ServiceType>
     std::shared_ptr<Delegate> Register(OnExecute const& callback);
@@ -86,7 +86,7 @@ private:
 //----------------------------------------------------------------------------------------------------------------------
 
 template<typename ServiceType> requires std::is_class_v<ServiceType>
-std::shared_ptr<Scheduler::Delegate> Scheduler::Service::Register(OnExecute const& callback)
+std::shared_ptr<Scheduler::Delegate> Scheduler::Registrar::Register(OnExecute const& callback)
 {
     assert(Assertions::Threading::IsCoreThread());
     assert(!GetDelegate<ServiceType>()); // Currently, only one delegate per service type is supported. 
@@ -98,7 +98,7 @@ std::shared_ptr<Scheduler::Delegate> Scheduler::Service::Register(OnExecute cons
 //----------------------------------------------------------------------------------------------------------------------
 
 template<typename ServiceType> requires std::is_class_v<ServiceType>
-std::shared_ptr<Scheduler::Delegate> Scheduler::Service::GetDelegate() const
+std::shared_ptr<Scheduler::Delegate> Scheduler::Registrar::GetDelegate() const
 {
     return GetDelegate(typeid(ServiceType).hash_code());
 }

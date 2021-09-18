@@ -31,7 +31,7 @@ public:
     using Dependencies = std::set<Identifier>;
 
     // Note: Only the scheduler should be used to set the priority and  execute the service. 
-    class ExecuteKey { public: friend class Service; private: ExecuteKey() = default; };
+    class ExecuteKey { public: friend class Registrar; private: ExecuteKey() = default; };
 
     Delegate(Identifier const& identifier, OnExecute const& callback, Sentinel* const sentinel);
 

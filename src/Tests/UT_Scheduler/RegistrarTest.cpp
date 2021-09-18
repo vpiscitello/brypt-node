@@ -1,5 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -32,7 +33,7 @@ namespace test {
 class local::IndependentExecutor
 {
 public:
-    explicit IndependentExecutor(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit IndependentExecutor(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
     void ResetExecutionStatus() { m_executed = false; }
@@ -46,7 +47,7 @@ private:
 class local::DependentExecutorAlpha
 {
 public:
-    explicit DependentExecutorAlpha(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit DependentExecutorAlpha(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
     void ResetExecutionStatus() { m_executed = false; }
@@ -60,7 +61,7 @@ private:
 class local::DependentExecutorBeta
 {
 public:
-    explicit DependentExecutorBeta(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit DependentExecutorBeta(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
     void ResetExecutionStatus() { m_executed = false; }
@@ -74,7 +75,7 @@ private:
 class local::DependentExecutorGamma
 {
 public:
-    explicit DependentExecutorGamma(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit DependentExecutorGamma(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     [[nodiscard]] bool Executed() const { return m_executed; }
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
     void ResetExecutionStatus() { m_executed = false; }
@@ -88,7 +89,7 @@ private:
 class local::CyclicExecutorAlpha
 {
 public:
-    explicit CyclicExecutorAlpha(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit CyclicExecutorAlpha(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
 private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
@@ -99,7 +100,7 @@ private:
 class local::CyclicExecutorBeta
 {
 public:
-    explicit CyclicExecutorBeta(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit CyclicExecutorBeta(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     [[nodiscard]] std::size_t GetPriority() const { return m_spDelegate->GetPriority(); }
 private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
@@ -109,33 +110,33 @@ private:
 
 TEST(SchedulerSchedulerSuite, PriorityOrderTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spScheduler);
-    auto const spDependentExecutorBeta = std::make_shared<local::DependentExecutorBeta>(spScheduler);
-    auto const spDependentExecutorGamma = std::make_shared<local::DependentExecutorGamma>(spScheduler);
-    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spRegistrar);
+    auto const spDependentExecutorBeta = std::make_shared<local::DependentExecutorBeta>(spRegistrar);
+    auto const spDependentExecutorGamma = std::make_shared<local::DependentExecutorGamma>(spRegistrar);
+    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spRegistrar);
 
-    EXPECT_TRUE(spScheduler->Initialize());
+    EXPECT_TRUE(spRegistrar->Initialize());
 
     EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
     EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), 3);
     EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 4);
     EXPECT_EQ(spDependentExecutorGamma->GetPriority(), 2);
 
-    EXPECT_EQ(spScheduler->AvailableTasks(), 4);
+    EXPECT_EQ(spRegistrar->AvailableTasks(), 4);
 
-    auto const spIndependentDelegate = spScheduler->GetDelegate<local::IndependentExecutor>();
+    auto const spIndependentDelegate = spRegistrar->GetDelegate<local::IndependentExecutor>();
     ASSERT_TRUE(spIndependentDelegate);
     EXPECT_EQ(spIndependentDelegate->AvailableTasks(), 1);
 
-    spScheduler->Execute();
+    EXPECT_EQ(spRegistrar->Execute(), 4);
 
     EXPECT_TRUE(spIndependentExecutor->Executed());
     EXPECT_TRUE(spDependentExecutorAlpha->Executed());
     EXPECT_TRUE(spDependentExecutorBeta->Executed());
     EXPECT_TRUE(spDependentExecutorGamma->Executed());
 
-    EXPECT_EQ(spScheduler->AvailableTasks(), 0);
+    EXPECT_EQ(spRegistrar->AvailableTasks(), 0);
     EXPECT_EQ(spIndependentDelegate->AvailableTasks(), 0);
 }
 
@@ -143,12 +144,12 @@ TEST(SchedulerSchedulerSuite, PriorityOrderTest)
 
 TEST(SchedulerSchedulerSuite, CyclicDependencyTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spScheduler);
-    auto const spCyclicExecutorAlpha = std::make_shared<local::CyclicExecutorAlpha>(spScheduler);
-    auto const spCyclicExecutorBeta = std::make_shared<local::CyclicExecutorBeta>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spRegistrar);
+    auto const spCyclicExecutorAlpha = std::make_shared<local::CyclicExecutorAlpha>(spRegistrar);
+    auto const spCyclicExecutorBeta = std::make_shared<local::CyclicExecutorBeta>(spRegistrar);
 
-    EXPECT_FALSE(spScheduler->Initialize());
+    EXPECT_FALSE(spRegistrar->Initialize());
 
     EXPECT_EQ(spIndependentExecutor->GetPriority(), std::numeric_limits<std::size_t>::max());
     EXPECT_EQ(spCyclicExecutorAlpha->GetPriority(), std::numeric_limits<std::size_t>::max());
@@ -159,52 +160,52 @@ TEST(SchedulerSchedulerSuite, CyclicDependencyTest)
 
 TEST(SchedulerSchedulerSuite, DelistTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spScheduler);
-    auto const spDependentExecutorBeta = std::make_shared<local::DependentExecutorBeta>(spScheduler);
-    auto const spDependentExecutorGamma = std::make_shared<local::DependentExecutorGamma>(spScheduler);
-    auto spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spIndependentExecutor = std::make_shared<local::IndependentExecutor>(spRegistrar);
+    auto const spDependentExecutorBeta = std::make_shared<local::DependentExecutorBeta>(spRegistrar);
+    auto const spDependentExecutorGamma = std::make_shared<local::DependentExecutorGamma>(spRegistrar);
+    auto spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spRegistrar);
 
-    EXPECT_TRUE(spScheduler->Initialize());
+    EXPECT_TRUE(spRegistrar->Initialize());
 
     EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
     EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), 3);
     EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 4);
     EXPECT_EQ(spDependentExecutorGamma->GetPriority(), 2);
 
-    EXPECT_EQ(spScheduler->AvailableTasks(), 4);
+    EXPECT_EQ(spRegistrar->AvailableTasks(), 4);
 
     {
-        auto const spDelegate = spScheduler->GetDelegate<local::DependentExecutorAlpha>();
+        auto const spDelegate = spRegistrar->GetDelegate<local::DependentExecutorAlpha>();
         ASSERT_TRUE(spDelegate);
         spDelegate->Delist();
         EXPECT_EQ(spDelegate->GetPriority(), std::numeric_limits<std::size_t>::max());
-        EXPECT_EQ(spScheduler->AvailableTasks(), 3);
+        EXPECT_EQ(spRegistrar->AvailableTasks(), 3);
     }
 
-    spScheduler->Execute();
+    EXPECT_EQ(spRegistrar->Execute(), 3);
 
     EXPECT_TRUE(spIndependentExecutor->Executed());
     EXPECT_FALSE(spDependentExecutorAlpha->Executed());
     EXPECT_TRUE(spDependentExecutorBeta->Executed());
     EXPECT_TRUE(spDependentExecutorGamma->Executed());
-    EXPECT_EQ(spScheduler->AvailableTasks(), 0);
+    EXPECT_EQ(spRegistrar->AvailableTasks(), 0);
 
     {
-        auto const spDelegate = spScheduler->GetDelegate<local::DependentExecutorAlpha>();
+        auto const spDelegate = spRegistrar->GetDelegate<local::DependentExecutorAlpha>();
         EXPECT_FALSE(spDelegate);
     }
 
-    EXPECT_TRUE(spScheduler->Initialize());
+    EXPECT_TRUE(spRegistrar->Initialize());
     EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
     EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), std::numeric_limits<std::size_t>::max());
     EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 3);
     EXPECT_EQ(spDependentExecutorGamma->GetPriority(), 2);
     
-    spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spScheduler);
-    EXPECT_EQ(spScheduler->AvailableTasks(), 1);
+    spDependentExecutorAlpha = std::make_shared<local::DependentExecutorAlpha>(spRegistrar);
+    EXPECT_EQ(spRegistrar->AvailableTasks(), 1);
 
-    EXPECT_TRUE(spScheduler->Initialize());
+    EXPECT_TRUE(spRegistrar->Initialize());
     EXPECT_EQ(spIndependentExecutor->GetPriority(), 1);
     EXPECT_EQ(spDependentExecutorAlpha->GetPriority(), 3);
     EXPECT_EQ(spDependentExecutorBeta->GetPriority(), 4);
@@ -215,79 +216,79 @@ TEST(SchedulerSchedulerSuite, DelistTest)
     spDependentExecutorBeta->ResetExecutionStatus();
     spDependentExecutorGamma->ResetExecutionStatus();
     
-    spScheduler->Execute();
+    EXPECT_EQ(spRegistrar->Execute(), 1);
     EXPECT_FALSE(spIndependentExecutor->Executed());
     EXPECT_TRUE(spDependentExecutorAlpha->Executed());
     EXPECT_FALSE(spDependentExecutorBeta->Executed());
     EXPECT_FALSE(spDependentExecutorGamma->Executed());
-    EXPECT_EQ(spScheduler->AvailableTasks(), 0);
+    EXPECT_EQ(spRegistrar->AvailableTasks(), 0);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::IndependentExecutor::IndependentExecutor(std::shared_ptr<Scheduler::Service> const& spScheduler)
+local::IndependentExecutor::IndependentExecutor(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
     , m_executed(false)
 {
     auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
-    m_spDelegate = spScheduler->Register<IndependentExecutor>(OnExecute);
+    m_spDelegate = spRegistrar->Register<IndependentExecutor>(OnExecute);
     m_spDelegate->OnTaskAvailable();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::DependentExecutorAlpha::DependentExecutorAlpha(std::shared_ptr<Scheduler::Service> const& spScheduler)
+local::DependentExecutorAlpha::DependentExecutorAlpha(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
     , m_executed(false)
 {
     auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
-    m_spDelegate = spScheduler->Register<DependentExecutorAlpha>(OnExecute);
+    m_spDelegate = spRegistrar->Register<DependentExecutorAlpha>(OnExecute);
     m_spDelegate->Depends<DependentExecutorGamma>();
     m_spDelegate->OnTaskAvailable();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::DependentExecutorBeta::DependentExecutorBeta(std::shared_ptr<Scheduler::Service> const& spScheduler)
+local::DependentExecutorBeta::DependentExecutorBeta(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
     , m_executed(false)
 {
     auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
-    m_spDelegate = spScheduler->Register<DependentExecutorBeta>(OnExecute);
+    m_spDelegate = spRegistrar->Register<DependentExecutorBeta>(OnExecute);
     m_spDelegate->Depends<DependentExecutorAlpha, DependentExecutorGamma>();
     m_spDelegate->OnTaskAvailable();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::DependentExecutorGamma::DependentExecutorGamma(std::shared_ptr<Scheduler::Service> const& spScheduler)
+local::DependentExecutorGamma::DependentExecutorGamma(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
     , m_executed(false)
 {
     auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
-    m_spDelegate = spScheduler->Register<DependentExecutorGamma>(OnExecute);
+    m_spDelegate = spRegistrar->Register<DependentExecutorGamma>(OnExecute);
     m_spDelegate->Depends<IndependentExecutor>();
     m_spDelegate->OnTaskAvailable();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::CyclicExecutorAlpha::CyclicExecutorAlpha(std::shared_ptr<Scheduler::Service> const& spScheduler)
+local::CyclicExecutorAlpha::CyclicExecutorAlpha(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
 {
     auto const OnExecute = [this] () -> std::size_t { return 1; };
-    m_spDelegate = spScheduler->Register<CyclicExecutorAlpha>(OnExecute);
+    m_spDelegate = spRegistrar->Register<CyclicExecutorAlpha>(OnExecute);
     m_spDelegate->Depends<IndependentExecutor, CyclicExecutorBeta>();
     m_spDelegate->OnTaskAvailable();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-local::CyclicExecutorBeta::CyclicExecutorBeta(std::shared_ptr<Scheduler::Service> const& spScheduler)
+local::CyclicExecutorBeta::CyclicExecutorBeta(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
 {
     auto const OnExecute = [this] () -> std::size_t { return 1; };
-    m_spDelegate = spScheduler->Register<CyclicExecutorBeta>(OnExecute);
+    m_spDelegate = spRegistrar->Register<CyclicExecutorBeta>(OnExecute);
     m_spDelegate->Depends<IndependentExecutor, CyclicExecutorAlpha>();
     m_spDelegate->OnTaskAvailable();
 }

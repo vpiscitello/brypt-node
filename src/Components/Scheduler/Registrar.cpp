@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Service.cpp
+// File: Registrar.cpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-#include "Service.hpp"
+#include "Registrar.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
@@ -49,7 +49,7 @@ void Scheduler::Sentinel::OnTaskCompleted(std::size_t completed) { m_available -
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Scheduler::Service::Service()
+Scheduler::Registrar::Registrar()
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_delegates()
     , m_initialized(false)
@@ -60,7 +60,7 @@ Scheduler::Service::Service()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Scheduler::Service::Initialize()
+bool Scheduler::Registrar::Initialize()
 {
     assert(Assertions::Threading::IsCoreThread());
     m_initialized = ResolveDependencies() && UpdatePriorityOrder();
@@ -69,26 +69,25 @@ bool Scheduler::Service::Initialize()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Scheduler::Service::Execute()
+std::size_t Scheduler::Registrar::Execute()
 {
     assert(Assertions::Threading::IsCoreThread());
     assert(m_initialized);
 
-    constexpr auto ready = [] (auto const& delegate) -> bool
-    { 
-        return delegate->IsReady();
-    };
-
-    std::ranges::for_each(m_delegates | std::views::filter(ready), [this] (auto const& delegate) { 
+    std::size_t total = 0;
+    constexpr auto ready = [] (auto const& delegate) -> bool {  return delegate->IsReady(); };
+    std::ranges::for_each(m_delegates | std::views::filter(ready), [this, &total] (auto const& delegate) { 
        std::size_t const executed = delegate->Execute({});
        assert(executed != 0); // The delegate should always indicate at least one task was executed. 
        OnTaskCompleted(executed);
+       total += executed;
     });
+    return total;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Scheduler::Service::Delist(Delegate::Identifier identifier)
+void Scheduler::Registrar::Delist(Delegate::Identifier identifier)
 {
     assert(Assertions::Threading::IsCoreThread());
     auto const itr = std::ranges::find_if(m_delegates, [&identifier] (auto const& delegate) {
@@ -103,7 +102,7 @@ void Scheduler::Service::Delist(Delegate::Identifier identifier)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::shared_ptr<Scheduler::Delegate> Scheduler::Service::GetDelegate(Delegate::Identifier identifier) const
+std::shared_ptr<Scheduler::Delegate> Scheduler::Registrar::GetDelegate(Delegate::Identifier identifier) const
 {
     constexpr auto projection = [] (auto const& delegate) -> auto { return delegate->GetIdentifier(); };
     auto const compare = [&identifier] (Delegate::Identifier const& other) -> bool { return identifier == other; };
@@ -115,12 +114,11 @@ std::shared_ptr<Scheduler::Delegate> Scheduler::Service::GetDelegate(Delegate::I
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Scheduler::Service::ResolveDependencies()
+bool Scheduler::Registrar::ResolveDependencies()
 {
     using RecursiveResolve = std::function<
         bool(std::shared_ptr<Delegate>, Delegate::Dependencies&, Delegate::Dependencies&)>;
-    RecursiveResolve const resolve = [&] (auto const& delegate, auto& resolved, auto& unresolved) -> bool
-    {
+    RecursiveResolve const resolve = [&] (auto const& delegate, auto& resolved, auto& unresolved) -> bool {
         unresolved.emplace(delegate->GetIdentifier()); // Mark the current delegate as being actively resolved. 
         for (auto const dependency : delegate->GetDependencies()) {
             // If we haven't already resolved the current dependency, integrate the ddependency's chain. 
@@ -167,12 +165,11 @@ bool Scheduler::Service::ResolveDependencies()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Scheduler::Service::UpdatePriorityOrder()
+bool Scheduler::Registrar::UpdatePriorityOrder()
 {
     using DependentCounts = std::unordered_map<Delegate::Identifier, std::uint32_t>;
     using ReadyDelegates = std::deque<std::shared_ptr<Delegate>>;
-    constexpr auto ComputeDependents = [] (auto const& delegates) -> DependentCounts
-    {
+    constexpr auto ComputeDependents = [] (auto const& delegates) -> DependentCounts {
         DependentCounts dependents;
 
         // Ensure each delegate has an initial entry with zero dependents. 

@@ -11,7 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
-    SchedulerServiceTest.cpp
+    RegistrarTest.cpp
     UT_Scheduler.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})

@@ -10,7 +10,7 @@
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
 #include "Components/Peer/Proxy.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -75,8 +75,8 @@ private:
 
 TEST(TcpEndpointSuite, SingleConnectionTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
 
     // Create the server resources. The peer mediator stub will store a single Peer::Proxy representing the client.
     auto upServerProcessor = std::make_unique<MessageSinkStub>(test::ServerIdentifier);

@@ -10,7 +10,7 @@
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Scheduler/Delegate.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -20,13 +20,13 @@
 AuthorizedProcessor::AuthorizedProcessor(
 	Node::SharedIdentifier const& spNodeIdentifier,
 	Handler::Map const& handlers,
-	std::shared_ptr<Scheduler::Service> const& spScheduler)
+	std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
 	, m_spNodeIdentifier(spNodeIdentifier)
     , m_incomingMutex()
 	, m_incoming()
 {
-	m_spDelegate = spScheduler->Register<AuthorizedProcessor>([this, &handlers] () -> std::size_t {
+	m_spDelegate = spRegistrar->Register<AuthorizedProcessor>([this, &handlers] () -> std::size_t {
 		assert(( std::scoped_lock{ m_incomingMutex }, !m_incoming.empty() ));
 		if (auto const optMessage = GetNextMessage(); optMessage) {
 			auto& [spPeerProxy, message] = *optMessage;

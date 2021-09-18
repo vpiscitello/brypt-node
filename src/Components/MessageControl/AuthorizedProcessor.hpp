@@ -19,7 +19,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 namespace Peer { class Proxy; }
-namespace Scheduler { class Delegate; class Service; }
+namespace Scheduler { class Delegate; class Registrar; }
 
 class ApplicationMessage;
 class NetworkMessage;
@@ -33,7 +33,7 @@ public:
     AuthorizedProcessor(
         Node::SharedIdentifier const& spNodeIdentifier,
         Handler::Map const& handlers,
-        std::shared_ptr<Scheduler::Service> const& spScheduler);
+        std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
 
     ~AuthorizedProcessor();
 

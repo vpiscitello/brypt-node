@@ -4,10 +4,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Publisher.hpp"
 #include "Components/Scheduler/Delegate.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
-Event::Publisher::Publisher(std::shared_ptr<Scheduler::Service> const& spScheduler)
+Event::Publisher::Publisher(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
     , m_hasSuspendedSubscriptions(false)
     , m_listeners()
@@ -22,7 +22,7 @@ Event::Publisher::Publisher(std::shared_ptr<Scheduler::Service> const& spSchedul
         // 1.) All subscriptions occur on the main thread.
         // 2.) Publishing does not begin until the main thread has suspended subscriptions. 
 
-    m_spDelegate = spScheduler->Register<Publisher>([this] () -> std::size_t {
+    m_spDelegate = spRegistrar->Register<Publisher>([this] () -> std::size_t {
         return Dispatch();  // Dispatch any generated events that have been published since the last cycle. 
     }); 
     

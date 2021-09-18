@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BootstrapService.hpp"
 #include "Components/Scheduler/Delegate.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/FileUtils.hpp"
 #include "Utilities/Logger.hpp"
@@ -195,12 +195,12 @@ void BootstrapService::Register(IPeerMediator* const mediator)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BootstrapService::Register(std::shared_ptr<Scheduler::Service> const& spScheduler)
+void BootstrapService::Register(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
 {
     assert(Assertions::Threading::IsCoreThread());
     assert(!m_spDelegate);
 
-    m_spDelegate = spScheduler->Register<BootstrapService>([this] () -> std::size_t {
+    m_spDelegate = spRegistrar->Register<BootstrapService>([this] () -> std::size_t {
         // Update the bootstrap cache with any changes that have occured since this last cycle. 
         auto const& [applied, difference] = UpdateCache();
         return applied;  // Provide the number of tasks executed to the scheduler. 

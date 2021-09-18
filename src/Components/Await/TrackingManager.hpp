@@ -20,7 +20,7 @@ namespace Peer { class Proxy; }
 
 namespace Scheduler {
     class Delegate;
-    class Service;
+    class Registrar;
 }
 
 class ApplicationMessage;
@@ -41,7 +41,7 @@ class TrackingManager;
 class Await::TrackingManager
 {
 public:
-    explicit TrackingManager(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit TrackingManager(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     ~TrackingManager();
 
     TrackerKey PushRequest(

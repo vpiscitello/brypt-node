@@ -3,7 +3,7 @@
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #include "Delegate.hpp"
-#include "Service.hpp"
+#include "Registrar.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <limits>
 //----------------------------------------------------------------------------------------------------------------------
@@ -75,6 +75,7 @@ void Scheduler::Delegate::Depends(Dependencies&& dependencies)
 
 void Scheduler::Delegate::Delist()
 {
+    assert(m_sentinel);
     m_sentinel->Delist(m_identifier);
     m_priority = std::numeric_limits<std::size_t>::max();
 }

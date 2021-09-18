@@ -22,7 +22,7 @@
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
-namespace Scheduler { class Delegate; class Service; }
+namespace Scheduler { class Delegate; class Registrar; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Event {
@@ -39,7 +39,7 @@ class Event::Publisher
 public:
     using EventAdvertisements = std::set<Type>;
 
-    explicit Publisher(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    explicit Publisher(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     ~Publisher();
 
     Publisher(Publisher const&) = delete; 
@@ -97,8 +97,8 @@ private:
 template<Event::Type SpecificType> requires Event::MessageWithContent<SpecificType>
 bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
 {
-    assert(Assertions::Threading::IsCoreThread());
     if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
+    assert(Assertions::Threading::IsCoreThread());
     
     // In the case of events with content, the listener will need to cast to the derived event type to access the 
     // event's content and then forward them to the supplied handler. 
@@ -116,8 +116,8 @@ bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::Callback
 template<Event::Type SpecificType> requires Event::MessageWithoutContent<SpecificType>
 bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
 {
-    assert(Assertions::Threading::IsCoreThread());
     if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
+    assert(Assertions::Threading::IsCoreThread());
     
     // In the case of events without content, the listener will simply invoke the callback.
     m_listeners[SpecificType].emplace_back([callback] (EventProxy const&) { std::invoke(callback); });

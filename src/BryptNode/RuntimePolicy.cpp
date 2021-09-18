@@ -10,7 +10,7 @@
 #include "Components/Event/Publisher.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Peer/Manager.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/CallbackIteration.hpp"
 //----------------------------------------------------------------------------------------------------------------------

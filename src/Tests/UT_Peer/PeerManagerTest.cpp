@@ -10,7 +10,7 @@
 #include "Components/Peer/Manager.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Resolver.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
@@ -129,8 +129,8 @@ private:
 
 TEST(PeerManagerSuite, PeerDeclarationTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -147,8 +147,8 @@ TEST(PeerManagerSuite, PeerDeclarationTest)
 
 TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -169,8 +169,8 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 TEST(PeerManagerSuite, UndeclarePeerTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -190,8 +190,8 @@ TEST(PeerManagerSuite, UndeclarePeerTest)
 
 TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -216,8 +216,8 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -239,8 +239,8 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
 
 TEST(PeerManagerSuite, ExistingPeerLinkTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -273,8 +273,8 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
 
 TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -315,8 +315,8 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
 
 TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -338,8 +338,8 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 
 TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -374,8 +374,8 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 {
     using enum Security::Strategy;
     
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     auto const spProcessor = std::make_shared<local::MessageCollector>();
     auto const spProtocol = std::make_shared<local::ConnectProtocolStub>();
     spPublisher->SuspendSubscriptions();
@@ -443,8 +443,8 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
 
 TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -483,8 +483,8 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -552,8 +552,8 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 
 TEST(PeerManagerSuite, PeerCountTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
@@ -583,8 +583,8 @@ TEST(PeerManagerSuite, PeerCountTest)
 
 TEST(PeerManagerSuite, SingleObserverTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
 
     local::SynchronousObserver synchronous(&manager);
@@ -617,8 +617,8 @@ TEST(PeerManagerSuite, SingleObserverTest)
 
 TEST(PeerManagerSuite, MultipleObserverTest)
 {
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spEventPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
 
     local::AsynchronousObserver asynchronous(spEventPublisher, *test::ClientIdentifier);

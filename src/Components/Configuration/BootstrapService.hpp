@@ -25,7 +25,7 @@ namespace spdlog { class logger; }
 
 namespace Scheduler {
     class Delegate;
-    class Service;
+    class Registrar;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ public:
     void SetDefaults(Configuration::Options::Endpoints const& endpoints);
 
     void Register(IPeerMediator* const mediator);
-    void Register(std::shared_ptr<Scheduler::Service> const& spScheduler);
+    void Register(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     void UnregisterServices();
 
     [[nodiscard]] bool FetchBootstraps();

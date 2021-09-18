@@ -5,7 +5,7 @@
 #include "TrackingManager.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Scheduler/Delegate.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <openssl/md5.h>
@@ -18,7 +18,7 @@ class AuthorizedProcessor;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Await::TrackingManager::TrackingManager(std::shared_ptr<Scheduler::Service> const& spScheduler)
+Await::TrackingManager::TrackingManager(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
     , m_awaiting()
     , m_logger(spdlog::get(Logger::Name::Core.data()))
@@ -26,7 +26,7 @@ Await::TrackingManager::TrackingManager(std::shared_ptr<Scheduler::Service> cons
     assert(Assertions::Threading::IsCoreThread());
     assert(m_logger);
 
-    m_spDelegate = spScheduler->Register<TrackingManager>([this] () -> std::size_t {
+    m_spDelegate = spRegistrar->Register<TrackingManager>([this] () -> std::size_t {
         return ProcessFulfilledRequests();  // Dispatch any fulfilled awaiting messages since this last cycle. 
     }); 
 
