@@ -34,7 +34,7 @@ namespace Configuration { class Parser; }
 namespace Event { class Publisher; }
 namespace Network { class Manager; }
 namespace Peer { class Manager; }
-namespace Scheduler { class Service; }
+namespace Scheduler { class Registrar; class TaskService; }
 
 class AuthorizedProcessor;
 class BootstrapService;
@@ -58,6 +58,8 @@ class Core;
 class Node::Core final
 {
 public:
+    explicit Core(std::reference_wrapper<ExecutionToken> const& token);
+
     Core(
         std::reference_wrapper<ExecutionToken> const& token,
         std::unique_ptr<Configuration::Parser> const& upParser,
@@ -74,10 +76,20 @@ public:
     friend class IRuntimePolicy;
     // } Runtime Handler
 
+    [[nodiscard]] bool IsInitialized() const noexcept;
+    [[nodiscard]] bool IsActive() const noexcept;
+
+    [[nodiscard]] bool CreateConfiguredResources(
+        std::unique_ptr<Configuration::Parser> const& upParser,
+        std::shared_ptr<BootstrapService> const& spBootstrapService);
+        
+    [[nodiscard]] bool Attach(Configuration::Options::Endpoint const& options);
+    [[nodiscard]] bool Detach(Configuration::Options::Endpoint const& options);
+
     template<ValidRuntimePolicy RuntimePolicy = ForegroundRuntime>
     [[nodiscard]] ExecutionStatus Startup();
+    
     ExecutionStatus Shutdown(ExecutionStatus reason = ExecutionStatus::RequestedShutdown);
-    [[nodiscard]] bool IsActive() const noexcept;
 
     [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
     [[nodiscard]] std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
@@ -92,12 +104,14 @@ public:
     [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
+    void CreateStaticResources();
+
     [[nodiscard]] ExecutionStatus StartComponents();
     void OnRuntimeStopped(ExecutionStatus status);
     void OnUnexpectedError();
 
     std::reference_wrapper<ExecutionToken> m_token;
-    std::shared_ptr<Scheduler::Service> m_spScheduler;
+    std::shared_ptr<Scheduler::Registrar> m_spScheduler;
     std::unique_ptr<IRuntimePolicy> m_upRuntime;
     std::shared_ptr<spdlog::logger> m_logger;
 
@@ -107,6 +121,7 @@ private:
     std::shared_ptr<SecurityState> m_spSecurityState;
     std::shared_ptr<SensorState> m_spSensorState;
 
+    std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
     std::shared_ptr<Network::Manager> m_spNetworkManager;
     std::shared_ptr<Peer::Manager> m_spPeerManager;
@@ -115,6 +130,7 @@ private:
     std::shared_ptr<BootstrapService> m_spBootstrapService;
 
     Handler::Map m_handlers;
+    bool m_initialized;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

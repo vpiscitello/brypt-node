@@ -22,10 +22,37 @@
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Manager.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
+#include "Components/Scheduler/TaskService.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
+    : m_token(token)
+    , m_spScheduler(std::make_shared<Scheduler::Registrar>())
+    , m_upRuntime(nullptr)
+    , m_logger(spdlog::get(Logger::Name::Core.data()))
+    , m_spNodeState()
+    , m_spCoordinatorState(std::make_shared<CoordinatorState>())
+    , m_spNetworkState(std::make_shared<NetworkState>())
+    , m_spSecurityState()
+    , m_spSensorState(std::make_shared<SensorState>())
+    , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
+    , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
+    , m_spNetworkManager()
+    , m_spPeerManager()
+    , m_spMessageProcessor()
+    , m_spAwaitManager(std::make_shared<Await::TrackingManager>(m_spScheduler))
+    , m_spBootstrapService()
+    , m_handlers()
+    , m_initialized(false)
+{
+    assert(m_logger);
+    CreateStaticResources();
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 
 Node::Core::Core(
@@ -33,72 +60,27 @@ Node::Core::Core(
     std::unique_ptr<Configuration::Parser> const& upParser,
     std::shared_ptr<BootstrapService> const& spBootstrapService)
     : m_token(token)
-    , m_spScheduler(std::make_shared<Scheduler::Service>())
+    , m_spScheduler(std::make_shared<Scheduler::Registrar>())
     , m_upRuntime(nullptr)
     , m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_spNodeState()
     , m_spCoordinatorState(std::make_shared<CoordinatorState>())
     , m_spNetworkState(std::make_shared<NetworkState>())
-    , m_spSecurityState(std::make_shared<SecurityState>(
-        upParser->GetSecurityStrategy(), upParser->GetCentralAuthority()))
+    , m_spSecurityState()
     , m_spSensorState(std::make_shared<SensorState>())
-    , m_spEventPublisher()
+    , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
+    , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
     , m_spNetworkManager()
     , m_spPeerManager()
     , m_spMessageProcessor()
-    , m_spAwaitManager()
-    , m_spBootstrapService(spBootstrapService)
+    , m_spAwaitManager(std::make_shared<Await::TrackingManager>(m_spScheduler))
+    , m_spBootstrapService()
     , m_handlers()
+    , m_initialized(false)
 {
-    // The Configuration::Parser and Logger must be valid to initialize the node core.
-    assert(m_logger && upParser);
-    assert(upParser->IsValidated());
-
-    {
-        // Create the message handlers for the supported application message types. Note: Network message
-        // handling is determined by the enabled processor for the peer and will not be forwarded into the core. 
-        m_handlers.emplace(Handler::Type::Information, Handler::Factory(Handler::Type::Information, *this));
-        m_handlers.emplace(Handler::Type::Query, Handler::Factory(Handler::Type::Query, *this));
-        m_handlers.emplace(Handler::Type::Election, Handler::Factory(Handler::Type::Election, *this));
-        m_handlers.emplace(Handler::Type::Connect, Handler::Factory(Handler::Type::Connect, *this));
-    }
-
-    {
-        // Create the main execution services, these components will drive the main execution loop by notifying 
-        // the scheduler when work becomes available. 
-        m_spEventPublisher = std::make_shared<Event::Publisher>(m_spScheduler);
-        m_spMessageProcessor = std::make_shared<AuthorizedProcessor>(
-            upParser->GetNodeIdentifier(), m_handlers, m_spScheduler);
-        m_spAwaitManager = std::make_shared<Await::TrackingManager>(m_spScheduler);
-    }
-
-    {
-        // Make a discovery protocol such that the peers can automatically perform a connection procedure without
-        // forwarding messages into the core. 
-        auto const spProtocol = std::make_shared<DiscoveryProtocol>(upParser->GetEndpointOptions());
-        m_spPeerManager = std::make_shared<Peer::Manager>(
-            upParser->GetNodeIdentifier(), upParser->GetSecurityStrategy(),
-            m_spEventPublisher, spProtocol, m_spMessageProcessor);
-    }
-
-    {
-        // If we should perform the inital connection bootstrapping based on the stored peers, then provide the 
-        // network manager a bootstrap cache to use. Otherwise, do not provide the cache and no inital connections
-        // will be scheduled. 
-        IBootstrapCache const* const pBootstraps = (upParser->UseBootstraps() ? spBootstrapService.get() : nullptr);
-        m_spNetworkManager = std::make_shared<Network::Manager>(
-            upParser->GetRuntimeContext(), upParser->GetEndpointOptions(),
-            m_spEventPublisher, m_spPeerManager.get(), pBootstraps);
-
-        // On a critical network error, use the token to stop the core runtime loop and signal an unexpected error.
-        m_spEventPublisher->Subscribe<Event::Type::CriticalNetworkFailure>([this] { OnUnexpectedError(); });
-    }
-
-    m_spNodeState = std::make_shared<NodeState>(
-        upParser->GetNodeIdentifier(), m_spNetworkManager->GetEndpointProtocols());
-
-    m_spBootstrapService->Register(m_spPeerManager.get());
-    m_spBootstrapService->Register(m_spScheduler);
+    assert(m_logger);
+    CreateStaticResources();
+    [[maybe_unused]] bool const result = CreateConfiguredResources(upParser, spBootstrapService);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -108,6 +90,88 @@ Node::Core::~Core()
     // Note: The ResourceShutdown status is a variant of RequestedShutdown that indicates the runtime shouldn't 
     // attempt to use resources that may have been destroyed (e.g. user provided event listeners).
     Shutdown(ExecutionStatus::ResourceShutdown);
+    if (m_spBootstrapService) { m_spBootstrapService->UnregisterServices(); }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Node::Core::IsInitialized() const noexcept { return m_initialized; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Node::Core::IsActive() const noexcept { return m_token.get().IsExecutionActive(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Node::Core::CreateConfiguredResources(
+    std::unique_ptr<Configuration::Parser> const& upParser,
+    std::shared_ptr<BootstrapService> const& spBootstrapService)
+{
+    if (m_token.get().Status() != ExecutionStatus::Standby) { return false; }
+
+    // The Configuration::Parser and Logger must be valid to initialize the node core.
+    assert(upParser && upParser->Validated());
+    assert(m_handlers.size() != 0);
+
+    auto const& spIdentifier = upParser->GetNodeIdentifier();
+    auto const strategy = upParser->GetSecurityStrategy();
+
+    // Create the main execution services, these components will drive the main execution loop by notifying 
+    // the scheduler when work becomes available. 
+    {
+        m_spMessageProcessor = std::make_shared<AuthorizedProcessor>(spIdentifier, m_handlers, m_spScheduler);
+    }
+
+    // Make a discovery protocol such that the peers can automatically perform a connection procedure without
+    // forwarding messages into the core. 
+    {
+        auto const spProtocol = std::make_shared<DiscoveryProtocol>(upParser->GetEndpoints());
+        m_spPeerManager = std::make_shared<Peer::Manager>(
+            spIdentifier, strategy, m_spEventPublisher, spProtocol, m_spMessageProcessor);
+    }
+
+    // If we should perform the inital connection bootstrapping based on the stored peers, then provide the 
+    // network manager a bootstrap cache to use. Otherwise, do not provide the cache and no inital connections
+    // will be scheduled. 
+    {
+        auto const context = upParser->GetRuntimeContext();
+        auto const& endpoints = upParser->GetEndpoints();
+        IBootstrapCache const* const pBootstraps = (upParser->UseBootstraps() ? spBootstrapService.get() : nullptr);
+        m_spNetworkManager = std::make_shared<Network::Manager>(context, m_spTaskService, m_spEventPublisher);
+        if (!m_spNetworkManager->Attach(endpoints, m_spPeerManager.get(), pBootstraps)) { return false; }
+    }
+
+    // Save the applicable configured state to be used during execution. 
+    {
+        m_spNodeState = std::make_shared<NodeState>(spIdentifier, m_spNetworkManager->GetEndpointProtocols());
+        m_spSecurityState = std::make_shared<SecurityState>(strategy);
+    }
+
+    // Store the provided bootstrap service and configure it with the node's resouces. 
+    {
+        m_spBootstrapService = spBootstrapService;
+        m_spBootstrapService->Register(m_spPeerManager.get());
+        m_spBootstrapService->Register(m_spScheduler);
+    }
+
+    m_initialized = true;
+    
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Node::Core::Attach(Configuration::Options::Endpoint const& options)
+{
+    return m_spNetworkManager ? 
+        m_spNetworkManager->Attach(options, m_spPeerManager.get(), m_spBootstrapService.get()) : true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Node::Core::Detach(Configuration::Options::Endpoint const& options)
+{
+    return m_spNetworkManager ? m_spNetworkManager->Detach(options) : true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -137,10 +201,6 @@ ExecutionStatus Node::Core::Shutdown(ExecutionStatus reason)
 
     return m_token.get().Status();
 }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Node::Core::IsActive() const noexcept { return m_token.get().IsExecutionActive(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -184,9 +244,26 @@ std::weak_ptr<Await::TrackingManager> Node::Core::GetAwaitManager() const { retu
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Node::Core::CreateStaticResources()
+{
+    // Create the message handlers for the supported application message types. Note: Network message
+    // handling is determined by the enabled processor for the peer and will not be forwarded into the core. 
+    m_handlers.emplace(Handler::Type::Information, Handler::Factory(Handler::Type::Information, *this));
+    m_handlers.emplace(Handler::Type::Query, Handler::Factory(Handler::Type::Query, *this));
+    m_handlers.emplace(Handler::Type::Election, Handler::Factory(Handler::Type::Election, *this));
+    m_handlers.emplace(Handler::Type::Connect, Handler::Factory(Handler::Type::Connect, *this));
+
+    // On a critical network error, use the token to stop the core runtime loop and signal an unexpected error.
+    m_spEventPublisher->Subscribe<Event::Type::CriticalNetworkFailure>([this] { OnUnexpectedError(); });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 ExecutionStatus Node::Core::StartComponents()
 {
     if (!m_token.get().RequestStart({})) { return ExecutionStatus::AlreadyStarted; }
+
+    assert(m_initialized);
 
     // Initialize the scheduler to set the priority of execution. If it fails, one of the executable services must have
     // a cyclic dependency. 
