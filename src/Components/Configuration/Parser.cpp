@@ -745,7 +745,11 @@ bool Configuration::Parser::AreOptionsAllowable() const
     if (m_identifier.type.empty()) { return false; }
     if (!allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_identifier.type)) { return false; }
 
-    if (m_endpoints.empty()) { return false; }
+    // If the node is running in the foreground, the node will not be able to connect to the network when no endpoint 
+    // options are defined in the configuration file. In the case of the background context, the library user is able
+    // to attach endpoints any time. 
+    if (m_runtime.context == RuntimeContext::Foreground && m_endpoints.empty()) { return false; }
+
     for (auto const& endpoint: m_endpoints) {
         if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) { return false; }
     }

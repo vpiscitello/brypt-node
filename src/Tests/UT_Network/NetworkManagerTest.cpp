@@ -10,7 +10,8 @@
 #include "Components/Network/Manager.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
-#include "Components/Scheduler/Service.hpp"
+#include "Components/Scheduler/Registrar.hpp"
+#include "Components/Scheduler/TaskService.hpp"
 #include "Interfaces/BootstrapCache.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -41,7 +42,7 @@ using TargetResources = std::tuple<
     std::unique_ptr<Network::IEndpoint>,
     std::unique_ptr<IPeerMediator>,
     std::unique_ptr<IMessageSink>,
-    std::shared_ptr<Scheduler::Service>>;
+    std::shared_ptr<Scheduler::Registrar>>;
 std::optional<TargetResources> CreateTargetResources();
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -49,6 +50,8 @@ std::optional<TargetResources> CreateTargetResources();
 //----------------------------------------------------------------------------------------------------------------------
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
+
+constexpr RuntimeContext Context = RuntimeContext::Foreground;
 
 auto const OriginIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 auto const TargetIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
@@ -146,15 +149,18 @@ protected:
     void SetUp() override
     {
         // Create the resources required for each instance of a test. 
-        m_spScheduler = std::make_shared<Scheduler::Service>();
-        m_spPublisher = std::make_shared<Event::Publisher>(m_spScheduler);
+        m_spRegistrar = std::make_shared<Scheduler::Registrar>();
+        m_spTaskService = std::make_shared<Scheduler::TaskService>(m_spRegistrar);
+        m_spPublisher = std::make_shared<Event::Publisher>(m_spRegistrar);
         m_upEventObserver = std::make_unique<local::EventObserver>(m_spPublisher);
         m_upProcessor = std::make_unique<MessageSinkStub>(test::OriginIdentifier);
         m_upMediator = std::make_unique<SinglePeerMediatorStub>(test::OriginIdentifier, m_upProcessor.get());
+        ASSERT_TRUE(m_spRegistrar->Initialize());
     }
 
     static local::TargetResources m_target;
-    std::shared_ptr<Scheduler::Service> m_spScheduler;
+    std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
+    std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     Event::SharedPublisher m_spPublisher;
     std::unique_ptr<local::EventObserver> m_upEventObserver;
     std::unique_ptr<IMessageSink> m_upProcessor;
@@ -176,8 +182,9 @@ TEST_F(NetworkManagerSuite, LifecycleTest)
     ASSERT_EQ(configurations.size() * 2, test::ExpectedEndpoints);
     
     // Create our Network::Manager to start the tests of its operations and state. 
-    auto const upNetworkManager = std::make_unique<Network::Manager>(
-        RuntimeContext::Foreground, configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get());
+    auto const upNetworkManager = std::make_unique<Network::Manager>(test::Context, m_spTaskService, m_spPublisher);
+    ASSERT_TRUE(upNetworkManager->Attach(configurations, m_upMediator.get(), upBootstrapCache.get()));
+    EXPECT_EQ(m_spRegistrar->Execute(), 1);
     
     EXPECT_TRUE(m_upEventObserver->SubscribedToAllAdvertisedEvents());
     m_spPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
@@ -231,9 +238,10 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
     // Create our Network::Manager to start the tests of its operations and state. 
     // Note: Most of the stored state in the manager should be the same as the lifecycle tests, the differences will 
     // be primarily observed through the events published. 
-    auto const upNetworkManager = std::make_unique<Network::Manager>(
-        RuntimeContext::Foreground, configurations, m_spPublisher, m_upMediator.get(), upBootstrapCache.get());
-    
+    auto const upNetworkManager = std::make_unique<Network::Manager>(test::Context, m_spTaskService, m_spPublisher);
+    ASSERT_TRUE(upNetworkManager->Attach(configurations, m_upMediator.get(), upBootstrapCache.get()));
+    EXPECT_EQ(m_spRegistrar->Execute(), 1);
+
     EXPECT_TRUE(m_upEventObserver->SubscribedToAllAdvertisedEvents());
     m_spPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
     EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t(0));
@@ -297,8 +305,8 @@ std::optional<local::TargetResources> local::CreateTargetResources()
     auto upMediator = std::make_unique<SinglePeerMediatorStub>(
         test::TargetIdentifier, upProcessor.get());
 
-    auto const spScheduler = std::make_shared<Scheduler::Service>();
-    auto const spPublisher = std::make_shared<Event::Publisher>(spScheduler);
+    auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
+    auto const spPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     spPublisher->SuspendSubscriptions(); // We don't need to subscribe to any of the target's events. 
 
     auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Server, spPublisher);
@@ -308,7 +316,7 @@ std::optional<local::TargetResources> local::CreateTargetResources()
     upEndpoint->Startup();
 
     return std::make_tuple(
-        std::move(upEndpoint), std::move(upMediator), std::move(upProcessor), std::move(spScheduler));
+        std::move(upEndpoint), std::move(upMediator), std::move(upProcessor), std::move(spRegistrar));
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -135,10 +135,7 @@ void Network::IEndpoint::OnBindingFailed(BindingAddress const& binding, BindingF
 void Network::IEndpoint::OnConnectionFailed(RemoteAddress const& address, ConnectionFailure failure) const
 {
     assert(m_operation == Operation::Client);
-    // Currently, we only publish failed connections if the address originated from user input. 
-    if (address.GetOrigin() == RemoteAddress::Origin::User) {
-        m_spEventPublisher->Publish<Event::Type::ConnectionFailed>(m_identifier, address, failure);
-    }
+    m_spEventPublisher->Publish<Event::Type::ConnectionFailed>(m_identifier, address, failure);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -28,6 +28,8 @@
 #include <vector>
 //----------------------------------------------------------------------------------------------------------------------
 
+namespace Scheduler { class TaskService; }
+
 //----------------------------------------------------------------------------------------------------------------------
 namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
@@ -46,10 +48,8 @@ public:
 
     Manager(
         RuntimeContext context,
-        Configuration::Options::Endpoints const& endpoints,
-        Event::SharedPublisher const& spEventPublisher,
-        IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache);
+        std::shared_ptr<Scheduler::TaskService> const& spTaskService,    
+        Event::SharedPublisher const& spEventPublisher);
 
     Manager(Manager const& other) = delete;
     Manager& operator=(Manager const& other) = delete;
@@ -63,6 +63,18 @@ public:
     
     void Startup();
     void Shutdown();
+
+    [[nodiscard]] bool Attach(
+        Configuration::Options::Endpoints const& endpoints,
+        IPeerMediator* const pPeerMediator,
+        IBootstrapCache const* const pBootstrapCache);
+
+    [[nodiscard]] bool Attach(
+        Configuration::Options::Endpoint const& endpoint,
+        IPeerMediator* const pPeerMediator,
+        IBootstrapCache const* const pBootstrapCache);
+
+    [[nodiscard]] bool Detach(Configuration::Options::Endpoint const& options);
 
     [[nodiscard]] SharedEndpoint GetEndpoint(Endpoint::Identifier identifier) const;
     [[nodiscard]] SharedEndpoint GetEndpoint(Protocol protocol, Operation operation) const;
@@ -81,13 +93,7 @@ private:
     using ShutdownCause = Event::Message<Event::Type::EndpointStopped>::Cause;
     using BindingCache = std::vector<std::pair<Endpoint::Identifier, BindingAddress>>;
 
-    void Initialize(
-        Configuration::Options::Endpoints const& endpoints,
-        Event::SharedPublisher const& spEventPublisher,
-        IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache);
-        
-    void InitializeTCPEndpoints(
+    void CreateTcpEndpoints(
         Configuration::Options::Endpoint const& options,
         Event::SharedPublisher const& spEventPublisher,
         IPeerMediator* const pPeerMediator,
@@ -100,7 +106,9 @@ private:
     void OnCriticalError();
 
     std::atomic_bool m_active;
+    RuntimeContext m_context;
     Event::SharedPublisher m_spEventPublisher;
+    std::shared_ptr<Scheduler::TaskService> m_spTaskService;
 
     mutable std::shared_mutex m_endpointsMutex;
     EndpointMap m_endpoints;
