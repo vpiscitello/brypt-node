@@ -432,7 +432,12 @@ Configuration::StatusCode BootstrapService::Deserialize()
             .decode(json, deserialized);
         
         // Report an error if the decoder reported an error or the desrialized container is still empty. 
-        if (error.code || deserialized.empty()) { return DecodeError; }
+        if (error.code || deserialized.empty()) {
+            constexpr std::string_view DefaultContext = "[\n\n]\n";
+            if (json == DefaultContext) { return Success; } // We shouldn't consider an empty file an error.
+            DisableFilesystem(); // Prevent the malformed file from being overwritten. 
+            return DecodeError;
+        }
     }
 
     // Transform the decoded bootstraps and emplace them into the cache.

@@ -135,13 +135,13 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Persistent);
     EXPECT_TRUE(parser.GetNodeIdentifier());
 
-    parser.SetNodeName("node_name");
+    EXPECT_TRUE(parser.SetNodeName("node_name"));
     EXPECT_EQ(parser.GetNodeName(), "node_name");
 
-    parser.SetNodeDescription("node_description");
+    EXPECT_TRUE(parser.SetNodeDescription("node_description"));
     EXPECT_EQ(parser.GetNodeDescription(), "node_description");
 
-    parser.SetNodeLocation("node_location");
+    EXPECT_TRUE(parser.SetNodeLocation("node_location"));
     EXPECT_EQ(parser.GetNodeLocation(), "node_location");
 
     EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35217" }));
@@ -150,7 +150,7 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     parser.SetSecurityStrategy(Security::Strategy::PQNISTL3);
     EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::PQNISTL3);
 
-    parser.SetNetworkToken("network_token");
+    EXPECT_TRUE(parser.SetNetworkToken("network_token"));
     EXPECT_EQ(parser.GetNetworkToken(), "network_token");
 
     EXPECT_FALSE(parser.Validated());
@@ -207,12 +207,12 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     if (std::filesystem::exists(parser.GetFilepath())) { std::filesystem::remove(parser.GetFilepath()); }
 
     EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent));
-    parser.SetNodeName("original_name");
-    parser.SetNodeDescription("original_description");
-    parser.SetNodeLocation("original_location");
+    EXPECT_TRUE(parser.SetNodeName("original_name"));
+    EXPECT_TRUE(parser.SetNodeDescription("original_description"));
+    EXPECT_TRUE(parser.SetNodeLocation("original_location"));
     EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "original_interface", "127.0.0.1:35216" }));
     parser.SetSecurityStrategy(Security::Strategy::PQNISTL3);
-    parser.SetNetworkToken("original_token");
+    EXPECT_TRUE(parser.SetNetworkToken("original_token"));
 
     EXPECT_EQ(parser.Serialize(), Configuration::StatusCode::Success);
     EXPECT_TRUE(parser.Validated());
@@ -222,10 +222,10 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
 
     // Set some values before deserializing the configuration file. 
     EXPECT_TRUE(merger.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral));
-    merger.SetNodeLocation("merge_location");
+    EXPECT_TRUE(merger.SetNodeLocation("merge_location"));
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35216", "127.0.0.1:35217" }));
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35226" }));
-    merger.SetNetworkToken("merge_token");
+    EXPECT_TRUE(merger.SetNetworkToken("merge_token"));
     
     EXPECT_EQ(merger.FetchOptions(), Configuration::StatusCode::Success);
     EXPECT_TRUE(merger.Validated());
@@ -403,12 +403,12 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     // You should be able to remove an existing endpoint
     {
         Network::BindingAddress const binding = { Network::Protocol::TCP, "*:35216", "lo" };
-        EXPECT_TRUE(parser.RemoveEndpoint(binding));
+        EXPECT_TRUE(parser.ExtractEndpoint(binding));
         EXPECT_FALSE(parser.GetEndpoint(binding));
         EXPECT_FALSE(parser.Validated());
         EXPECT_TRUE(parser.Changed());
         
-        EXPECT_FALSE(parser.RemoveEndpoint(binding)); // You should not be able to remove it twice.
+        EXPECT_FALSE(parser.ExtractEndpoint(binding)); // You should not be able to remove it twice.
 
         // You should be able to re-add it.
         EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35218" }));
@@ -416,10 +416,10 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
         EXPECT_FALSE(parser.Validated());
         EXPECT_TRUE(parser.Changed());
 
-        EXPECT_TRUE(parser.RemoveEndpoint(binding.GetUri()));
+        EXPECT_TRUE(parser.ExtractEndpoint(binding.GetUri()));
 
         EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35218" }));
-        EXPECT_TRUE(parser.RemoveEndpoint(Network::Protocol::TCP, "*:35216"));
+        EXPECT_TRUE(parser.ExtractEndpoint(Network::Protocol::TCP, "*:35216"));
     }
 
     // You should not be able fetch the options after removing a required component. 

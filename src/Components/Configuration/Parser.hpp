@@ -73,12 +73,12 @@ public:
     [[nodiscard]] bool SetNodeName(std::string_view const& name);
     [[nodiscard]] bool SetNodeDescription(std::string_view const& description);
     [[nodiscard]] bool SetNodeLocation(std::string_view const& location);
-    [[nodiscard]] bool UpsertEndpoint(Options::Endpoint&& options);
-    [[nodiscard]] bool RemoveEndpoint(Network::BindingAddress const& binding);
-    [[nodiscard]] bool RemoveEndpoint(std::string_view const& uri);
-    [[nodiscard]] bool RemoveEndpoint(Network::Protocol protocol, std::string_view const& binding);
+    [[nodiscard]] FetchedEndpoint UpsertEndpoint(Options::Endpoint&& options);
+    std::optional<Options::Endpoint> ExtractEndpoint(Network::BindingAddress const& binding);
+    std::optional<Options::Endpoint> ExtractEndpoint(std::string_view const& uri);
+    std::optional<Options::Endpoint> ExtractEndpoint(Network::Protocol protocol, std::string_view const& binding);
     void SetSecurityStrategy(Security::Strategy strategy);
-    void SetNetworkToken(std::string_view const& token);
+    [[nodiscard]] bool SetNetworkToken(std::string_view const& token);
 
 private:
     void OnFilepathChanged();

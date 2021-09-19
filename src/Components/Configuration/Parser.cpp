@@ -558,9 +558,9 @@ bool Configuration::Parser::SetNodeLocation(std::string_view const& location)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
+Configuration::Parser::FetchedEndpoint Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 {
-    if (!options.Initialize()) { return false; } // If the provided options are invalid, return false. 
+    if (!options.Initialize()) { return {}; } // If the provided options are invalid, return false. 
 
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     m_changed = true;
@@ -568,47 +568,58 @@ bool Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
         return options.binding == existing.binding;
     });
 
-    // If options for the binding were found, update the stored value. Otherwise, add the options to endpoints set.
-    if (itr != m_endpoints.end()) { *itr = std::move(options); } else { m_endpoints.emplace_back(options); }
-    return m_changed; 
+    // If no matching options were found, insert the options and return the initialized values. 
+    if (itr == m_endpoints.end()) {  return m_endpoints.emplace_back(std::move(options)); }
+
+    *itr = std::move(options); // Update the matched options with the new values. 
+    return *itr;    
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::RemoveEndpoint(Network::BindingAddress const& binding)
+std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEndpoint(
+    Network::BindingAddress const& binding)
 {
-    m_changed = true;
-    auto const count = std::erase_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
-        return binding == existing.constructed.binding;
+    std::optional<Options::Endpoint> optExtractedOptions;
+    auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
+        bool const found = binding == existing.constructed.binding;
+        if (found) { optExtractedOptions = std::move(existing); }
+        return found;
     });
 
     m_changed = count == 1;
-    return m_changed;
+    return optExtractedOptions;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::RemoveEndpoint(std::string_view const& uri)
+std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEndpoint(std::string_view const& uri)
 {
-    auto const count = std::erase_if(m_endpoints, [&uri] (Options::Endpoint const& existing) {
-        return uri == existing.constructed.binding.GetUri();
+    std::optional<Options::Endpoint> optExtractedOptions;
+    auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
+        bool const found = uri == existing.constructed.binding.GetUri();
+        if (found) { optExtractedOptions = std::move(existing); }
+        return found;
     });
 
     m_changed = count == 1;
-    return m_changed;
+    return optExtractedOptions;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::RemoveEndpoint(Network::Protocol protocol, std::string_view const& binding)
+std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEndpoint(
+    Network::Protocol protocol, std::string_view const& binding)
 {
-    m_changed = true;
-    auto const count = std::erase_if(m_endpoints, [&protocol, &binding] (Options::Endpoint const& existing) {
-        return protocol == existing.constructed.protocol && binding == existing.binding;
+    std::optional<Options::Endpoint> optExtractedOptions;
+    auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
+        bool const found = protocol == existing.constructed.protocol && binding == existing.binding;
+        if (found) { optExtractedOptions = std::move(existing); }
+        return found;
     });
 
     m_changed = count == 1;
-    return m_changed;
+    return optExtractedOptions;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -628,12 +639,13 @@ void Configuration::Parser::SetSecurityStrategy(Security::Strategy strategy)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetNetworkToken(std::string_view const& token)
+bool Configuration::Parser::SetNetworkToken(std::string_view const& token)
 {
     if (token != m_security.token) {
         m_changed = true;
         m_security.token = token;
     }
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
