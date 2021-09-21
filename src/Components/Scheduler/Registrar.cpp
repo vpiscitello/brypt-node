@@ -75,13 +75,14 @@ std::size_t Scheduler::Registrar::Execute()
     assert(m_initialized);
 
     std::size_t total = 0;
-    constexpr auto ready = [] (auto const& delegate) -> bool {  return delegate->IsReady(); };
+    constexpr auto ready = [] (auto const& delegate) -> bool { return delegate->IsReady(); };
     std::ranges::for_each(m_delegates | std::views::filter(ready), [this, &total] (auto const& delegate) { 
        std::size_t const executed = delegate->Execute({});
        assert(executed != 0); // The delegate should always indicate at least one task was executed. 
        OnTaskCompleted(executed);
        total += executed;
     });
+
     return total;
 }
 

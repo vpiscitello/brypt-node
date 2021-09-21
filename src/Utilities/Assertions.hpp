@@ -7,7 +7,9 @@
 #if !defined(NDEBUG)
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
-#include <atomic>
+#include <mutex>
+#include <set>
+#include <shared_mutex>
 #include <thread>
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -21,11 +23,18 @@ public:
     Threading(Threading const&) = delete;
     Threading& operator=(Threading const) = delete;
 
-    // Note: main() must call this method to ensure the main thread is set as the stored identifier. 
-    [[nodiscard]] static bool SetCoreThread()
+    // Note: This must be called inorder to add a core thread id to the allowable set. 
+    [[nodiscard]] static bool RegisterCoreThread()
     {
-        Instance().SetCoreThread({});
+        Instance().RegisterCoreThread({});
         return true; // Returning a boolean allows this method to be packed into an assert() call. 
+    }
+
+    // Note: This must be called inorder to add a core thread id to the allowable set. 
+    [[nodiscard]] static bool WithdrawCoreThread()
+    {
+        Instance().WithdrawCoreThread({});
+        return true;
     }
 
     [[nodiscard]] static bool IsCoreThread()
@@ -44,18 +53,27 @@ private:
         return *upInstance;
     }
 
-    void SetCoreThread([[maybe_unused]] AccessKey key)
+    void RegisterCoreThread([[maybe_unused]] AccessKey key)
     {
-        m_core = std::this_thread::get_id(); // Set the core's thread id to the current thread. 
+        std::scoped_lock lock(m_mutex);
+        m_threads.emplace(std::this_thread::get_id()); // Set the core's thread id to the current thread. 
+    }
+
+    void WithdrawCoreThread([[maybe_unused]] AccessKey key)
+    {
+        std::scoped_lock lock(m_mutex);
+        m_threads.erase(std::this_thread::get_id());
     }
 
     [[nodiscard]] bool IsCoreThread([[maybe_unused]] AccessKey key)
     {
-        assert(m_core != std::thread::id()); // The core must set the id before any components can check. 
-        return m_core == std::this_thread::get_id(); // Check to see if the current thread is the core thread. 
+        std::shared_lock lock(m_mutex);
+        assert(!m_threads.empty()); // The core must set the id before any components can check. 
+        return m_threads.contains(std::this_thread::get_id()); // Check to see if the current thread is the core thread. 
     }
 
-    std::atomic<std::thread::id> m_core;
+    std::shared_mutex m_mutex;
+    std::set<std::thread::id> m_threads;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

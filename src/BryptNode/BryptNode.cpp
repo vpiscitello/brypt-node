@@ -196,7 +196,7 @@ ExecutionStatus Node::Core::Shutdown(ExecutionStatus reason)
         // is expected to have fully completed execution and the resources can be destroyed. In the foreground context,
         // this is handled by the call to the start method. 
         if (m_upRuntime && m_upRuntime->Type() == RuntimeContext::Background) { m_upRuntime.reset(); }
-        assert(Assertions::Threading::SetCoreThread()); // Reset the core thread after the runtime has joined.
+        assert(Assertions::Threading::RegisterCoreThread()); // Reset the core thread after the runtime has joined.
     }
 
     return m_token.get().Status();
