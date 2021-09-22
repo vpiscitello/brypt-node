@@ -83,6 +83,8 @@ TEST(BootstrapServiceSuite, DefualtBootstrapTest)
         std::size_t const read = service.ForEachBootstrap(Network::Protocol::TCP,
             [&expected] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
             {
+                // With defaults set, we expect the origin of the bootstrap to be from the user. 
+                EXPECT_EQ(bootstrap.GetOrigin(), Network::RemoteAddress::Origin::User);
                 EXPECT_EQ(bootstrap.GetUri(), expected);
                 return CallbackIteration::Continue;
             });
@@ -103,6 +105,8 @@ TEST(BootstrapServiceSuite, DefualtBootstrapTest)
         std::size_t const read = service.ForEachBootstrap(Network::Protocol::TCP,
             [&expected] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
             {
+                // Without defaults set, we expect the origin of the bootstrap to be from the cache. 
+                EXPECT_EQ(bootstrap.GetOrigin(), Network::RemoteAddress::Origin::Cache);
                 EXPECT_EQ(bootstrap.GetUri(), expected);
                 return CallbackIteration::Continue;
             });
@@ -131,6 +135,7 @@ TEST(BootstrapServiceSuite, ParseGoodFileTest)
     std::size_t const read = service.ForEachBootstrap(Network::Protocol::TCP,
         [&expectations] (Network::RemoteAddress const& bootstrap) mutable -> CallbackIteration
         {
+            EXPECT_EQ(bootstrap.GetOrigin(), Network::RemoteAddress::Origin::Cache);
             EXPECT_NE(std::ranges::find(expectations, bootstrap), expectations.end());
             return CallbackIteration::Continue;
         });

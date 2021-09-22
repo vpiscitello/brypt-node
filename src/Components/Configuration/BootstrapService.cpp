@@ -465,7 +465,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
                     return { protocol, bootstrap.target, true, Origin::Cache };
                 });
 
-            if (entry.bootstraps.empty() && !MaybeAddDefaultBootstrap(protocol, bootstraps)) {
+            if (!MaybeAddDefaultBootstrap(protocol, bootstraps)) {
                 m_logger->warn("The {} network protocol has no associated bootstraps.", entry.protocol);
             }
         });
@@ -505,6 +505,11 @@ Configuration::StatusCode BootstrapService::InitializeCache()
 bool BootstrapService::MaybeAddDefaultBootstrap(Network::Protocol protocol, BootstrapCache& bootstraps)
 {
     if (auto const& optDefault = m_defaults[protocol]; optDefault && optDefault->IsValid()) {
+        // Configured bootstraps are considered to have an origin from the user (such that they can receive connection 
+        // events). If the default bootstrap exists in the cache, it needs to be removed before re-adding it to correct
+        // the origin. 
+        if (auto itr = m_cache.find(*optDefault); itr != m_cache.end()) { m_cache.erase(itr); }
+        assert(optDefault->GetOrigin() == Network::RemoteAddress::Origin::User);
         bootstraps.emplace(*optDefault);
         return true;
     }

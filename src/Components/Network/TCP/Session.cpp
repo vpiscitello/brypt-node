@@ -97,7 +97,7 @@ boost::asio::ip::tcp::socket& Network::TCP::Session::GetSocket()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::Initialize(Operation source)
+void Network::TCP::Session::Initialize(Operation source, RemoteAddress::Origin origin)
 {
     assert(m_socket.is_open());
 
@@ -106,7 +106,7 @@ void Network::TCP::Session::Initialize(Operation source)
     uri << Network::TCP::Scheme << Network::SchemeSeperator;
     uri << endpoint.address().to_string() << Network::ComponentSeperator << endpoint.port();
 
-    m_address = { Protocol::TCP, uri.str(), (source == Operation::Client) };
+    m_address = { Protocol::TCP, uri.str(), (source == Operation::Client), origin };
 }
 
 //----------------------------------------------------------------------------------------------------------------------

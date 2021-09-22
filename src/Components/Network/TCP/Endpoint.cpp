@@ -364,9 +364,9 @@ Network::TCP::SharedSession Network::TCP::Endpoint::CreateSession()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Endpoint::OnSessionStarted(SharedSession const& spSession)
+void Network::TCP::Endpoint::OnSessionStarted(SharedSession const& spSession, RemoteAddress::Origin origin)
 {
-    spSession->Initialize(m_operation); // Initialize the session.
+    spSession->Initialize(m_operation, origin); // Initialize the session.
     m_tracker.TrackConnection(spSession, spSession->GetAddress()); // Start tracking the session's for communication.
     spSession->Start(); // Start the session's dispatcher and receiver handlers. 
 }
@@ -617,7 +617,8 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator
                 co_return OnError(AcceptError, endpoint.m_binding); 
             }
 
-            endpoint.OnSessionStarted(spSession); // Notify the endpoint that a new connection has been made. 
+            // Notify the endpoint that a new connection has been made. 
+            endpoint.OnSessionStarted(spSession, RemoteAddress::Origin::Network); 
         }
     }
 
@@ -827,7 +828,8 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
         co_return GetCompletionOrigin();
     }
 
-    m_client.m_endpoint.OnSessionStarted(m_spSession); // The session must be started before sending the initial request. 
+    // The session must be started before sending the initial request. 
+    m_client.m_endpoint.OnSessionStarted(m_spSession, m_address.GetOrigin()); 
 
     // Send the initial connection request to the peer. If there is an error indicate the session need
     if (!m_spSession->ScheduleSend(std::move(*optConnectionRequest))) { co_return CompletionOrigin::Error; }

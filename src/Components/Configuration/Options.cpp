@@ -292,7 +292,7 @@ bool Configuration::Options::Endpoint::Initialize()
     }
 
     if (bootstrap && !bootstrap->empty()) {
-        constructed.bootstrap = { constructed.protocol, *bootstrap, true, Network::RemoteAddress::Origin::Cache };
+        constructed.bootstrap = { constructed.protocol, *bootstrap, true, Network::RemoteAddress::Origin::User };
         if (!constructed.bootstrap->IsValid()) { 
             constructed.bootstrap.reset();
             return false;

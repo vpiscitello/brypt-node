@@ -111,7 +111,7 @@ private:
 
     [[nodiscard]] SharedSession CreateSession();
 
-    void OnSessionStarted(SharedSession const& spSession);
+    void OnSessionStarted(SharedSession const& spSession, RemoteAddress::Origin origin);
     void OnSessionStopped(SharedSession const& spSession);
 
     [[nodiscard]] bool OnMessageReceived(
