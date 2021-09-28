@@ -9,6 +9,7 @@
 #include "Components/Scheduler/Registrar.hpp"
 #include "Utilities/NodeUtils.hpp"
 #include "Utilities/InvokeContext.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -332,7 +333,7 @@ Configuration::Options::Endpoint local::GenerateTcpOptions(std::uint16_t port)
     options.interface = "lo";
     options.binding = test::TcpBootstrapBase.data() + std::to_string(port);
     options.bootstrap = test::TcpBootstrapBase.data() + std::to_string(port);
-    [[maybe_unused]] bool const success = options.Initialize();
+    [[maybe_unused]] bool const success = options.Initialize(spdlog::get(Logger::Name::Core.data()));
     assert(success);
     return options;
 }

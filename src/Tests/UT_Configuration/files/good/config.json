@@ -8,13 +8,22 @@
 		"description": "The first node on the Brypt network.",
 		"location": "44.5638° N, 123.2794° W"
 	},
-	"endpoints": [
-		{
-			"protocol": "TCP",
-			"interface": "lo",
-			"binding": "*:35216"
+	"network": {
+		"endpoints": [
+			{
+				"protocol": "TCP",
+				"interface": "lo",
+				"binding": "*:35216"
+			}
+		],
+		"connection": {
+			"timeout": "100min",
+			"retry": {
+				"limit": 5,
+				"interval": "500ms"
+			}
 		}
-	],
+	},
 	"security": {
 		"strategy": "PQNISTL3",
 		"token": ""

@@ -3,6 +3,7 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "Parser.hpp"
+#include "Defaults.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptNode/RuntimeContext.hpp"
@@ -34,35 +35,16 @@ struct OptionsStore;
 void SerializeVersion(std::ofstream& out);
 void SerializeIdentifier(Configuration::Options::Identifier const& options, std::ofstream& out);
 void SerializeDetail(Configuration::Options::Details const& options, std::ofstream& out);
-void SerializeEndpoints(Configuration::Options::Endpoints const& endpoints, std::ofstream& out);
+void SerializeNetwork(Configuration::Options::Network const& options, std::ofstream& out);
 void SerializeSecurity(Configuration::Options::Security const& options, std::ofstream& out);
 
 Configuration::Options::Identifier GetIdentifierFromUser();
 Configuration::Options::Details GetDetailFromUser();
-Configuration::Options::Endpoints GetEndpointFromUser();
+Configuration::Options::Network GetNetworkFromUser();
 Configuration::Options::Security GetSecurityFromUser();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
-//----------------------------------------------------------------------------------------------------------------------
-namespace defaults {
-//----------------------------------------------------------------------------------------------------------------------
-
-constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the configuration files to 12KB
-
-constexpr std::string_view IdentifierType = "Persistent";
-
-constexpr std::string_view EndpointType = "TCP";
-constexpr std::string_view NetworkInterface = "lo";
-constexpr std::string_view TcpBindingAddress = "*:35216";
-constexpr std::string_view TcpBootstrapEntry = "127.0.0.1:35216";
-constexpr std::string_view LoRaBindingAddress = "915:71";
-
-constexpr std::string_view SecurityStrategy = "PQNISTL3";
-constexpr std::string_view NetworkToken = "";
-
-//----------------------------------------------------------------------------------------------------------------------
-} // default namespace
 //----------------------------------------------------------------------------------------------------------------------
 namespace allowable {
 //----------------------------------------------------------------------------------------------------------------------
@@ -134,6 +116,15 @@ LI_SYMBOL(details)
 //     "location": String
 // }
 
+#ifndef LI_SYMBOL_network
+#define LI_SYMBOL_network
+LI_SYMBOL(network)
+#endif
+// "network": {
+//     "endpoints": Endpoint Options Vector,
+//     "connection": Optional Connection Options
+// }
+
 #ifndef LI_SYMBOL_endpoints
 #define LI_SYMBOL_endpoints
 LI_SYMBOL(endpoints)
@@ -144,6 +135,24 @@ LI_SYMBOL(endpoints)
 //     "binding": String,
 //     "bootstrap": Optional String
 // }]
+
+#ifndef LI_SYMBOL_connection
+#define LI_SYMBOL_connection
+LI_SYMBOL(connection)
+#endif
+// "connection": {
+//     "timeout": Optional String,
+//     "retry": Optional Retry Options
+// }
+
+#ifndef LI_SYMBOL_retry
+#define LI_SYMBOL_retry
+LI_SYMBOL(retry)
+#endif
+// "retry": {
+//     "limit": Optional Integer,
+//     "interval": Optional String
+// }
 
 #ifndef LI_SYMBOL_security
 #define LI_SYMBOL_security
@@ -170,9 +179,17 @@ LI_SYMBOL(description)
 #define LI_SYMBOL_interface
 LI_SYMBOL(interface)
 #endif
+#ifndef LI_SYMBOL_interval
+#define LI_SYMBOL_interval
+LI_SYMBOL(interval)
+#endif
 #ifndef LI_SYMBOL_location
 #define LI_SYMBOL_location
 LI_SYMBOL(location)
+#endif
+#ifndef LI_SYMBOL_limit
+#define LI_SYMBOL_limit
+LI_SYMBOL(limit)
 #endif
 #ifndef LI_SYMBOL_name
 #define LI_SYMBOL_name
@@ -186,8 +203,12 @@ LI_SYMBOL(strategy)
 #define LI_SYMBOL_protocol
 LI_SYMBOL(protocol)
 #endif
-#ifndef LI_SYMBOL_tokenLI_SYMBOL_token
-#define LI_SYMBOL_tokenLI_SYMBOL_token
+#ifndef LI_SYMBOL_timeout
+#define LI_SYMBOL_timeout
+LI_SYMBOL(timeout)
+#endif
+#ifndef LI_SYMBOL_token
+#define LI_SYMBOL_token
 LI_SYMBOL(token)
 #endif
 #ifndef LI_SYMBOL_type
@@ -206,7 +227,7 @@ struct local::OptionsStore
     std::string version;
     Configuration::Options::Identifier identifier;
     Configuration::Options::Details details;
-    Configuration::Options::Endpoints endpoints;
+    Configuration::Options::Network network;
     Configuration::Options::Security security;
 };
 
@@ -219,7 +240,7 @@ Configuration::Parser::Parser(Options::Runtime const& options)
     , m_runtime(options)
     , m_identifier()
     , m_details()
-    , m_endpoints()
+    , m_network()
     , m_security()
     , m_validated(false)
     , m_changed(false)
@@ -236,7 +257,7 @@ Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Ru
     , m_runtime(runtimeOptions)
     , m_identifier()
     , m_details()
-    , m_endpoints()
+    , m_network()
     , m_security()
     , m_validated(false)
     , m_changed(false)
@@ -294,7 +315,7 @@ Configuration::StatusCode Configuration::Parser::Serialize()
     local::SerializeVersion(out);
     local::SerializeIdentifier(m_identifier, out);
     local::SerializeDetail(m_details, out);
-    local::SerializeEndpoints(m_endpoints, out);
+    local::SerializeNetwork(m_network, out);
     local::SerializeSecurity(m_security, out);
 
     out << "}" << std::flush;
@@ -376,11 +397,17 @@ bool Configuration::Parser::UseFilepathDeduction() const { return m_runtime.useF
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Identifier::Type Configuration::Parser::GetIdentifierType() const { return m_identifier.constructed.type; }
+Configuration::Options::Identifier::Type Configuration::Parser::GetIdentifierType() const
+{
+    return m_identifier.constructed.type;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier const& Configuration::Parser::GetNodeIdentifier() const { return m_identifier.constructed.value; }
+Node::SharedIdentifier const& Configuration::Parser::GetNodeIdentifier() const
+{
+    return m_identifier.constructed.value;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -396,17 +423,39 @@ std::string const& Configuration::Parser::GetNodeLocation() const { return m_det
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Endpoints const& Configuration::Parser::GetEndpoints() const { return m_endpoints; }
+std::chrono::milliseconds const& Configuration::Parser::GetConnectionTimeout() const
+{
+    return m_network.GetConnectionTimeout();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::int32_t Configuration::Parser::GetConnectionRetryLimit() const { return m_network.GetConnectionRetryLimit(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::chrono::milliseconds const& Configuration::Parser::GetConnectionRetryInterval() const
+{
+    return m_network.GetConnectionRetryInterval();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::Endpoints const& Configuration::Parser::GetEndpoints() const
+{
+    return m_network.GetEndpoints();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(Network::BindingAddress const& binding) const
 {
-    auto const itr = std::ranges::find_if(m_endpoints, [&binding] (Options::Endpoint const& existing) {
+    auto const& endpoints = m_network.GetEndpoints();
+    auto const itr = std::ranges::find_if(endpoints, [&binding] (Options::Endpoint const& existing) {
         return binding == existing.constructed.binding;
     });
 
-    if (itr == m_endpoints.end()) { return {}; }
+    if (itr == endpoints.end()) { return {}; }
     return *itr;
 }
 
@@ -414,11 +463,12 @@ Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(Networ
 
 Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(std::string_view const& uri) const
 {
-    auto const itr = std::ranges::find_if(m_endpoints, [&uri] (Options::Endpoint const& existing) {
+    auto const& endpoints = m_network.GetEndpoints();
+    auto const itr = std::ranges::find_if(endpoints, [&uri] (Options::Endpoint const& existing) {
         return uri == existing.constructed.binding.GetUri();
     });
 
-    if (itr == m_endpoints.end()) { return {}; }
+    if (itr == endpoints.end()) { return {}; }
     return *itr;
 }
 
@@ -427,11 +477,12 @@ Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(std::s
 Configuration::Parser::FetchedEndpoint Configuration::Parser::GetEndpoint(
     Network::Protocol protocol, std::string_view const& binding) const
 {
-    auto const itr = std::ranges::find_if(m_endpoints, [&protocol, &binding] (Options::Endpoint const& existing) {
+    auto const& endpoints = m_network.GetEndpoints();
+    auto const itr = std::ranges::find_if(endpoints, [&protocol, &binding] (Options::Endpoint const& existing) {
         return protocol == existing.constructed.protocol && binding == existing.binding;
     });
 
-    if (itr == m_endpoints.end()) { return {}; }
+    if (itr == endpoints.end()) { return {}; }
     return *itr;
 }
 
@@ -441,7 +492,7 @@ Security::Strategy Configuration::Parser::GetSecurityStrategy() const { return m
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Parser::GetNetworkToken() const { return m_security.token; }
+std::optional<std::string> const& Configuration::Parser::GetNetworkToken() const { return m_security.token; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -508,7 +559,7 @@ bool Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
     // Currently, changes  to the identifier type will always update the actual identifier. 
     m_identifier.value.reset();
     m_identifier.constructed.value.reset(); 
-    return m_identifier.Initialize();
+    return m_identifier.Initialize(m_logger);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -558,18 +609,45 @@ bool Configuration::Parser::SetNodeLocation(std::string_view const& location)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Configuration::Parser::SetConnectionTimeout(std::chrono::milliseconds const& timeout)
+{
+    if (!m_network.SetConnectionTimeout(timeout)) { return false; }
+    m_changed = true;
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::SetConnectionRetryLimit(std::int32_t limit)
+{
+    if (!m_network.SetConnectionRetryLimit(limit)) { return false; }
+    m_changed = true;
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::SetConnectionRetryInterval(std::chrono::milliseconds const& interval)
+{
+    if (!m_network.SetConnectionRetryInterval(interval)) { return false; }
+    m_changed = true;
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Configuration::Parser::FetchedEndpoint Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 {
-    if (!options.Initialize()) { return {}; } // If the provided options are invalid, return false. 
+    if (!options.Initialize(m_logger)) { return {}; } // If the provided options are invalid, return false. 
 
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     m_changed = true;
-    auto const itr = std::ranges::find_if(m_endpoints, [&options] (Options::Endpoint const& existing) {
+    auto const itr = std::ranges::find_if(m_network.endpoints, [&options] (Options::Endpoint const& existing) {
         return options.binding == existing.binding;
     });
 
     // If no matching options were found, insert the options and return the initialized values. 
-    if (itr == m_endpoints.end()) {  return m_endpoints.emplace_back(std::move(options)); }
+    if (itr == m_network.endpoints.end()) { return m_network.endpoints.emplace_back(std::move(options)); }
 
     *itr = std::move(options); // Update the matched options with the new values. 
     return *itr;    
@@ -581,7 +659,7 @@ std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEn
     Network::BindingAddress const& binding)
 {
     std::optional<Options::Endpoint> optExtractedOptions;
-    auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
+    auto const count = std::erase_if(m_network.endpoints, [&] (Options::Endpoint& existing) {
         bool const found = binding == existing.constructed.binding;
         if (found) { optExtractedOptions = std::move(existing); }
         return found;
@@ -596,7 +674,7 @@ std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEn
 std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEndpoint(std::string_view const& uri)
 {
     std::optional<Options::Endpoint> optExtractedOptions;
-    auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
+    auto const count = std::erase_if(m_network.endpoints, [&] (Options::Endpoint& existing) {
         bool const found = uri == existing.constructed.binding.GetUri();
         if (found) { optExtractedOptions = std::move(existing); }
         return found;
@@ -612,7 +690,7 @@ std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEn
     Network::Protocol protocol, std::string_view const& binding)
 {
     std::optional<Options::Endpoint> optExtractedOptions;
-    auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
+    auto const count = std::erase_if(m_network.endpoints, [&] (Options::Endpoint& existing) {
         bool const found = protocol == existing.constructed.protocol && binding == existing.binding;
         if (found) { optExtractedOptions = std::move(existing); }
         return found;
@@ -654,7 +732,7 @@ void Configuration::Parser::OnFilepathChanged()
 {
     if (m_filepath.empty()) { return; } // If the filepath is empty, there is nothing to do.  
 
-    // If we are allowed to deduce the filepath, update the configured path using the defaults when applicable.
+    // If we are allowed to deduce the filepath, update the configured path using the Defaults when applicable.
     if (m_runtime.useFilepathDeduction) {
         // If the filepath does not have a filename, attach the default config.json
         if (!m_filepath.has_filename()) { m_filepath = m_filepath / DefaultConfigurationFilename; }
@@ -724,18 +802,14 @@ Configuration::StatusCode Configuration::Parser::ValidateOptions()
 
     if (!AreOptionsAllowable()) { return StatusCode::DecodeError; }
 
-    if (!m_identifier.Initialize()) { return StatusCode::InputError; }
-    if (!m_security.Initialize()) { return StatusCode::InputError; }
+    if (!m_identifier.Initialize(m_logger)) { return StatusCode::InputError; }
+    if (!m_identifier.Initialize(m_logger)) { return StatusCode::InputError; }
+    if (!m_network.Initialize(m_logger)) { return StatusCode::InputError; }
+    if (!m_security.Initialize(m_logger)) { return StatusCode::InputError; }
 
-    m_validated = std::ranges::all_of(m_endpoints, [&logger = m_logger] (auto& options) {
-        bool const success = options.Initialize();
-        if (!success) {
-            logger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolString());
-        }
-        return success;
-    });
+    m_validated = true;
 
-    return (m_validated) ? StatusCode::Success : StatusCode::InputError;
+    return StatusCode::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -748,9 +822,9 @@ bool Configuration::Parser::AreOptionsAllowable() const
     // If the node is running in the foreground, the node will not be able to connect to the network when no endpoint 
     // options are defined in the configuration file. In the case of the background context, the library user is able
     // to attach endpoints any time. 
-    if (m_runtime.context == RuntimeContext::Foreground && m_endpoints.empty()) { return false; }
+    if (m_runtime.context == RuntimeContext::Foreground && m_network.endpoints.empty()) { return false; }
 
-    for (auto const& endpoint: m_endpoints) {
+    for (auto const& endpoint: m_network.endpoints) {
         if (!allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.protocol)) { return false; }
     }
 
@@ -770,7 +844,7 @@ Configuration::StatusCode Configuration::Parser::Deserialize()
     {
         std::error_code error;
         auto const size = std::filesystem::file_size(m_filepath, error);
-        if (error || size == 0 || size > defaults::FileSizeLimit) [[unlikely]] {
+        if (error || size == 0 || size > Defaults::FileSizeLimit) [[unlikely]] {
             return StatusCode::FileError;
         }
     }
@@ -783,32 +857,50 @@ Configuration::StatusCode Configuration::Parser::Deserialize()
 
     // Decode the JSON string into the configuration struct
     local::OptionsStore store;
+
+    std::string version;
+    Configuration::Options::Identifier identifier;
+    Configuration::Options::Details details;
+    Configuration::Options::Network network;
+    Configuration::Options::Security security;
+
     auto const error = li::json_object(
-        s::version,
-        s::identifier = li::json_object(s::type, s::value),
-        s::details = li::json_object(s::name, s::description, s::location),
-        s::endpoints = li::json_vector(s::protocol, s::interface, s::binding, s::bootstrap),
-        s::security = li::json_object(s::strategy, s::token))
+        s::version = std::string(),
+        s::identifier = li::json_object(
+            s::type = std::string(),
+            s::value = std::string()),
+        s::details = li::json_object(
+            s::name = std::string(),
+            s::description = std::string(),
+            s::location = std::string()),
+        s::network = li::json_object(
+            s::endpoints = li::json_vector(
+                s::protocol = std::string(),
+                s::interface = std::string(),
+                s::binding = std::string(),
+                s::bootstrap = std::optional<std::string>()),
+            s::connection = li::json_object(
+                s::timeout = std::string(),
+                s::retry = li::json_object(
+                    s::limit = std::int32_t(),
+                    s::interval = std::string()))),
+        s::security = li::json_object(
+            s::strategy = std::string(),
+            s::token = std::optional<std::string>()))
         .decode(json, store);
+        
     if (error.code) { return StatusCode::DecodeError; }
 
     m_version = std::move(store.version);
     m_identifier.Merge(store.identifier);
     m_details.Merge(store.details);
+    m_network.Merge(store.network);
     m_security.Merge(store.security);
-    
-    std::ranges::for_each(store.endpoints, [this] (Options::Endpoint& options) {
-        auto const itr = std::ranges::find_if(m_endpoints, [&options] (Options::Endpoint const& existing) {
-            return options.binding == existing.binding;
-        });
-        if (itr == m_endpoints.end()) { m_endpoints.emplace_back(options); } else { itr->Merge(options); }
-    });
 
     return StatusCode::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-
 void Configuration::Parser::GetOptionsFromUser()
 {
     std::cout << "Generating Brypt Node Configuration Settings." << std::endl; 
@@ -817,7 +909,7 @@ void Configuration::Parser::GetOptionsFromUser()
 
     m_identifier = local::GetIdentifierFromUser();
     m_details = local::GetDetailFromUser();
-    m_endpoints = local::GetEndpointFromUser();
+    m_network = local::GetNetworkFromUser();
     m_security = local::GetSecurityFromUser();
 }
 
@@ -855,23 +947,37 @@ void local::SerializeDetail(Configuration::Options::Details const& options, std:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void local::SerializeEndpoints(Configuration::Options::Endpoints const& endpoints, std::ofstream& out)
+void local::SerializeNetwork(Configuration::Options::Network const& options, std::ofstream& out)
 {
-    out << "\t\"endpoints\": [\n";
-    for (auto const& options: endpoints) {
-        out << "\t\t{\n";
-        out << "\t\t\t\"protocol\": \"" << options.protocol << "\",\n";
-        out << "\t\t\t\"interface\": \"" << options.interface << "\",\n";
-        out << "\t\t\t\"binding\": \"" << options.binding;
-        if (options.bootstrap) {
-            out << "\",\n\t\t\t\"bootstrap\": \"" << *options.bootstrap << "\"\n";
+    out << "\t\"network\": {\n";
+    out << "\t\t\"endpoints\": [\n";
+    auto const& endpoints = options.GetEndpoints();
+    for (auto const& endpoint : endpoints) {
+        out << "\t\t\t{\n";
+        out << "\t\t\t\t\"protocol\": \"" << endpoint.protocol << "\",\n";
+        out << "\t\t\t\t\"interface\": \"" << endpoint.interface << "\",\n";
+        out << "\t\t\t\t\"binding\": \"" << endpoint.binding << "\"";
+        
+        if (endpoint.bootstrap) {
+            out << ",\n\t\t\t\t\"bootstrap\": \"" << *endpoint.bootstrap << "\"\n";
         } else {
-            out << "\"\n";
+            out << "\n";
         }
-        out << "\t\t}";
-        if (&options != &endpoints.back()) { out << ",\n"; }
+        
+        out << "\t\t\t}";
+        if (&endpoint != &endpoints.back()) { out << ",\n"; }
     }
-    out << "\n\t],\n";
+    out << "\n\t\t],\n";
+
+    out << "\t\t\"connection\": {\n";
+    out << "\t\t\t\"timeout\": \"" << options.connection.timeout << "\",\n";
+    out << "\t\t\t\"retry\": {\n";
+    out << "\t\t\t\t\"limit\": " << options.connection.retry.limit << ",\n";
+    out << "\t\t\t\t\"interval\": \"" << options.connection.retry.interval << "\"\n";
+    out << "\t\t\t}\n";
+    out << "\t\t}\n";
+
+    out << "\t},\n";
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -879,8 +985,13 @@ void local::SerializeEndpoints(Configuration::Options::Endpoints const& endpoint
 void local::SerializeSecurity(Configuration::Options::Security const& options, std::ofstream& out)
 {
     out << "\t\"security\": {\n";
-    out << "\t\t\"strategy\": \"" << options.strategy << "\",\n";
-    out << "\t\t\"token\": \"" << options.token << "\"\n";
+    out << "\t\t\"strategy\": \"" << options.strategy << "\"";
+    if (options.token) {
+        out << ",\n\t\t\"token\": \"" << *options.token << "\"\n";
+    } else {
+        out << "\n";
+    }
+    
     out << "\t}\n";
 }
 
@@ -888,13 +999,14 @@ void local::SerializeSecurity(Configuration::Options::Security const& options, s
 
 Configuration::Options::Identifier local::GetIdentifierFromUser()
 {
-    Configuration::Options::Identifier options{ defaults::IdentifierType };
+    using namespace Configuration;
+    Options::Identifier options{ Defaults::IdentifierType };
     bool allowable = true; // Ensure the loop condition is initialized for the exit condition.
     do {
         // Get the network interface that the node will be bound too
         allowable = true;
-        std::string type{ defaults::IdentifierType };
-        std::cout << "Identifier Type: (" << defaults::IdentifierType << ") " << std::flush;
+        std::string type{ Defaults::IdentifierType };
+        std::cout << "Identifier Type: (" << Defaults::IdentifierType << ") " << std::flush;
         std::getline(std::cin, type);
         if (!type.empty()) {
             if (auto const optValue = allowable::IfAllowableGetValue(allowable::IdentifierTypes, type); optValue) {
@@ -939,18 +1051,20 @@ Configuration::Options::Details local::GetDetailFromUser()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Endpoints local::GetEndpointFromUser()
+Configuration::Options::Network local::GetNetworkFromUser()
 {
-    Configuration::Options::Endpoints endpoints;
+    using namespace Configuration;
+    Options::Network network;
 
+    // TODO: Add connection options to the generator. 
     bool addEndpoint = false;
     do {
         Configuration::Options::Endpoint options{
-            defaults::EndpointType, defaults::NetworkInterface, defaults::TcpBindingAddress };
+            Defaults::EndpointType, Defaults::NetworkInterface, Defaults::TcpBindingAddress };
 
         bool allowable = true;
         std::string protocol = ""; 
-        std::cout << "EndpointType: (" << defaults::EndpointType << ") " << std::flush;
+        std::cout << "EndpointType: (" << Defaults::EndpointType << ") " << std::flush;
         std::getline(std::cin, protocol); // Get the desired primary protocol type for the node
         if (!protocol.empty()) {
             if (auto const optValue = allowable::IfAllowableGetValue(allowable::EndpointTypes, protocol); optValue) {
@@ -965,7 +1079,7 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
 
         if (allowable) {
             std::string interface = "";
-            std::cout << "Network Interface: (" << defaults::NetworkInterface << ") " << std::flush;
+            std::cout << "Network Interface: (" << Defaults::NetworkInterface << ") " << std::flush;
             std::getline(std::cin, interface); // Get the network interface that the node will be bound to.
             if (!interface.empty()) { options.interface = interface; }
 
@@ -973,11 +1087,11 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
             // based nodes or frequency and channel for LoRa.
             std::string binding = "";
             std::string bindingOutputMessage = "Binding Address [IP:Port]: (";
-            bindingOutputMessage.append(defaults::TcpBindingAddress.data());
+            bindingOutputMessage.append(Defaults::TcpBindingAddress.data());
             if (options.constructed.protocol == Network::Protocol::LoRa) {
                 bindingOutputMessage = "Binding Frequency: [Frequency:Channel]: (";
-                bindingOutputMessage.append(defaults::LoRaBindingAddress.data());
-                options.binding = defaults::LoRaBindingAddress;
+                bindingOutputMessage.append(Defaults::LoRaBindingAddress.data());
+                options.binding = Defaults::LoRaBindingAddress;
             }
             bindingOutputMessage.append(") ");
 
@@ -986,38 +1100,39 @@ Configuration::Options::Endpoints local::GetEndpointFromUser()
             if (!binding.empty()) { options.binding = binding; }
  
             if (options.constructed.protocol != Network::Protocol::LoRa) {
-                options.bootstrap = defaults::TcpBootstrapEntry;
+                options.bootstrap = Defaults::TcpBootstrapEntry;
                 std::string bootstrap = "";
-                std::cout << "Default Bootstrap Entry: (" << defaults::TcpBootstrapEntry << ") " << std::flush;
+                std::cout << "Default Bootstrap Entry: (" << Defaults::TcpBootstrapEntry << ") " << std::flush;
                 std::getline(std::cin, bootstrap); // Get the default bootstrap entry for the protocol
                 if (!bootstrap.empty()) { options.bootstrap = bootstrap; }
             }
 
-            endpoints.emplace_back(std::move(options));
+            network.endpoints.emplace_back(std::move(options));
         }
 
         std::string sContinueChoice;
         std::cout << "Enter any key to setup a new endpoint configuration (Press enter to continue): " << std::flush;
         std::getline(std::cin, sContinueChoice);
-        addEndpoint = !sContinueChoice.empty() || endpoints.empty();
+        addEndpoint = !sContinueChoice.empty() || network.endpoints.empty();
         std::cout << "\n";
     } while(addEndpoint);
 
-    return endpoints;
+    return network;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Security local::GetSecurityFromUser()
 {
-    Configuration::Options::Security options{ defaults::SecurityStrategy, defaults::NetworkToken };
+    using namespace Configuration;
+    Options::Security options{ Defaults::SecurityStrategy, Defaults::NetworkToken };
     
     bool allowable = true; // Ensure the loop condition is initialized for the exit condition.
     do {
         // Get the desired security strategy from the user.
         allowable = true;
-        std::string strategy{ defaults::SecurityStrategy };
-        std::cout << "Security Strategy: (" << defaults::SecurityStrategy << ") " << std::flush;
+        std::string strategy{ Defaults::SecurityStrategy };
+        std::cout << "Security Strategy: (" << Defaults::SecurityStrategy << ") " << std::flush;
         std::getline(std::cin, strategy);
         if (!strategy.empty()) {
             if (auto const optValue = allowable::IfAllowableGetValue(allowable::StrategyTypes, strategy); optValue) {
@@ -1030,8 +1145,8 @@ Configuration::Options::Security local::GetSecurityFromUser()
             }
 
             if (allowable) {
-                std::string token{ defaults::NetworkToken };
-                std::cout << "Network Token: (" << defaults::NetworkToken << ") " << std::flush;
+                std::string token{ Defaults::NetworkToken };
+                std::cout << "Network Token: (" << Defaults::NetworkToken << ") " << std::flush;
                 std::getline(std::cin, token);
                 if (!token.empty()) { options.token = token; }
             }

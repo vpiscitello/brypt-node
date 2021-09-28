@@ -1,5 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "Components/Configuration/Options.hpp"
+#include "Components/Configuration/Defaults.hpp"
+#include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Utilities/NodeUtils.hpp"
@@ -92,6 +93,7 @@ TEST(ConfigurationParserSuite, ParseMissingFileTest)
 
 TEST(ConfigurationParserSuite, FileGenerationTest)
 {
+    using namespace std::chrono_literals;
     Configuration::Parser parser(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
     if (std::filesystem::exists(parser.GetFilepath())) { std::filesystem::remove(parser.GetFilepath()); }
 
@@ -112,8 +114,11 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(parser.GetNodeDescription(), "");
     EXPECT_EQ(parser.GetNodeLocation(), "");
     EXPECT_TRUE(parser.GetEndpoints().empty());
+    EXPECT_EQ(parser.GetConnectionTimeout(), Configuration::Defaults::ConnectionTimeout);
+    EXPECT_EQ(parser.GetConnectionRetryLimit(), Configuration::Defaults::ConnectionRetryLimit);
+    EXPECT_EQ(parser.GetConnectionRetryInterval(), Configuration::Defaults::ConnectionRetryInterval);
     EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::Invalid);
-    EXPECT_EQ(parser.GetNetworkToken(), "");
+    EXPECT_FALSE(parser.GetNetworkToken());
 
     // Verify that that all setters and getters work as expected. 
     parser.SetRuntimeContext(RuntimeContext::Background);
@@ -147,11 +152,29 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35217" }));
     EXPECT_TRUE(parser.GetEndpoint("tcp://127.0.0.1:35216"));
 
+    EXPECT_FALSE(parser.SetConnectionTimeout(1441min));
+    EXPECT_TRUE(parser.SetConnectionTimeout(0s));
+    EXPECT_TRUE(parser.SetConnectionTimeout(1440min));
+    EXPECT_TRUE(parser.SetConnectionTimeout(250ms));
+    EXPECT_EQ(parser.GetConnectionTimeout(), 250ms);
+
+    EXPECT_FALSE(parser.SetConnectionRetryLimit(-1));
+    EXPECT_TRUE(parser.SetConnectionRetryLimit(0));
+    EXPECT_TRUE(parser.SetConnectionRetryLimit(15));
+    EXPECT_EQ(parser.GetConnectionRetryLimit(), 15);
+
+    EXPECT_FALSE(parser.SetConnectionRetryInterval(1441min));
+    EXPECT_TRUE(parser.SetConnectionRetryInterval(0s));
+    EXPECT_TRUE(parser.SetConnectionRetryInterval(1440min));
+    EXPECT_TRUE(parser.SetConnectionRetryInterval(250ms));
+    EXPECT_EQ(parser.GetConnectionRetryInterval(), 250ms);
+
     parser.SetSecurityStrategy(Security::Strategy::PQNISTL3);
     EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::PQNISTL3);
 
     EXPECT_TRUE(parser.SetNetworkToken("network_token"));
-    EXPECT_EQ(parser.GetNetworkToken(), "network_token");
+    ASSERT_TRUE(parser.GetNetworkToken());
+    EXPECT_EQ(*parser.GetNetworkToken(), "network_token");
 
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
@@ -179,6 +202,9 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(checker.GetNodeLocation(), parser.GetNodeLocation());
     EXPECT_EQ(checker.GetEndpoints().size(), parser.GetEndpoints().size());
     EXPECT_EQ(checker.GetSecurityStrategy(), parser.GetSecurityStrategy());
+    EXPECT_EQ(checker.GetConnectionTimeout(), parser.GetConnectionTimeout());
+    EXPECT_EQ(checker.GetConnectionRetryLimit(), parser.GetConnectionRetryLimit());
+    EXPECT_EQ(checker.GetConnectionRetryInterval(), parser.GetConnectionRetryInterval());
     EXPECT_EQ(checker.GetNetworkToken(), parser.GetNetworkToken());
 
     {
@@ -203,6 +229,7 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
 
 TEST(ConfigurationParserSuite, MergeOptionsTest)
 {
+    using namespace std::chrono_literals;
     Configuration::Parser parser(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
     if (std::filesystem::exists(parser.GetFilepath())) { std::filesystem::remove(parser.GetFilepath()); }
 
@@ -211,6 +238,10 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     EXPECT_TRUE(parser.SetNodeDescription("original_description"));
     EXPECT_TRUE(parser.SetNodeLocation("original_location"));
     EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "original_interface", "127.0.0.1:35216" }));
+    EXPECT_TRUE(parser.SetConnectionTimeout(250ms));
+    EXPECT_TRUE(parser.SetConnectionRetryLimit(15));
+    EXPECT_TRUE(parser.SetConnectionRetryInterval(250ms));
+
     parser.SetSecurityStrategy(Security::Strategy::PQNISTL3);
     EXPECT_TRUE(parser.SetNetworkToken("original_token"));
 
@@ -226,7 +257,9 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35216", "127.0.0.1:35217" }));
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35226" }));
     EXPECT_TRUE(merger.SetNetworkToken("merge_token"));
-    
+    EXPECT_TRUE(merger.SetConnectionTimeout(500ms));
+    EXPECT_TRUE(merger.SetConnectionRetryLimit(30));
+
     EXPECT_EQ(merger.FetchOptions(), Configuration::StatusCode::Success);
     EXPECT_TRUE(merger.Validated());
     EXPECT_FALSE(merger.Changed());
@@ -239,9 +272,13 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     EXPECT_NE(merger.GetNodeLocation(), parser.GetNodeLocation()); // The node location should differ. 
     EXPECT_EQ(merger.GetNodeLocation(), "merge_location");
     EXPECT_NE(merger.GetEndpoints().size(), parser.GetEndpoints().size()); // The endpoints should differ.
+    EXPECT_EQ(merger.GetConnectionTimeout(), 500ms);
+    EXPECT_EQ(merger.GetConnectionRetryLimit(), 30);
+    EXPECT_EQ(merger.GetConnectionRetryInterval(), parser.GetConnectionRetryInterval());
     EXPECT_EQ(merger.GetSecurityStrategy(), parser.GetSecurityStrategy());
+    ASSERT_TRUE(merger.GetNetworkToken());
     EXPECT_NE(merger.GetNetworkToken(), parser.GetNetworkToken()); // The network token should differ. 
-    EXPECT_EQ(merger.GetNetworkToken(), "merge_token"); // The network token should differ. 
+    EXPECT_EQ(*merger.GetNetworkToken(), "merge_token"); // The network token should differ. 
 
     {
         auto const spIdentifier = parser.GetNodeIdentifier();
@@ -287,8 +324,11 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_EQ(parser.GetNodeDescription(), "");
     EXPECT_EQ(parser.GetNodeLocation(), "");
     EXPECT_TRUE(parser.GetEndpoints().empty());
+    EXPECT_EQ(parser.GetConnectionTimeout(), Configuration::Defaults::ConnectionTimeout);
+    EXPECT_EQ(parser.GetConnectionRetryLimit(), Configuration::Defaults::ConnectionRetryLimit);
+    EXPECT_EQ(parser.GetConnectionRetryInterval(), Configuration::Defaults::ConnectionRetryInterval);
     EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::Invalid);
-    EXPECT_EQ(parser.GetNetworkToken(), "");
+    EXPECT_FALSE(parser.GetNetworkToken());
 
     EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::DecodeError);
     EXPECT_FALSE(parser.Validated());
@@ -301,8 +341,11 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_EQ(parser.GetNodeDescription(), "");
     EXPECT_EQ(parser.GetNodeLocation(), "");
     EXPECT_TRUE(parser.GetEndpoints().empty());
+    EXPECT_EQ(parser.GetConnectionTimeout(), Configuration::Defaults::ConnectionTimeout);
+    EXPECT_EQ(parser.GetConnectionRetryLimit(), Configuration::Defaults::ConnectionRetryLimit);
+    EXPECT_EQ(parser.GetConnectionRetryInterval(), Configuration::Defaults::ConnectionRetryInterval);
     EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::Invalid);
-    EXPECT_EQ(parser.GetNetworkToken(), "");
+    EXPECT_FALSE(parser.GetNetworkToken());
 
     // The parser should flip the changed flag when a field has been set. 
     EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral));

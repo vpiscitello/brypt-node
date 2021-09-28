@@ -13,6 +13,7 @@
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
 #include "Interfaces/BootstrapCache.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -281,7 +282,7 @@ std::optional<local::ConfigurationResources> local::CreateConfigurationResources
     Configuration::Options::Endpoints configured;
     {
         Configuration::Options::Endpoint options(Network::Protocol::TCP, test::Interface, uri);
-        if (!options.Initialize()) { return {}; }
+        if (!options.Initialize(spdlog::get(Logger::Name::Core.data()))) { return {}; }
         configured.emplace_back(options);
     }
 

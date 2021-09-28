@@ -54,12 +54,15 @@ public:
     [[nodiscard]] std::string const& GetNodeName() const;
     [[nodiscard]] std::string const& GetNodeDescription() const;
     [[nodiscard]] std::string const& GetNodeLocation() const;
+    [[nodiscard]] std::chrono::milliseconds const& GetConnectionTimeout() const;
+    [[nodiscard]] std::int32_t GetConnectionRetryLimit() const;
+    [[nodiscard]] std::chrono::milliseconds const& GetConnectionRetryInterval() const;
     [[nodiscard]] Options::Endpoints const& GetEndpoints() const;
     [[nodiscard]] FetchedEndpoint GetEndpoint(Network::BindingAddress const& binding) const;
     [[nodiscard]] FetchedEndpoint GetEndpoint(std::string_view const& uri) const;
     [[nodiscard]] FetchedEndpoint GetEndpoint(Network::Protocol protocol, std::string_view const& binding) const;
     [[nodiscard]] Security::Strategy GetSecurityStrategy() const;
-    [[nodiscard]] std::string const& GetNetworkToken() const;
+    [[nodiscard]] std::optional<std::string> const& GetNetworkToken() const;
 
     [[nodiscard]] bool Validated() const;
     [[nodiscard]] bool Changed() const;
@@ -73,6 +76,9 @@ public:
     [[nodiscard]] bool SetNodeName(std::string_view const& name);
     [[nodiscard]] bool SetNodeDescription(std::string_view const& description);
     [[nodiscard]] bool SetNodeLocation(std::string_view const& location);
+    [[nodiscard]] bool SetConnectionTimeout(std::chrono::milliseconds const& timeout);
+    [[nodiscard]] bool SetConnectionRetryLimit(std::int32_t limit);
+    [[nodiscard]] bool SetConnectionRetryInterval(std::chrono::milliseconds const& interval);
     [[nodiscard]] FetchedEndpoint UpsertEndpoint(Options::Endpoint&& options);
     std::optional<Options::Endpoint> ExtractEndpoint(Network::BindingAddress const& binding);
     std::optional<Options::Endpoint> ExtractEndpoint(std::string_view const& uri);
@@ -98,7 +104,7 @@ private:
     Options::Runtime m_runtime;
     Options::Identifier m_identifier;
     Options::Details m_details;
-    Options::Endpoints m_endpoints;
+    Options::Network m_network;
     Options::Security m_security;
 
     bool m_validated;
