@@ -25,17 +25,17 @@ class Endpoint;
 class Network::LoRa::Endpoint : public Network::IEndpoint
 {
 public:
-    Endpoint(Operation operation, Event::SharedPublisher const& spEventPublisher);
+    explicit Endpoint(Network::Endpoint::Properties const& properties);
     ~Endpoint() override;
 
     // IEndpoint{
     virtual Protocol GetProtocol() const override;
     virtual std::string GetScheme() const override;
     virtual BindingAddress GetBinding() const override;
-    virtual bool IsActive() const override;
 
     virtual void Startup() override;
     virtual bool Shutdown() override;
+    virtual bool IsActive() const override;
     
     [[nodiscard]] virtual bool ScheduleBind(BindingAddress const& binding) override;
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) override;

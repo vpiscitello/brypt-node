@@ -61,7 +61,7 @@ constexpr std::string_view Interface = "lo";
 constexpr std::string_view OriginBinding = "*:35216";
 constexpr std::size_t ExpectedEndpoints = 2;
 
-Network::BindingAddress const TargetBinding(Network::Protocol::TCP, "*:35217", Interface);
+auto TargetOptions = Configuration::Options::Endpoint{ Network::Protocol::TCP, Interface, "*:35217" };
 
 //----------------------------------------------------------------------------------------------------------------------
 } // test namespace
@@ -231,7 +231,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
     // Make a configuration that will cause an unrecoverable error in a spawned endpoint. We need to use a binding 
     // that will fail for reason other than being malformed, becuase those errore would be caught by initalizing the 
     // address in the settings. Here are using the target's binding because it is known to be in use. 
-    auto optConfiguration = local::CreateConfigurationResources(test::TargetBinding.GetUri());
+    auto optConfiguration = local::CreateConfigurationResources(test::TargetOptions.GetBinding().GetUri());
     ASSERT_TRUE(optConfiguration);
     auto const& [configurations, upBootstrapCache] = *optConfiguration;
     ASSERT_EQ(configurations.size() * 2, test::ExpectedEndpoints);
@@ -301,6 +301,8 @@ std::optional<local::ConfigurationResources> local::CreateConfigurationResources
 
 std::optional<local::TargetResources> local::CreateTargetResources()
 {
+    if (!test::TargetOptions.Initialize(spdlog::get(Logger::Name::Core.data()))) { return {}; }
+
     // Create a test server for the endpoints created through the network manager to connect to. 
     auto upProcessor = std::make_unique<MessageSinkStub>(test::TargetIdentifier);
     auto upMediator = std::make_unique<SinglePeerMediatorStub>(
@@ -310,10 +312,12 @@ std::optional<local::TargetResources> local::CreateTargetResources()
     auto const spPublisher = std::make_shared<Event::Publisher>(spRegistrar);
     spPublisher->SuspendSubscriptions(); // We don't need to subscribe to any of the target's events. 
 
-    auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(Network::Operation::Server, spPublisher);
-    upEndpoint->RegisterMediator(upMediator.get());
+    auto const properties = Network::Endpoint::Properties{ Network::Operation::Server, test::TargetOptions };
+    auto upEndpoint = std::make_unique<Network::TCP::Endpoint>(properties);
+    upEndpoint->Register(spPublisher);
+    upEndpoint->Register(upMediator.get());
 
-    if (!upEndpoint->ScheduleBind(test::TargetBinding)) { return {}; }
+    if (!upEndpoint->ScheduleBind(test::TargetOptions.GetBinding())) { return {}; }
     upEndpoint->Startup();
 
     return std::make_tuple(

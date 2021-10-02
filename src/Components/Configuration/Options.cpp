@@ -276,6 +276,22 @@ void Configuration::Options::Connection::Merge(Connection& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Configuration::Options::Connection::Merge(Connection const& other)
+{
+    if (timeout.empty()) { 
+        timeout = other.timeout;
+        constructed.timeout = other.constructed.timeout;
+    }
+
+    if (retry.limit == Defaults::ConnectionRetryLimit) { retry.limit = other.retry.limit; }
+    if (retry.interval.empty()) { 
+        retry.interval = other.retry.interval;
+        constructed.interval = other.constructed.interval;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool Configuration::Options::Connection::Initialize(std::shared_ptr<spdlog::logger> const& logger)
 {
     constexpr auto ConstructDuration = [] (std::string const& value) -> std::optional<std::chrono::milliseconds> {
@@ -616,7 +632,10 @@ bool Configuration::Options::Endpoint::SetConnectionRetryInterval(std::chrono::m
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Endpoint::SetConnectionOptions(Connection const& options) { connection = options; }
+void Configuration::Options::Endpoint::SetConnectionOptions(Connection const& options)
+{
+    if (connection) { connection->Merge(options); } else { connection = options; }
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -662,11 +681,10 @@ bool Configuration::Options::Network::Initialize(std::shared_ptr<spdlog::logger>
 {
     if (!connection.Initialize(logger)) { return false; }
 
-    return std::ranges::all_of(endpoints, [&logger] (auto& options) {
-        bool const success = options.Initialize(logger);
-        if (!success) {
-            logger->warn("Unable to initialize the endpoint configuration for {}", options.GetProtocolString());
-        }
+    return std::ranges::all_of(endpoints, [&] (Endpoint& endpoint) {
+        endpoint.SetConnectionOptions(connection); // Add or merge the global connection options for the endpoint. 
+        bool const success = endpoint.Initialize(logger);
+        if (!success) { logger->warn("Detected an invalid configuration for a {} endpoint", endpoint.protocol); }
         return success;
     });
 }

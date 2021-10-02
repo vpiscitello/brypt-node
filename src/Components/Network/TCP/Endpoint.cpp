@@ -14,8 +14,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/redirect_error.hpp>
 #include <boost/asio/use_awaitable.hpp>
+#include <spdlog/fmt/chrono.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <coroutine>
@@ -88,8 +90,8 @@ private:
         using ConnectResult = boost::asio::awaitable<std::optional<bool>>;
 
         Delegate(ClientInstance client, RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
+        
         [[nodiscard]] RemoteAddress const& GetAddress() const;
-
         [[nodiscard]] SocketProcessor operator()();
         [[nodiscard]] ResolveResult Resolve(boost::asio::ip::tcp::resolver::results_type& resolved);
         [[nodiscard]] ConnectResult TryConnect(boost::asio::ip::tcp::resolver::results_type const& resolved);
@@ -102,6 +104,10 @@ private:
         Node::SharedIdentifier m_spIdentifier;
         SharedSession m_spSession;
         std::uint32_t m_attempts;
+        std::chrono::milliseconds const m_timeout;
+        std::uint32_t const m_limit;
+        std::chrono::milliseconds const m_interval;
+        boost::asio::steady_timer m_watcher;
         boost::system::error_code m_error;
     };
 
@@ -111,8 +117,8 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher const& spEventPublisher)
-    : IEndpoint(Protocol::TCP, operation, spEventPublisher)
+Network::TCP::Endpoint::Endpoint(Network::Endpoint::Properties const& properties)
+    : IEndpoint(properties)
     , m_detailsMutex()
     , m_context(1)
     , m_upAgent()
@@ -120,7 +126,8 @@ Network::TCP::Endpoint::Endpoint(Operation operation, ::Event::SharedPublisher c
     , m_scheduler()
     , m_logger()
 {
-    switch (m_operation) {
+    assert(m_properties.GetProtocol() == Protocol::TCP);
+    switch (m_properties.GetOperation()) {
         case Operation::Client: m_logger = spdlog::get(Logger::Name::TcpClient.data()); break;
         case Operation::Server: m_logger = spdlog::get(Logger::Name::TcpServer.data()); break;
         default: assert(false); break;
@@ -168,7 +175,7 @@ void Network::TCP::Endpoint::Startup()
 
     // Create and start a new tcp agent based on the constructred operation type. The Server and Client agents
     // will manage the event loop and resources of this endpoint in a thread. 
-    switch (m_operation) {
+    switch (m_properties.GetOperation()) {
         case Operation::Server: m_upAgent = std::make_unique<Server>(*this); break;
         case Operation::Client: m_upAgent = std::make_unique<Client>(*this); break;
         default: return;
@@ -218,7 +225,7 @@ bool Network::TCP::Endpoint::IsActive() const
 
 bool Network::TCP::Endpoint::ScheduleBind(BindingAddress const& binding)
 {
-    assert(m_operation == Operation::Server);
+    assert(m_properties.GetOperation() == Operation::Server);
     assert(binding.IsValid());
     assert(Network::Socket::ParseAddressType(binding) != Network::Socket::Type::Invalid);
 
@@ -250,7 +257,7 @@ bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address)
 
 bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
 {
-    assert(m_operation == Operation::Client);
+    assert(m_properties.GetOperation() == Operation::Client);
     assert(address.IsValid() && address.IsBootstrapable());
     assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
 
@@ -366,7 +373,7 @@ Network::TCP::SharedSession Network::TCP::Endpoint::CreateSession()
 
 void Network::TCP::Endpoint::OnSessionStarted(SharedSession const& spSession, RemoteAddress::Origin origin)
 {
-    spSession->Initialize(m_operation, origin); // Initialize the session.
+    spSession->Initialize(m_properties.GetOperation(), origin); // Initialize the session.
     m_tracker.TrackConnection(spSession, spSession->GetAddress()); // Start tracking the session's for communication.
     spSession->Start(); // Start the session's dispatcher and receiver handlers. 
 }
@@ -418,7 +425,7 @@ bool Network::TCP::Endpoint::OnMessageReceived(
         
         ExtendedDetails details(spProxy);
         details.SetConnectionState(Connection::State::Connected);
-        spProxy->RegisterEndpoint(m_identifier, m_protocol, address, m_scheduler);
+        spProxy->RegisterEndpoint(m_identifier, Protocol::TCP, address, m_scheduler);
 
         return details;
     };
@@ -783,6 +790,10 @@ Network::TCP::Endpoint::Client::Delegate::Delegate(
     , m_spIdentifier(spIdentifier)
     , m_spSession()
     , m_attempts(0)
+    , m_timeout(client.m_endpoint.m_properties.GetConnectionTimeout())
+    , m_limit(client.m_endpoint.m_properties.GetConnectionRetryLimit())
+    , m_interval(client.m_endpoint.m_properties.GetConnectionRetryInterval())
+    , m_watcher(m_client.m_endpoint.m_context)
     , m_error()
 {
 }
@@ -863,23 +874,50 @@ Network::TCP::Endpoint::Client::Delegate::ResolveResult Network::TCP::Endpoint::
 Network::TCP::Endpoint::Client::Delegate::ConnectResult Network::TCP::Endpoint::Client::Delegate::TryConnect(
     boost::asio::ip::tcp::resolver::results_type const& resolved)
 {
-    constexpr std::string_view RetryWarning= "Unable to connect to {}. Retrying in {} seconds";
+    constexpr std::string_view RetryWarning= "Unable to connect to {}. Retrying in {}";
+
+    // The connection attempt has been canceled only if the socket error is induced and the endpoint is stopped or 
+    // the watcher has not yet timed out. 
+    auto const IsCanceled = [this] (boost::system::error_code const& error) -> bool { 
+        if (!IsInducedError(error)) { return false; }
+        return m_client.m_endpoint.IsStopping() || m_watcher.expiry() > std::chrono::steady_clock::now();
+    };
+
+    // The connection delegate has reached the retry limit it the next attempt exceeds the configured value.
+    auto const IsRetryLimitReached = [this] () -> bool { 
+        return ++m_attempts > m_limit; 
+    };
+
+    m_watcher.expires_after(m_timeout); // Set the timeout for the connection watcher. 
+
+    // Spawn the coroutine that will watch the connection process to detect possible timeouts. 
+    boost::asio::co_spawn(m_client.m_endpoint.m_context, 
+        [this, wpSession = std::weak_ptr<Session>{ m_spSession }] () -> boost::asio::awaitable<void>{
+            boost::system::error_code error;
+            // Note: It's possible for the async_connect call to complete before the timer's completion handler 
+            // is run (i.e. resources represented by the this pointer could potentially be destroyed). After 
+            // continuing from the async_wait call we must use the weak_ptr to ensure the session is still alive. 
+            co_await m_watcher.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, error));
+            if (!error) {
+                if (auto const spSession = wpSession.lock(); spSession && !spSession->IsActive()) { 
+                    spSession->GetSocket().cancel();
+                }
+            }
+        }, boost::asio::detached);
 
     co_await boost::asio::async_connect(
         m_spSession->GetSocket(), resolved, boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
+    m_watcher.cancel();
 
     if (!m_error) { co_return true; } // On success return early such that the client can continue the exchange. 
-    if (IsInducedError(m_error)) { co_return false; } // Return early when the operation has been canceled. 
-
-    // Return early if we have exceeded our available attempts. 
-    if (++m_attempts > Network::Endpoint::RetryLimit) { co_return false; } 
+    if (IsCanceled(m_error)) { co_return false; } // Return early when the operation has been canceled. 
+    if (IsRetryLimitReached()) { co_return false; }  // Return early if we have exceeded our available attempts. 
 
     // If we have reached this point the connection can be scheduled for a future attempt. 
-    m_client.m_endpoint.m_logger->warn(RetryWarning, m_address, Network::Endpoint::RetryTimeout.count());
+    m_client.m_endpoint.m_logger->warn(RetryWarning, m_address, m_interval);
 
     m_error = boost::system::error_code{}; // Enasure the error code has been reset for the timer. 
-    boost::asio::steady_timer timer(
-        m_client.m_endpoint.m_context, std::chrono::seconds(Network::Endpoint::RetryTimeout));
+    boost::asio::steady_timer timer(m_client.m_endpoint.m_context, m_interval);
     co_await timer.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
     if (m_error) { co_return false; } // All timer errors are currently treated as cancellations. 
 

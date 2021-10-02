@@ -136,6 +136,7 @@ struct Configuration::Options::Connection
     [[nodiscard]] bool operator==(Connection const& other) const noexcept;
 
     void Merge(Connection& other);
+    void Merge(Connection const& other);
     [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
 
     [[nodiscard]] std::chrono::milliseconds const& GetTimeout() const;

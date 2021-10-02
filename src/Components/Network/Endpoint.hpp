@@ -11,11 +11,13 @@
 #include "MessageScheduler.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ShareablePack.hpp"
+#include "Components/Configuration/Options.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/SharedPublisher.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/PeerMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <chrono>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -35,22 +37,60 @@ namespace Network::TCP { class Endpoint; }
 namespace Network::Endpoint {
 //----------------------------------------------------------------------------------------------------------------------
 
-std::unique_ptr<IEndpoint> Factory(
-    Protocol protocol,
-    Operation operation,
-    Event::SharedPublisher const& spEventPublisher,
-    IEndpointMediator* const pEndpointMediator,
-    IPeerMediator* const pPeerMediator);
+class Properties;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Network::Endpoint namespace
 //----------------------------------------------------------------------------------------------------------------------
 
+class Network::Endpoint::Properties
+{
+public:
+    Properties();
+    Properties(Operation operation, Configuration::Options::Endpoint const& options);
+    ~Properties() = default;
+
+    Properties(Properties const& other);
+    Properties(Properties&& other);
+    Properties& operator=(Properties const& other);
+    Properties& operator=(Properties&& other);
+
+    [[nodiscard]] std::strong_ordering operator<=>(Properties const& other) const = default;
+    [[nodiscard]] bool operator==(Properties const& other) const = default;
+
+    [[nodiscard]] Protocol GetProtocol() const;
+    [[nodiscard]] Operation GetOperation() const;
+    [[nodiscard]] std::chrono::milliseconds GetConnectionTimeout() const;
+    [[nodiscard]] std::uint32_t GetConnectionRetryLimit() const;
+    [[nodiscard]] std::chrono::milliseconds GetConnectionRetryInterval() const;
+
+    void SetConnectionTimeout(std::chrono::milliseconds const& value);
+    void SetConnectionRetryLimit(std::int32_t value);
+    void SetConnectionRetryInterval(std::chrono::milliseconds const& value);
+
+private:
+    struct Connection {
+        std::atomic_int64_t m_timeout;
+        std::atomic_uint32_t m_limit;
+        std::atomic_int64_t m_interval;
+    };
+
+    Protocol m_protocol;
+    Operation m_operation;
+    Connection m_connection;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
 class Network::IEndpoint
 {
 public:
-    IEndpoint(Protocol protocol, Operation operation, Event::SharedPublisher const& spEventPublisher);
+    explicit IEndpoint(Endpoint::Properties const& properties);
     virtual ~IEndpoint() = default;
+
+    [[nodiscard]] Endpoint::Identifier GetIdentifier() const;
+    [[nodiscard]] Endpoint::Properties& GetProperties();
+    [[nodiscard]] Endpoint::Properties const& GetProperties() const;
 
     [[nodiscard]] virtual Protocol GetProtocol() const = 0;
     [[nodiscard]] virtual std::string GetScheme() const = 0;
@@ -69,11 +109,9 @@ public:
         Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) = 0;
     [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message) = 0;
 
-    [[nodiscard]] Endpoint::Identifier GetIdentifier() const;
-    [[nodiscard]] Operation GetOperation() const;
-
-    void RegisterMediator(IEndpointMediator* const pMediator);
-    void RegisterMediator(IPeerMediator* const pMediator);
+    void Register(Event::SharedPublisher const& spPublisher);
+    void Register(IEndpointMediator* const pMediator);
+    void Register(IPeerMediator* const pMediator);
 
 protected: 
     using ShutdownCause = Event::Message<Event::Type::EndpointStopped>::Cause;
@@ -94,9 +132,7 @@ protected:
     void OnUnexpectedError() const;
     
     Endpoint::Identifier const m_identifier;
-    Network::Protocol const m_protocol;
-	Operation const m_operation;
-
+    Endpoint::Properties m_properties;
     BindingAddress m_binding;
 
     Event::SharedPublisher m_spEventPublisher;

@@ -187,7 +187,7 @@ Network::Manager::SharedEndpoint Network::Manager::GetEndpoint(Protocol protocol
 {
     auto const matches = [&protocol, &operation] (auto const& spEndpoint) -> bool {
         assert(spEndpoint);
-        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetOperation() == operation;
+        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetProperties().GetOperation() == operation;
     };
 
     std::shared_lock lock(m_endpointsMutex);
@@ -252,7 +252,7 @@ bool Network::Manager::ScheduleBind(BindingAddress const& binding)
 {
     auto const matches = [protocol = binding.GetProtocol()] (auto const& spEndpoint) -> bool {
         assert(spEndpoint);
-        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetOperation() == Operation::Server;
+        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetProperties().GetOperation() == Operation::Server;
     };
 
     std::shared_lock lock(m_endpointsMutex);
@@ -285,7 +285,7 @@ bool Network::Manager::ScheduleConnect(RemoteAddress&& address, Node::SharedIden
 {
     auto const matches = [protocol = address.GetProtocol()] (auto const& spEndpoint) -> bool {
         assert(spEndpoint);
-        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetOperation() == Operation::Client;
+        return spEndpoint->GetProtocol() == protocol && spEndpoint->GetProperties().GetOperation() == Operation::Client;
     };
 
     std::shared_lock lock(m_endpointsMutex);
@@ -310,10 +310,15 @@ void Network::Manager::CreateTcpEndpoints(
 
     // Add the server based endpoint
     {
-        std::shared_ptr<IEndpoint> spServer = Endpoint::Factory(
-            Protocol::TCP, Operation::Server, spEventPublisher, this, pPeerMediator);
+        auto const properties = Endpoint::Properties{ Operation::Server, options };
+        auto spServer = std::make_shared<TCP::Endpoint>(properties);
+        spServer->Register(this);
+        spServer->Register(spEventPublisher);
+        spServer->Register(pPeerMediator);
+
         [[maybe_unused]] bool const scheduled = spServer->ScheduleBind(options.GetBinding());
         assert(scheduled);
+        
         // Cache the binding such that clients can check the anticipated bindings before servers report an update.
         // This method is used over UpdateBinding because the shared lock is preferable to a recursive lock given 
         // reads are more common. This is the work around to reacquiring the lock made during initialization. 
@@ -323,21 +328,26 @@ void Network::Manager::CreateTcpEndpoints(
 
     // Add the client based endpoint
     {
-        std::shared_ptr<IEndpoint> spClient = Endpoint::Factory(
-            Protocol::TCP, Operation::Client, spEventPublisher, this, pPeerMediator);
-        m_endpoints.emplace(spClient->GetIdentifier(), spClient);
+        auto const properties = Endpoint::Properties{ Operation::Client, options };
+        auto spClient = std::make_shared<TCP::Endpoint>(properties);
+        spClient->Register(this);
+        spClient->Register(spEventPublisher);
+        spClient->Register(pPeerMediator);
 
         // If we have been provided a bootstrap cache, schedule a one-shot task to be run in the core. 
         if (pBootstrapCache) {
             auto const connect = [spClient, pBootstrapCache] () {
                 assert(spClient && pBootstrapCache);
                 pBootstrapCache->ForEachBootstrap(Protocol::TCP, [&spClient] (auto const& bootstrap) -> auto { 
-                    spClient->ScheduleConnect(bootstrap);
+                    [[maybe_unused]] bool const scheduled = spClient->ScheduleConnect(bootstrap);
+                    assert(scheduled);
                     return CallbackIteration::Continue;
                 });
             };
             m_spTaskService->Schedule(connect);
         }
+        
+        m_endpoints.emplace(spClient->GetIdentifier(), std::move(spClient));
     }
 
     m_protocols.emplace(options.GetProtocol());

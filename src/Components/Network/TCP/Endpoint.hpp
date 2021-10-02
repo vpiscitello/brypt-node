@@ -52,7 +52,7 @@ class Network::TCP::Endpoint final : public Network::IEndpoint
 public:
     using SessionTracker = ConnectionTracker<SharedSession>;
 
-    Endpoint(Operation operation, ::Event::SharedPublisher const& spEventPublisher);
+    explicit Endpoint(Network::Endpoint::Properties const& properties);
     ~Endpoint() override;
 
     // IEndpoint{
