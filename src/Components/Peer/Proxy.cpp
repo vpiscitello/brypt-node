@@ -140,7 +140,7 @@ bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::st
         m_statistics.IncrementSentCount();
 
         auto const& [key, endpoint] = *itr;
-        auto const& scheduler = endpoint.GetScheduler();
+        auto const& scheduler = endpoint.GetMessageAction();
         assert(m_spIdentifier && scheduler);
         return scheduler(*m_spIdentifier, Network::MessageVariant{std::move(message)});
     }
@@ -160,7 +160,7 @@ bool Peer::Proxy::ScheduleSend(
         m_statistics.IncrementSentCount();
 
         auto const& [key, endpoint] = *itr;
-        auto const& scheduler = endpoint.GetScheduler();
+        auto const& scheduler = endpoint.GetMessageAction();
         assert(m_spIdentifier && scheduler);
         return scheduler(*m_spIdentifier, Network::MessageVariant{spSharedPack});
     }
@@ -196,7 +196,8 @@ void Peer::Proxy::RegisterEndpoint(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
-    Network::MessageScheduler const& scheduler)
+    Network::MessageAction const& scheduler,
+    Network::DisconnectAction const& disconnector)
 {
     {
         std::scoped_lock lock(m_endpointsMutex);
@@ -204,7 +205,7 @@ void Peer::Proxy::RegisterEndpoint(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
-            identifier, protocol, address, scheduler);
+            identifier, protocol, address, scheduler, disconnector);
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
@@ -259,6 +260,16 @@ bool Peer::Proxy::IsEndpointRegistered(Network::Endpoint::Identifier identifier)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Peer::Proxy::IsEndpointRegistered(Network::Address const& address) const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    return std::ranges::any_of(m_endpoints, [&address] (auto const& entry) {
+        return address == entry.second.GetAddress();
+    });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::optional<MessageContext> Peer::Proxy::GetMessageContext(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock(m_endpointsMutex);
@@ -276,8 +287,7 @@ std::optional<Network::RemoteAddress> Peer::Proxy::GetRegisteredAddress(Network:
 {
     std::scoped_lock lock(m_endpointsMutex);
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
-        auto const& [key, endpoint] = *itr;
-        if (auto const address = endpoint.GetAddress(); address.IsBootstrapable()) { return address; }
+        return itr->second.GetAddress();
     }
     return {};
 }
@@ -288,6 +298,19 @@ std::size_t Peer::Proxy::RegisteredEndpointCount() const
 {
     std::scoped_lock lock(m_endpointsMutex);
     return m_endpoints.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::ScheduleDisconnect() const
+{
+    std::scoped_lock lock(m_endpointsMutex);
+    for (auto const& [identifier, registration] : m_endpoints) {
+        auto const& disconnect = registration.GetDisconnectAction();
+        assert(disconnect);
+        disconnect(registration.GetAddress());
+    }
+    return !m_endpoints.empty(); // Currently, the return value indicates if the proxy had endpoints to disconnect. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -494,7 +517,7 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
-    Network::MessageScheduler const& scheduler)
+    Network::MessageAction const& scheduler)
 {
     std::scoped_lock lock(m_endpointsMutex);
     auto [itr, result] =  m_endpoints.try_emplace(identifier, identifier, protocol, address, scheduler);

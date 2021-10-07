@@ -9,26 +9,22 @@ Peer::Registration::Registration(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
-    Network::MessageScheduler const& scheduler)
+    Network::MessageAction const& messenger,
+    Network::DisconnectAction const& disconnector)
     : m_context(identifier, protocol)
-    , m_scheduler(scheduler)
     , m_address(address)
+    , m_messenger(messenger)
+    , m_disconnector(disconnector)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext const& Peer::Registration::GetMessageContext() const
-{
-    return m_context;
-}
+MessageContext const& Peer::Registration::GetMessageContext() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext& Peer::Registration::GetWritableMessageContext()
-{
-    return m_context;
-}
+MessageContext& Peer::Registration::GetWritableMessageContext() { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -39,23 +35,18 @@ Network::Endpoint::Identifier Peer::Registration::GetEndpointIdentifier() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Protocol Peer::Registration::GetEndpointProtocol() const
-{
-    return m_context.GetEndpointProtocol();
-}
+Network::Protocol Peer::Registration::GetEndpointProtocol() const { return m_context.GetEndpointProtocol(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::MessageScheduler const& Peer::Registration::GetScheduler() const
-{
-    return m_scheduler;
-}
+Network::RemoteAddress const& Peer::Registration::GetAddress() const { return m_address; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::RemoteAddress const& Peer::Registration::GetAddress() const
-{
-    return m_address;
-}
+Network::MessageAction const& Peer::Registration::GetMessageAction() const { return m_messenger; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::DisconnectAction const& Peer::Registration::GetDisconnectAction() const { return m_disconnector; }
 
 //----------------------------------------------------------------------------------------------------------------------

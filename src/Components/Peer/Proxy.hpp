@@ -11,8 +11,8 @@
 #include "BryptMessage/MessageTypes.hpp"
 #include "BryptMessage/ShareablePack.hpp"
 #include "Components/Event/Events.hpp"
+#include "Components/Network/Actions.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
-#include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/MessageSink.hpp"
@@ -92,16 +92,20 @@ public:
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},
-        Network::MessageScheduler const& scheduler = {});
+        Network::MessageAction const& scheduler = {},
+        Network::DisconnectAction const& disconnector = {});
     void WithdrawEndpoint(Network::Endpoint::Identifier identifier, WithdrawalCause cause);
 
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
+    [[nodiscard]] bool IsEndpointRegistered(Network::Address const& address) const;
     [[nodiscard]] std::optional<MessageContext> GetMessageContext(
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::optional<Network::RemoteAddress> GetRegisteredAddress(
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t RegisteredEndpointCount() const;
+
+    [[nodiscard]] bool ScheduleDisconnect() const;
     // } Endpoint Association Methods
 
     // Security Methods {
@@ -127,7 +131,7 @@ public:
             Network::Endpoint::Identifier identifier,
             Network::Protocol protocol,
             Network::RemoteAddress const& address = {},
-            Network::MessageScheduler const& scheduler = {}));
+            Network::MessageAction const& scheduler = {}));
     UT_SupportMethod(void WithdrawSilentEndpoint(Network::Endpoint::Identifier identifier, Network::Protocol protocol));
     // } Testing Methods
     

@@ -147,7 +147,7 @@ void Handler::IHandler::SendNotice(
 
     // Get the information pertaining to the node's network
     if (auto const spPeerManager = m_instance.GetPeerManager().lock(); spPeerManager) {
-        spPeerManager->ForEachCachedIdentifier(
+        spPeerManager->ForEach(
             [&peers] (
                 Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration
             {

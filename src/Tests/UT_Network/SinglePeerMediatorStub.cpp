@@ -66,15 +66,11 @@ SinglePeerMediatorStub::SinglePeerMediatorStub(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::RegisterObserver([[maybe_unused]] IPeerObserver* const observer)
-{
-}
+void SinglePeerMediatorStub::RegisterObserver([[maybe_unused]] IPeerObserver* const observer) {}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* const observer)
-{
-}
+void SinglePeerMediatorStub::UnpublishObserver([[maybe_unused]] IPeerObserver* const observer) {}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -93,9 +89,7 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void SinglePeerMediatorStub::RescindResolvingPeer([[maybe_unused]] Network::RemoteAddress const& address)
-{
-}
+void SinglePeerMediatorStub::RescindResolvingPeer([[maybe_unused]] Network::RemoteAddress const& address) {}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -103,6 +97,7 @@ std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
     Node::Identifier const& identifier,
     [[maybe_unused]] Network::RemoteAddress const& address)
 {
+    if (m_spPeer) { return m_spPeer; }
     m_spPeer = Peer::Proxy::CreateInstance(identifier, std::weak_ptr<IMessageSink>{}, this);
     m_spPeer->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<local::SecurityStrategyStub>());
     m_spPeer->SetReceiver<InvokeContext::Test>(m_pMessageSink);
@@ -112,63 +107,46 @@ std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::LinkPeer(
 //----------------------------------------------------------------------------------------------------------------------
 
 void SinglePeerMediatorStub::OnEndpointRegistered(
-    std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&)
-{
-};
+    std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&) {};
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void SinglePeerMediatorStub::OnEndpointWithdrawn(
     std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&, WithdrawalCause)
 {
-};
-
-std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::GetPeer() const
-{
-    return m_spPeer;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-
-local::SecurityStrategyStub::SecurityStrategyStub()
-{
-}
+std::shared_ptr<Peer::Proxy> SinglePeerMediatorStub::GetPeer() const { return m_spPeer; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Strategy local::SecurityStrategyStub::GetStrategyType() const
-{
-    return Security::Strategy::Invalid;
-}
+void SinglePeerMediatorStub::Reset() { m_spPeer.reset(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Role local::SecurityStrategyStub::GetRoleType() const
-{
-    return Security::Role::Initiator;
-}
+local::SecurityStrategyStub::SecurityStrategyStub() {}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Context local::SecurityStrategyStub::GetContextType() const
-{
-    return Security::Context::Unique;
-}
+Security::Strategy local::SecurityStrategyStub::GetStrategyType() const { return Security::Strategy::Invalid; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t local::SecurityStrategyStub::GetSignatureSize() const
-{
-    return 0;
-}
+Security::Role local::SecurityStrategyStub::GetRoleType() const { return Security::Role::Initiator; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint32_t local::SecurityStrategyStub::GetSynchronizationStages() const
-{
-    return 0;
-}
+Security::Context local::SecurityStrategyStub::GetContextType() const { return Security::Context::Unique; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t local::SecurityStrategyStub::GetSignatureSize() const { return 0; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::uint32_t local::SecurityStrategyStub::GetSynchronizationStages() const { return 0; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -207,18 +185,13 @@ Security::OptionalBuffer local::SecurityStrategyStub::Decrypt(
     return Security::Buffer(buffer.begin(), buffer.end());
 }
 
+//----------------------------------------------------------------------------------------------------------------------
+
+std::int32_t local::SecurityStrategyStub::Sign([[maybe_unused]] Security::Buffer&) const { return 0; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::int32_t local::SecurityStrategyStub::Sign([[maybe_unused]] Security::Buffer&) const
-{
-    return 0;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Security::VerificationStatus local::SecurityStrategyStub::Verify(
-    [[maybe_unused]] Security::ReadableView) const
+Security::VerificationStatus local::SecurityStrategyStub::Verify([[maybe_unused]] Security::ReadableView) const
 {
     return Security::VerificationStatus::Success;
 }
@@ -226,17 +199,11 @@ Security::VerificationStatus local::SecurityStrategyStub::Verify(
 //----------------------------------------------------------------------------------------------------------------------
 
 std::int32_t local::SecurityStrategyStub::Sign(
-    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::Buffer&) const
-{
-    return 0;
-}
+    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::Buffer&) const { return 0; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Security::OptionalBuffer local::SecurityStrategyStub::GenerateSignature(
-    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::ReadableView) const
-{
-    return {};
-}
+    [[maybe_unused]] Security::ReadableView, [[maybe_unused]] Security::ReadableView) const { return {}; }
 
 //----------------------------------------------------------------------------------------------------------------------

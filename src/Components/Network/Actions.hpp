@@ -1,6 +1,6 @@
 
 //----------------------------------------------------------------------------------------------------------------------
-// File: MessageScheduler.hpp
+// File: Actions.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -12,8 +12,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 namespace Network {
+    class RemoteAddress; 
+
     using MessageVariant = std::variant<std::string, Message::ShareablePack>;
-    using MessageScheduler = std::function<bool(Node::Identifier const& destination, MessageVariant&& message)>;
+    using MessageAction = std::function<bool(Node::Identifier const& destination, MessageVariant&& message)>;
+    using DisconnectAction = std::function<bool(RemoteAddress const& destination)>;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

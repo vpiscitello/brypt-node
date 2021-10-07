@@ -406,7 +406,7 @@ bool Configuration::Options::Connection::SetTimeout(std::chrono::milliseconds co
 
 bool Configuration::Options::Connection::SetRetryLimit(std::int32_t value)
 {
-    if (value < 0) { return false; } // There currently isn't a need to prevent anything other than negative values. 
+    if (!std::in_range<std::uint32_t>(value)) { return false; } // Currently, we only prevent negative values. 
     retry.limit = value;
     return true;
 }

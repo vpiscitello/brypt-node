@@ -74,8 +74,7 @@ bool Network::LoRa::Endpoint::ScheduleBind([[maybe_unused]] BindingAddress const
 
 bool Network::LoRa::Endpoint::ScheduleConnect(RemoteAddress const& address)
 {
-    RemoteAddress remote = address;
-    return ScheduleConnect(std::move(remote));
+    return ScheduleConnect(RemoteAddress{ address }, nullptr);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -89,6 +88,20 @@ bool Network::LoRa::Endpoint::ScheduleConnect([[maybe_unused]] RemoteAddress&& a
 
 bool Network::LoRa::Endpoint::ScheduleConnect(
     [[maybe_unused]] RemoteAddress&& address, [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
+{
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::LoRa::Endpoint::ScheduleDisconnect(RemoteAddress const& address)
+{
+    return ScheduleDisconnect(RemoteAddress{ address });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::LoRa::Endpoint::ScheduleDisconnect([[maybe_unused]] RemoteAddress&& address)
 {
     return false;
 }

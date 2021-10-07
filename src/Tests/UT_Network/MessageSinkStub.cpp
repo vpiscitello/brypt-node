@@ -159,6 +159,15 @@ std::uint32_t MessageSinkStub::InvalidMessageCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void MessageSinkStub::Reset()
+{
+	std::scoped_lock lock(m_mutex);
+	m_bReceivedHeartbeatRequest = false;
+	m_bReceivedHeartbeatResponse = false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool MessageSinkStub::QueueMessage(
 	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
 	ApplicationMessage const& message)

@@ -32,9 +32,7 @@ Network::BindingAddress const& Network::TCP::BindEvent::GetBinding() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::ConnectEvent::ConnectEvent(
-    RemoteAddress&& address,
-    Node::SharedIdentifier const& spIdentifier)
+Network::TCP::ConnectEvent::ConnectEvent(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier)
     : Event(Instruction::Connect)
     , m_spIdentifier(spIdentifier)
     , m_address(std::move(address))
@@ -53,6 +51,21 @@ Node::SharedIdentifier const& Network::TCP::ConnectEvent::GetNodeIdentifier() co
 Network::RemoteAddress&& Network::TCP::ConnectEvent::ReleaseAddress()
 {
     return std::move(m_address);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::TCP::DisconnectEvent::DisconnectEvent(RemoteAddress&& address)
+    : Event(Instruction::Connect)
+    , m_address(std::move(address))
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::RemoteAddress const& Network::TCP::DisconnectEvent::GetAddress() const
+{
+    return m_address;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

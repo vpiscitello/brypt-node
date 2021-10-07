@@ -167,19 +167,19 @@ void Peer::Manager::OnEndpointWithdrawn(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ForEachCachedIdentifier(IdentifierReadFunction const& callback, Filter filter) const
+bool Peer::Manager::ForEach(IdentifierReadFunction const& callback, Filter filter) const
 {
     std::shared_lock lock(m_peersMutex);
-    for (auto const& spPeerProxy: m_peers) {
+    for (auto const& spProxy: m_peers) {
         bool isIncluded = true;
         switch (filter) {
-            case Filter::Active: { isIncluded = spPeerProxy->IsActive(); } break;
-            case Filter::Inactive: { isIncluded = !spPeerProxy->IsActive(); } break;
+            case Filter::Active: { isIncluded = spProxy->IsActive(); } break;
+            case Filter::Inactive: { isIncluded = !spProxy->IsActive(); } break;
             case Filter::None: { isIncluded = true; } break;
             default: assert(false); // What is this?
         }
 
-        if (isIncluded && callback(spPeerProxy->GetIdentifier()) != CallbackIteration::Continue) { break; }
+        if (isIncluded && callback(spProxy->GetIdentifier()) != CallbackIteration::Continue) { break; }
     }
 
     return true;
@@ -187,28 +187,19 @@ bool Peer::Manager::ForEachCachedIdentifier(IdentifierReadFunction const& callba
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ActivePeerCount() const
-{
-    return PeerCount(Filter::Active);
-}
+std::size_t Peer::Manager::ActiveCount() const { return PeerCount(Filter::Active); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::InactivePeerCount() const
-{
-    return PeerCount(Filter::Inactive);
-}
+std::size_t Peer::Manager::InactiveCount() const { return PeerCount(Filter::Inactive); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ObservedPeerCount() const
-{
-    return PeerCount(Filter::None);
-}
+std::size_t Peer::Manager::ObservedCount() const { return PeerCount(Filter::None); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ResolvingPeerCount() const
+std::size_t Peer::Manager::ResolvingCount() const
 {
     std::shared_lock lock(m_resolvingMutex);
     return m_resolving.size();
@@ -216,22 +207,59 @@ std::size_t Peer::Manager::ResolvingPeerCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ForEachPeer(ForEachPeerFunction const& callback, Filter filter) const
+bool Peer::Manager::ForEach(ForEachFunction const& callback, Filter filter) const
 {
     std::shared_lock lock(m_peersMutex);
-    for (auto const& spPeerProxy: m_peers) {
-        bool isIncluded = false;
+    for (auto const& spProxy: m_peers) {
+        bool included = false;
         switch (filter) {
-            case Filter::Active: { isIncluded = spPeerProxy->IsActive(); } break;
-            case Filter::Inactive: { isIncluded = !spPeerProxy->IsActive(); } break;
-            case Filter::None: { isIncluded = true; } break;
+            case Filter::Active: { included = spProxy->IsActive(); } break;
+            case Filter::Inactive: { included = !spProxy->IsActive(); } break;
+            case Filter::None: { included = true; } break;
             default: assert(false); // What is this?
         }
 
-        if (isIncluded&& callback(spPeerProxy) != CallbackIteration::Continue) { break; }
+        if (included&& callback(spProxy) != CallbackIteration::Continue) { break; }
     }
 
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Manager::ScheduleDisconnect(Node::Identifier const& identifier) const
+{
+    std::shared_lock lock(m_peersMutex);
+    if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) { 
+        auto const spProxy = *itr;
+        return spProxy->ScheduleDisconnect();
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Manager::ScheduleDisconnect(std::string_view const& identifier) const
+{
+    std::shared_lock lock(m_peersMutex);
+    auto const& index = m_peers.template get<ExternalIndex>();
+    if (auto const itr = index.find(identifier.data()); itr != index.end()) {
+        auto const spProxy = *itr;
+        return spProxy->ScheduleDisconnect();
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Manager::ScheduleDisconnect(Network::Address const& address) const
+{
+    std::shared_lock lock(m_peersMutex);
+    auto const itr = std::ranges::find_if(m_peers, [&address] (auto const& spProxy) {
+        if (spProxy->IsEndpointRegistered(address)) { return spProxy->ScheduleDisconnect(); }
+        return false;
+    });
+    return itr != m_peers.end();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

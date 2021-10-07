@@ -9,12 +9,12 @@
 #include "Events.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Event/SharedPublisher.hpp"
+#include "Components/Network/Actions.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionDetails.hpp"
 #include "Components/Network/ConnectionTracker.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/io_context.hpp>
@@ -69,6 +69,8 @@ public:
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) override;
     [[nodiscard]] virtual bool ScheduleConnect(
         RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) override;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress const& address) override;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress&& address) override;
     [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, std::string&& message) override;
     [[nodiscard]] virtual bool ScheduleSend(
         Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) override;
@@ -107,6 +109,7 @@ private:
     void ProcessEvents(std::stop_token token);
     void OnBindEvent(BindEvent const& event);
     void OnConnectEvent(ConnectEvent& event);
+    void OnDisconnectEvent(DisconnectEvent const& event);
     void OnDispatchEvent(DispatchEvent& event);
 
     [[nodiscard]] SharedSession CreateSession();
@@ -124,7 +127,8 @@ private:
     boost::asio::io_context m_context;
     std::unique_ptr<Agent> m_upAgent;
     SessionTracker m_tracker;
-    MessageScheduler m_scheduler;
+    MessageAction m_messenger;
+    DisconnectAction m_disconnector;
 
     std::shared_ptr<spdlog::logger> m_logger;
 };

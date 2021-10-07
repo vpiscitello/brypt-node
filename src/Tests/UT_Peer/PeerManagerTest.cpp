@@ -134,13 +134,13 @@ TEST(PeerManagerSuite, PeerDeclarationTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t(0));
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(1));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -152,17 +152,17 @@ TEST(PeerManagerSuite, DuplicatePeerDeclarationTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t(0));
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(1));
 
     auto const optCheckRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
     EXPECT_FALSE(optCheckRequest);
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(1));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -174,16 +174,16 @@ TEST(PeerManagerSuite, UndeclarePeerTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t(0));
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(1));
 
     manager.RescindResolvingPeer(test::RemoteServerAddress);
-    EXPECT_EQ(manager.ResolvingPeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ResolvingCount(), std::size_t(0));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -195,7 +195,7 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     auto const optRequest = manager.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
@@ -209,7 +209,7 @@ TEST(PeerManagerSuite, DeclaredPeerLinkTest)
     ASSERT_TRUE(spPeerProxy);
     EXPECT_TRUE(spPeerProxy->IsEndpointRegistered(tcpIdentifier));
     EXPECT_EQ(spPeerProxy->RegisteredEndpointCount(), std::size_t(1));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -221,7 +221,7 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     Network::RemoteAddress address(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto const spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, address);
@@ -232,7 +232,7 @@ TEST(PeerManagerSuite, UndeclaredPeerLinkTest)
     ASSERT_TRUE(spPeerProxy);
     EXPECT_TRUE(spPeerProxy->IsEndpointRegistered(tcpIdentifier));
     EXPECT_EQ(spPeerProxy->RegisteredEndpointCount(), std::size_t(1));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -244,7 +244,7 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
@@ -255,7 +255,7 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
     ASSERT_TRUE(spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(tcpIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(1));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
@@ -265,7 +265,7 @@ TEST(PeerManagerSuite, ExistingPeerLinkTest)
     EXPECT_EQ(spSecondPeer, spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(loraIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(2));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
 }
 
@@ -278,7 +278,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto const spFirstPeer = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
@@ -289,7 +289,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
     ASSERT_TRUE(spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(tcpIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(1));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
@@ -299,7 +299,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
     EXPECT_EQ(spSecondPeer, spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(loraIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(2));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     Network::RemoteAddress thirdAddress(Network::Protocol::TCP, "915:72", false);
     auto const spThirdPeer = manager.LinkPeer(*test::ClientIdentifier, thirdAddress);
@@ -308,7 +308,7 @@ TEST(PeerManagerSuite, DuplicateEqualSharedPeerLinkTest)
     EXPECT_EQ(spThirdPeer, spFirstPeer);
     EXPECT_TRUE(spFirstPeer->IsEndpointRegistered(loraIdentifier));
     EXPECT_EQ(spFirstPeer->RegisteredEndpointCount(), std::size_t(2));
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -320,7 +320,7 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
@@ -328,10 +328,10 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
 
     spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
     ASSERT_TRUE(spPeerProxy);
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -343,7 +343,7 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     Peer::Manager manager(test::ServerIdentifier, Security::Strategy::PQNISTL3, spEventPublisher, nullptr);
     spEventPublisher->SuspendSubscriptions();
 
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 
     Network::RemoteAddress firstAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     auto spPeerProxy = manager.LinkPeer(*test::ClientIdentifier, firstAddress);
@@ -351,7 +351,7 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
     spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
     ASSERT_TRUE(spPeerProxy);
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     Network::RemoteAddress secondAddress(Network::Protocol::TCP, "915:71", false);
     EXPECT_TRUE(manager.LinkPeer(*test::ClientIdentifier, secondAddress));
@@ -359,13 +359,13 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     auto const loraIdentifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
 
     spPeerProxy->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
     spPeerProxy->WithdrawEndpoint(loraIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -394,14 +394,14 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
     auto const optRequest = client.DeclareResolvingPeer(test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t(0));
-    EXPECT_EQ(client.ActivePeerCount(), std::size_t(0));
+    EXPECT_EQ(client.ActiveCount(), std::size_t(0));
 
     // Simulate the server receiving the connection request. 
     Network::RemoteAddress clientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
     spClientProxy = server.LinkPeer(*test::ClientIdentifier, clientAddress);
     EXPECT_FALSE(spClientProxy->IsAuthorized());
     EXPECT_FALSE(spClientProxy->IsFlagged());
-    EXPECT_EQ(server.ObservedPeerCount(), std::size_t(1));
+    EXPECT_EQ(server.ObservedCount(), std::size_t(1));
 
     // Simulate the server's endpoint registering itself to the given client peer. 
     spClientProxy->RegisterEndpoint(
@@ -418,7 +418,7 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
     spServerProxy = client.LinkPeer(*test::ServerIdentifier, test::RemoteServerAddress);
     EXPECT_FALSE(spServerProxy->IsAuthorized());
     EXPECT_FALSE(spServerProxy->IsFlagged());
-    EXPECT_EQ(client.ObservedPeerCount(), std::size_t(1));
+    EXPECT_EQ(client.ObservedCount(), std::size_t(1));
 
     // Simulate the clients's endpoint registering itself to the given server peer. 
     spServerProxy->RegisterEndpoint(
@@ -456,26 +456,23 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
     spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, test::RemoteServerAddress, {});
 
     ASSERT_TRUE(spPeerProxy);
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(1));
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
-    manager.ForEachCachedIdentifier(
-        [&spPeerProxy] (auto const& spCheckIdentifier) -> CallbackIteration
-        {
-            EXPECT_EQ(spCheckIdentifier, spPeerProxy->GetIdentifier());
-            EXPECT_EQ(*spCheckIdentifier, *spPeerProxy->GetIdentifier());
-            return CallbackIteration::Continue;
-        });
+    manager.ForEach([&] (Node::SharedIdentifier const& spCheckIdentifier) -> CallbackIteration {
+        EXPECT_EQ(spCheckIdentifier, spPeerProxy->GetIdentifier());
+        EXPECT_EQ(*spCheckIdentifier, *spPeerProxy->GetIdentifier());
+        return CallbackIteration::Continue;
+    });
 
     spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
 
     std::uint32_t iterations = 0;
-    EXPECT_EQ(manager.ActivePeerCount(), std::size_t(0));
-    manager.ForEachCachedIdentifier(
-        [&iterations] ([[maybe_unused]] auto const& spCheckIdentifier) -> CallbackIteration
-        {
-            ++iterations;
-            return CallbackIteration::Continue;
-        });
+    EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
+    manager.ForEach([&] ([[maybe_unused]] Node::SharedIdentifier const& spCheckIdentifier) -> CallbackIteration {
+        ++iterations;
+        return CallbackIteration::Continue;
+    });
+
     EXPECT_EQ(iterations, std::uint32_t(0));
 }
 
@@ -509,42 +506,31 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
 
     std::set<Node::SharedIdentifier> identifiers;
     std::uint32_t connectedIterations = 0;
-    manager.ForEachCachedIdentifier(
-        [&identifiers, &connectedIterations] (
-            [[maybe_unused]] auto const& spNodeIdentifier) -> CallbackIteration
-        {
-            auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
-            EXPECT_TRUE(emplaced);
-            ++connectedIterations;
-            return CallbackIteration::Continue;
-        },
-        IPeerCache::Filter::Active);
+    manager.ForEach([&] ([[maybe_unused]] Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration {
+        auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
+        EXPECT_TRUE(emplaced);
+        ++connectedIterations;
+        return CallbackIteration::Continue;
+    }, IPeerCache::Filter::Active);
+
     EXPECT_EQ(connectedIterations, iterations - disconnected);
 
     std::uint32_t disconnectedIterations = 0;
-    manager.ForEachCachedIdentifier(
-        [&identifiers, &disconnectedIterations] (
-            [[maybe_unused]] auto const& spNodeIdentifier) -> CallbackIteration
-        {
-            auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
-            EXPECT_TRUE(emplaced);
-            ++disconnectedIterations;
-            return CallbackIteration::Continue;
-        },
-        IPeerCache::Filter::Inactive);
+    manager.ForEach([&] ([[maybe_unused]] Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration {
+        auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
+        EXPECT_TRUE(emplaced);
+        ++disconnectedIterations;
+        return CallbackIteration::Continue;
+    }, IPeerCache::Filter::Inactive);
     EXPECT_EQ(disconnectedIterations, disconnected);
 
     std::uint32_t observedIterations = 0;
-    manager.ForEachCachedIdentifier(
-        [&identifiers, &observedIterations] (
-            [[maybe_unused]] auto const& spNodeIdentifier) -> CallbackIteration
-        {
-            auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
-            EXPECT_FALSE(emplaced);
-            ++observedIterations;
-            return CallbackIteration::Continue;
-        },
-        IPeerCache::Filter::None);
+    manager.ForEach([&] ([[maybe_unused]] Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration {
+        auto const [itr, emplaced] = identifiers.emplace(spNodeIdentifier);
+        EXPECT_FALSE(emplaced);
+        ++observedIterations;
+        return CallbackIteration::Continue;
+    }, IPeerCache::Filter::None);
     EXPECT_EQ(observedIterations, iterations);
 }
 
@@ -574,9 +560,9 @@ TEST(PeerManagerSuite, PeerCountTest)
             ++disconnected;
         }
     }
-    EXPECT_EQ(manager.ActivePeerCount(), iterations - disconnected);
-    EXPECT_EQ(manager.InactivePeerCount(), disconnected);
-    EXPECT_EQ(manager.ObservedPeerCount(), iterations);
+    EXPECT_EQ(manager.ActiveCount(), iterations - disconnected);
+    EXPECT_EQ(manager.InactiveCount(), disconnected);
+    EXPECT_EQ(manager.ObservedCount(), iterations);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

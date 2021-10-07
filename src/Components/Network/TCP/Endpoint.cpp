@@ -123,7 +123,8 @@ Network::TCP::Endpoint::Endpoint(Network::Endpoint::Properties const& properties
     , m_context(1)
     , m_upAgent()
     , m_tracker()
-    , m_scheduler()
+    , m_messenger()
+    , m_disconnector()
     , m_logger()
 {
     assert(m_properties.GetProtocol() == Protocol::TCP);
@@ -134,8 +135,10 @@ Network::TCP::Endpoint::Endpoint(Network::Endpoint::Properties const& properties
     }
     assert(m_logger);
 
-    m_scheduler = [this] (Node::Identifier const& destination, MessageVariant&& message) -> bool
+    m_messenger = [this] (Node::Identifier const& destination, MessageVariant&& message) -> bool
         { return ScheduleSend(destination, std::move(message)); };
+
+    m_disconnector = [this] (RemoteAddress const& address) -> bool { return ScheduleDisconnect(address); };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -200,8 +203,7 @@ bool Network::TCP::Endpoint::Shutdown()
     if (m_upAgent) { m_upAgent.reset(); } // Shutdown the active agent if one has been created. 
 
     // Stop any active sessions and poll the asio context to ensure the completion handlers have been called. 
-    auto const StopSession = [this] (auto const& spSession, auto const&) -> CallbackIteration
-    {
+    auto const StopSession = [this] (auto const& spSession, auto const&) -> CallbackIteration {
         spSession->Stop();
         PollContext();
         return CallbackIteration::Continue;
@@ -262,6 +264,27 @@ bool Network::TCP::Endpoint::ScheduleConnect(RemoteAddress&& address, Node::Shar
     assert(Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
 
     auto handler = std::bind(&Endpoint::OnConnectEvent, this, ConnectEvent{ std::move(address), spIdentifier });
+    boost::asio::post(m_context, std::move(handler));
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::TCP::Endpoint::ScheduleDisconnect(RemoteAddress const& address)
+{
+    return ScheduleDisconnect(RemoteAddress{ address });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Network::TCP::Endpoint::ScheduleDisconnect(RemoteAddress&& address)
+{
+    assert(address.IsValid() && Network::Socket::ParseAddressType(address) != Network::Socket::Type::Invalid);
+
+    if (!m_tracker.IsUriTracked(address.GetUri())) { return false; }
+
+    auto handler = std::bind(&Endpoint::OnDisconnectEvent, this, DisconnectEvent{ std::move(address) });
     boost::asio::post(m_context, std::move(handler));
 
     return true;
@@ -344,6 +367,17 @@ void Network::TCP::Endpoint::OnConnectEvent(ConnectEvent& event)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Network::TCP::Endpoint::OnDisconnectEvent(DisconnectEvent const& event)
+{
+    auto const spSession = m_tracker.Translate(event.GetAddress().GetUri());
+    assert(spSession);
+    
+    // When the session is stopped the OnSessionStopped callback will untrack the connection. 
+    if (spSession) { spSession->Stop(); }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Network::TCP::Endpoint::OnDispatchEvent(DispatchEvent& event)
 {
     assert(event.IsValid());
@@ -382,11 +416,9 @@ void Network::TCP::Endpoint::OnSessionStarted(SharedSession const& spSession, Re
 
 void Network::TCP::Endpoint::OnSessionStopped(SharedSession const& spSession)
 {
-
-    auto const updater = [this, &spSession] (ExtendedDetails& details)
-    { 
+    auto const updater = [this, &spSession] (ExtendedDetails& details) { 
         details.SetConnectionState(Connection::State::Disconnected);
-        if (auto const spPeerProxy = details.GetPeerProxy(); spPeerProxy) {
+        if (auto const spProxy = details.GetPeerProxy(); spProxy) {
             using enum Peer::Proxy::WithdrawalCause;
             auto cause = ShutdownRequest; // Default the endpoint withdrawal reason to indicate it has been requested. 
 
@@ -399,13 +431,15 @@ void Network::TCP::Endpoint::OnSessionStopped(SharedSession const& spSession)
                 }
             }
 
-            spPeerProxy->WithdrawEndpoint(m_identifier, cause);
+            spProxy->WithdrawEndpoint(m_identifier, cause);
         }
     };
 
     m_tracker.UpdateOneConnection(spSession, updater);
 
-    if (spSession->GetStopCause() != Session::StopCause::Requested) { m_tracker.UntrackConnection(spSession); }
+    // When the endpoint is stopping, it is actively resetting all connections. Untracking here would cause the
+    // iterators to be invalidated and an use-after-free. 
+    if (!IsStopping()) { m_tracker.UntrackConnection(spSession); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -425,7 +459,7 @@ bool Network::TCP::Endpoint::OnMessageReceived(
         
         ExtendedDetails details(spProxy);
         details.SetConnectionState(Connection::State::Connected);
-        spProxy->RegisterEndpoint(m_identifier, Protocol::TCP, address, m_scheduler);
+        spProxy->RegisterEndpoint(m_identifier, Protocol::TCP, address, m_messenger, m_disconnector);
 
         return details;
     };

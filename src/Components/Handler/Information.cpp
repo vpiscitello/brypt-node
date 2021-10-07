@@ -206,7 +206,7 @@ std::string local::GenerateNodeInfo(Node::Core const& instance)
     // Get the information pertaining to the node's network
     std::size_t neighbors = 0;
     if (auto const spPeerManager = instance.GetPeerManager().lock(); spPeerManager) {
-        neighbors = spPeerManager->ActivePeerCount();
+        neighbors = spPeerManager->ActiveCount();
     }
 
     std::vector<Json::NodeInfo> nodesInfo;

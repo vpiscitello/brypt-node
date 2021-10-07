@@ -44,11 +44,10 @@ public:
     bool ReceviedHeartbeatRequest() const;
     bool ReceviedHeartbeatResponse() const;
     std::uint32_t InvalidMessageCount() const;
+    void Reset();
     
 private:
-    bool QueueMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        ApplicationMessage const& message);
+    bool QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
 
     mutable std::shared_mutex m_mutex;
     

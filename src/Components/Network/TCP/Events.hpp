@@ -5,9 +5,9 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Network/Actions.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Components/Network/MessageScheduler.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <memory>
 #include <string>
@@ -23,6 +23,7 @@ class Event;
 
 class BindEvent;
 class ConnectEvent;
+class DisconnectEvent;
 class DispatchEvent;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -62,6 +63,18 @@ public:
 
 private:
     Node::SharedIdentifier m_spIdentifier;
+    RemoteAddress m_address;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class Network::TCP::DisconnectEvent : public Network::TCP::Event
+{
+public:
+    explicit DisconnectEvent(RemoteAddress&& address);
+    RemoteAddress const& GetAddress() const;
+
+private:
     RemoteAddress m_address;
 };
 

@@ -470,7 +470,17 @@ public:
 
     //----------------------------------------------------------------------------------------------------------------------
 
-    bool IsUriTracked(std::string_view uri) const
+    HandleType Translate(std::string_view const& uri)
+    {
+        std::scoped_lock lock(m_mutex);
+        auto const& index = m_connections.template get<UriIndex>();
+        if (auto const itr = index.find(uri.data()); itr != index.end()) { return itr->GetHandle(); }
+        return {};
+    }
+
+    //----------------------------------------------------------------------------------------------------------------------
+
+    bool IsUriTracked(std::string_view const& uri) const
     {
         std::scoped_lock lock(m_mutex);
         auto const& index = m_connections.template get<UriIndex>();

@@ -5,8 +5,8 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "Components/Event/SharedPublisher.hpp"
+#include "Components/Network/Actions.hpp"
 #include "Components/Network/Endpoint.hpp"
-#include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -42,6 +42,8 @@ public:
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) override;
     [[nodiscard]] virtual bool ScheduleConnect(
         RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) override;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress const& address) override;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress&& address) override;
     [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, std::string&& message) override;
     [[nodiscard]] virtual bool ScheduleSend(
         Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) override;

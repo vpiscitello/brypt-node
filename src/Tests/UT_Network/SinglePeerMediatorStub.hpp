@@ -50,6 +50,7 @@ public:
     // } IPeerMediator
 
     std::shared_ptr<Peer::Proxy> GetPeer() const;
+    void Reset();
 
 private:
     Node::SharedIdentifier m_spNodeIdentifier;

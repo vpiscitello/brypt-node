@@ -40,7 +40,7 @@ class Manager;
 class Peer::Manager final : public IPeerMediator, public IPeerCache
 {
 public:
-    using ForEachPeerFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const)>;
+    using ForEachFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const)>;
 
     Manager(
         Node::SharedIdentifier const& spNodeIdentifier,
@@ -74,27 +74,38 @@ public:
     // } IPeerMediator
 
     // IPeerCache {
-    virtual bool ForEachCachedIdentifier(
+    virtual bool ForEach(
         IdentifierReadFunction const& callback, Filter filter = Filter::Active) const override;
 
-    virtual std::size_t ActivePeerCount() const override;
-    virtual std::size_t InactivePeerCount() const override;
-    virtual std::size_t ObservedPeerCount() const override;
-
-    virtual std::size_t ResolvingPeerCount() const override;
+    [[nodiscard]] virtual std::size_t ActiveCount() const override;
+    [[nodiscard]] virtual std::size_t InactiveCount() const override;
+    [[nodiscard]] virtual std::size_t ObservedCount() const override;
+    [[nodiscard]] virtual std::size_t ResolvingCount() const override;
     // } IPeerCache
 
-    bool ForEachPeer(ForEachPeerFunction const& callback, Filter filter = Filter::Active) const;
+    bool ForEach(ForEachFunction const& callback, Filter filter = Filter::Active) const;
+
+    bool ScheduleDisconnect(std::string_view const& identifier) const; 
+    bool ScheduleDisconnect(Node::Identifier const& identifier) const; 
+    bool ScheduleDisconnect(Network::Address const& address) const; 
 
 private:
+    struct InternalIndex {};
+    struct ExternalIndex {};
+    
     using ObserverSet = std::set<IPeerObserver*>;
 
     using PeerTrackingMap = boost::multi_index_container<
         std::shared_ptr<Proxy>,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
+                boost::multi_index::tag<InternalIndex>,
                 boost::multi_index::const_mem_fun<
-                    Proxy, Node::Internal::Identifier const&, &Proxy::GetIdentifier<Node::Internal::Identifier>>>>>;
+                    Proxy, Node::Internal::Identifier const&, &Proxy::GetIdentifier<Node::Internal::Identifier>>>,
+            boost::multi_index::hashed_unique<
+                boost::multi_index::tag<ExternalIndex>,
+                boost::multi_index::const_mem_fun<
+                    Proxy, Node::External::Identifier const&, &Proxy::GetIdentifier<Node::External::Identifier>>>>>;
 
     using ResolvingPeerMap = std::unordered_map<
         Network::RemoteAddress, std::unique_ptr<Resolver>, Network::AddressHasher<Network::RemoteAddress>>;

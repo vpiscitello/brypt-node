@@ -5,10 +5,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Actions.hpp"
 #include "EndpointTypes.hpp"
 #include "EndpointIdentifier.hpp"
 #include "Protocol.hpp"
-#include "MessageScheduler.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ShareablePack.hpp"
 #include "Components/Configuration/Options.hpp"
@@ -104,6 +104,8 @@ public:
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) = 0;
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) = 0;
     [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) = 0;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress const& address) = 0;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress&& address) = 0;
 	[[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& destination, std::string&& message) = 0;
     [[nodiscard]] virtual bool ScheduleSend(
         Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) = 0;

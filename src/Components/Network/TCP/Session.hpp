@@ -8,9 +8,9 @@
 #include "SignalService.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/ShareablePack.hpp"
+#include "Components/Network/Actions.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Components/Network/MessageScheduler.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
