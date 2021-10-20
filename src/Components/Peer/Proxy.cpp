@@ -91,7 +91,7 @@ std::uint32_t Peer::Proxy::GetReceivedCount() const
 
 bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std::string_view buffer)
 {
-    std::scoped_lock endpointsLock(m_endpointsMutex);
+    std::scoped_lock endpointsLock{ m_endpointsMutex };
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         m_statistics.IncrementReceivedCount();
 
@@ -99,7 +99,7 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
         auto const& context = registration.GetMessageContext();
 
         // Forward the message through the message sink
-        std::scoped_lock sinkLock(m_receiverMutex);
+        std::scoped_lock sinkLock{ m_receiverMutex };
         if (m_pEnabledProcessor) [[likely]] {
             return m_pEnabledProcessor->CollectMessage(weak_from_this(), context, buffer);
         }
@@ -112,7 +112,7 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
 
 bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std::span<std::uint8_t const> buffer)
 {
-    std::scoped_lock endpointsLock(m_endpointsMutex);
+    std::scoped_lock endpointsLock{ m_endpointsMutex };
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         m_statistics.IncrementReceivedCount();
 
@@ -120,7 +120,7 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
         auto const& context = registration.GetMessageContext();
 
         // Forward the message through the message sink
-        std::scoped_lock sinkLock(m_receiverMutex);
+        std::scoped_lock sinkLock{ m_receiverMutex };
         if (m_pEnabledProcessor) [[likely]] {
             return m_pEnabledProcessor->CollectMessage(weak_from_this(), context, buffer);
         }
@@ -135,7 +135,7 @@ bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::st
 {
     assert(!message.empty());
 
-    std::scoped_lock endpointLock(m_endpointsMutex);
+    std::scoped_lock endpointLock{ m_endpointsMutex };
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         m_statistics.IncrementSentCount();
 
@@ -155,7 +155,7 @@ bool Peer::Proxy::ScheduleSend(
 {
     assert(spSharedPack && !spSharedPack->empty());
 
-    std::scoped_lock endpointLock(m_endpointsMutex);
+    std::scoped_lock endpointLock{ m_endpointsMutex };
     if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         m_statistics.IncrementSentCount();
 
@@ -173,7 +173,7 @@ bool Peer::Proxy::ScheduleSend(
 void Peer::Proxy::RegisterEndpoint(Registration const& registration)
 {
     {
-        std::scoped_lock lock(m_endpointsMutex);
+        std::scoped_lock lock{ m_endpointsMutex };
         auto [itr, result] = m_endpoints.try_emplace(registration.GetEndpointIdentifier(), registration);
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
@@ -200,7 +200,7 @@ void Peer::Proxy::RegisterEndpoint(
     Network::DisconnectAction const& disconnector)
 {
     {
-        std::scoped_lock lock(m_endpointsMutex);
+        std::scoped_lock lock{ m_endpointsMutex };
         auto [itr, result] = m_endpoints.try_emplace(
             // Registered Endpoint Key
             identifier,
@@ -224,9 +224,9 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
     bool reset = false;
     RegisteredEndpoints::node_type extracted;
     {
-        std::scoped_lock lock(m_endpointsMutex);
-        reset = m_endpoints.empty();
+        std::scoped_lock lock{ m_endpointsMutex };
         if (extracted = m_endpoints.extract(identifier); !extracted) { return; }
+        reset = m_endpoints.empty();
     }
 
     assert(m_pPeerMediator);
@@ -236,7 +236,14 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
     // If this was the last registered endpoint for the peer, unset the authorization state and enabled processor
     // if this peer reconnects another exchnage will need to be conducted as nodes do not save keys to the disk. 
     if (reset) {
-        std::scoped_lock lock(m_receiverMutex);
+        // If there is a resolver, cancel the operation and the resolver will manage setting the autorization and 
+        // enabled processor. Otherwise, we need to unset the values directly. 
+        if (m_upResolver) { 
+            m_upResolver.reset();
+            return;
+        }
+        
+        std::scoped_lock lock{ m_receiverMutex };
         m_authorization = Security::State::Unauthorized;
         m_pEnabledProcessor = nullptr;
     }
@@ -246,7 +253,7 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
 
 bool Peer::Proxy::IsActive() const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     return (m_endpoints.size() != 0);
 }
 
@@ -254,7 +261,7 @@ bool Peer::Proxy::IsActive() const
 
 bool Peer::Proxy::IsEndpointRegistered(Network::Endpoint::Identifier identifier) const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     return (m_endpoints.find(identifier) != m_endpoints.end());
 }
 
@@ -262,7 +269,7 @@ bool Peer::Proxy::IsEndpointRegistered(Network::Endpoint::Identifier identifier)
 
 bool Peer::Proxy::IsEndpointRegistered(Network::Address const& address) const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     return std::ranges::any_of(m_endpoints, [&address] (auto const& entry) {
         return address == entry.second.GetAddress();
     });
@@ -272,7 +279,7 @@ bool Peer::Proxy::IsEndpointRegistered(Network::Address const& address) const
 
 std::optional<MessageContext> Peer::Proxy::GetMessageContext(Network::Endpoint::Identifier identifier) const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         auto const& [key, endpoint] = *itr;
         return endpoint.GetMessageContext();
@@ -285,7 +292,7 @@ std::optional<MessageContext> Peer::Proxy::GetMessageContext(Network::Endpoint::
 
 std::optional<Network::RemoteAddress> Peer::Proxy::GetRegisteredAddress(Network::Endpoint::Identifier identifier) const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
         return itr->second.GetAddress();
     }
@@ -296,7 +303,7 @@ std::optional<Network::RemoteAddress> Peer::Proxy::GetRegisteredAddress(Network:
 
 std::size_t Peer::Proxy::RegisteredEndpointCount() const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     return m_endpoints.size();
 }
 
@@ -304,7 +311,7 @@ std::size_t Peer::Proxy::RegisteredEndpointCount() const
 
 bool Peer::Proxy::ScheduleDisconnect() const
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     for (auto const& [identifier, registration] : m_endpoints) {
         auto const& disconnect = registration.GetDisconnectAction();
         assert(disconnect);
@@ -317,7 +324,7 @@ bool Peer::Proxy::ScheduleDisconnect() const
 
 bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
 {
-    std::scoped_lock lock(m_securityMutex, m_receiverMutex);
+    std::scoped_lock lock{ m_securityMutex, m_receiverMutex };
     if (m_upResolver || !upResolver) [[unlikely]] { return false; }
     m_upResolver = std::move(upResolver);
     
@@ -327,14 +334,12 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
     m_pEnabledProcessor = pExchangeSink;
 
     m_upResolver->BindCompletionHandlers(
-        [this] (std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy)
-        {
-            std::scoped_lock lock(m_securityMutex);
+        [this] (std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy) {
+            std::scoped_lock lock{ m_securityMutex };
             m_upSecurityStrategy = std::move(upSecurityStrategy);
         },
-        [this] (ExchangeStatus status)
-        {
-            std::scoped_lock lock(m_securityMutex, m_receiverMutex);
+        [this] (ExchangeStatus status) {
+            std::scoped_lock lock{ m_securityMutex, m_receiverMutex };
 
             // Set the security state and enabled processor to the default state. If this is a success notification,
             // they will be set accordingly. 
@@ -374,9 +379,12 @@ bool Peer::Proxy::StartExchange(
 {
     assert(*spSource != *m_spIdentifier);
 
-    if (m_upResolver) [[unlikely]] { return false; }
-    auto upResolver = std::make_unique<Resolver>(spSource, Security::Context::Unique);
+    {
+        std::shared_lock lock{ m_securityMutex };
+        if (m_upResolver) [[unlikely]] { return false; }
+    }
 
+    auto upResolver = std::make_unique<Resolver>(spSource, Security::Context::Unique);
     switch (role) {
         case Security::Role::Acceptor: {
             bool const result = upResolver->SetupExchangeAcceptor(strategy);
@@ -398,7 +406,7 @@ bool Peer::Proxy::StartExchange(
 
 Security::State Peer::Proxy::GetAuthorization() const
 {
-    std::shared_lock lock(m_securityMutex);
+    std::shared_lock lock{ m_securityMutex };
     return m_authorization;
 }
 
@@ -406,7 +414,7 @@ Security::State Peer::Proxy::GetAuthorization() const
 
 bool Peer::Proxy::IsFlagged() const
 {
-    std::shared_lock lock(m_securityMutex);
+    std::shared_lock lock{ m_securityMutex };
     return m_authorization == Security::State::Flagged;
 }
 
@@ -414,7 +422,7 @@ bool Peer::Proxy::IsFlagged() const
 
 bool Peer::Proxy::IsAuthorized() const
 {
-    std::shared_lock lock(m_securityMutex);
+    std::shared_lock lock{ m_securityMutex };
     return m_authorization == Security::State::Authorized;
 }
 
@@ -425,35 +433,30 @@ void Peer::Proxy::BindSecurityContext(MessageContext& context) const
     auto const& upStrategy = m_upSecurityStrategy;
 
     context.BindEncryptionHandlers(
-        [&mutex = m_securityMutex, &upStrategy] (auto buffer, auto nonce) -> Security::Encryptor::result_type
-        {
-            std::shared_lock lock(mutex);
+        [&mutex = m_securityMutex, &upStrategy] (auto buffer, auto nonce) -> Security::Encryptor::result_type {
+            std::shared_lock lock{ mutex };
             if (!upStrategy) [[unlikely]] { return {}; }
             return upStrategy->Encrypt(buffer, nonce);
         },
-        [&mutex = m_securityMutex, &upStrategy] (auto buffer, auto nonce) -> Security::Decryptor::result_type
-        {
-            std::shared_lock lock(mutex);
+        [&mutex = m_securityMutex, &upStrategy] (auto buffer, auto nonce) -> Security::Decryptor::result_type {
+            std::shared_lock lock{ mutex };
             if (!upStrategy) [[unlikely]] { return {}; }
             return upStrategy->Decrypt(buffer, nonce);
         });
 
     context.BindSignatureHandlers(
-        [&mutex = m_securityMutex, &upStrategy] (auto& buffer) -> Security::Signator::result_type
-        {
-            std::shared_lock lock(mutex);
+        [&mutex = m_securityMutex, &upStrategy] (auto& buffer) -> Security::Signator::result_type {
+            std::shared_lock lock{ mutex };
             if (!upStrategy) [[unlikely]] { return -1; }
             return upStrategy->Sign(buffer);
         },
-        [&mutex = m_securityMutex, &upStrategy] (auto buffer) -> Security::Verifier::result_type
-        {
-            std::shared_lock lock(mutex);
+        [&mutex = m_securityMutex, &upStrategy] (auto buffer) -> Security::Verifier::result_type {
+            std::shared_lock lock{ mutex };
             if (!upStrategy) [[unlikely]] { return Security::VerificationStatus::Failed; }
             return upStrategy->Verify(buffer);
         },
-        [&mutex = m_securityMutex, &upStrategy] () -> Security::SignatureSizeGetter::result_type
-        {
-            std::shared_lock lock(mutex);
+        [&mutex = m_securityMutex, &upStrategy] () -> Security::SignatureSizeGetter::result_type {
+            std::shared_lock lock{ mutex };
             if (!upStrategy) [[unlikely]] { return 0; }
             return upStrategy->GetSignatureSize();
         });
@@ -464,7 +467,7 @@ void Peer::Proxy::BindSecurityContext(MessageContext& context) const
 template<>
 void Peer::Proxy::SetReceiver<InvokeContext::Test>(IMessageSink* const pMessageSink)
 {
-    std::scoped_lock lock(m_receiverMutex);
+    std::scoped_lock lock{ m_receiverMutex };
     m_pEnabledProcessor = pMessageSink;
 }
 
@@ -486,7 +489,7 @@ void Peer::Proxy::AttachSecurityStrategy<InvokeContext::Test>(std::unique_ptr<IS
     assert(m_upSecurityStrategy);
 
     // Ensure any registered endpoints have their message contexts updated to the new mediator's security context.
-    std::scoped_lock endpointsLock(m_endpointsMutex);
+    std::scoped_lock endpointsLock{ m_endpointsMutex };
     for (auto& [identifier, registration]: m_endpoints) {
         BindSecurityContext(registration.GetWritableMessageContext());
     }
@@ -505,7 +508,7 @@ void Peer::Proxy::DetachResolver<InvokeContext::Test>()
 template <>
 void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(Registration const& registration)
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     auto [itr, result] = m_endpoints.try_emplace(registration.GetEndpointIdentifier(), registration);
     BindSecurityContext(itr->second.GetWritableMessageContext());
 }
@@ -519,7 +522,7 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
     Network::RemoteAddress const& address,
     Network::MessageAction const& scheduler)
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     auto [itr, result] =  m_endpoints.try_emplace(identifier, identifier, protocol, address, scheduler);
     BindSecurityContext(itr->second.GetWritableMessageContext());
 }
@@ -530,7 +533,7 @@ template <>
 void Peer::Proxy::WithdrawSilentEndpoint<InvokeContext::Test>(
     Network::Endpoint::Identifier identifier, [[maybe_unused]] Network::Protocol protocol)
 {
-    std::scoped_lock lock(m_endpointsMutex);
+    std::scoped_lock lock{ m_endpointsMutex };
     m_endpoints.erase(identifier);
 }
 

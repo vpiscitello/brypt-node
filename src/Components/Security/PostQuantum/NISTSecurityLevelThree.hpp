@@ -50,10 +50,8 @@ public:
     [[nodiscard]] Buffer GetPublicKey() const;
     [[nodiscard]] std::size_t GetPublicKey(Buffer& buffer) const;
 
-    [[nodiscard]] bool GenerateEncapsulatedSecret(
-        Buffer const& publicKey, EncapsulationCallback const& callback) const;
-    [[nodiscard]] bool DecapsulateSecret(
-        Buffer const& encapsulation, Buffer& decapsulation) const;
+    [[nodiscard]] bool GenerateEncapsulatedSecret(Buffer const& publicKey, EncapsulationCallback const& callback) const;
+    [[nodiscard]] bool DecapsulateSecret(Buffer const& encapsulation, Buffer& decapsulation) const;
 
     Context(Context const&) = delete;
     Context(Context&&) = delete;
@@ -109,7 +107,8 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Security::PQNISTL3::Strategy : public ISecurityStrategy {
+class Security::PQNISTL3::Strategy : public ISecurityStrategy
+{
 public:
     constexpr static Security::Strategy Type = Security::Strategy::PQNISTL3;
 
@@ -142,10 +141,8 @@ public:
     [[nodiscard]] virtual SynchronizationResult PrepareSynchronization() override;
     [[nodiscard]] virtual SynchronizationResult Synchronize(ReadableView buffer) override;
 
-    [[nodiscard]] virtual OptionalBuffer Encrypt(
-        ReadableView buffer, std::uint64_t nonce) const override;
-    [[nodiscard]] virtual OptionalBuffer Decrypt(
-        ReadableView buffer, std::uint64_t nonce) const override;
+    [[nodiscard]] virtual OptionalBuffer Encrypt(ReadableView buffer, std::uint64_t nonce) const override;
+    [[nodiscard]] virtual OptionalBuffer Decrypt(ReadableView buffer, std::uint64_t nonce) const override;
 
     [[nodiscard]] virtual std::int32_t Sign(Buffer& buffer) const override;
     [[nodiscard]] virtual VerificationStatus Verify(ReadableView buffer) const override;
@@ -164,10 +161,8 @@ public:
 
 private:
     // ISecurityStrategy {
-    [[nodiscard]] virtual std::int32_t Sign(
-        ReadableView source, Security::Buffer& destination) const override;
-    [[nodiscard]] virtual OptionalBuffer GenerateSignature(
-        ReadableView key, ReadableView data) const override;
+    [[nodiscard]] virtual std::int32_t Sign(ReadableView source, Security::Buffer& destination) const override;
+    [[nodiscard]] virtual OptionalBuffer GenerateSignature(ReadableView key, ReadableView data) const override;
     // } ISecurityStrategy
     
     [[nodiscard]] SynchronizationResult HandleInitiatorSynchronization(ReadableView buffer);

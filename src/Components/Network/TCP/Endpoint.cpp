@@ -420,12 +420,13 @@ void Network::TCP::Endpoint::OnSessionStopped(SharedSession const& spSession)
         details.SetConnectionState(Connection::State::Disconnected);
         if (auto const spProxy = details.GetPeerProxy(); spProxy) {
             using enum Peer::Proxy::WithdrawalCause;
-            auto cause = ShutdownRequest; // Default the endpoint withdrawal reason to indicate it has been requested. 
+            auto cause = NetworkShutdown; // Default the endpoint withdrawal reason to indicate it has been requested. 
 
             // If the endpoint is not shutting down, determine the withdrawal reason from the session's stop cause. 
             if (!IEndpoint::IsStopping()) {
                 switch (spSession->GetStopCause()) {
-                    case Session::StopCause::PeerDisconnect: cause = SessionClosure; break;
+                    case Session::StopCause::Requested: cause = DisconnectRequest; break;
+                    case Session::StopCause::Closed: cause = SessionClosure; break;
                     case Session::StopCause::UnexpectedError: cause = UnexpectedError; break;
                     default: break;
                 }
@@ -448,13 +449,8 @@ bool Network::TCP::Endpoint::OnMessageReceived(
     SharedSession const& spSession, Node::Identifier const& source, std::span<std::uint8_t const> message)
 {
     std::shared_ptr<Peer::Proxy> spProxy = {};
-    auto const promotedHandler = [&spProxy] (ExtendedDetails& details)
-    {
-        spProxy = details.GetPeerProxy();
-    };
-
-    auto const unpromotedHandler = [this, &source, &spProxy] (RemoteAddress const& address) -> ExtendedDetails
-    {
+    auto const onPromotedProxy = [&spProxy] (ExtendedDetails& details) { spProxy = details.GetPeerProxy(); };
+    auto const onUnpromotedProxy = [this, &source, &spProxy] (RemoteAddress const& address) -> ExtendedDetails {
         spProxy = IEndpoint::LinkPeer(source, address);
         
         ExtendedDetails details(spProxy);
@@ -466,7 +462,7 @@ bool Network::TCP::Endpoint::OnMessageReceived(
 
     // Update the information about the node as it pertains to received data. The node may not be found if this is 
     // its first connection.
-    m_tracker.UpdateOneConnection(spSession, promotedHandler, unpromotedHandler);
+    m_tracker.UpdateOneConnection(spSession, onPromotedProxy, onUnpromotedProxy);
 
     return spProxy->ScheduleReceive(m_identifier, message);
 }

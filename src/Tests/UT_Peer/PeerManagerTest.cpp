@@ -330,7 +330,7 @@ TEST(PeerManagerSuite, PeerSingleEndpointDisconnectTest)
     ASSERT_TRUE(spPeerProxy);
     EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
     EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 }
 
@@ -361,10 +361,10 @@ TEST(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
     spPeerProxy->RegisterEndpoint(loraIdentifier, Network::Protocol::LoRa, secondAddress, {});
     EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
     EXPECT_EQ(manager.ActiveCount(), std::size_t(1));
 
-    spPeerProxy->WithdrawEndpoint(loraIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+    spPeerProxy->WithdrawEndpoint(loraIdentifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
     EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
 }
 
@@ -464,7 +464,7 @@ TEST(PeerManagerSuite, SingleForEachIdentiferCacheTest)
         return CallbackIteration::Continue;
     });
 
-    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+    spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
 
     std::uint32_t iterations = 0;
     EXPECT_EQ(manager.ActiveCount(), std::size_t(0));
@@ -499,7 +499,7 @@ TEST(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
         auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
         spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
             ++disconnected;
         }
     }
@@ -556,7 +556,7 @@ TEST(PeerManagerSuite, PeerCountTest)
         auto spPeerProxy = manager.LinkPeer(Node::Identifier{ Node::GenerateIdentifier() }, address);
         spPeerProxy->RegisterEndpoint(tcpIdentifier, Network::Protocol::TCP, address, {});
         if (distribution(generator)) {
-            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+            spPeerProxy->WithdrawEndpoint(tcpIdentifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
             ++disconnected;
         }
     }
@@ -585,7 +585,7 @@ TEST(PeerManagerSuite, SingleObserverTest)
     // The observers should not be notified of a connected peer when the peer has not yet completed the exchange. 
     spPeerProxy->RegisterEndpoint(identifier, Network::Protocol::TCP, address, {});
     EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Unknown);
-    spPeerProxy->WithdrawEndpoint(identifier, Peer::Proxy::WithdrawalCause::ShutdownRequest);
+    spPeerProxy->WithdrawEndpoint(identifier, Peer::Proxy::WithdrawalCause::DisconnectRequest);
     EXPECT_EQ(synchronous.GetConnectionState(), Network::Connection::State::Unknown);
 
     spPeerProxy->SetAuthorization<InvokeContext::Test>(Security::State::Authorized); // Simulate an authorized peer. 

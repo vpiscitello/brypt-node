@@ -46,7 +46,7 @@ class Network::TCP::Session : public std::enable_shared_from_this<Session>
 {
 public:
     enum class Event : std::uint32_t { Receive, Stop };
-    enum class StopCause : std::uint32_t { Requested, PeerDisconnect, UnexpectedError };
+    enum class StopCause : std::uint32_t { Requested, Closed, UnexpectedError };
 
     template <Event EventName> struct Callback;
     using ReceiveCallback = std::function<

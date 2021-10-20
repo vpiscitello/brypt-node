@@ -180,25 +180,16 @@ Security::PQNISTL3::SynchronizationTracker::SynchronizationTracker()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::SynchronizationStatus Security::PQNISTL3::SynchronizationTracker::GetStatus() const
-{
-    return m_status;
-}
+Security::SynchronizationStatus Security::PQNISTL3::SynchronizationTracker::GetStatus() const { return m_status; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::SynchronizationTracker::SetError()
-{
-    m_status = SynchronizationStatus::Error;
-}
+void Security::PQNISTL3::SynchronizationTracker::SetError() { m_status = SynchronizationStatus::Error; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 template <typename EnumType>
-EnumType Security::PQNISTL3::SynchronizationTracker::GetStage() const
-{
-    return static_cast<EnumType>(m_stage);
-}
+EnumType Security::PQNISTL3::SynchronizationTracker::GetStage() const { return static_cast<EnumType>(m_stage); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -293,41 +284,27 @@ Security::PQNISTL3::Strategy::Strategy(Role role, Security::Context context)
     }
 
     m_synchronization.SetSignator(
-        [this] (auto const& transaction, auto& message) -> bool
-        { return Sign(transaction, message); });
+        [this] (auto const& transaction, auto& message) -> bool { return Sign(transaction, message); });
 
     m_synchronization.SetVerifier(
-        [this] (auto const& transaction) -> VerificationStatus
-        { return Verify(transaction); });
+        [this] (auto const& transaction) -> VerificationStatus { return Verify(transaction); });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Strategy Security::PQNISTL3::Strategy::GetStrategyType() const
-{
-    return Type;
-}
+Security::Strategy Security::PQNISTL3::Strategy::GetStrategyType() const { return Type; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Role Security::PQNISTL3::Strategy::GetRoleType() const
-{
-    return m_role;
-}
+Security::Role Security::PQNISTL3::Strategy::GetRoleType() const { return m_role; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Context Security::PQNISTL3::Strategy::GetContextType() const
-{
-    return m_context;
-}
+Security::Context Security::PQNISTL3::Strategy::GetContextType() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Security::PQNISTL3::Strategy::GetSignatureSize() const
-{
-    return SignatureSize;
-}
+std::size_t Security::PQNISTL3::Strategy::GetSignatureSize() const { return SignatureSize; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -393,8 +370,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::Synchronize(Readab
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(
-    ReadableView buffer, std::uint64_t nonce) const
+Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(ReadableView buffer, std::uint64_t nonce) const
 {
     // Ensure the caller is able to encrypt the buffer with generated session keys. 
     if (!m_store.HasGeneratedKeys()) {
@@ -419,8 +395,7 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(
 	std::memcpy(iv.data(), &nonce, sizeof(nonce));
 
     // Initialize the OpenSSL cipher using AES-256-CTR with the encryption key and IV. 
-	if (!EVP_EncryptInit_ex(
-        upCipherContext.get(), EVP_aes_256_ctr(), nullptr, optEncryptionKey->data(), iv.data())) {
+	if (!EVP_EncryptInit_ex(upCipherContext.get(), EVP_aes_256_ctr(), nullptr, optEncryptionKey->data(), iv.data())) {
 		return {};
 	}
 
@@ -433,32 +408,26 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::Encrypt(
 	auto const pPlaintext = buffer.data();
 
     // Encrypt the plaintext into the ciphertext buffer.
-    constexpr std::size_t MaximumBlockSize = static_cast<std::size_t>(
-        std::numeric_limits<std::int32_t>::max());
+    constexpr std::size_t MaximumBlockSize = static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max());
     std::size_t encrypted = 0;
     std::int32_t block = static_cast<std::int32_t>(std::min(buffer.size(), MaximumBlockSize));
     for (std::size_t encrypting = buffer.size(); encrypting > 0; encrypting -= block) {
         std::int32_t processed = 0;
-        if (!EVP_EncryptUpdate(upCipherContext.get(), pCiphertext, &processed, pPlaintext, block)) {
-            return {};
-        }
+        if (!EVP_EncryptUpdate(upCipherContext.get(), pCiphertext, &processed, pPlaintext, block)) { return {}; }
         encrypted += processed;
         block = static_cast<std::int32_t>(std::min(encrypting, MaximumBlockSize));
     }
 
     // Cleanup the OpenSSL encryption cipher. 
     std::int32_t processed = 0;
-	if (!EVP_EncryptFinal_ex(upCipherContext.get(), pCiphertext + encrypted, &processed)) {
-		return {};
-	}
+	if (!EVP_EncryptFinal_ex(upCipherContext.get(), pCiphertext + encrypted, &processed)) { return {}; }
 
 	return ciphertext;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(
-    ReadableView buffer, std::uint64_t nonce) const
+Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(ReadableView buffer, std::uint64_t nonce) const
 {
     // Ensure the caller is able to decrypt the buffer with generated session keys.
     if (!m_store.HasGeneratedKeys()) {
@@ -483,8 +452,7 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(
 	std::memcpy(iv.data(), &nonce, sizeof(nonce));
 
     // Initialize the OpenSSL cipher using AES-256-CTR with the decryption key and IV.
-	if (!EVP_DecryptInit_ex(
-        upCipherContext.get(), EVP_aes_256_ctr(), nullptr, optDecryptionKey->data(), iv.data())) {
+	if (!EVP_DecryptInit_ex(upCipherContext.get(), EVP_aes_256_ctr(), nullptr, optDecryptionKey->data(), iv.data())) {
 		return {};
 	}
 
@@ -497,24 +465,19 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::Decrypt(
 	auto const pCiphertext = buffer.data();
 
     // Decrypt the ciphertext into the plaintext buffer.
-    constexpr std::size_t MaximumBlockSize = static_cast<std::size_t>(
-        std::numeric_limits<std::int32_t>::max());
+    constexpr std::size_t MaximumBlockSize = static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max());
     std::size_t decrypted = 0;
     std::int32_t block = static_cast<std::int32_t>(std::min(buffer.size(), MaximumBlockSize));
     for (std::size_t encrypting = buffer.size(); encrypting > 0; encrypting -= block) {
         std::int32_t processed = 0;
-        if (!EVP_DecryptUpdate(upCipherContext.get(), pPlaintext, &processed, pCiphertext, block)) {
-            return {};
-        }
+        if (!EVP_DecryptUpdate(upCipherContext.get(), pPlaintext, &processed, pCiphertext, block)) { return {}; }
         decrypted += processed;
         block = static_cast<std::int32_t>(std::min(encrypting, MaximumBlockSize));
     }
 
     // Cleanup the OpenSSL encryption cipher. 
     std::int32_t processed = 0;
-	if (!EVP_DecryptFinal_ex(upCipherContext.get(), pPlaintext + decrypted, &processed)) {
-		return {};
-	}
+	if (!EVP_DecryptFinal_ex(upCipherContext.get(), pPlaintext + decrypted, &processed)) { return {}; }
 
 	return plaintext;
 }
@@ -553,8 +516,7 @@ Security::VerificationStatus Security::PQNISTL3::Strategy::Verify(ReadableView b
 	auto const result = CRYPTO_memcmp(
 		optGeneratedBuffer->data(), buffer.data() + packContentSize, optGeneratedBuffer->size());
 
-    // If the signatures are not equal than the peer did not sign the buffer or the buffer was
-    // altered in transmission. 
+    // If the signatures are not equal than the peer did not sign the buffer or the buffer was altered in transmission. 
 	if (result != 0) { return VerificationStatus::Failed; }
 
 	return VerificationStatus::Success;
@@ -564,17 +526,12 @@ Security::VerificationStatus Security::PQNISTL3::Strategy::Verify(ReadableView b
 
 void Security::PQNISTL3::Strategy::InitializeApplicationContext()
 {
-    if (!m_spSharedContext) {
-        m_spSharedContext = std::make_shared<Context>(KeyEncapsulationScheme);
-    }
+    if (!m_spSharedContext) { m_spSharedContext = std::make_shared<Context>(KeyEncapsulationScheme); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Security::PQNISTL3::Strategy::ShutdownApplicationContext()
-{
-    Strategy::m_spSharedContext.reset();
-}
+void Security::PQNISTL3::Strategy::ShutdownApplicationContext() { Strategy::m_spSharedContext.reset(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -585,10 +542,7 @@ std::weak_ptr<Security::PQNISTL3::Context> Security::PQNISTL3::Strategy::GetSess
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Security::PQNISTL3::Strategy::GetPublicKeySize() const
-{
-    return m_spSessionContext->GetPublicKeySize();
-}
+std::size_t Security::PQNISTL3::Strategy::GetPublicKeySize() const { return m_spSessionContext->GetPublicKeySize(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -599,21 +553,17 @@ std::size_t Security::PQNISTL3::Strategy::GetPublicKeySize() const
 //----------------------------------------------------------------------------------------------------------------------
 Security::OptionalBuffer Security::PQNISTL3::Strategy::EncapsulateSharedSecret()
 {
+    assert(m_spSessionContext); // The session context should always exist after the constructor is called. 
+
     // A shared secret cannot be generated and encapsulated without the peer's public key. 
     auto const& optPeerPublicKey = m_store.GetPeerPublicKey();
     if (!optPeerPublicKey) { return {}; }
 
-    // The session context should always exist after the constructor is called. 
-    assert(m_spSessionContext);
-
     Security::Buffer encapsulation;
     // Use the session context to generate a secret for using the peer's public key. 
-    bool const success = m_spSessionContext->GenerateEncapsulatedSecret(
-        *optPeerPublicKey,
-        [this, &encapsulation] (Buffer&& encaped, Buffer&& secret) -> bool
-        {
-            if (!m_store.GenerateSessionKeys(
-                m_role, std::move(secret), local::EncryptionKeySize, SignatureSize)) {
+    bool const success = m_spSessionContext->GenerateEncapsulatedSecret(*optPeerPublicKey,
+        [this, &encapsulation] (Buffer&& encaped, Buffer&& secret) -> bool {
+            if (!m_store.GenerateSessionKeys(m_role, std::move(secret), local::EncryptionKeySize, SignatureSize)) {
                 return false;
             }
 
@@ -634,14 +584,12 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::EncapsulateSharedSecret()
 //----------------------------------------------------------------------------------------------------------------------
 bool Security::PQNISTL3::Strategy::DecapsulateSharedSecret(Buffer const& encapsulation)
 {
-    // The session context should always exist after the constructor is called. 
-    assert(m_spSessionContext);
+    assert(m_spSessionContext); // The session context should always exist after the constructor is called. 
 
     Buffer decapsulation;
     if (!m_spSessionContext->DecapsulateSecret(encapsulation, decapsulation)) { return false; }
     
-    return m_store.GenerateSessionKeys(
-        m_role, std::move(decapsulation), local::EncryptionKeySize, SignatureSize);
+    return m_store.GenerateSessionKeys(m_role, std::move(decapsulation), local::EncryptionKeySize, SignatureSize);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -649,23 +597,20 @@ bool Security::PQNISTL3::Strategy::DecapsulateSharedSecret(Buffer const& encapsu
 Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateVerficationData()
 {
     assert(m_store.HasGeneratedKeys());
-
-    // Get the verification data to provide to encrypt.
-    auto const& optData = m_store.GetVerificationData();
+    
+    auto const& optData = m_store.GetVerificationData(); // Get the verification data to provide to encrypt.
     if (!optData) {
         m_synchronization.SetError();
         return {};
     }
-
-    // Encrypt verification data to challenge the peer's keys. 
-    Security::OptionalBuffer optEncrypted = Encrypt(*optData, 0);
+   
+    Security::OptionalBuffer optEncrypted = Encrypt(*optData, 0);  // Encrypt data to challenge the peer's keys. 
     if (!optEncrypted) {
         m_synchronization.SetError();
         return {};
     }
-
-    // Provided the encrypted verification data to the caller. 
-    return optEncrypted;
+   
+    return optEncrypted;  // Provided the encrypted verification data to the caller. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -724,8 +669,8 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateSignature(
     // Hash the provided buffer with the provided key to generate the signature. 
     Buffer signature(SignatureSize, 0x00);
 	std::uint32_t hashed = 0;
-	HMAC(EVP_sha384(), key.data(), static_cast<std::int32_t>(key.size()),
-        data.data(), data.size(), signature.data(), &hashed);
+    std::int32_t const size = static_cast<std::int32_t>(key.size());
+	HMAC(EVP_sha384(), key.data(), size, data.data(), data.size(), signature.data(), &hashed);
 
     assert(hashed == static_cast<std::uint32_t>(signature.size()));
 	if (ERR_get_error() != 0 || hashed == 0) { return {}; }
@@ -738,11 +683,8 @@ Security::OptionalBuffer Security::PQNISTL3::Strategy::GenerateSignature(
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorSynchronization(
     ReadableView buffer)
 {
-    switch (m_synchronization.GetStage<InitiatorStage>())
-    {
-        case InitiatorStage::Initialization: {
-            return HandleInitiatorInitialization(buffer);
-        }
+    switch (m_synchronization.GetStage<InitiatorStage>()) {
+        case InitiatorStage::Initialization: { return HandleInitiatorInitialization(buffer); }
         // It is an error to be called in all other synchrinization stages. 
         case InitiatorStage::Complete: {
             m_synchronization.SetError();
@@ -760,8 +702,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorIni
 {
     // Handle the acceptor's resposne to the initialization message. The post conditions for 
     // this handling include generating the session keys and verifying the plaintext transaction. 
-    bool const success = Initiator::HandleInitializationResponse(
-        this, m_store, m_synchronization, buffer);
+    bool const success = Initiator::HandleInitializationResponse(this, m_store, m_synchronization, buffer);
 
     // Set an error if the response could not be handled. 
     if (!success) {
@@ -787,14 +728,9 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleInitiatorIni
 Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorSynchronization(
     ReadableView buffer)
 {
-    switch (m_synchronization.GetStage<AcceptorStage>())
-    {
-        case AcceptorStage::Initialization: {
-            return HandleAcceptorInitialization(buffer);
-        }
-        case AcceptorStage::Verification: {
-            return HandleAcceptorVerification(buffer);
-        }
+    switch (m_synchronization.GetStage<AcceptorStage>()) {
+        case AcceptorStage::Initialization: { return HandleAcceptorInitialization(buffer); }
+        case AcceptorStage::Verification: { return HandleAcceptorVerification(buffer); }
         // It is an error to be called in all other synchrinization stages. 
         case AcceptorStage::Complete: {
             m_synchronization.SetError();
@@ -815,8 +751,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorInit
 
     // Handle the initiators's initialization request. The post conditions for this handling 
     // include generating the session keys and updating the transaction's plaintext data. 
-    auto const success = Acceptor::HandleInitializationRequest(
-        *m_spSessionContext, m_store, m_synchronization, buffer);
+    auto const success = Acceptor::HandleInitializationRequest(*m_spSessionContext, m_store, m_synchronization, buffer);
 
     // Set an error if the request could not be handled. 
     if (!success) {
@@ -827,8 +762,7 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorInit
     // Generate the response to the initialization request. This response will include our 
     // random seed for the key generation, an encapsulated shared secret, verification data,
     // and the transaction's signature. 
-    auto const optResponse = Acceptor::GenerateInitializationResponse(
-        this, m_store, m_synchronization);
+    auto const optResponse = Acceptor::GenerateInitializationResponse(this, m_store, m_synchronization);
 
     // Set an error if the response could not be generated. 
     if (!optResponse) {
@@ -846,12 +780,8 @@ Security::SynchronizationResult Security::PQNISTL3::Strategy::HandleAcceptorVeri
 {
     // Handle the initiator's verification request. As post condition the synchronization will
     // be finalized. If the verfication data could not be verified set an error. 
-    if (!Acceptor::HandleVerificationRequest(this, m_synchronization, buffer)) {
-        m_synchronization.SetError();
-    }
-
-    // There are no further synchronization messages to be provided. 
-    return { m_synchronization.GetStatus(), {} };
+    if (!Acceptor::HandleVerificationRequest(this, m_synchronization, buffer)) { m_synchronization.SetError(); }
+    return { m_synchronization.GetStatus(), {} }; // There are no further synchronization messages to be provided. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -862,9 +792,7 @@ Security::Strategy local::UnpackStrategy(
     using StrategyType = std::underlying_type_t<Security::Strategy>;
 
     StrategyType strategy = 0;
-    if (!PackUtils::UnpackChunk(begin, end, strategy)) {
-        return Security::Strategy::Invalid;
-    }
+    if (!PackUtils::UnpackChunk(begin, end, strategy)) { return Security::Strategy::Invalid; }
     return Security::ConvertToStrategy(strategy);
 }
 
@@ -894,12 +822,9 @@ Security::OptionalBuffer Initiator::GenerateInitializationRequest(
     auto const optPrincipalSeed = local::GenerateRandomData(Strategy::PrincipalRandomSize);
     if (!optPrincipalSeed) { return {}; }
 
-    // Expand the KeyStore's deriviation seed. 
-    store.ExpandSessionSeed(*optPrincipalSeed);
+    store.ExpandSessionSeed(*optPrincipalSeed); // Expand the KeyStore's deriviation seed. 
 
-    constexpr std::size_t RequestSize = 
-        sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::PublicKeySize;
-
+    constexpr std::size_t RequestSize = sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::PublicKeySize;
     Security::Buffer request;
     request.reserve(RequestSize);
 
@@ -907,8 +832,8 @@ Security::OptionalBuffer Initiator::GenerateInitializationRequest(
     PackUtils::PackChunk(*optPrincipalSeed, request);
     if (std::size_t fetched = context.GetPublicKey(request); fetched == 0) { return {}; }
 
-    // Update the synchronization's plaintext verification buffer with the request
-    synchronization.UpdateTransaction(request);
+    
+    synchronization.UpdateTransaction(request);// Update the synchronization's verification buffer with the request
 
     return request;
 }
@@ -922,7 +847,6 @@ bool Initiator::HandleInitializationResponse(
     Security::ReadableView request)
 {
     using namespace Security::PQNISTL3;
-
     assert(pStrategy);
 
 	auto begin = request.begin();
@@ -931,9 +855,8 @@ bool Initiator::HandleInitializationResponse(
     Security::Strategy strategy = local::UnpackStrategy(begin, end);
     if (strategy != Strategy::Type) { return {}; }
 
-    constexpr std::size_t ExpectedRequestSize = 
-        sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + Context::EncapsulationSize +
-        Security::KeyStore::VerificationSize + Strategy::SignatureSize;
+    constexpr std::size_t ExpectedRequestSize = sizeof(Strategy::Type) + Strategy::PrincipalRandomSize + 
+        Context::EncapsulationSize + Security::KeyStore::VerificationSize + Strategy::SignatureSize;
     if (request.size() != ExpectedRequestSize) { return false; }
 
     // Handle the peer's packed prinicpal random seed. 
@@ -941,9 +864,7 @@ bool Initiator::HandleInitializationResponse(
         Security::Buffer seed;
         seed.reserve(Strategy::PrincipalRandomSize);
         if (!PackUtils::UnpackChunk(begin, end, seed)) { return false; }
-
-        // Expand the key store's deriviation seed with the provided data. 
-        store.ExpandSessionSeed(seed);
+        store.ExpandSessionSeed(seed); // Expand the key store's deriviation seed with the provided data. 
     }
 
     // Handle the peer's packed encapsulation data. 
@@ -952,8 +873,8 @@ bool Initiator::HandleInitializationResponse(
         encapsulation.reserve(Context::EncapsulationSize);
         if (!PackUtils::UnpackChunk(begin, end, encapsulation)) { return false; }
 
-        // Attempt to decapsulate the shared secret. If the shared secret could not be decapsulated
-        // or the session keys fail to be generated return an error. 
+        // Attempt to decapsulate the shared secret. If the shared secret could not be decapsulated or the session keys 
+        // fail to be generated return an error. 
         if (!pStrategy->DecapsulateSharedSecret(encapsulation)) { return false; }
     }
 
@@ -962,22 +883,15 @@ bool Initiator::HandleInitializationResponse(
         Security::Buffer verification;
         verification.reserve(Security::KeyStore::VerificationSize);
         if (!PackUtils::UnpackChunk(begin, end, verification)) { return false; }
-
-        if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) {
-            return false;
-        }
+        if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) { return false; }
     }
 
-    // Add the acceptor's response data to the transaction and verify the unauthenticated 
-    // synchronization stages. 
+    // Add the acceptor's response data to the transaction and verify the unauthenticated synchronization stages. 
     {
-        // Add the request to the synchronization transaction. 
-        synchronization.UpdateTransaction(request);
+        synchronization.UpdateTransaction(request); // Add the request to the synchronization transaction.
 
         // The request will have an attached transaction signature that must be verified. 
-        if (synchronization.VerifyTransaction() != Security::VerificationStatus::Success) {
-            return false;
-        }
+        if (synchronization.VerifyTransaction() != Security::VerificationStatus::Success) { return false; }
     }
 
     return true;
@@ -996,9 +910,8 @@ Security::OptionalBuffer Initiator::GeneratVerificationRequest(
     auto const& optVerification = pStrategy->GenerateVerficationData();
     if (!optVerification) { return {}; }
 
-    constexpr std::size_t RequestSize  = 
-        sizeof(Strategy::Type) + Security::KeyStore::VerificationSize +
-        Strategy::SignatureSize;
+    constexpr std::size_t RequestSize = 
+        sizeof(Strategy::Type) + Security::KeyStore::VerificationSize + Strategy::SignatureSize;
 
     Security::Buffer request;
     request.reserve(RequestSize);
@@ -1006,11 +919,9 @@ Security::OptionalBuffer Initiator::GeneratVerificationRequest(
     PackUtils::PackChunk(Strategy::Type, request);
     PackUtils::PackChunk(*optVerification, request);
 
-    // If for some reason we cannot sign the verification data it is an error. 
-    if (pStrategy->Sign(request) == 0) { return {}; }
-
-    // The synchronization process is now complete.
-    synchronization.Finalize(Strategy::InitiatorStage::Complete);
+    
+    if (pStrategy->Sign(request) == 0) { return {}; } // Return an error if we cannot sign the verification data. 
+    synchronization.Finalize(Strategy::InitiatorStage::Complete); // The synchronization process is now complete.
 
     return request;
 }
@@ -1040,9 +951,7 @@ bool Acceptor::HandleInitializationRequest(
         Security::Buffer seed;
         seed.reserve(Strategy::PrincipalRandomSize);
         if (!PackUtils::UnpackChunk(begin, end, seed)) { return false; }
-
-        // Expand the key store's deriviation seed with the provided data. 
-        store.ExpandSessionSeed(seed);
+        store.ExpandSessionSeed(seed); // Expand the key store's deriviation seed with the provided data. 
     }
 
     // Handle the peer's packed publick key.
@@ -1051,12 +960,10 @@ bool Acceptor::HandleInitializationRequest(
         auto const size = context.GetPublicKeySize();
         key.reserve(size);
         if (!PackUtils::UnpackChunk(begin, end, key)) { return false; }
-        
         store.SetPeerPublicKey(std::move(key)); // Store the peer's public key.
     }
-
-    // Add the request to the synchronization transaction. 
-    synchronization.UpdateTransaction(request);
+   
+    synchronization.UpdateTransaction(request);  // Add the request to the synchronization transaction. 
 
     return true;
 }
@@ -1130,8 +1037,7 @@ bool Acceptor::HandleVerificationRequest(
     if (strategy != Strategy::Type) { return {}; }
 
     constexpr std::size_t ExpectedRequestSize  = 
-        sizeof(Strategy::Type) + Security::KeyStore::VerificationSize +
-        Strategy::SignatureSize;
+        sizeof(Strategy::Type) + Security::KeyStore::VerificationSize + Strategy::SignatureSize;
     if (request.size() != ExpectedRequestSize) { return false; }
 
     // Handle the peer's verification data.
@@ -1141,13 +1047,10 @@ bool Acceptor::HandleVerificationRequest(
         if (!PackUtils::UnpackChunk(begin, end, verification)) { return false; }
 
         // Verify the packed and encrypted verification data. 
-        if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) { 
-            return false; 
-        }
+        if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) {  return false;  }
     }
-
-    // The synchronization process is now complete.
-    synchronization.Finalize(Strategy::AcceptorStage::Complete);
+    
+    synchronization.Finalize(Strategy::AcceptorStage::Complete); // The synchronization process is now complete.
 
     return true;
 }

@@ -114,19 +114,14 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
     // returned to the caller. Otherwise, a new peer needs to be constructed, tracked, and returned to the caller. 
     std::scoped_lock lock(m_resolvingMutex, m_peersMutex);
     if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) {
-        m_resolving.erase(address); // Ensure the provided address is not marked as resolving.
-
         std::shared_ptr<Peer::Proxy> spUnified;
-        m_peers.modify(itr, 
-            [&spUnified] (std::shared_ptr<Peer::Proxy>& spTracked) { assert(spTracked); spUnified = spTracked; });
+        m_peers.modify(itr, [&spUnified] (std::shared_ptr<Peer::Proxy>& spTracked) {
+            assert(spTracked); spUnified = spTracked;
+        });
 
         // If the peer exists for the given identifier, but there are no registered endpoints the peer is reconnecting
         // and an exchange is needed to establish keys. 
-        if (spUnified->RegisteredEndpointCount() == 0) {
-            bool const result = spUnified->StartExchange(
-                m_spNodeIdentifier, m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
-            assert(result);
-        }
+        if (spUnified->RegisteredEndpointCount() == 0) { AttachOrCreateExchange(spUnified, address); }
 
         return spUnified; // Return the unified peer to the endpoint. 
     }
@@ -157,7 +152,7 @@ void Peer::Manager::OnEndpointWithdrawn(
     // Withdrawing a registed endpoint is only a dispatchable event when not caused by a shutdown request and the
     // peer been authorized (indicating a prior connect event has been dispatched for the peer). 
     auto const authorization = spPeerProxy->GetAuthorization();
-    bool dispatchable = cause != WithdrawalCause::ShutdownRequest && authorization == Security::State::Authorized;
+    bool dispatchable = cause != WithdrawalCause::NetworkShutdown && authorization == Security::State::Authorized;
     if (dispatchable) {
         using enum Event::Type;
         NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
@@ -252,14 +247,13 @@ bool Peer::Manager::ScheduleDisconnect(std::string_view const& identifier) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ScheduleDisconnect(Network::Address const& address) const
+std::size_t Peer::Manager::ScheduleDisconnect(Network::Address const& address) const
 {
     std::shared_lock lock(m_peersMutex);
-    auto const itr = std::ranges::find_if(m_peers, [&address] (auto const& spProxy) {
+    return std::ranges::count_if(m_peers, [&address] (auto const& spProxy) {
         if (spProxy->IsEndpointRegistered(address)) { return spProxy->ScheduleDisconnect(); }
         return false;
     });
-    return itr != m_peers.end();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -291,7 +285,16 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
 {
     // Note: The resolving and peers mutexes must be locked before calling this method. 
     auto const spProxy = Proxy::CreateInstance(identifier, m_wpPromotedProcessor, this);
+    AttachOrCreateExchange(spProxy, address);
+    m_peers.emplace(spProxy);
 
+    return spProxy; // Provide the newly created proxy to the caller. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy, Network::RemoteAddress const& address)
+{
     // If the endppint has declared the address as a resolving peer, this implies that we were the connection initiator. 
     // In this case, we need to attach the external resolver to the full proxy to handle incoming responses. 
     // Otherwise, we are accepting a new request from an unknown address, in which we need to tell the proxy to start 
@@ -300,15 +303,12 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
         [[maybe_unused]] bool const result = spProxy->AttachResolver(std::move(itr->second));
         assert(result);
         m_resolving.erase(itr);
-    } else {
-        bool const result = spProxy->StartExchange(
-            m_spNodeIdentifier, m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
-        assert(result);
+        return;
     }
 
-    m_peers.emplace(spProxy);
-
-    return spProxy; // Provide the newly created proxy to the caller. 
+    bool const result = spProxy->StartExchange(
+        m_spNodeIdentifier, m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
+    assert(result);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

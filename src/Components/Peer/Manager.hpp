@@ -87,7 +87,7 @@ public:
 
     bool ScheduleDisconnect(std::string_view const& identifier) const; 
     bool ScheduleDisconnect(Node::Identifier const& identifier) const; 
-    bool ScheduleDisconnect(Network::Address const& address) const; 
+    std::size_t ScheduleDisconnect(Network::Address const& address) const; 
 
 private:
     struct InternalIndex {};
@@ -113,6 +113,7 @@ private:
     [[nodiscard]] OptionalRequest GenerateShortCircuitRequest(Node::SharedIdentifier const& spPeerIdentifier) const;
     [[nodiscard]] std::shared_ptr<Peer::Proxy> CreatePeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address);
+    void AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy, Network::RemoteAddress const& address);
 
     std::size_t PeerCount(Filter filter) const;
 

@@ -117,8 +117,7 @@ void Network::TCP::Session::Start()
     boost::asio::co_spawn(
         m_socket.get_executor(),
         m_receiver(), // Note: It is assumed that the instance of the session is kept alive externally. 
-        [self(shared_from_this()), logger(m_logger)] (std::exception_ptr exception, CompletionOrigin origin)
-        {
+        [self(shared_from_this()), logger(m_logger)] (std::exception_ptr exception, CompletionOrigin origin) {
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) { 
                 logger->error("An unexpected error caused the receiver for {} to shutdown!", self->GetAddress());
             }
@@ -128,10 +127,9 @@ void Network::TCP::Session::Start()
     boost::asio::co_spawn(
         m_socket.get_executor(),
         m_dispatcher(), // Note: It is assumed that the instance of the session is kept alive externally. 
-        [self(shared_from_this()), logger(m_logger)] (std::exception_ptr exception, CompletionOrigin origin)
-        {
+        [self(shared_from_this()), logger(m_logger)] (std::exception_ptr exception, CompletionOrigin origin) {
             if (bool const error = (exception || origin == CompletionOrigin::Error); error) { 
-                logger->error("An unexpected error caused the receiver for {} to shutdown!", self->GetAddress());
+                logger->error("An unexpected error caused the dispatcher for {} to shutdown!", self->GetAddress());
             }
         });
 
@@ -166,7 +164,7 @@ bool Network::TCP::Session::OnReceived(Node::Identifier const& identifier, std::
 
 void Network::TCP::Session::OnPeerDisconnected()
 {
-    OnSocketError(spdlog::level::warn, "Session ended by peer", StopCause::PeerDisconnect);   
+    OnSocketError(spdlog::level::warn, "Session ended by peer", StopCause::Closed);   
 }
 
 //----------------------------------------------------------------------------------------------------------------------
