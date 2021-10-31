@@ -862,16 +862,14 @@ bool Initiator::HandleInitializationResponse(
     // Handle the peer's packed prinicpal random seed. 
     {
         Security::Buffer seed;
-        seed.reserve(Strategy::PrincipalRandomSize);
-        if (!PackUtils::UnpackChunk(begin, end, seed)) { return false; }
+        if (!PackUtils::UnpackChunk(begin, end, seed, Strategy::PrincipalRandomSize)) { return false; }
         store.ExpandSessionSeed(seed); // Expand the key store's deriviation seed with the provided data. 
     }
 
     // Handle the peer's packed encapsulation data. 
     {
         Security::Buffer encapsulation;
-        encapsulation.reserve(Context::EncapsulationSize);
-        if (!PackUtils::UnpackChunk(begin, end, encapsulation)) { return false; }
+        if (!PackUtils::UnpackChunk(begin, end, encapsulation, Context::EncapsulationSize)) { return false; }
 
         // Attempt to decapsulate the shared secret. If the shared secret could not be decapsulated or the session keys 
         // fail to be generated return an error. 
@@ -881,8 +879,7 @@ bool Initiator::HandleInitializationResponse(
     // Handle the peer's verification data.
     {
         Security::Buffer verification;
-        verification.reserve(Security::KeyStore::VerificationSize);
-        if (!PackUtils::UnpackChunk(begin, end, verification)) { return false; }
+        if (!PackUtils::UnpackChunk(begin, end, verification, Security::KeyStore::VerificationSize)) { return false; }
         if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) { return false; }
     }
 
@@ -949,17 +946,14 @@ bool Acceptor::HandleInitializationRequest(
     // Handle the peer's packed prinicpal random seed. 
     {
         Security::Buffer seed;
-        seed.reserve(Strategy::PrincipalRandomSize);
-        if (!PackUtils::UnpackChunk(begin, end, seed)) { return false; }
+        if (!PackUtils::UnpackChunk(begin, end, seed, Strategy::PrincipalRandomSize)) { return false; }
         store.ExpandSessionSeed(seed); // Expand the key store's deriviation seed with the provided data. 
     }
 
     // Handle the peer's packed publick key.
     {
         Security::Buffer key;
-        auto const size = context.GetPublicKeySize();
-        key.reserve(size);
-        if (!PackUtils::UnpackChunk(begin, end, key)) { return false; }
+        if (!PackUtils::UnpackChunk(begin, end, key, context.GetPublicKeySize())) { return false; }
         store.SetPeerPublicKey(std::move(key)); // Store the peer's public key.
     }
    
@@ -1043,8 +1037,7 @@ bool Acceptor::HandleVerificationRequest(
     // Handle the peer's verification data.
     {
         Security::Buffer verification;
-        verification.reserve(Security::KeyStore::VerificationSize);
-        if (!PackUtils::UnpackChunk(begin, end, verification)) { return false; }
+        if (!PackUtils::UnpackChunk(begin, end, verification, Security::KeyStore::VerificationSize)) { return false; }
 
         // Verify the packed and encrypted verification data. 
         if (pStrategy->VerifyKeyShare(verification) != Security::VerificationStatus::Success) {  return false;  }

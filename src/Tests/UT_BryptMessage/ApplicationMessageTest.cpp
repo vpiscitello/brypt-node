@@ -28,9 +28,7 @@ namespace test {
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 
-constexpr Handler::Type Handler = Handler::Type::Election;
-constexpr std::uint8_t RequestPhase = 0;
-constexpr std::uint8_t ResponsePhase = 1;
+constexpr std::string_view RequestRoute = "/request";
 constexpr std::string_view Data = "Hello World!";
 
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
@@ -49,7 +47,7 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::RequestPhase)
+        .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -57,10 +55,8 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
     EXPECT_EQ(optMessage->GetSourceIdentifier(), test::ClientIdentifier);
     ASSERT_TRUE(optMessage->GetDestinationIdentifier());
     EXPECT_EQ(*optMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optMessage->GetRoute(), test::RequestRoute);
     EXPECT_FALSE(optMessage->GetAwaitTrackerKey());
-    EXPECT_EQ(optMessage->GetCommand(), test::Handler);
-    EXPECT_EQ(optMessage->GetPhase(), test::RequestPhase);
-    EXPECT_GT(optMessage->GetTimestamp(), TimeUtils::Timestamp());
 
     auto const buffer = optMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
@@ -80,7 +76,7 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::RequestPhase)
+        .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .ValidatedBuild();
 
@@ -96,11 +92,9 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
     EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBaseMessage->GetSourceIdentifier());
     ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
     EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), optBaseMessage->GetDestinationIdentifier());
-    EXPECT_FALSE(optPackMessage->GetAwaitTrackerKey());
-    EXPECT_EQ(optPackMessage->GetCommand(), optBaseMessage->GetCommand());
-    EXPECT_EQ(optPackMessage->GetPhase(), optBaseMessage->GetPhase());
-    EXPECT_EQ(optPackMessage->GetTimestamp(), optBaseMessage->GetTimestamp());
+    EXPECT_EQ(optPackMessage->GetRoute(), optBaseMessage->GetRoute());
     EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
+    EXPECT_FALSE(optPackMessage->GetAwaitTrackerKey());
 
     auto const buffer = optPackMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
@@ -118,7 +112,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::RequestPhase)
+        .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
         .ValidatedBuild();
@@ -126,10 +120,8 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 
     EXPECT_EQ(optSourceBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(optSourceBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optSourceBoundMessage->GetRoute(), test::RequestRoute);
     EXPECT_EQ(optSourceBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
-    EXPECT_EQ(optSourceBoundMessage->GetCommand(), test::Handler);
-    EXPECT_EQ(optSourceBoundMessage->GetPhase(), test::RequestPhase);
-    EXPECT_GT(optSourceBoundMessage->GetTimestamp(), TimeUtils::Timestamp());
 
     auto const sourceBoundBuffer = optSourceBoundMessage->GetPayload();
     std::string const sourceBoundData(sourceBoundBuffer.begin(), sourceBoundBuffer.end());
@@ -142,7 +134,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::RequestPhase)
+        .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
@@ -151,9 +143,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optDestinationBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(optDestinationBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
     EXPECT_EQ(optDestinationBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
-    EXPECT_EQ(optDestinationBoundMessage->GetCommand(), test::Handler);
-    EXPECT_EQ(optDestinationBoundMessage->GetPhase(), test::RequestPhase);
-    EXPECT_GT(optDestinationBoundMessage->GetTimestamp(), TimeUtils::Timestamp());
+    EXPECT_EQ(optDestinationBoundMessage->GetRoute(), test::RequestRoute);
 
     auto const destinationBoundBuffer = optDestinationBoundMessage->GetPayload();
     std::string const destinationBoundData(destinationBoundBuffer.begin(), destinationBoundBuffer.end());
@@ -174,7 +164,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::RequestPhase)
+        .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
         .ValidatedBuild();
@@ -192,9 +182,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
     EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBoundMessage->GetSourceIdentifier());
     EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), optBoundMessage->GetDestinationIdentifier());
     EXPECT_EQ(optPackMessage->GetAwaitTrackerKey(), optBoundMessage->GetAwaitTrackerKey());
-    EXPECT_EQ(optPackMessage->GetCommand(), optBoundMessage->GetCommand());
-    EXPECT_EQ(optPackMessage->GetPhase(), optBoundMessage->GetPhase());
-    EXPECT_EQ(optPackMessage->GetTimestamp(), optBoundMessage->GetTimestamp());
+    EXPECT_EQ(optPackMessage->GetRoute(), optBoundMessage->GetRoute());
     EXPECT_EQ(optPackMessage->GetPayload(), optBoundMessage->GetPayload());
 
     auto const buffer = optPackMessage->GetPayload();
@@ -209,18 +197,17 @@ MessageContext local::GenerateMessageContext()
     MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); });
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type { 
+            return Security::Buffer(buffer.begin(), buffer.end()); 
+        },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type {
+            return Security::Buffer(buffer.begin(), buffer.end());
+        });
 
     context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type 
-            { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type 
-            { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type 
-            { return 0; });
+        [] (auto&) -> Security::Signator::result_type { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 
     return context;
 }

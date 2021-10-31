@@ -336,9 +336,7 @@ void NetworkBuilder::Unpack(std::span<std::uint8_t const> buffer)
 	auto begin = buffer.begin();
 	auto end = buffer.end();
 
-	if (!m_message.m_header.ParseBuffer(begin, end)) {
-		return;
-	}
+	if (!m_message.m_header.ParseBuffer(begin, end)) { return; }
 
 	m_message.m_type = local::UnpackMessageType(begin, end);
 	if (m_message.m_type == Message::Network::Type::Invalid) { return; }
@@ -346,11 +344,11 @@ void NetworkBuilder::Unpack(std::span<std::uint8_t const> buffer)
 	// If the message in the buffer is not an application message, it can not be parsed
 	if (m_message.m_header.m_protocol != Message::Protocol::Network) { return; }
 
-	std::uint32_t dataSize = 0;
-	if (!PackUtils::UnpackChunk(begin, end, dataSize)) { return; }
-
-	m_message.m_payload.reserve(dataSize);
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload)) { return; }
+	{
+		std::uint32_t size = 0;
+		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
+		if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, size)) { return; }
+	}
 
 	std::uint8_t extensions = 0;
 	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return; }

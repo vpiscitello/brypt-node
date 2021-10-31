@@ -52,10 +52,8 @@ public:
 	Message::Destination GetDestinationType() const;
 	std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
 
-	Handler::Type GetCommand() const;
-	std::uint8_t GetPhase() const;
+	std::string const& GetRoute() const;
 	Message::Buffer GetPayload() const;
-	TimeUtils::Timestamp const& GetTimestamp() const;
 	std::optional<Await::TrackerKey> GetAwaitTrackerKey() const;
 
     std::size_t GetPackSize() const;
@@ -70,10 +68,8 @@ private:
 	MessageContext m_context; // The internal message context of the message
 	MessageHeader m_header; // The required message header 
 
-	Handler::Type m_command; // The application command
-	std::uint8_t m_phase; // The command phase
-	Message::Buffer m_payload;	// The command payload
-	TimeUtils::Timestamp m_timestamp; // The message creation timestamp
+	std::string m_route; // The application route
+	Message::Buffer m_payload;	// The message payload
 
 	// Optional Extension: Allows the sender to associate to the destination's response with a 
 	// a hopped or flooded request from another peer. 
@@ -97,9 +93,11 @@ public:
 	ApplicationBuilder& SetDestination(Node::Identifier const& identifier);
 	ApplicationBuilder& SetDestination(Node::Internal::Identifier const& identifier);
 	ApplicationBuilder& SetDestination(std::string_view identifier);
-	ApplicationBuilder& SetCommand(Handler::Type type, std::uint8_t phase);
+	ApplicationBuilder& SetRoute(std::string_view const& route);
+	ApplicationBuilder& SetRoute(std::string&& route);
 	ApplicationBuilder& SetPayload(std::string_view buffer);
 	ApplicationBuilder& SetPayload(std::span<std::uint8_t const> buffer);
+	ApplicationBuilder& SetPayload(Message::Buffer&& buffer);
 	ApplicationBuilder& BindAwaitTracker(Message::AwaitBinding binding, Await::TrackerKey key);
 	ApplicationBuilder& BindAwaitTracker(
 		std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker);
@@ -112,9 +110,7 @@ public:
 
 private:
 	void Unpack(std::span<std::uint8_t const> buffer);
-	void UnpackExtensions(
-        std::span<std::uint8_t const>::iterator& begin,
-        std::span<std::uint8_t const>::iterator const& end);
+	void UnpackExtensions(Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end);
 
     ApplicationMessage m_message;
 	bool m_hasStageFailure;

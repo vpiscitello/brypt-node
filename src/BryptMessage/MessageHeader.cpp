@@ -35,43 +35,29 @@ MessageHeader::MessageHeader()
     , m_source()
     , m_destination(Message::Destination::Node)
     , m_optDestinationIdentifier()
+    , m_timestamp(TimeUtils::GetSystemTimestamp())
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Protocol MessageHeader::GetMessageProtocol() const
-{
-    return m_protocol;
-}
+Message::Protocol MessageHeader::GetMessageProtocol() const { return m_protocol; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Version const& MessageHeader::GetVersion() const
-{
-    return m_version;
-}
+Message::Version const& MessageHeader::GetVersion() const { return m_version; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint32_t MessageHeader::GetMessageSize() const
-{
-    return m_size;
-}
+std::uint32_t MessageHeader::GetMessageSize() const { return m_size; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& MessageHeader::GetSourceIdentifier() const
-{
-    return m_source;
-}
+Node::Identifier const& MessageHeader::GetSourceIdentifier() const { return m_source; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Destination MessageHeader::GetDestinationType() const
-{
-    return m_destination;
-}
+Message::Destination MessageHeader::GetDestinationType() const { return m_destination; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -82,13 +68,15 @@ std::optional<Node::Identifier> const& MessageHeader::GetDestinationIdentifier()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+TimeUtils::Timestamp const& MessageHeader::GetTimestamp() const { return m_timestamp; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::size_t MessageHeader::GetPackSize() const
 {
     std::size_t size = FixedPackSize();
     size += m_source.Size();
-    if (m_optDestinationIdentifier) {
-        size += m_optDestinationIdentifier->Size();
-    }
+    if (m_optDestinationIdentifier) { size += m_optDestinationIdentifier->Size(); }
     assert(std::in_range<std::uint16_t>(size));
     return size;
 }
@@ -109,10 +97,11 @@ Message::Buffer MessageHeader::GetPackedBuffer() const
     //  - Section 6 (1 byte): Destination Type
     //      - (Optional) Section 6.1 (1 byte): Destination Identifier Size
     //      - (Optional) Section 6.2 (N bytes): Destination Identifier
-    //  - Section 7 (1 byte): Extenstions Count
-    //      - Section 7.1 (1 byte): Extension Type      |   Start Repetition
-    //      - Section 7.2 (2 bytes): Extension Size     |
-    //      - Section 7.3 (N bytes): Extension Data     |   End Repetition
+    //  - Section 7 (8 bytes): Message Timestamp
+    //  - Section 8 (1 byte): Extenstions Count
+    //      - Section 8.1 (1 byte): Extension Type      |   Start Repetition
+    //      - Section 8.2 (2 bytes): Extension Size     |
+    //      - Section 8.3 (N bytes): Extension Data     |   End Repetition
 
     PackUtils::PackChunk(m_protocol, buffer);
     PackUtils::PackChunk(m_version.first, buffer);
@@ -130,6 +119,8 @@ Message::Buffer MessageHeader::GetPackedBuffer() const
         PackUtils::PackChunk(std::uint8_t(0), buffer);
     }
     
+	PackUtils::PackChunk(m_timestamp, buffer); 
+
     // Extension Packing: Currently, there are no supported extensions of the header. 
     PackUtils::PackChunk(std::uint8_t(0), buffer);
 
@@ -140,17 +131,10 @@ Message::Buffer MessageHeader::GetPackedBuffer() const
 
 bool MessageHeader::IsValid() const
 {	
-	// A header must identify a valid message protocol
-	if (m_protocol == Message::Protocol::Invalid) {
-		return false;
-	}
-
-    // A header must contain the size of the message. This msut be non-zero.
-	if (m_size == 0) { return false; }
-
-	// A header must have a valid brypt source identifier attached
-	if (!m_source.IsValid()) { return false; }
-
+	if (m_protocol == Message::Protocol::Invalid) { return false; } // A header must identify a valid message protocol
+	if (m_size == 0) { return false; } // A header must contain the size of the message. This msut be non-zero.
+	if (!m_source.IsValid()) { return false; } // A header must have a valid brypt source identifier attached
+	if (m_timestamp == TimeUtils::Timestamp()) { return false; } // A message must identify the time it was created
 	return true;
 }
 
@@ -189,6 +173,10 @@ bool MessageHeader::ParseBuffer(
 
     m_optDestinationIdentifier = local::UnpackIdentifier(begin, end);
 
+	std::uint64_t timestamp;
+	if (!PackUtils::UnpackChunk(begin, end, timestamp)) { return false; }
+	m_timestamp = TimeUtils::Timestamp(timestamp);
+
     // Unpack the number of extensions. 
     std::uint8_t extensions = 0;
     if (!PackUtils::UnpackChunk(begin, end, extensions)) { return false; }
@@ -220,8 +208,7 @@ std::optional<Node::Identifier> local::UnpackIdentifier(
     if (size < Node::Identifier::MinimumSize || size > Node::Identifier::MaximumSize) { return {}; }
 
     std::vector<std::uint8_t> buffer;
-    buffer.reserve(size);
-    if (!PackUtils::UnpackChunk(begin, end, buffer)) { return {}; }
+    if (!PackUtils::UnpackChunk(begin, end, buffer, size)) { return {}; }
 
     return Node::Identifier(
         buffer, Node::BufferContentType::Network);
@@ -239,15 +226,9 @@ Message::Destination local::UnpackDestination(
     PackUtils::UnpackChunk(begin, end, destination);
 
     switch (destination) {
-        case static_cast<DestinationType>(Message::Destination::Cluster): {
-            return Message::Destination::Cluster;
-        }
-        case static_cast<DestinationType>(Message::Destination::Network): {
-            return Message::Destination::Network;
-        }
-        case static_cast<DestinationType>(Message::Destination::Node): {
-            return Message::Destination::Node;
-        }
+        case static_cast<DestinationType>(Message::Destination::Cluster): { return Message::Destination::Cluster; }
+        case static_cast<DestinationType>(Message::Destination::Network): { return Message::Destination::Network; }
+        case static_cast<DestinationType>(Message::Destination::Node): { return Message::Destination::Node; }
         default: return Message::Destination::Invalid;
     }
 }

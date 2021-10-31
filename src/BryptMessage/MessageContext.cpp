@@ -102,8 +102,7 @@ Security::Signator::result_type MessageContext::Sign(Message::Buffer& buffer) co
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Verifier::result_type MessageContext::Verify(
-	std::span<std::uint8_t const> buffer) const
+Security::Verifier::result_type MessageContext::Verify(std::span<std::uint8_t const> buffer) const
 {
 	return m_verifier(buffer);
 }

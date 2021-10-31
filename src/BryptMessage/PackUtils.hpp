@@ -25,8 +25,7 @@ namespace PackUtils {
 // Note: Classes and Structs with more than one member should not use this method. 
 //----------------------------------------------------------------------------------------------------------------------
 template<typename Source>
-	requires std::is_standard_layout_v<Source> && std::is_trivial_v<Source> && 
-		(sizeof(Source) > 0 && sizeof(Source) < 9)	
+	requires std::is_standard_layout_v<Source> && std::is_trivial_v<Source> && (sizeof(Source) > 0 && sizeof(Source) < 9)	
 void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 {
 	constexpr std::size_t SourceBytes = sizeof(Source);
@@ -52,8 +51,7 @@ void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 // buffer is of a fixed size buffer and thus no size field will be appended. 
 //----------------------------------------------------------------------------------------------------------------------
 template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField>
-inline void PackChunk(
-	std::vector<std::uint8_t> const& source, std::vector<std::uint8_t>& destination)
+inline void PackChunk(std::vector<std::uint8_t> const& source, std::vector<std::uint8_t>& destination)
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
@@ -75,8 +73,7 @@ inline void PackChunk(
 // buffer is of a fixed size buffer and thus no size field will be appended. 
 //----------------------------------------------------------------------------------------------------------------------
 template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField> 
-inline void PackChunk(
-	std::string_view source, std::vector<std::uint8_t>& destination)
+inline void PackChunk(std::string_view source, std::vector<std::uint8_t>& destination)
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
@@ -112,28 +109,22 @@ bool UnpackChunk(Source& begin, Source const& end, Destination& destination)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Note: It is assumed the caller has reserved enough space for the incoming data in the 
-// destination buffer. It is that capacity that is used to determine the amount data to copy
-// from the source buffer. 
-//----------------------------------------------------------------------------------------------------------------------
-template<std::input_iterator Source>
-	requires std::indirectly_copyable<Source, std::vector<std::uint8_t>::iterator> 
-bool UnpackChunk(
-	Source& begin, Source const& end, std::vector<std::uint8_t>& destination)
+template<std::input_iterator Source, typename Buffer>
+	requires std::indirectly_copyable<Source, std::vector<std::uint8_t>::iterator>  &&
+			 (std::is_same_v<Buffer, std::vector<std::uint8_t>> || std::is_same_v<Buffer, std::string>)
+bool UnpackChunk(Source& begin, Source const& end, Buffer& destination, std::size_t count)
 {
-	std::size_t const capacity = destination.capacity();
-
 	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
-	if (std::cmp_less(std::distance(begin, end), capacity)) { return false; }
+	if (std::cmp_less(std::distance(begin, end), count)) { return false; }
+    destination.reserve(destination.size() + count);
 
 	// Insert the buffer section into the destination
     auto boundary = begin;
-    std::advance(boundary, capacity);
+    std::advance(boundary, count);
 	destination.insert(destination.begin(), begin, boundary);
-	assert(destination.size() == capacity);
+	assert(destination.size() == count);
 
-	std::advance(begin, capacity);
+	std::advance(begin, count);
 	return true;
 }
 

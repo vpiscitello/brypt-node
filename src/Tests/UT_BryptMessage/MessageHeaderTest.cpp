@@ -28,8 +28,7 @@ namespace test {
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 
-constexpr Handler::Type Handler = Handler::Type::Election;
-constexpr std::uint8_t Phase = 0;
+constexpr std::string_view RequestRoute = "/request";
 
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
@@ -47,7 +46,7 @@ TEST(MessageHeaderSuite, ApplicationConstructorTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
@@ -57,6 +56,7 @@ TEST(MessageHeaderSuite, ApplicationConstructorTest)
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(header.GetDestinationIdentifier());
     EXPECT_EQ(*header.GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
@@ -79,6 +79,7 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
     EXPECT_EQ(*baseHeader.GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_GT(baseHeader.GetTimestamp(), TimeUtils::Timestamp());
 
     auto const pack = optBaseMessage->GetPack();
 
@@ -94,6 +95,7 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
     ASSERT_TRUE(packHeader.GetDestinationIdentifier());
     EXPECT_EQ(*packHeader.GetDestinationIdentifier(), *baseHeader.GetDestinationIdentifier());
+    EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -113,6 +115,7 @@ TEST(MessageHeaderSuite, NetworkConstructorTest)
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(header.GetDestinationIdentifier());
     EXPECT_EQ(*header.GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -132,6 +135,7 @@ TEST(MessageHeaderSuite, NetworkPackTest)
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
     EXPECT_EQ(*baseHeader.GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_GT(baseHeader.GetTimestamp(), TimeUtils::Timestamp());
 
     auto const pack = optBaseMessage->GetPack();
 
@@ -146,6 +150,7 @@ TEST(MessageHeaderSuite, NetworkPackTest)
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
     ASSERT_TRUE(packHeader.GetDestinationIdentifier());
     EXPECT_EQ(*packHeader.GetDestinationIdentifier(), *baseHeader.GetDestinationIdentifier());
+    EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -157,7 +162,7 @@ TEST(MessageHeaderSuite, ClusterDestinationTest)
     auto const optMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .MakeClusterMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -167,6 +172,7 @@ TEST(MessageHeaderSuite, ClusterDestinationTest)
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Cluster);
     EXPECT_FALSE(header.GetDestinationIdentifier());
+    EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -178,7 +184,7 @@ TEST(MessageHeaderSuite, NetworkDestinationTest)
     auto const optMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .MakeNetworkMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
@@ -188,6 +194,7 @@ TEST(MessageHeaderSuite, NetworkDestinationTest)
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Network);
     EXPECT_FALSE(header.GetDestinationIdentifier());
+    EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -199,7 +206,7 @@ TEST(MessageHeaderSuite, ClusterPackTest)
     auto const optBaseMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .MakeClusterMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
@@ -209,6 +216,7 @@ TEST(MessageHeaderSuite, ClusterPackTest)
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Cluster);
     EXPECT_FALSE(baseHeader.GetDestinationIdentifier());
+    EXPECT_GT(baseHeader.GetTimestamp(), TimeUtils::Timestamp());
 
     auto const pack = optBaseMessage->GetPack();
 
@@ -223,6 +231,7 @@ TEST(MessageHeaderSuite, ClusterPackTest)
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
     EXPECT_FALSE(packHeader.GetDestinationIdentifier());
+    EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -248,7 +257,7 @@ TEST(MessageHeaderSuite, PeekProtocolTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationMessage);
 
@@ -309,7 +318,7 @@ TEST(MessageHeaderSuite, PeekSizeTest)
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
-        .SetCommand(test::Handler, test::Phase)
+        .SetRoute(test::RequestRoute)
         .ValidatedBuild();
     ASSERT_TRUE(optApplicationMessage);
 

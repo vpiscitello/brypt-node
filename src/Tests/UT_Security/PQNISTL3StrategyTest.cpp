@@ -1,4 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
+#include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/MessageContext.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -12,6 +14,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
+MessageContext GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -19,6 +22,15 @@ namespace local {
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
+Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
+Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
+
+constexpr std::string_view ApplicationRoute = "/request";
+constexpr std::string_view Data = "Hello World!";
+constexpr Await::TrackerKey TrackerKey = 0x89ABCDEF;
+
+constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
+constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -113,6 +125,98 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         initiatorStageOneResponse); 
     EXPECT_EQ(acceptorStageTwoStatus, Security::SynchronizationStatus::Ready);
     EXPECT_EQ(acceptorStageTwoResponse.size(), std::uint32_t(0));
+
+    // Verify that we can generate an initiator application pack that can be decrypted and verified by the acceptor. 
+    std::string initiatorApplicationPack = [&] () -> std::string {
+        auto const context = local::GenerateMessageContext(initiator);
+        auto const optApplicationMessage = ApplicationMessage::Builder()
+            .SetMessageContext(context)
+            .SetSource(test::ClientIdentifier)
+            .SetDestination(test::ServerIdentifier)
+            .SetRoute(test::ApplicationRoute)
+            .SetPayload(test::Data)
+            .BindAwaitTracker(Message::AwaitBinding::Source, test::TrackerKey)
+            .ValidatedBuild();
+
+        return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
+    }();
+    ASSERT_FALSE(initiatorApplicationPack.empty());
+
+    {
+        auto const context = local::GenerateMessageContext(acceptor);
+        auto const optPackMessage = ApplicationMessage::Builder()
+            .SetMessageContext(context)
+            .FromEncodedPack(initiatorApplicationPack)
+            .ValidatedBuild();
+        ASSERT_TRUE(optPackMessage);
+
+        EXPECT_EQ(optPackMessage->GetSourceIdentifier(), test::ClientIdentifier);
+        ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
+        EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+        EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
+        EXPECT_EQ(*optPackMessage->GetAwaitTrackerKey(), test::TrackerKey);
+
+        auto const buffer = optPackMessage->GetPayload();
+        std::string const data(buffer.begin(), buffer.end());
+        EXPECT_EQ(data, test::Data);  
+    }
+
+    // Verify that we can generate an acceptor application pack that can be decrypted and verified by the initiator. 
+    std::string acceptorApplicationPack = [&] () -> std::string {
+        auto const context = local::GenerateMessageContext(acceptor);
+        auto const optApplicationMessage = ApplicationMessage::Builder()
+            .SetMessageContext(context)
+            .SetSource(test::ClientIdentifier)
+            .SetDestination(test::ServerIdentifier)
+            .SetRoute(test::ApplicationRoute)
+            .SetPayload(test::Data)
+            .BindAwaitTracker(Message::AwaitBinding::Destination, test::TrackerKey)
+            .ValidatedBuild();
+
+        return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
+    }();
+    ASSERT_FALSE(acceptorApplicationPack.empty());
+
+    {
+        auto const context = local::GenerateMessageContext(initiator);
+        auto const optPackMessage = ApplicationMessage::Builder()
+            .SetMessageContext(context)
+            .FromEncodedPack(acceptorApplicationPack)
+            .ValidatedBuild();
+        ASSERT_TRUE(optPackMessage);
+
+        EXPECT_EQ(optPackMessage->GetSourceIdentifier(), test::ClientIdentifier);
+        ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
+        EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+        EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
+        EXPECT_EQ(*optPackMessage->GetAwaitTrackerKey(), test::TrackerKey);
+
+        auto const buffer = optPackMessage->GetPayload();
+        std::string const data(buffer.begin(), buffer.end());
+        EXPECT_EQ(data, test::Data);  
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+MessageContext local::GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy)
+{
+    MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
+
+    context.BindEncryptionHandlers(
+        [&strategy] (auto const& buffer, auto nonce) -> Security::Encryptor::result_type { 
+            return strategy.Encrypt(buffer, nonce);
+        },
+        [&strategy] (auto const& buffer, auto nonce) -> Security::Decryptor::result_type {
+            return strategy.Decrypt(buffer, nonce);
+        });
+
+    context.BindSignatureHandlers(
+        [&strategy] (auto& buffer) -> Security::Signator::result_type { return strategy.Sign(buffer); },
+        [&strategy] (auto const& buffer) -> Security::Verifier::result_type { return strategy.Verify(buffer); },
+        [&strategy] () -> Security::SignatureSizeGetter::result_type { return strategy.GetSignatureSize(); });
+
+    return context;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

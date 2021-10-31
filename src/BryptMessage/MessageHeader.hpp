@@ -7,6 +7,7 @@
 #include "MessageTypes.hpp"
 #include "PackUtils.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Utilities/TimeUtils.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -14,7 +15,8 @@
 #include <utility>
 //----------------------------------------------------------------------------------------------------------------------
 
-class MessageHeader {
+class MessageHeader
+{
 public:
 	MessageHeader();
 
@@ -29,6 +31,7 @@ public:
     Node::Identifier const& GetSourceIdentifier() const;
     Message::Destination GetDestinationType() const;
     std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
+	TimeUtils::Timestamp const& GetTimestamp() const;
 
     std::size_t GetPackSize() const;
 	Message::Buffer GetPackedBuffer() const;
@@ -46,6 +49,7 @@ public:
         size += sizeof(std::uint8_t); // 1 byte for destination type
         size += sizeof(std::uint8_t); // 1 byte for destination identifier size
         size += sizeof(std::uint8_t); // 1 bytes for header extension size
+        size += sizeof(std::uint64_t); // 8 bytes for timestamp
         assert(std::in_range<std::uint16_t>(size));
         return size;
     }
@@ -85,8 +89,8 @@ private:
     std::uint32_t m_size;
     Node::Identifier m_source;
     Message::Destination m_destination;
-
     std::optional<Node::Identifier> m_optDestinationIdentifier;
+	TimeUtils::Timestamp m_timestamp; // The message creation timestamp
 };
 
 //----------------------------------------------------------------------------------------------------------------------

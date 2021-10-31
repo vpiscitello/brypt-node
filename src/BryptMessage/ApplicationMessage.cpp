@@ -12,14 +12,8 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-Handler::Type UnpackCommand(
-	std::span<std::uint8_t const>::iterator& begin,
-    std::span<std::uint8_t const>::iterator const& end);
-
 std::optional<Message::BoundTrackerKey> UnpackAwaitTracker(
-    std::span<std::uint8_t const>::iterator& begin,
-    std::span<std::uint8_t const>::iterator const& end,
-	std::size_t expected);
+	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t expected);
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Extensions {
@@ -39,10 +33,8 @@ enum Types : std::uint8_t { Invalid = 0x00, AwaitTracker = 0x01 };
 ApplicationMessage::ApplicationMessage()
 	: m_context()
 	, m_header()
-	, m_command()
-	, m_phase()
+	, m_route()
 	, m_payload()
-	, m_timestamp(TimeUtils::GetSystemTimestamp())
 	, m_optBoundAwaitTracker()
 {
 }
@@ -52,48 +44,31 @@ ApplicationMessage::ApplicationMessage()
 ApplicationMessage::ApplicationMessage(ApplicationMessage const& other)
 	: m_context(other.m_context)
 	, m_header(other.m_header)
-	, m_command(other.m_command)
-	, m_phase(other.m_phase)
+	, m_route(other.m_route)
 	, m_payload(other.m_payload)
-	, m_timestamp(other.m_timestamp)
 	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder ApplicationMessage::Builder()
-{
-	return ApplicationBuilder{};
-}
+ApplicationBuilder ApplicationMessage::Builder() { return ApplicationBuilder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext const& ApplicationMessage::GetContext() const
-{
-	return m_context;
-}
+MessageContext const& ApplicationMessage::GetContext() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageHeader const& ApplicationMessage::GetMessageHeader() const
-{
-	return m_header;
-}
+MessageHeader const& ApplicationMessage::GetMessageHeader() const { return m_header; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& ApplicationMessage::GetSourceIdentifier() const
-{
-	return m_header.GetSourceIdentifier();
-}
+Node::Identifier const& ApplicationMessage::GetSourceIdentifier() const { return m_header.GetSourceIdentifier(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Destination ApplicationMessage::GetDestinationType() const
-{
-	return m_header.GetDestinationType();
-}
+Message::Destination ApplicationMessage::GetDestinationType() const { return m_header.GetDestinationType(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -104,45 +79,17 @@ std::optional<Node::Identifier> const& ApplicationMessage::GetDestinationIdentif
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Handler::Type ApplicationMessage::GetCommand() const
-{
-	return m_command;
-}
+std::string const& ApplicationMessage::GetRoute() const { return m_route; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint8_t ApplicationMessage::GetPhase() const
-{
-	return m_phase;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Buffer ApplicationMessage::GetPayload() const
-{
-	assert(m_context.HasSecurityHandlers());
-	auto const data = m_context.Decrypt(m_payload, m_timestamp);
-	if (!data) {
-		return {};
-	}
-
-	return *data;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-TimeUtils::Timestamp const& ApplicationMessage::GetTimestamp() const
-{
-	return m_timestamp;
-}
+Message::Buffer ApplicationMessage::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::optional<Await::TrackerKey> ApplicationMessage::GetAwaitTrackerKey() const
 {
-	if (!m_optBoundAwaitTracker) {
-		return {};
-	}
+	if (!m_optBoundAwaitTracker) { return {}; }
 	return m_optBoundAwaitTracker->second;
 }
 
@@ -152,10 +99,9 @@ std::size_t ApplicationMessage::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
+	size += m_route.size();
 	size += m_payload.size();
-	if (m_optBoundAwaitTracker) {
-		size += FixedAwaitExtensionSize();
-	}
+	if (m_optBoundAwaitTracker) { size += FixedAwaitExtensionSize(); }
 
 	assert(m_context.HasSecurityHandlers());
 	size += m_context.GetSignatureSize();
@@ -172,48 +118,53 @@ std::size_t ApplicationMessage::GetPackSize() const
 //----------------------------------------------------------------------------------------------------------------------
 std::string ApplicationMessage::GetPack() const
 {
+    // Application Pack Schema: 
+    //  - Section 1 (2 bytes): Route Size
+    //  - Section 2 (N bytes): Route Data
+    //  - Section 3 (4 bytes): Payload Size
+    //  - Section 4 (N bytes): Payload Data
+    //  - Section 5 (1 byte): Extenstions Count
+    //      - Section 5.1 (1 byte): Extension Type      |   Extension Start
+    //      - Section 5.2 (2 bytes): Extension Size     |
+    //      - Section 5.3 (N bytes): Extension Data     |   Extension End
+    //  - Section 6 (N bytse): Authentication Token (Strategy Specific)
+
 	Message::Buffer buffer = m_header.GetPackedBuffer();
 	buffer.reserve(m_header.GetMessageSize());
-    // Application Pack Schema: 
-    //  - Section 1 (1 byte): Command Type
-    //  - Section 2 (1 bytes): Command Phase
-    //  - Section 3 (4 bytes): Command Data Size
-    //  - Section 4 (N bytes): Command Data
-    //  - Section 5 (8 bytes): Message Timestamp (Milliseconds)
-    //  - Section 6 (1 byte): Extenstions Count
-    //      - Section 6.1 (1 byte): Extension Type      |   Extension Start
-    //      - Section 6.2 (2 bytes): Extension Size     |
-    //      - Section 6.3 (N bytes): Extension Data     |   Extension End
-    //  - Section 7 (N bytse): Authentication Token (Strategy Specific)
 
-	PackUtils::PackChunk(m_command, buffer);
-	PackUtils::PackChunk(m_phase, buffer);
-	PackUtils::PackChunk<std::uint32_t>(m_payload, buffer);
-	PackUtils::PackChunk(m_timestamp, buffer);
+	{
+		Message::Buffer plaintext;
+		plaintext.reserve(m_header.GetPackSize());
+		PackUtils::PackChunk<std::uint16_t>(m_route, plaintext);
+		PackUtils::PackChunk<std::uint32_t>(m_payload, plaintext);
 
-	// Extension Packing
-	PackUtils::PackChunk(std::uint8_t(0), buffer);
-	auto& extensionCountByte = buffer.back();
-	if (m_optBoundAwaitTracker) {
-		++extensionCountByte;
-        std::uint16_t const size = static_cast<std::uint16_t>(FixedAwaitExtensionSize());
-		PackUtils::PackChunk(local::Extensions::AwaitTracker, buffer);
-		PackUtils::PackChunk(size, buffer);
-		PackUtils::PackChunk(m_optBoundAwaitTracker->first, buffer);
-		PackUtils::PackChunk(m_optBoundAwaitTracker->second, buffer);
+		// Extension Packing
+		PackUtils::PackChunk(std::uint8_t(0), plaintext);
+		auto& extensions = plaintext.back();
+		if (m_optBoundAwaitTracker) {
+			++extensions;
+			std::uint16_t const size = static_cast<std::uint16_t>(FixedAwaitExtensionSize());
+			PackUtils::PackChunk(local::Extensions::AwaitTracker, plaintext);
+			PackUtils::PackChunk(size, plaintext);
+			PackUtils::PackChunk(m_optBoundAwaitTracker->first, plaintext);
+			PackUtils::PackChunk(m_optBoundAwaitTracker->second, plaintext);
+		}
+
+		auto optEncryptedBuffer = m_context.Encrypt(plaintext, m_header.GetTimestamp());
+		if (!optEncryptedBuffer) { return {}; }
+
+		std::ranges::move(*optEncryptedBuffer, std::back_inserter(buffer));
 	}
 	
 	// Calculate the number of bytes needed to pad to next 4 byte boundary
-	auto const paddingBytesRequired = (4 - (buffer.size() & 3)) & 3;
+	std::size_t const pad = (4 - (buffer.size() & 3)) & 3;
 	// Pad the message to ensure the encoding method doesn't add padding to the end of the message.
-	Message::Buffer padding(paddingBytesRequired, 0);
+	Message::Buffer padding(pad, 0);
 	buffer.insert(buffer.end(), padding.begin(), padding.end());
 
 	// Message Signing
 	assert(m_context.HasSecurityHandlers());
-	if (m_context.Sign(buffer) < 0) {
-		return "";
-	}
+	if (m_context.Sign(buffer) < 0) { return {}; }
 
 	return Z85::Encode(buffer);
 }
@@ -228,17 +179,11 @@ Message::ShareablePack ApplicationMessage::GetShareablePack() const
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::ValidationStatus ApplicationMessage::Validate() const
-{		
-	// A message must have a valid header
-	if (!m_header.IsValid()) { return Message::ValidationStatus::Error; }
-
-	// A message must identify a valid brypt command
-	if (m_command == Handler::Type::Invalid) { return Message::ValidationStatus::Error; }
-
-	// A message must identify the time it was created
-	if (m_timestamp == TimeUtils::Timestamp()) { return Message::ValidationStatus::Error; }
-
-	return Message::ValidationStatus::Success;
+{
+	using enum Message::ValidationStatus;
+	if (!m_header.IsValid()) { return Error; } // A message must have a valid header
+	if (m_route.empty()) { return Error; } // A message must identify a valid route
+	return Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -246,10 +191,8 @@ Message::ValidationStatus ApplicationMessage::Validate() const
 constexpr std::size_t ApplicationMessage::FixedPackSize() const
 {
 	std::size_t size = 0;
-	size += sizeof(m_command); // 1 byte for command type
-	size += sizeof(m_phase); // 1 byte for command phase
+	size += sizeof(std::uint16_t); // 2 byte for route size
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
-	size += sizeof(std::uint64_t); // 8 bytes for message timestamp
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
     assert(std::in_range<std::uint32_t>(size));
 	return size;
@@ -354,10 +297,17 @@ ApplicationBuilder& ApplicationBuilder::SetDestination(std::string_view identifi
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetCommand(Handler::Type type, std::uint8_t phase)
+ApplicationBuilder& ApplicationBuilder::SetRoute(std::string_view const& route)
 {
-	m_message.m_command = type;
-	m_message.m_phase = phase;
+	m_message.m_route = route;
+	return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+ApplicationBuilder& ApplicationBuilder::SetRoute(std::string&& route)
+{
+	m_message.m_route = std::move(route);
 	return *this;
 }
 
@@ -372,10 +322,15 @@ ApplicationBuilder& ApplicationBuilder::SetPayload(std::string_view buffer)
 
 ApplicationBuilder& ApplicationBuilder::SetPayload(std::span<std::uint8_t const> buffer)
 {
-	assert(m_message.m_context.HasSecurityHandlers());
-	auto optData = m_message.m_context.Encrypt(buffer, m_message.m_timestamp);
-	if(optData) { m_message.m_payload = std::move(*optData); }
-	else { m_hasStageFailure = true; }
+	assert(m_message.m_context.HasSecurityHandlers()); // TODO: Move this somewhere
+    return SetPayload(Message::Buffer{ buffer.begin(), buffer.end() });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+ApplicationBuilder& ApplicationBuilder::SetPayload(Message::Buffer&& buffer)
+{
+	m_message.m_payload = std::move(buffer);
     return *this;
 }
 
@@ -429,7 +384,7 @@ ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
 
 ApplicationMessage&& ApplicationBuilder::Build()
 {
-	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
+	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize()); // Set the estimated message size.
     return std::move(m_message);
 }
 
@@ -437,7 +392,7 @@ ApplicationMessage&& ApplicationBuilder::Build()
 
 ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
 {
-	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
+	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize()); // Set the estimated message size.
     if (m_hasStageFailure || m_message.Validate() != Message::ValidationStatus::Success) { return {}; }
     return std::move(m_message);
 }
@@ -449,66 +404,55 @@ ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
 //----------------------------------------------------------------------------------------------------------------------
 void ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
 {
-	auto begin = buffer.begin();
-	auto end = buffer.end();
-
-	if (!m_message.m_header.ParseBuffer(begin, end)) {
-		return;
+	{
+		auto begin = buffer.begin();
+		auto end = buffer.end();
+		if (!m_message.m_header.ParseBuffer(begin, end)) { return; }
 	}
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_message.m_header.m_protocol != Message::Protocol::Application) {
-		return;
-	}
+	if (m_message.m_header.m_protocol != Message::Protocol::Application) { return; }
 
-	if (m_message.m_command = local::UnpackCommand(begin, end);
-		m_message.m_command == Handler::Type::Invalid) {
-		return;
-	}
+	// Create a view of the encrypted portion of the application message. This will be from the end of the header to 
+	// the beginning of the signature. 
+	Security::ReadableView bufferview = { 
+		buffer.begin() + m_message.m_header.GetPackSize(),
+		buffer.size() - m_message.m_header.GetPackSize() - m_message.m_context.GetSignatureSize() };
 
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_phase)) {
-		return;
-	}
+	auto const optDecryptedBuffer = m_message.m_context.Decrypt(bufferview, m_message.m_header.GetTimestamp());
+	if (!optDecryptedBuffer) { return; }
 
-	std::uint32_t dataSize = 0;
-	if (!PackUtils::UnpackChunk(begin, end, dataSize)) {
-		return;
+	auto begin = optDecryptedBuffer->begin();
+	auto end = optDecryptedBuffer->end();
+	{
+		std::uint16_t size = 0;
+		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
+		if (!PackUtils::UnpackChunk(begin, end, m_message.m_route, size)) { return; }
 	}
-
-	m_message.m_payload.reserve(dataSize);
-	if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload)) {
-		return;
+ 
+	{
+		std::uint32_t size = 0;
+		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
+		if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, size)) { return; }
 	}
-
-	std::uint64_t timestamp;
-	if (!PackUtils::UnpackChunk(begin, end, timestamp)) {
-		return;
-	}
-	m_message.m_timestamp = TimeUtils::Timestamp(timestamp);
 
 	std::uint8_t extensions = 0;
-	if (!PackUtils::UnpackChunk(begin, end, extensions)) {
-		return;
-	}
+	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return; }
 
-	if (extensions != 0) {
-		UnpackExtensions(begin, end);
-	}
+	if (extensions != 0) { UnpackExtensions(begin, end); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void ApplicationBuilder::UnpackExtensions(
-	std::span<std::uint8_t const>::iterator& begin,
-	std::span<std::uint8_t const>::iterator const& end)
+	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end)
 {
 	while (begin != end) {
 		using ExtensionType = std::underlying_type_t<local::Extensions::Types>;
 		ExtensionType extension = 0;
 		PackUtils::UnpackChunk(begin, end, extension);
 
-		switch (extension)
-		{
+		switch (extension){
 			case static_cast<ExtensionType>(local::Extensions::AwaitTracker): {
 				m_message.m_optBoundAwaitTracker = local::UnpackAwaitTracker(
 					begin, end, m_message.FixedAwaitExtensionSize());
@@ -520,31 +464,8 @@ void ApplicationBuilder::UnpackExtensions(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Handler::Type local::UnpackCommand(
-    std::span<std::uint8_t const>::iterator& begin,
-    std::span<std::uint8_t const>::iterator const& end)
-{
-    using HandlerType = std::underlying_type_t<Handler::Type>;
-    HandlerType command = 0;
-    PackUtils::UnpackChunk(begin, end, command);
-
-    switch (command) {
-        case static_cast<HandlerType>(Handler::Type::Connect):
-        case static_cast<HandlerType>(Handler::Type::Election):
-        case static_cast<HandlerType>(Handler::Type::Information):
-        case static_cast<HandlerType>(Handler::Type::Query): {
-            return static_cast<Handler::Type>(command);
-        }
-        default: return Handler::Type::Invalid;
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
 std::optional<Message::BoundTrackerKey> local::UnpackAwaitTracker(
-    std::span<std::uint8_t const>::iterator& begin,
-    std::span<std::uint8_t const>::iterator const& end,
-	std::size_t expected)
+	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t expected)
 {
 	std::uint16_t size = 0;
 	if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
