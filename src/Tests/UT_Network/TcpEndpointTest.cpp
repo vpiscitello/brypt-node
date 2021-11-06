@@ -4,7 +4,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/Handler/HandlerDefinitions.hpp"
+#include "Components/Route/HandlerDefinitions.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Protocol.hpp"

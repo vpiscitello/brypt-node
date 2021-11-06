@@ -87,14 +87,14 @@ bool Handler::Query::HandleMessage(AssociatedMessage const& associatedMessage)
     bool status = false;
 
     auto& [wpPeerProxy, message] = associatedMessage;
-    auto const phase = static_cast<Query::Phase>(message.GetPhase());
-    switch (phase) {
-        case Query::Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
-        case Query::Phase::Respond: { status = RespondHandler(wpPeerProxy, message); } break;
-        case Query::Phase::Aggregate: { status = AggregateHandler(wpPeerProxy, message); } break;
-        case Query::Phase::Close: { status = CloseHandler(); } break;
-        default: break;
-    }
+    // auto const phase = static_cast<Query::Phase>(message.GetPhase());
+    // switch (phase) {
+    //     case Query::Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
+    //     case Query::Phase::Respond: { status = RespondHandler(wpPeerProxy, message); } break;
+    //     case Query::Phase::Aggregate: { status = AggregateHandler(wpPeerProxy, message); } break;
+    //     case Query::Phase::Close: { status = CloseHandler(); } break;
+    //     default: break;
+    // }
 
     return status;
 }
@@ -112,12 +112,12 @@ bool Handler::Query::FloodHandler(
     m_logger->debug(
         "Flooding query request in service for {}", message.GetSourceIdentifier());
 
-    IHandler::SendClusterNotice(
-        wpPeerProxy, message,
-        "Request for Sensor Readings.",
-        static_cast<std::uint8_t>(Phase::Respond),
-        static_cast<std::uint8_t>(Phase::Aggregate),
-        local::GenerateReading());
+    // IHandler::SendClusterNotice(
+    //     wpPeerProxy, message,
+    //     "Request for Sensor Readings.",
+    //     static_cast<std::uint8_t>(Phase::Respond),
+    //     static_cast<std::uint8_t>(Phase::Aggregate),
+    //     local::GenerateReading());
         
     return true;
 }

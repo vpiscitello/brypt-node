@@ -122,14 +122,14 @@ bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMess
 {
     bool status = false;
 
-    auto& [wpPeerProxy, message] = associatedMessage;
-    auto const phase = static_cast<Information::Phase>(message.GetPhase());
-    switch (phase) {
-        case Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
-        case Phase::Respond: { status = RespondHandler(); } break;
-        case Phase::Close: { status = CloseHandler(); } break;
-        default: break;
-    }
+    // auto& [wpPeerProxy, message] = associatedMessage;
+    // auto const phase = static_cast<Information::Phase>(message.GetPhase());
+    // switch (phase) {
+    //     case Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
+    //     case Phase::Respond: { status = RespondHandler(); } break;
+    //     case Phase::Close: { status = CloseHandler(); } break;
+    //     default: break;
+    // }
 
     return status;
 }
@@ -146,12 +146,12 @@ bool Handler::Information::FloodHandler(
     m_logger->debug(
         "Building response for the Information request from {}.", message.GetSourceIdentifier());
 
-    IHandler::SendClusterNotice(
-        wpPeerProxy, message,
-        "Request for Node Information.",
-        static_cast<std::uint8_t>(Phase::Respond),
-        static_cast<std::uint8_t>(Phase::Close),
-        local::GenerateNodeInfo(m_instance));
+    // IHandler::SendClusterNotice(
+    //     wpPeerProxy, message,
+    //     "Request for Node Information.",
+    //     static_cast<std::uint8_t>(Phase::Respond),
+    //     static_cast<std::uint8_t>(Phase::Close),
+    //     local::GenerateNodeInfo(m_instance));
 
     return true;
 }
@@ -187,33 +187,33 @@ bool Handler::Information::CloseHandler()
 std::string local::GenerateNodeInfo(Node::Core const& instance)
 {
     // Get the information pertaining to the node itself
-    Node::SharedIdentifier spNodeIdentifier; 
-    NodeUtils::ClusterIdType cluster = 0;
-    NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
-    if (auto const spNodeState = instance.GetNodeState().lock()) {
-        spNodeIdentifier = spNodeState->GetNodeIdentifier();
-        cluster = spNodeState->GetCluster();
-        operation = spNodeState->GetOperation();
-    }
-    assert(spNodeIdentifier);
+    // Node::SharedIdentifier spNodeIdentifier; 
+    // NodeUtils::ClusterIdType cluster = 0;
+    // NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
+    // if (auto const spNodeState = instance.GetNodeState().lock()) {
+    //     spNodeIdentifier = spNodeState->GetNodeIdentifier();
+    //     cluster = spNodeState->GetCluster();
+    //     operation = spNodeState->GetOperation();
+    // }
+    // assert(spNodeIdentifier);
 
-    // Get the information pertaining to the node's coordinator
-    Node::SharedIdentifier spCoordinatorIdentifier; 
-    if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
-        spCoordinatorIdentifier = spCoordinatorState->GetNodeIdentifier();
-    }
+    // // Get the information pertaining to the node's coordinator
+    // Node::SharedIdentifier spCoordinatorIdentifier; 
+    // if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
+    //     spCoordinatorIdentifier = spCoordinatorState->GetNodeIdentifier();
+    // }
 
-    // Get the information pertaining to the node's network
-    std::size_t neighbors = 0;
-    if (auto const spPeerManager = instance.GetPeerManager().lock(); spPeerManager) {
-        neighbors = spPeerManager->ActiveCount();
-    }
+    // // Get the information pertaining to the node's network
+    // std::size_t neighbors = 0;
+    // if (auto const spPeerManager = instance.GetPeerManager().lock(); spPeerManager) {
+    //     neighbors = spPeerManager->ActiveCount();
+    // }
 
-    std::vector<Json::NodeInfo> nodesInfo;
-    nodesInfo.emplace_back(
-        spNodeIdentifier, cluster, spCoordinatorIdentifier,
-        neighbors, NodeUtils::GetDesignation(operation), 
-        "IEEE 802.11", TimeUtils::GetSystemTimestamp());
+    // std::vector<Json::NodeInfo> nodesInfo;
+    // nodesInfo.emplace_back(
+    //     spNodeIdentifier, cluster, spCoordinatorIdentifier,
+    //     neighbors, NodeUtils::GetDesignation(operation), 
+    //     "IEEE 802.11", TimeUtils::GetSystemTimestamp());
 
     /* if (auto const spEndpoints = m_instance.GetEndpoints().lock(); spEndpoints) {
         for (auto const& endpoint : *spEndpoints) {
@@ -226,11 +226,12 @@ std::string local::GenerateNodeInfo(Node::Core const& instance)
         }
     } */
 
-    std::string const data = li::json_vector(
-        s::identifier, s::cluster, s::coordinator, s::neighbor_count,
-        s::designation, s::protocols, s::update_timestamp).encode(nodesInfo);
+    // std::string const data = li::json_vector(
+    //     s::identifier, s::cluster, s::coordinator, s::neighbor_count,
+    //     s::designation, s::protocols, s::update_timestamp).encode(nodesInfo);
 
-    return data;
+    // return data;
+    return "";
 }
 
 //----------------------------------------------------------------------------------------------------------------------

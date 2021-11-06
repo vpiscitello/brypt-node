@@ -6,8 +6,8 @@
 #include "DiscoveryProtocol.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
-#include "Components/Handler/HandlerDefinitions.hpp"
-#include "Components/Handler/Connect.hpp"
+#include "Components/Route/HandlerDefinitions.hpp"
+#include "Components/Route/Connect.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -23,8 +23,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-constexpr Handler::Type Handler = Handler::Type::Connect;
-constexpr std::uint8_t Phase = static_cast<std::uint8_t>(Handler::Connect::Phase::Discovery);
+constexpr std::string_view DiscoveryRoute = "/connect/discovery";
 
 std::string GenerateDiscoveryData(Configuration::Options::Endpoints const& endpoints);
 
@@ -83,7 +82,7 @@ bool DiscoveryProtocol::SendRequest(
         .SetMessageContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)
-        .SetCommand(local::Handler, local::Phase)
+        .SetRoute(local::DiscoveryRoute)
         .SetPayload(m_data)
         .ValidatedBuild();
     assert(optDiscoveryRequest);

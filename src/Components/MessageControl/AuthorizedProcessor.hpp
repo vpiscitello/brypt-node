@@ -6,7 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "AssociatedMessage.hpp"
 #include "BryptMessage/MessageTypes.hpp"
-#include "Components/Handler/Handler.hpp"
+#include "Components/Route/Handler.hpp"
 #include "Interfaces/MessageSink.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>

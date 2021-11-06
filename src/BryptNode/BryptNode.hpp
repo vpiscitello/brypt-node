@@ -9,7 +9,7 @@
 #include "RuntimePolicy.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Configuration/Options.hpp"
-#include "Components/Handler/Handler.hpp"
+#include "Components/Route/Handler.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/ExecutionStatus.hpp"

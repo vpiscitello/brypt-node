@@ -30,10 +30,14 @@ AuthorizedProcessor::AuthorizedProcessor(
 		assert(( std::scoped_lock{ m_incomingMutex }, !m_incoming.empty() ));
 		if (auto const optMessage = GetNextMessage(); optMessage) {
 			auto& [spPeerProxy, message] = *optMessage;
-			if (auto const itr = handlers.find(message.GetCommand()); itr != handlers.end()) {
-				auto const& [type, handler] = *itr;
-				handler->HandleMessage(*optMessage);
-			}
+
+
+
+			
+			// if (auto const itr = handlers.find(message.GetCommand()); itr != handlers.end()) {
+			// 	auto const& [type, handler] = *itr;
+			// 	handler->HandleMessage(*optMessage);
+			// }
 			return 1; // Provide the number of tasks executed to the scheduler. 
 		}
 		return 0; // Indicate that we were enable to execute a task this cycle. 

@@ -16,7 +16,7 @@
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/Handler/Handler.hpp"
+#include "Components/Route/Handler.hpp"
 #include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/MessageControl/DiscoveryProtocol.hpp"
