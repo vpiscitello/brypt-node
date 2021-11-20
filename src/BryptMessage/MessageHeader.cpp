@@ -210,8 +210,7 @@ std::optional<Node::Identifier> local::UnpackIdentifier(
     std::vector<std::uint8_t> buffer;
     if (!PackUtils::UnpackChunk(begin, end, buffer, size)) { return {}; }
 
-    return Node::Identifier(
-        buffer, Node::BufferContentType::Network);
+    return Node::Identifier(buffer, Node::BufferContentType::Network);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

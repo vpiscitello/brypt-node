@@ -135,7 +135,7 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindAwaitTracker(Message::AwaitBinding::Source, test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Request, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -154,7 +154,11 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
         EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
-        EXPECT_EQ(*optPackMessage->GetAwaitTrackerKey(), test::TrackerKey);
+
+        auto const optAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
+        ASSERT_TRUE(optAwaitable);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Request);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
         auto const buffer = optPackMessage->GetPayload();
         std::string const data(buffer.begin(), buffer.end());
@@ -170,7 +174,7 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindAwaitTracker(Message::AwaitBinding::Destination, test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -189,7 +193,11 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
         EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
-        EXPECT_EQ(*optPackMessage->GetAwaitTrackerKey(), test::TrackerKey);
+
+        auto const optAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
+        ASSERT_TRUE(optAwaitable);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Response);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
         auto const buffer = optPackMessage->GetPayload();
         std::string const data(buffer.begin(), buffer.end());

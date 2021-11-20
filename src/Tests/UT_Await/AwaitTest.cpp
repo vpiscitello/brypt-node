@@ -35,7 +35,7 @@ namespace test {
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 auto const spServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
-constexpr Handler::Type Handler = Handler::Type::Election;
+constexpr Route::Type Handler = Route::Type::Election;
 constexpr std::uint8_t RequestPhase = 0;
 constexpr std::uint8_t ResponsePhase = 1;
 constexpr std::string_view Message = "Hello World!";
@@ -492,7 +492,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
-        .BindAwaitTracker(Message::AwaitBinding::Destination, key)
+        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, key)
         .ValidatedBuild();
 
     auto const optFirstResponse = ApplicationMessage::Builder()
@@ -501,7 +501,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
-        .BindAwaitTracker(Message::AwaitBinding::Destination, key)
+        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, key)
         .ValidatedBuild();
 
     auto const optSecondResponse = ApplicationMessage::Builder()
@@ -510,7 +510,7 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
-        .BindAwaitTracker(Message::AwaitBinding::Destination, key)
+        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, key)
         .ValidatedBuild();
     
     EXPECT_TRUE(manager.PushResponse(*optResponse));

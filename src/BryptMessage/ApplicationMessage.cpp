@@ -6,23 +6,12 @@
 #include "PackUtils.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <ranges>
+//----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
 namespace local {
-//----------------------------------------------------------------------------------------------------------------------
-
-std::optional<Message::BoundTrackerKey> UnpackAwaitTracker(
-	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t expected);
-
-//----------------------------------------------------------------------------------------------------------------------
-namespace Extensions {
-//----------------------------------------------------------------------------------------------------------------------
-
-enum Types : std::uint8_t { Invalid = 0x00, AwaitTracker = 0x01 };
-
-//----------------------------------------------------------------------------------------------------------------------
-} // Extensions namespace 
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,7 +24,7 @@ ApplicationMessage::ApplicationMessage()
 	, m_header()
 	, m_route()
 	, m_payload()
-	, m_optBoundAwaitTracker()
+	, m_extensions()
 {
 }
 
@@ -46,8 +35,11 @@ ApplicationMessage::ApplicationMessage(ApplicationMessage const& other)
 	, m_header(other.m_header)
 	, m_route(other.m_route)
 	, m_payload(other.m_payload)
-	, m_optBoundAwaitTracker(other.m_optBoundAwaitTracker)
+	, m_extensions()
 {
+	std::ranges::for_each(other.m_extensions, [&] (auto const& entry) {
+		m_extensions.emplace(entry.second->GetKey(), entry.second->Clone());
+	});
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -83,15 +75,7 @@ std::string const& ApplicationMessage::GetRoute() const { return m_route; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer ApplicationMessage::GetPayload() const { return m_payload; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::optional<Await::TrackerKey> ApplicationMessage::GetAwaitTrackerKey() const
-{
-	if (!m_optBoundAwaitTracker) { return {}; }
-	return m_optBoundAwaitTracker->second;
-}
+Message::Buffer const& ApplicationMessage::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -101,7 +85,7 @@ std::size_t ApplicationMessage::GetPackSize() const
 	size += m_header.GetPackSize();
 	size += m_route.size();
 	size += m_payload.size();
-	if (m_optBoundAwaitTracker) { size += FixedAwaitExtensionSize(); }
+	std::ranges::for_each(m_extensions, [&size] (auto const& entry) { size += entry.second->GetPackSize(); });
 
 	assert(m_context.HasSecurityHandlers());
 	size += m_context.GetSignatureSize();
@@ -118,6 +102,8 @@ std::size_t ApplicationMessage::GetPackSize() const
 //----------------------------------------------------------------------------------------------------------------------
 std::string ApplicationMessage::GetPack() const
 {
+	assert(m_context.HasSecurityHandlers()); 
+
     // Application Pack Schema: 
     //  - Section 1 (2 bytes): Route Size
     //  - Section 2 (N bytes): Route Data
@@ -140,15 +126,10 @@ std::string ApplicationMessage::GetPack() const
 
 		// Extension Packing
 		PackUtils::PackChunk(std::uint8_t(0), plaintext);
-		auto& extensions = plaintext.back();
-		if (m_optBoundAwaitTracker) {
-			++extensions;
-			std::uint16_t const size = static_cast<std::uint16_t>(FixedAwaitExtensionSize());
-			PackUtils::PackChunk(local::Extensions::AwaitTracker, plaintext);
-			PackUtils::PackChunk(size, plaintext);
-			PackUtils::PackChunk(m_optBoundAwaitTracker->first, plaintext);
-			PackUtils::PackChunk(m_optBoundAwaitTracker->second, plaintext);
-		}
+		std::ranges::for_each(m_extensions, [&count = plaintext.back(), &plaintext] (auto const& entry) {
+			entry.second->Inject(plaintext);
+			++count;
+		});
 
 		auto optEncryptedBuffer = m_context.Encrypt(plaintext, m_header.GetTimestamp());
 		if (!optEncryptedBuffer) { return {}; }
@@ -162,8 +143,6 @@ std::string ApplicationMessage::GetPack() const
 	Message::Buffer padding(pad, 0);
 	buffer.insert(buffer.end(), padding.begin(), padding.end());
 
-	// Message Signing
-	assert(m_context.HasSecurityHandlers());
 	if (m_context.Sign(buffer) < 0) { return {}; }
 
 	return Z85::Encode(buffer);
@@ -181,8 +160,13 @@ Message::ShareablePack ApplicationMessage::GetShareablePack() const
 Message::ValidationStatus ApplicationMessage::Validate() const
 {
 	using enum Message::ValidationStatus;
+
 	if (!m_header.IsValid()) { return Error; } // A message must have a valid header
 	if (m_route.empty()) { return Error; } // A message must identify a valid route
+
+	bool const valid = std::ranges::all_of(m_extensions, [] (auto const& entry) { return entry.second->Validate(); });
+	if (!valid) { return Error; }
+
 	return Success;
 }
 
@@ -195,19 +179,6 @@ constexpr std::size_t ApplicationMessage::FixedPackSize() const
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
     assert(std::in_range<std::uint32_t>(size));
-	return size;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-constexpr std::size_t ApplicationMessage::FixedAwaitExtensionSize() const
-{
-	std::size_t size = 0;
-	size += sizeof(local::Extensions::AwaitTracker); // 1 byte for the extension type
-	size += sizeof(std::uint16_t); // 2 bytes for the extension size
-	size += sizeof(m_optBoundAwaitTracker->first); // 1 byte for await tracker binding
-	size += sizeof(m_optBoundAwaitTracker->second); // 4 bytes for await tracker key
-    assert(std::in_range<std::uint16_t>(size));
 	return size;
 }
 
@@ -322,7 +293,6 @@ ApplicationBuilder& ApplicationBuilder::SetPayload(std::string_view buffer)
 
 ApplicationBuilder& ApplicationBuilder::SetPayload(std::span<std::uint8_t const> buffer)
 {
-	assert(m_message.m_context.HasSecurityHandlers()); // TODO: Move this somewhere
     return SetPayload(Message::Buffer{ buffer.begin(), buffer.end() });
 }
 
@@ -336,32 +306,15 @@ ApplicationBuilder& ApplicationBuilder::SetPayload(Message::Buffer&& buffer)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::BindAwaitTracker(
-    Message::AwaitBinding binding,
-    Await::TrackerKey key)
-{
-	m_message.m_optBoundAwaitTracker = Message::BoundTrackerKey(binding, key);
-	return *this;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-ApplicationBuilder& ApplicationBuilder::BindAwaitTracker(
-    std::optional<Message::BoundTrackerKey> const& optBoundAwaitTracker)
-{
-	m_message.m_optBoundAwaitTracker = optBoundAwaitTracker;
-	return *this;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
 ApplicationBuilder& ApplicationBuilder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
+	assert(m_message.m_context.HasSecurityHandlers());
+
     if (buffer.empty()) { return *this; }
 
-	assert(m_message.m_context.HasSecurityHandlers());
-    if (m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success) { Unpack(buffer); }
-	else { m_hasStageFailure = true; }
+	bool const verified = m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success;
+	bool const success = verified && Unpack(buffer);
+	if (!success) { m_hasStageFailure = true; }
 
     return *this;
 }
@@ -370,12 +323,14 @@ ApplicationBuilder& ApplicationBuilder::FromDecodedPack(std::span<std::uint8_t c
 
 ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
 {
+	assert(m_message.m_context.HasSecurityHandlers());
+
     if (pack.empty()) { m_hasStageFailure = true; return *this; }
     
 	auto const buffer = Z85::Decode(pack);
-	assert(m_message.m_context.HasSecurityHandlers());
-    if (m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success) { Unpack(buffer); }
-	else { m_hasStageFailure = true; }
+	bool const verified = m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success;
+	bool const success = verified && Unpack(buffer);
+	if (!success) { m_hasStageFailure = true; }
 
     return *this;
 }
@@ -402,16 +357,18 @@ ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //----------------------------------------------------------------------------------------------------------------------
-void ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
+bool ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
 {
+	assert(m_message.m_context.HasSecurityHandlers()); 
+
 	{
 		auto begin = buffer.begin();
 		auto end = buffer.end();
-		if (!m_message.m_header.ParseBuffer(begin, end)) { return; }
+		if (!m_message.m_header.ParseBuffer(begin, end)) { return false; }
 	}
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_message.m_header.m_protocol != Message::Protocol::Application) { return; }
+	if (m_message.m_header.m_protocol != Message::Protocol::Application) { return false; }
 
 	// Create a view of the encrypted portion of the application message. This will be from the end of the header to 
 	// the beginning of the signature. 
@@ -420,74 +377,137 @@ void ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
 		buffer.size() - m_message.m_header.GetPackSize() - m_message.m_context.GetSignatureSize() };
 
 	auto const optDecryptedBuffer = m_message.m_context.Decrypt(bufferview, m_message.m_header.GetTimestamp());
-	if (!optDecryptedBuffer) { return; }
+	if (!optDecryptedBuffer) { return false; }
 
 	auto begin = optDecryptedBuffer->begin();
 	auto end = optDecryptedBuffer->end();
 	{
 		std::uint16_t size = 0;
-		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
-		if (!PackUtils::UnpackChunk(begin, end, m_message.m_route, size)) { return; }
+		if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
+		if (!PackUtils::UnpackChunk(begin, end, m_message.m_route, size)) { return false; }
 	}
  
 	{
 		std::uint32_t size = 0;
-		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
-		if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, size)) { return; }
+		if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
+		if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, size)) { return false; }
 	}
 
 	std::uint8_t extensions = 0;
-	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return; }
+	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return false; }
+	if (extensions != 0 && !UnpackExtensions(begin, end)) { return false; }
 
-	if (extensions != 0) { UnpackExtensions(begin, end); }
+	return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void ApplicationBuilder::UnpackExtensions(
+bool ApplicationBuilder::UnpackExtensions(
 	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end)
 {
+	using namespace Message::Extension;
 	while (begin != end) {
-		using ExtensionType = std::underlying_type_t<local::Extensions::Types>;
-		ExtensionType extension = 0;
-		PackUtils::UnpackChunk(begin, end, extension);
+		Key key = 0;
+		PackUtils::UnpackChunk(begin, end, key);
 
-		switch (extension){
-			case static_cast<ExtensionType>(local::Extensions::AwaitTracker): {
-				m_message.m_optBoundAwaitTracker = local::UnpackAwaitTracker(
-					begin, end, m_message.FixedAwaitExtensionSize());
+		switch (key){
+			case Awaitable::Key: {
+				auto upExtension = std::make_unique<Awaitable>();
+				if (!upExtension->Unpack(begin, end)) { return false; }
+				m_message.m_extensions.emplace(Awaitable::Key, std::move(upExtension));
 			} break;					
-			default: return;
+			default: return false;
 		}
 	}
+
+	return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Message::BoundTrackerKey> local::UnpackAwaitTracker(
-	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t expected)
+Message::Extension::Awaitable::Awaitable()
+	: m_binding(Invalid)
+	, m_tracker(0)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Extension::Awaitable::Awaitable(Binding binding, Await::TrackerKey tracker)
+	: m_binding(binding)
+	, m_tracker(tracker)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::uint16_t Message::Extension::Awaitable::GetKey() const { return Key; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Message::Extension::Awaitable::GetPackSize() const 
+{
+	std::size_t size = 0;
+	size += sizeof(Key); // 1 byte for the extension type
+	size += sizeof(std::uint16_t); // 2 bytes for the extension size
+	size += sizeof(m_binding); // 1 byte for await tracker binding
+	size += sizeof(m_tracker); // 4 bytes for await tracker key
+	assert(std::in_range<std::uint16_t>(size));
+	return size;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::unique_ptr<Message::Extension::Base> Message::Extension::Awaitable::Clone() const
+{
+	return std::make_unique<Awaitable>(m_binding, m_tracker);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Message::Extension::Awaitable::Inject(Buffer& buffer) const
+{
+	std::uint16_t const size = static_cast<std::uint16_t>(GetPackSize());
+	PackUtils::PackChunk(Key, buffer);
+	PackUtils::PackChunk(size, buffer);
+	PackUtils::PackChunk(m_binding, buffer);
+	PackUtils::PackChunk(m_tracker, buffer);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Message::Extension::Awaitable::Unpack(Buffer::const_iterator& begin, Buffer::const_iterator const& end)
 {
 	std::uint16_t size = 0;
-	if (!PackUtils::UnpackChunk(begin, end, size)) { return {}; }
-	
-	if (std::cmp_less(size, expected)) { return {}; }
+	if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
+	if (std::cmp_less(size, GetPackSize())) { return false; }
 
-	using BindingType = std::underlying_type_t<Message::AwaitBinding>;
-	BindingType binding = 0;
-	if (!PackUtils::UnpackChunk(begin, end, binding)) { return {}; }
-
-	Await::TrackerKey tracker = 0;
-	if (!PackUtils::UnpackChunk(begin, end, tracker)) { return {}; }
-
-	switch (binding) {
-		case static_cast<BindingType>(Message::AwaitBinding::Source): {
-			return Message::BoundTrackerKey{ Message::AwaitBinding::Source, tracker };
+	{
+		using BindingType = std::underlying_type_t<Binding>;
+		BindingType binding = 0;
+		if (!PackUtils::UnpackChunk(begin, end, binding)) { return {}; }
+		switch (binding) {
+			case static_cast<BindingType>(Request): { m_binding = Request; } break;
+			case static_cast<BindingType>(Response):  { m_binding = Response; } break;
+			default: return false;
 		}
-		case static_cast<BindingType>(Message::AwaitBinding::Destination): {
-			return Message::BoundTrackerKey{ Message::AwaitBinding::Destination, tracker };
-		}
-		default: return {};
 	}
+
+	if (!PackUtils::UnpackChunk(begin, end, m_tracker)) { return false; }
+
+	return true;
 }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Message::Extension::Awaitable::Validate() const { return m_binding != Invalid && m_tracker != 0; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Extension::Awaitable::Binding const& Message::Extension::Awaitable::GetBinding() const { return m_binding; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Await::TrackerKey const& Message::Extension::Awaitable::GetTracker() const { return m_tracker; }
 
 //----------------------------------------------------------------------------------------------------------------------

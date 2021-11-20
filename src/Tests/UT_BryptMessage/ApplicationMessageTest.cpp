@@ -56,7 +56,7 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
     ASSERT_TRUE(optMessage->GetDestinationIdentifier());
     EXPECT_EQ(*optMessage->GetDestinationIdentifier(), test::ServerIdentifier);
     EXPECT_EQ(optMessage->GetRoute(), test::RequestRoute);
-    EXPECT_FALSE(optMessage->GetAwaitTrackerKey());
+    EXPECT_FALSE(optMessage->GetExtension<Message::Extension::Awaitable>());
 
     auto const buffer = optMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
@@ -94,7 +94,7 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
     EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), optBaseMessage->GetDestinationIdentifier());
     EXPECT_EQ(optPackMessage->GetRoute(), optBaseMessage->GetRoute());
     EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
-    EXPECT_FALSE(optPackMessage->GetAwaitTrackerKey());
+    EXPECT_FALSE(optPackMessage->GetExtension<Message::Extension::Awaitable>());
 
     auto const buffer = optPackMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
@@ -106,51 +106,63 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
 TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 {
     MessageContext const context = local::GenerateMessageContext();
-    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
+    Await::TrackerKey const tracker = 0x89ABCDEF;
 
-    auto const optSourceBoundMessage = ApplicationMessage::Builder()
+    auto const optRequest = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindAwaitTracker(Message::AwaitBinding::Source, awaitTrackingKey)
+        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Request, tracker)
         .ValidatedBuild();
-    ASSERT_TRUE(optSourceBoundMessage);
+    ASSERT_TRUE(optRequest);
 
-    EXPECT_EQ(optSourceBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
-    EXPECT_EQ(optSourceBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
-    EXPECT_EQ(optSourceBoundMessage->GetRoute(), test::RequestRoute);
-    EXPECT_EQ(optSourceBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
+    EXPECT_EQ(optRequest->GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(optRequest->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optRequest->GetRoute(), test::RequestRoute);
 
-    auto const sourceBoundBuffer = optSourceBoundMessage->GetPayload();
-    std::string const sourceBoundData(sourceBoundBuffer.begin(), sourceBoundBuffer.end());
-    EXPECT_EQ(sourceBoundData, test::Data);
+    {
+        auto const optAwaitable = optRequest->GetExtension<Message::Extension::Awaitable>();
+        ASSERT_TRUE(optAwaitable);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Request);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), tracker);
+    }
 
-    auto const sourceBoundPack = optSourceBoundMessage->GetPack();
-    EXPECT_EQ(sourceBoundPack.size(), optSourceBoundMessage->GetPackSize());
+    auto const requestBuffer = optRequest->GetPayload();
+    std::string const requestData(requestBuffer.begin(), requestBuffer.end());
+    EXPECT_EQ(requestData, test::Data);
 
-    auto const optDestinationBoundMessage = ApplicationMessage::Builder()
+    auto const requestPack = optRequest->GetPack();
+    EXPECT_EQ(requestPack.size(), optRequest->GetPackSize());
+
+    auto const optResponse = ApplicationMessage::Builder()
         .SetMessageContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
+        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, tracker)
         .ValidatedBuild();
-    ASSERT_TRUE(optDestinationBoundMessage);
+    ASSERT_TRUE(optResponse);
 
-    EXPECT_EQ(optDestinationBoundMessage->GetSourceIdentifier(), test::ClientIdentifier);
-    EXPECT_EQ(optDestinationBoundMessage->GetDestinationIdentifier(), test::ServerIdentifier);
-    EXPECT_EQ(optDestinationBoundMessage->GetAwaitTrackerKey(), awaitTrackingKey);
-    EXPECT_EQ(optDestinationBoundMessage->GetRoute(), test::RequestRoute);
+    EXPECT_EQ(optResponse->GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(optResponse->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optResponse->GetRoute(), test::RequestRoute);
 
-    auto const destinationBoundBuffer = optDestinationBoundMessage->GetPayload();
-    std::string const destinationBoundData(destinationBoundBuffer.begin(), destinationBoundBuffer.end());
-    EXPECT_EQ(destinationBoundData, test::Data);
+    {
+        auto const optAwaitable = optResponse->GetExtension<Message::Extension::Awaitable>();
+        ASSERT_TRUE(optAwaitable);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Response);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), tracker);
+    }
 
-    auto const destinationBoundPack = optDestinationBoundMessage->GetPack();
-    EXPECT_EQ(destinationBoundPack.size(), optDestinationBoundMessage->GetPackSize());
+    auto const responseBuffer = optResponse->GetPayload();
+    std::string const responseData(responseBuffer.begin(), responseBuffer.end());
+    EXPECT_EQ(responseData, test::Data);
+
+    auto const responsePack = optResponse->GetPack();
+    EXPECT_EQ(responsePack.size(), optResponse->GetPackSize());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -158,7 +170,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 {
     MessageContext const context = local::GenerateMessageContext();
-    Await::TrackerKey const awaitTrackingKey = 0x89ABCDEF;
+    Await::TrackerKey const tracker = 0x89ABCDEF;
 
     auto const optBoundMessage = ApplicationMessage::Builder()
         .SetMessageContext(context)
@@ -166,7 +178,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindAwaitTracker(Message::AwaitBinding::Destination, awaitTrackingKey)
+        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, tracker)
         .ValidatedBuild();
     ASSERT_TRUE(optBoundMessage);
 
@@ -181,10 +193,17 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 
     EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBoundMessage->GetSourceIdentifier());
     EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), optBoundMessage->GetDestinationIdentifier());
-    EXPECT_EQ(optPackMessage->GetAwaitTrackerKey(), optBoundMessage->GetAwaitTrackerKey());
     EXPECT_EQ(optPackMessage->GetRoute(), optBoundMessage->GetRoute());
     EXPECT_EQ(optPackMessage->GetPayload(), optBoundMessage->GetPayload());
 
+    {
+        auto const optBoundAwaitable = optBoundMessage->GetExtension<Message::Extension::Awaitable>();
+        auto const optPackAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
+        ASSERT_TRUE(optBoundAwaitable && optPackAwaitable);
+        EXPECT_EQ(optPackAwaitable->get().GetBinding(), optPackAwaitable->get().GetBinding());
+        EXPECT_EQ(optPackAwaitable->get().GetTracker(), optPackAwaitable->get().GetTracker());
+    }
+    
     auto const buffer = optPackMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
     EXPECT_EQ(data, test::Data);

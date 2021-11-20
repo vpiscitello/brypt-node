@@ -38,7 +38,7 @@ public:
 
 	bool IsValid() const;
 
-	constexpr static std::size_t FixedPackSize()
+	static constexpr std::size_t FixedPackSize()
     {
         std::size_t size = 0;
         size += sizeof(m_protocol); // 1 byte for message protocol type 
@@ -54,7 +54,7 @@ public:
         return size;
     }
 
-    constexpr static std::size_t PeekableEncodedSize()
+    static constexpr std::size_t PeekableEncodedSize()
     {
         std::size_t size = 0;
         size += sizeof(m_protocol); // 1 byte for message protocol type 
@@ -67,7 +67,7 @@ public:
         return encoded;
     }
 
-    constexpr static std::size_t MaximumEncodedSize()
+    static constexpr std::size_t MaximumEncodedSize()
     {
         // Base the peekable encoded size 
         std::size_t size = FixedPackSize();
