@@ -8,6 +8,7 @@
 *.test
 *.pem
 *.pipe
+*.nosync
 .vscode
 
 src/temp/*
