@@ -150,9 +150,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
             .ValidatedBuild();
         ASSERT_TRUE(optPackMessage);
 
-        EXPECT_EQ(optPackMessage->GetSourceIdentifier(), test::ClientIdentifier);
-        ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
-        EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+        EXPECT_EQ(optPackMessage->GetSource(), test::ClientIdentifier);
+        ASSERT_TRUE(optPackMessage->GetDestination());
+        EXPECT_EQ(optPackMessage->GetDestination(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
 
         auto const optAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();
@@ -189,9 +189,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
             .ValidatedBuild();
         ASSERT_TRUE(optPackMessage);
 
-        EXPECT_EQ(optPackMessage->GetSourceIdentifier(), test::ClientIdentifier);
-        ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
-        EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+        EXPECT_EQ(optPackMessage->GetSource(), test::ClientIdentifier);
+        ASSERT_TRUE(optPackMessage->GetDestination());
+        EXPECT_EQ(optPackMessage->GetDestination(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
 
         auto const optAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();

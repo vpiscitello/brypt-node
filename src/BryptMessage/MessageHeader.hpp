@@ -39,9 +39,9 @@ public:
 	Protocol GetMessageProtocol() const;
     Version const& GetVersion() const;
     std::uint32_t GetMessageSize() const;
-    Node::Identifier const& GetSourceIdentifier() const;
+    Node::Identifier const& GetSource() const;
     Destination GetDestinationType() const;
-    std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
+    std::optional<Node::Identifier> const& GetDestination() const;
 	TimeUtils::Timestamp const& GetTimestamp() const;
 
     std::size_t GetPackSize() const;

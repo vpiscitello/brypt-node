@@ -69,9 +69,9 @@ public:
 
 	Context const& GetContext() const;
 	Header const& GetHeader() const;
-	Node::Identifier const& GetSourceIdentifier() const;
+	Node::Identifier const& GetSource() const;
 	Destination GetDestinationType() const;
-	std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
+	std::optional<Node::Identifier> const& GetDestination() const;
 
 	std::string const& GetRoute() const;
 	Message::Buffer const& GetPayload() const;
@@ -103,6 +103,9 @@ public:
 	using OptionalParcel = std::optional<Parcel>;
 
 	Builder();
+
+	Node::Identifier const& GetSource() const;
+	std::optional<Node::Identifier> const& GetDestination() const;
 
 	Builder& SetContext(Context const& context);
 	Builder& SetSource(Node::Identifier const& identifier);

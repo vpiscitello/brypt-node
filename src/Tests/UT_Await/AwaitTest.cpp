@@ -105,8 +105,8 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
     EXPECT_TRUE(bUpdateSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
     EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Handler);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
@@ -192,8 +192,8 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     EXPECT_TRUE(bUpdateSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
     EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Handler);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
@@ -244,8 +244,8 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
     EXPECT_TRUE(bInitialSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
     EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Handler);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);
@@ -326,8 +326,8 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_TRUE(bUpdateSendSuccess);
 
     ASSERT_TRUE(optFulfilledResponse);
-    EXPECT_EQ(optFulfilledResponse->GetSourceIdentifier(), *test::spServerIdentifier);
-    EXPECT_EQ(optFulfilledResponse->GetDestinationIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetSource(), *test::spServerIdentifier);
+    EXPECT_EQ(optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_FALSE(optFulfilledResponse->GetAwaitTrackerKey());
     EXPECT_EQ(optFulfilledResponse->GetCommand(), test::Handler);
     EXPECT_EQ(optFulfilledResponse->GetPhase(), test::ResponsePhase);

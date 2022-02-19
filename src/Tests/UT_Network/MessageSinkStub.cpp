@@ -94,7 +94,7 @@ bool MessageSinkStub::CollectMessage(
 					auto const optResponse = Message::Network::Parcel::GetBuilder()
 						.MakeHeartbeatResponse()
 						.SetSource(*m_spNodeIdentifier)
-						.SetDestination(optRequest->GetSourceIdentifier())
+						.SetDestination(optRequest->GetSource())
 						.ValidatedBuild();
 					assert(optResponse);
 

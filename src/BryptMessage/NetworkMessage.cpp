@@ -61,7 +61,7 @@ Message::Header const& Message::Network::Parcel::GetHeader() const { return m_he
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& Message::Network::Parcel::GetSourceIdentifier() const { return m_header.GetSourceIdentifier(); }
+Node::Identifier const& Message::Network::Parcel::GetSource() const { return m_header.GetSource(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -69,9 +69,9 @@ Message::Destination Message::Network::Parcel::GetDestinationType() const { retu
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& Message::Network::Parcel::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& Message::Network::Parcel::GetDestination() const
 {
-	return m_header.GetDestinationIdentifier();
+	return m_header.GetDestination();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -169,6 +169,20 @@ Message::Network::Builder::Builder()
 	, m_hasStageFailure(false)
 {
 	m_parcel.m_header.m_protocol = Message::Protocol::Network;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::Identifier const& Message::Network::Builder::GetSource() const
+{
+	return m_parcel.m_header.m_source;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Node::Identifier> const& Message::Network::Builder::GetDestination() const
+{
+	return m_parcel.m_header.m_optDestinationIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

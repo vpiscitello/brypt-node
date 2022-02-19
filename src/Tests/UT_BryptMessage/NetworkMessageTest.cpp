@@ -40,9 +40,9 @@ TEST(NetworkMessageSuite, HandshakeConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    EXPECT_EQ(optMessage->GetSourceIdentifier(), test::ClientIdentifier);
-    ASSERT_TRUE(optMessage->GetDestinationIdentifier());
-    EXPECT_EQ(*optMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optMessage->GetSource(), test::ClientIdentifier);
+    ASSERT_TRUE(optMessage->GetDestination());
+    EXPECT_EQ(*optMessage->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optMessage->GetType(), Message::Network::Type::Handshake);
 
     auto const buffer = optMessage->GetPayload();
@@ -64,9 +64,9 @@ TEST(NetworkMessageSuite, HeartbeatRequestConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optRequest);
 
-    EXPECT_EQ(optRequest->GetSourceIdentifier(), test::ClientIdentifier);
-    ASSERT_TRUE(optRequest->GetDestinationIdentifier());
-    EXPECT_EQ(*optRequest->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optRequest->GetSource(), test::ClientIdentifier);
+    ASSERT_TRUE(optRequest->GetDestination());
+    EXPECT_EQ(*optRequest->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optRequest->GetType(), Message::Network::Type::HeartbeatRequest);
 
     auto const pack = optRequest->GetPack();
@@ -84,9 +84,9 @@ TEST(NetworkMessageSuite, HeartbeatResponseConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
-    EXPECT_EQ(optResponse->GetSourceIdentifier(), test::ClientIdentifier);
-    ASSERT_TRUE(optResponse->GetDestinationIdentifier());
-    EXPECT_EQ(*optResponse->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optResponse->GetSource(), test::ClientIdentifier);
+    ASSERT_TRUE(optResponse->GetDestination());
+    EXPECT_EQ(*optResponse->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optResponse->GetType(), Message::Network::Type::HeartbeatResponse);
 
     auto const pack = optResponse->GetPack();
@@ -112,9 +112,9 @@ TEST(NetworkMessageSuite, HandshakePackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBaseMessage->GetSourceIdentifier());
-    ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
-    EXPECT_EQ(*optPackMessage->GetDestinationIdentifier(), *optBaseMessage->GetDestinationIdentifier());
+    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
+    ASSERT_TRUE(optPackMessage->GetDestination());
+    EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
     EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
     EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
 
@@ -141,9 +141,9 @@ TEST(NetworkMessageSuite, HeartbeatRequestPackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBaseMessage->GetSourceIdentifier());
-    ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
-    EXPECT_EQ(*optPackMessage->GetDestinationIdentifier(), *optBaseMessage->GetDestinationIdentifier());
+    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
+    ASSERT_TRUE(optPackMessage->GetDestination());
+    EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
     EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
 }
 
@@ -165,9 +165,9 @@ TEST(NetworkMessageSuite, HeartbeatResponsePackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBaseMessage->GetSourceIdentifier());
-    ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
-    EXPECT_EQ(*optPackMessage->GetDestinationIdentifier(), *optBaseMessage->GetDestinationIdentifier());
+    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
+    ASSERT_TRUE(optPackMessage->GetDestination());
+    EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
     EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
 }
 

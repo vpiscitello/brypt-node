@@ -52,10 +52,10 @@ TEST(MessageHeaderSuite, ApplicationConstructorTest)
 
     Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
-    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
-    ASSERT_TRUE(header.GetDestinationIdentifier());
-    EXPECT_EQ(*header.GetDestinationIdentifier(), test::ServerIdentifier);
+    ASSERT_TRUE(header.GetDestination());
+    EXPECT_EQ(*header.GetDestination(), test::ServerIdentifier);
     EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
@@ -75,10 +75,10 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
 
     Message::Header const baseHeader = optBaseMessage->GetHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
-    EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(baseHeader.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
-    ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
-    EXPECT_EQ(*baseHeader.GetDestinationIdentifier(), test::ServerIdentifier);
+    ASSERT_TRUE(baseHeader.GetDestination());
+    EXPECT_EQ(*baseHeader.GetDestination(), test::ServerIdentifier);
     EXPECT_GT(baseHeader.GetTimestamp(), TimeUtils::Timestamp());
 
     auto const pack = optBaseMessage->GetPack();
@@ -91,10 +91,10 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
 
     Message::Header const packHeader = optPackMessage->GetHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
-    EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
+    EXPECT_EQ(packHeader.GetSource(), baseHeader.GetSource());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
-    ASSERT_TRUE(packHeader.GetDestinationIdentifier());
-    EXPECT_EQ(*packHeader.GetDestinationIdentifier(), *baseHeader.GetDestinationIdentifier());
+    ASSERT_TRUE(packHeader.GetDestination());
+    EXPECT_EQ(*packHeader.GetDestination(), *baseHeader.GetDestination());
     EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
 }
 
@@ -111,10 +111,10 @@ TEST(MessageHeaderSuite, NetworkConstructorTest)
 
     Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Network);
-    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
-    ASSERT_TRUE(header.GetDestinationIdentifier());
-    EXPECT_EQ(*header.GetDestinationIdentifier(), test::ServerIdentifier);
+    ASSERT_TRUE(header.GetDestination());
+    EXPECT_EQ(*header.GetDestination(), test::ServerIdentifier);
     EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
@@ -131,10 +131,10 @@ TEST(MessageHeaderSuite, NetworkPackTest)
 
     Message::Header const baseHeader = optBaseMessage->GetHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Network);
-    EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(baseHeader.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
-    ASSERT_TRUE(baseHeader.GetDestinationIdentifier());
-    EXPECT_EQ(*baseHeader.GetDestinationIdentifier(), test::ServerIdentifier);
+    ASSERT_TRUE(baseHeader.GetDestination());
+    EXPECT_EQ(*baseHeader.GetDestination(), test::ServerIdentifier);
     EXPECT_GT(baseHeader.GetTimestamp(), TimeUtils::Timestamp());
 
     auto const pack = optBaseMessage->GetPack();
@@ -146,10 +146,10 @@ TEST(MessageHeaderSuite, NetworkPackTest)
 
     Message::Header const packHeader = optPackMessage->GetHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
-    EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
+    EXPECT_EQ(packHeader.GetSource(), baseHeader.GetSource());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
-    ASSERT_TRUE(packHeader.GetDestinationIdentifier());
-    EXPECT_EQ(*packHeader.GetDestinationIdentifier(), *baseHeader.GetDestinationIdentifier());
+    ASSERT_TRUE(packHeader.GetDestination());
+    EXPECT_EQ(*packHeader.GetDestination(), *baseHeader.GetDestination());
     EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
 }
 
@@ -169,9 +169,9 @@ TEST(MessageHeaderSuite, ClusterDestinationTest)
 
     Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
-    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Cluster);
-    EXPECT_FALSE(header.GetDestinationIdentifier());
+    EXPECT_FALSE(header.GetDestination());
     EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
@@ -191,9 +191,9 @@ TEST(MessageHeaderSuite, NetworkDestinationTest)
 
     Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
-    EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(header.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Network);
-    EXPECT_FALSE(header.GetDestinationIdentifier());
+    EXPECT_FALSE(header.GetDestination());
     EXPECT_GT(header.GetTimestamp(), TimeUtils::Timestamp());
 }
 
@@ -213,9 +213,9 @@ TEST(MessageHeaderSuite, ClusterPackTest)
 
     Message::Header const baseHeader = optBaseMessage->GetHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
-    EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
+    EXPECT_EQ(baseHeader.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Cluster);
-    EXPECT_FALSE(baseHeader.GetDestinationIdentifier());
+    EXPECT_FALSE(baseHeader.GetDestination());
     EXPECT_GT(baseHeader.GetTimestamp(), TimeUtils::Timestamp());
 
     auto const pack = optBaseMessage->GetPack();
@@ -228,9 +228,9 @@ TEST(MessageHeaderSuite, ClusterPackTest)
 
     Message::Header const packHeader = optPackMessage->GetHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
-    EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
+    EXPECT_EQ(packHeader.GetSource(), baseHeader.GetSource());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
-    EXPECT_FALSE(packHeader.GetDestinationIdentifier());
+    EXPECT_FALSE(packHeader.GetDestination());
     EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
 }
 

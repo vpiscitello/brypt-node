@@ -163,7 +163,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
         auto const optResponse = Message::Network::Parcel::GetBuilder()
             .SetContext(context)
             .SetSource(*m_spSource)
-            .SetDestination(message.GetSourceIdentifier())
+            .SetDestination(message.GetSource())
             .MakeHandshakeMessage()
             .SetPayload(buffer)
             .ValidatedBuild();

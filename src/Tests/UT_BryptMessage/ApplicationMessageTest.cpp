@@ -52,9 +52,9 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    EXPECT_EQ(optMessage->GetSourceIdentifier(), test::ClientIdentifier);
-    ASSERT_TRUE(optMessage->GetDestinationIdentifier());
-    EXPECT_EQ(*optMessage->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optMessage->GetSource(), test::ClientIdentifier);
+    ASSERT_TRUE(optMessage->GetDestination());
+    EXPECT_EQ(*optMessage->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optMessage->GetRoute(), test::RequestRoute);
     EXPECT_FALSE(optMessage->GetExtension<Message::Application::Extension::Awaitable>());
 
@@ -89,9 +89,9 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBaseMessage->GetSourceIdentifier());
-    ASSERT_TRUE(optPackMessage->GetDestinationIdentifier());
-    EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), optBaseMessage->GetDestinationIdentifier());
+    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
+    ASSERT_TRUE(optPackMessage->GetDestination());
+    EXPECT_EQ(optPackMessage->GetDestination(), optBaseMessage->GetDestination());
     EXPECT_EQ(optPackMessage->GetRoute(), optBaseMessage->GetRoute());
     EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
     EXPECT_FALSE(optPackMessage->GetExtension<Message::Application::Extension::Awaitable>());
@@ -119,8 +119,8 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optRequest);
 
-    EXPECT_EQ(optRequest->GetSourceIdentifier(), test::ClientIdentifier);
-    EXPECT_EQ(optRequest->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optRequest->GetSource(), test::ClientIdentifier);
+    EXPECT_EQ(optRequest->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optRequest->GetRoute(), test::RequestRoute);
 
     {
@@ -148,8 +148,8 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
-    EXPECT_EQ(optResponse->GetSourceIdentifier(), test::ClientIdentifier);
-    EXPECT_EQ(optResponse->GetDestinationIdentifier(), test::ServerIdentifier);
+    EXPECT_EQ(optResponse->GetSource(), test::ClientIdentifier);
+    EXPECT_EQ(optResponse->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optResponse->GetRoute(), test::RequestRoute);
 
     {
@@ -194,8 +194,8 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSourceIdentifier(), optBoundMessage->GetSourceIdentifier());
-    EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), optBoundMessage->GetDestinationIdentifier());
+    EXPECT_EQ(optPackMessage->GetSource(), optBoundMessage->GetSource());
+    EXPECT_EQ(optPackMessage->GetDestination(), optBoundMessage->GetDestination());
     EXPECT_EQ(optPackMessage->GetRoute(), optBoundMessage->GetRoute());
     EXPECT_EQ(optPackMessage->GetPayload(), optBoundMessage->GetPayload());
 

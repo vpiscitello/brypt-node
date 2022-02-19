@@ -53,7 +53,7 @@ std::uint32_t Message::Header::GetMessageSize() const { return m_size; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& Message::Header::GetSourceIdentifier() const { return m_source; }
+Node::Identifier const& Message::Header::GetSource() const { return m_source; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ Message::Destination Message::Header::GetDestinationType() const { return m_dest
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& Message::Header::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& Message::Header::GetDestination() const
 {
     return m_optDestinationIdentifier;
 }

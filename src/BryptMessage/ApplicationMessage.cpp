@@ -56,7 +56,7 @@ Message::Header const& Message::Application::Parcel::GetHeader() const { return 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& Message::Application::Parcel::GetSourceIdentifier() const { return m_header.GetSourceIdentifier(); }
+Node::Identifier const& Message::Application::Parcel::GetSource() const { return m_header.GetSource(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -64,9 +64,9 @@ Message::Destination Message::Application::Parcel::GetDestinationType() const { 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& Message::Application::Parcel::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& Message::Application::Parcel::GetDestination() const
 {
-	return m_header.GetDestinationIdentifier();
+	return m_header.GetDestination();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -205,6 +205,20 @@ Message::Application::Builder& Message::Application::Builder::SetSource(Node::Id
 {
 	m_parcel.m_header.m_source = identifier;
 	return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::Identifier const& Message::Application::Builder::GetSource() const
+{
+	return m_parcel.m_header.m_source;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Node::Identifier> const& Message::Application::Builder::GetDestination() const
+{
+	return m_parcel.m_header.m_optDestinationIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

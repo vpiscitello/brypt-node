@@ -142,7 +142,7 @@ bool AuthorizedProcessor::OnMessageCollected(
     // Currently, there are no network messages that are sent network wide. 
     if (message.GetDestinationType() != Message::Destination::Node) { return false; }
 
-	auto const& optDestination = message.GetDestinationIdentifier();
+	auto const& optDestination = message.GetDestination();
 
     // If the network message does not have a destination and is not a handshake message then there is currently no 
 	// possible message we expect given this context. If it is a handshake message without a destination identifier,
@@ -164,7 +164,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 		case Message::Network::Type::HeartbeatRequest:  {
 			optResponse = Message::Network::Parcel::GetBuilder()
 				.SetSource(*m_spNodeIdentifier)
-				.SetDestination(message.GetSourceIdentifier())
+				.SetDestination(message.GetSource())
 				.MakeHeartbeatResponse()
 				.ValidatedBuild();
 			assert(optResponse);
@@ -176,7 +176,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 		case Message::Network::Type::Handshake: {
 			optResponse = Message::Network::Parcel::GetBuilder()
 				.SetSource(*m_spNodeIdentifier)
-				.SetDestination(message.GetSourceIdentifier())
+				.SetDestination(message.GetSource())
 				.MakeHeartbeatRequest()
 				.ValidatedBuild();
 			assert(optResponse);
