@@ -85,7 +85,7 @@ public:
 
     bool ForEach(ForEachFunction const& callback, Filter filter = Filter::Active) const;
 
-    bool ScheduleDisconnect(std::string_view const& identifier) const; 
+    bool ScheduleDisconnect(std::string_view identifier) const; 
     bool ScheduleDisconnect(Node::Identifier const& identifier) const; 
     std::size_t ScheduleDisconnect(Network::Address const& address) const; 
 

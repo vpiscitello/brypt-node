@@ -234,7 +234,7 @@ bool Peer::Manager::ScheduleDisconnect(Node::Identifier const& identifier) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ScheduleDisconnect(std::string_view const& identifier) const
+bool Peer::Manager::ScheduleDisconnect(std::string_view identifier) const
 {
     std::shared_lock lock(m_peersMutex);
     auto const& index = m_peers.template get<ExternalIndex>();
@@ -268,7 +268,7 @@ Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
     if(auto const itr = m_peers.find(*spPeerIdentifier); itr == m_peers.end()) { return {}; }
 
     // Currently, the short circuiting method is to notify the peer via a heatbeat request. 
-    auto const optRequest = NetworkMessage::Builder()
+    auto const optRequest = Message::Network::Parcel::GetBuilder()
         .SetSource(*m_spNodeIdentifier)
         .SetDestination(*spPeerIdentifier)
         .MakeHeartbeatRequest()

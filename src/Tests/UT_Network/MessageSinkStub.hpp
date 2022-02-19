@@ -31,12 +31,12 @@ public:
     // IMessageSink {
     virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
 
@@ -47,7 +47,7 @@ public:
     void Reset();
     
 private:
-    bool QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
+    bool QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Application::Parcel const& message);
 
     mutable std::shared_mutex m_mutex;
     

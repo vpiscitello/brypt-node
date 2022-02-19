@@ -69,7 +69,7 @@ public:
     bool ReceivedExpectedEventSequence() const;
 
 private:
-    constexpr static std::uint32_t ExpectedEventCount = 2; // The number of events each endpoint should fire. 
+    static constexpr std::uint32_t ExpectedEventCount = 2; // The number of events each endpoint should fire. 
     Event::SharedPublisher m_spPublisher;
     EventTracker m_tracker;
 };
@@ -137,8 +137,8 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     ASSERT_TRUE(optClientContext);
 
     // Build an application message to be sent to the server.
-    auto const optQueryRequest = ApplicationMessage::Builder()
-        .SetMessageContext(*optClientContext)
+    auto const optQueryRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(*optClientContext)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetCommand(Handler::Type::Query, 0)
@@ -155,8 +155,8 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     ASSERT_TRUE(optServerContext);
 
     // Build an application message to be sent to the client.
-    auto const optQueryResponse = ApplicationMessage::Builder()
-        .SetMessageContext(*optServerContext)
+    auto const optQueryResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(*optServerContext)
         .SetSource(*test::ServerIdentifier)
         .SetDestination(*test::ClientIdentifier)
         .SetCommand(Handler::Type::Query, 1)

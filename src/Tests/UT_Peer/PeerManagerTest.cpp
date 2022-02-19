@@ -58,7 +58,7 @@ public:
 
     // IConnectProtocol {
     virtual bool SendRequest(
-        Node::SharedIdentifier const&, std::shared_ptr<Peer::Proxy> const&, MessageContext const&) const override 
+        Node::SharedIdentifier const&, std::shared_ptr<Peer::Proxy> const&, Message::Context const&) const override 
     {
         ++m_count;
         return true;
@@ -80,9 +80,9 @@ public:
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::string_view) override { return true; }
+        std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::string_view) override { return true; }
     virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::span<std::uint8_t const>) override { return false; }
+        std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::span<std::uint8_t const>) override { return false; }
     // }IMessageSink
 };
 
@@ -120,7 +120,7 @@ public:
     [[nodiscard]] bool ReceivedExpectedEventSequence() const;
 
 private:
-    constexpr static std::uint32_t ExpectedEventCount = 2; // The number of events each peer should fire. 
+    static constexpr std::uint32_t ExpectedEventCount = 2; // The number of events each peer should fire. 
     Event::SharedPublisher m_spPublisher;
     EventTracker m_tracker;
 };
@@ -381,12 +381,12 @@ TEST(PeerManagerSuite, PQNISTL3ExchangeSetupTest)
     spPublisher->SuspendSubscriptions();
 
     Peer::Manager client(test::ClientIdentifier, PQNISTL3, spPublisher, spProtocol, spProcessor);
-    MessageContext const serverContext = { 
+    Message::Context const serverContext = { 
         Network::Endpoint::IdentifierGenerator::Instance().Generate(), Network::Protocol::TCP };
     std::shared_ptr<Peer::Proxy> spServerProxy; // The server peer is associated with the client's manager. 
 
     Peer::Manager server(test::ServerIdentifier, PQNISTL3, spPublisher, spProtocol, spProcessor);
-    MessageContext const clientContext = { 
+    Message::Context const clientContext = { 
         Network::Endpoint::IdentifierGenerator::Instance().Generate(), Network::Protocol::TCP };
     std::shared_ptr<Peer::Proxy> spClientProxy; // The client peer is associated with the server's manager. 
 

@@ -30,7 +30,7 @@ enum Types : std::uint8_t { Invalid = 0x00 };
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkMessage::NetworkMessage()
+Message::Network::Parcel::Parcel()
 	: m_context()
 	, m_header()
 	, m_type(Message::Network::Type::Invalid)
@@ -40,7 +40,7 @@ NetworkMessage::NetworkMessage()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkMessage::NetworkMessage(NetworkMessage const& other)
+Message::Network::Parcel::Parcel(Parcel const& other)
 	: m_context(other.m_context)
 	, m_header(other.m_header)
 	, m_type(other.m_type)
@@ -49,63 +49,42 @@ NetworkMessage::NetworkMessage(NetworkMessage const& other)
 }
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder NetworkMessage::Builder()
-{
-	return NetworkBuilder{};
-}
+Message::Network::Builder Message::Network::Parcel::GetBuilder() { return Builder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext const& NetworkMessage::GetContext() const
-{
-	return m_context;
-}
+Message::Context const& Message::Network::Parcel::GetContext() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageHeader const& NetworkMessage::GetMessageHeader() const
-{
-	return m_header;
-}
+Message::Header const& Message::Network::Parcel::GetHeader() const { return m_header; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& NetworkMessage::GetSourceIdentifier() const
-{
-	return m_header.GetSourceIdentifier();
-}
+Node::Identifier const& Message::Network::Parcel::GetSourceIdentifier() const { return m_header.GetSourceIdentifier(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Destination NetworkMessage::GetDestinationType() const
-{
-	return m_header.GetDestinationType();
-}
+Message::Destination Message::Network::Parcel::GetDestinationType() const { return m_header.GetDestinationType(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& NetworkMessage::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& Message::Network::Parcel::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Type NetworkMessage::GetMessageType() const
-{
-	return m_type;
-}
+Message::Network::Type Message::Network::Parcel::GetType() const { return m_type; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer const& NetworkMessage::GetPayload() const
-{
-	return m_payload;
-}
+Message::Buffer const& Message::Network::Parcel::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t NetworkMessage::GetPackSize() const
+std::size_t Message::Network::Parcel::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
@@ -121,7 +100,7 @@ std::size_t NetworkMessage::GetPackSize() const
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Pack the Message class values into a single raw string.
 //----------------------------------------------------------------------------------------------------------------------
-std::string NetworkMessage::GetPack() const
+std::string Message::Network::Parcel::GetPack() const
 {
 	Message::Buffer buffer = m_header.GetPackedBuffer();
 	buffer.reserve(m_header.GetMessageSize());
@@ -151,14 +130,14 @@ std::string NetworkMessage::GetPack() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::ShareablePack NetworkMessage::GetShareablePack() const
+Message::ShareablePack Message::Network::Parcel::GetShareablePack() const
 {
 	return std::make_shared<std::string const>(GetPack());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::ValidationStatus NetworkMessage::Validate() const
+Message::ValidationStatus Message::Network::Parcel::Validate() const
 {	
 	// A message must have a valid header
 	if (!m_header.IsValid()) {
@@ -173,7 +152,7 @@ Message::ValidationStatus NetworkMessage::Validate() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constexpr std::size_t NetworkMessage::FixedPackSize() const
+constexpr std::size_t Message::Network::Parcel::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(Message::Network::Type); // 1 byte for network message type
@@ -185,113 +164,113 @@ constexpr std::size_t NetworkMessage::FixedPackSize() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder::NetworkBuilder()
-    : m_message()
+Message::Network::Builder::Builder()
+    : m_parcel()
 	, m_hasStageFailure(false)
 {
-	m_message.m_header.m_protocol = Message::Protocol::Network;
+	m_parcel.m_header.m_protocol = Message::Protocol::Network;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetMessageContext(MessageContext const& context)
+Message::Network::Builder& Message::Network::Builder::SetContext(Context const& context)
 {
-	m_message.m_context = context;
+	m_parcel.m_context = context;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetSource(Node::Identifier const& identifier)
+Message::Network::Builder& Message::Network::Builder::SetSource(Node::Identifier const& identifier)
 {
-	m_message.m_header.m_source = identifier;
+	m_parcel.m_header.m_source = identifier;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetSource(
+Message::Network::Builder& Message::Network::Builder::SetSource(
     Node::Internal::Identifier const& identifier)
 {
-	m_message.m_header.m_source = Node::Identifier(identifier);
+	m_parcel.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetSource(std::string_view identifier)
+Message::Network::Builder& Message::Network::Builder::SetSource(std::string_view identifier)
 {
-	m_message.m_header.m_source = Node::Identifier(identifier);
+	m_parcel.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetDestination(Node::Identifier const& identifier)
+Message::Network::Builder& Message::Network::Builder::SetDestination(Node::Identifier const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = identifier;
+	m_parcel.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetDestination(
+Message::Network::Builder& Message::Network::Builder::SetDestination(
     Node::Internal::Identifier const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
+	m_parcel.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetDestination(std::string_view identifier)
+Message::Network::Builder& Message::Network::Builder::SetDestination(std::string_view identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
+	m_parcel.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::MakeHandshakeMessage()
+Message::Network::Builder& Message::Network::Builder::MakeHandshakeMessage()
 {
-	m_message.m_type = Message::Network::Type::Handshake;
+	m_parcel.m_type = Message::Network::Type::Handshake;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::MakeHeartbeatRequest()
+Message::Network::Builder& Message::Network::Builder::MakeHeartbeatRequest()
 {
-	m_message.m_type = Message::Network::Type::HeartbeatRequest;
+	m_parcel.m_type = Message::Network::Type::HeartbeatRequest;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::MakeHeartbeatResponse()
+Message::Network::Builder& Message::Network::Builder::MakeHeartbeatResponse()
 {
-	m_message.m_type = Message::Network::Type::HeartbeatResponse;
+	m_parcel.m_type = Message::Network::Type::HeartbeatResponse;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetPayload(std::string_view buffer)
+Message::Network::Builder& Message::Network::Builder::SetPayload(std::string_view buffer)
 {
     return SetPayload({ reinterpret_cast<std::uint8_t const*>(buffer.data()), buffer.size() });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::SetPayload(std::span<std::uint8_t const> buffer)
+Message::Network::Builder& Message::Network::Builder::SetPayload(std::span<std::uint8_t const> buffer)
 {
-    m_message.m_payload = Message::Buffer(buffer.begin(), buffer.end());
+    m_parcel.m_payload = Message::Buffer(buffer.begin(), buffer.end());
     return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::FromDecodedPack(std::span<std::uint8_t const> buffer)
+Message::Network::Builder& Message::Network::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
     if (!buffer.empty()) { Unpack(buffer); }
 	else { m_hasStageFailure = true; }
@@ -300,7 +279,7 @@ NetworkBuilder& NetworkBuilder::FromDecodedPack(std::span<std::uint8_t const> bu
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder& NetworkBuilder::FromEncodedPack(std::string_view pack)
+Message::Network::Builder& Message::Network::Builder::FromEncodedPack(std::string_view pack)
 {
     if (!pack.empty()) { Unpack(Z85::Decode(pack)); }
 	else { m_hasStageFailure = true; }
@@ -309,21 +288,21 @@ NetworkBuilder& NetworkBuilder::FromEncodedPack(std::string_view pack)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkMessage&& NetworkBuilder::Build()
+Message::Network::Parcel&& Message::Network::Builder::Build()
 {
-	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
+	m_parcel.m_header.m_size = static_cast<std::uint32_t>(m_parcel.GetPackSize());
 
-    return std::move(m_message);
+    return std::move(m_parcel);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-NetworkBuilder::OptionalMessage NetworkBuilder::ValidatedBuild()
+Message::Network::Builder::OptionalParcel Message::Network::Builder::ValidatedBuild()
 {
-	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize());
+	m_parcel.m_header.m_size = static_cast<std::uint32_t>(m_parcel.GetPackSize());
 
-    if (m_hasStageFailure || m_message.Validate() != Message::ValidationStatus::Success) { return {}; }
-    return std::move(m_message);
+    if (m_hasStageFailure || m_parcel.Validate() != Message::ValidationStatus::Success) { return {}; }
+    return std::move(m_parcel);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -331,23 +310,23 @@ NetworkBuilder::OptionalMessage NetworkBuilder::ValidatedBuild()
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //----------------------------------------------------------------------------------------------------------------------
-void NetworkBuilder::Unpack(std::span<std::uint8_t const> buffer)
+void Message::Network::Builder::Unpack(std::span<std::uint8_t const> buffer)
 {
 	auto begin = buffer.begin();
 	auto end = buffer.end();
 
-	if (!m_message.m_header.ParseBuffer(begin, end)) { return; }
+	if (!m_parcel.m_header.ParseBuffer(begin, end)) { return; }
 
-	m_message.m_type = local::UnpackMessageType(begin, end);
-	if (m_message.m_type == Message::Network::Type::Invalid) { return; }
+	m_parcel.m_type = local::UnpackMessageType(begin, end);
+	if (m_parcel.m_type == Message::Network::Type::Invalid) { return; }
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_message.m_header.m_protocol != Message::Protocol::Network) { return; }
+	if (m_parcel.m_header.m_protocol != Message::Protocol::Network) { return; }
 
 	{
 		std::uint32_t size = 0;
 		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
-		if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, size)) { return; }
+		if (!PackUtils::UnpackChunk(begin, end, m_parcel.m_payload, size)) { return; }
 	}
 
 	std::uint8_t extensions = 0;
@@ -358,7 +337,7 @@ void NetworkBuilder::Unpack(std::span<std::uint8_t const> buffer)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void NetworkBuilder::UnpackExtensions(
+void Message::Network::Builder::UnpackExtensions(
 	std::span<std::uint8_t const>::iterator& begin,
 	std::span<std::uint8_t const>::iterator const& end)
 {

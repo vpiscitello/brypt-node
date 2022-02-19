@@ -34,7 +34,7 @@ public:
         Network::MessageAction const& messenger = {},
         Network::DisconnectAction const& disconnector = {});
 
-    [[nodiscard]] MessageContext const& GetMessageContext() const;
+    [[nodiscard]] Message::Context const& GetMessageContext() const;
     [[nodiscard]] MessageContext& GetWritableMessageContext();
     [[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
     [[nodiscard]] Network::Protocol GetEndpointProtocol() const;
@@ -43,7 +43,7 @@ public:
     [[nodiscard]] Network::DisconnectAction const& GetDisconnectAction() const;
 
 private:
-    MessageContext m_context;
+    Message::Context m_context;
     Network::RemoteAddress const m_address;
     Network::MessageAction const m_messenger;
     Network::DisconnectAction const m_disconnector;

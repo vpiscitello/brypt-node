@@ -26,12 +26,12 @@ public:
 
     [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::string_view buffer) = 0;
         
     [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::span<std::uint8_t const> buffer) = 0;
 };
 

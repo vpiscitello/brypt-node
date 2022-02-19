@@ -37,7 +37,7 @@ class SecureBuffer;
 class Security::KeyStore
 {
 public:
-    constexpr static std::size_t VerificationSize = 32;
+    static constexpr std::size_t VerificationSize = 32;
 
     KeyStore();
 

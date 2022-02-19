@@ -15,26 +15,37 @@
 #include <utility>
 //----------------------------------------------------------------------------------------------------------------------
 
-class MessageHeader
+namespace Message::Application { class Builder; }
+namespace Message::Network { class Builder; }
+
+//----------------------------------------------------------------------------------------------------------------------
+namespace Message {
+//----------------------------------------------------------------------------------------------------------------------
+
+class Header;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Message namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Message::Header
 {
 public:
-	MessageHeader();
+	Header();
 
-	// ApplicationBuilder {
-	friend class ApplicationBuilder;
-    friend class NetworkBuilder;
-    // } ApplicationBuilder 
+	friend class Message::Application::Builder;
+    friend class Message::Network::Builder;
 
-	Message::Protocol GetMessageProtocol() const;
-    Message::Version const& GetVersion() const;
+	Protocol GetMessageProtocol() const;
+    Version const& GetVersion() const;
     std::uint32_t GetMessageSize() const;
     Node::Identifier const& GetSourceIdentifier() const;
-    Message::Destination GetDestinationType() const;
+    Destination GetDestinationType() const;
     std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
 	TimeUtils::Timestamp const& GetTimestamp() const;
 
     std::size_t GetPackSize() const;
-	Message::Buffer GetPackedBuffer() const;
+	Buffer GetPackedBuffer() const;
 
 	bool IsValid() const;
 
@@ -84,11 +95,11 @@ private:
         std::span<std::uint8_t const>::iterator& begin,
         std::span<std::uint8_t const>::iterator const& end);
 
-    Message::Protocol m_protocol;
-    Message::Version m_version;
+    Protocol m_protocol;
+    Version m_version;
     std::uint32_t m_size;
     Node::Identifier m_source;
-    Message::Destination m_destination;
+    Destination m_destination;
     std::optional<Node::Identifier> m_optDestinationIdentifier;
 	TimeUtils::Timestamp m_timestamp; // The message creation timestamp
 };

@@ -9,7 +9,7 @@
 #include "MessageTypes.hpp"
 #include "ShareablePack.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/Await/AwaitDefinitions.hpp"
+#include "Components/Awaitable/Definitions.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <concepts>
@@ -21,7 +21,14 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Message::Extension {
+namespace Message::Application {
+//----------------------------------------------------------------------------------------------------------------------
+
+class Parcel;
+class Builder;
+
+//----------------------------------------------------------------------------------------------------------------------
+namespace Extension {
 //----------------------------------------------------------------------------------------------------------------------
 
 using Key = std::uint8_t;
@@ -29,14 +36,12 @@ class Base;
 class Awaitable;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Message::Extension namespace
+} // Extension namespace
+//----------------------------------------------------------------------------------------------------------------------
+} // Message::Application namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class ApplicationBuilder;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class Message::Extension::Base
+class Message::Application::Extension::Base
 {
 public:
 	Base() = default;
@@ -52,102 +57,101 @@ public:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class ApplicationMessage {
+class Message::Application::Parcel {
 public:
-	ApplicationMessage();
-	ApplicationMessage(ApplicationMessage const& other);
+	Parcel();
+	Parcel(Parcel const& other);
 
-	// ApplicationBuilder {
-	friend class ApplicationBuilder;
-	static ApplicationBuilder Builder();
-	// } ApplicationBuilder
+	// Message::Application::Builder {
+	friend class Builder;
+	static Builder GetBuilder();
+	// } Message::Application::Builder
 
-	MessageContext const& GetContext() const;
-
-	MessageHeader const& GetMessageHeader() const;
+	Context const& GetContext() const;
+	Header const& GetHeader() const;
 	Node::Identifier const& GetSourceIdentifier() const;
-	Message::Destination GetDestinationType() const;
+	Destination GetDestinationType() const;
 	std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
 
 	std::string const& GetRoute() const;
 	Message::Buffer const& GetPayload() const;
 
-	template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Extension::Base>
+	template<typename ExtensionType> requires std::derived_from<ExtensionType, Extension::Base>
 	std::optional<std::reference_wrapper<ExtensionType const>> GetExtension() const;
 
     std::size_t GetPackSize() const;
 	std::string GetPack() const;
-	Message::ShareablePack GetShareablePack() const;
-	Message::ValidationStatus Validate() const;
+	ShareablePack GetShareablePack() const;
+	ValidationStatus Validate() const;
 
 private:
 	constexpr std::size_t FixedPackSize() const;
 
-	MessageContext m_context; // The internal message context of the message
-	MessageHeader m_header; // The required message header 
+	Context m_context; // The internal message context of the message
+	Header m_header; // The required message header 
 
 	std::string m_route; // The application route
-	Message::Buffer m_payload;	// The message payload
+	Buffer m_payload;	// The message payload
 
-	std::map<Message::Extension::Key, std::unique_ptr<Message::Extension::Base>> m_extensions;
+	std::map<Extension::Key, std::unique_ptr<Extension::Base>> m_extensions;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class ApplicationBuilder {
+class Message::Application::Builder {
 public:
-	using OptionalMessage = std::optional<ApplicationMessage>;
+	using OptionalParcel = std::optional<Parcel>;
 
-	ApplicationBuilder();
+	Builder();
 
-	ApplicationBuilder& SetMessageContext(MessageContext const& context);
-	ApplicationBuilder& SetSource(Node::Identifier const& identifier);
-	ApplicationBuilder& SetSource(Node::Internal::Identifier const& identifier);
-	ApplicationBuilder& SetSource(std::string_view identifier);
-	ApplicationBuilder& MakeClusterMessage();
-	ApplicationBuilder& MakeNetworkMessage();
-	ApplicationBuilder& SetDestination(Node::Identifier const& identifier);
-	ApplicationBuilder& SetDestination(Node::Internal::Identifier const& identifier);
-	ApplicationBuilder& SetDestination(std::string_view identifier);
-	ApplicationBuilder& SetRoute(std::string_view const& route);
-	ApplicationBuilder& SetRoute(std::string&& route);
-	ApplicationBuilder& SetPayload(std::string_view buffer);
-	ApplicationBuilder& SetPayload(std::span<std::uint8_t const> buffer);
-	ApplicationBuilder& SetPayload(Message::Buffer&& buffer);
+	Builder& SetContext(Context const& context);
+	Builder& SetSource(Node::Identifier const& identifier);
+	Builder& SetSource(Node::Internal::Identifier const& identifier);
+	Builder& SetSource(std::string_view identifier);
+	Builder& MakeClusterMessage();
+	Builder& MakeNetworkMessage();
+	Builder& SetDestination(Node::Identifier const& identifier);
+	Builder& SetDestination(Node::Internal::Identifier const& identifier);
+	Builder& SetDestination(std::string_view identifier);
+	Builder& SetRoute(std::string_view route);
+	Builder& SetRoute(std::string&& route);
+	Builder& SetPayload(std::string_view buffer);
+	Builder& SetPayload(std::span<std::uint8_t const> buffer);
+	Builder& SetPayload(Message::Buffer&& buffer);
 
 	template<typename ExtensionType, typename... Arguments>
-		requires std::derived_from<ExtensionType, Message::Extension::Base>
-	ApplicationBuilder& BindExtension(Arguments&&... arguments);
+		requires std::derived_from<ExtensionType, Extension::Base>
+	Builder& BindExtension(Arguments&&... arguments);
 
-	template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Extension::Base>
-	ApplicationBuilder& BindExtension(std::unique_ptr<ExtensionType>&& upExtension);
+	template<typename ExtensionType> requires std::derived_from<ExtensionType, Extension::Base>
+	Builder& BindExtension(std::unique_ptr<ExtensionType>&& upExtension);
 
-	ApplicationBuilder& FromDecodedPack(std::span<std::uint8_t const> buffer);
-	ApplicationBuilder& FromEncodedPack(std::string_view pack);
+	Builder& FromDecodedPack(std::span<std::uint8_t const> buffer);
+	Builder& FromEncodedPack(std::string_view pack);
 
-    ApplicationMessage&& Build();
-    OptionalMessage ValidatedBuild();
+    Parcel&& Build();
+    OptionalParcel ValidatedBuild();
 
 private:
 	[[nodiscard]] bool Unpack(std::span<std::uint8_t const> buffer);
 	[[nodiscard]] bool UnpackExtensions(
 		Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end);
 
-    ApplicationMessage m_message;
+    Parcel m_parcel;
 	bool m_hasStageFailure;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Extension::Awaitable : public Message::Extension::Base
+class Message::Application::Extension::Awaitable : public Message::Application::Extension::Base
 {
 public:
-	static constexpr Message::Extension::Key Key = 0xae;
+	static constexpr Extension::Key Key = 0xae;
 	
 	enum Binding : std::uint8_t { Invalid, Request, Response };
 	
 	Awaitable();
-	Awaitable(Binding binding, Await::TrackerKey tracker);
+	Awaitable(Binding binding, ::Awaitable::TrackerKey tracker);
 
 	// Extension {
 	[[nodiscard]] virtual std::uint16_t GetKey() const override;
@@ -160,17 +164,17 @@ public:
 	// } Extension
 
 	[[nodiscard]] Binding const& GetBinding() const;
-	[[nodiscard]] Await::TrackerKey const& GetTracker() const;
+	[[nodiscard]] ::Awaitable::TrackerKey const& GetTracker() const;
 
 private:
 	Binding m_binding;
-	Await::TrackerKey m_tracker;
+	::Awaitable::TrackerKey m_tracker;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Extension::Base>
-std::optional<std::reference_wrapper<ExtensionType const>> ApplicationMessage::GetExtension() const
+template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Application::Extension::Base>
+std::optional<std::reference_wrapper<ExtensionType const>> Message::Application::Parcel::GetExtension() const
 {
 	if (auto const itr = m_extensions.find(ExtensionType::Key); itr != m_extensions.end()) {
 		auto const pExtension = dynamic_cast<ExtensionType const*>(itr->second.get());
@@ -183,20 +187,20 @@ std::optional<std::reference_wrapper<ExtensionType const>> ApplicationMessage::G
 //----------------------------------------------------------------------------------------------------------------------
 
 template<typename ExtensionType, typename... Arguments>
-	requires std::derived_from<ExtensionType, Message::Extension::Base>
-ApplicationBuilder& ApplicationBuilder::BindExtension(Arguments&&... arguments)
+	requires std::derived_from<ExtensionType, Message::Application::Extension::Base>
+Message::Application::Builder& Message::Application::Builder::BindExtension(Arguments&&... arguments)
 {
-	m_message.m_extensions.emplace(
+	m_parcel.m_extensions.emplace(
 		ExtensionType::Key, std::make_unique<ExtensionType>(std::forward<Arguments>(arguments)...));
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Extension::Base>
-ApplicationBuilder& ApplicationBuilder::BindExtension(std::unique_ptr<ExtensionType>&& upExtension)
+template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Application::Extension::Base>
+Message::Application::Builder& Message::Application::Builder::BindExtension(std::unique_ptr<ExtensionType>&& upExtension)
 {
-	m_message.m_extensions.emplace(ExtensionType::Key, std::move(upExtension));
+	m_parcel.m_extensions.emplace(ExtensionType::Key, std::move(upExtension));
 	return *this;
 }
 

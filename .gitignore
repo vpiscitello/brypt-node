@@ -10,6 +10,8 @@
 *.pipe
 *.nosync
 .vscode
+src/external
+src/build
 
 src/temp/*
 src/external/*

@@ -23,7 +23,7 @@ public:
     virtual bool SendRequest(
         Node::SharedIdentifier const& spSourceIdentifier,
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-        MessageContext const& context) const = 0;
+        Message::Context const& context) const = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

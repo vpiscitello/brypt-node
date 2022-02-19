@@ -60,7 +60,7 @@ public:
     virtual bool SendRequest(
         Node::SharedIdentifier const& spSourceIdentifier,
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-        MessageContext const& context) const override;
+        Message::Context const& context) const override;
     // } IConnectProtocol 
 
     bool CalledBy(Node::SharedIdentifier const& spNodeIdentifier) const;
@@ -210,7 +210,7 @@ local::ConnectProtocolStub::ConnectProtocolStub()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool local::ConnectProtocolStub::SendRequest(
-    Node::SharedIdentifier const& spSourceIdentifier, std::shared_ptr<Peer::Proxy> const&, MessageContext const&) const
+    Node::SharedIdentifier const& spSourceIdentifier, std::shared_ptr<Peer::Proxy> const&, Message::Context const&) const
 {
     m_callers.emplace_back(*spSourceIdentifier);
     return true;

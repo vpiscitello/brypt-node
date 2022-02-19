@@ -17,89 +17,85 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Message {
-namespace Network {
+namespace Message::Network {
 //----------------------------------------------------------------------------------------------------------------------
 
 enum class Type : std::uint8_t { Invalid, Handshake, HeartbeatRequest, HeartbeatResponse };
 
-//----------------------------------------------------------------------------------------------------------------------
-} // Network namespace 
-} // Message namespace
-//----------------------------------------------------------------------------------------------------------------------
-
-class NetworkBuilder;
+class Parcel;
+class Builder;
 
 //----------------------------------------------------------------------------------------------------------------------
+} // Message::Network namespace 
+//----------------------------------------------------------------------------------------------------------------------
 
-class NetworkMessage {
+class Message::Network::Parcel {
 public:
-	NetworkMessage();
-	NetworkMessage(NetworkMessage const& other);
+	Parcel();
+	Parcel(Parcel const& other);
 
 	// NetworkBuilder {
-	friend class NetworkBuilder;
-	static NetworkBuilder Builder();
+	friend class Message::Network::Builder;
+	static Message::Network::Builder GetBuilder();
 	// } NetworkBuilder
 
-	MessageContext const& GetContext() const;
+	Context const& GetContext() const;
 
-	MessageHeader const& GetMessageHeader() const;
+	Header const& GetHeader() const;
 	Node::Identifier const& GetSourceIdentifier() const;
 	Message::Destination GetDestinationType() const;
 	std::optional<Node::Identifier> const& GetDestinationIdentifier() const;
-	Message::Network::Type GetMessageType() const;
-	Message::Buffer const& GetPayload() const;
+	Network::Type GetType() const;
+	Buffer const& GetPayload() const;
 
     std::size_t GetPackSize() const;
 	std::string GetPack() const;
-	Message::ShareablePack GetShareablePack() const;
-	Message::ValidationStatus Validate() const;
+	ShareablePack GetShareablePack() const;
+	ValidationStatus Validate() const;
 
 private:
 	constexpr std::size_t FixedPackSize() const;
 
-	MessageContext m_context; // The internal message context of the message
-	MessageHeader m_header; // The required message header 
+	Context m_context; // The internal message context of the message
+	Header m_header; // The required message header 
 
-	Message::Network::Type m_type;
-	Message::Buffer m_payload;
+	Network::Type m_type;
+	Buffer m_payload;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class NetworkBuilder {
+class Message::Network::Builder {
 public:
-	using OptionalMessage = std::optional<NetworkMessage>;
+	using OptionalParcel = std::optional<Parcel>;
 
-	NetworkBuilder();
+	Builder();
 
-	NetworkBuilder& SetMessageContext(MessageContext const& context);
-	NetworkBuilder& SetSource(Node::Identifier const& identifier);
-	NetworkBuilder& SetSource(Node::Internal::Identifier const& identifier);
-	NetworkBuilder& SetSource(std::string_view identifier);
-	NetworkBuilder& SetDestination(Node::Identifier const& identifier);
-	NetworkBuilder& SetDestination(Node::Internal::Identifier const& identifier);
-	NetworkBuilder& SetDestination(std::string_view identifier);
-	NetworkBuilder& MakeHandshakeMessage();
-	NetworkBuilder& MakeHeartbeatRequest();
-	NetworkBuilder& MakeHeartbeatResponse();
-	NetworkBuilder& SetPayload(std::string_view buffer);
-	NetworkBuilder& SetPayload(std::span<std::uint8_t const> buffer);
+	Builder& SetContext(Context const& context);
+	Builder& SetSource(Node::Identifier const& identifier);
+	Builder& SetSource(Node::Internal::Identifier const& identifier);
+	Builder& SetSource(std::string_view identifier);
+	Builder& SetDestination(Node::Identifier const& identifier);
+	Builder& SetDestination(Node::Internal::Identifier const& identifier);
+	Builder& SetDestination(std::string_view identifier);
+	Builder& MakeHandshakeMessage();
+	Builder& MakeHeartbeatRequest();
+	Builder& MakeHeartbeatResponse();
+	Builder& SetPayload(std::string_view buffer);
+	Builder& SetPayload(std::span<std::uint8_t const> buffer);
 
-	NetworkBuilder& FromDecodedPack(std::span<std::uint8_t const> buffer);
-	NetworkBuilder& FromEncodedPack(std::string_view pack);
+	Builder& FromDecodedPack(std::span<std::uint8_t const> buffer);
+	Builder& FromEncodedPack(std::string_view pack);
 
-    NetworkMessage&& Build();
-    OptionalMessage ValidatedBuild();
+    Parcel&& Build();
+    OptionalParcel ValidatedBuild();
 
 private:
 	void Unpack(std::span<std::uint8_t const> buffer);
 	void UnpackExtensions(
-        std::span<std::uint8_t const>::iterator& begin,
-        std::span<std::uint8_t const>::iterator const& end);
+        std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end);
 
-    NetworkMessage m_message;
+    Parcel m_parcel;
 	bool m_hasStageFailure;
 };
 

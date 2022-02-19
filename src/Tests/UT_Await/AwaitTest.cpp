@@ -24,7 +24,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext GenerateMessageContext();
+Message::Context GenerateMessageContext();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -52,7 +52,7 @@ Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.
 
 TEST(ResponseTrackerSuite, SingleResponseTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -62,8 +62,8 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
         test::RemoteClientAddress,
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -74,8 +74,8 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -91,8 +91,8 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
     EXPECT_FALSE(bInitialSendSuccess);
     EXPECT_FALSE(optFulfilledResponse);
 
-    auto const optResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
@@ -116,7 +116,7 @@ TEST(ResponseTrackerSuite, SingleResponseTest)
 
 TEST(ResponseTrackerSuite, MultipleResponseTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -126,8 +126,8 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
         test::RemoteClientAddress, 
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -139,8 +139,8 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -160,24 +160,24 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
     EXPECT_FALSE(bInitialSendSuccess);
     EXPECT_FALSE(optFulfilledResponse);
 
-    auto const optServerResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optServerResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
-    auto const optPeerOneResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optPeerOneResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*spFirstIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
-    auto const optPeerTwoResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optPeerTwoResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*spSecondIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
@@ -203,7 +203,7 @@ TEST(ResponseTrackerSuite, MultipleResponseTest)
 
 TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -213,8 +213,8 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
         test::RemoteClientAddress,
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -225,8 +225,8 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -256,7 +256,7 @@ TEST(ResponseTrackerSuite, ExpiredNoResponsesTest)
 
 TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -266,8 +266,8 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
         test::RemoteClientAddress,
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -280,8 +280,8 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -301,16 +301,16 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_FALSE(bInitialSendSuccess);
     EXPECT_FALSE(optFulfilledResponse);
 
-    auto const optServerResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optServerResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
         .ValidatedBuild();
 
-    auto const optPeerTwoResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optPeerTwoResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*spSecondIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
@@ -338,7 +338,7 @@ TEST(ResponseTrackerSuite, ExpiredSomeResponsesTest)
 
 TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -348,8 +348,8 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
         test::RemoteClientAddress,
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -360,8 +360,8 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -379,8 +379,8 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
     EXPECT_TRUE(bInitialSendSuccess);
     EXPECT_TRUE(optFulfilledResponse);
 
-    auto const optLateResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optLateResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
@@ -395,7 +395,7 @@ TEST(ResponseTrackerSuite, ExpiredLateResponsesTest)
 
 TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -405,8 +405,8 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
         test::RemoteClientAddress,
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -417,8 +417,8 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -427,8 +427,8 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
     
     Await::ResponseTracker tracker(spClientPeer, *optRequest, test::spServerIdentifier);
 
-    auto const optUnexpectedResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optUnexpectedResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(0x12345678)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
@@ -447,7 +447,7 @@ TEST(ResponseTrackerSuite, UnexpectedResponsesTest)
 
 TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
     
     std::optional<ApplicationMessage> optFulfilledResponse = {};
     auto const spClientPeer = Peer::Proxy::CreateInstance(test::ClientIdentifier);
@@ -457,8 +457,8 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         test::RemoteClientAddress,
         [&context, &optFulfilledResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(context)
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(context)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);
@@ -469,8 +469,8 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
             return true;
         });
 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -486,31 +486,31 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
         spClientPeer, *optRequest, { test::spServerIdentifier, spFirstIdentifier, spSecondIdentifier });
     EXPECT_GT(key, std::uint32_t(0));
 
-    auto const optResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*test::spServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
-        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, key)
+        .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Response, key)
         .ValidatedBuild();
 
-    auto const optFirstResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optFirstResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*spFirstIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
-        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, key)
+        .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Response, key)
         .ValidatedBuild();
 
-    auto const optSecondResponse = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optSecondResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*spSecondIdentifier)
         .SetDestination(*test::spServerIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
         .SetPayload(test::Message)
-        .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, key)
+        .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Response, key)
         .ValidatedBuild();
     
     EXPECT_TRUE(manager.PushResponse(*optResponse));
@@ -523,9 +523,9 @@ TEST(TrackingManagerSuite, ProcessFulfilledResponseTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext local::GenerateMessageContext()
+Message::Context local::GenerateMessageContext()
 {
-    MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
+    Message::Context context(test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [] (auto const& buffer, auto) -> Security::Encryptor::result_type 

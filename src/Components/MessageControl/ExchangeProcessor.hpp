@@ -43,11 +43,11 @@ public:
 
     // IMessageSink {
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpProxy, MessageContext const& context, std::string_view buffer) override;
+        std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::string_view buffer) override;
         
     [[nodiscard]] virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
 
@@ -56,11 +56,11 @@ public:
 private:
     enum class ProcessStage : std::uint8_t { Invalid, Synchronization };
 
-    constexpr static TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
+    static constexpr TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
 
-    [[nodiscard]] bool HandleMessage(std::shared_ptr<Peer::Proxy> const& spProxy, NetworkMessage const& message);
+    [[nodiscard]] bool HandleMessage(std::shared_ptr<Peer::Proxy> const& spProxy, Message::Network::Parcel const& message);
     [[nodiscard]] bool HandleSynchronizationMessage(
-        std::shared_ptr<Peer::Proxy> const& spProxy, NetworkMessage const& message);
+        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Network::Parcel const& message);
 
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;

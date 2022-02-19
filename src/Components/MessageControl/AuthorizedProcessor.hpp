@@ -40,12 +40,12 @@ public:
     // IMessageSink {
     virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::string_view buffer) override;
         
     virtual bool CollectMessage(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        MessageContext const& context,
+        Message::Context const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
@@ -54,9 +54,9 @@ public:
 
 private:
     [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage&& message);
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Application::Parcel&& message);
     [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, NetworkMessage const& message);
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Network::Parcel const& message);
         
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     Node::SharedIdentifier m_spNodeIdentifier;

@@ -41,8 +41,8 @@ public:
     // take ownsership of both of these items. 
     using EncapsulationCallback = std::function<bool(Buffer&&, Buffer&&)>;
 
-    constexpr static std::size_t PublicKeySize = 930;
-    constexpr static std::size_t EncapsulationSize = 930;
+    static constexpr std::size_t PublicKeySize = 930;
+    static constexpr std::size_t EncapsulationSize = 930;
 
     explicit Context(std::string_view kem);
 
@@ -110,19 +110,19 @@ private:
 class Security::PQNISTL3::Strategy : public ISecurityStrategy
 {
 public:
-    constexpr static Security::Strategy Type = Security::Strategy::PQNISTL3;
+    static constexpr Security::Strategy Type = Security::Strategy::PQNISTL3;
 
-    constexpr static std::string_view KeyEncapsulationScheme = "NTRU-HPS-2048-677";
-    constexpr static std::string_view EncryptionScheme = "AES-256-CTR";
-    constexpr static std::string_view MessageAuthenticationScheme = "SHA384";
+    static constexpr std::string_view KeyEncapsulationScheme = "NTRU-HPS-2048-677";
+    static constexpr std::string_view EncryptionScheme = "AES-256-CTR";
+    static constexpr std::string_view MessageAuthenticationScheme = "SHA384";
 
     enum class InitiatorStage : std::uint8_t { Initialization, Complete };
     enum class AcceptorStage : std::uint8_t { Initialization, Verification, Complete };
-    constexpr static std::uint32_t InitiatorStages = 1; 
-    constexpr static std::uint32_t AcceptorStages = 2; 
+    static constexpr std::uint32_t InitiatorStages = 1; 
+    static constexpr std::uint32_t AcceptorStages = 2; 
     
-    constexpr static std::size_t PrincipalRandomSize = 32;
-    constexpr static std::size_t SignatureSize = 48;
+    static constexpr std::size_t PrincipalRandomSize = 32;
+    static constexpr std::size_t SignatureSize = 48;
 
     Strategy(Role role, Security::Context context);
 

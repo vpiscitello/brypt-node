@@ -28,7 +28,7 @@ MessageSinkStub::MessageSinkStub(Node::SharedIdentifier const& spNodeIdentifier)
 
 bool MessageSinkStub::CollectMessage(
 	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-	MessageContext const& context,
+	Message::Context const& context,
 	std::string_view buffer)
 {
     // Decode the buffer as it is expected to be encoded with Z85.
@@ -42,7 +42,7 @@ bool MessageSinkStub::CollectMessage(
 
 bool MessageSinkStub::CollectMessage(
 	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-	MessageContext const& context,
+	Message::Context const& context,
 	std::span<std::uint8_t const> buffer)
 {
     // Peek the protocol in the packed buffer. 
@@ -57,8 +57,8 @@ bool MessageSinkStub::CollectMessage(
 		// the queue if it is valid. 
         case Message::Protocol::Application: {
 			// Build the application message.
-			auto const optMessage = ApplicationMessage::Builder()
-				.SetMessageContext(context)
+			auto const optMessage = Message::Application::Parcel::GetBuilder()
+				.SetContext(context)
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
@@ -72,7 +72,7 @@ bool MessageSinkStub::CollectMessage(
 		}
 		// In the case of the network protocol, build a network message and process the message.
         case Message::Protocol::Network: {
-			auto const optRequest = NetworkMessage::Builder()
+			auto const optRequest = Message::Network::Parcel::GetBuilder()
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
@@ -83,7 +83,7 @@ bool MessageSinkStub::CollectMessage(
 			}
 
 			// Process the message dependent on the network message type.
-			switch (optRequest->GetMessageType()) {
+			switch (optRequest->GetType()) {
 				// In the case of a heartbeat request, build a heartbeat response and send it to
 				// the peer.
 				case Message::Network::Type::HeartbeatRequest: {
@@ -91,7 +91,7 @@ bool MessageSinkStub::CollectMessage(
 					m_bReceivedHeartbeatRequest = true;	
 
 					// Build the heartbeat response.
-					auto const optResponse = NetworkMessage::Builder()
+					auto const optResponse = Message::Network::Parcel::GetBuilder()
 						.MakeHeartbeatResponse()
 						.SetSource(*m_spNodeIdentifier)
 						.SetDestination(optRequest->GetSourceIdentifier())
@@ -170,7 +170,7 @@ void MessageSinkStub::Reset()
 
 bool MessageSinkStub::QueueMessage(
 	std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-	ApplicationMessage const& message)
+	Message::Application::Parcel const& message)
 {
 	std::scoped_lock lock(m_mutex);
 	m_incoming.emplace(AssociatedMessage{ wpPeerProxy, message });

@@ -71,15 +71,15 @@ DiscoveryProtocol::DiscoveryProtocol(Configuration::Options::Endpoints const& en
 bool DiscoveryProtocol::SendRequest(
     Node::SharedIdentifier const& spSourceIdentifier,
     std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-    MessageContext const& context) const
+    Message::Context const& context) const
 {
     assert(m_data.size() != 0);
 
     auto const spDestination = spPeerProxy->GetIdentifier();
     if (!spDestination) { return false; }
 
-    auto const optDiscoveryRequest = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optDiscoveryRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(*spSourceIdentifier)
         .SetDestination(*spDestination)
         .SetRoute(local::DiscoveryRoute)

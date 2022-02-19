@@ -14,16 +14,26 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
+namespace Message {
+//----------------------------------------------------------------------------------------------------------------------
+
+class Context;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Message namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------------------------------
 // Description: A class to describe various information about the message context local to the 
 // node itself. This information is not a part of the message, but determined by the endpoint
 // it was received or transmitted by. Currently, this is being used to identify which endpoint 
 // the a response should be forwarded to. This is needed because it is valid for a peer to be 
 // connected via multiple endpoints (e.g. connected as a server and a client).
 //----------------------------------------------------------------------------------------------------------------------
-class MessageContext {
+class Message::Context {
 public:
-	MessageContext();
-	MessageContext(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
+	Context();
+	Context(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
 	[[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
 	[[nodiscard]] Network::Protocol GetEndpointProtocol() const;

@@ -78,7 +78,7 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
     [[maybe_unused]] Network::RemoteAddress const& address,
     [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
 {
-    auto const optHeartbeatRequest = NetworkMessage::Builder()
+    auto const optHeartbeatRequest = Message::Network::Parcel::GetBuilder()
         .MakeHeartbeatRequest()
         .SetSource(*m_spNodeIdentifier)
         .ValidatedBuild();

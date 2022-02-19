@@ -19,7 +19,7 @@ namespace local {
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationMessage::ApplicationMessage()
+Message::Application::Parcel::Parcel()
 	: m_context()
 	, m_header()
 	, m_route()
@@ -30,7 +30,7 @@ ApplicationMessage::ApplicationMessage()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationMessage::ApplicationMessage(ApplicationMessage const& other)
+Message::Application::Parcel::Parcel(Parcel const& other)
 	: m_context(other.m_context)
 	, m_header(other.m_header)
 	, m_route(other.m_route)
@@ -44,42 +44,42 @@ ApplicationMessage::ApplicationMessage(ApplicationMessage const& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder ApplicationMessage::Builder() { return ApplicationBuilder{}; }
+Message::Application::Builder Message::Application::Parcel::GetBuilder() { return Builder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext const& ApplicationMessage::GetContext() const { return m_context; }
+Message::Context const& Message::Application::Parcel::GetContext() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageHeader const& ApplicationMessage::GetMessageHeader() const { return m_header; }
+Message::Header const& Message::Application::Parcel::GetHeader() const { return m_header; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& ApplicationMessage::GetSourceIdentifier() const { return m_header.GetSourceIdentifier(); }
+Node::Identifier const& Message::Application::Parcel::GetSourceIdentifier() const { return m_header.GetSourceIdentifier(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Destination ApplicationMessage::GetDestinationType() const { return m_header.GetDestinationType(); }
+Message::Destination Message::Application::Parcel::GetDestinationType() const { return m_header.GetDestinationType(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& ApplicationMessage::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& Message::Application::Parcel::GetDestinationIdentifier() const
 {
 	return m_header.GetDestinationIdentifier();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& ApplicationMessage::GetRoute() const { return m_route; }
+std::string const& Message::Application::Parcel::GetRoute() const { return m_route; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer const& ApplicationMessage::GetPayload() const { return m_payload; }
+Message::Buffer const& Message::Application::Parcel::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t ApplicationMessage::GetPackSize() const
+std::size_t Message::Application::Parcel::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
@@ -100,7 +100,7 @@ std::size_t ApplicationMessage::GetPackSize() const
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Pack the Message class values into a single raw string.
 //----------------------------------------------------------------------------------------------------------------------
-std::string ApplicationMessage::GetPack() const
+std::string Message::Application::Parcel::GetPack() const
 {
 	assert(m_context.HasSecurityHandlers()); 
 
@@ -150,14 +150,14 @@ std::string ApplicationMessage::GetPack() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::ShareablePack ApplicationMessage::GetShareablePack() const
+Message::ShareablePack Message::Application::Parcel::GetShareablePack() const
 {
 	return std::make_shared<std::string const>(GetPack());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::ValidationStatus ApplicationMessage::Validate() const
+Message::ValidationStatus Message::Application::Parcel::Validate() const
 {
 	using enum Message::ValidationStatus;
 
@@ -172,7 +172,7 @@ Message::ValidationStatus ApplicationMessage::Validate() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constexpr std::size_t ApplicationMessage::FixedPackSize() const
+constexpr std::size_t Message::Application::Parcel::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(std::uint16_t); // 2 byte for route size
@@ -184,135 +184,135 @@ constexpr std::size_t ApplicationMessage::FixedPackSize() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder::ApplicationBuilder()
-    : m_message()
+Message::Application::Builder::Builder()
+    : m_parcel()
 	, m_hasStageFailure(false)
 {
-	m_message.m_header.m_protocol = Message::Protocol::Application;
+	m_parcel.m_header.m_protocol = Message::Protocol::Application;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetMessageContext(MessageContext const& context)
+Message::Application::Builder& Message::Application::Builder::SetContext(Context const& context)
 {
-	m_message.m_context = context;
+	m_parcel.m_context = context;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetSource(Node::Identifier const& identifier)
+Message::Application::Builder& Message::Application::Builder::SetSource(Node::Identifier const& identifier)
 {
-	m_message.m_header.m_source = identifier;
+	m_parcel.m_header.m_source = identifier;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetSource(
+Message::Application::Builder& Message::Application::Builder::SetSource(
     Node::Internal::Identifier const& identifier)
 {
-	m_message.m_header.m_source = Node::Identifier(identifier);
+	m_parcel.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetSource(std::string_view identifier)
+Message::Application::Builder& Message::Application::Builder::SetSource(std::string_view identifier)
 {
-	m_message.m_header.m_source = Node::Identifier(identifier);
+	m_parcel.m_header.m_source = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::MakeClusterMessage()
+Message::Application::Builder& Message::Application::Builder::MakeClusterMessage()
 {
-	m_message.m_header.m_destination = Message::Destination::Cluster;
+	m_parcel.m_header.m_destination = Message::Destination::Cluster;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 
-ApplicationBuilder& ApplicationBuilder::MakeNetworkMessage()
+Message::Application::Builder& Message::Application::Builder::MakeNetworkMessage()
 {
-	m_message.m_header.m_destination = Message::Destination::Network;
+	m_parcel.m_header.m_destination = Message::Destination::Network;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetDestination(Node::Identifier const& identifier)
+Message::Application::Builder& Message::Application::Builder::SetDestination(Node::Identifier const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = identifier;
+	m_parcel.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetDestination(
+Message::Application::Builder& Message::Application::Builder::SetDestination(
     Node::Internal::Identifier const& identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
+	m_parcel.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetDestination(std::string_view identifier)
+Message::Application::Builder& Message::Application::Builder::SetDestination(std::string_view identifier)
 {
-	m_message.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
+	m_parcel.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetRoute(std::string_view const& route)
+Message::Application::Builder& Message::Application::Builder::SetRoute(std::string_view route)
 {
-	m_message.m_route = route;
+	m_parcel.m_route = route;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetRoute(std::string&& route)
+Message::Application::Builder& Message::Application::Builder::SetRoute(std::string&& route)
 {
-	m_message.m_route = std::move(route);
+	m_parcel.m_route = std::move(route);
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetPayload(std::string_view buffer)
+Message::Application::Builder& Message::Application::Builder::SetPayload(std::string_view buffer)
 {
     return SetPayload({ reinterpret_cast<std::uint8_t const*>(buffer.begin()), buffer.size() });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetPayload(std::span<std::uint8_t const> buffer)
+Message::Application::Builder& Message::Application::Builder::SetPayload(std::span<std::uint8_t const> buffer)
 {
     return SetPayload(Message::Buffer{ buffer.begin(), buffer.end() });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::SetPayload(Message::Buffer&& buffer)
+Message::Application::Builder& Message::Application::Builder::SetPayload(Message::Buffer&& buffer)
 {
-	m_message.m_payload = std::move(buffer);
+	m_parcel.m_payload = std::move(buffer);
     return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::FromDecodedPack(std::span<std::uint8_t const> buffer)
+Message::Application::Builder& Message::Application::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
-	assert(m_message.m_context.HasSecurityHandlers());
+	assert(m_parcel.m_context.HasSecurityHandlers());
 
     if (buffer.empty()) { return *this; }
 
-	bool const verified = m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success;
+	bool const verified = m_parcel.m_context.Verify(buffer) == Security::VerificationStatus::Success;
 	bool const success = verified && Unpack(buffer);
 	if (!success) { m_hasStageFailure = true; }
 
@@ -321,14 +321,14 @@ ApplicationBuilder& ApplicationBuilder::FromDecodedPack(std::span<std::uint8_t c
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
+Message::Application::Builder& Message::Application::Builder::FromEncodedPack(std::string_view pack)
 {
-	assert(m_message.m_context.HasSecurityHandlers());
+	assert(m_parcel.m_context.HasSecurityHandlers());
 
     if (pack.empty()) { m_hasStageFailure = true; return *this; }
     
 	auto const buffer = Z85::Decode(pack);
-	bool const verified = m_message.m_context.Verify(buffer) == Security::VerificationStatus::Success;
+	bool const verified = m_parcel.m_context.Verify(buffer) == Security::VerificationStatus::Success;
 	bool const success = verified && Unpack(buffer);
 	if (!success) { m_hasStageFailure = true; }
 
@@ -337,19 +337,19 @@ ApplicationBuilder& ApplicationBuilder::FromEncodedPack(std::string_view pack)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationMessage&& ApplicationBuilder::Build()
+Message::Application::Parcel&& Message::Application::Builder::Build()
 {
-	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize()); // Set the estimated message size.
-    return std::move(m_message);
+	m_parcel.m_header.m_size = static_cast<std::uint32_t>(m_parcel.GetPackSize()); // Set the estimated message size.
+    return std::move(m_parcel);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
+Message::Application::Builder::OptionalParcel Message::Application::Builder::ValidatedBuild()
 {
-	m_message.m_header.m_size = static_cast<std::uint32_t>(m_message.GetPackSize()); // Set the estimated message size.
-    if (m_hasStageFailure || m_message.Validate() != Message::ValidationStatus::Success) { return {}; }
-    return std::move(m_message);
+	m_parcel.m_header.m_size = static_cast<std::uint32_t>(m_parcel.GetPackSize()); // Set the estimated message size.
+    if (m_hasStageFailure || m_parcel.Validate() != Message::ValidationStatus::Success) { return {}; }
+    return std::move(m_parcel);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -357,26 +357,26 @@ ApplicationBuilder::OptionalMessage ApplicationBuilder::ValidatedBuild()
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //----------------------------------------------------------------------------------------------------------------------
-bool ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
+bool Message::Application::Builder::Unpack(std::span<std::uint8_t const> buffer)
 {
-	assert(m_message.m_context.HasSecurityHandlers()); 
+	assert(m_parcel.m_context.HasSecurityHandlers()); 
 
 	{
 		auto begin = buffer.begin();
 		auto end = buffer.end();
-		if (!m_message.m_header.ParseBuffer(begin, end)) { return false; }
+		if (!m_parcel.m_header.ParseBuffer(begin, end)) { return false; }
 	}
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_message.m_header.m_protocol != Message::Protocol::Application) { return false; }
+	if (m_parcel.m_header.m_protocol != Message::Protocol::Application) { return false; }
 
 	// Create a view of the encrypted portion of the application message. This will be from the end of the header to 
 	// the beginning of the signature. 
 	Security::ReadableView bufferview = { 
-		buffer.begin() + m_message.m_header.GetPackSize(),
-		buffer.size() - m_message.m_header.GetPackSize() - m_message.m_context.GetSignatureSize() };
+		buffer.begin() + m_parcel.m_header.GetPackSize(),
+		buffer.size() - m_parcel.m_header.GetPackSize() - m_parcel.m_context.GetSignatureSize() };
 
-	auto const optDecryptedBuffer = m_message.m_context.Decrypt(bufferview, m_message.m_header.GetTimestamp());
+	auto const optDecryptedBuffer = m_parcel.m_context.Decrypt(bufferview, m_parcel.m_header.GetTimestamp());
 	if (!optDecryptedBuffer) { return false; }
 
 	auto begin = optDecryptedBuffer->begin();
@@ -384,13 +384,13 @@ bool ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
 	{
 		std::uint16_t size = 0;
 		if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
-		if (!PackUtils::UnpackChunk(begin, end, m_message.m_route, size)) { return false; }
+		if (!PackUtils::UnpackChunk(begin, end, m_parcel.m_route, size)) { return false; }
 	}
  
 	{
 		std::uint32_t size = 0;
 		if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
-		if (!PackUtils::UnpackChunk(begin, end, m_message.m_payload, size)) { return false; }
+		if (!PackUtils::UnpackChunk(begin, end, m_parcel.m_payload, size)) { return false; }
 	}
 
 	std::uint8_t extensions = 0;
@@ -402,19 +402,19 @@ bool ApplicationBuilder::Unpack(std::span<std::uint8_t const> buffer)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ApplicationBuilder::UnpackExtensions(
+bool Message::Application::Builder::UnpackExtensions(
 	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end)
 {
-	using namespace Message::Extension;
+	using namespace Message;
 	while (begin != end) {
-		Key key = 0;
+		Extension::Key key = 0;
 		PackUtils::UnpackChunk(begin, end, key);
 
 		switch (key){
-			case Awaitable::Key: {
-				auto upExtension = std::make_unique<Awaitable>();
+			case Extension::Awaitable::Key: {
+				auto upExtension = std::make_unique<Extension::Awaitable>();
 				if (!upExtension->Unpack(begin, end)) { return false; }
-				m_message.m_extensions.emplace(Awaitable::Key, std::move(upExtension));
+				m_parcel.m_extensions.emplace(Extension::Awaitable::Key, std::move(upExtension));
 			} break;					
 			default: return false;
 		}
@@ -425,7 +425,7 @@ bool ApplicationBuilder::UnpackExtensions(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Extension::Awaitable::Awaitable()
+Message::Application::Extension::Awaitable::Awaitable()
 	: m_binding(Invalid)
 	, m_tracker(0)
 {
@@ -433,7 +433,7 @@ Message::Extension::Awaitable::Awaitable()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Extension::Awaitable::Awaitable(Binding binding, Await::TrackerKey tracker)
+Message::Application::Extension::Awaitable::Awaitable(Binding binding, ::Awaitable::TrackerKey tracker)
 	: m_binding(binding)
 	, m_tracker(tracker)
 {
@@ -441,11 +441,11 @@ Message::Extension::Awaitable::Awaitable(Binding binding, Await::TrackerKey trac
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint16_t Message::Extension::Awaitable::GetKey() const { return Key; }
+std::uint16_t Message::Application::Extension::Awaitable::GetKey() const { return Key; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Message::Extension::Awaitable::GetPackSize() const 
+std::size_t Message::Application::Extension::Awaitable::GetPackSize() const 
 {
 	std::size_t size = 0;
 	size += sizeof(Key); // 1 byte for the extension type
@@ -458,14 +458,14 @@ std::size_t Message::Extension::Awaitable::GetPackSize() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::unique_ptr<Message::Extension::Base> Message::Extension::Awaitable::Clone() const
+std::unique_ptr<Message::Application::Extension::Base> Message::Application::Extension::Awaitable::Clone() const
 {
 	return std::make_unique<Awaitable>(m_binding, m_tracker);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Message::Extension::Awaitable::Inject(Buffer& buffer) const
+void Message::Application::Extension::Awaitable::Inject(Buffer& buffer) const
 {
 	std::uint16_t const size = static_cast<std::uint16_t>(GetPackSize());
 	PackUtils::PackChunk(Key, buffer);
@@ -476,7 +476,7 @@ void Message::Extension::Awaitable::Inject(Buffer& buffer) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Message::Extension::Awaitable::Unpack(Buffer::const_iterator& begin, Buffer::const_iterator const& end)
+bool Message::Application::Extension::Awaitable::Unpack(Buffer::const_iterator& begin, Buffer::const_iterator const& end)
 {
 	std::uint16_t size = 0;
 	if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
@@ -500,14 +500,17 @@ bool Message::Extension::Awaitable::Unpack(Buffer::const_iterator& begin, Buffer
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Message::Extension::Awaitable::Validate() const { return m_binding != Invalid && m_tracker != 0; }
+bool Message::Application::Extension::Awaitable::Validate() const { return m_binding != Invalid && m_tracker != 0; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Extension::Awaitable::Binding const& Message::Extension::Awaitable::GetBinding() const { return m_binding; }
+Message::Application::Extension::Awaitable::Binding const& Message::Application::Extension::Awaitable::GetBinding() const
+{
+	return m_binding;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Await::TrackerKey const& Message::Extension::Awaitable::GetTracker() const { return m_tracker; }
+Awaitable::TrackerKey const& Message::Application::Extension::Awaitable::GetTracker() const { return m_tracker; }
 
 //----------------------------------------------------------------------------------------------------------------------

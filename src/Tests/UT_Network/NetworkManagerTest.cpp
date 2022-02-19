@@ -37,7 +37,7 @@ class EventObserver;
 class BootstrapCacheStub;
 
 using ConfigurationResources = std::pair<Configuration::Options::Endpoints, std::unique_ptr<IBootstrapCache>>;
-std::optional<ConfigurationResources> CreateConfigurationResources(std::string_view const& uri);
+std::optional<ConfigurationResources> CreateConfigurationResources(std::string_view uri);
 
 using TargetResources = std::tuple<
     std::unique_ptr<Network::IEndpoint>,
@@ -277,7 +277,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<local::ConfigurationResources> local::CreateConfigurationResources(std::string_view const& uri)
+std::optional<local::ConfigurationResources> local::CreateConfigurationResources(std::string_view uri)
 {
     Configuration::Options::Endpoints configured;
     {

@@ -14,7 +14,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy);
+Message::Context GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -129,13 +129,13 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
     // Verify that we can generate an initiator application pack that can be decrypted and verified by the acceptor. 
     std::string initiatorApplicationPack = [&] () -> std::string {
         auto const context = local::GenerateMessageContext(initiator);
-        auto const optApplicationMessage = ApplicationMessage::Builder()
-            .SetMessageContext(context)
+        auto const optMessage::Application::Parcel = Message::Application::Parcel::GetBuilder()
+            .SetContext(context)
             .SetSource(test::ClientIdentifier)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Request, test::TrackerKey)
+            .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Request, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -144,8 +144,8 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
 
     {
         auto const context = local::GenerateMessageContext(acceptor);
-        auto const optPackMessage = ApplicationMessage::Builder()
-            .SetMessageContext(context)
+        auto const optPackMessage = Message::Application::Parcel::GetBuilder()
+            .SetContext(context)
             .FromEncodedPack(initiatorApplicationPack)
             .ValidatedBuild();
         ASSERT_TRUE(optPackMessage);
@@ -155,9 +155,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
 
-        auto const optAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
+        auto const optAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
-        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Request);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Request);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
         auto const buffer = optPackMessage->GetPayload();
@@ -168,13 +168,13 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
     // Verify that we can generate an acceptor application pack that can be decrypted and verified by the initiator. 
     std::string acceptorApplicationPack = [&] () -> std::string {
         auto const context = local::GenerateMessageContext(acceptor);
-        auto const optApplicationMessage = ApplicationMessage::Builder()
-            .SetMessageContext(context)
+        auto const optMessage::Application::Parcel = Message::Application::Parcel::GetBuilder()
+            .SetContext(context)
             .SetSource(test::ClientIdentifier)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindExtension<Message::Extension::Awaitable>(Message::Extension::Awaitable::Response, test::TrackerKey)
+            .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Response, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -183,8 +183,8 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
 
     {
         auto const context = local::GenerateMessageContext(initiator);
-        auto const optPackMessage = ApplicationMessage::Builder()
-            .SetMessageContext(context)
+        auto const optPackMessage = Message::Application::Parcel::GetBuilder()
+            .SetContext(context)
             .FromEncodedPack(acceptorApplicationPack)
             .ValidatedBuild();
         ASSERT_TRUE(optPackMessage);
@@ -194,9 +194,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         EXPECT_EQ(optPackMessage->GetDestinationIdentifier(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
 
-        auto const optAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
+        auto const optAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
-        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Response);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Response);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
         auto const buffer = optPackMessage->GetPayload();
@@ -207,9 +207,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext local::GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy)
+Message::Context local::GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy)
 {
-    MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
+    Message::Context context(test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [&strategy] (auto const& buffer, auto nonce) -> Security::Encryptor::result_type { 

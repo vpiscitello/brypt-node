@@ -17,7 +17,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext GenerateMessageContext();
+Message::Context GenerateMessageContext();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -40,17 +40,17 @@ constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
 
 TEST(MessageHeaderSuite, ApplicationConstructorTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
-    auto const optMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    MessageHeader const header = optMessage->GetMessageHeader();
+    Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
@@ -63,17 +63,17 @@ TEST(MessageHeaderSuite, ApplicationConstructorTest)
 
 TEST(MessageHeaderSuite, ApplicationPackTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
-    auto const optBaseMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optBaseMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
-    MessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    Message::Header const baseHeader = optBaseMessage->GetHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
@@ -83,13 +83,13 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optPackMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    MessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    Message::Header const packHeader = optPackMessage->GetHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
@@ -102,14 +102,14 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
 
 TEST(MessageHeaderSuite, NetworkConstructorTest)
 {
-    auto const optMessage = NetworkMessage::Builder()
+    auto const optMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    MessageHeader const header = optMessage->GetMessageHeader();
+    Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Network);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
@@ -122,14 +122,14 @@ TEST(MessageHeaderSuite, NetworkConstructorTest)
 
 TEST(MessageHeaderSuite, NetworkPackTest)
 {
-    auto const optBaseMessage = NetworkMessage::Builder()
+    auto const optBaseMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
-    MessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    Message::Header const baseHeader = optBaseMessage->GetHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Network);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
@@ -139,12 +139,12 @@ TEST(MessageHeaderSuite, NetworkPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = NetworkMessage::Builder()
+    auto const optPackMessage = Message::Network::Parcel::GetBuilder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    MessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    Message::Header const packHeader = optPackMessage->GetHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
@@ -157,17 +157,17 @@ TEST(MessageHeaderSuite, NetworkPackTest)
 
 TEST(MessageHeaderSuite, ClusterDestinationTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
-    auto const optMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetRoute(test::RequestRoute)
         .MakeClusterMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    MessageHeader const header = optMessage->GetMessageHeader();
+    Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Cluster);
@@ -179,17 +179,17 @@ TEST(MessageHeaderSuite, ClusterDestinationTest)
 
 TEST(MessageHeaderSuite, NetworkDestinationTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
-    auto const optMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetRoute(test::RequestRoute)
         .MakeNetworkMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
-    MessageHeader const header = optMessage->GetMessageHeader();
+    Message::Header const header = optMessage->GetHeader();
     EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(header.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Network);
@@ -201,17 +201,17 @@ TEST(MessageHeaderSuite, NetworkDestinationTest)
 
 TEST(MessageHeaderSuite, ClusterPackTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
 
-    auto const optBaseMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optBaseMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetRoute(test::RequestRoute)
         .MakeClusterMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optBaseMessage);
 
-    MessageHeader const baseHeader = optBaseMessage->GetMessageHeader();
+    Message::Header const baseHeader = optBaseMessage->GetHeader();
     EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Application);
     EXPECT_EQ(baseHeader.GetSourceIdentifier(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Cluster);
@@ -220,13 +220,13 @@ TEST(MessageHeaderSuite, ClusterPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optPackMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    MessageHeader const packHeader = optPackMessage->GetMessageHeader();
+    Message::Header const packHeader = optPackMessage->GetHeader();
     EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
     EXPECT_EQ(packHeader.GetSourceIdentifier(), baseHeader.GetSourceIdentifier());
     EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
@@ -238,9 +238,9 @@ TEST(MessageHeaderSuite, ClusterPackTest)
 
 TEST(MessageHeaderSuite, PeekProtocolTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
     
-    auto const optNetworkMessage = NetworkMessage::Builder()
+    auto const optNetworkMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -253,8 +253,8 @@ TEST(MessageHeaderSuite, PeekProtocolTest)
     ASSERT_TRUE(optNetworkProtocol);
     EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Network);
 
-    auto const optApplicationMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optApplicationMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
@@ -299,9 +299,9 @@ TEST(MessageHeaderSuite, PeekProtocolEmptyBufferTest)
 
 TEST(MessageHeaderSuite, PeekSizeTest)
 {
-    MessageContext const context = local::GenerateMessageContext();
+    Message::Context const context = local::GenerateMessageContext();
     
-    auto const optNetworkMessage = NetworkMessage::Builder()
+    auto const optNetworkMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -314,8 +314,8 @@ TEST(MessageHeaderSuite, PeekSizeTest)
     ASSERT_TRUE(optNetworkSize);
     EXPECT_EQ(*optNetworkSize, optNetworkMessage->GetPack().size());
 
-    auto const optApplicationMessage = ApplicationMessage::Builder()
-        .SetMessageContext(context)
+    auto const optApplicationMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
@@ -351,7 +351,7 @@ TEST(MessageHeaderSuite, PeekSizeEmptyBufferTest)
 
 TEST(MessageHeaderSuite, PeekSourceTest)
 {
-    auto const optMessage = NetworkMessage::Builder()
+    auto const optMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -421,9 +421,9 @@ TEST(MessageHeaderSuite, PeekSourceEmptyBufferTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext local::GenerateMessageContext()
+Message::Context local::GenerateMessageContext()
 {
-    MessageContext context(test::EndpointIdentifier, test::EndpointProtocol);
+    Message::Context context(test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [] (auto const& buffer, auto) -> Security::Encryptor::result_type 

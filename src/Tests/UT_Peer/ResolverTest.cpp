@@ -87,11 +87,11 @@ public:
 
     // IMessageSink {
     virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::string_view buffer) override
+        std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::string_view buffer) override
         { m_pack = std::string(buffer.begin(), buffer.end()); return true; }
         
     virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, MessageContext const&, std::span<std::uint8_t const>) override
+        std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::span<std::uint8_t const>) override
         { return false; }
     // } IMessageSink
     
@@ -152,7 +152,7 @@ TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
 
-    auto const optMessage = NetworkMessage::Builder()
+    auto const optMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -186,7 +186,7 @@ TEST(PeerResolverSuite, SuccessfulExchangeTest)
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
 
-    auto const optMessage = NetworkMessage::Builder()
+    auto const optMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -222,7 +222,7 @@ TEST(PeerResolverSuite, FailedExchangeTest)
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, {});
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
     
-    auto const optMessage = NetworkMessage::Builder()
+    auto const optMessage = Message::Network::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)

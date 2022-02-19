@@ -30,7 +30,7 @@ public:
     virtual bool SendRequest(
         Node::SharedIdentifier const& spSourceIdentifier,
         std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-        MessageContext const& context) const override;
+        Message::Context const& context) const override;
     // } IConnectProtocol
 
 private:

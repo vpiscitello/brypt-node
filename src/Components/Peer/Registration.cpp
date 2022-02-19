@@ -20,7 +20,7 @@ Peer::Registration::Registration(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext const& Peer::Registration::GetMessageContext() const { return m_context; }
+Message::Context const& Peer::Registration::GetMessageContext() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

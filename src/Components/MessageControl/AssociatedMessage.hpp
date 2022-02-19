@@ -14,6 +14,6 @@ namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-using AssociatedMessage = std::pair<std::weak_ptr<Peer::Proxy>, ApplicationMessage>;
+using AssociatedMessage = std::pair<std::weak_ptr<Peer::Proxy>, Message::Application::Parcel>;
 
 //----------------------------------------------------------------------------------------------------------------------

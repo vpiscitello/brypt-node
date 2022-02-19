@@ -111,8 +111,8 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     ASSERT_TRUE(optMessageContext);
     
     // Generate an application message to represent a request sent from a client. 
-    auto const optRequest = ApplicationMessage::Builder()
-        .SetMessageContext(*optMessageContext)
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(*optMessageContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetCommand(test::Handler, test::RequestPhase)
@@ -137,8 +137,8 @@ TEST(AuthorizedProcessorSuite, SingleMessageCollectionTest)
     EXPECT_EQ(optRequest->GetPack(), request.GetPack());
 
     // Build an application message to represent the response to the client's request.
-    auto const optResponse = ApplicationMessage::Builder()
-        .SetMessageContext(*optMessageContext)
+    auto const optResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(*optMessageContext)
         .SetSource(*test::ServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetCommand(test::Handler, test::ResponsePhase)
@@ -184,8 +184,8 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
     // Use the processor to collect several messages to verify they are queued correctly. 
     for (std::uint32_t count = 0; count < test::Iterations; ++count) {
         // Generate an application message to represent a request sent from a client. 
-        auto const optRequest = ApplicationMessage::Builder()
-            .SetMessageContext(*optMessageContext)
+        auto const optRequest = Message::Application::Parcel::GetBuilder()
+            .SetContext(*optMessageContext)
             .SetSource(test::ClientIdentifier)
             .SetDestination(*test::ServerIdentifier)
             .SetCommand(test::Handler, test::RequestPhase)
@@ -211,8 +211,8 @@ TEST(AuthorizedProcessorSuite, MultipleMessageCollectionTest)
         auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
 
         // Build an application message to represent the response to the client's request.
-        auto const optResponse = ApplicationMessage::Builder()
-            .SetMessageContext(*optMessageContext)
+        auto const optResponse = Message::Application::Parcel::GetBuilder()
+            .SetContext(*optMessageContext)
             .SetSource(*test::ServerIdentifier)
             .SetDestination(test::ClientIdentifier)
             .SetCommand(test::Handler, test::ResponsePhase)
@@ -247,8 +247,8 @@ Peer::Registration local::GenerateCaptureRegistration(
         test::RemoteClientAddress,
         [&optCapturedMessage, getMessageContext] (auto const&, auto&& message) -> bool
         {
-            auto const optMessage = ApplicationMessage::Builder()
-                .SetMessageContext(*getMessageContext())
+            auto const optMessage = Message::Application::Parcel::GetBuilder()
+                .SetContext(*getMessageContext())
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             EXPECT_TRUE(optMessage);

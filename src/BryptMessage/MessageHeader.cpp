@@ -28,7 +28,7 @@ Message::Destination UnpackDestination(
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageHeader::MessageHeader()
+Message::Header::Header()
     : m_protocol(Message::Protocol::Invalid)
     , m_version()
     , m_size(0)
@@ -41,38 +41,38 @@ MessageHeader::MessageHeader()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Protocol MessageHeader::GetMessageProtocol() const { return m_protocol; }
+Message::Protocol Message::Header::GetMessageProtocol() const { return m_protocol; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Version const& MessageHeader::GetVersion() const { return m_version; }
+Message::Version const& Message::Header::GetVersion() const { return m_version; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint32_t MessageHeader::GetMessageSize() const { return m_size; }
+std::uint32_t Message::Header::GetMessageSize() const { return m_size; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& MessageHeader::GetSourceIdentifier() const { return m_source; }
+Node::Identifier const& Message::Header::GetSourceIdentifier() const { return m_source; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Destination MessageHeader::GetDestinationType() const { return m_destination; }
+Message::Destination Message::Header::GetDestinationType() const { return m_destination; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& MessageHeader::GetDestinationIdentifier() const
+std::optional<Node::Identifier> const& Message::Header::GetDestinationIdentifier() const
 {
     return m_optDestinationIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TimeUtils::Timestamp const& MessageHeader::GetTimestamp() const { return m_timestamp; }
+TimeUtils::Timestamp const& Message::Header::GetTimestamp() const { return m_timestamp; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t MessageHeader::GetPackSize() const
+std::size_t Message::Header::GetPackSize() const
 {
     std::size_t size = FixedPackSize();
     size += m_source.Size();
@@ -83,7 +83,7 @@ std::size_t MessageHeader::GetPackSize() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer MessageHeader::GetPackedBuffer() const
+Message::Buffer Message::Header::GetPackedBuffer() const
 {
 	Message::Buffer buffer;
 	buffer.reserve(GetPackSize());
@@ -129,7 +129,7 @@ Message::Buffer MessageHeader::GetPackedBuffer() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool MessageHeader::IsValid() const
+bool Message::Header::IsValid() const
 {	
 	if (m_protocol == Message::Protocol::Invalid) { return false; } // A header must identify a valid message protocol
 	if (m_size == 0) { return false; } // A header must contain the size of the message. This msut be non-zero.
@@ -140,7 +140,7 @@ bool MessageHeader::IsValid() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool MessageHeader::ParseBuffer(
+bool Message::Header::ParseBuffer(
     std::span<std::uint8_t const>::iterator& begin,
     std::span<std::uint8_t const>::iterator const& end)
 {

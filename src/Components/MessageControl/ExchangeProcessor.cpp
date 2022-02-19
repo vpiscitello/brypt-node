@@ -44,7 +44,7 @@ ExchangeProcessor::ExchangeProcessor(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, MessageContext const& context, std::string_view buffer)
+	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::string_view buffer)
 {
     // If the exchange has been invalidated do not process the message.
     if (m_stage == ProcessStage::Invalid) { return false; }
@@ -60,7 +60,7 @@ bool ExchangeProcessor::CollectMessage(
 
 bool ExchangeProcessor::CollectMessage(
 	std::weak_ptr<Peer::Proxy> const& wpProxy,
-    MessageContext const& context,
+    Message::Context const& context,
 	std::span<std::uint8_t const> buffer)
 {
     // If the exchange has been invalidated do not process the message.
@@ -80,13 +80,13 @@ bool ExchangeProcessor::CollectMessage(
     }
 
     // Attempt to unpack the buffer into the handshake message.
-    auto const optMessage = NetworkMessage::Builder()
-        .SetMessageContext(context)
+    auto const optMessage = Message::Network::Parcel::GetBuilder()
+        .SetContext(context)
         .FromDecodedPack(buffer)
         .ValidatedBuild();
 
     // If the message could not be unpacked, the message cannot be handled any further. 
-    if (!optMessage || optMessage->GetMessageType() != Message::Network::Type::Handshake) { return false; }
+    if (!optMessage || optMessage->GetType() != Message::Network::Type::Handshake) { return false; }
 
     // The message may only be handled if the associated peer can be acquired. 
     if (auto const spProxy = wpProxy.lock(); spProxy)  [[likely]] { return HandleMessage(spProxy, *optMessage); }
@@ -108,7 +108,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 
     if (buffer.size() == 0) { return { true, "" }; }
 
-    auto const optRequest = NetworkMessage::Builder()
+    auto const optRequest = Message::Network::Parcel::GetBuilder()
         .SetSource(*m_spSource)
         .MakeHandshakeMessage()
         .SetPayload(std::move(buffer))
@@ -120,7 +120,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleMessage(
-    std::shared_ptr<Peer::Proxy> const& spProxy, NetworkMessage const& message)
+    std::shared_ptr<Peer::Proxy> const& spProxy, Message::Network::Parcel const& message)
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
@@ -141,7 +141,7 @@ bool ExchangeProcessor::HandleMessage(
 
 bool ExchangeProcessor::HandleSynchronizationMessage(
     std::shared_ptr<Peer::Proxy> const& spProxy,
-    NetworkMessage const& message)
+    Message::Network::Parcel const& message)
 {
     assert(m_spSource && m_upStrategy);
 
@@ -154,14 +154,14 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
     // or the type is not a node destination return an error. 
     if (message.GetDestinationType() != Message::Destination::Node) { return false; }
 
-    MessageContext const& context = message.GetContext();
+    Message::Context const& context = message.GetContext();
 
     // If synchronization indicated an additional message needs to be transmitted, build 
     // the response and send it through the peer. 
     if (buffer.size() != 0) {
         // Build a response to the message from the synchronization result of the strategy. 
-        auto const optResponse = NetworkMessage::Builder()
-            .SetMessageContext(context)
+        auto const optResponse = Message::Network::Parcel::GetBuilder()
+            .SetContext(context)
             .SetSource(*m_spSource)
             .SetDestination(message.GetSourceIdentifier())
             .MakeHandshakeMessage()
