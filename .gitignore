@@ -9,7 +9,10 @@
 *.pem
 *.pipe
 *.nosync
+*.tmp*
+out
 .vscode
+.vs
 src/external
 src/build
 
