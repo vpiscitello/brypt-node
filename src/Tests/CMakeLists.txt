@@ -2,7 +2,7 @@
 include(GoogleTest)
 #-----------------------------------------------------------------------------------------------------------------------
 if(NOT SKIP_BINARY)
-    add_subdirectory(UT_Await)
+    add_subdirectory(UT_Awaitable)
     add_subdirectory(UT_BryptIdentifier)
     add_subdirectory(UT_BryptMessage)
     add_subdirectory(UT_Configuration)

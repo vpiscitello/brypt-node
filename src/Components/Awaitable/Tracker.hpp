@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: ResponseTracker.hpp
+// File: Tracker.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -23,83 +23,84 @@
 namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Await {
+namespace Awaitable {
 //----------------------------------------------------------------------------------------------------------------------
 
-struct ResponseEntry;
-class ResponseTracker;
+class ITracker;
+class AggregateTracker;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Await namespace
+} // Awaitable namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description:
-//----------------------------------------------------------------------------------------------------------------------
-
-struct Await::ResponseEntry
+class Awaitable::ITracker
 {
-    ResponseEntry(
-        Node::SharedIdentifier const& spNodeIdentifier,
-        std::string_view pack)
-        : identifier(spNodeIdentifier)
-        , pack(pack)
-    {
-        assert(spNodeIdentifier);
-    }
+public:
+    static constexpr auto ExpirationPeriod = std::chrono::milliseconds{ 1'500 };
 
-    Node::Internal::Identifier GetPeerIdentifier() const{ return *identifier; }
+    enum class Status : std::uint8_t { Unfulfilled, Fulfilled, Completed };
+    enum class UpdateResult : std::uint8_t { Expired, Unexpected, Success, Fulfilled };
 
-    Node::SharedIdentifier const identifier;
-    std::string pack;
+    virtual ~ITracker() = default;
+
+    [[nodiscard]] Status CheckStatus();
+    [[nodiscard]] std::size_t GetExpected() const;
+    [[nodiscard]] std::size_t GetReceived() const;
+
+    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) = 0;
+    [[nodiscard]] virtual bool Fulfill() = 0;
+
+protected:
+    explicit ITracker(std::size_t expected);
+
+    Status m_status;
+    std::size_t m_expected;
+    std::size_t m_received;
+    TimeUtils::Timepoint const m_expire;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description:
-//----------------------------------------------------------------------------------------------------------------------
-class Await::ResponseTracker
+class Awaitable::AggregateTracker : public Awaitable::ITracker
 {
 public:
-    constexpr static auto const ExpirationPeriod = std::chrono::milliseconds(1500);
-
-    ResponseTracker(
+    AggregateTracker(
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
-        ApplicationMessage const& request,
-        Node::SharedIdentifier const& spPeerIdentifier);
+        Message::Application::Parcel const& request,
+        std::vector<Node::SharedIdentifier> const& identifiers);
 
-    ResponseTracker(
-        std::weak_ptr<Peer::Proxy> const& wpRequestor,
-        ApplicationMessage const& request,
-        std::set<Node::SharedIdentifier> const& identifiers);
-
-    Node::Identifier GetSource() const;
-    Await::UpdateStatus UpdateResponse(ApplicationMessage const& response);
-    Await::ResponseStatus CheckResponseStatus();
-    std::uint32_t GetResponseCount() const;
-
-    bool SendFulfilledResponse();
+    // ITracker {
+    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) override;
+    [[nodiscard]] virtual bool Fulfill() override;
+    // } ITracker
 
 private:
-    using ResponseContainer = boost::multi_index_container<
-        ResponseEntry,
+    class Entry {
+    public:
+        Entry(Node::SharedIdentifier const& spNodeIdentifier, std::string_view pack);
+        
+        [[nodiscard]] Node::SharedIdentifier const& GetIdentifier() const;
+        [[nodiscard]] Node::Internal::Identifier const& GetInternalIdentifier() const;
+
+        [[nodiscard]] std::string const& GetPack() const;
+        [[nodiscard]] bool IsEmpty() const;
+        void SetPack(std::string const& pack);
+
+    private:
+        Node::SharedIdentifier const m_spIdentifier;
+        std::string m_pack;
+    };
+
+    using Responses = boost::multi_index_container<
+        Entry,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<
                 boost::multi_index::const_mem_fun<
-                    ResponseEntry,
-                    Node::Internal::Identifier,
-                    &ResponseEntry::GetPeerIdentifier>>>>;
-
-    Await::ResponseStatus m_status;
-    std::uint32_t m_expected;
-    std::uint32_t m_received;
+                    Entry, Node::Internal::Identifier const&, &Entry::GetInternalIdentifier>>>>;
 
     std::weak_ptr<Peer::Proxy> m_wpRequestor;
-    ApplicationMessage const m_request;
-    ResponseContainer m_responses;
-
-    TimeUtils::Timepoint const m_expire;
+    Message::Application::Parcel const m_request;
+    Responses m_responses;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

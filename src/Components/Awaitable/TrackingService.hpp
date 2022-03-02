@@ -1,13 +1,15 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: TrackingManager.hpp
+// File: TrackingService.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "AwaitDefinitions.hpp"
-#include "ResponseTracker.hpp"
+#include "Definitions.hpp"
+#include "Tracker.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <functional>
 #include <set>
 #include <string_view>
 #include <unordered_map>
@@ -23,47 +25,47 @@ namespace Scheduler {
     class Registrar;
 }
 
-class ApplicationMessage;
+namespace Message::Application { class Parcel; }
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Await {
+namespace Awaitable {
 //----------------------------------------------------------------------------------------------------------------------
 
-class TrackingManager;
+class TrackingService;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Await namespace
+} // Awaitable namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-class Await::TrackingManager
+class Awaitable::TrackingService
 {
 public:
-    explicit TrackingManager(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
-    ~TrackingManager();
+    explicit TrackingService(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
+    ~TrackingService();
 
-    TrackerKey PushRequest(
+    [[nodiscard]] std::optional<TrackerKey> StageDeferred(
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
-        ApplicationMessage const& message,
-        Node::SharedIdentifier const& spIdentifier);
+        std::vector<Node::SharedIdentifier> const& identifiers,
+        Message::Application::Parcel const& deferred,
+        Message::Application::Builder& builder);
 
-    TrackerKey PushRequest(
-        std::weak_ptr<Peer::Proxy> const& wpRequestor,
-        ApplicationMessage const& message,
-        std::set<Node::SharedIdentifier> const& spIdentifier);
-
-    bool PushResponse(ApplicationMessage const& message);
-    [[nodiscard]] std::size_t ProcessFulfilledRequests();
+    [[nodiscard]] bool Process(Message::Application::Parcel const& message);
+    [[nodiscard]] std::size_t Execute();
 
 private:
-    using ResponseTrackingMap = std::unordered_map<TrackerKey, ResponseTracker>;
+    struct KeyHasher {
+       [[nodiscard]] std::size_t operator()(TrackerKey const& key) const;
+    };
 
-    TrackerKey KeyGenerator(std::string_view pack) const;
+    using ActiveTrackers = std::unordered_map<TrackerKey, std::unique_ptr<ITracker>, KeyHasher>;
+
+    [[nodiscard]] std::optional<TrackerKey> GenerateKey(Node::Identifier const& identifier) const;
 
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
-    ResponseTrackingMap m_awaiting;
+    ActiveTrackers m_trackers;
     std::shared_ptr<spdlog::logger> m_logger;
 };
 

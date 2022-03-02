@@ -6,7 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
-#include "Components/Await/TrackingManager.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/State/NetworkState.hpp"
 #include "Components/State/NodeState.hpp"

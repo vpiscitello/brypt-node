@@ -7,7 +7,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "Components/Await/TrackingManager.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
@@ -39,10 +39,10 @@ Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     , m_spSecurityState()
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
+    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
     , m_spNetworkManager()
     , m_spPeerManager()
     , m_spMessageProcessor()
-    , m_spAwaitManager(std::make_shared<Await::TrackingManager>(m_spScheduler))
     , m_spBootstrapService()
     , m_handlers()
     , m_initialized(false)
@@ -67,10 +67,10 @@ Node::Core::Core(
     , m_spSecurityState()
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
+    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
     , m_spNetworkManager()
     , m_spPeerManager()
     , m_spMessageProcessor()
-    , m_spAwaitManager(std::make_shared<Await::TrackingManager>(m_spScheduler))
     , m_spBootstrapService()
     , m_handlers()
     , m_initialized(false)
@@ -221,6 +221,10 @@ std::weak_ptr<Event::Publisher> Node::Core::GetEventPublisher() const { return m
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::weak_ptr<Awaitable::TrackingService> Node::Core::GetTrackingService() const { return m_spTrackingService; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::weak_ptr<Network::Manager> Node::Core::GetNetworkManager() const { return m_spNetworkManager; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -230,10 +234,6 @@ std::weak_ptr<Peer::Manager> Node::Core::GetPeerManager() const { return m_spPee
 //----------------------------------------------------------------------------------------------------------------------
 
 std::weak_ptr<BootstrapService> Node::Core::GetBootstrapService() const { return m_spBootstrapService; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::weak_ptr<Await::TrackingManager> Node::Core::GetAwaitManager() const { return m_spAwaitManager; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

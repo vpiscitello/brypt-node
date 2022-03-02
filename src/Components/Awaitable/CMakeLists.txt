@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Await Static Library...")
+message(STATUS "Configuring Awaitable Static Library...")
 #-----------------------------------------------------------------------------------------------------------------------
-project(Await LANGUAGES CXX)
+project(Awaitable LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -11,8 +11,8 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
-    ResponseTracker.cpp
-    TrackingManager.cpp)
+    Tracker.cpp
+    TrackingService.cpp)
 
 # Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})

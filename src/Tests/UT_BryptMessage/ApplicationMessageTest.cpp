@@ -31,8 +31,13 @@ Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 constexpr std::string_view RequestRoute = "/request";
 constexpr std::string_view Data = "Hello World!";
 
-constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
-constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
+constexpr Network::Endpoint::Identifier EndpointIdentifier = 1;
+constexpr Network::Protocol EndpointProtocol = Network::Protocol::TCP;
+
+constexpr Awaitable::TrackerKey TrackerKey = {
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+    0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -106,7 +111,6 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
 TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 {
     Message::Context const context = local::GenerateMessageContext();
-    Awaitable::TrackerKey const tracker = 0x89ABCDEF;
 
     auto const optRequest = Message::Application::Parcel::GetBuilder()
         .SetContext(context)
@@ -115,7 +119,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, tracker)
+            Message::Application::Extension::Awaitable::Request, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optRequest);
 
@@ -127,7 +131,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         auto const optAwaitable = optRequest->GetExtension<Message::Application::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
         EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Request);
-        EXPECT_EQ(optAwaitable->get().GetTracker(), tracker);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
     }
 
     auto const requestBuffer = optRequest->GetPayload();
@@ -144,7 +148,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, tracker)
+            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
@@ -156,7 +160,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         auto const optAwaitable = optResponse->GetExtension<Message::Application::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
         EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Response);
-        EXPECT_EQ(optAwaitable->get().GetTracker(), tracker);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
     }
 
     auto const responseBuffer = optResponse->GetPayload();
@@ -172,7 +176,6 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 {
     Message::Context const context = local::GenerateMessageContext();
-    Awaitable::TrackerKey const tracker = 0x89ABCDEF;
 
     auto const optBoundMessage = Message::Application::Parcel::GetBuilder()
         .SetContext(context)
@@ -181,7 +184,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
         .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, tracker)
+            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBoundMessage);
 

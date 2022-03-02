@@ -87,6 +87,14 @@ void PackChunk(std::string_view source, std::vector<std::uint8_t>& destination)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+template<std::size_t BufferSize>
+void PackChunk(std::array<std::uint8_t, BufferSize> const& source, std::vector<std::uint8_t>& destination)
+{
+	destination.insert(destination.end(), source.begin(), source.end());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 template<std::input_iterator Source, typename Destination>
 	requires std::is_standard_layout_v<Destination> && std::is_trivial_v<Destination> &&
 		std::indirectly_copyable<Source, std::uint8_t*>
@@ -124,6 +132,23 @@ bool UnpackChunk(Source& begin, Source const& end, Buffer& destination, std::siz
 	assert(destination.size() == count);
 
 	std::advance(begin, count);
+	return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<std::input_iterator Source, std::size_t BufferSize>
+bool UnpackChunk(Source& begin, Source const& end, std::array<std::uint8_t, BufferSize>& destination)
+{
+	// If the buffer does not contain enough data to unpack the chunk unpacking cannot occur. 
+	if (std::cmp_less(std::distance(begin, end), BufferSize)) { return false; }
+
+	// Insert the buffer section into the destination
+    auto boundary = begin;
+    std::advance(boundary, BufferSize);
+	std::copy(begin, boundary, destination.begin());
+
+	std::advance(begin, BufferSize);
 	return true;
 }
 

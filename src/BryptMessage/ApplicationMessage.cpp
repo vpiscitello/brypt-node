@@ -458,7 +458,7 @@ bool Message::Application::Builder::UnpackExtensions(
 
 Message::Application::Extension::Awaitable::Awaitable()
 	: m_binding(Invalid)
-	, m_tracker(0)
+	, m_tracker()
 {
 }
 
@@ -482,7 +482,7 @@ std::size_t Message::Application::Extension::Awaitable::GetPackSize() const
 	size += sizeof(Key); // 1 byte for the extension type
 	size += sizeof(std::uint16_t); // 2 bytes for the extension size
 	size += sizeof(m_binding); // 1 byte for await tracker binding
-	size += sizeof(m_tracker); // 4 bytes for await tracker key
+	size += sizeof(m_tracker); // 16 bytes for await tracker key
 	assert(std::in_range<std::uint16_t>(size));
 	return size;
 }
@@ -531,7 +531,12 @@ bool Message::Application::Extension::Awaitable::Unpack(Buffer::const_iterator& 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Message::Application::Extension::Awaitable::Validate() const { return m_binding != Invalid && m_tracker != 0; }
+bool Message::Application::Extension::Awaitable::Validate() const
+{
+	return m_binding != Invalid && std::ranges::all_of(m_tracker, [] (std::uint8_t byte) {
+		return byte != 0;
+	});
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 

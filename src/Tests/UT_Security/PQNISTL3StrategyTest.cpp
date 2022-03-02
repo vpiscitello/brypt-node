@@ -27,10 +27,14 @@ Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
 
 constexpr std::string_view ApplicationRoute = "/request";
 constexpr std::string_view Data = "Hello World!";
-constexpr Await::TrackerKey TrackerKey = 0x89ABCDEF;
 
 constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
 constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
+
+constexpr Awaitable::TrackerKey TrackerKey = {
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+    0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -129,13 +133,14 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
     // Verify that we can generate an initiator application pack that can be decrypted and verified by the acceptor. 
     std::string initiatorApplicationPack = [&] () -> std::string {
         auto const context = local::GenerateMessageContext(initiator);
-        auto const optMessage::Application::Parcel = Message::Application::Parcel::GetBuilder()
+        auto const optApplicationMessage = Message::Application::Parcel::GetBuilder()
             .SetContext(context)
             .SetSource(test::ClientIdentifier)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Request, test::TrackerKey)
+            .BindExtension<Message::Application::Extension::Awaitable>(
+                Message::Application::Extension::Awaitable::Request, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -168,13 +173,14 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
     // Verify that we can generate an acceptor application pack that can be decrypted and verified by the initiator. 
     std::string acceptorApplicationPack = [&] () -> std::string {
         auto const context = local::GenerateMessageContext(acceptor);
-        auto const optMessage::Application::Parcel = Message::Application::Parcel::GetBuilder()
+        auto const optApplicationMessage = Message::Application::Parcel::GetBuilder()
             .SetContext(context)
             .SetSource(test::ClientIdentifier)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindExtension<Message::Application::Extension::Awaitable>(Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+            .BindExtension<Message::Application::Extension::Awaitable>(
+                Message::Application::Extension::Awaitable::Response, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";

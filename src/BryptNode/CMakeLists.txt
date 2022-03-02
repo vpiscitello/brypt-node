@@ -17,7 +17,7 @@ target_sources(
     main.cpp)
 
 set(INTERNAL_LIBRARIES 
-    Await
+    Awaitable
     Route
     Peer
     Network

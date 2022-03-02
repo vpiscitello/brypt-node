@@ -25,11 +25,7 @@
 
 namespace spdlog { class logger; }
 
-namespace Await {
-    class ResponseTracker;
-    class TrackingManager;
-}
-
+namespace Awaitable { class TrackingService; }
 namespace Configuration { class Parser; }
 namespace Event { class Publisher; }
 namespace Network { class Manager; }
@@ -96,10 +92,10 @@ public:
     [[nodiscard]] std::weak_ptr<SecurityState> GetSecurityState() const;
 
     [[nodiscard]] std::weak_ptr<Event::Publisher> GetEventPublisher() const;
+    [[nodiscard]] std::weak_ptr<Awaitable::TrackingService> GetTrackingService() const;
     [[nodiscard]] std::weak_ptr<Network::Manager> GetNetworkManager() const;
     [[nodiscard]] std::weak_ptr<Peer::Manager> GetPeerManager() const;
     [[nodiscard]] std::weak_ptr<BootstrapService> GetBootstrapService() const;
-    [[nodiscard]] std::weak_ptr<Await::TrackingManager> GetAwaitManager() const;
 
 private:
     void CreateStaticResources();
@@ -120,10 +116,10 @@ private:
 
     std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Network::Manager> m_spNetworkManager;
     std::shared_ptr<Peer::Manager> m_spPeerManager;
     std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
-    std::shared_ptr<Await::TrackingManager> m_spAwaitManager;
     std::shared_ptr<BootstrapService> m_spBootstrapService;
 
     Handler::Map m_handlers;

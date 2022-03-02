@@ -22,7 +22,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
     
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Await
+    Awaitable
     Route
     Peer
     Network

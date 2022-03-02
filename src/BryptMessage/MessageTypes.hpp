@@ -5,7 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "MessageDefinitions.hpp"
-#include "Components/Await/AwaitDefinitions.hpp"
+#include "Components/Awaitable/Definitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <utility>

@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------------------------------------------------
-add_subdirectory(Await)
+add_subdirectory(Awaitable)
 add_subdirectory(Configuration)
 add_subdirectory(Event)
 add_subdirectory(Route)
