@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Manager.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
@@ -268,7 +268,7 @@ Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
     if(auto const itr = m_peers.find(*spPeerIdentifier); itr == m_peers.end()) { return {}; }
 
     // Currently, the short circuiting method is to notify the peer via a heatbeat request. 
-    auto const optRequest = Message::Network::Parcel::GetBuilder()
+    auto const optRequest = Message::Platform::Parcel::GetBuilder()
         .SetSource(*m_spNodeIdentifier)
         .SetDestination(*spPeerIdentifier)
         .MakeHeartbeatRequest()

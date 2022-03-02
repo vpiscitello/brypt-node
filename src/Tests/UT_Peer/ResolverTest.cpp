@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageDefinitions.hpp"
 #include "BryptMessage/MessageUtils.hpp"
@@ -152,7 +152,7 @@ TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
 
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -186,7 +186,7 @@ TEST(PeerResolverSuite, SuccessfulExchangeTest)
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
 
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)
@@ -222,7 +222,7 @@ TEST(PeerResolverSuite, FailedExchangeTest)
     Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, {});
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
     
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
         .SetPayload(test::HandshakeMessage)

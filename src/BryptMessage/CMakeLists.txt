@@ -15,7 +15,7 @@ target_sources(
     MessageContext.cpp
     MessageHeader.cpp
     MessageUtils.cpp
-    NetworkMessage.cpp)
+    PlatformMessage.cpp)
 
 # Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})

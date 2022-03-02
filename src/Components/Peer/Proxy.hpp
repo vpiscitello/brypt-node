@@ -36,6 +36,7 @@ class IConnectProtocol;
 class IPeerMediator;
 
 namespace Network { class Address; }
+namespace Message { class Context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Peer {
@@ -99,7 +100,7 @@ public:
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Address const& address) const;
-    [[nodiscard]] std::optional<MessageContext> GetMessageContext(
+    [[nodiscard]] std::optional<Message::Context> GetMessageContext(
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::optional<Network::RemoteAddress> GetRegisteredAddress(
         Network::Endpoint::Identifier identifier) const;
@@ -138,7 +139,7 @@ public:
 private:
     using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;
     
-    void BindSecurityContext(MessageContext& context) const;
+    void BindSecurityContext(Message::Context& context) const;
 
     Node::SharedIdentifier m_spIdentifier;
     IPeerMediator* const m_pPeerMediator;

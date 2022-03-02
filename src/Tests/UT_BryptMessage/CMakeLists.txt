@@ -13,7 +13,7 @@ target_sources(
     # Source Files
     ApplicationMessageTest.cpp
     MessageHeaderTest.cpp
-    NetworkMessageTest.cpp
+    PlatformMessageTest.cpp
     UT_BryptMessage.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})

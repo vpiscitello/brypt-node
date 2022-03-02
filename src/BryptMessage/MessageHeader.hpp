@@ -16,7 +16,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 namespace Message::Application { class Builder; }
-namespace Message::Network { class Builder; }
+namespace Message::Platform { class Builder; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Message {
@@ -34,7 +34,7 @@ public:
 	Header();
 
 	friend class Message::Application::Builder;
-    friend class Message::Network::Builder;
+    friend class Message::Platform::Builder;
 
 	Protocol GetMessageProtocol() const;
     Version const& GetVersion() const;

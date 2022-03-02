@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: NetworkMessage.hpp
+// File: PlatformMessage.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -17,27 +17,27 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Message::Network {
+namespace Message::Platform {
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class Type : std::uint8_t { Invalid, Handshake, HeartbeatRequest, HeartbeatResponse };
+enum class ParcelType : std::uint8_t { Invalid, Handshake, HeartbeatRequest, HeartbeatResponse };
 
 class Parcel;
 class Builder;
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Message::Network namespace 
+} // Message::Platform namespace 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Network::Parcel {
+class Message::Platform::Parcel {
 public:
 	Parcel();
 	Parcel(Parcel const& other);
 
-	// NetworkBuilder {
-	friend class Message::Network::Builder;
-	static Message::Network::Builder GetBuilder();
-	// } NetworkBuilder
+	// Platform::Builder {
+	friend class Message::Platform::Builder;
+	static Message::Platform::Builder GetBuilder();
+	// } Platform::Builder
 
 	Context const& GetContext() const;
 
@@ -45,10 +45,10 @@ public:
 	Node::Identifier const& GetSource() const;
 	Message::Destination GetDestinationType() const;
 	std::optional<Node::Identifier> const& GetDestination() const;
-	Network::Type GetType() const;
+	ParcelType GetType() const;
 	Buffer const& GetPayload() const;
 
-    std::size_t GetPackSize() const;
+	std::size_t GetPackSize() const;
 	std::string GetPack() const;
 	ShareablePack GetShareablePack() const;
 	ValidationStatus Validate() const;
@@ -59,13 +59,13 @@ private:
 	Context m_context; // The internal message context of the message
 	Header m_header; // The required message header 
 
-	Network::Type m_type;
+	ParcelType m_type;
 	Buffer m_payload;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Network::Builder {
+class Message::Platform::Builder {
 public:
 	using OptionalParcel = std::optional<Parcel>;
 

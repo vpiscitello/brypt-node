@@ -256,10 +256,10 @@ Network::TCP::SocketProcessor Network::TCP::Session::Receiver::operator()()
 
 Network::TCP::Session::Receiver::ReceiveResult Network::TCP::Session::Receiver::ReceiveHeader()
 {
-    constexpr std::size_t ExpectedHeaderSize = MessageHeader::PeekableEncodedSize();
+    constexpr std::size_t ExpectedHeaderSize = Message::Header::PeekableEncodedSize();
 
     // Reserve enough space in the receiving buffer for the message's header.
-    m_buffer.reserve(MessageHeader::PeekableEncodedSize());
+    m_buffer.reserve(Message::Header::PeekableEncodedSize());
 
     // Receive the message header. 
     std::size_t received = co_await boost::asio::async_read(
@@ -305,7 +305,7 @@ Network::TCP::Session::Receiver::ReceiveResult Network::TCP::Session::Receiver::
     m_instance.m_logger->debug("Received {} bytes from {}.", m_buffer.size(), m_instance.m_address);
     m_instance.m_logger->trace("[{}] Received: {:p}...", m_instance.m_address,
         spdlog::to_hex(std::string_view(reinterpret_cast<char const*>(
-            m_buffer.data()), std::min(m_buffer.size(), MessageHeader::MaximumEncodedSize()))));
+            m_buffer.data()), std::min(m_buffer.size(), Message::Header::MaximumEncodedSize()))));
 
     // Decode the buffer into the message buffer after the header bytes.
     auto const size = m_message.size();
@@ -379,7 +379,7 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher::operator()()
 
             logger->debug("Dispatched {} bytes to {}.", message.size(), m_instance.m_address);
             logger->trace("[{}] Dispatched: {:p}...", m_instance.m_address, spdlog::to_hex(
-                std::string_view(message.get().data(), std::min(message.size(), MessageHeader::MaximumEncodedSize()))));
+                std::string_view(message.get().data(), std::min(message.size(), Message::Header::MaximumEncodedSize()))));
         }
     }
 

@@ -20,10 +20,9 @@
 
 namespace Peer { class Proxy; }
 namespace Scheduler { class Delegate; class Registrar; }
-
-class ApplicationMessage;
-class NetworkMessage;
-class MessageContext;
+namespace Message { class Context; }
+namespace Message::Application { class Parcel; }
+namespace Message::Platform { class Parcel; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -56,7 +55,7 @@ private:
     [[nodiscard]] bool OnMessageCollected(
         std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Application::Parcel&& message);
     [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Network::Parcel const& message);
+        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Platform::Parcel const& message);
         
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     Node::SharedIdentifier m_spNodeIdentifier;

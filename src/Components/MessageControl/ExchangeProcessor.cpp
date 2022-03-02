@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "ExchangeProcessor.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageUtils.hpp"
 #include "Components/Peer/Proxy.hpp"
@@ -73,20 +73,20 @@ bool ExchangeProcessor::CollectMessage(
     // The exchange handler may only accept handshake messages.
     switch (*optProtocol) {
         // Only process handshake messages through the exchange processor.
-        case Message::Protocol::Network: break;
+        case Message::Protocol::Platform: break;
         // Any other messages are should be dropped from processing.
         case Message::Protocol::Application:
         case Message::Protocol::Invalid: { m_stage = ProcessStage::Invalid; } return false;
     }
 
     // Attempt to unpack the buffer into the handshake message.
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetContext(context)
         .FromDecodedPack(buffer)
         .ValidatedBuild();
 
     // If the message could not be unpacked, the message cannot be handled any further. 
-    if (!optMessage || optMessage->GetType() != Message::Network::Type::Handshake) { return false; }
+    if (!optMessage || optMessage->GetType() != Message::Platform::ParcelType::Handshake) { return false; }
 
     // The message may only be handled if the associated peer can be acquired. 
     if (auto const spProxy = wpProxy.lock(); spProxy)  [[likely]] { return HandleMessage(spProxy, *optMessage); }
@@ -108,7 +108,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 
     if (buffer.size() == 0) { return { true, "" }; }
 
-    auto const optRequest = Message::Network::Parcel::GetBuilder()
+    auto const optRequest = Message::Platform::Parcel::GetBuilder()
         .SetSource(*m_spSource)
         .MakeHandshakeMessage()
         .SetPayload(std::move(buffer))
@@ -120,7 +120,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool ExchangeProcessor::HandleMessage(
-    std::shared_ptr<Peer::Proxy> const& spProxy, Message::Network::Parcel const& message)
+    std::shared_ptr<Peer::Proxy> const& spProxy, Message::Platform::Parcel const& message)
 {
     switch (m_stage) {
         case ProcessStage::Synchronization: {
@@ -141,7 +141,7 @@ bool ExchangeProcessor::HandleMessage(
 
 bool ExchangeProcessor::HandleSynchronizationMessage(
     std::shared_ptr<Peer::Proxy> const& spProxy,
-    Message::Network::Parcel const& message)
+    Message::Platform::Parcel const& message)
 {
     assert(m_spSource && m_upStrategy);
 
@@ -160,7 +160,7 @@ bool ExchangeProcessor::HandleSynchronizationMessage(
     // the response and send it through the peer. 
     if (buffer.size() != 0) {
         // Build a response to the message from the synchronization result of the strategy. 
-        auto const optResponse = Message::Network::Parcel::GetBuilder()
+        auto const optResponse = Message::Platform::Parcel::GetBuilder()
             .SetContext(context)
             .SetSource(*m_spSource)
             .SetDestination(message.GetSource())

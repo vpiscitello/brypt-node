@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -30,9 +30,9 @@ constexpr std::string_view Data = "Hello World!";
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkMessageSuite, HandshakeConstructorTest)
+TEST(PlatformMessageSuite, HandshakeConstructorTest)
 {
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -43,7 +43,7 @@ TEST(NetworkMessageSuite, HandshakeConstructorTest)
     EXPECT_EQ(optMessage->GetSource(), test::ClientIdentifier);
     ASSERT_TRUE(optMessage->GetDestination());
     EXPECT_EQ(*optMessage->GetDestination(), test::ServerIdentifier);
-    EXPECT_EQ(optMessage->GetType(), Message::Network::Type::Handshake);
+    EXPECT_EQ(optMessage->GetType(), Message::Platform::ParcelType::Handshake);
 
     auto const buffer = optMessage->GetPayload();
     std::string const data(buffer.begin(), buffer.end());
@@ -55,9 +55,9 @@ TEST(NetworkMessageSuite, HandshakeConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkMessageSuite, HeartbeatRequestConstructorTest)
+TEST(PlatformMessageSuite, HeartbeatRequestConstructorTest)
 {
-    auto const optRequest = Message::Network::Parcel::GetBuilder()
+    auto const optRequest = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatRequest()
@@ -67,7 +67,7 @@ TEST(NetworkMessageSuite, HeartbeatRequestConstructorTest)
     EXPECT_EQ(optRequest->GetSource(), test::ClientIdentifier);
     ASSERT_TRUE(optRequest->GetDestination());
     EXPECT_EQ(*optRequest->GetDestination(), test::ServerIdentifier);
-    EXPECT_EQ(optRequest->GetType(), Message::Network::Type::HeartbeatRequest);
+    EXPECT_EQ(optRequest->GetType(), Message::Platform::ParcelType::HeartbeatRequest);
 
     auto const pack = optRequest->GetPack();
     EXPECT_EQ(pack.size(), optRequest->GetPackSize());
@@ -75,9 +75,9 @@ TEST(NetworkMessageSuite, HeartbeatRequestConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkMessageSuite, HeartbeatResponseConstructorTest)
+TEST(PlatformMessageSuite, HeartbeatResponseConstructorTest)
 {
-    auto const optResponse = Message::Network::Parcel::GetBuilder()
+    auto const optResponse = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatResponse()
@@ -87,7 +87,7 @@ TEST(NetworkMessageSuite, HeartbeatResponseConstructorTest)
     EXPECT_EQ(optResponse->GetSource(), test::ClientIdentifier);
     ASSERT_TRUE(optResponse->GetDestination());
     EXPECT_EQ(*optResponse->GetDestination(), test::ServerIdentifier);
-    EXPECT_EQ(optResponse->GetType(), Message::Network::Type::HeartbeatResponse);
+    EXPECT_EQ(optResponse->GetType(), Message::Platform::ParcelType::HeartbeatResponse);
 
     auto const pack = optResponse->GetPack();
     EXPECT_EQ(pack.size(), optResponse->GetPackSize());
@@ -95,9 +95,9 @@ TEST(NetworkMessageSuite, HeartbeatResponseConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkMessageSuite, HandshakePackConstructorTest)
+TEST(PlatformMessageSuite, HandshakePackConstructorTest)
 {
-    auto const optBaseMessage = Message::Network::Parcel::GetBuilder()
+    auto const optBaseMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -107,7 +107,7 @@ TEST(NetworkMessageSuite, HandshakePackConstructorTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = Message::Network::Parcel::GetBuilder()
+    auto const optPackMessage = Message::Platform::Parcel::GetBuilder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -125,9 +125,9 @@ TEST(NetworkMessageSuite, HandshakePackConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkMessageSuite, HeartbeatRequestPackConstructorTest)
+TEST(PlatformMessageSuite, HeartbeatRequestPackConstructorTest)
 {
-    auto const optBaseMessage = Message::Network::Parcel::GetBuilder()
+    auto const optBaseMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatRequest()
@@ -136,7 +136,7 @@ TEST(NetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = Message::Network::Parcel::GetBuilder()
+    auto const optPackMessage = Message::Platform::Parcel::GetBuilder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -149,9 +149,9 @@ TEST(NetworkMessageSuite, HeartbeatRequestPackConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(NetworkMessageSuite, HeartbeatResponsePackConstructorTest)
+TEST(PlatformMessageSuite, HeartbeatResponsePackConstructorTest)
 {
-    auto const optBaseMessage = Message::Network::Parcel::GetBuilder()
+    auto const optBaseMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHeartbeatResponse()
@@ -160,7 +160,7 @@ TEST(NetworkMessageSuite, HeartbeatResponsePackConstructorTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = Message::Network::Parcel::GetBuilder()
+    auto const optPackMessage = Message::Platform::Parcel::GetBuilder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);

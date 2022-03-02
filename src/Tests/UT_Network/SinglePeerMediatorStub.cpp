@@ -3,7 +3,7 @@
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #include "SinglePeerMediatorStub.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
@@ -78,7 +78,7 @@ SinglePeerMediatorStub::OptionalRequest SinglePeerMediatorStub::DeclareResolving
     [[maybe_unused]] Network::RemoteAddress const& address,
     [[maybe_unused]] Node::SharedIdentifier const& spIdentifier)
 {
-    auto const optHeartbeatRequest = Message::Network::Parcel::GetBuilder()
+    auto const optHeartbeatRequest = Message::Platform::Parcel::GetBuilder()
         .MakeHeartbeatRequest()
         .SetSource(*m_spNodeIdentifier)
         .ValidatedBuild();

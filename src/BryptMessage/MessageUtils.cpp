@@ -15,8 +15,8 @@ Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Pro
         case static_cast<ProtocolType>(Message::Protocol::Application): {
             return Message::Protocol::Application;
         }
-        case static_cast<ProtocolType>(Message::Protocol::Network): {
-            return Message::Protocol::Network;
+        case static_cast<ProtocolType>(Message::Protocol::Platform): {
+            return Message::Protocol::Platform;
         }
         default: break;
     }

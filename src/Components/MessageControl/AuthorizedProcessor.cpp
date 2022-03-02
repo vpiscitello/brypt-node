@@ -6,7 +6,7 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageUtils.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Scheduler/Delegate.hpp"
@@ -79,8 +79,8 @@ bool AuthorizedProcessor::CollectMessage(
 
 	// Handle the message based on the message protocol indicated by the message.
     switch (*optProtocol) {
-        case Message::Protocol::Network: {
-			auto const optMessage = Message::Network::Parcel::GetBuilder()
+        case Message::Protocol::Platform: {
+			auto const optMessage = Message::Platform::Parcel::GetBuilder()
 				.SetContext(context)
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
@@ -137,7 +137,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 //----------------------------------------------------------------------------------------------------------------------
 
 bool AuthorizedProcessor::OnMessageCollected(
-	std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Network::Parcel const& message)
+	std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Platform::Parcel const& message)
 {
     // Currently, there are no network messages that are sent network wide. 
     if (message.GetDestinationType() != Message::Destination::Node) { return false; }
@@ -148,7 +148,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 	// possible message we expect given this context. If it is a handshake message without a destination identifier,
 	//  it is assumed that we woke up and connected to the peer while the peer was actively trying to  connect while 
 	// this node was offline. 
-	if (!optDestination && message.GetType() != Message::Network::Type::Handshake) { return false; }
+	if (!optDestination && message.GetType() != Message::Platform::ParcelType::Handshake) { return false; }
 
     // Currently, messages not destined for this node are note accepted. 
     if (optDestination && *optDestination != *m_spNodeIdentifier) { return false; }
@@ -156,13 +156,13 @@ bool AuthorizedProcessor::OnMessageCollected(
 	auto const spPeerProxy = wpPeerProxy.lock();
 	if (!spPeerProxy) { return false; }
 
-	Message::Network::Type type = message.GetType();
+	Message::Platform::ParcelType type = message.GetType();
 
-	Message::Network::Builder::OptionalParcel optResponse;
+	Message::Platform::Builder::OptionalParcel optResponse;
 	switch (type) {
 		// Allow heartbeat requests to be processed. 
-		case Message::Network::Type::HeartbeatRequest:  {
-			optResponse = Message::Network::Parcel::GetBuilder()
+		case Message::Platform::ParcelType::HeartbeatRequest:  {
+			optResponse = Message::Platform::Parcel::GetBuilder()
 				.SetSource(*m_spNodeIdentifier)
 				.SetDestination(message.GetSource())
 				.MakeHeartbeatResponse()
@@ -170,11 +170,11 @@ bool AuthorizedProcessor::OnMessageCollected(
 			assert(optResponse);
 		} break;
 		// Currently, heartbeat responses are silently dropped from this processor.
-		case Message::Network::Type::HeartbeatResponse: return true;
+		case Message::Platform::ParcelType::HeartbeatResponse: return true;
 		// Currently, handshake requests are responded with a heartbeat request to indicate a valid session has already
 		//  been established. 
-		case Message::Network::Type::Handshake: {
-			optResponse = Message::Network::Parcel::GetBuilder()
+		case Message::Platform::ParcelType::Handshake: {
+			optResponse = Message::Platform::Parcel::GetBuilder()
 				.SetSource(*m_spNodeIdentifier)
 				.SetDestination(message.GetSource())
 				.MakeHeartbeatRequest()

@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "BryptMessage/MessageUtils.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
 
 TEST(MessageHeaderSuite, NetworkConstructorTest)
 {
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -110,7 +110,7 @@ TEST(MessageHeaderSuite, NetworkConstructorTest)
     ASSERT_TRUE(optMessage);
 
     Message::Header const header = optMessage->GetHeader();
-    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Network);
+    EXPECT_EQ(header.GetMessageProtocol(), Message::Protocol::Platform);
     EXPECT_EQ(header.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(header.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(header.GetDestination());
@@ -122,7 +122,7 @@ TEST(MessageHeaderSuite, NetworkConstructorTest)
 
 TEST(MessageHeaderSuite, NetworkPackTest)
 {
-    auto const optBaseMessage = Message::Network::Parcel::GetBuilder()
+    auto const optBaseMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
@@ -130,7 +130,7 @@ TEST(MessageHeaderSuite, NetworkPackTest)
     ASSERT_TRUE(optBaseMessage);
 
     Message::Header const baseHeader = optBaseMessage->GetHeader();
-    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Network);
+    EXPECT_EQ(baseHeader.GetMessageProtocol(), Message::Protocol::Platform);
     EXPECT_EQ(baseHeader.GetSource(), test::ClientIdentifier);
     EXPECT_EQ(baseHeader.GetDestinationType(), Message::Destination::Node);
     ASSERT_TRUE(baseHeader.GetDestination());
@@ -139,7 +139,7 @@ TEST(MessageHeaderSuite, NetworkPackTest)
 
     auto const pack = optBaseMessage->GetPack();
 
-    auto const optPackMessage = Message::Network::Parcel::GetBuilder()
+    auto const optPackMessage = Message::Platform::Parcel::GetBuilder()
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
@@ -240,18 +240,18 @@ TEST(MessageHeaderSuite, PeekProtocolTest)
 {
     Message::Context const context = local::GenerateMessageContext();
     
-    auto const optNetworkMessage = Message::Network::Parcel::GetBuilder()
+    auto const optPlatformMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
-    ASSERT_TRUE(optNetworkMessage);
+    ASSERT_TRUE(optPlatformMessage);
 
-    auto const networkBuffer = Z85::Decode(optNetworkMessage->GetPack());
+    auto const networkBuffer = Z85::Decode(optPlatformMessage->GetPack());
     auto const optNetworkProtocol = Message::PeekProtocol(networkBuffer);
 
     ASSERT_TRUE(optNetworkProtocol);
-    EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Network);
+    EXPECT_EQ(*optNetworkProtocol, Message::Protocol::Platform);
 
     auto const optApplicationMessage = Message::Application::Parcel::GetBuilder()
         .SetContext(context)
@@ -301,18 +301,18 @@ TEST(MessageHeaderSuite, PeekSizeTest)
 {
     Message::Context const context = local::GenerateMessageContext();
     
-    auto const optNetworkMessage = Message::Network::Parcel::GetBuilder()
+    auto const optPlatformMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()
         .ValidatedBuild();
-    ASSERT_TRUE(optNetworkMessage);
+    ASSERT_TRUE(optPlatformMessage);
 
-    auto const networkBuffer = Z85::Decode(optNetworkMessage->GetPack());
+    auto const networkBuffer = Z85::Decode(optPlatformMessage->GetPack());
     auto const optNetworkSize = Message::PeekSize(networkBuffer);
 
     ASSERT_TRUE(optNetworkSize);
-    EXPECT_EQ(*optNetworkSize, optNetworkMessage->GetPack().size());
+    EXPECT_EQ(*optNetworkSize, optPlatformMessage->GetPack().size());
 
     auto const optApplicationMessage = Message::Application::Parcel::GetBuilder()
         .SetContext(context)
@@ -351,7 +351,7 @@ TEST(MessageHeaderSuite, PeekSizeEmptyBufferTest)
 
 TEST(MessageHeaderSuite, PeekSourceTest)
 {
-    auto const optMessage = Message::Network::Parcel::GetBuilder()
+    auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
         .MakeHandshakeMessage()

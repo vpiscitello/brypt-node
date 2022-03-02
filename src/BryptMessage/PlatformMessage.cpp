@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: NetworkMessage.cpp
+// File: PlatformMessage.cpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-#include "NetworkMessage.hpp"
+#include "PlatformMessage.hpp"
 #include "PackUtils.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -12,7 +12,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Type UnpackMessageType(
+Message::Platform::ParcelType UnpackMessageType(
 	std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -30,17 +30,17 @@ enum Types : std::uint8_t { Invalid = 0x00 };
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Parcel::Parcel()
+Message::Platform::Parcel::Parcel()
 	: m_context()
 	, m_header()
-	, m_type(Message::Network::Type::Invalid)
+	, m_type(Message::Platform::ParcelType::Invalid)
 	, m_payload()
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Parcel::Parcel(Parcel const& other)
+Message::Platform::Parcel::Parcel(Parcel const& other)
 	: m_context(other.m_context)
 	, m_header(other.m_header)
 	, m_type(other.m_type)
@@ -49,42 +49,42 @@ Message::Network::Parcel::Parcel(Parcel const& other)
 }
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder Message::Network::Parcel::GetBuilder() { return Builder{}; }
+Message::Platform::Builder Message::Platform::Parcel::GetBuilder() { return Builder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Context const& Message::Network::Parcel::GetContext() const { return m_context; }
+Message::Context const& Message::Platform::Parcel::GetContext() const { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Header const& Message::Network::Parcel::GetHeader() const { return m_header; }
+Message::Header const& Message::Platform::Parcel::GetHeader() const { return m_header; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& Message::Network::Parcel::GetSource() const { return m_header.GetSource(); }
+Node::Identifier const& Message::Platform::Parcel::GetSource() const { return m_header.GetSource(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Destination Message::Network::Parcel::GetDestinationType() const { return m_header.GetDestinationType(); }
+Message::Destination Message::Platform::Parcel::GetDestinationType() const { return m_header.GetDestinationType(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& Message::Network::Parcel::GetDestination() const
+std::optional<Node::Identifier> const& Message::Platform::Parcel::GetDestination() const
 {
 	return m_header.GetDestination();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Type Message::Network::Parcel::GetType() const { return m_type; }
+Message::Platform::ParcelType Message::Platform::Parcel::GetType() const { return m_type; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer const& Message::Network::Parcel::GetPayload() const { return m_payload; }
+Message::Buffer const& Message::Platform::Parcel::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Message::Network::Parcel::GetPackSize() const
+std::size_t Message::Platform::Parcel::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
@@ -100,7 +100,7 @@ std::size_t Message::Network::Parcel::GetPackSize() const
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Pack the Message class values into a single raw string.
 //----------------------------------------------------------------------------------------------------------------------
-std::string Message::Network::Parcel::GetPack() const
+std::string Message::Platform::Parcel::GetPack() const
 {
 	Message::Buffer buffer = m_header.GetPackedBuffer();
 	buffer.reserve(m_header.GetMessageSize());
@@ -130,14 +130,14 @@ std::string Message::Network::Parcel::GetPack() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::ShareablePack Message::Network::Parcel::GetShareablePack() const
+Message::ShareablePack Message::Platform::Parcel::GetShareablePack() const
 {
 	return std::make_shared<std::string const>(GetPack());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::ValidationStatus Message::Network::Parcel::Validate() const
+Message::ValidationStatus Message::Platform::Parcel::Validate() const
 {	
 	// A message must have a valid header
 	if (!m_header.IsValid()) {
@@ -145,17 +145,17 @@ Message::ValidationStatus Message::Network::Parcel::Validate() const
 	}
 
 	// The network message type must not be invalid.
-	if (m_type == Message::Network::Type::Invalid) { return Message::ValidationStatus::Error; }
+	if (m_type == Message::Platform::ParcelType::Invalid) { return Message::ValidationStatus::Error; }
 
 	return Message::ValidationStatus::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constexpr std::size_t Message::Network::Parcel::FixedPackSize() const
+constexpr std::size_t Message::Platform::Parcel::FixedPackSize() const
 {
 	std::size_t size = 0;
-	size += sizeof(Message::Network::Type); // 1 byte for network message type
+	size += sizeof(Message::Platform::ParcelType); // 1 byte for network message type
 	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
     assert(std::in_range<std::uint32_t>(size));
@@ -164,30 +164,30 @@ constexpr std::size_t Message::Network::Parcel::FixedPackSize() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder::Builder()
+Message::Platform::Builder::Builder()
     : m_parcel()
 	, m_hasStageFailure(false)
 {
-	m_parcel.m_header.m_protocol = Message::Protocol::Network;
+	m_parcel.m_header.m_protocol = Message::Protocol::Platform;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Identifier const& Message::Network::Builder::GetSource() const
+Node::Identifier const& Message::Platform::Builder::GetSource() const
 {
 	return m_parcel.m_header.m_source;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Node::Identifier> const& Message::Network::Builder::GetDestination() const
+std::optional<Node::Identifier> const& Message::Platform::Builder::GetDestination() const
 {
 	return m_parcel.m_header.m_optDestinationIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetContext(Context const& context)
+Message::Platform::Builder& Message::Platform::Builder::SetContext(Context const& context)
 {
 	m_parcel.m_context = context;
 	return *this;
@@ -195,7 +195,7 @@ Message::Network::Builder& Message::Network::Builder::SetContext(Context const& 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetSource(Node::Identifier const& identifier)
+Message::Platform::Builder& Message::Platform::Builder::SetSource(Node::Identifier const& identifier)
 {
 	m_parcel.m_header.m_source = identifier;
 	return *this;
@@ -203,7 +203,7 @@ Message::Network::Builder& Message::Network::Builder::SetSource(Node::Identifier
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetSource(
+Message::Platform::Builder& Message::Platform::Builder::SetSource(
     Node::Internal::Identifier const& identifier)
 {
 	m_parcel.m_header.m_source = Node::Identifier(identifier);
@@ -212,7 +212,7 @@ Message::Network::Builder& Message::Network::Builder::SetSource(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetSource(std::string_view identifier)
+Message::Platform::Builder& Message::Platform::Builder::SetSource(std::string_view identifier)
 {
 	m_parcel.m_header.m_source = Node::Identifier(identifier);
 	return *this;
@@ -220,7 +220,7 @@ Message::Network::Builder& Message::Network::Builder::SetSource(std::string_view
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetDestination(Node::Identifier const& identifier)
+Message::Platform::Builder& Message::Platform::Builder::SetDestination(Node::Identifier const& identifier)
 {
 	m_parcel.m_header.m_optDestinationIdentifier = identifier;
 	return *this;
@@ -228,7 +228,7 @@ Message::Network::Builder& Message::Network::Builder::SetDestination(Node::Ident
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetDestination(
+Message::Platform::Builder& Message::Platform::Builder::SetDestination(
     Node::Internal::Identifier const& identifier)
 {
 	m_parcel.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
@@ -237,7 +237,7 @@ Message::Network::Builder& Message::Network::Builder::SetDestination(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetDestination(std::string_view identifier)
+Message::Platform::Builder& Message::Platform::Builder::SetDestination(std::string_view identifier)
 {
 	m_parcel.m_header.m_optDestinationIdentifier = Node::Identifier(identifier);
 	return *this;
@@ -245,38 +245,38 @@ Message::Network::Builder& Message::Network::Builder::SetDestination(std::string
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::MakeHandshakeMessage()
+Message::Platform::Builder& Message::Platform::Builder::MakeHandshakeMessage()
 {
-	m_parcel.m_type = Message::Network::Type::Handshake;
+	m_parcel.m_type = Message::Platform::ParcelType::Handshake;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::MakeHeartbeatRequest()
+Message::Platform::Builder& Message::Platform::Builder::MakeHeartbeatRequest()
 {
-	m_parcel.m_type = Message::Network::Type::HeartbeatRequest;
+	m_parcel.m_type = Message::Platform::ParcelType::HeartbeatRequest;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::MakeHeartbeatResponse()
+Message::Platform::Builder& Message::Platform::Builder::MakeHeartbeatResponse()
 {
-	m_parcel.m_type = Message::Network::Type::HeartbeatResponse;
+	m_parcel.m_type = Message::Platform::ParcelType::HeartbeatResponse;
 	return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetPayload(std::string_view buffer)
+Message::Platform::Builder& Message::Platform::Builder::SetPayload(std::string_view buffer)
 {
     return SetPayload({ reinterpret_cast<std::uint8_t const*>(buffer.data()), buffer.size() });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::SetPayload(std::span<std::uint8_t const> buffer)
+Message::Platform::Builder& Message::Platform::Builder::SetPayload(std::span<std::uint8_t const> buffer)
 {
     m_parcel.m_payload = Message::Buffer(buffer.begin(), buffer.end());
     return *this;
@@ -284,7 +284,7 @@ Message::Network::Builder& Message::Network::Builder::SetPayload(std::span<std::
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
+Message::Platform::Builder& Message::Platform::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
     if (!buffer.empty()) { Unpack(buffer); }
 	else { m_hasStageFailure = true; }
@@ -293,7 +293,7 @@ Message::Network::Builder& Message::Network::Builder::FromDecodedPack(std::span<
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder& Message::Network::Builder::FromEncodedPack(std::string_view pack)
+Message::Platform::Builder& Message::Platform::Builder::FromEncodedPack(std::string_view pack)
 {
     if (!pack.empty()) { Unpack(Z85::Decode(pack)); }
 	else { m_hasStageFailure = true; }
@@ -302,7 +302,7 @@ Message::Network::Builder& Message::Network::Builder::FromEncodedPack(std::strin
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Parcel&& Message::Network::Builder::Build()
+Message::Platform::Parcel&& Message::Platform::Builder::Build()
 {
 	m_parcel.m_header.m_size = static_cast<std::uint32_t>(m_parcel.GetPackSize());
 
@@ -311,7 +311,7 @@ Message::Network::Parcel&& Message::Network::Builder::Build()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Builder::OptionalParcel Message::Network::Builder::ValidatedBuild()
+Message::Platform::Builder::OptionalParcel Message::Platform::Builder::ValidatedBuild()
 {
 	m_parcel.m_header.m_size = static_cast<std::uint32_t>(m_parcel.GetPackSize());
 
@@ -324,7 +324,7 @@ Message::Network::Builder::OptionalParcel Message::Network::Builder::ValidatedBu
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //----------------------------------------------------------------------------------------------------------------------
-void Message::Network::Builder::Unpack(std::span<std::uint8_t const> buffer)
+void Message::Platform::Builder::Unpack(std::span<std::uint8_t const> buffer)
 {
 	auto begin = buffer.begin();
 	auto end = buffer.end();
@@ -332,10 +332,10 @@ void Message::Network::Builder::Unpack(std::span<std::uint8_t const> buffer)
 	if (!m_parcel.m_header.ParseBuffer(begin, end)) { return; }
 
 	m_parcel.m_type = local::UnpackMessageType(begin, end);
-	if (m_parcel.m_type == Message::Network::Type::Invalid) { return; }
+	if (m_parcel.m_type == Message::Platform::ParcelType::Invalid) { return; }
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_parcel.m_header.m_protocol != Message::Protocol::Network) { return; }
+	if (m_parcel.m_header.m_protocol != Message::Protocol::Platform) { return; }
 
 	{
 		std::uint32_t size = 0;
@@ -351,7 +351,7 @@ void Message::Network::Builder::Unpack(std::span<std::uint8_t const> buffer)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Message::Network::Builder::UnpackExtensions(
+void Message::Platform::Builder::UnpackExtensions(
 	std::span<std::uint8_t const>::iterator& begin,
 	std::span<std::uint8_t const>::iterator const& end)
 {
@@ -368,22 +368,22 @@ void Message::Network::Builder::UnpackExtensions(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Network::Type local::UnpackMessageType(
+Message::Platform::ParcelType local::UnpackMessageType(
 	std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end)
 {
-	using namespace Message::Network;
+	using namespace Message::Platform;
 
-	using NetworkType = std::underlying_type_t<Type>;
+	using NetworkType = std::underlying_type_t<ParcelType>;
 	NetworkType type = 0;
     PackUtils::UnpackChunk(begin, end, type);
 
     switch (type) {
-        case static_cast<NetworkType>(Type::Handshake):
-        case static_cast<NetworkType>(Type::HeartbeatRequest):
-        case static_cast<NetworkType>(Type::HeartbeatResponse): {
-            return static_cast<Type>(type);
+        case static_cast<NetworkType>(ParcelType::Handshake):
+        case static_cast<NetworkType>(ParcelType::HeartbeatRequest):
+        case static_cast<NetworkType>(ParcelType::HeartbeatResponse): {
+            return static_cast<ParcelType>(type);
         }
-        default: return Type::Invalid;
+        default: return ParcelType::Invalid;
     }
 }
 

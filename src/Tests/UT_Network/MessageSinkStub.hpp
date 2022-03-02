@@ -19,8 +19,9 @@
 
 namespace Peer { class Proxy; }
 
-class ApplicationMessage;
-class MessageContext;
+namespace Message { class Context; }
+namespace Message::Application { class Parcel; }
+namespace Message::Platform { class Parcel; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

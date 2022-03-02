@@ -20,8 +20,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 namespace Peer { class Proxy; }
+namespace Message::Platform { class Parcel; }
 
-class NetworkMessage;
 class IConnectProtocol;
 class ISecurityStrategy;
 
@@ -58,9 +58,11 @@ private:
 
     static constexpr TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
 
-    [[nodiscard]] bool HandleMessage(std::shared_ptr<Peer::Proxy> const& spProxy, Message::Network::Parcel const& message);
+    [[nodiscard]] bool HandleMessage(
+        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Platform::Parcel const& message);
+
     [[nodiscard]] bool HandleSynchronizationMessage(
-        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Network::Parcel const& message);
+        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Platform::Parcel const& message);
 
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;

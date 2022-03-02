@@ -277,7 +277,7 @@ bool Peer::Proxy::IsEndpointRegistered(Network::Address const& address) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<MessageContext> Peer::Proxy::GetMessageContext(Network::Endpoint::Identifier identifier) const
+std::optional<Message::Context> Peer::Proxy::GetMessageContext(Network::Endpoint::Identifier identifier) const
 {
     std::scoped_lock lock{ m_endpointsMutex };
     if (auto const& itr = m_endpoints.find(identifier); itr != m_endpoints.end()) [[likely]] {
@@ -428,7 +428,7 @@ bool Peer::Proxy::IsAuthorized() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Proxy::BindSecurityContext(MessageContext& context) const
+void Peer::Proxy::BindSecurityContext(Message::Context& context) const
 {
     auto const& upStrategy = m_upSecurityStrategy;
 

@@ -24,7 +24,7 @@ Message::Context const& Peer::Registration::GetMessageContext() const { return m
 
 //----------------------------------------------------------------------------------------------------------------------
 
-MessageContext& Peer::Registration::GetWritableMessageContext() { return m_context; }
+Message::Context& Peer::Registration::GetWritableMessageContext() { return m_context; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

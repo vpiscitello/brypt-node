@@ -6,7 +6,7 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageUtils.hpp"
-#include "BryptMessage/NetworkMessage.hpp"
+#include "BryptMessage/PlatformMessage.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -71,8 +71,8 @@ bool MessageSinkStub::CollectMessage(
 			return QueueMessage(wpPeerProxy, *optMessage);
 		}
 		// In the case of the network protocol, build a network message and process the message.
-        case Message::Protocol::Network: {
-			auto const optRequest = Message::Network::Parcel::GetBuilder()
+        case Message::Protocol::Platform: {
+			auto const optRequest = Message::Platform::Parcel::GetBuilder()
 				.FromDecodedPack(buffer)
 				.ValidatedBuild();
 
@@ -86,12 +86,12 @@ bool MessageSinkStub::CollectMessage(
 			switch (optRequest->GetType()) {
 				// In the case of a heartbeat request, build a heartbeat response and send it to
 				// the peer.
-				case Message::Network::Type::HeartbeatRequest: {
+				case Message::Platform::ParcelType::HeartbeatRequest: {
 					// Indicate we have received a heartbeat request for any tests.
 					m_bReceivedHeartbeatRequest = true;	
 
 					// Build the heartbeat response.
-					auto const optResponse = Message::Network::Parcel::GetBuilder()
+					auto const optResponse = Message::Platform::Parcel::GetBuilder()
 						.MakeHeartbeatResponse()
 						.SetSource(*m_spNodeIdentifier)
 						.SetDestination(optRequest->GetSource())
@@ -106,7 +106,7 @@ bool MessageSinkStub::CollectMessage(
 						return false;
 					}
 				}
-				case Message::Network::Type::HeartbeatResponse: {
+				case Message::Platform::ParcelType::HeartbeatResponse: {
 					m_bReceivedHeartbeatResponse = true;	
 					return true;
 				}
