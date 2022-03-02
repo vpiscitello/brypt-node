@@ -7,11 +7,10 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
-#include "BryptNode/NetworkState.hpp"
-#include "BryptNode/NodeState.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
+#include "Components/State/NodeState.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 #include <spdlog/spdlog.h>

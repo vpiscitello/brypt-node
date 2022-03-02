@@ -12,12 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     BryptNode.cpp
-    CoordinatorState.cpp
-    NetworkState.cpp
-    NodeState.cpp
     RuntimePolicy.cpp
-    SecurityState.cpp
-    SensorState.cpp
     StartupOptions.cpp
     main.cpp)
 
@@ -31,6 +26,7 @@ set(INTERNAL_LIBRARIES
     MessageControl
     Event
     Scheduler
+    State
     BryptMessage
     BryptIdentifier)
 

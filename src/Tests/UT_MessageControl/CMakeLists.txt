@@ -16,18 +16,25 @@ target_sources(
     UT_MessageControl.cpp
     # Node Source Files
     ${CMAKE_SOURCE_DIR}/BryptNode/BryptNode.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/RuntimePolicy.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/CoordinatorState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/NetworkState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/NodeState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/SecurityState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/SensorState.cpp)
+    ${CMAKE_SOURCE_DIR}/BryptNode/RuntimePolicy.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
     
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Await Handler Peer Network Security Configuration MessageControl Network Event Scheduler BryptMessage BryptIdentifier 
+    Await
+    Route
+    Peer
+    Network
+    Security
+    Configuration
+    MessageControl
+    Network
+    Event
+    Scheduler
+    State
+    BryptMessage
+    BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

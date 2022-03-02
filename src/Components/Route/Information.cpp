@@ -7,11 +7,11 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
-#include "BryptNode/NodeState.hpp"
-#include "BryptNode/CoordinatorState.hpp"
-#include "BryptNode/NetworkState.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Peer/Manager.hpp"
+#include "Components/State/CoordinatorState.hpp"
+#include "Components/State/NetworkState.hpp"
+#include "Components/State/NodeState.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>

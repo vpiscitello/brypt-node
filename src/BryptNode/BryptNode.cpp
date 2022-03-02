@@ -4,11 +4,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include "CoordinatorState.hpp"
-#include "NetworkState.hpp"
-#include "NodeState.hpp"
-#include "SecurityState.hpp"
-#include "SensorState.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
@@ -24,6 +19,10 @@
 #include "Components/Peer/Manager.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
+#include "Components/State/CoordinatorState.hpp"
+#include "Components/State/NetworkState.hpp"
+#include "Components/State/NodeState.hpp"
+#include "Components/State/SecurityState.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -38,7 +37,6 @@ Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     , m_spCoordinatorState(std::make_shared<CoordinatorState>())
     , m_spNetworkState(std::make_shared<NetworkState>())
     , m_spSecurityState()
-    , m_spSensorState(std::make_shared<SensorState>())
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
     , m_spNetworkManager()
@@ -67,7 +65,6 @@ Node::Core::Core(
     , m_spCoordinatorState(std::make_shared<CoordinatorState>())
     , m_spNetworkState(std::make_shared<NetworkState>())
     , m_spSecurityState()
-    , m_spSensorState(std::make_shared<SensorState>())
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
     , m_spNetworkManager()
@@ -217,10 +214,6 @@ std::weak_ptr<NetworkState> Node::Core::GetNetworkState() const { return m_spNet
 //----------------------------------------------------------------------------------------------------------------------
 
 std::weak_ptr<SecurityState> Node::Core::GetSecurityState() const { return m_spSecurityState; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::weak_ptr<SensorState> Node::Core::GetSensorState() const { return m_spSensorState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

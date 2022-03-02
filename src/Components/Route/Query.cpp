@@ -6,10 +6,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptNode/BryptNode.hpp"
-#include "BryptNode/NodeState.hpp"
-#include "BryptNode/NetworkState.hpp"
 #include "Components/Await/TrackingManager.hpp"
 #include "Components/Network/Endpoint.hpp"
+#include "Components/State/NetworkState.hpp"
+#include "Components/State/NodeState.hpp"
 #include "Utilities/TimeUtils.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------

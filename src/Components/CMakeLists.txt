@@ -8,4 +8,5 @@ add_subdirectory(Network)
 add_subdirectory(Peer)
 add_subdirectory(Security)
 add_subdirectory(Scheduler)
+add_subdirectory(State)
 #-----------------------------------------------------------------------------------------------------------------------
