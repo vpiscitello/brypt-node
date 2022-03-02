@@ -44,6 +44,21 @@ Message::Application::Parcel::Parcel(Parcel const& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Application::Parcel& Message::Application::Parcel::operator=(Parcel const& other)
+{
+	m_context = other.m_context;
+	m_header = other.m_header;
+	m_route = other.m_route;
+	m_payload = other.m_payload;
+	std::ranges::for_each(other.m_extensions, [&] (auto const& entry) {
+		m_extensions.emplace(entry.second->GetKey(), entry.second->Clone());
+	});
+
+	return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Application::Builder Message::Application::Parcel::GetBuilder() { return Builder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -125,10 +140,10 @@ std::string Message::Application::Parcel::GetPack() const
 		PackUtils::PackChunk<std::uint32_t>(m_payload, plaintext);
 
 		// Extension Packing
-		PackUtils::PackChunk(std::uint8_t(0), plaintext);
-		std::ranges::for_each(m_extensions, [&count = plaintext.back(), &plaintext] (auto const& entry) {
+		assert(std::in_range<std::uint8_t>(m_extensions.size()));
+		PackUtils::PackChunk(static_cast<std::uint8_t>(m_extensions.size()), plaintext);
+		std::ranges::for_each(m_extensions, [&plaintext] (auto const& entry) {
 			entry.second->Inject(plaintext);
-			++count;
 		});
 
 		auto optEncryptedBuffer = m_context.Encrypt(plaintext, m_header.GetTimestamp());
@@ -409,7 +424,7 @@ bool Message::Application::Builder::Unpack(std::span<std::uint8_t const> buffer)
 
 	std::uint8_t extensions = 0;
 	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return false; }
-	if (extensions != 0 && !UnpackExtensions(begin, end)) { return false; }
+	if (extensions != 0 && !UnpackExtensions(begin, end, extensions)) { return false; }
 
 	return true;
 }
@@ -417,10 +432,10 @@ bool Message::Application::Builder::Unpack(std::span<std::uint8_t const> buffer)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Message::Application::Builder::UnpackExtensions(
-	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end)
+	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t extensions)
 {
-	using namespace Message;
-	while (begin != end) {
+	std::size_t unpacked = 0;	
+	while (begin != end && unpacked < extensions) {
 		Extension::Key key = 0;
 		PackUtils::UnpackChunk(begin, end, key);
 
@@ -432,6 +447,8 @@ bool Message::Application::Builder::UnpackExtensions(
 			} break;					
 			default: return false;
 		}
+
+		++unpacked;
 	}
 
 	return true;

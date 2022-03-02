@@ -31,10 +31,9 @@ void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 	constexpr std::size_t SourceBytes = sizeof(Source);
 	if constexpr (std::endian::native == std::endian::little) {
 		auto const size = destination.size();
-		auto const begin = destination.data() + size;
 		destination.resize(size + SourceBytes, 0x00);
-		boost::endian::endian_store<Source, SourceBytes, boost::endian::order::big>(
-			begin, source);
+		auto const begin = destination.data() + size;
+		boost::endian::endian_store<Source, SourceBytes, boost::endian::order::big>(begin, source);
 	} else {
 		auto const begin = reinterpret_cast<std::uint8_t const*>(&source);
 		auto const end = begin + SourceBytes;
@@ -51,7 +50,7 @@ void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 // buffer is of a fixed size buffer and thus no size field will be appended. 
 //----------------------------------------------------------------------------------------------------------------------
 template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField>
-inline void PackChunk(std::vector<std::uint8_t> const& source, std::vector<std::uint8_t>& destination)
+void PackChunk(std::vector<std::uint8_t> const& source, std::vector<std::uint8_t>& destination)
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
@@ -73,7 +72,7 @@ inline void PackChunk(std::vector<std::uint8_t> const& source, std::vector<std::
 // buffer is of a fixed size buffer and thus no size field will be appended. 
 //----------------------------------------------------------------------------------------------------------------------
 template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField> 
-inline void PackChunk(std::string_view source, std::vector<std::uint8_t>& destination)
+void PackChunk(std::string_view source, std::vector<std::uint8_t>& destination)
 {
 	// If the SizeField type is not void then preceed the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {

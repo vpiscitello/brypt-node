@@ -61,6 +61,10 @@ class Message::Application::Parcel {
 public:
 	Parcel();
 	Parcel(Parcel const& other);
+    Parcel& operator=(Parcel const& other);
+    
+	Parcel(Parcel&&) = default;
+    Parcel& operator=(Parcel&&) = default;
 
 	// Message::Application::Builder {
 	friend class Builder;
@@ -138,7 +142,7 @@ public:
 private:
 	[[nodiscard]] bool Unpack(std::span<std::uint8_t const> buffer);
 	[[nodiscard]] bool UnpackExtensions(
-		Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end);
+		Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t extensions);
 
     Parcel m_parcel;
 	bool m_hasStageFailure;
