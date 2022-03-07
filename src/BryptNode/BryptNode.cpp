@@ -30,6 +30,7 @@
 
 Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     : m_token(token)
+    , m_spServiceProvider(std::make_shared<ServiceProvider>())
     , m_spScheduler(std::make_shared<Scheduler::Registrar>())
     , m_upRuntime(nullptr)
     , m_logger(spdlog::get(Logger::Name::Core.data()))
@@ -58,6 +59,7 @@ Node::Core::Core(
     std::unique_ptr<Configuration::Parser> const& upParser,
     std::shared_ptr<BootstrapService> const& spBootstrapService)
     : m_token(token)
+    , m_spServiceProvider(std::make_shared<ServiceProvider>())
     , m_spScheduler(std::make_shared<Scheduler::Registrar>())
     , m_upRuntime(nullptr)
     , m_logger(spdlog::get(Logger::Name::Core.data()))
@@ -117,6 +119,7 @@ bool Node::Core::CreateConfiguredResources(
     // the scheduler when work becomes available. 
     {
         m_spMessageProcessor = std::make_shared<AuthorizedProcessor>(spIdentifier, m_handlers, m_spScheduler);
+        m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
     }
 
     // Make a discovery protocol such that the peers can automatically perform a connection procedure without
@@ -125,6 +128,7 @@ bool Node::Core::CreateConfiguredResources(
         auto const spProtocol = std::make_shared<DiscoveryProtocol>(upParser->GetEndpoints());
         m_spPeerManager = std::make_shared<Peer::Manager>(
             spIdentifier, strategy, m_spEventPublisher, spProtocol, m_spMessageProcessor);
+        m_spServiceProvider->Register<IPeerMediator>(m_spPeerManager);
     }
 
     // If we should perform the inital connection bootstrapping based on the stored peers, then provide the 
@@ -136,12 +140,16 @@ bool Node::Core::CreateConfiguredResources(
         IBootstrapCache const* const pBootstraps = (upParser->UseBootstraps() ? spBootstrapService.get() : nullptr);
         m_spNetworkManager = std::make_shared<Network::Manager>(context, m_spTaskService, m_spEventPublisher);
         if (!m_spNetworkManager->Attach(endpoints, m_spPeerManager.get(), pBootstraps)) { return false; }
+        m_spServiceProvider->Register(m_spNetworkManager);
     }
 
     // Save the applicable configured state to be used during execution. 
     {
         m_spNodeState = std::make_shared<NodeState>(spIdentifier, m_spNetworkManager->GetEndpointProtocols());
+        m_spServiceProvider->Register(m_spNodeState);
+        
         m_spSecurityState = std::make_shared<SecurityState>(strategy);
+        m_spServiceProvider->Register(m_spSecurityState);
     }
 
     // Store the provided bootstrap service and configure it with the node's resouces. 
@@ -149,6 +157,7 @@ bool Node::Core::CreateConfiguredResources(
         m_spBootstrapService = spBootstrapService;
         m_spBootstrapService->Register(m_spPeerManager.get());
         m_spBootstrapService->Register(m_spScheduler);
+        m_spServiceProvider->Register(m_spBootstrapService);
     }
 
     m_initialized = true;
@@ -239,6 +248,11 @@ std::weak_ptr<BootstrapService> Node::Core::GetBootstrapService() const { return
 
 void Node::Core::CreateStaticResources()
 {
+    m_spServiceProvider->Register(m_spCoordinatorState);
+    m_spServiceProvider->Register(m_spNetworkState);
+    m_spServiceProvider->Register(m_spEventPublisher);
+    m_spServiceProvider->Register(m_spTrackingService);
+
     // Create the message handlers for the supported application message types. Note: Network message
     // handling is determined by the enabled processor for the peer and will not be forwarded into the core. 
     m_handlers.emplace(Handler::Type::Information, Handler::Factory(Handler::Type::Information, *this));

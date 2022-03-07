@@ -7,6 +7,7 @@
 #include "ExecutionToken.hpp"
 #include "RuntimeContext.hpp"
 #include "RuntimePolicy.hpp"
+#include "ServiceProvider.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Components/Route/Handler.hpp"
@@ -105,6 +106,7 @@ private:
     void OnUnexpectedError();
 
     std::reference_wrapper<ExecutionToken> m_token;
+    std::shared_ptr<ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Scheduler::Registrar> m_spScheduler;
     std::unique_ptr<IRuntimePolicy> m_upRuntime;
     std::shared_ptr<spdlog::logger> m_logger;
