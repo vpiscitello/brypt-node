@@ -6,6 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Peer/Action.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
@@ -28,6 +29,7 @@ namespace Awaitable {
 
 class ITracker;
 class AggregateTracker;
+class RequestTracker;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Awaitable namespace
@@ -59,6 +61,30 @@ protected:
     std::size_t m_expected;
     std::size_t m_received;
     std::chrono::steady_clock::time_point const m_expire;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class Awaitable::RequestTracker : public Awaitable::ITracker
+{
+public:
+    RequestTracker(
+        std::weak_ptr<Peer::Proxy> const& wpProxy,
+        Peer::Action::OnResponse const& onResponse,
+        Peer::Action::OnError const& onError);
+
+    // ITracker {
+    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) override;
+    [[nodiscard]] virtual UpdateResult Update(Node::Identifier const& identifier, std::string_view data) override;
+    [[nodiscard]] virtual bool Fulfill() override;
+    // } ITracker
+
+private:
+    Node::SharedIdentifier m_spRequestee;
+    std::optional<Message::Application::Parcel> m_optResponse;
+    Peer::Action::OnResponse m_onResponse;
+    Peer::Action::OnError m_onError;
+    std::weak_ptr<Peer::Proxy> m_wpProxy;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

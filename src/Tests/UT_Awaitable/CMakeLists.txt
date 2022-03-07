@@ -12,6 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     AggregateTrackerTest.cpp
+    RequestTrackerTest.cpp
     TrackingServiceTest.cpp
     UT_Awaitable.cpp)
 

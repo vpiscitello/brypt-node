@@ -46,6 +46,30 @@ Awaitable::TrackingService::~TrackingService()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageRequest(
+    std::weak_ptr<Peer::Proxy> const& wpRequestee,
+    Peer::Action::OnResponse const& onResponse,
+    Peer::Action::OnError const& onError,
+    Message::Application::Builder& builder)
+{
+    using namespace Message::Application; 
+    assert(Assertions::Threading::IsCoreThread());
+    assert(builder.GetDestination());
+
+    constexpr std::string_view CreateMessage = "Creating awaitable tracker for a request to {}. [id={}]";
+
+    if (auto const optTrackerKey = GenerateKey(builder.GetSource()); optTrackerKey) {
+        m_logger->debug(CreateMessage, *builder.GetDestination(), *optTrackerKey);
+        builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, *optTrackerKey);
+        m_trackers.emplace(*optTrackerKey, std::make_unique<RequestTracker>(wpRequestee, onResponse, onError));
+        return optTrackerKey;
+    }
+
+    return {};
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
     std::weak_ptr<Peer::Proxy> const& wpRequestor,
     std::vector<Node::SharedIdentifier> const& identifiers,

@@ -5,6 +5,7 @@
 #include "Tracker.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------
@@ -53,6 +54,62 @@ std::size_t Awaitable::ITracker::GetExpected() const { return m_expected; }
 //----------------------------------------------------------------------------------------------------------------------
 
 std::size_t Awaitable::ITracker::GetReceived() const { return m_received; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::RequestTracker::RequestTracker(
+    std::weak_ptr<Peer::Proxy> const& wpProxy,
+    Peer::Action::OnResponse const& onResponse,
+    Peer::Action::OnError const& onError)
+    : ITracker(1)
+    , m_spRequestee()
+    , m_optResponse()
+    , m_onResponse(onResponse)
+    , m_onError(onError)
+    , m_wpProxy(wpProxy)
+{
+    if (auto const spProxy = wpProxy.lock(); spProxy) {
+        m_spRequestee = spProxy->GetIdentifier();
+    }
+    assert(m_spRequestee);
+    assert(m_onResponse);
+    assert(m_onError);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(Message::Application::Parcel const& response)
+{
+    if (m_expire < std::chrono::steady_clock::now()) { return UpdateResult::Expired; }
+    if(m_optResponse || response.GetSource() != *m_spRequestee) { return UpdateResult::Unexpected; }
+    m_optResponse = std::move(response);
+    ++m_received;
+    return UpdateResult::Fulfilled;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(
+    Node::Identifier const& identifier, std::string_view data)
+{
+    return UpdateResult::Unexpected;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Awaitable::RequestTracker::Fulfill()
+{
+    if(m_status != Status::Fulfilled) { return false; }
+    m_status = Status::Completed;
+
+    if (!m_optResponse) {
+        m_onError(Peer::Action::Error::Expired);
+        return true;
+    }
+
+    m_onResponse(*m_optResponse);
+    return true;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 

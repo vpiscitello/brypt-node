@@ -44,6 +44,12 @@ public:
         std::shared_ptr<Node::ServiceProvider> const& spProvider);
     ~TrackingService();
 
+    [[nodiscard]] std::optional<TrackerKey> StageRequest(
+        std::weak_ptr<Peer::Proxy> const& wpRequestee,
+        Peer::Action::OnResponse const& onResponse,
+        Peer::Action::OnError const& onError,
+        Message::Application::Builder& builder);
+
     [[nodiscard]] std::optional<TrackerKey> StageDeferred(
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
         std::vector<Node::SharedIdentifier> const& identifiers,
