@@ -38,16 +38,18 @@ class Awaitable::ITracker
 public:
     static constexpr auto ExpirationPeriod = std::chrono::milliseconds{ 1'500 };
 
-    enum class Status : std::uint8_t { Unfulfilled, Fulfilled, Completed };
-    enum class UpdateResult : std::uint8_t { Expired, Unexpected, Success, Fulfilled };
+    enum class Status : std::uint32_t { Pending, Fulfilled, Completed };
+    enum class UpdateResult : std::uint32_t { Expired, Unexpected, Success, Fulfilled };
 
     virtual ~ITracker() = default;
 
+    [[nodiscard]] Status GetStatus() const;
     [[nodiscard]] Status CheckStatus();
     [[nodiscard]] std::size_t GetExpected() const;
     [[nodiscard]] std::size_t GetReceived() const;
 
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) = 0;
+    [[nodiscard]] virtual UpdateResult Update(Node::Identifier const& identifier, std::string_view data) = 0;
     [[nodiscard]] virtual bool Fulfill() = 0;
 
 protected:
@@ -56,7 +58,7 @@ protected:
     Status m_status;
     std::size_t m_expected;
     std::size_t m_received;
-    TimeUtils::Timepoint const m_expire;
+    std::chrono::steady_clock::time_point const m_expire;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -71,6 +73,7 @@ public:
 
     // ITracker {
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) override;
+    [[nodiscard]] virtual UpdateResult Update(Node::Identifier const& identifier, std::string_view data) override;
     [[nodiscard]] virtual bool Fulfill() override;
     // } ITracker
 
@@ -82,14 +85,16 @@ private:
         [[nodiscard]] Node::SharedIdentifier const& GetIdentifier() const;
         [[nodiscard]] Node::Internal::Identifier const& GetInternalIdentifier() const;
 
-        [[nodiscard]] std::string const& GetPack() const;
+        [[nodiscard]] std::string const& GetData() const;
         [[nodiscard]] bool IsEmpty() const;
-        void SetPack(std::string const& pack);
+        void SetData(std::string const& data);
 
     private:
         Node::SharedIdentifier const m_spIdentifier;
-        std::string m_pack;
+        std::string m_data;
     };
+
+    [[nodiscard]] UpdateResult Update(Node::Identifier const& identifier, std::span<std::uint8_t const> data);
 
     using Responses = boost::multi_index_container<
         Entry,

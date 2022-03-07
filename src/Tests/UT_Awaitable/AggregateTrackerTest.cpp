@@ -18,6 +18,26 @@
 using namespace std::chrono_literals;
 //----------------------------------------------------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------------------------------------------------
+namespace {
+namespace local {
+//----------------------------------------------------------------------------------------------------------------------
+
+
+//----------------------------------------------------------------------------------------------------------------------
+} // local namespace
+//----------------------------------------------------------------------------------------------------------------------
+namespace test {
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::SharedIdentifier const ServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+Node::Identifier const ClientIdentifier{ Node::GenerateIdentifier() };
+
+//----------------------------------------------------------------------------------------------------------------------
+} // test namespace
+} // namespace
+//----------------------------------------------------------------------------------------------------------------------
+
 class AggregateTrackerSuite : public testing::Test
 {
 protected:
@@ -36,8 +56,8 @@ protected:
     void SetUp() override
     {
         m_optFulfilledResponse = {};
-        m_spClientPeer = Peer::Proxy::CreateInstance(Awaitable::Test::ClientIdentifier, m_spServiceProvider);
-        m_spClientPeer->RegisterSilentEndpoint<InvokeContext::Test>(
+        m_spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, m_spServiceProvider);
+        m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(
             Awaitable::Test::EndpointIdentifier,
             Awaitable::Test::EndpointProtocol,
             Awaitable::Test::RemoteClientAddress,
@@ -54,14 +74,15 @@ protected:
                 return true;
             });
 
-        auto const optRequest = Awaitable::Test::GenerateRequest(m_context);
+        auto const optRequest = Awaitable::Test::GenerateRequest(m_context, test::ClientIdentifier, *test::ServerIdentifier);
         ASSERT_TRUE(optRequest);
         m_request = *optRequest;
     }
 
     static std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     static Message::Context m_context;
-    std::shared_ptr<Peer::Proxy> m_spClientPeer;
+
+    std::shared_ptr<Peer::Proxy> m_spProxy;
     Message::Application::Parcel m_request;
     std::optional<Message::Application::Parcel> m_optFulfilledResponse;
 };
@@ -75,20 +96,24 @@ Message::Context AggregateTrackerSuite::m_context = {};
 
 TEST_F(AggregateTrackerSuite, SingleResponseTest)
 {
-    Awaitable::AggregateTracker tracker{ m_spClientPeer, m_request, { Awaitable::Test::spServerIdentifier } };
-    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Unfulfilled);
+    Awaitable::AggregateTracker tracker{ m_spProxy, m_request, { test::ServerIdentifier } };
+
     EXPECT_FALSE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(m_optFulfilledResponse);
 
-    auto const optResponse = Awaitable::Test::GenerateResponse(
-        m_context,  Awaitable::Test::spServerIdentifier, Awaitable::Test::TrackerKey);
+    auto optResponse = Awaitable::Test::GenerateResponse(
+        m_context, *test::ServerIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
     ASSERT_TRUE(optResponse);
     EXPECT_EQ(tracker.Update(*optResponse), Awaitable::ITracker::UpdateResult::Fulfilled);
+
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
     EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 
     ASSERT_TRUE(m_optFulfilledResponse);
-    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *Awaitable::Test::spServerIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), Awaitable::Test::ClientIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
 
     auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
@@ -101,15 +126,16 @@ TEST_F(AggregateTrackerSuite, SingleResponseTest)
 
 TEST_F(AggregateTrackerSuite, MultipleResponseTest)
 {
-    auto const identifiers = Awaitable::Test::GenerateIdentifiers(3);
-    Awaitable::AggregateTracker tracker{ m_spClientPeer, m_request, identifiers };
-    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Unfulfilled);
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 3);
+    Awaitable::AggregateTracker tracker{ m_spProxy, m_request, identifiers };
+
     EXPECT_FALSE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(m_optFulfilledResponse);
 
     std::ranges::for_each(identifiers, [&, updates = std::size_t{ 0 }] (auto const& spIdentifier) mutable {
-        auto const optResponse = Awaitable::Test::GenerateResponse(
-            m_context,  spIdentifier, Awaitable::Test::TrackerKey);
+        auto optResponse = Awaitable::Test::GenerateResponse(
+            m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
         ASSERT_TRUE(optResponse);
         auto const status = tracker.Update(*optResponse);
         auto const expected = (++updates < identifiers.size()) ?
@@ -117,10 +143,13 @@ TEST_F(AggregateTrackerSuite, MultipleResponseTest)
         EXPECT_EQ(status, expected);
     });
 
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
     EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
+
     ASSERT_TRUE(m_optFulfilledResponse);
-    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *Awaitable::Test::spServerIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), Awaitable::Test::ClientIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
     
     auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
@@ -131,16 +160,46 @@ TEST_F(AggregateTrackerSuite, MultipleResponseTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(AggregateTrackerSuite, ExpiredNoResponsesTest)
+TEST_F(AggregateTrackerSuite, DirectUpdateTest)
 {
-    Awaitable::AggregateTracker tracker { m_spClientPeer, m_request, { Awaitable::Test::spServerIdentifier } };
-    std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
+    Awaitable::AggregateTracker tracker{ m_spProxy, m_request, { test::ServerIdentifier } };
+
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
+    EXPECT_EQ(
+        tracker.Update(*test::ServerIdentifier, Awaitable::Test::Message),
+        Awaitable::ITracker::UpdateResult::Fulfilled);
+    EXPECT_EQ(tracker.GetReceived(), std::size_t{ 1 });
+    
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
     EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
+    
+    ASSERT_TRUE(m_optFulfilledResponse);
+    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
+    EXPECT_GT(m_optFulfilledResponse->GetPayload().size(), std::size_t{ 0 });
+
+    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    EXPECT_TRUE(optExtension);
+    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(AggregateTrackerSuite, ExpiredNoResponsesTest)
+{
+    Awaitable::AggregateTracker tracker { m_spProxy, m_request, { test::ServerIdentifier } };
+    std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
+
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
+    EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 
     ASSERT_TRUE(m_optFulfilledResponse);
-    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *Awaitable::Test::spServerIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), Awaitable::Test::ClientIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
     EXPECT_GT(m_optFulfilledResponse->GetPayload().size(), std::size_t{ 0 });
 
@@ -154,27 +213,31 @@ TEST_F(AggregateTrackerSuite, ExpiredNoResponsesTest)
 
 TEST_F(AggregateTrackerSuite, ExpiredSomeResponsesTest)
 {
-    auto const identifiers = Awaitable::Test::GenerateIdentifiers(3);
-    Awaitable::AggregateTracker tracker{ m_spClientPeer, m_request, identifiers };
-    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Unfulfilled);
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 3);
+    Awaitable::AggregateTracker tracker{ m_spProxy, m_request, identifiers };
+
     EXPECT_FALSE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(m_optFulfilledResponse);
     
     auto const matches = [updates = std::size_t{ 0 }] (auto const&) mutable { return ++updates != 1; };
     std::ranges::for_each(identifiers| std::views::filter(matches), [&] (auto const& spIdentifier) mutable {
-        auto const optResponse = Awaitable::Test::GenerateResponse(
-            m_context,  spIdentifier, Awaitable::Test::TrackerKey);
+        auto optResponse = Awaitable::Test::GenerateResponse(
+            m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
         ASSERT_TRUE(optResponse);
         auto const status = tracker.Update(*optResponse);
         EXPECT_EQ(status, Awaitable::ITracker::UpdateResult::Success);
     });
     
     std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
+
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
     EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 
     ASSERT_TRUE(m_optFulfilledResponse);
-    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *Awaitable::Test::spServerIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), Awaitable::Test::ClientIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
     EXPECT_GT(m_optFulfilledResponse->GetPayload().size(), std::size_t{ 0 });
 
@@ -188,32 +251,37 @@ TEST_F(AggregateTrackerSuite, ExpiredSomeResponsesTest)
 
 TEST_F(AggregateTrackerSuite, ExpiredLateResponsesTest)
 {
-    Awaitable::AggregateTracker tracker{ m_spClientPeer, m_request, { Awaitable::Test::spServerIdentifier } };
+    Awaitable::AggregateTracker tracker{ m_spProxy, m_request, { test::ServerIdentifier } };
     std::this_thread::sleep_for(Awaitable::AggregateTracker::ExpirationPeriod + 1ms);
+
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
-    EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
     EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
     EXPECT_TRUE(m_optFulfilledResponse);
 
-    auto const optResponse = Awaitable::Test::GenerateResponse(
-        m_context,  Awaitable::Test::spServerIdentifier, Awaitable::Test::TrackerKey);
+    auto optResponse = Awaitable::Test::GenerateResponse(
+        m_context, *test::ServerIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
     ASSERT_TRUE(optResponse);    
     EXPECT_EQ(tracker.Update(*optResponse), Awaitable::ITracker::UpdateResult::Expired);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 TEST_F(AggregateTrackerSuite, UnexpectedResponsesTest)
 {
-    Awaitable::AggregateTracker tracker{ m_spClientPeer, m_request, { Awaitable::Test::spServerIdentifier } };
-    auto const spUnexpectedIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
-    auto const optResponse = Awaitable::Test::GenerateResponse(
-        m_context,  spUnexpectedIdentifier, Awaitable::Test::TrackerKey);
+    Awaitable::AggregateTracker tracker{ m_spProxy, m_request, { test::ServerIdentifier } };
+    Node::Identifier const unexpected{ Node::GenerateIdentifier() };
+    auto optResponse = Awaitable::Test::GenerateResponse(
+        m_context, unexpected, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
     ASSERT_TRUE(optResponse);
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_EQ(tracker.Update(*optResponse), Awaitable::ITracker::UpdateResult::Unexpected);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(m_optFulfilledResponse);
 }
 

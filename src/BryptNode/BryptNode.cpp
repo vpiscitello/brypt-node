@@ -40,7 +40,7 @@ Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     , m_spSecurityState()
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
-    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
+    , m_spTrackingService()
     , m_spNetworkManager()
     , m_spPeerManager()
     , m_spMessageProcessor()
@@ -69,7 +69,7 @@ Node::Core::Core(
     , m_spSecurityState()
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
-    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
+    , m_spTrackingService()
     , m_spNetworkManager()
     , m_spPeerManager()
     , m_spMessageProcessor()
@@ -251,6 +251,9 @@ void Node::Core::CreateStaticResources()
     m_spServiceProvider->Register(m_spCoordinatorState);
     m_spServiceProvider->Register(m_spNetworkState);
     m_spServiceProvider->Register(m_spEventPublisher);
+    m_spServiceProvider->Register(m_spTaskService);
+
+    m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spScheduler, m_spServiceProvider);
     m_spServiceProvider->Register(m_spTrackingService);
 
     // Create the message handlers for the supported application message types. Note: Network message

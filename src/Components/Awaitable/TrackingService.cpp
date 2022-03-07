@@ -3,6 +3,7 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "TrackingService.hpp"
+#include "BryptNode/ServiceProvider.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Scheduler/Delegate.hpp"
 #include "Components/Scheduler/Registrar.hpp"
@@ -17,9 +18,12 @@
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::TrackingService::TrackingService(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
+Awaitable::TrackingService::TrackingService(
+    std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
+    std::shared_ptr<Node::ServiceProvider> const& spProvider)
     : m_spDelegate()
     , m_trackers()
+    , m_ready()
     , m_logger(spdlog::get(Logger::Name::Core.data()))
 {
     assert(Assertions::Threading::IsCoreThread());
@@ -48,18 +52,16 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
     Message::Application::Parcel const& deferred,
     Message::Application::Builder& builder)
 {
+    using namespace Message::Application; 
     assert(Assertions::Threading::IsCoreThread());
 
-    if (auto const optExtension = deferred.GetExtension<Message::Application::Extension::Awaitable>(); !optExtension) {
-        return {};
-    }
+    constexpr std::string_view CreateMessage = "Creating awaitable tracker to fulfill deferred request from {}. [id={}]";
+
+    if (auto const optExtension = deferred.GetExtension<Extension::Awaitable>(); !optExtension) { return {}; }
 
     if (auto const optTrackerKey = GenerateKey(builder.GetSource()); optTrackerKey) {
-        builder.BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, *optTrackerKey);
-        m_logger->debug(
-            "Creating awaitable tracker to fulfill defered request from {}. [id={}]",
-            deferred.GetSource(), *optTrackerKey);
+        m_logger->debug(CreateMessage, deferred.GetSource(), *optTrackerKey);
+        builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, *optTrackerKey);
         m_trackers.emplace(*optTrackerKey, std::make_unique<AggregateTracker>(wpRequestor, deferred, identifiers));
         return optTrackerKey;
     }
@@ -73,43 +75,39 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel const& mes
 {
     assert(Assertions::Threading::IsCoreThread());
 
+    constexpr std::string_view MissingWarning = "Received response for awaiting request. [id={}]";
+    constexpr std::string_view SuccessMessage = "Received response for awaiting request. [id={}]";
+    constexpr std::string_view ExpiredWarning = "Received late response for an expired awaitable from {}. [id={}]";
+    constexpr std::string_view UnexpectedWarning = "Received an unexpected response for an awaitable from {}. [id={}]";
+    constexpr std::string_view FulfilledMessage = "Deferred request has been fulfilled, waiting to transmit. [id={}]";
+
     // Try to get the awaitable extension from the supplied message.
     auto const& optExtension = message.GetExtension<Message::Application::Extension::Awaitable>();
     if (!optExtension) { return false; }
 
     // Try to find the awaiting object in the awaiting container
-    auto const itr = m_trackers.find(optExtension->get().GetTracker());
-    if(itr == m_trackers.end()) {
-        m_logger->warn(
-            "Unable to find an awaiting request for id={}. The request may have exist or has expired.",
-            optExtension->get().GetTracker());
+    auto const key = optExtension->get().GetTracker();
+    auto const awaitable = m_trackers.find(key);
+    if(awaitable == m_trackers.end()) {
+        m_logger->warn(MissingWarning, key);
         return false;
     }
 
-    // Update the response to the waiting message with th new message
-    auto& [key, upTracker] = *itr;
-    assert(upTracker);
-
-    switch (upTracker->Update(message)) {
-        // The tracker will notify us if the response update was successful or if on success the awaiting request
-        //  became fulfilled. 
+    // Update the response to the waiting message with the new message
+    switch (awaitable->second->Update(message)) {
         case ITracker::UpdateResult::Success: {
-            m_logger->debug("Received response for awaiting request. [id={}].", key);
+             m_logger->debug(SuccessMessage, key);
         } break;
         case ITracker::UpdateResult::Fulfilled: {
-            m_logger->debug("Await request has been fulfilled, waiting to transmit. [id={}]", key);
-            m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
+            m_logger->debug(FulfilledMessage, key);
+            OnTrackerReady(key, std::move(awaitable->second));
         } break;
-        // The tracker will us us if the response was the received response was received after allowable period. This may
-        //  only occur while the response is waiting for transmission and we able to determine the associated request 
-        // for the message. 
         case ITracker::UpdateResult::Expired: {
-            m_logger->warn(
-                "Received late response for an expired awaitable from {}. [id={}]", message.GetSource(), key);
+            m_logger->warn(ExpiredWarning, message.GetSource(), key);
+            OnTrackerReady(key, std::move(awaitable->second));
         } return false;
         case ITracker::UpdateResult::Unexpected: {
-            m_logger->warn(
-                "Received an unexpected response for an awaitable from {}. [id={}]", message.GetSource(), key);
+            m_logger->warn(UnexpectedWarning, message.GetSource(), key);
         } return false;
         default: assert(false); return false;
     }
@@ -119,29 +117,67 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel const& mes
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Awaitable::TrackingService::Process(TrackerKey key, Node::Identifier const& identifier, std::string_view data)
+{
+    assert(Assertions::Threading::IsCoreThread());
+
+    constexpr std::string_view MissingWarning = "Adding direct response for awaiting request. [id={}]";
+    constexpr std::string_view SuccessMessage = "Adding direct response for awaiting request. [id={}]";
+    constexpr std::string_view FulfilledMessage = "Request has been fulfilled, ready to process response. [id={}]";
+
+    // Try to find the awaiting object in the awaiting container
+    auto const awaitable = m_trackers.find(key);
+    if(awaitable == m_trackers.end()) {
+        m_logger->warn(MissingWarning, key);
+        return false;
+    }
+
+    // Update the response to the waiting message with the new message
+    switch (awaitable->second->Update(identifier, std::move(data))) {
+        case ITracker::UpdateResult::Success: {
+             m_logger->debug(SuccessMessage, key);
+        } break;
+        case ITracker::UpdateResult::Fulfilled: {
+            m_logger->debug(FulfilledMessage, key);
+            OnTrackerReady(key, std::move(awaitable->second));
+        } break;
+        default: assert(false); return false;
+    }
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Awaitable::TrackingService::CheckTrackers()
+{
+    assert(Assertions::Threading::IsCoreThread());
+
+    std::erase_if(m_trackers, [&] (auto&& entry) {
+        auto const status = entry.second->GetStatus();
+        auto const current = entry.second->CheckStatus();
+        bool const ready = current != ITracker::Status::Pending && status != current;
+        if (ready) {
+            m_ready.emplace_back(std::move(entry.second));
+            m_spDelegate->OnTaskAvailable();
+        }
+        return ready;
+    });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::size_t Awaitable::TrackingService::Execute()
 {
     assert(Assertions::Threading::IsCoreThread());
 
-    std::size_t const count = m_trackers.size();
-    for (auto itr = m_trackers.begin(); itr != m_trackers.end();) {
-        auto& [key, upTracker] = *itr;
-        assert(upTracker);
+    std::ranges::for_each(m_ready, [this] (auto const& upTracker) {
+        [[maybe_unused]] bool const success = upTracker->Fulfill();
+    });
 
-        if (upTracker->CheckStatus() == ITracker::Status::Fulfilled) {
-            bool const success = upTracker->Fulfill();
-            if (success) {
-                m_logger->debug("Awaitable has been transmitted. [id={}]",  key);
-            } else {
-                m_logger->warn("Unable to fulfill awaitable. [id={}]", key);
-            }
-            itr = m_trackers.erase(itr);
-        } else {
-            ++itr;
-        }
-    }
-
-    return count - m_trackers.size(); // Return the total number of messages fulfilled. 
+    std::size_t executed = m_ready.size();
+    m_ready.clear();
+    return executed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -171,7 +207,18 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::GenerateKey(Nod
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Awaitable::TrackingService::KeyHasher::operator()(TrackerKey const& key) const {
+void Awaitable::TrackingService::OnTrackerReady(TrackerKey key, std::unique_ptr<ITracker>&& upTracker)
+{
+    assert(Assertions::Threading::IsCoreThread());
+    m_ready.emplace_back(std::move(upTracker));
+    m_trackers.erase(key);
+    m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Awaitable::TrackingService::KeyHasher::operator()(TrackerKey const& key) const
+{
     return boost::hash_range(key.begin(), key.end());
 }   
 

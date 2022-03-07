@@ -25,18 +25,24 @@ LI_SYMBOL(pack)
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::ITracker::ITracker(std::size_t expected)
-    : m_status(Status::Unfulfilled)
+    : m_status(Status::Pending)
     , m_expected(expected)
     , m_received(0)
-    , m_expire(TimeUtils::GetSystemTimepoint() + ExpirationPeriod)
+    , m_expire(std::chrono::steady_clock::now() + ExpirationPeriod)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Awaitable::ITracker::Status Awaitable::ITracker::GetStatus() const { return m_status; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Awaitable::ITracker::Status Awaitable::ITracker::CheckStatus()
 {
-    if (m_received == m_expected || m_expire < TimeUtils::GetSystemTimepoint()) { m_status = Status::Fulfilled; }
+    if (m_status != Status::Completed && (m_received == m_expected || m_expire < std::chrono::steady_clock::now())) { 
+        m_status = Status::Fulfilled;
+    }
     return m_status;
 }
 
@@ -67,39 +73,25 @@ Awaitable::AggregateTracker::AggregateTracker(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: This places a response message into the aggregate object for this await object. 
-// Will return an UpdateStatus to indicate a success or failure. On successful update the it 
-// indicates a success, however, if the request becomes fulfilled that will take precendence. 
-// On failure, the type of error will be determined and returned to the caller. 
-//----------------------------------------------------------------------------------------------------------------------
 Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(Message::Application::Parcel const& response)
 {
-    auto const itr = m_responses.find(response.GetSource());
-    if(itr == m_responses.end() || !itr->IsEmpty()) {
-        if (m_expire < TimeUtils::GetSystemTimepoint()) { return UpdateResult::Expired; }
-        return UpdateResult::Unexpected;
-    }
-
-    m_responses.modify(itr, [&response] (Entry& entry) { entry.SetPack(response.GetPack()); });
-
-    if (++m_received >= m_expected) {
-        m_status = Status::Fulfilled;
-        return UpdateResult::Fulfilled;
-    }
-
-    return UpdateResult::Success;
+    return Update(response.GetSource(), response.GetPayload());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(
+    Node::Identifier const& identifier, std::string_view data)
+{
+    return Update(identifier, { reinterpret_cast<std::uint8_t const*>(data.begin()), data.size() });
+}
+
 //----------------------------------------------------------------------------------------------------------------------
-// Description: Gathers information from the aggregate object and packages it into a new message.
-// Returns: The aggregate message.
-//----------------------------------------------------------------------------------------------------------------------
+
 bool Awaitable::AggregateTracker::Fulfill()
 {
-    if (CheckStatus() != Status::Fulfilled) { return false; }
+    if(m_status != Status::Fulfilled) { return false; }
+    m_status = Status::Completed;
 
     struct ResponseItem {
         std::string const& identifier;
@@ -108,7 +100,7 @@ bool Awaitable::AggregateTracker::Fulfill()
     std::vector<ResponseItem> responses;
     std::transform(m_responses.begin(), m_responses.end(), std::back_inserter(responses), [] (auto const& entry) {
         assert(entry.GetIdentifier());
-        return ResponseItem{ *entry.GetIdentifier(), entry.GetPack() };
+        return ResponseItem{ *entry.GetIdentifier(), entry.GetData() };
     });
 
     std::string data = li::json_vector(s::identifier, s::pack).encode(responses);
@@ -132,10 +124,9 @@ bool Awaitable::AggregateTracker::Fulfill()
         .ValidatedBuild();
     assert(optResponse);
 
-    // After the aggregate response has been generated the tracked responses can be 
-    // cleared. Therby rejecting any new responses.
+    // After the aggregate response has been generated the tracked responses can be cleared. Any subsequent responses
+    // will be rejected by the service.
     m_responses.clear();
-    m_status = Status::Completed;
 
     if (auto const spRequestor = m_wpRequestor.lock(); spRequestor) {
         return spRequestor->ScheduleSend(m_request.GetContext().GetEndpointIdentifier(), optResponse->GetPack());
@@ -146,9 +137,29 @@ bool Awaitable::AggregateTracker::Fulfill()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::AggregateTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, std::string_view pack)
+Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(
+    Node::Identifier const& identifier, std::span<std::uint8_t const> data)
+{
+    if (m_expire < std::chrono::steady_clock::now()) { return UpdateResult::Expired; }
+
+    auto const itr = m_responses.find(identifier);
+    if(itr == m_responses.end() || !itr->IsEmpty()) { return UpdateResult::Unexpected; }
+
+    m_responses.modify(itr, [&data] (Entry& entry) { entry.SetData(Z85::Encode(data)); });
+
+    if (++m_received >= m_expected) {
+        m_status = Status::Fulfilled;
+        return UpdateResult::Fulfilled;
+    }
+
+    return UpdateResult::Success;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::AggregateTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, std::string_view data)
     : m_spIdentifier(spIdentifier)
-    , m_pack(pack)
+    , m_data(data)
 {
 }
 
@@ -169,13 +180,13 @@ Node::Internal::Identifier const& Awaitable::AggregateTracker::Entry::GetInterna
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Awaitable::AggregateTracker::Entry::GetPack() const { return m_pack; }
+std::string const& Awaitable::AggregateTracker::Entry::GetData() const { return m_data; }
 
 //----------------------------------------------------------------------------------------------------------------------
-bool Awaitable::AggregateTracker::Entry::IsEmpty() const { return m_pack.empty(); }
+bool Awaitable::AggregateTracker::Entry::IsEmpty() const { return m_data.empty(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Awaitable::AggregateTracker::Entry::SetPack(std::string const& pack) { m_pack = pack; }
+void Awaitable::AggregateTracker::Entry::SetData(std::string const& data) { m_data = data; }
 
 //----------------------------------------------------------------------------------------------------------------------
