@@ -26,7 +26,7 @@ std::filesystem::path GetFilepath(std::filesystem::path const& filename);
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-auto RuntimeOptions = Configuration::Options::Runtime
+constexpr auto RuntimeOptions = Configuration::Options::Runtime
 { 
     .context = RuntimeContext::Foreground,
     .verbosity = spdlog::level::debug,
@@ -219,6 +219,7 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
         auto const optCheckEndpoint = checker.GetEndpoint("tcp://127.0.0.1:35216");
         ASSERT_TRUE(optCheckEndpoint && optEndpoint);
         EXPECT_EQ(optCheckEndpoint->get(), optEndpoint->get());
+        EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
     }
 
     std::filesystem::remove(parser.GetFilepath());
@@ -300,6 +301,7 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
         EXPECT_FALSE(optEndpoint->get().GetBootstrap());
         ASSERT_TRUE(optCheckEndpoint->get().GetBootstrap());
         EXPECT_EQ(optCheckEndpoint->get().GetBootstrap()->GetUri(), "tcp://127.0.0.1:35217");
+        EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
 
         EXPECT_TRUE(merger.GetEndpoint("tcp://127.0.0.1:35226")); // This endpoint should have been added.
     }
@@ -395,6 +397,7 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
         auto optStoreBootstrap = optEndpoint->get().GetBootstrap();
         ASSERT_TRUE(optStoreBootstrap);
         EXPECT_EQ(*optStoreBootstrap, bootstrap);
+        EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
 
         auto const optUriEndpoint = parser.GetEndpoint(binding.GetUri()); 
         ASSERT_TRUE(optUriEndpoint);
@@ -424,6 +427,7 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
         auto const optStoreBootstrap = optEndpoint->get().GetBootstrap();
         ASSERT_TRUE(optStoreBootstrap);
         EXPECT_EQ(*optStoreBootstrap, bootstrap);
+        EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
     }
 
     // You should not be able to fetch a missing endpoint. 

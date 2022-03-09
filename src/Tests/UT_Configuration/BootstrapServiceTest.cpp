@@ -328,12 +328,21 @@ std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
 
 Configuration::Options::Endpoint local::GenerateTcpOptions(std::uint16_t port)
 {
+    constexpr auto RuntimeOptions = Configuration::Options::Runtime
+    { 
+        .context = RuntimeContext::Foreground,
+        .verbosity = spdlog::level::debug,
+        .useInteractiveConsole = false,
+        .useBootstraps = false,
+        .useFilepathDeduction = false
+    };
+
     Configuration::Options::Endpoint options;
     options.protocol = "TCP";
     options.interface = "lo";
     options.binding = test::TcpBootstrapBase.data() + std::to_string(port);
     options.bootstrap = test::TcpBootstrapBase.data() + std::to_string(port);
-    [[maybe_unused]] bool const success = options.Initialize(spdlog::get(Logger::Name::Core.data()));
+    [[maybe_unused]] bool const success = options.Initialize(RuntimeOptions, spdlog::get(Logger::Name::Core.data()));
     assert(success);
     return options;
 }

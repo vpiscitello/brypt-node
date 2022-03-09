@@ -465,6 +465,9 @@ Configuration::Options::Endpoint::Endpoint(
     , constructed({
         .protocol = _protocol
     })
+    , transient({
+        .useBootstraps = true
+    })
 {
     switch (constructed.protocol) {
         case ::Network::Protocol::TCP: protocol = "TCP"; break;
@@ -486,6 +489,9 @@ Configuration::Options::Endpoint::Endpoint(
     , bootstrap(_bootstrap)
     , constructed({
         .protocol = ::Network::Protocol::Invalid
+    })
+    , transient({
+        .useBootstraps = true
     })
 {
 }
@@ -533,7 +539,7 @@ void Configuration::Options::Endpoint::Merge(Endpoint& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Endpoint::Initialize(std::shared_ptr<spdlog::logger> const& logger)
+bool Configuration::Options::Endpoint::Initialize(Runtime runtime, std::shared_ptr<spdlog::logger> const& logger)
 {
     if (!protocol.empty()) { constructed.protocol = ::Network::ParseProtocol(protocol); }
     if (constructed.protocol == ::Network::Protocol::Invalid || binding.empty() || interface.empty()) { return false; }
@@ -555,6 +561,8 @@ bool Configuration::Options::Endpoint::Initialize(std::shared_ptr<spdlog::logger
     }
 
     if (connection && !connection->Initialize(logger)) { return false; }
+
+    transient.useBootstraps = runtime.useBootstraps;
 
     return true;
 }
@@ -581,6 +589,10 @@ std::optional<Network::RemoteAddress> const& Configuration::Options::Endpoint::G
 {
     return constructed.bootstrap;
 }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Endpoint::UseBootstraps() const { return transient.useBootstraps; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -677,13 +689,13 @@ void Configuration::Options::Network::Merge(Network& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Network::Initialize(std::shared_ptr<spdlog::logger> const& logger)
+bool Configuration::Options::Network::Initialize(Runtime runtime, std::shared_ptr<spdlog::logger> const& logger)
 {
     if (!connection.Initialize(logger)) { return false; }
 
     return std::ranges::all_of(endpoints, [&] (Endpoint& endpoint) {
         endpoint.SetConnectionOptions(connection); // Add or merge the global connection options for the endpoint. 
-        bool const success = endpoint.Initialize(logger);
+        bool const success = endpoint.Initialize(runtime, logger);
         if (!success) { logger->warn("Detected an invalid configuration for a {} endpoint", endpoint.protocol); }
         return success;
     });

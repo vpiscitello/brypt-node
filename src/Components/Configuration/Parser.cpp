@@ -250,11 +250,11 @@ Configuration::Parser::Parser(Options::Runtime const& options)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Runtime const& runtimeOptions)
+Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Runtime const& options)
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_version()
     , m_filepath(filepath)
-    , m_runtime(runtimeOptions)
+    , m_runtime(options)
     , m_identifier()
     , m_details()
     , m_network()
@@ -638,7 +638,7 @@ bool Configuration::Parser::SetConnectionRetryInterval(std::chrono::milliseconds
 
 Configuration::Parser::FetchedEndpoint Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 {
-    if (!options.Initialize(m_logger)) { return {}; } // If the provided options are invalid, return false. 
+    if (!options.Initialize(m_runtime, m_logger)) { return {}; } // If the provided options are invalid, return false. 
 
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     m_changed = true;
@@ -804,7 +804,7 @@ Configuration::StatusCode Configuration::Parser::ValidateOptions()
 
     if (!m_identifier.Initialize(m_logger)) { return StatusCode::InputError; }
     if (!m_identifier.Initialize(m_logger)) { return StatusCode::InputError; }
-    if (!m_network.Initialize(m_logger)) { return StatusCode::InputError; }
+    if (!m_network.Initialize(m_runtime, m_logger)) { return StatusCode::InputError; }
     if (!m_security.Initialize(m_logger)) { return StatusCode::InputError; }
 
     m_validated = true;
@@ -858,7 +858,6 @@ Configuration::StatusCode Configuration::Parser::Deserialize()
     // Decode the JSON string into the configuration struct
     local::OptionsStore store;
 
-    std::string version;
     Configuration::Options::Identifier identifier;
     Configuration::Options::Details details;
     Configuration::Options::Network network;

@@ -164,6 +164,10 @@ struct Configuration::Options::Endpoint
         std::optional<::Network::RemoteAddress> bootstrap;
     };
 
+    struct TransientValues { 
+        bool useBootstraps;
+    };
+
     Endpoint();
     Endpoint(
         ::Network::Protocol protocol,
@@ -180,13 +184,14 @@ struct Configuration::Options::Endpoint
     [[nodiscard]] bool operator==(Endpoint const& other) const noexcept;
 
     void Merge(Endpoint& other);
-    [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
+    [[nodiscard]] bool Initialize(Runtime runtime, std::shared_ptr<spdlog::logger> const& logger);
 
     [[nodiscard]] ::Network::Protocol GetProtocol() const;
     [[nodiscard]] std::string const& GetProtocolString() const;
     [[nodiscard]] std::string const& GetInterface() const;
     [[nodiscard]] ::Network::BindingAddress const& GetBinding() const;
     [[nodiscard]] std::optional<::Network::RemoteAddress> const& GetBootstrap() const;
+    [[nodiscard]] bool UseBootstraps() const;
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionTimeout() const;
     [[nodiscard]] std::int32_t GetConnectionRetryLimit() const;
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionRetryInterval() const;
@@ -203,6 +208,7 @@ struct Configuration::Options::Endpoint
     std::optional<Connection> connection;
 
     ConstructedValues constructed;
+    TransientValues transient;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -216,7 +222,7 @@ struct Configuration::Options::Network
     [[nodiscard]] bool operator==(Network const& other) const noexcept;
 
     void Merge(Network& other);
-    [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
+    [[nodiscard]] bool Initialize(Runtime runtime, std::shared_ptr<spdlog::logger> const& logger);
 
     [[nodiscard]] Endpoints const& GetEndpoints() const;
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionTimeout() const;
