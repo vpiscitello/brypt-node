@@ -173,6 +173,22 @@ bool Awaitable::TrackingService::Process(TrackerKey key, Node::Identifier const&
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::size_t Awaitable::TrackingService::Waiting() const
+{
+    assert(Assertions::Threading::IsCoreThread());
+    return m_trackers.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Awaitable::TrackingService::Ready() const
+{
+    assert(Assertions::Threading::IsCoreThread());
+    return m_ready.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Awaitable::TrackingService::CheckTrackers()
 {
     assert(Assertions::Threading::IsCoreThread());

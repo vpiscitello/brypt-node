@@ -90,7 +90,7 @@ Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(Message::App
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(
-    Node::Identifier const& identifier, std::string_view data)
+    [[maybe_unused]] Node::Identifier const& identifier, [[maybe_unused]] std::string_view data)
 {
     return UpdateResult::Unexpected;
 }

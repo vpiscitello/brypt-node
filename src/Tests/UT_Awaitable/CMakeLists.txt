@@ -19,7 +19,7 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Awaitable BryptIdentifier Peer Security MessageControl Network Configuration Event Scheduler State BryptMessage 
+    Awaitable Peer Security MessageControl Network Configuration Event Scheduler State BryptMessage BryptIdentifier
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

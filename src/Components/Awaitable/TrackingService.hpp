@@ -59,7 +59,10 @@ public:
     [[nodiscard]] bool Process(Message::Application::Parcel const& message);
     [[nodiscard]] bool Process(TrackerKey key, Node::Identifier const& identifier, std::string_view data);
     
+    [[nodiscard]] std::size_t Waiting() const;
+    [[nodiscard]] std::size_t Ready() const;
     void CheckTrackers();
+
     [[nodiscard]] std::size_t Execute();
 
 private:
