@@ -31,11 +31,12 @@
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
 
-class MessageContext;
+class NodeState;
 class IConnectProtocol;
 class IPeerMediator;
 
 namespace Network { class Address; }
+namespace Node { class ServiceProvider; }
 namespace Message { class Context; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ namespace Peer {
 class Proxy;
 
 template<typename Type>
-concept AllowableGetIdentiferType = std::is_same_v<Type, Node::SharedIdentifier> || Node::SupportedIdentifierCast<Type>;
+concept AllowableGetIdentifierType = std::is_same_v<Type, Node::SharedIdentifier> || Node::SupportedIdentifierCast<Type>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Peer namespace
@@ -56,15 +57,10 @@ class Peer::Proxy final : public std::enable_shared_from_this<Proxy>, public Tok
 public:
     // Note: An instance of the proxy must be created through the inherited CreateInstance() method. This is to ensure
     // all instances are held within an std::shared_ptr, otherwise shared_from_this() can lead to undefined behavior. 
-    explicit Proxy(
-        InstanceToken,
-        Node::Identifier const& identifier,
-        std::weak_ptr<IMessageSink> const& wpProcessor = {},
-        IPeerMediator* const pMediator = nullptr);
-
+    Proxy(InstanceToken, Node::Identifier const& identifier, std::shared_ptr<Node::ServiceProvider> const& spProvider);
     ~Proxy();
 
-    template<AllowableGetIdentiferType Type = Node::SharedIdentifier>
+    template<AllowableGetIdentifierType Type = Node::SharedIdentifier>
     [[nodiscard]] Type const& GetIdentifier() const;
 
     // Statistic Methods {
@@ -122,6 +118,7 @@ public:
     // } Security Methods
 
     // Testing Methods {
+    UT_SupportMethod(void SetMediator(std::weak_ptr<IPeerMediator> const& wpMediator));
     UT_SupportMethod(void SetReceiver(IMessageSink* const pMessageSink));
     UT_SupportMethod(void SetAuthorization(Security::State state));
     UT_SupportMethod(void AttachSecurityStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy));
@@ -142,7 +139,8 @@ private:
     void BindSecurityContext(Message::Context& context) const;
 
     Node::SharedIdentifier m_spIdentifier;
-    IPeerMediator* const m_pPeerMediator;
+    std::weak_ptr<NodeState> m_wpNodeState;
+    std::weak_ptr<IPeerMediator> m_wpMediator;
     
     std::atomic<Security::State> m_authorization;
     mutable std::shared_mutex m_securityMutex;

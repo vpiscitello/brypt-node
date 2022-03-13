@@ -7,9 +7,11 @@
 #include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
+#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Security/SecurityState.hpp"
+#include "Components/State/NodeState.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -17,12 +19,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Proxy::Proxy(
-    InstanceToken,
-    Node::Identifier const& identifier,
-    std::weak_ptr<IMessageSink> const& wpProcessor,
-    IPeerMediator* const pMediator)
+    InstanceToken, Node::Identifier const& identifier, std::shared_ptr<Node::ServiceProvider> const& spProvider)
     : m_spIdentifier()
-    , m_pPeerMediator(pMediator)
+    , m_wpNodeState(spProvider->Fetch<NodeState>())
+    , m_wpMediator(spProvider->Fetch<IPeerMediator>())
     , m_authorization(Security::State::Unauthorized)
     , m_securityMutex()
     , m_upResolver()
@@ -31,7 +31,7 @@ Peer::Proxy::Proxy(
     , m_endpoints()
     , m_receiverMutex()
     , m_pEnabledProcessor()
-    , m_wpCoreProcessor(wpProcessor)
+    , m_wpCoreProcessor(spProvider->Fetch<IMessageSink>())
     , m_statistics()
 {
     // We must always be constructed with an identifier that can uniquely identify the peer. 
@@ -178,16 +178,15 @@ void Peer::Proxy::RegisterEndpoint(Registration const& registration)
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
-    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notidication
+    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notification
     // is deferred until an exchange is successfully completed. 
     if (m_authorization == Security::State::Authorized) {
-        assert(m_pPeerMediator);
+        auto const spMediator = m_wpMediator.lock();
+        assert(spMediator);
         auto const& identifier = registration.GetEndpointIdentifier();
         auto const& address = registration.GetAddress();
-        m_pPeerMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
+        spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
     }
-
-    assert(m_pPeerMediator);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -209,11 +208,12 @@ void Peer::Proxy::RegisterEndpoint(
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
-    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notidication
+    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notification
     // is deferred until an exchange is successfully completed. 
     if (m_authorization == Security::State::Authorized) {
-        assert(m_pPeerMediator);
-        m_pPeerMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
+        auto const spMediator = m_wpMediator.lock();
+        assert(spMediator);
+        spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
     }
 }
 
@@ -229,14 +229,15 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
         reset = m_endpoints.empty();
     }
 
-    assert(m_pPeerMediator);
+    auto const spMediator = m_wpMediator.lock();
     auto const& address = extracted.mapped().GetAddress();
-    m_pPeerMediator->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
+    assert(spMediator);
+    spMediator->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
 
     // If this was the last registered endpoint for the peer, unset the authorization state and enabled processor
-    // if this peer reconnects another exchnage will need to be conducted as nodes do not save keys to the disk. 
+    // if this peer reconnects another exchange will need to be conducted as nodes do not save keys to the disk. 
     if (reset) {
-        // If there is a resolver, cancel the operation and the resolver will manage setting the autorization and 
+        // If there is a resolver, cancel the operation and the resolver will manage setting the authorization and 
         // enabled processor. Otherwise, we need to unset the values directly. 
         if (m_upResolver) { 
             m_upResolver.reset();
@@ -357,9 +358,10 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
                 // For each registered endpoint, dispatch the associated address to notify the core of the newly
                 // connected addresses. 
                 for (auto const& [identifier, registration] : m_endpoints) {
-                    assert(m_pPeerMediator);
+                    auto const spMediator = m_wpMediator.lock();
                     auto const& address = registration.GetAddress();
-                    m_pPeerMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
+                    assert(spMediator);
+                    spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
                 }
             }
 
@@ -460,6 +462,14 @@ void Peer::Proxy::BindSecurityContext(Message::Context& context) const
             if (!upStrategy) [[unlikely]] { return 0; }
             return upStrategy->GetSignatureSize();
         });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+void Peer::Proxy::SetMediator<InvokeContext::Test>(std::weak_ptr<IPeerMediator> const& wpMediator)
+{
+    m_wpMediator = wpMediator;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -5,9 +5,12 @@
 #include "Manager.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/PlatformMessage.hpp"
+#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
+#include "Components/State/NodeState.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerObserver.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
@@ -28,14 +31,9 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-Peer::Manager::Manager(
-    Node::SharedIdentifier const& spNodeIdentifier,
-    Security::Strategy strategy,
-    Event::SharedPublisher const& spEventPublisher,
-    std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
-    std::weak_ptr<IMessageSink> const& wpPromotedProcessor)
-    : m_spNodeIdentifier(spNodeIdentifier)
-    , m_spEventPublisher(spEventPublisher)
+Peer::Manager::Manager(Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
+    : m_spNodeIdentifier()
+    , m_spEventPublisher(spServiceProvider->Fetch<Event::Publisher>())
     , m_strategyType(strategy)
     , m_observersMutex()
     , m_observers()
@@ -43,14 +41,18 @@ Peer::Manager::Manager(
     , m_resolving()
     , m_peersMutex()
     , m_peers()
-    , m_spConnectProtocol(spConnectProtocol)
-    , m_wpPromotedProcessor(wpPromotedProcessor)
+    , m_spConnectProtocol(spServiceProvider->Fetch<IConnectProtocol>())
+    , m_wpServiceProvider(spServiceProvider)
 {
+    if (auto const spState = spServiceProvider->Fetch<NodeState>().lock(); spState) {
+        m_spNodeIdentifier = spState->GetNodeIdentifier();
+    }
+    assert(m_spNodeIdentifier);
     assert(m_strategyType != Security::Strategy::Invalid);
     assert(m_spEventPublisher);
     {
         using enum Event::Type;
-        spEventPublisher->Advertise({ PeerConnected, PeerDisconnected });
+        m_spEventPublisher->Advertise({ PeerConnected, PeerDisconnected });
     }
 }
 
@@ -283,12 +285,16 @@ Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
 std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
     Node::Identifier const& identifier, Network::RemoteAddress const& address)
 {
-    // Note: The resolving and peers mutexes must be locked before calling this method. 
-    auto const spProxy = Proxy::CreateInstance(identifier, m_wpPromotedProcessor, this);
-    AttachOrCreateExchange(spProxy, address);
-    m_peers.emplace(spProxy);
+    if (auto const spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
+        // Note: The resolving and peers mutexes must be locked before calling this method. 
+        auto const spProxy = Proxy::CreateInstance(identifier, spServiceProvider);
+        AttachOrCreateExchange(spProxy, address);
+        m_peers.emplace(spProxy);
 
-    return spProxy; // Provide the newly created proxy to the caller. 
+        return spProxy; // Provide the newly created proxy to the caller. 
+    }
+
+    return {};
 }
 
 //----------------------------------------------------------------------------------------------------------------------

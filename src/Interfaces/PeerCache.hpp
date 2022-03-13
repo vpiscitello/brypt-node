@@ -20,7 +20,7 @@ public:
 
     virtual ~IPeerCache() = default;
     
-    virtual bool ForEach( IdentifierReadFunction const& callback, Filter filter = Filter::Active) const = 0;
+    virtual bool ForEach(IdentifierReadFunction const& callback, Filter filter = Filter::Active) const = 0;
 
     [[nodiscard]] virtual std::size_t ActiveCount() const = 0;
     [[nodiscard]] virtual std::size_t InactiveCount() const = 0;

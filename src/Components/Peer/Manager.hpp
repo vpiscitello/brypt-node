@@ -24,8 +24,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 class IConnectProtocol;
-class IMessageSink;
 class IPeerObserver;
+namespace Node { class ServiceProvider; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Peer {
@@ -42,12 +42,7 @@ class Peer::Manager final : public IPeerMediator, public IPeerCache
 public:
     using ForEachFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const)>;
 
-    Manager(
-        Node::SharedIdentifier const& spNodeIdentifier,
-        Security::Strategy strategy,
-        Event::SharedPublisher const& spEventPublisher,
-        std::shared_ptr<IConnectProtocol> const& spConnectProtocol,
-        std::weak_ptr<IMessageSink> const& wpPromotedProcessor = {});
+    Manager(Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     // IPeerMediator {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
@@ -123,7 +118,7 @@ private:
     template<typename FunctionType, typename...Args>
     void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
-    Node::SharedIdentifier const m_spNodeIdentifier;
+    Node::SharedIdentifier m_spNodeIdentifier;
     Event::SharedPublisher const m_spEventPublisher;
     Security::Strategy m_strategyType;
     
@@ -137,7 +132,7 @@ private:
     PeerTrackingMap m_peers;
     
     std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
-    std::weak_ptr<IMessageSink> const m_wpPromotedProcessor;
+    std::weak_ptr<Node::ServiceProvider> const m_wpServiceProvider;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
