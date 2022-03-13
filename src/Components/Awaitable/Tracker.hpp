@@ -50,8 +50,9 @@ public:
     [[nodiscard]] std::size_t GetExpected() const;
     [[nodiscard]] std::size_t GetReceived() const;
 
-    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) = 0;
-    [[nodiscard]] virtual UpdateResult Update(Node::Identifier const& identifier, std::string_view data) = 0;
+    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) = 0;
+    [[nodiscard]] virtual UpdateResult Update(
+        Node::Identifier const& identifier, std::vector<std::uint8_t>&& data) = 0;
     [[nodiscard]] virtual bool Fulfill() = 0;
 
 protected:
@@ -74,8 +75,9 @@ public:
         Peer::Action::OnError const& onError);
 
     // ITracker {
-    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) override;
-    [[nodiscard]] virtual UpdateResult Update(Node::Identifier const& identifier, std::string_view data) override;
+    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) override;
+    [[nodiscard]] virtual UpdateResult Update(
+        Node::Identifier const& identifier, std::vector<std::uint8_t>&& data) override;
     [[nodiscard]] virtual bool Fulfill() override;
     // } ITracker
 
@@ -98,29 +100,28 @@ public:
         std::vector<Node::SharedIdentifier> const& identifiers);
 
     // ITracker {
-    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel const& response) override;
-    [[nodiscard]] virtual UpdateResult Update(Node::Identifier const& identifier, std::string_view data) override;
+    [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) override;
+    [[nodiscard]] virtual UpdateResult Update(
+        Node::Identifier const& identifier, std::vector<std::uint8_t>&& data) override;
     [[nodiscard]] virtual bool Fulfill() override;
     // } ITracker
 
 private:
     class Entry {
     public:
-        Entry(Node::SharedIdentifier const& spNodeIdentifier, std::string_view pack);
+        Entry(Node::SharedIdentifier const& spNodeIdentifier, std::vector<std::uint8_t>&& data);
         
         [[nodiscard]] Node::SharedIdentifier const& GetIdentifier() const;
         [[nodiscard]] Node::Internal::Identifier const& GetInternalIdentifier() const;
 
-        [[nodiscard]] std::string const& GetData() const;
+        [[nodiscard]] std::vector<std::uint8_t>const& GetData() const;
         [[nodiscard]] bool IsEmpty() const;
-        void SetData(std::string const& data);
+        void SetData(std::vector<std::uint8_t>&& data);
 
     private:
         Node::SharedIdentifier const m_spIdentifier;
-        std::string m_data;
+        std::vector<std::uint8_t> m_data;
     };
-
-    [[nodiscard]] UpdateResult Update(Node::Identifier const& identifier, std::span<std::uint8_t const> data);
 
     using Responses = boost::multi_index_container<
         Entry,

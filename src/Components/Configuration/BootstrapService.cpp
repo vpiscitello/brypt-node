@@ -428,7 +428,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
         std::string_view json = buffer.view();
         if (json.empty()) { return InputError; } // Report an error if there is nothing in the file. 
 
-        auto const error = li::json_vector(s::protocol, s::bootstraps = li::json_vector(s::target))
+        auto const error = li::json_object_vector(s::protocol, s::bootstraps = li::json_object_vector(s::target))
             .decode(json, deserialized);
         
         // Report an error if the decoder reported an error or the desrialized container is still empty. 

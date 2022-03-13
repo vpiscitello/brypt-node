@@ -95,7 +95,7 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Awaitable::TrackingService::Process(Message::Application::Parcel const& message)
+bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 {
     assert(Assertions::Threading::IsCoreThread());
 
@@ -118,7 +118,7 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel const& mes
     }
 
     // Update the response to the waiting message with the new message
-    switch (awaitable->second->Update(message)) {
+    switch (awaitable->second->Update(std::move(message))) {
         case ITracker::UpdateResult::Success: {
              m_logger->debug(SuccessMessage, key);
         } break;
@@ -141,7 +141,8 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel const& mes
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Awaitable::TrackingService::Process(TrackerKey key, Node::Identifier const& identifier, std::string_view data)
+bool Awaitable::TrackingService::Process(
+    TrackerKey key, Node::Identifier const& identifier, std::vector<std::uint8_t>&& data)
 {
     assert(Assertions::Threading::IsCoreThread());
 

@@ -873,7 +873,7 @@ Configuration::StatusCode Configuration::Parser::Deserialize()
             s::description = std::string(),
             s::location = std::string()),
         s::network = li::json_object(
-            s::endpoints = li::json_vector(
+            s::endpoints = li::json_object_vector(
                 s::protocol = std::string(),
                 s::interface = std::string(),
                 s::binding = std::string(),

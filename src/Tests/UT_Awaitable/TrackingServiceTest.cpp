@@ -143,7 +143,7 @@ TEST_F(TrackingServiceSuite, DeferredRequestFulfilledTest)
         auto optResponse = Awaitable::Test::GenerateResponse(
             m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, *optTrackerKey);
         ASSERT_TRUE(optResponse);
-        EXPECT_TRUE(service.Process(*optResponse));
+        EXPECT_TRUE(service.Process(std::move(*optResponse)));
     }
 
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });

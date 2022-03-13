@@ -105,7 +105,7 @@ TEST_F(AggregateTrackerSuite, SingleResponseTest)
     auto optResponse = Awaitable::Test::GenerateResponse(
         m_context, *test::ServerIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
     ASSERT_TRUE(optResponse);
-    EXPECT_EQ(tracker.Update(*optResponse), Awaitable::ITracker::UpdateResult::Fulfilled);
+    EXPECT_EQ(tracker.Update(std::move(*optResponse)), Awaitable::ITracker::UpdateResult::Fulfilled);
 
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
     EXPECT_TRUE(tracker.Fulfill());
@@ -137,7 +137,7 @@ TEST_F(AggregateTrackerSuite, MultipleResponseTest)
         auto optResponse = Awaitable::Test::GenerateResponse(
             m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
         ASSERT_TRUE(optResponse);
-        auto const status = tracker.Update(*optResponse);
+        auto const status = tracker.Update(std::move(*optResponse));
         auto const expected = (++updates < identifiers.size()) ?
             Awaitable::ITracker::UpdateResult::Success : Awaitable::ITracker::UpdateResult::Fulfilled;
         EXPECT_EQ(status, expected);
@@ -166,7 +166,7 @@ TEST_F(AggregateTrackerSuite, DirectUpdateTest)
 
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_EQ(
-        tracker.Update(*test::ServerIdentifier, Awaitable::Test::Message),
+        tracker.Update(*test::ServerIdentifier, { Awaitable::Test::Message.begin(), Awaitable::Test::Message.end() }),
         Awaitable::ITracker::UpdateResult::Fulfilled);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 1 });
     
@@ -225,7 +225,7 @@ TEST_F(AggregateTrackerSuite, ExpiredSomeResponsesTest)
         auto optResponse = Awaitable::Test::GenerateResponse(
             m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
         ASSERT_TRUE(optResponse);
-        auto const status = tracker.Update(*optResponse);
+        auto const status = tracker.Update(std::move(*optResponse));
         EXPECT_EQ(status, Awaitable::ITracker::UpdateResult::Success);
     });
     
@@ -262,7 +262,7 @@ TEST_F(AggregateTrackerSuite, ExpiredLateResponsesTest)
     auto optResponse = Awaitable::Test::GenerateResponse(
         m_context, *test::ServerIdentifier, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
     ASSERT_TRUE(optResponse);    
-    EXPECT_EQ(tracker.Update(*optResponse), Awaitable::ITracker::UpdateResult::Expired);
+    EXPECT_EQ(tracker.Update(std::move(*optResponse)), Awaitable::ITracker::UpdateResult::Expired);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 }
@@ -277,7 +277,7 @@ TEST_F(AggregateTrackerSuite, UnexpectedResponsesTest)
         m_context, unexpected, *test::ServerIdentifier, Awaitable::Test::NoticeRoute, Awaitable::Test::TrackerKey);
     ASSERT_TRUE(optResponse);
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
-    EXPECT_EQ(tracker.Update(*optResponse), Awaitable::ITracker::UpdateResult::Unexpected);
+    EXPECT_EQ(tracker.Update(std::move(*optResponse)), Awaitable::ITracker::UpdateResult::Unexpected);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(tracker.Fulfill());
