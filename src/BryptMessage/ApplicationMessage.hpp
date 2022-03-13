@@ -79,6 +79,7 @@ public:
 
 	std::string const& GetRoute() const;
 	Message::Buffer const& GetPayload() const;
+	Message::Buffer&& ExtractPayload();
 
 	template<typename ExtensionType> requires std::derived_from<ExtensionType, Extension::Base>
 	std::optional<std::reference_wrapper<ExtensionType const>> GetExtension() const;

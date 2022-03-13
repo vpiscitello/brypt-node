@@ -48,7 +48,7 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
 {
     Message::Context const context = local::GenerateMessageContext();
 
-    auto const optMessage = Message::Application::Parcel::GetBuilder()
+    auto optMessage = Message::Application::Parcel::GetBuilder()
         .SetContext(context)
         .SetSource(test::ClientIdentifier)
         .SetDestination(test::ServerIdentifier)
@@ -63,12 +63,22 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
     EXPECT_EQ(optMessage->GetRoute(), test::RequestRoute);
     EXPECT_FALSE(optMessage->GetExtension<Message::Application::Extension::Awaitable>());
 
-    auto const buffer = optMessage->GetPayload();
-    std::string const data(buffer.begin(), buffer.end());
-    EXPECT_EQ(data, test::Data);
+    {
+        auto const buffer = std::string_view{ 
+            reinterpret_cast<char const*>(optMessage->GetPayload().data()), optMessage->GetPayload().size()
+        };
+        EXPECT_EQ(buffer, test::Data);
 
-    auto const pack = optMessage->GetPack();
-    EXPECT_EQ(pack.size(), optMessage->GetPackSize());
+        auto const pack = optMessage->GetPack();
+        EXPECT_EQ(pack.size(), optMessage->GetPackSize());
+    }
+
+    {
+        auto const payload = optMessage->ExtractPayload();
+        auto const buffer = std::string_view{ reinterpret_cast<char const*>(payload.data()), payload.size() };
+        EXPECT_EQ(buffer, test::Data);
+        EXPECT_TRUE(optMessage->GetPayload().empty());
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -101,9 +111,12 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
     EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
     EXPECT_FALSE(optPackMessage->GetExtension<Message::Application::Extension::Awaitable>());
 
-    auto const buffer = optPackMessage->GetPayload();
-    std::string const data(buffer.begin(), buffer.end());
-    EXPECT_EQ(data, test::Data);
+    {
+        auto const buffer = std::string_view{ 
+            reinterpret_cast<char const*>(optPackMessage->GetPayload().data()), optPackMessage->GetPayload().size()
+        };
+        EXPECT_EQ(buffer, test::Data);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -134,12 +147,15 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
     }
 
-    auto const requestBuffer = optRequest->GetPayload();
-    std::string const requestData(requestBuffer.begin(), requestBuffer.end());
-    EXPECT_EQ(requestData, test::Data);
+    {
+        auto const buffer = std::string_view{ 
+            reinterpret_cast<char const*>(optRequest->GetPayload().data()), optRequest->GetPayload().size()
+        };
+        EXPECT_EQ(buffer, test::Data);
 
-    auto const requestPack = optRequest->GetPack();
-    EXPECT_EQ(requestPack.size(), optRequest->GetPackSize());
+        auto const pack = optRequest->GetPack();
+        EXPECT_EQ(pack.size(), optRequest->GetPackSize());
+    }
 
     auto const optResponse = Message::Application::Parcel::GetBuilder()
         .SetContext(context)
@@ -163,12 +179,15 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
     }
 
-    auto const responseBuffer = optResponse->GetPayload();
-    std::string const responseData(responseBuffer.begin(), responseBuffer.end());
-    EXPECT_EQ(responseData, test::Data);
+    {
+        auto const buffer = std::string_view{ 
+            reinterpret_cast<char const*>(optResponse->GetPayload().data()), optResponse->GetPayload().size()
+        };
+        EXPECT_EQ(buffer, test::Data);
 
-    auto const responsePack = optResponse->GetPack();
-    EXPECT_EQ(responsePack.size(), optResponse->GetPackSize());
+        auto const pack = optResponse->GetPack();
+        EXPECT_EQ(pack.size(), optResponse->GetPackSize());
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -210,9 +229,12 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         EXPECT_EQ(optPackAwaitable->get().GetTracker(), optPackAwaitable->get().GetTracker());
     }
     
-    auto const buffer = optPackMessage->GetPayload();
-    std::string const data(buffer.begin(), buffer.end());
-    EXPECT_EQ(data, test::Data);
+    {
+        auto const buffer = std::string_view{ 
+            reinterpret_cast<char const*>(optPackMessage->GetPayload().data()), optPackMessage->GetPayload().size()
+        };
+        EXPECT_EQ(buffer, test::Data);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

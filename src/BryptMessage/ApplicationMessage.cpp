@@ -94,6 +94,10 @@ Message::Buffer const& Message::Application::Parcel::GetPayload() const { return
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Buffer&& Message::Application::Parcel::ExtractPayload() { return std::move(m_payload); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::size_t Message::Application::Parcel::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
