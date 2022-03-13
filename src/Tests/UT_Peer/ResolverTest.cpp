@@ -1,21 +1,16 @@
 //----------------------------------------------------------------------------------------------------------------------
+#include "TestHelpers.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/PlatformMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
-#include "BryptMessage/MessageDefinitions.hpp"
-#include "BryptMessage/MessageUtils.hpp"
-#include "Components/Network/EndpointIdentifier.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Resolver.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
-#include "Interfaces/ConnectProtocol.hpp"
-#include "Interfaces/ExchangeObserver.hpp"
-#include "Interfaces/MessageSink.hpp"
-#include "Interfaces/PeerMediator.hpp"
+#include "Components/State/NodeState.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
-#include "Utilities/Z85.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -29,10 +24,6 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-class MediatorStub;
-class ProcessorStub;
-class StrategyStub;
-
 void CloseExchange(Peer::Resolver* pResolver, ExchangeStatus status);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -41,202 +32,145 @@ void CloseExchange(Peer::Resolver* pResolver, ExchangeStatus status);
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
-auto const ClientIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
+auto const ClientIdentifier = Node::Identifier{ Node::GenerateIdentifier() };
 auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
     
-constexpr std::string_view const HandshakeMessage = "Handshake Request";
-constexpr std::string_view const ConnectMessage = "Connection Request";
-
-constexpr Network::Endpoint::Identifier const EndpointIdentifier = 1;
-constexpr Network::Protocol const EndpointProtocol = Network::Protocol::TCP;
-
-Network::RemoteAddress const RemoteServerAddress(Network::Protocol::TCP, "127.0.0.1:35216", true);
-Network::RemoteAddress const RemoteClientAddress(Network::Protocol::TCP, "127.0.0.1:35217", false);
-
 //----------------------------------------------------------------------------------------------------------------------
-} // local namespace
+} // test namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class local::MediatorStub : public IPeerMediator
+class PeerResolverSuite : public testing::Test
 {
-public:
-    MediatorStub() = default;
-
-    // IPeerMediator {
-    virtual void RegisterObserver(IPeerObserver* const) override { }
-    virtual void UnpublishObserver(IPeerObserver* const) override { }
-    virtual OptionalRequest DeclareResolvingPeer(
-        Network::RemoteAddress const&, Node::SharedIdentifier const&) override { return {}; }
-    virtual void RescindResolvingPeer(Network::RemoteAddress const&) override { }
-    virtual std::shared_ptr<Peer::Proxy> LinkPeer(
-        Node::Identifier const&, Network::RemoteAddress const&) override { return nullptr; }
-    void OnEndpointRegistered(
-        std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&) { }
-    void OnEndpointWithdrawn(
-        std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&, WithdrawalCause) { }
-    // } IPeerMediator
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class local::ProcessorStub : public IMessageSink
-{
-public:
-    ProcessorStub() = default;
-
-    // IMessageSink {
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::string_view buffer) override
-        { m_pack = std::string(buffer.begin(), buffer.end()); return true; }
-        
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::span<std::uint8_t const>) override
-        { return false; }
-    // } IMessageSink
-    
-    std::string GetCollectedPack() const { return m_pack; }
-
-private:
-    std::string m_pack;
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class local::StrategyStub : public ISecurityStrategy
-{
-public:
-    StrategyStub() = default;
-
-    virtual Security::Strategy GetStrategyType() const override { return Security::Strategy::Invalid; }
-    virtual Security::Role GetRoleType() const override { return Security::Role::Initiator; }
-    virtual Security::Context GetContextType() const override { return Security::Context::Unique; }
-    virtual std::size_t GetSignatureSize() const override { return 0; }
-
-    virtual std::uint32_t GetSynchronizationStages() const override { return 0; }
-    virtual Security::SynchronizationStatus GetSynchronizationStatus() const override
-        { return Security::SynchronizationStatus::Processing; }
-    virtual Security::SynchronizationResult PrepareSynchronization() override
-        { return { Security::SynchronizationStatus::Processing, {} }; }
-    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override
-        { return { Security::SynchronizationStatus::Processing, {} }; }
-
-    virtual Security::OptionalBuffer Encrypt(Security::ReadableView, std::uint64_t) const override { return {}; }
-    virtual Security::OptionalBuffer Decrypt(Security::ReadableView, std::uint64_t) const override { return {}; }
-
-    virtual std::int32_t Sign(Security::Buffer&) const override { return 0; }
-    virtual Security::VerificationStatus Verify(Security::ReadableView) const override
-        { return Security::VerificationStatus::Failed; }
-
-private: 
-    virtual std::int32_t Sign(Security::ReadableView, Security::Buffer&) const override { return 0; }
-    virtual Security::OptionalBuffer GenerateSignature(Security::ReadableView, Security::ReadableView) const override
-        { return {}; }
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-TEST(PeerResolverSuite, ExchangeProcessorLifecycleTest)
-{
-    auto const upMediator = std::make_unique<local::MediatorStub>();
-    auto const spProxy = Peer::Proxy::CreateInstance(
-        *test::ClientIdentifier, std::weak_ptr<IMessageSink>{}, upMediator.get());
-    
+protected:
+    void SetUp() override
     {
-        auto upStrategyStub = std::make_unique<local::StrategyStub>();
-        auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
-        ASSERT_TRUE(spProxy->AttachResolver(std::move(upResolver)));
+        m_spRegistrar = std::make_shared<Scheduler::Registrar>();
+        m_spServiceProvider = std::make_shared<Node::ServiceProvider>();
+
+        m_spEventPublisher = std::make_shared<Event::Publisher>(m_spRegistrar);
+        m_spServiceProvider->Register(m_spEventPublisher);
+
+        m_spNodeState = std::make_shared<NodeState>(test::ServerIdentifier, Network::ProtocolSet{});
+        m_spServiceProvider->Register(m_spNodeState);
+
+        m_spConnectProtocol = std::make_shared<Peer::Test::ConnectProtocol>();
+        m_spServiceProvider->Register<IConnectProtocol>(m_spConnectProtocol);
+
+        m_spMessageProcessor = std::make_shared<Peer::Test::MessageProcessor>();
+        m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
+        
+        m_spMediator = std::make_shared<Peer::Test::PeerMediator>();
+        m_spServiceProvider->Register<IPeerMediator>(m_spMediator);
+
+        m_spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, m_spServiceProvider);
     }
 
-    Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
-    spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
+    std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
+    std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
+    std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    std::shared_ptr<NodeState> m_spNodeState;
+    std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
+    std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
+    std::shared_ptr<Peer::Test::PeerMediator> m_spMediator;
+    std::shared_ptr<Peer::Proxy> m_spProxy;
+
+    Peer::Registration m_registration{ 
+        Peer::Test::EndpointIdentifier,
+        Peer::Test::EndpointProtocol,
+        Peer::Test::RemoteClientAddress
+    };
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(PeerResolverSuite, ExchangeProcessorLifecycleTest)
+{
+    {
+        auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
+        auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
+        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
+        ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
+    }
+
+    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(m_registration);
 
     auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
-        .SetPayload(test::HandshakeMessage)
+        .SetPayload(Peer::Test::HandshakePayload)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
     std::string const pack = optMessage->GetPack();
-    EXPECT_TRUE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 
     // Verify the node can't forward a message through the receiver, because it has been unset by the mediator. 
-    spProxy->DetachResolver<InvokeContext::Test>();
-    EXPECT_FALSE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
+    m_spProxy->DetachResolver<InvokeContext::Test>();
+    EXPECT_FALSE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(PeerResolverSuite, SuccessfulExchangeTest)
+TEST_F(PeerResolverSuite, SuccessfulExchangeTest)
 {
-    auto const upMediator = std::make_unique<local::MediatorStub>();
-    auto const spCollector = std::make_shared<local::ProcessorStub>();
-    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector, upMediator.get());
     Peer::Resolver* pCapturedResolver = nullptr;
     {
-        auto upStrategyStub = std::make_unique<local::StrategyStub>();
+        auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
         auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
         pCapturedResolver = upResolver.get();
         ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
-        ASSERT_TRUE(spProxy->AttachResolver(std::move(upResolver)));
+        ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
-    Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, test::RemoteClientAddress, {});
-    spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
+    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(m_registration);
 
     auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
-        .SetPayload(test::HandshakeMessage)
+        .SetPayload(Peer::Test::HandshakePayload)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
     std::string const pack = optMessage->GetPack();
-    EXPECT_TRUE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 
     // Verify the receiver is swapped to the authorized processor when resolver is notified of a sucessful exchange. 
     local::CloseExchange(pCapturedResolver, ExchangeStatus::Success);
-    EXPECT_EQ(spProxy->GetAuthorization(), Security::State::Authorized);
-    EXPECT_TRUE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
-    EXPECT_EQ(spCollector->GetCollectedPack(), pack);  // Verify the stub message sink received the message
+    EXPECT_EQ(m_spProxy->GetAuthorization(), Security::State::Authorized);
+    EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
+    EXPECT_EQ(m_spMessageProcessor->GetCollectedPack(), pack);  // Verify the stub message sink received the message
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(PeerResolverSuite, FailedExchangeTest)
+TEST_F(PeerResolverSuite, FailedExchangeTest)
 {
-    auto const upMediator = std::make_unique<local::MediatorStub>();
-    auto const spCollector = std::make_shared<local::ProcessorStub>();
-    auto const spProxy = Peer::Proxy::CreateInstance(*test::ClientIdentifier, spCollector, upMediator.get());
     Peer::Resolver* pCapturedResolver = nullptr;
     {
-        auto upStrategyStub = std::make_unique<local::StrategyStub>();
+        auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
         auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
         pCapturedResolver = upResolver.get();
         ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
-        ASSERT_TRUE(spProxy->AttachResolver(std::move(upResolver)));
+        ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
-    Peer::Registration registration(test::EndpointIdentifier, test::EndpointProtocol, {});
-    spProxy->RegisterSilentEndpoint<InvokeContext::Test>(registration);
+    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(m_registration);
     
     auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
         .MakeHandshakeMessage()
-        .SetPayload(test::HandshakeMessage)
+        .SetPayload(Peer::Test::HandshakePayload)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
     std::string const pack = optMessage->GetPack();
-
-    EXPECT_TRUE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 
     // Verify the peer receiver is dropped when the resolver has been notified of a failed exchange. 
     local::CloseExchange(pCapturedResolver, ExchangeStatus::Failed);
-    EXPECT_EQ(spProxy->GetAuthorization(), Security::State::Unauthorized);
-    EXPECT_FALSE(spProxy->ScheduleReceive(test::EndpointIdentifier, pack));
+    EXPECT_EQ(m_spProxy->GetAuthorization(), Security::State::Unauthorized);
+    EXPECT_FALSE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 }
 
 //----------------------------------------------------------------------------------------------------------------------

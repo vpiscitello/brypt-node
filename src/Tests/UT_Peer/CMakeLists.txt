@@ -11,6 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    ExchangeTest.cpp
     PeerManagerTest.cpp
     ResolverTest.cpp
     UT_Peer.cpp)
@@ -18,7 +19,7 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Peer Network Security MessageControl Network Configuration Event Scheduler BryptMessage BryptIdentifier
+    Awaitable Peer Network Security MessageControl Network Configuration Event Scheduler State BryptMessage BryptIdentifier
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
