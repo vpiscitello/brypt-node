@@ -35,6 +35,13 @@ Message::Context::Context(
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Message::Context::operator==(Context const& other) const
+{
+	return m_endpointIdentifier == other.m_endpointIdentifier && m_endpointProtocol == other.m_endpointProtocol;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Network::Endpoint::Identifier Message::Context::GetEndpointIdentifier() const
 {
 	return m_endpointIdentifier;

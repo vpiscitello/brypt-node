@@ -35,6 +35,8 @@ public:
 	Context();
 	Context(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
+	[[nodiscard]] bool operator==(Context const& other) const;
+
 	[[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
 	[[nodiscard]] Network::Protocol GetEndpointProtocol() const;
 

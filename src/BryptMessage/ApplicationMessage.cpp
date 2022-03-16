@@ -242,6 +242,13 @@ std::optional<Node::Identifier> const& Message::Application::Builder::GetDestina
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Context const& Message::Application::Builder::GetContext() const
+{
+	return m_parcel.m_context;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Application::Builder& Message::Application::Builder::SetSource(
     Node::Internal::Identifier const& identifier)
 {

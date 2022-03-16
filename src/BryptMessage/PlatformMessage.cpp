@@ -187,6 +187,13 @@ std::optional<Node::Identifier> const& Message::Platform::Builder::GetDestinatio
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Context const& Message::Platform::Builder::GetContext() const
+{
+	return m_parcel.m_context;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Platform::Builder& Message::Platform::Builder::SetContext(Context const& context)
 {
 	m_parcel.m_context = context;

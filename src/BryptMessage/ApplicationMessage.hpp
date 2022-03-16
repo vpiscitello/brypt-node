@@ -111,6 +111,7 @@ public:
 
 	Node::Identifier const& GetSource() const;
 	std::optional<Node::Identifier> const& GetDestination() const;
+	Context const& GetContext() const;
 
 	Builder& SetContext(Context const& context);
 	Builder& SetSource(Node::Identifier const& identifier);
