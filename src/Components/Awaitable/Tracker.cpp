@@ -83,6 +83,7 @@ Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(Message::App
     if(m_optResponse || message.GetSource() != *m_spRequestee) { return UpdateResult::Unexpected; }
     m_optResponse = std::move(message);
     ++m_received;
+    m_status = Status::Fulfilled;
     return UpdateResult::Fulfilled;
 }
 
@@ -101,12 +102,12 @@ bool Awaitable::RequestTracker::Fulfill()
     if(m_status != Status::Fulfilled) { return false; }
     m_status = Status::Completed;
 
-    if (!m_optResponse) {
+    if (m_optResponse) {
+        m_onResponse(*m_optResponse);
+    } else {
         m_onError(Peer::Action::Error::Expired);
-        return true;
     }
 
-    m_onResponse(*m_optResponse);
     return true;
 }
 

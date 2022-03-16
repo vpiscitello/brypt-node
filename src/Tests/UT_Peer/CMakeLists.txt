@@ -11,6 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    ActionTest.cpp
     ExchangeTest.cpp
     PeerManagerTest.cpp
     ResolverTest.cpp

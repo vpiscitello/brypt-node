@@ -8,10 +8,10 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptNode/ServiceProvider.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Security/SecurityState.hpp"
-#include "Components/State/NodeState.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -21,8 +21,8 @@
 Peer::Proxy::Proxy(
     InstanceToken, Node::Identifier const& identifier, std::shared_ptr<Node::ServiceProvider> const& spProvider)
     : m_spIdentifier()
-    , m_wpNodeState(spProvider->Fetch<NodeState>())
     , m_wpMediator(spProvider->Fetch<IPeerMediator>())
+    , m_wpTrackingService(spProvider->Fetch<Awaitable::TrackingService>())
     , m_authorization(Security::State::Unauthorized)
     , m_securityMutex()
     , m_upResolver()
@@ -124,6 +124,50 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
         if (m_pEnabledProcessor) [[likely]] {
             return m_pEnabledProcessor->CollectMessage(weak_from_this(), context, buffer);
         }
+    }
+
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::Request(
+    Message::Application::Builder& builder, Action::OnResponse const& onResponse, Action::OnError const& onError)
+{
+    auto const spTrackingService = m_wpTrackingService.lock();
+    if (!spTrackingService) { return false; }
+    
+    std::scoped_lock lock{ m_endpointsMutex };
+    if (m_endpoints.empty()) { return false; }
+
+    // Fetch the endpoint to be used to send out the request. If the request builder does not have a context 
+    // attached, use one of the known registered endpoints. Otherwise, ensure the one that has been provided if
+    // it is valid. 
+    RegisteredEndpoints::const_iterator endpoint;
+    if (auto const& context = builder.GetContext(); context == Message::Context{}) {
+        endpoint = m_endpoints.begin(); // Note: Using preferred endpoint will be future work. 
+        auto const& [identifier, registration] = *endpoint;
+        builder.SetContext(registration.GetMessageContext());
+    } else {
+        endpoint = m_endpoints.find(context.GetEndpointIdentifier());
+        if (endpoint == m_endpoints.end()) { return false; }
+    }
+
+    builder.SetDestination(*m_spIdentifier); // Set the destination as the the one represented by this proxy. 
+
+    // Use the tracking service to stage the outgoing request such that the associated callbacks can be 
+    // executed when it has been fulfilled. 
+    auto const optTracker = spTrackingService->StageRequest(weak_from_this(), onResponse, onError, builder);
+    if (!optTracker) { return false; }
+
+    if (auto const optRequest = builder.ValidatedBuild(); optRequest) [[likely]] {
+        m_statistics.IncrementSentCount();
+
+        assert(!optRequest->GetRoute().empty());
+        assert(optRequest->GetExtension<Message::Application::Extension::Awaitable>());
+        auto const& [identifier, registration] = *endpoint;
+        auto const& scheduler = registration.GetMessageAction();
+        return scheduler(*m_spIdentifier, Network::MessageVariant{ optRequest->GetPack() });
     }
 
     return false;

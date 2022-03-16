@@ -4,6 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Action.hpp"
 #include "Registration.hpp"
 #include "Resolver.hpp"
 #include "Statistics.hpp"
@@ -35,9 +36,11 @@ class NodeState;
 class IConnectProtocol;
 class IPeerMediator;
 
+namespace Awaitable { class TrackingService; }
 namespace Network { class Address; }
 namespace Node { class ServiceProvider; }
 namespace Message { class Context; }
+namespace Message::Application { class Builder; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Peer {
@@ -76,6 +79,9 @@ public:
     // } Message Receipt Methods
 
     // Message Dispatch Methods {
+    [[nodiscard]] bool Request(
+        Message::Application::Builder& builder, Action::OnResponse const& onResponse, Action::OnError const& onError);
+    
     [[nodiscard]] bool ScheduleSend(Network::Endpoint::Identifier identifier, std::string&& message) const;
     [[nodiscard]] bool ScheduleSend(
         Network::Endpoint::Identifier identifier, Message::ShareablePack const& spSharedPack) const;
@@ -139,8 +145,8 @@ private:
     void BindSecurityContext(Message::Context& context) const;
 
     Node::SharedIdentifier m_spIdentifier;
-    std::weak_ptr<NodeState> m_wpNodeState;
     std::weak_ptr<IPeerMediator> m_wpMediator;
+    std::weak_ptr<Awaitable::TrackingService> m_wpTrackingService;
     
     std::atomic<Security::State> m_authorization;
     mutable std::shared_mutex m_securityMutex;
