@@ -81,7 +81,7 @@ std::optional<Awaitable::TrackerKey> Peer::Action::Next::Defer(DeferredOptions&&
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Action::Next::Dispatch(std::string_view route, std::vector<std::uint8_t>&& payload) const
+bool Peer::Action::Next::Dispatch(std::string_view route, Message::Payload&& payload) const
 {
     if (auto const& spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
         auto const spNodeState = spServiceProvider->Fetch<NodeState>().lock();
@@ -104,7 +104,7 @@ bool Peer::Action::Next::Dispatch(std::string_view route, std::vector<std::uint8
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Action::Next::Respond(std::vector<std::uint8_t>&& payload) const
+bool Peer::Action::Next::Respond(Message::Payload&& payload) const
 {
     if (auto const& spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
         auto const spNodeState = spServiceProvider->Fetch<NodeState>().lock();

@@ -4,9 +4,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "DataInterface.hpp"
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
+#include "Payload.hpp"
 #include "ShareablePack.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Awaitable/Definitions.hpp"
@@ -41,23 +43,20 @@ class Awaitable;
 } // Message::Application namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Application::Extension::Base
+class Message::Application::Extension::Base : public virtual Message::DataInterface::Packable
 {
 public:
 	Base() = default;
 	virtual ~Base() = default;
 	[[nodiscard]] virtual std::uint16_t GetKey() const = 0;
-	[[nodiscard]] virtual std::size_t GetPackSize() const = 0;
 	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const = 0;
-	
-	virtual void Inject(Buffer& buffer) const = 0;
-	[[nodiscard]] virtual bool Unpack(Buffer::const_iterator& begin, Buffer::const_iterator const& end) = 0;
 	[[nodiscard]] virtual bool Validate() const = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Application::Parcel {
+class Message::Application::Parcel
+{
 public:
 	Parcel();
 	Parcel(Parcel const& other);
@@ -78,8 +77,8 @@ public:
 	std::optional<Node::Identifier> const& GetDestination() const;
 
 	std::string const& GetRoute() const;
-	Message::Buffer const& GetPayload() const;
-	Message::Buffer&& ExtractPayload();
+	Payload const& GetPayload() const;
+	Payload&& ExtractPayload();
 
 	template<typename ExtensionType> requires std::derived_from<ExtensionType, Extension::Base>
 	std::optional<std::reference_wrapper<ExtensionType const>> GetExtension() const;
@@ -96,14 +95,15 @@ private:
 	Header m_header; // The required message header 
 
 	std::string m_route; // The application route
-	Buffer m_payload;	// The message payload
+	Payload m_payload;	// The message payload
 
 	std::map<Extension::Key, std::unique_ptr<Extension::Base>> m_extensions;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Application::Builder {
+class Message::Application::Builder
+{
 public:
 	using OptionalParcel = std::optional<Parcel>;
 
@@ -124,9 +124,7 @@ public:
 	Builder& SetDestination(std::string_view identifier);
 	Builder& SetRoute(std::string_view route);
 	Builder& SetRoute(std::string&& route);
-	Builder& SetPayload(std::string_view buffer);
-	Builder& SetPayload(std::span<std::uint8_t const> buffer);
-	Builder& SetPayload(Message::Buffer&& buffer);
+	Builder& SetPayload(Payload&& payload);
 
 	template<typename ExtensionType, typename... Arguments>
 		requires std::derived_from<ExtensionType, Extension::Base>
@@ -144,7 +142,9 @@ public:
 private:
 	[[nodiscard]] bool Unpack(std::span<std::uint8_t const> buffer);
 	[[nodiscard]] bool UnpackExtensions(
-		Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t extensions);
+		std::span<std::uint8_t const>::iterator& begin,
+		std::span<std::uint8_t const>::iterator const& end,
+		std::size_t extensions);
 
     Parcel m_parcel;
 	bool m_hasStageFailure;
@@ -164,13 +164,17 @@ public:
 
 	// Extension {
 	[[nodiscard]] virtual std::uint16_t GetKey() const override;
-	[[nodiscard]] virtual std::size_t GetPackSize() const override;
 	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const override;
-	
-	virtual void Inject(Buffer& buffer) const override;
-	[[nodiscard]] virtual bool Unpack(Buffer::const_iterator& begin, Buffer::const_iterator const& end) override;
 	[[nodiscard]] virtual bool Validate() const override;
 	// } Extension
+	
+	// Packable {
+	[[nodiscard]] virtual std::size_t GetPackSize() const override;
+	virtual void Inject(Buffer& buffer) const override;
+	[[nodiscard]] virtual bool Unpack(
+		std::span<std::uint8_t const>::iterator& begin,
+		std::span<std::uint8_t const>::iterator const& end) override;
+	// } Packable
 
 	[[nodiscard]] Binding const& GetBinding() const;
 	[[nodiscard]] ::Awaitable::TrackerKey const& GetTracker() const;

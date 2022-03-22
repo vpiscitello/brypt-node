@@ -6,6 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
+#include "BryptMessage/Payload.hpp"
 #include "Components/Peer/Action.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -52,7 +53,7 @@ public:
 
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) = 0;
     [[nodiscard]] virtual UpdateResult Update(
-        Node::Identifier const& identifier, std::vector<std::uint8_t>&& data) = 0;
+        Node::Identifier const& identifier, Message::Payload&& data) = 0;
     [[nodiscard]] virtual bool Fulfill() = 0;
 
 protected:
@@ -77,7 +78,7 @@ public:
     // ITracker {
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) override;
     [[nodiscard]] virtual UpdateResult Update(
-        Node::Identifier const& identifier, std::vector<std::uint8_t>&& data) override;
+        Node::Identifier const& identifier, Message::Payload&& data) override;
     [[nodiscard]] virtual bool Fulfill() override;
     // } ITracker
 
@@ -102,25 +103,25 @@ public:
     // ITracker {
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) override;
     [[nodiscard]] virtual UpdateResult Update(
-        Node::Identifier const& identifier, std::vector<std::uint8_t>&& data) override;
+        Node::Identifier const& identifier, Message::Payload&& data) override;
     [[nodiscard]] virtual bool Fulfill() override;
     // } ITracker
 
 private:
     class Entry {
     public:
-        Entry(Node::SharedIdentifier const& spNodeIdentifier, std::vector<std::uint8_t>&& data);
+        Entry(Node::SharedIdentifier const& spNodeIdentifier, Message::Payload&& data);
         
         [[nodiscard]] Node::SharedIdentifier const& GetIdentifier() const;
         [[nodiscard]] Node::Internal::Identifier const& GetInternalIdentifier() const;
 
-        [[nodiscard]] std::vector<std::uint8_t>const& GetData() const;
+        [[nodiscard]] Message::Payload const& GetPayload() const;
         [[nodiscard]] bool IsEmpty() const;
-        void SetData(std::vector<std::uint8_t>&& data);
+        void SetPayload(Message::Payload&& payload);
 
     private:
         Node::SharedIdentifier const m_spIdentifier;
-        std::vector<std::uint8_t> m_data;
+        Message::Payload m_payload;
     };
 
     using Responses = boost::multi_index_container<

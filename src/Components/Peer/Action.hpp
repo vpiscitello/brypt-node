@@ -5,6 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptMessage/MessageDefinitions.hpp"
+#include "BryptMessage/Payload.hpp"
 #include "Components/Awaitable/Definitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -33,6 +34,7 @@ class Next;
 enum class Error : std::uint32_t { UnexpectedError, Expired };
 
 using OnResponse = std::function<void(Message::Application::Parcel const& response)>;
+using OnMessage = std::function<void(Message::Application::Parcel const& message, Next& next)>;
 using OnError = std::function<void(Error error)>;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -47,11 +49,11 @@ public:
         struct Notice { 
             Message::Destination type;
             std::string_view route;
-            std::vector<std::uint8_t> payload;
+            Message::Payload payload;
         };
 
         struct Response { 
-            std::vector<std::uint8_t> payload;
+            Message::Payload payload;
         };
 
         Notice notice;
@@ -65,8 +67,8 @@ public:
 
     [[nodiscard]] std::weak_ptr<Proxy> const& GetProxy() const;
     [[nodiscard]] std::optional<Awaitable::TrackerKey> Defer(DeferredOptions&& options) const;
-    [[nodiscard]] bool Dispatch(std::string_view route, std::vector<std::uint8_t>&& payload = {}) const;
-    [[nodiscard]] bool Respond(std::vector<std::uint8_t>&& payload = {}) const;
+    [[nodiscard]] bool Dispatch(std::string_view route, Message::Payload&& payload = {}) const;
+    [[nodiscard]] bool Respond(Message::Payload&& payload = {}) const;
 
 private:
     [[nodiscard]] bool ScheduleSend(Message::Application::Parcel const& message) const;

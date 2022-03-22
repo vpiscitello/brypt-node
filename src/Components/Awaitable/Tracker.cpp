@@ -90,7 +90,7 @@ Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(Message::App
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(
-    [[maybe_unused]] Node::Identifier const& identifier, [[maybe_unused]] std::vector<std::uint8_t>&& data)
+    [[maybe_unused]] Node::Identifier const& identifier, [[maybe_unused]] Message::Payload&& data)
 {
     return UpdateResult::Unexpected;
 }
@@ -138,14 +138,14 @@ Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(Message::A
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(
-    Node::Identifier const& identifier, std::vector<std::uint8_t>&& data)
+    Node::Identifier const& identifier, Message::Payload&& payload)
 {
     if (m_expire < std::chrono::steady_clock::now()) { return UpdateResult::Expired; }
 
     auto const itr = m_responses.find(identifier);
     if(itr == m_responses.end() || !itr->IsEmpty()) { return UpdateResult::Unexpected; }
 
-    m_responses.modify(itr, [&data] (Entry& entry) { entry.SetData(std::move(data)); });
+    m_responses.modify(itr, [&payload] (Entry& entry) { entry.SetPayload(std::move(payload)); });
 
     if (++m_received >= m_expected) {
         m_status = Status::Fulfilled;
@@ -164,15 +164,16 @@ bool Awaitable::AggregateTracker::Fulfill()
 
     struct ResponseItem {
         std::string const& identifier;
-        std::vector<std::uint8_t> const& data;
+        std::vector<std::uint8_t> data;
     };
     std::vector<ResponseItem> responses;
     std::transform(m_responses.begin(), m_responses.end(), std::back_inserter(responses), [] (auto const& entry) {
+        // TODO: Creating a copy of the data is not ideal. Updating this method to avoid making copies should be included
+        // in future work. Unfortunately, the JSON encoder only accepts std::vector to encode JSON arrays. 
         assert(entry.GetIdentifier());
-        return ResponseItem{ *entry.GetIdentifier(), entry.GetData() };
+        auto const readable = entry.GetPayload().GetReadableView();
+        return ResponseItem{ *entry.GetIdentifier(), { readable.begin(), readable.end() } };
     });
-
-    std::string data = li::json_object_vector(s::identifier, s::data).encode(responses);
 
     // Note: The destination of the stored request should always represent to the current node's identifier. 
     auto const& optNodeIdentifier = m_request.GetDestination();
@@ -186,7 +187,7 @@ bool Awaitable::AggregateTracker::Fulfill()
         .SetSource(*optNodeIdentifier)
         .SetDestination(m_request.GetSource())
         .SetRoute(m_request.GetRoute())
-        .SetPayload(data)
+        .SetPayload(li::json_object_vector(s::identifier, s::data).encode(responses))
         .BindExtension<Message::Application::Extension::Awaitable>(
             Message::Application::Extension::Awaitable::Binding::Response,
             optExtension->get().GetTracker())
@@ -206,9 +207,9 @@ bool Awaitable::AggregateTracker::Fulfill()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::AggregateTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, std::vector<std::uint8_t>&& data)
+Awaitable::AggregateTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, Message::Payload&& payload)
     : m_spIdentifier(spIdentifier)
-    , m_data(std::move(data))
+    , m_payload(std::move(payload))
 {
 }
 
@@ -229,13 +230,13 @@ Node::Internal::Identifier const& Awaitable::AggregateTracker::Entry::GetInterna
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::vector<std::uint8_t> const& Awaitable::AggregateTracker::Entry::GetData() const { return m_data; }
+Message::Payload const& Awaitable::AggregateTracker::Entry::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
-bool Awaitable::AggregateTracker::Entry::IsEmpty() const { return m_data.empty(); }
+bool Awaitable::AggregateTracker::Entry::IsEmpty() const { return m_payload.IsEmpty(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Awaitable::AggregateTracker::Entry::SetData(std::vector<std::uint8_t>&& data) { m_data = std::move(data); }
+void Awaitable::AggregateTracker::Entry::SetPayload(Message::Payload&& payload) { m_payload = std::move(payload); }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -13,6 +13,7 @@ target_sources(
     # Source Files
     ApplicationMessageTest.cpp
     MessageHeaderTest.cpp
+    PayloadTest.cpp
     PlatformMessageTest.cpp
     UT_BryptMessage.cpp)
 

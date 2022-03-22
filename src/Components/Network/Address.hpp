@@ -74,7 +74,7 @@ public:
     [[nodiscard]] bool IsValid() const;
 
     template <ValidAddressType AddressType>
-    [[nodiscard]] bool equivalent(AddressType const& other) const;
+    [[nodiscard]] bool Equivalent(AddressType const& other) const;
 
     // Socket Address Helpers {
     friend Socket::Type Socket::ParseAddressType(Address const& address);
@@ -104,7 +104,7 @@ protected:
 //----------------------------------------------------------------------------------------------------------------------
 
 template <Network::ValidAddressType AddressType>
-bool Network::Address::equivalent(AddressType const& other) const
+bool Network::Address::Equivalent(AddressType const& other) const
 {
     return operator==(static_cast<Address const&>(other));
 }
@@ -112,7 +112,7 @@ bool Network::Address::equivalent(AddressType const& other) const
 //----------------------------------------------------------------------------------------------------------------------
 
 template <>
-inline bool Network::Address::equivalent(Address const& other) const
+inline bool Network::Address::Equivalent(Address const& other) const
 {
     return operator==(other);
 }

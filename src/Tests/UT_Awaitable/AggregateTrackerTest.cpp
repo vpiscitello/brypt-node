@@ -166,7 +166,7 @@ TEST_F(AggregateTrackerSuite, DirectUpdateTest)
 
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_EQ(
-        tracker.Update(*test::ServerIdentifier, { Awaitable::Test::Message.begin(), Awaitable::Test::Message.end() }),
+        tracker.Update(*test::ServerIdentifier, Awaitable::Test::Message),
         Awaitable::ITracker::UpdateResult::Fulfilled);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 1 });
     
@@ -178,7 +178,7 @@ TEST_F(AggregateTrackerSuite, DirectUpdateTest)
     EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
-    EXPECT_GT(m_optFulfilledResponse->GetPayload().size(), std::size_t{ 0 });
+    EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
 
     auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
@@ -201,7 +201,7 @@ TEST_F(AggregateTrackerSuite, ExpiredNoResponsesTest)
     EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
-    EXPECT_GT(m_optFulfilledResponse->GetPayload().size(), std::size_t{ 0 });
+    EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
 
     auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
@@ -239,7 +239,7 @@ TEST_F(AggregateTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
-    EXPECT_GT(m_optFulfilledResponse->GetPayload().size(), std::size_t{ 0 });
+    EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
 
     auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);

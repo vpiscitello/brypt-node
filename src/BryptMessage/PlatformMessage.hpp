@@ -7,6 +7,7 @@
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
+#include "Payload.hpp"
 #include "ShareablePack.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -29,7 +30,8 @@ class Builder;
 } // Message::Platform namespace 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Platform::Parcel {
+class Message::Platform::Parcel
+{
 public:
 	Parcel();
 	Parcel(Parcel const& other);
@@ -46,7 +48,8 @@ public:
 	Message::Destination GetDestinationType() const;
 	std::optional<Node::Identifier> const& GetDestination() const;
 	ParcelType GetType() const;
-	Buffer const& GetPayload() const;
+	Payload const& GetPayload() const;
+	Payload&& ExtractPayload();
 
 	std::size_t GetPackSize() const;
 	std::string GetPack() const;
@@ -60,12 +63,13 @@ private:
 	Header m_header; // The required message header 
 
 	ParcelType m_type;
-	Buffer m_payload;
+	Payload m_payload;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Message::Platform::Builder {
+class Message::Platform::Builder
+{
 public:
 	using OptionalParcel = std::optional<Parcel>;
 
@@ -85,8 +89,7 @@ public:
 	Builder& MakeHandshakeMessage();
 	Builder& MakeHeartbeatRequest();
 	Builder& MakeHeartbeatResponse();
-	Builder& SetPayload(std::string_view buffer);
-	Builder& SetPayload(std::span<std::uint8_t const> buffer);
+	Builder& SetPayload(Payload&& payload);
 
 	Builder& FromDecodedPack(std::span<std::uint8_t const> buffer);
 	Builder& FromEncodedPack(std::string_view pack);
@@ -95,9 +98,11 @@ public:
     OptionalParcel ValidatedBuild();
 
 private:
-	void Unpack(std::span<std::uint8_t const> buffer);
-	void UnpackExtensions(
-        std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end);
+	[[nodiscard]] bool Unpack(std::span<std::uint8_t const> buffer);
+	[[nodiscard]] bool UnpackExtensions(
+        std::span<std::uint8_t const>::iterator& begin,
+		std::span<std::uint8_t const>::iterator const& end,
+		std::size_t extensions);
 
     Parcel m_parcel;
 	bool m_hasStageFailure;

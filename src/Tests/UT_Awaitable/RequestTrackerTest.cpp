@@ -123,7 +123,7 @@ TEST_F(RequestTrackerSuite, DirectUpdateTest)
 {
     Awaitable::RequestTracker tracker{ m_spProxy, m_onResponse, m_onError };
     EXPECT_EQ(
-        tracker.Update(*test::ServerIdentifier, { Awaitable::Test::Message.begin(), Awaitable::Test::Message.end() }),
+        tracker.Update(*test::ServerIdentifier, Awaitable::Test::Message),
         Awaitable::ITracker::UpdateResult::Unexpected);
     EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);

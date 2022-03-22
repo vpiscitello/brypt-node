@@ -90,11 +90,11 @@ std::string const& Message::Application::Parcel::GetRoute() const { return m_rou
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer const& Message::Application::Parcel::GetPayload() const { return m_payload; }
+Message::Payload const& Message::Application::Parcel::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer&& Message::Application::Parcel::ExtractPayload() { return std::move(m_payload); }
+Message::Payload&& Message::Application::Parcel::ExtractPayload() { return std::move(m_payload); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ std::size_t Message::Application::Parcel::GetPackSize() const
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
 	size += m_route.size();
-	size += m_payload.size();
+	size += m_payload.GetPackSize();
 	std::ranges::for_each(m_extensions, [&size] (auto const& entry) { size += entry.second->GetPackSize(); });
 
 	assert(m_context.HasSecurityHandlers());
@@ -141,7 +141,7 @@ std::string Message::Application::Parcel::GetPack() const
 		Message::Buffer plaintext;
 		plaintext.reserve(m_header.GetPackSize());
 		PackUtils::PackChunk<std::uint16_t>(m_route, plaintext);
-		PackUtils::PackChunk<std::uint32_t>(m_payload, plaintext);
+		m_payload.Inject(plaintext);
 
 		// Extension Packing
 		assert(std::in_range<std::uint8_t>(m_extensions.size()));
@@ -195,7 +195,6 @@ constexpr std::size_t Message::Application::Parcel::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(std::uint16_t); // 2 byte for route size
-	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
     assert(std::in_range<std::uint32_t>(size));
 	return size;
@@ -324,23 +323,9 @@ Message::Application::Builder& Message::Application::Builder::SetRoute(std::stri
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Application::Builder& Message::Application::Builder::SetPayload(std::string_view buffer)
+Message::Application::Builder& Message::Application::Builder::SetPayload(Payload&& payload)
 {
-    return SetPayload({ reinterpret_cast<std::uint8_t const*>(buffer.begin()), buffer.size() });
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Application::Builder& Message::Application::Builder::SetPayload(std::span<std::uint8_t const> buffer)
-{
-    return SetPayload(Message::Buffer{ buffer.begin(), buffer.end() });
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Application::Builder& Message::Application::Builder::SetPayload(Message::Buffer&& buffer)
-{
-	m_parcel.m_payload = std::move(buffer);
+	m_parcel.m_payload = std::move(payload);
     return *this;
 }
 
@@ -403,8 +388,7 @@ bool Message::Application::Builder::Unpack(std::span<std::uint8_t const> buffer)
 
 	{
 		auto begin = buffer.begin();
-		auto end = buffer.end();
-		if (!m_parcel.m_header.ParseBuffer(begin, end)) { return false; }
+		if (!m_parcel.m_header.ParseBuffer(begin, buffer.end())) { return false; }
 	}
 
 	// If the message in the buffer is not an application message, it can not be parsed
@@ -419,19 +403,16 @@ bool Message::Application::Builder::Unpack(std::span<std::uint8_t const> buffer)
 	auto const optDecryptedBuffer = m_parcel.m_context.Decrypt(bufferview, m_parcel.m_header.GetTimestamp());
 	if (!optDecryptedBuffer) { return false; }
 
-	auto begin = optDecryptedBuffer->begin();
-	auto end = optDecryptedBuffer->end();
+	std::span decrypted{ *optDecryptedBuffer };
+	auto begin = decrypted.begin();
+	auto const end = decrypted.end();
 	{
 		std::uint16_t size = 0;
 		if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
 		if (!PackUtils::UnpackChunk(begin, end, m_parcel.m_route, size)) { return false; }
 	}
  
-	{
-		std::uint32_t size = 0;
-		if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
-		if (!PackUtils::UnpackChunk(begin, end, m_parcel.m_payload, size)) { return false; }
-	}
+	if (!m_parcel.m_payload.Unpack(begin, end)) { return false; }
 
 	std::uint8_t extensions = 0;
 	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return false; }
@@ -443,7 +424,9 @@ bool Message::Application::Builder::Unpack(std::span<std::uint8_t const> buffer)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Message::Application::Builder::UnpackExtensions(
-	Message::Buffer::const_iterator& begin, Message::Buffer::const_iterator const& end, std::size_t extensions)
+	std::span<std::uint8_t const>::iterator& begin,
+	std::span<std::uint8_t const>::iterator const& end,
+	std::size_t extensions)
 {
 	std::size_t unpacked = 0;	
 	while (begin != end && unpacked < extensions) {
@@ -487,6 +470,22 @@ std::uint16_t Message::Application::Extension::Awaitable::GetKey() const { retur
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::unique_ptr<Message::Application::Extension::Base> Message::Application::Extension::Awaitable::Clone() const
+{
+	return std::make_unique<Awaitable>(m_binding, m_tracker);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Message::Application::Extension::Awaitable::Validate() const
+{
+	return m_binding != Invalid && std::ranges::all_of(m_tracker, [] (std::uint8_t byte) {
+		return byte != 0;
+	});
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::size_t Message::Application::Extension::Awaitable::GetPackSize() const 
 {
 	std::size_t size = 0;
@@ -496,13 +495,6 @@ std::size_t Message::Application::Extension::Awaitable::GetPackSize() const
 	size += sizeof(m_tracker); // 16 bytes for await tracker key
 	assert(std::in_range<std::uint16_t>(size));
 	return size;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::unique_ptr<Message::Application::Extension::Base> Message::Application::Extension::Awaitable::Clone() const
-{
-	return std::make_unique<Awaitable>(m_binding, m_tracker);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -518,7 +510,9 @@ void Message::Application::Extension::Awaitable::Inject(Buffer& buffer) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Message::Application::Extension::Awaitable::Unpack(Buffer::const_iterator& begin, Buffer::const_iterator const& end)
+bool Message::Application::Extension::Awaitable::Unpack(
+	std::span<std::uint8_t const>::iterator& begin,
+	std::span<std::uint8_t const>::iterator const& end)
 {
 	std::uint16_t size = 0;
 	if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
@@ -538,15 +532,6 @@ bool Message::Application::Extension::Awaitable::Unpack(Buffer::const_iterator& 
 	if (!PackUtils::UnpackChunk(begin, end, m_tracker)) { return false; }
 
 	return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Message::Application::Extension::Awaitable::Validate() const
-{
-	return m_binding != Invalid && std::ranges::all_of(m_tracker, [] (std::uint8_t byte) {
-		return byte != 0;
-	});
 }
 
 //----------------------------------------------------------------------------------------------------------------------

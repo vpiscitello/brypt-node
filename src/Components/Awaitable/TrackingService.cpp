@@ -142,7 +142,7 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Awaitable::TrackingService::Process(
-    TrackerKey key, Node::Identifier const& identifier, std::vector<std::uint8_t>&& data)
+    TrackerKey key, Node::Identifier const& identifier, Message::Payload&& data)
 {
     assert(Assertions::Threading::IsCoreThread());
 

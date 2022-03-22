@@ -57,7 +57,7 @@ public:
         Message::Application::Builder& builder);
 
     [[nodiscard]] bool Process(Message::Application::Parcel&& message);
-    [[nodiscard]] bool Process(TrackerKey key, Node::Identifier const& identifier, std::vector<std::uint8_t>&& data);
+    [[nodiscard]] bool Process(TrackerKey key, Node::Identifier const& identifier, Message::Payload&& data);
     
     [[nodiscard]] std::size_t Waiting() const;
     [[nodiscard]] std::size_t Ready() const;

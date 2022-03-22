@@ -173,13 +173,7 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
     EXPECT_EQ(m_optResult->GetSource(), *test::ServerIdentifier);
     EXPECT_EQ(m_optResult->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::RequestRoute);
-
-    {
-        auto const payload = std::string_view{ 
-            reinterpret_cast<char const*>(m_optResult->GetPayload().data()), m_optResult->GetPayload().size()
-        };
-        EXPECT_EQ(payload, Peer::Test::RequestPayload);
-    }
+    EXPECT_EQ(m_optResult->GetPayload(), Peer::Test::RequestPayload);
     
     auto const optRequestExtension = m_optResult->GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optRequestExtension);
@@ -214,13 +208,7 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
     EXPECT_EQ(optResponse->GetSource(), test::ClientIdentifier);
     EXPECT_EQ(optResponse->GetDestination(), *test::ServerIdentifier);
     EXPECT_EQ(optResponse->GetRoute(), Peer::Test::RequestRoute);
-
-    {
-        auto const payload = std::string_view{ 
-            reinterpret_cast<char const*>(optResponse->GetPayload().data()), optResponse->GetPayload().size()
-        };
-        EXPECT_EQ(payload, Peer::Test::ApplicationPayload);
-    }
+    EXPECT_EQ(optResponse->GetPayload(), Peer::Test::ApplicationPayload);
 
     auto const optResponseExtension = optResponse->GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optResponseExtension);
@@ -273,10 +261,10 @@ TEST_F(PeerActionSuite, DeferTest)
         .notice = {
             .type = Message::Destination::Cluster,
             .route = Peer::Test::NoticeRoute,
-            .payload = { Peer::Test::NoticePayload.begin(), Peer::Test::NoticePayload.end() }
+            .payload = Peer::Test::NoticePayload
         },
         .response = {
-            .payload = { Peer::Test::ApplicationPayload.begin(), Peer::Test::ApplicationPayload.end() }
+            .payload = Peer::Test::ApplicationPayload
         }
     });
 
@@ -289,9 +277,7 @@ TEST_F(PeerActionSuite, DeferTest)
 
     m_spCache->ForEach([&] (Node::SharedIdentifier const& spIdentifier) -> CallbackIteration {
         [[maybe_unused]] auto const status = m_spTrackingService->Process(
-            *optTrackerKey,
-            *spIdentifier,
-            { Peer::Test::ApplicationPayload.begin(), Peer::Test::ApplicationPayload.end() });
+            *optTrackerKey, *spIdentifier, Peer::Test::ApplicationPayload);
         return CallbackIteration::Continue;
     }, IPeerCache::Filter::Active);
 
@@ -312,10 +298,7 @@ TEST_F(PeerActionSuite, DeferTest)
     EXPECT_EQ(optExtension->get().GetTracker(), Peer::Test::TrackerKey);
 
     {
-        auto const json = std::string_view{ 
-            reinterpret_cast<char const*>(m_optResult->GetPayload().data()), m_optResult->GetPayload().size()
-        };
-
+        auto const json = m_optResult->GetPayload().GetStringView();
         struct PayloadEntry {
             std::string identifier;
             std::vector<std::uint8_t> data;
@@ -351,21 +334,13 @@ TEST_F(PeerActionSuite, DispatchTest)
     Peer::Action::Next next{ m_spProxy, m_message, m_spServiceProvider };
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
-    EXPECT_TRUE(next.Dispatch(
-        Peer::Test::ResponseRoute, { Peer::Test::ApplicationPayload.begin(), Peer::Test::ApplicationPayload.end() }));
+    EXPECT_TRUE(next.Dispatch(Peer::Test::ResponseRoute, Peer::Test::ApplicationPayload));
     
     ASSERT_TRUE(m_optResult);
     EXPECT_EQ(m_optResult->GetSource(), *test::ServerIdentifier);
     EXPECT_EQ(m_optResult->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::ResponseRoute);
-    
-    {
-        auto const payload = std::string_view{ 
-            reinterpret_cast<char const*>(m_optResult->GetPayload().data()), m_optResult->GetPayload().size()
-        };
-        EXPECT_EQ(payload, Peer::Test::ApplicationPayload);
-    }
-    
+    EXPECT_EQ(m_optResult->GetPayload().GetStringView(), Peer::Test::ApplicationPayload);
     EXPECT_FALSE(m_optResult->GetExtension<Message::Application::Extension::Awaitable>());
 }
 
@@ -376,20 +351,14 @@ TEST_F(PeerActionSuite, RespondTest)
     Peer::Action::Next next{ m_spProxy, m_message, m_spServiceProvider };
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
-    EXPECT_TRUE(next.Respond({ Peer::Test::ApplicationPayload.begin(), Peer::Test::ApplicationPayload.end() }));
+    EXPECT_TRUE(next.Respond(Peer::Test::ApplicationPayload));
 
     ASSERT_TRUE(m_optResult);
     EXPECT_EQ(m_optResult->GetSource(), *test::ServerIdentifier);
     EXPECT_EQ(m_optResult->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::RequestRoute);
+    EXPECT_EQ(m_optResult->GetPayload().GetStringView(), Peer::Test::ApplicationPayload);
 
-    {
-        auto const payload = std::string_view{ 
-            reinterpret_cast<char const*>(m_optResult->GetPayload().data()), m_optResult->GetPayload().size()
-        };
-        EXPECT_EQ(payload, Peer::Test::ApplicationPayload);
-    }
-    
     auto const optExtension = m_optResult->GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
     EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);

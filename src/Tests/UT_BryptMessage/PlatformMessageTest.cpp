@@ -44,10 +44,7 @@ TEST(PlatformMessageSuite, HandshakeConstructorTest)
     ASSERT_TRUE(optMessage->GetDestination());
     EXPECT_EQ(*optMessage->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optMessage->GetType(), Message::Platform::ParcelType::Handshake);
-
-    auto const buffer = optMessage->GetPayload();
-    std::string const data(buffer.begin(), buffer.end());
-    EXPECT_EQ(data, test::Data);
+    EXPECT_EQ(optMessage->GetPayload().GetStringView(), test::Data);
 
     auto const pack = optMessage->GetPack();
     EXPECT_EQ(pack.size(), optMessage->GetPackSize());
@@ -117,10 +114,7 @@ TEST(PlatformMessageSuite, HandshakePackConstructorTest)
     EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
     EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
     EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
-
-    auto const buffer = optPackMessage->GetPayload();
-    std::string const data(buffer.begin(), buffer.end());
-    EXPECT_EQ(data, test::Data);
+    EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -80,7 +80,11 @@ Message::Platform::ParcelType Message::Platform::Parcel::GetType() const { retur
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Buffer const& Message::Platform::Parcel::GetPayload() const { return m_payload; }
+Message::Payload const& Message::Platform::Parcel::GetPayload() const { return m_payload; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Payload&& Message::Platform::Parcel::ExtractPayload() { return std::move(m_payload); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -88,7 +92,7 @@ std::size_t Message::Platform::Parcel::GetPackSize() const
 {
 	std::size_t size = FixedPackSize();
 	size += m_header.GetPackSize();
-	size += m_payload.size();
+	size += m_payload.GetPackSize();
 
 	auto const encoded = Z85::EncodedSize(size);
     assert(std::in_range<std::uint32_t>(encoded));
@@ -114,7 +118,7 @@ std::string Message::Platform::Parcel::GetPack() const
     //      - Section 4.3 (N bytes): Extension Data     |   Extension End
 
 	PackUtils::PackChunk(m_type, buffer);
-	PackUtils::PackChunk<std::uint32_t>(m_payload, buffer);
+	m_payload.Inject(buffer);
 
 	// Extension Packing
 	PackUtils::PackChunk(std::uint8_t(0), buffer);
@@ -156,7 +160,6 @@ constexpr std::size_t Message::Platform::Parcel::FixedPackSize() const
 {
 	std::size_t size = 0;
 	size += sizeof(Message::Platform::ParcelType); // 1 byte for network message type
-	size += sizeof(std::uint32_t); // 4 bytes for payload size
 	size += sizeof(std::uint8_t); // 1 byte for extensions size
     assert(std::in_range<std::uint32_t>(size));
 	return size;
@@ -276,16 +279,9 @@ Message::Platform::Builder& Message::Platform::Builder::MakeHeartbeatResponse()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Platform::Builder& Message::Platform::Builder::SetPayload(std::string_view buffer)
+Message::Platform::Builder& Message::Platform::Builder::SetPayload(Payload&& payload)
 {
-    return SetPayload({ reinterpret_cast<std::uint8_t const*>(buffer.data()), buffer.size() });
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Platform::Builder& Message::Platform::Builder::SetPayload(std::span<std::uint8_t const> buffer)
-{
-    m_parcel.m_payload = Message::Buffer(buffer.begin(), buffer.end());
+	m_parcel.m_payload = std::move(payload);
     return *this;
 }
 
@@ -293,8 +289,8 @@ Message::Platform::Builder& Message::Platform::Builder::SetPayload(std::span<std
 
 Message::Platform::Builder& Message::Platform::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
-    if (!buffer.empty()) { Unpack(buffer); }
-	else { m_hasStageFailure = true; }
+	bool const success = !buffer.empty() && Unpack(buffer);
+	if (!success) { m_hasStageFailure = true; }
     return *this;
 }
 
@@ -302,8 +298,8 @@ Message::Platform::Builder& Message::Platform::Builder::FromDecodedPack(std::spa
 
 Message::Platform::Builder& Message::Platform::Builder::FromEncodedPack(std::string_view pack)
 {
-    if (!pack.empty()) { Unpack(Z85::Decode(pack)); }
-	else { m_hasStageFailure = true; }
+	bool const success = !pack.empty() && Unpack(Z85::Decode(pack));
+	if (!success) { m_hasStageFailure = true; }
     return *this;
 }
 
@@ -331,46 +327,49 @@ Message::Platform::Builder::OptionalParcel Message::Platform::Builder::Validated
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Unpack the raw message string into the Message class variables.
 //----------------------------------------------------------------------------------------------------------------------
-void Message::Platform::Builder::Unpack(std::span<std::uint8_t const> buffer)
+bool Message::Platform::Builder::Unpack(std::span<std::uint8_t const> buffer)
 {
 	auto begin = buffer.begin();
-	auto end = buffer.end();
+	auto const end = buffer.end();
 
-	if (!m_parcel.m_header.ParseBuffer(begin, end)) { return; }
+	if (!m_parcel.m_header.ParseBuffer(begin, end)) { return false; }
 
 	m_parcel.m_type = local::UnpackMessageType(begin, end);
-	if (m_parcel.m_type == Message::Platform::ParcelType::Invalid) { return; }
+	if (m_parcel.m_type == Message::Platform::ParcelType::Invalid) { return false; }
 
 	// If the message in the buffer is not an application message, it can not be parsed
-	if (m_parcel.m_header.m_protocol != Message::Protocol::Platform) { return; }
+	if (m_parcel.m_header.m_protocol != Message::Protocol::Platform) { return false; }
 
-	{
-		std::uint32_t size = 0;
-		if (!PackUtils::UnpackChunk(begin, end, size)) { return; }
-		if (!PackUtils::UnpackChunk(begin, end, m_parcel.m_payload, size)) { return; }
-	}
+	if (!m_parcel.m_payload.Unpack(begin, end)) { return false; }
 
 	std::uint8_t extensions = 0;
-	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return; }
+	if (!PackUtils::UnpackChunk(begin, end, extensions)) { return false; }
+	if (extensions != 0 && !UnpackExtensions(begin, end, extensions)) { return false; }
 
-	if (extensions != 0) { UnpackExtensions(begin, end); }
+	return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Message::Platform::Builder::UnpackExtensions(
+bool Message::Platform::Builder::UnpackExtensions(
 	std::span<std::uint8_t const>::iterator& begin,
-	std::span<std::uint8_t const>::iterator const& end)
+	std::span<std::uint8_t const>::iterator const& end,
+	std::size_t extensions)
 {
-	while (begin != end) {
+	std::size_t unpacked = 0;	
+	while (begin != end && unpacked < extensions) {
 		using ExtensionType = std::underlying_type_t<local::Extensions::Types>;
 		ExtensionType extension = 0;
 		PackUtils::UnpackChunk(begin, end, extension);
 
 		switch (extension) {				
-			default: return;
+			default: return false;
 		}
+
+		++unpacked;
 	}
+
+	return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
