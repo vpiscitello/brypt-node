@@ -346,7 +346,7 @@ TEST_F(PeerActionSuite, DispatchTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(PeerActionSuite, RespondTest)
+TEST_F(PeerActionSuite, RespondExpectedTest)
 {
     Peer::Action::Next next{ m_spProxy, m_message, m_spServiceProvider };
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
@@ -363,6 +363,48 @@ TEST_F(PeerActionSuite, RespondTest)
     EXPECT_TRUE(optExtension);
     EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Peer::Test::TrackerKey);  
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(PeerActionSuite, RespondRequestMissingAwaitableTest)
+{
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(m_context)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::ServerIdentifier)
+        .SetRoute(Peer::Test::RequestRoute)
+        .SetPayload(Peer::Test::RequestPayload)
+        .ValidatedBuild();
+    ASSERT_TRUE(optRequest);
+
+    Peer::Action::Next next{ m_spProxy, *optRequest, m_spServiceProvider };
+    EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
+
+    EXPECT_FALSE(next.Respond(Peer::Test::ApplicationPayload));
+    EXPECT_FALSE(m_optResult);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(PeerActionSuite, RespondRequestInvalidAwaitableTest)
+{
+    auto const optRequest = Message::Application::Parcel::GetBuilder()
+        .SetContext(m_context)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(*test::ServerIdentifier)
+        .SetRoute(Peer::Test::RequestRoute)
+        .SetPayload(Peer::Test::RequestPayload)
+        .BindExtension<Message::Application::Extension::Awaitable>(
+            Message::Application::Extension::Awaitable::Response, Peer::Test::TrackerKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optRequest);
+
+    Peer::Action::Next next{ m_spProxy, *optRequest, m_spServiceProvider };
+    EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
+
+    EXPECT_FALSE(next.Respond(Peer::Test::ApplicationPayload));
+    EXPECT_FALSE(m_optResult);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -107,6 +107,10 @@ bool Peer::Action::Next::Dispatch(std::string_view route, Message::Payload&& pay
 bool Peer::Action::Next::Respond(Message::Payload&& payload) const
 {
     if (auto const& spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
+        using namespace Message::Application;
+        auto const optAwaitable = m_message.get().GetExtension<Extension::Awaitable>(); 
+        if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
+
         auto const spNodeState = spServiceProvider->Fetch<NodeState>().lock();
 
         auto builder = Message::Application::Parcel::GetBuilder()
@@ -114,13 +118,8 @@ bool Peer::Action::Next::Respond(Message::Payload&& payload) const
             .SetSource(*spNodeState->GetNodeIdentifier())
             .SetDestination(m_message.get().GetSource())
             .SetRoute(m_message.get().GetRoute())
-            .SetPayload(std::move(payload));
-        
-        using namespace Message::Application;
-        if (auto const optAwaitable = m_message.get().GetExtension<Extension::Awaitable>(); optAwaitable) {
-            builder.BindExtension<Extension::Awaitable>(
-                Extension::Awaitable::Response, optAwaitable->get().GetTracker());
-        }
+            .SetPayload(std::move(payload))
+            .BindExtension<Extension::Awaitable>(Extension::Awaitable::Response, optAwaitable->get().GetTracker());
 
         if (auto const optResponse = builder.ValidatedBuild(); optResponse) { 
             return ScheduleSend(*optResponse);
