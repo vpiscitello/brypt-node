@@ -11,6 +11,8 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    RouterTest.cpp
+    PathTest.cpp
     UT_Route.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
@@ -18,6 +20,10 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
     Route BryptMessage BryptIdentifier 
+    ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
+    
+target_link_libraries(${PROJECT_NAME} PUBLIC
+    Awaitable Route Peer Network Security Configuration MessageControl State Event Scheduler BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
     
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

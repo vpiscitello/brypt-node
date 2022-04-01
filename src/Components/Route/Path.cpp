@@ -11,7 +11,7 @@
 #include <sstream>
 //----------------------------------------------------------------------------------------------------------------------
 
-Route::Path::Path(std::string_view const& path)
+Route::Path::Path(std::string_view path)
     : m_components()
 {
     Build(path);
@@ -103,7 +103,7 @@ bool Route::Path::SetTail(std::string&& component)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Route::Path::Build(std::string_view const& path)
+void Route::Path::Build(std::string_view path)
 {
     if (!path.starts_with(Seperator)) { return; }
 

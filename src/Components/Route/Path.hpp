@@ -23,8 +23,10 @@ class Path;
 class Route::Path
 {
 public: 
+    static constexpr std::string_view Seperator = "/";
+
     Path() = default;
-    explicit Path(std::string_view const& path);
+    explicit Path(std::string_view path);
 
     [[nodiscard]] std::string const& GetRoot() const;
     [[nodiscard]] std::string_view GetParent() const;
@@ -49,9 +51,8 @@ private:
     template<typename Taken>
     explicit Path(std::ranges::take_view<Taken> const& components);
 
-    void Build(std::string_view const& path);
+    void Build(std::string_view path);
 
-    static constexpr std::string_view Seperator = "/";
     static constexpr std::string_view Empty = "";
     std::vector<std::string> m_components;
 };

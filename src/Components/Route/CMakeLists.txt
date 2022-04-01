@@ -17,7 +17,8 @@ target_sources(
     MessageHandler.cpp
     Information.cpp
     Path.cpp
-    Query.cpp)
+    Query.cpp
+    Router.cpp)
 
 # Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
