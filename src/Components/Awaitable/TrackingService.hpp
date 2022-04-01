@@ -18,7 +18,7 @@
 
 namespace spdlog { class logger; }
 
-namespace Node { class Provider; }
+namespace Node { class ServiceProvider; }
 namespace Peer { class Proxy; }
 namespace Scheduler { class Delegate; class Registrar; }
 namespace Message::Application { class Parcel; }

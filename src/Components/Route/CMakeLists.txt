@@ -14,12 +14,12 @@ target_sources(
     Connect.cpp
     Controller.cpp
     Election.cpp
-    Handler.cpp
+    MessageHandler.cpp
     Information.cpp
     Path.cpp
     Query.cpp)
 
-# Internal include dependencies
+# Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     ${Boost_INCLUDE_DIRS} ${LITHIUM_JSON_INCLUDE_DIR} ${spdlog_INCLUDE_DIRS})
 
