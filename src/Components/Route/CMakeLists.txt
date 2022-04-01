@@ -12,12 +12,9 @@ target_sources(
     PRIVATE
     # Source Files
     Connect.cpp
-    Controller.cpp
-    Election.cpp
     MessageHandler.cpp
     Information.cpp
     Path.cpp
-    Query.cpp
     Router.cpp)
 
 # Exported include dependencies
