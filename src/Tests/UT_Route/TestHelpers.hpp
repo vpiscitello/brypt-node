@@ -5,6 +5,7 @@
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <ranges>
@@ -20,7 +21,10 @@ Message::Context GenerateMessageContext();
 constexpr std::string_view Message = "Hello World!";
 
 constexpr Network::Endpoint::Identifier EndpointIdentifier = 1;
-constexpr Network::Protocol EndpointProtocol = Network::Protocol::TCP;
+constexpr Network::Protocol EndpointProtocol = Network::Protocol::Test;
+
+auto const RemoteServerAddress = Network::RemoteAddress::CreateTestAddress<InvokeContext::Test>("*:35216", true);
+auto const RemoteClientAddress = Network::RemoteAddress::CreateTestAddress<InvokeContext::Test>("*:35217", true);
 
 constexpr Awaitable::TrackerKey TrackerKey = {
     0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,

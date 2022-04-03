@@ -1,28 +1,85 @@
 //----------------------------------------------------------------------------------------------------------------------
 // File: Connect.hpp
-// Description:
+// Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Handler.hpp"
+#include "MessageHandler.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Configuration/Options.hpp"
+#include "Interfaces/ConnectProtocol.hpp"
+#include "Interfaces/EndpointMediator.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+#include <memory>
+#include <string>
+#include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
+class BootstrapService;
+class NodeState;
+
+namespace spdlog { class logger; }
+
+namespace Peer { class Proxy; }
+namespace Message { class Context; }
+namespace Node { class ServiceProvider; }
+namespace Network { class Manager; }
+
 //----------------------------------------------------------------------------------------------------------------------
-// Description: Handle Requests regarding Connecting to a new network or peer
+namespace Route::Fundamental::Connect {
 //----------------------------------------------------------------------------------------------------------------------
-class Handler::Connect : public Handler::IHandler
+
+class DiscoveryHandler;
+class DiscoveryProtocol;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Route::Fundamental::Connect namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Route::Fundamental::Connect::DiscoveryHandler : public Route::IMessageHandler
 {
 public:
-    enum class Phase : std::uint8_t { Discovery, Join, };
+    static constexpr std::string_view Path = "/connect/discovery";
 
-    explicit Connect(Node::Core& instance);
+    DiscoveryHandler() = default;
 
-    // IHandler{
-    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
-    // }IHandler
+    // IMessageHandler{
+    [[nodiscard]] virtual bool OnFetchServices(std::shared_ptr<Node::ServiceProvider> const& spServiceProvider) override;
+    [[nodiscard]] virtual bool OnMessage(Message::Application::Parcel const& message, Peer::Action::Next& next) override;
+    // }IMessageHandler
 
-    bool DiscoveryHandler(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
-    bool JoinHandler(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);    
+private:
+    [[nodiscard]] bool HandleMessage(Message::Application::Parcel const& message, Peer::Action::Next& next);
+    [[nodiscard]] bool BuildResponse(Peer::Action::Next& next);
+
+    std::weak_ptr<NodeState> m_wpNodeState;
+    std::weak_ptr<BootstrapService> m_wpBootstrapService;
+    std::weak_ptr<Network::Manager> m_wpNetworkManager;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
+
+class Route::Fundamental::Connect::DiscoveryProtocol : public IConnectProtocol
+{
+public:
+    DiscoveryProtocol(
+        Configuration::Options::Endpoints const& endpoints,
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
+
+    DiscoveryProtocol(DiscoveryProtocol&&) = delete;
+    DiscoveryProtocol(DiscoveryProtocol const&) = delete;
+    void operator=(DiscoveryProtocol const&) = delete;
+
+    // IConnectProtocol {
+    virtual bool SendRequest(
+        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Context const& context) const override;
+    // } IConnectProtocol
+
+private:
+    Node::SharedIdentifier m_spNodeIdentifier;
+    std::weak_ptr<Network::Manager> m_wpNetworkManager;
+    std::shared_ptr<std::string const> m_spSharedPayload;
+    std::shared_ptr<spdlog::logger> m_logger;
+};
+
+//---------------------------------------------------------------------------------------------------------------------- 

@@ -11,8 +11,9 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
-    RouterTest.cpp
+    ConnectHandlerTest.cpp
     PathTest.cpp
+    RouterTest.cpp
     UT_Route.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC

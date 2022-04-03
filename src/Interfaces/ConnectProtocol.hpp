@@ -18,11 +18,7 @@ class IConnectProtocol
 {
 public:
     virtual ~IConnectProtocol() = default;
-
-    virtual bool SendRequest(
-        Node::SharedIdentifier const& spSourceIdentifier,
-        std::shared_ptr<Peer::Proxy> const& spPeerProxy,
-        Message::Context const& context) const = 0;
+    virtual bool SendRequest(std::shared_ptr<Peer::Proxy> const& spProxy, Message::Context const& context) const = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

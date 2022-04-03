@@ -6,17 +6,22 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptNode/BryptNode.hpp"
+#include "BryptMessage/MessageContext.hpp"
+#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Network/Address.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/Action.hpp"
 #include "Components/State/NodeState.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
 #include <spdlog/spdlog.h>
 //----------------------------------------------------------------------------------------------------------------------
-#include <chrono>
-#include <thread>
+#include <cassert>
+#include <vector>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -24,19 +29,7 @@ namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
-bool HandleDiscoveryRequest(
-    Node::Core& instance,
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& logger);
-
-std::string BuildDiscoveryResponse(Node::Core& instance);
-
-bool HandleDiscoveryResponse(
-    Node::Core& instance,
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& logger);
+std::string GenerateDiscoveryData(Configuration::Options::Endpoints const& endpoints);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -95,227 +88,197 @@ LI_SYMBOL(protocol)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description:
-//----------------------------------------------------------------------------------------------------------------------
-Handler::Connect::Connect(Node::Core& instance)
-    : IHandler(Handler::Type::Connect, instance)
+bool Route::Fundamental::Connect::DiscoveryHandler::OnFetchServices(
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
-}
+    m_wpNodeState = spServiceProvider->Fetch<NodeState>();
+    if (m_wpNodeState.expired()) { return false; }
 
-//----------------------------------------------------------------------------------------------------------------------
+    m_wpBootstrapService = spServiceProvider->Fetch<BootstrapService>();
+    if (m_wpBootstrapService.expired()) { return false; }
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Connect message handler, drives each of the message responses based on the phase
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Connect::HandleMessage(AssociatedMessage const& associatedMessage)
-{
-    bool status = false;
-
-    // auto& [wpPeerProxy, message] = associatedMessage;
-    // auto const phase = static_cast<Connect::Phase>(message.GetPhase());
-    // switch (phase) {
-    //     case Phase::Discovery: { status = DiscoveryHandler(wpPeerProxy, message); } break;
-    //     case Phase::Join: { status = JoinHandler(wpPeerProxy, message); } break;
-    //     default: break;
-    // }
-
-    return status;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
-// Description:
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Connect::DiscoveryHandler(
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
-{
-    // bool const status = local::HandleDiscoveryRequest(
-    //     m_instance, wpPeerProxy, message, m_logger);
-    // if (!status) { return status; }
-
-    // auto const response = local::BuildDiscoveryResponse(m_instance);
-    // IHandler::SendResponse(wpPeerProxy, message, response, static_cast<std::uint8_t>(Phase::Join));
-
-    // return status;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Handles the join phase for the Connect type handler
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Connect::JoinHandler(
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
-{
-    // return local::HandleDiscoveryResponse(m_instance, wpPeerProxy, message, m_logger);
-    return false;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool local::HandleDiscoveryRequest(
-    Node::Core& instance,
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& logger)
-{
-    // Node::SharedIdentifier spPeerIdentifier;
-    // if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
-    //     spPeerIdentifier = spPeerProxy->GetIdentifier();
-    // }
-
-    // // Parse the discovery request
-    // auto const data = message.GetPayload();
-    // std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
+    m_wpNetworkManager = spServiceProvider->Fetch<Network::Manager>();
+    if (m_wpNetworkManager.expired()) { return false; }
     
-    // auto request = li::mmm(
-    //     s::entrypoints = {
-    //         li::mmm(
-    //             s::protocol = std::string(), s::entry = std::string()) });
-
-    // if (auto error = li::json_decode(dataview, request); error.bad()) { 
-    //     logger->warn("Unable to decode discovery request from: {}", spPeerIdentifier);
-    //     return false;
-    // }
-
-    // if (!request.entrypoints.empty()) {
-    //     auto spBootstrapService = instance.GetBootstrapService().lock();
-    //     auto spNetworkManager = instance.GetNetworkManager().lock();
-        
-    //     // For each listed entrypoint, handle each entry for the given protocol.
-    //     for (auto const& entrypoint: request.entrypoints) {
-    //         // Parse the technoloy type from the human readible name.
-    //         auto const protocol = Network::ParseProtocol(entrypoint.protocol);
-    //         Network::RemoteAddress address(protocol, entrypoint.entry, true);
-    //         if (!address.IsValid()) { logger->warn("Invalid boostrap received from: {}", spPeerIdentifier); }
-
-    //         // Notify the BootstrapService of the entry for the protocol. By immediately 
-    //         // storing the  entry it may be used in bootstrapping and distribution of entries
-    //         // for protocols to peers that have different capabilites not accessible by this 
-    //         // node. The verification of entrypoints should be handled by a different module
-    //         //  (i.e. the endpoint or security mechanism).
-    //         if (spBootstrapService) [[likely]] { spBootstrapService->InsertBootstrap(address); }
-
-    //         if (spNetworkManager) [[likely]] {
-    //             // If we have an endpoint for the given protocol, schedule the connect.
-    //             if (auto const spEndpoint = spNetworkManager->GetEndpoint(protocol, Network::Operation::Client);
-    //                 spEndpoint) {
-    //                 spEndpoint->ScheduleConnect(std::move(address), spPeerIdentifier);
-    //             }
-    //         }
-    //     }
-    // }
-
-    // return true;
-    return false;
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string local::BuildDiscoveryResponse(Node::Core& instance)
+bool Route::Fundamental::Connect::DiscoveryHandler::OnMessage(
+    Message::Application::Parcel const& message, Peer::Action::Next& next)
 {
-    // // Make a response message to filled out by the handler
-    // auto response = li::mmm(
-    //     s::cluster = std::uint32_t(),
-    //     s::bootstraps = {
-    //         li::mmm(
-    //             s::protocol = std::string(),
-    //             s::entries = std::vector<std::string>()) });
-
-    // auto const wpNodeState = instance.GetNodeState();
-    // if (auto const spNodeState = wpNodeState.lock(); spNodeState) {
-    //     response.cluster = spNodeState->GetCluster();
-    // }
-
-    // using BootstrapsMap = std::unordered_map<Network::Protocol, std::vector<std::string>>;
-    // BootstrapsMap bootstraps;
-    // // Get the current known peers of this node. The known peers will be supplied to the requestor
-    // // such that they may attempt to connect to them.
-    // auto const wpBootstrapService = instance.GetBootstrapService();
-    // // If the BootstrapService can be acquired from the node instance iterate through the known 
-    // // peers to obtain the entry addresses for the associated protocols. 
-    // if (auto const spBootstrapService = wpBootstrapService.lock(); spBootstrapService) {
-    //     // For each protocol type stored in the cached peers emplace the entry into the asscoaited 
-    //     // protocol entries vector.
-    //     spBootstrapService->ForEachBootstrap(
-    //         // Get the entries for the requestor from the cached list of peers
-    //         [&bootstraps] (Network::RemoteAddress const& bootstrap) -> CallbackIteration
-    //         {
-    //             bootstraps[bootstrap.GetProtocol()].emplace_back(bootstrap.GetUri());
-    //             return CallbackIteration::Continue;
-    //         }
-    //     );
-
-    //     // Encode the peers list for the response
-    //     for (auto& [protocol, entries]: bootstraps) {
-    //         auto& bootstrap = response.bootstraps.emplace_back();
-    //         bootstrap.protocol = Network::ProtocolToString(protocol);
-    //         bootstrap.entries = std::move(entries);
-    //     }
-    // }
-
-    // return li::json_encode(response);
-    return "";
+    return HandleMessage(message, next) && BuildResponse(next);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool local::HandleDiscoveryResponse(
-    Node::Core& instance,
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-    ApplicationMessage const& message,
-    std::shared_ptr<spdlog::logger> const& logger)
+bool Route::Fundamental::Connect::DiscoveryHandler::HandleMessage(
+    Message::Application::Parcel const& message, Peer::Action::Next& next)
 {
-    // Node::SharedIdentifier spPeerIdentifier;
-    // if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
-    //     spPeerIdentifier = spPeerProxy->GetIdentifier();
-    // }
+    auto const spProxy = next.GetProxy().lock();
+    if (!spProxy) { return false; }
+    
+    auto request = li::mmm(s::entrypoints = { li::mmm(s::protocol = std::string(), s::entry = std::string()) });
+    auto const json = message.GetPayload().GetStringView();
+    if (auto error = li::json_decode(json, request); error.bad()) { 
+        m_logger->warn("Unable to decode discovery request from: {}", spProxy->GetIdentifier());
+        return false;
+    }
 
-    // // Parse the discovery response
-    // auto const data = message.GetPayload();
-    // std::string_view const dataview(reinterpret_cast<char const*>(data.data()), data.size());
+    if (!request.entrypoints.empty()) {
+        // For each listed entrypoint, handle each entry for the given protocol.
+        for (auto const& entrypoint: request.entrypoints) {
+            // Parse the technology type from the human readable name.
+            auto const protocol = Network::ParseProtocol(entrypoint.protocol);
+            Network::RemoteAddress address(protocol, entrypoint.entry, true);
+            if (!address.IsValid()) { m_logger->warn("Invalid boostrap received from: {}", spProxy->GetIdentifier()); }
 
-    // auto response = li::mmm(
-    //     s::cluster = std::uint32_t(),
-    //     s::bootstraps = {
-    //         li::mmm(
-    //             s::protocol = std::string(),
-    //             s::entries = std::vector<std::string>()) });
+            // Notify the BootstrapService of the entry for the protocol. By immediately storing the  entry it may be 
+            // used in bootstrapping and distribution of entries for protocols to peers that have different capabilites 
+            // not accessible by this node. The verification of entrypoints should be handled by a different module
+            // (i.e. the endpoint or security mechanism).
+            if (auto const spBootstrapService = m_wpBootstrapService.lock(); spBootstrapService) [[likely]] { 
+                spBootstrapService->InsertBootstrap(address);
+            }
 
-    // if (auto error = li::json_decode(dataview, response); error.bad()) { 
-    //     logger->warn("Unable to decode discovery response from: {}", spPeerIdentifier);
-    //     return false;
-    // }
+            if (auto const spNetworkManager = m_wpNetworkManager.lock(); spNetworkManager) [[likely]] {
+                // If we have an endpoint for the given protocol, schedule the connect.
+                auto const spEndpoint = spNetworkManager->GetEndpoint(protocol, Network::Operation::Client); 
+                if (spEndpoint) { spEndpoint->ScheduleConnect(std::move(address), spProxy->GetIdentifier()); }
+            }
+        }
+    }
 
-    // if (auto spManager = instance.GetNetworkManager().lock(); spManager) {
-    //     // The provided in the message should contain a series elements containing a protocol 
-    //     // name and vector of endpoint entries. We attempt to get the shared endpoint from the 
-    //     // manager and then schedule a connect event for each provided entry. The entry may or
-    //     //  may not be address, it is dependent on the attached protocol. 
-    //     for (auto const& bootstrap: response.bootstraps) {
-    //         auto spEndpoint = spManager->GetEndpoint(
-    //             message.GetContext().GetEndpointProtocol(), Network::Operation::Client);
-    //         if (spEndpoint) [[likely]] {
-    //             auto const protocol = Network::ParseProtocol(bootstrap.protocol);
-    //             for (auto const& entry: bootstrap.entries) {
-    //                 Network::RemoteAddress address(protocol, entry, true);
-    //                 if (address.IsValid()) {
-    //                     spEndpoint->ScheduleConnect(std::move(address));
-    //                 } else {
-    //                     logger->warn("Invalid boostrap received from: {}", spPeerIdentifier);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
+    return true;
+}
 
-    // return true;
-    return false;
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Route::Fundamental::Connect::DiscoveryHandler::BuildResponse(Peer::Action::Next& next)
+{
+    using BootstrapsMap = std::unordered_map<Network::Protocol, std::vector<std::string>>;
+
+    // Make a response message to filled out by the handler
+    auto payload = li::mmm(
+        s::cluster = std::uint32_t(),
+        s::bootstraps = { li::mmm(s::protocol = std::string(), s::entries = std::vector<std::string>()) });
+
+    if (auto const spNodeState = m_wpNodeState.lock(); spNodeState) { payload.cluster = spNodeState->GetCluster(); }
+
+    // If the BootstrapService can be acquired from the node instance iterate through the known  peers to obtain the entry
+    //  addresses for the associated protocols. 
+    BootstrapsMap bootstraps;
+    if (auto const spBootstrapService = m_wpBootstrapService.lock(); spBootstrapService) {
+        // For each protocol type stored in the cached peers emplace the entry into the associated protocol vector.
+        spBootstrapService->ForEachBootstrap(
+            // Get the entries for the requestor from the cached list of peers
+            [&bootstraps] (Network::RemoteAddress const& bootstrap) -> CallbackIteration {
+                bootstraps[bootstrap.GetProtocol()].emplace_back(bootstrap.GetUri());
+                return CallbackIteration::Continue;
+            }
+        );
+
+        // Encode the peers list for the response
+        for (auto& [protocol, entries]: bootstraps) {
+            auto& bootstrap = payload.bootstraps.emplace_back();
+            bootstrap.protocol = Network::ProtocolToString(protocol);
+            bootstrap.entries = std::move(entries);
+        }
+    }
+
+    return next.Respond(li::json_encode(payload));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Route::Fundamental::Connect::DiscoveryProtocol::DiscoveryProtocol(
+    Configuration::Options::Endpoints const& endpoints, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
+    : m_spNodeIdentifier()
+    , m_wpNetworkManager(spServiceProvider->Fetch<Network::Manager>())
+    , m_spSharedPayload(std::make_shared<std::string>(local::GenerateDiscoveryData(endpoints)))
+    , m_logger(spdlog::get(Logger::Name::Core.data()))
+{
+    if (auto const spState = spServiceProvider->Fetch<NodeState>().lock(); spState) {
+        m_spNodeIdentifier = spState->GetNodeIdentifier();
+    }
+    assert(m_spNodeIdentifier);
+    assert(m_wpNetworkManager.lock() != nullptr);
+    assert(m_logger);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Route::Fundamental::Connect::DiscoveryProtocol::SendRequest(
+    std::shared_ptr<Peer::Proxy> const& spProxy, Message::Context const& context) const
+{
+    assert(m_spSharedPayload && !m_spSharedPayload->empty());
+
+    auto builder = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
+        .SetSource(*m_spNodeIdentifier)
+        .SetRoute(Route::Fundamental::Connect::DiscoveryHandler::Path)
+        .SetPayload(m_spSharedPayload);
+
+    return spProxy->Request(builder,
+        [this, wpProxy = std::weak_ptr<Peer::Proxy>{ spProxy }] (auto const& response) {
+            auto const spProxy = wpProxy.lock();
+            if (!spProxy) { return; }
+
+            auto payload = li::mmm(
+                s::cluster = std::uint32_t(),
+                s::bootstraps = { li::mmm(s::protocol = std::string(), s::entries = std::vector<std::string>()) });
+
+            auto const json = response.GetPayload().GetStringView();
+            if (auto error = li::json_decode(json, payload); error.bad()) { 
+                m_logger->warn("Unable to decode discovery response from: {}", spProxy->GetIdentifier());
+                return;
+            }
+
+            if (auto spNetworkManager = m_wpNetworkManager.lock(); spNetworkManager) {
+                // The provided in the message should contain a series elements containing a protocol name and vector 
+                // of endpoint entries. We attempt to get the shared endpoint from the  manager and then schedule a 
+                // connect event for each provided entry. The entry may or may not be address, it is dependent on the 
+                // attached protocol. 
+                for (auto const& bootstrap: payload.bootstraps) {
+                    auto const spEndpoint = spNetworkManager->GetEndpoint(
+                        response.GetContext().GetEndpointProtocol(), Network::Operation::Client);
+                    if (spEndpoint) [[likely]] {
+                        auto const protocol = Network::ParseProtocol(bootstrap.protocol);
+                        for (auto const& entry: bootstrap.entries) {
+                            Network::RemoteAddress address(protocol, entry, true);
+                            if (address.IsValid()) {
+                                spEndpoint->ScheduleConnect(std::move(address));
+                            } else {
+                                m_logger->warn("Invalid boostrap received from: {}", spProxy->GetIdentifier());
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        [this, spProxyIdentifier = spProxy->GetIdentifier()] ([[maybe_unused]] auto const& error) {
+            m_logger->warn("Encountered an error waiting for discovery response from: {}", spProxyIdentifier);
+        });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string local::GenerateDiscoveryData(Configuration::Options::Endpoints const& endpoints)
+{
+    auto request = li::mmm(
+        s::entrypoints = {
+            li::mmm(s::protocol = std::string(), s::entry = std::string()) });
+
+    request.entrypoints.clear();
+
+    for (auto const& options: endpoints) {
+        auto& entrypoint = request.entrypoints.emplace_back();
+        entrypoint.protocol = options.GetProtocolString();
+        entrypoint.entry = options.GetBinding().GetUri();
+    }
+
+    return li::json_encode(request);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
