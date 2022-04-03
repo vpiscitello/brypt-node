@@ -479,9 +479,7 @@ std::unique_ptr<Message::Application::Extension::Base> Message::Application::Ext
 
 bool Message::Application::Extension::Awaitable::Validate() const
 {
-	return m_binding != Invalid && std::ranges::all_of(m_tracker, [] (std::uint8_t byte) {
-		return byte != 0;
-	});
+	return m_binding != Invalid && !std::ranges::all_of(m_tracker, [] (std::uint8_t byte) { return byte == 0x00; });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
