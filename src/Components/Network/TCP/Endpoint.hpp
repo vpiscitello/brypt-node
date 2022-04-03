@@ -57,7 +57,7 @@ public:
 
     // IEndpoint{
     [[nodiscard]] virtual Network::Protocol GetProtocol() const override;
-    [[nodiscard]] virtual std::string GetScheme() const override;
+    [[nodiscard]] virtual std::string_view GetScheme() const override;
     [[nodiscard]] virtual BindingAddress GetBinding() const override;
 
     virtual void Startup() override;

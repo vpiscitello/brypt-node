@@ -651,6 +651,22 @@ void Configuration::Options::Endpoint::SetConnectionOptions(Connection const& op
 
 //----------------------------------------------------------------------------------------------------------------------
 
+template<>
+Configuration::Options::Endpoint Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(
+    std::string_view _interface, std::string_view _binding)
+{
+    Endpoint options;
+    options.protocol = ::Network::TestScheme;
+    options.interface = _interface;
+    options.binding = _binding;
+    options.constructed.protocol = ::Network::Protocol::Test;
+    options.constructed.binding = ::Network::BindingAddress::CreateTestAddress<InvokeContext::Test>(_binding, _interface);
+    options.transient.useBootstraps = true;
+    return options;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Configuration::Options::Network::Network()
     : endpoints()
     , connection()

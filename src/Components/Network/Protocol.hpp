@@ -15,7 +15,9 @@
 namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class Protocol : std::uint8_t { LoRa, TCP, Invalid };
+constexpr std::string_view TestScheme = "test";
+
+enum class Protocol : std::uint8_t { LoRa, TCP, Test, Invalid };
 
 using ProtocolSet = std::set<Network::Protocol>;
 
@@ -28,18 +30,15 @@ std::string ProtocolToString(Protocol protocol);
 
 inline Network::Protocol Network::ParseProtocol(std::string name)
 {
-    static std::unordered_map<std::string, Protocol> const protocolMap = {
-        {"lora", Protocol::LoRa},
-        {"tcp", Protocol::TCP},
+    static std::unordered_map<std::string, Protocol> const translations = {
+        { "lora", Protocol::LoRa },
+        { "tcp", Protocol::TCP },
+        { std::string{ TestScheme }, Protocol::Test },
     };
 
     // Adjust the provided protocol name to lowercase
-    std::transform(name.begin(), name.end(), name.begin(),
-        [](unsigned char c){
-            return std::tolower(c);
-        });
-
-    if (auto const itr = protocolMap.find(name.data()); itr != protocolMap.end()) {
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
+    if (auto const itr = translations.find(name.data()); itr != translations.end()) {
         return itr->second;
     }
     return Protocol::Invalid;
@@ -49,12 +48,13 @@ inline Network::Protocol Network::ParseProtocol(std::string name)
 
 inline std::string Network::ProtocolToString(Protocol protocol)
 {
-    static std::unordered_map<Protocol, std::string> const protocolMap = {
-        {Protocol::LoRa, "LoRa"},
-        {Protocol::TCP, "TCP"},
+    static std::unordered_map<Protocol, std::string> const translations = {
+        { Protocol::LoRa, "lora" },
+        { Protocol::TCP, "tcp" },
+        { Protocol::Test,  std::string{ TestScheme } },
     };
 
-    if(auto const itr = protocolMap.find(protocol); itr != protocolMap.end()) {
+    if(auto const itr = translations.find(protocol); itr != translations.end()) {
         return itr->second;
     }
     return {};

@@ -157,9 +157,9 @@ Network::Protocol Network::TCP::Endpoint::GetProtocol() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Network::TCP::Endpoint::GetScheme() const
+std::string_view Network::TCP::Endpoint::GetScheme() const
 {
-    return Scheme.data();
+    return Scheme;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

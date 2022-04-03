@@ -30,7 +30,7 @@ public:
 
     // IEndpoint{
     virtual Protocol GetProtocol() const override;
-    virtual std::string GetScheme() const override;
+    virtual std::string_view GetScheme() const override;
     virtual BindingAddress GetBinding() const override;
 
     virtual void Startup() override;

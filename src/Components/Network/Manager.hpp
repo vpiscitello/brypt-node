@@ -18,6 +18,7 @@
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
+#include "Utilities/InvokeContext.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
@@ -87,6 +88,9 @@ public:
     [[nodiscard]] bool ScheduleConnect(RemoteAddress const& address);
     [[nodiscard]] bool ScheduleConnect(RemoteAddress&& address);
     [[nodiscard]] bool ScheduleConnect(RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier);
+
+    UT_SupportMethod(
+        void RegisterEndpoint(Configuration::Options::Endpoint const& options, SharedEndpoint const& spEndpoint));
 
 private:
     using EndpointMap = std::unordered_map<Endpoint::Identifier, SharedEndpoint>;

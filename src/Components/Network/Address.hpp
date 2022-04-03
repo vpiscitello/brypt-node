@@ -5,6 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "Protocol.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/fmt/bundled/format.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -137,7 +138,11 @@ public:
 
     [[nodiscard]] std::string const& GetInterface() const;
 
+    UT_SupportMethod(static BindingAddress CreateTestAddress(std::string_view uri, std::string_view interface));
+
 private:
+    BindingAddress(InvokeContext, std::string_view uri, std::string_view interface);
+
     std::string m_interface;
 };
 
@@ -164,7 +169,12 @@ public:
     [[nodiscard]] bool IsBootstrapable() const;
     [[nodiscard]] Origin GetOrigin() const;
 
+    UT_SupportMethod(static RemoteAddress CreateTestAddress(
+        std::string_view uri, bool bootstrapable, Origin origin = Origin::Network));
+
 private:
+    RemoteAddress(InvokeContext, std::string_view uri, bool bootstrapable, Origin origin = Origin::Network);
+
     Origin m_origin;
 };
 

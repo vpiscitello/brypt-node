@@ -10,6 +10,7 @@
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Components/Security/SecurityUtils.hpp"
+#include "Utilities/InvokeContext.hpp"
 #include "Utilities/Version.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/common.h>
@@ -200,6 +201,8 @@ struct Configuration::Options::Endpoint
     [[nodiscard]] bool SetConnectionTimeout(std::chrono::milliseconds const& timeout);
     [[nodiscard]] bool SetConnectionRetryInterval(std::chrono::milliseconds const& interval);
     void SetConnectionOptions(Connection const& options);
+
+    UT_SupportMethod(static Endpoint CreateTestOptions(std::string_view _interface, std::string_view _binding));
 
     std::string protocol;
     std::string interface;

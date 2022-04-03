@@ -414,3 +414,14 @@ void Network::Manager::OnCriticalError()
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+template<>
+void Network::Manager::RegisterEndpoint<InvokeContext::Test>(
+    Configuration::Options::Endpoint const& options, SharedEndpoint const& spEndpoint)
+{
+    std::scoped_lock lock{ m_endpointsMutex };
+    UpdateBindingCache(spEndpoint->GetIdentifier(), options.GetBinding());
+    m_endpoints.emplace(spEndpoint->GetIdentifier(), spEndpoint);
+}
+
+//----------------------------------------------------------------------------------------------------------------------

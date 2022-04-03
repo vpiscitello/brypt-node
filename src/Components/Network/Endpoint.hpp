@@ -93,7 +93,7 @@ public:
     [[nodiscard]] Endpoint::Properties const& GetProperties() const;
 
     [[nodiscard]] virtual Protocol GetProtocol() const = 0;
-    [[nodiscard]] virtual std::string GetScheme() const = 0;
+    [[nodiscard]] virtual std::string_view GetScheme() const = 0;
     [[nodiscard]] virtual BindingAddress GetBinding() const = 0;
 
     virtual void Startup() = 0;

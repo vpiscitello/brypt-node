@@ -30,9 +30,9 @@ Network::Protocol Network::LoRa::Endpoint::GetProtocol() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Network::LoRa::Endpoint::GetScheme() const
+std::string_view Network::LoRa::Endpoint::GetScheme() const
 {
-    return Scheme.data();
+    return Scheme;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

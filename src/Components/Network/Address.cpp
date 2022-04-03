@@ -213,6 +213,7 @@ bool Network::Address::CacheAddressPartitions()
     switch (m_protocol) {
         case Protocol::TCP: return (Socket::ParseAddressType(*this) != Socket::Type::Invalid);
         case Protocol::LoRa: return true;
+        case Protocol::Test: return true;
         default: return false;
     }
     return false;
@@ -235,6 +236,7 @@ std::size_t Network::Address::PrependScheme()
     switch (m_protocol) {
         case Protocol::TCP: { scheme = Network::TCP::Scheme; } break;
         case Protocol::LoRa: { scheme = Network::LoRa::Scheme; } break;
+        case Protocol::Test: { scheme = Network::TestScheme; } break;
         default: assert(false); return 0;
     }
     oss << scheme << Network::SchemeSeperator << m_uri; // <scheme>://<uri>
@@ -312,6 +314,23 @@ std::string const& Network::BindingAddress::GetInterface() const
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+template<>
+Network::BindingAddress Network::BindingAddress::CreateTestAddress<InvokeContext::Test>(
+    std::string_view uri, std::string_view interface)
+{
+    return BindingAddress{ InvokeContext::Test, uri, interface };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::BindingAddress::BindingAddress(InvokeContext, std::string_view uri, std::string_view interface)
+    : Address(Protocol::Test, uri, false)
+    , m_interface(interface)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 // } Network::BindingAddress 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -365,6 +384,23 @@ bool Network::RemoteAddress::IsBootstrapable() const
 Network::RemoteAddress::Origin Network::RemoteAddress::GetOrigin() const
 {
     return m_origin;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+Network::RemoteAddress Network::RemoteAddress::CreateTestAddress<InvokeContext::Test>(
+    std::string_view uri, bool bootstrapable, Origin origin)
+{
+    return RemoteAddress{ InvokeContext::Test, uri, bootstrapable, origin };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::RemoteAddress::RemoteAddress(InvokeContext, std::string_view uri, bool bootstrapable, Origin origin)
+    : Address(Protocol::Test, uri, bootstrapable)
+    , m_origin(origin)
+{
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -489,6 +525,7 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
         switch (protocol) {
             case Network::Protocol::TCP: binding << Network::TCP::Scheme; break;
             case Network::Protocol::LoRa: binding << Network::LoRa::Scheme; break;
+            case Network::Protocol::Test: binding << Network::TestScheme; break;
             default: assert(false); break; // What is this?
         }
         binding << Network::SchemeSeperator;
@@ -509,7 +546,8 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
     if (std::size_t const wildcard = uri.find(Network::Wildcard); wildcard != std::string::npos) {
         switch (protocol) {
             case Network::Protocol::TCP: binding << local::GetInterfaceAddress(interface); break;
-            case Network::Protocol::LoRa: binding << ""; break;
+            case Network::Protocol::LoRa:
+            case Network::Protocol::Test: binding << "*"; break;
             default: assert(false); break; // What is this?
         }
     } else {
