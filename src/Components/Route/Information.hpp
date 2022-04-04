@@ -4,26 +4,68 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Handler.hpp"
+#include "MessageHandler.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
+class CoordinatorState;
+class NetworkState;
+class NodeState;
+class IPeerCache;
+
+namespace Awaitable { class TrackingService; }
+namespace Network { class Manager; }
+
 //----------------------------------------------------------------------------------------------------------------------
-// Description: Handles the flood phase for the Information type handler
+namespace Route::Fundamental::Information {
 //----------------------------------------------------------------------------------------------------------------------
-class Handler::Information : public Handler::IHandler
+
+class NodeHandler;
+class FetchNodeHandler;
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Route::Fundamental::Information namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Route::Fundamental::Information::NodeHandler : public Route::IMessageHandler
 {
 public:
-    enum class Phase : std::uint8_t { Flood, Respond, Close };
+    static constexpr std::string_view Path = "/info/node";
 
-    explicit Information(Node::Core& instance);
+    NodeHandler() = default;
 
-    // IHandler{
-    bool HandleMessage(AssociatedMessage const& associatedMessage) override;
-    // }IHandler
+    // IMessageHandler{
+    [[nodiscard]] virtual bool OnFetchServices(std::shared_ptr<Node::ServiceProvider> const& spServiceProvider) override;
+    [[nodiscard]] virtual bool OnMessage(Message::Application::Parcel const& message, Peer::Action::Next& next) override;
+    // }IMessageHandler
 
-    bool FloodHandler(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message);
-    bool RespondHandler();
-    bool CloseHandler();
+private:
+    std::weak_ptr<NodeState> m_wpNodeState;
+    std::weak_ptr<CoordinatorState> m_wpCoordinatorState;
+    std::weak_ptr<NetworkState> m_wpNetworkState;
+    std::weak_ptr<Network::Manager> m_wpNetworkManager;
+    std::weak_ptr<IPeerCache> m_wpPeerCache;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class Route::Fundamental::Information::FetchNodeHandler : public Route::IMessageHandler
+{
+public:
+    static constexpr std::string_view Path = "/info/fetch/node";
+
+    FetchNodeHandler() = default;
+
+    // IMessageHandler{
+    [[nodiscard]] virtual bool OnFetchServices(std::shared_ptr<Node::ServiceProvider> const& spServiceProvider) override;
+    [[nodiscard]] virtual bool OnMessage(Message::Application::Parcel const& message, Peer::Action::Next& next) override;
+    // }IMessageHandler
+
+private:
+    std::weak_ptr<NodeState> m_wpNodeState;
+    std::weak_ptr<CoordinatorState> m_wpCoordinatorState;
+    std::weak_ptr<NetworkState> m_wpNetworkState;
+    std::weak_ptr<Network::Manager> m_wpNetworkManager;
+    std::weak_ptr<IPeerCache> m_wpPeerCache;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

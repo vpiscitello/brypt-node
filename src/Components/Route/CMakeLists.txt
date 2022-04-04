@@ -11,6 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    Auxiliary.cpp
     Connect.cpp
     MessageHandler.cpp
     Information.cpp

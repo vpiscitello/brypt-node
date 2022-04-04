@@ -12,6 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     ConnectHandlerTest.cpp
+    InformationHandlerTest.cpp
     PathTest.cpp
     RouterTest.cpp
     UT_Route.cpp)

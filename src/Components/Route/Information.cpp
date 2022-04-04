@@ -6,12 +6,17 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptNode/BryptNode.hpp"
+#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Network/Endpoint.hpp"
-#include "Components/Peer/Manager.hpp"
+#include "Components/Network/Manager.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/Action.hpp"
 #include "Components/State/CoordinatorState.hpp"
 #include "Components/State/NetworkState.hpp"
 #include "Components/State/NodeState.hpp"
+#include "Interfaces/PeerCache.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <lithium_json.hh>
@@ -22,18 +27,15 @@
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
 //----------------------------------------------------------------------------------------------------------------------
-namespace local {
-//----------------------------------------------------------------------------------------------------------------------
-
-std::string GenerateNodeInfo(Node::Core const& node);
-
-//----------------------------------------------------------------------------------------------------------------------
-} // local namespace
-//----------------------------------------------------------------------------------------------------------------------
 namespace Json {
 //----------------------------------------------------------------------------------------------------------------------
 
-struct NodeInfo;
+std::string GenerateNodeInfo(
+    std::weak_ptr<NodeState> const& wpNodeState,
+    std::weak_ptr<CoordinatorState> const& wpCoordinatorState,
+    std::weak_ptr<NetworkState> const& wpNetworkState,
+    std::weak_ptr<Network::Manager> const& wpNetworkManager,
+    std::weak_ptr<IPeerCache> const& wpPeerCache);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Json namespace
@@ -74,164 +76,130 @@ LI_SYMBOL(update_timestamp)
 #endif
 //----------------------------------------------------------------------------------------------------------------------
 
-struct Json::NodeInfo
+bool Route::Fundamental::Information::NodeHandler::OnFetchServices(
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
-    NodeInfo(
-        Node::SharedIdentifier const& spNodeIdentifier,
-        NodeUtils::ClusterIdType cluster,
-        Node::SharedIdentifier const& spCoordinatorIdentifier,
-        std::size_t neighbor_count,
-        std::string const& designation,
-        std::string const& protocols,
-        TimeUtils::Timestamp const& update_timestamp)
-        : identifier(spNodeIdentifier)
-        , cluster(cluster)
-        , coordinator(spCoordinatorIdentifier)
-        , neighbor_count(neighbor_count)
-        , designation(designation)
-        , protocols(protocols)
-        , update_timestamp(update_timestamp.count())
-    {
-    }
-    Node::SharedIdentifier const identifier;
-    NodeUtils::ClusterIdType const cluster;
-    Node::SharedIdentifier const coordinator;
-    std::size_t const neighbor_count;
-    std::string const designation;
-    std::string const protocols;
-    std::uint64_t const update_timestamp;
-};
+    m_wpNodeState = spServiceProvider->Fetch<NodeState>();
+    if (m_wpNodeState.expired()) { return false; }
 
-//----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
-// Description:
-//----------------------------------------------------------------------------------------------------------------------
-Handler::Information::Information(Node::Core& instance)
-    : IHandler(Handler::Type::Information, instance)
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Information message handler, drives each of the message responses based on the phase
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Information::HandleMessage(AssociatedMessage const& associatedMessage)
-{
-    bool status = false;
-
-    // auto& [wpPeerProxy, message] = associatedMessage;
-    // auto const phase = static_cast<Information::Phase>(message.GetPhase());
-    // switch (phase) {
-    //     case Phase::Flood: { status = FloodHandler(wpPeerProxy, message); } break;
-    //     case Phase::Respond: { status = RespondHandler(); } break;
-    //     case Phase::Close: { status = CloseHandler(); } break;
-    //     default: break;
-    // }
-
-    return status;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Handles the flood phase for the Information type handler
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Information::FloodHandler(
-    std::weak_ptr<Peer::Proxy> const& wpPeerProxy, ApplicationMessage const& message)
-{
-    m_logger->debug(
-        "Building response for the Information request from {}.", message.GetSourceIdentifier());
-
-    // IHandler::SendClusterNotice(
-    //     wpPeerProxy, message,
-    //     "Request for Node Information.",
-    //     static_cast<std::uint8_t>(Phase::Respond),
-    //     static_cast<std::uint8_t>(Phase::Close),
-    //     local::GenerateNodeInfo(m_instance));
+    m_wpCoordinatorState = spServiceProvider->Fetch<CoordinatorState>();
+    if (m_wpCoordinatorState.expired()) { return false; }
+    
+    m_wpNetworkState = spServiceProvider->Fetch<NetworkState>();
+    if (m_wpNetworkState.expired()) { return false; }
+    
+    m_wpNetworkManager = spServiceProvider->Fetch<Network::Manager>();
+    if (m_wpNetworkManager.expired()) { return false; }
+    
+    m_wpPeerCache = spServiceProvider->Fetch<IPeerCache>();
+    if (m_wpPeerCache.expired()) { return false; }
 
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Handles the respond phase for the Information type handler
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Information::RespondHandler()
+bool Route::Fundamental::Information::NodeHandler::OnMessage(
+     Message::Application::Parcel const& message, Peer::Action::Next& next)
 {
-    return false;
+    using namespace Message::Application;
+    auto const optAwaitable = message.GetExtension<Extension::Awaitable>(); 
+    if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
+
+    return next.Respond(
+        Json::GenerateNodeInfo(
+            m_wpNodeState, m_wpCoordinatorState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: Handles the close phase for the Information type handler
-// Returns: Status of the message handling
-//----------------------------------------------------------------------------------------------------------------------
-bool Handler::Information::CloseHandler()
+bool Route::Fundamental::Information::FetchNodeHandler::OnFetchServices(
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
-    return false;
+    m_wpNodeState = spServiceProvider->Fetch<NodeState>();
+    if (m_wpNodeState.expired()) { return false; }
+
+    m_wpCoordinatorState = spServiceProvider->Fetch<CoordinatorState>();
+    if (m_wpCoordinatorState.expired()) { return false; }
+    
+    m_wpNetworkState = spServiceProvider->Fetch<NetworkState>();
+    if (m_wpNetworkState.expired()) { return false; }
+    
+    m_wpNetworkManager = spServiceProvider->Fetch<Network::Manager>();
+    if (m_wpNetworkManager.expired()) { return false; }
+    
+    m_wpPeerCache = spServiceProvider->Fetch<IPeerCache>();
+    if (m_wpPeerCache.expired()) { return false; }
+
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//----------------------------------------------------------------------------------------------------------------------
-// Description: This constructs a JSON object for each of the messages from each of the endpoints.
-// Returns: The JSON structure as a string.
-//----------------------------------------------------------------------------------------------------------------------
-std::string local::GenerateNodeInfo(Node::Core const& instance)
+bool Route::Fundamental::Information::FetchNodeHandler::OnMessage(
+    Message::Application::Parcel const& message, Peer::Action::Next& next)
 {
-    // Get the information pertaining to the node itself
-    // Node::SharedIdentifier spNodeIdentifier; 
-    // NodeUtils::ClusterIdType cluster = 0;
-    // NodeUtils::DeviceOperation operation = NodeUtils::DeviceOperation::None;
-    // if (auto const spNodeState = instance.GetNodeState().lock()) {
-    //     spNodeIdentifier = spNodeState->GetNodeIdentifier();
-    //     cluster = spNodeState->GetCluster();
-    //     operation = spNodeState->GetOperation();
-    // }
-    // assert(spNodeIdentifier);
+    m_logger->debug("Handling a cluster information request from {}.", message.GetSource());
 
-    // // Get the information pertaining to the node's coordinator
-    // Node::SharedIdentifier spCoordinatorIdentifier; 
-    // if (auto const spCoordinatorState = instance.GetCoordinatorState().lock()) {
-    //     spCoordinatorIdentifier = spCoordinatorState->GetNodeIdentifier();
-    // }
-
-    // // Get the information pertaining to the node's network
-    // std::size_t neighbors = 0;
-    // if (auto const spPeerManager = instance.GetPeerManager().lock(); spPeerManager) {
-    //     neighbors = spPeerManager->ActiveCount();
-    // }
-
-    // std::vector<Json::NodeInfo> nodesInfo;
-    // nodesInfo.emplace_back(
-    //     spNodeIdentifier, cluster, spCoordinatorIdentifier,
-    //     neighbors, NodeUtils::GetDesignation(operation), 
-    //     "IEEE 802.11", TimeUtils::GetSystemTimestamp());
-
-    /* if (auto const spEndpoints = m_instance.GetEndpoints().lock(); spEndpoints) {
-        for (auto const& endpoint : *spEndpoints) {
-            // obtained through some other means. 
-            
-            std::string const timestamp = TimeUtils::TimepointToString(endpoint.GetUpdateClock());
-            nodesInfo.emplace_back(
-                spConnection->GetPeerName(), cluster, id, 0,
-                "node", spConnection->GetScheme(), timestamp);
+    auto const optTrackerKey = next.Defer({
+        .notice = {
+            .type = Message::Destination::Cluster,
+            .route = NodeHandler::Path
+        },
+        .response = {
+            .payload = Json::GenerateNodeInfo(
+                m_wpNodeState, m_wpCoordinatorState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache)
         }
-    } */
+    });
 
-    // std::string const data = li::json_vector(
-    //     s::identifier, s::cluster, s::coordinator, s::neighbor_count,
-    //     s::designation, s::protocols, s::update_timestamp).encode(nodesInfo);
+    return optTrackerKey.has_value();
+}
 
-    // return data;
-    return "";
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string Json::GenerateNodeInfo(
+    std::weak_ptr<NodeState> const& wpNodeState,
+    std::weak_ptr<CoordinatorState> const& wpCoordinatorState,
+    std::weak_ptr<NetworkState> const& wpNetworkState,
+    std::weak_ptr<Network::Manager> const& wpNetworkManager,
+    std::weak_ptr<IPeerCache> const& wpPeerCache)
+{
+    // Make a response message to filled out by the handler
+    auto payload = li::mmm(
+        s::cluster = std::uint32_t(),
+        s::coordinator = std::string(),
+        s::neighbor_count = std::uint32_t(),
+        s::designation = std::string(),
+        s::protocols = std::vector<std::string>(),
+        s::update_timestamp = std::uint64_t());
+
+    if (auto const spCoordinatorState = wpCoordinatorState.lock(); spCoordinatorState) { 
+        if (auto const spCoordinator = spCoordinatorState->GetNodeIdentifier(); spCoordinator) {
+            payload.coordinator = *spCoordinator;
+        }
+    }
+
+    if (auto const spNodeState = wpNodeState.lock(); spNodeState) { 
+        payload.cluster = spNodeState->GetCluster();
+        payload.designation = NodeUtils::GetDesignation(spNodeState->GetOperation());
+    }
+
+    if (auto const spNetworkState = wpNetworkState.lock(); spNetworkState) { 
+        payload.update_timestamp = spNetworkState->GetUpdatedTimepoint().time_since_epoch().count();
+    }
+
+    if (auto const spNetworkManager = wpNetworkManager.lock(); spNetworkManager) { 
+        std::ranges::transform(
+            spNetworkManager->GetEndpointProtocols(),
+            std::back_inserter(payload.protocols),
+            [] (auto const& protocol) { return Network::ProtocolToString(protocol); });
+    }
+
+    if (auto const spPeerCache = wpPeerCache.lock(); spPeerCache) { 
+        payload.neighbor_count = static_cast<std::uint32_t>(spPeerCache->ActiveCount());
+    }
+
+    return li::json_encode(payload);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

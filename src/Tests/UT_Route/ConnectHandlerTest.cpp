@@ -56,8 +56,6 @@ constexpr auto RuntimeOptions = Configuration::Options::Runtime
     .useFilepathDeduction = false
 };
 
-class StandardEndpoint;
-
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -73,8 +71,8 @@ public:
     [[nodiscard]] std::shared_ptr<BootstrapService> const& GetBootstrapService() const { return m_spBootstrapService; }   
     [[nodiscard]] Configuration::Options::Endpoints const& GetEndpointConfiguration() const { return m_endpoints; }
     [[nodiscard]] std::shared_ptr<Network::Manager> const& GetNetworkManager() const { return m_spNetworkManager; }   
-    [[nodiscard]] std::shared_ptr<test::StandardEndpoint> const& GetServerEndpoint() const { return m_spServerEndpoint; }   
-    [[nodiscard]] std::shared_ptr<test::StandardEndpoint> const& GetClientEndpoint() const { return m_spClientEndpoint; }   
+    [[nodiscard]] std::shared_ptr<Route::Test::StandardEndpoint> const& GetServerEndpoint() const { return m_spServerEndpoint; }   
+    [[nodiscard]] std::shared_ptr<Route::Test::StandardEndpoint> const& GetClientEndpoint() const { return m_spClientEndpoint; }   
     [[nodiscard]] Message::Context const& GetContext() const { return m_context; }
     [[nodiscard]] std::shared_ptr<Peer::Proxy> const& GetProxy() const { return m_spProxy; }   
 
@@ -88,62 +86,10 @@ private:
     std::shared_ptr<BootstrapService> m_spBootstrapService;
     Configuration::Options::Endpoints m_endpoints;
     std::shared_ptr<Network::Manager> m_spNetworkManager;
-    std::shared_ptr<test::StandardEndpoint> m_spServerEndpoint;
-    std::shared_ptr<test::StandardEndpoint> m_spClientEndpoint;
+    std::shared_ptr<Route::Test::StandardEndpoint> m_spServerEndpoint;
+    std::shared_ptr<Route::Test::StandardEndpoint> m_spClientEndpoint;
     Message::Context m_context;
     std::shared_ptr<Peer::Proxy> m_spProxy;
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-
-class test::StandardEndpoint : public Network::IEndpoint
-{
-public:
-    explicit StandardEndpoint(Network::Endpoint::Properties const& properties)
-        : IEndpoint(properties)
-        , m_scheduled(0)
-        , m_connected()
-    {
-    }
-
-    std::uint32_t const& GetScheduled() const { return m_scheduled; }
-    BootstrapService::BootstrapCache const& GetConnected() const { return m_connected; }
-
-    // IEndpoint {
-    [[nodiscard]] virtual Network::Protocol GetProtocol() const override { return Network::Protocol::Test; }
-    [[nodiscard]] virtual std::string_view GetScheme() const override { return Network::TestScheme; }
-    [[nodiscard]] virtual Network::BindingAddress GetBinding() const override { return m_binding; }
-
-    virtual void Startup() override {}
-	[[nodiscard]] virtual bool Shutdown() override { return true; }
-    [[nodiscard]] virtual bool IsActive() const override { return true; }
-
-    [[nodiscard]] virtual bool ScheduleBind(Network::BindingAddress const&) override { return true; }
-    [[nodiscard]] virtual bool ScheduleConnect(Network::RemoteAddress const& address) override
-    {
-        return ScheduleConnect(Network::RemoteAddress{ address }, nullptr);
-    }
-    [[nodiscard]] virtual bool ScheduleConnect(Network::RemoteAddress&& address) override
-    {
-        return ScheduleConnect(std::move(address), nullptr);
-    }
-    [[nodiscard]] virtual bool ScheduleConnect(Network::RemoteAddress&& address, Node::SharedIdentifier const&) override
-    {
-        ++m_scheduled;
-        m_connected.emplace(address);
-        return true;
-    }
-    [[nodiscard]] virtual bool ScheduleDisconnect(Network::RemoteAddress const&) override { return false; }
-    [[nodiscard]] virtual bool ScheduleDisconnect(Network::RemoteAddress&&) override { return false; }
-	[[nodiscard]] virtual bool ScheduleSend(Node::Identifier const&, std::string&&) override { return true; }
-    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const&, Message::ShareablePack const&) override { return true; }
-    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const&, Network::MessageVariant&&) override { return true; }
-    // } IEndpoint
-
-private:
-    std::uint32_t m_scheduled;
-    BootstrapService::BootstrapCache m_connected;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -291,6 +237,8 @@ local::ConnectResources::ConnectResources(
     , m_spNodeState(std::make_shared<NodeState>(spSelf, Network::ProtocolSet{}))
     , m_spBootstrapService(std::make_shared<BootstrapService>())
     , m_spNetworkManager()
+    , m_spServerEndpoint()
+    , m_spClientEndpoint()
     , m_context(Route::Test::GenerateMessageContext())
     , m_spProxy()
 {
@@ -309,11 +257,11 @@ local::ConnectResources::ConnectResources(
     m_spNetworkManager = std::make_shared<Network::Manager>(test::RuntimeOptions.context, m_spServiceProvider);
     m_spServiceProvider->Register(m_spNetworkManager);
 
-    m_spServerEndpoint = std::make_shared<test::StandardEndpoint>(
+    m_spServerEndpoint = std::make_shared<Route::Test::StandardEndpoint>(
         Network::Endpoint::Properties{ Network::Operation::Server, options });
     m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(options, m_spServerEndpoint);
 
-    m_spClientEndpoint = std::make_shared<test::StandardEndpoint>(
+    m_spClientEndpoint = std::make_shared<Route::Test::StandardEndpoint>(
         Network::Endpoint::Properties{ Network::Operation::Client, options });
     m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(options, m_spClientEndpoint);
 
