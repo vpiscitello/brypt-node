@@ -271,6 +271,7 @@ TEST_F(PeerActionSuite, DeferTest)
     ASSERT_TRUE(optTrackerKey);
     ASSERT_NE(*optTrackerKey, Awaitable::TrackerKey{ 0 });
     ASSERT_NE(*optTrackerKey, Peer::Test::TrackerKey);
+    EXPECT_EQ(optTrackerKey, next.GetTrackerKey());
     EXPECT_EQ(m_spTrackingService->Waiting(), std::size_t{ 1 });
     EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 0 });
     EXPECT_FALSE(m_optResult);
@@ -335,6 +336,7 @@ TEST_F(PeerActionSuite, DispatchTest)
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
     EXPECT_TRUE(next.Dispatch(Peer::Test::ResponseRoute, Peer::Test::ApplicationPayload));
+    EXPECT_FALSE(next.GetTrackerKey());
     
     ASSERT_TRUE(m_optResult);
     EXPECT_EQ(m_optResult->GetSource(), *test::ServerIdentifier);
@@ -352,6 +354,7 @@ TEST_F(PeerActionSuite, RespondExpectedTest)
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
     EXPECT_TRUE(next.Respond(Peer::Test::ApplicationPayload));
+    EXPECT_FALSE(next.GetTrackerKey());
 
     ASSERT_TRUE(m_optResult);
     EXPECT_EQ(m_optResult->GetSource(), *test::ServerIdentifier);

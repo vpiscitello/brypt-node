@@ -66,7 +66,9 @@ public:
         std::weak_ptr<Node::ServiceProvider> const& wpServiceProvider);
 
     [[nodiscard]] std::weak_ptr<Proxy> const& GetProxy() const;
-    [[nodiscard]] std::optional<Awaitable::TrackerKey> Defer(DeferredOptions&& options) const;
+    [[nodiscard]] std::optional<Awaitable::TrackerKey> const& GetTrackerKey() const;
+
+    [[nodiscard]] std::optional<Awaitable::TrackerKey> Defer(DeferredOptions&& options);
     [[nodiscard]] bool Dispatch(std::string_view route, Message::Payload&& payload = {}) const;
     [[nodiscard]] bool Respond(Message::Payload&& payload = {}) const;
 
@@ -76,6 +78,8 @@ private:
     std::weak_ptr<Proxy> m_wpProxy;
     std::reference_wrapper<Message::Application::Parcel const> m_message;
     std::weak_ptr<Node::ServiceProvider> m_wpServiceProvider;
+
+    std::optional<Awaitable::TrackerKey> m_optTrackerKey;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -32,7 +32,11 @@ std::weak_ptr<Peer::Proxy> const& Peer::Action::Next::GetProxy() const { return 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Awaitable::TrackerKey> Peer::Action::Next::Defer(DeferredOptions&& options) const
+std::optional<Awaitable::TrackerKey> const& Peer::Action::Next::GetTrackerKey() const { return m_optTrackerKey; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Awaitable::TrackerKey> Peer::Action::Next::Defer(DeferredOptions&& options)
 {
     assert(options.notice.type != Message::Destination::Node);
     assert(!options.notice.route.empty());
@@ -56,8 +60,8 @@ std::optional<Awaitable::TrackerKey> Peer::Action::Next::Defer(DeferredOptions&&
             .SetRoute(options.notice.route)
             .SetPayload(std::move(options.notice.payload));
             
-        auto const optTrackerKey = spTrackingService->StageDeferred(m_wpProxy, identifiers, m_message.get(), builder);
-        if (!optTrackerKey) { return {}; }
+        m_optTrackerKey = spTrackingService->StageDeferred(m_wpProxy, identifiers, m_message.get(), builder);
+        if (!m_optTrackerKey) { return {}; }
 
         switch (options.notice.type) {
             case Message::Destination::Cluster: builder.MakeClusterMessage(); break;
@@ -70,10 +74,10 @@ std::optional<Awaitable::TrackerKey> Peer::Action::Next::Defer(DeferredOptions&&
         assert(optNotice);
 
         [[maybe_unused]] bool const success = spTrackingService->Process(
-            *optTrackerKey, *spNodeState->GetNodeIdentifier(), std::move(options.response.payload));
+            *m_optTrackerKey, *spNodeState->GetNodeIdentifier(), std::move(options.response.payload));
         assert(success);
 
-        return optTrackerKey;
+        return m_optTrackerKey;
     }
 
     return {};
