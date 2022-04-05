@@ -124,7 +124,6 @@ TEST_F(TrackingServiceSuite, DeferredRequestFulfilledTest)
     ASSERT_TRUE(optTrackerKey); // The service should supply a tracker key on success. 
     EXPECT_NE(*optTrackerKey, Awaitable::TrackerKey{}); // The key should not be defaulted.
 
-
     {
         auto const optNotice = builder.ValidatedBuild(); 
         ASSERT_TRUE(optNotice); // The notice builder should succeed. 
@@ -135,7 +134,7 @@ TEST_F(TrackingServiceSuite, DeferredRequestFulfilledTest)
         EXPECT_EQ(*optTrackerKey, optExtension->get().GetTracker());
     }
 
-    EXPECT_EQ(service.Execute(), std::size_t{ 0 });  
+    EXPECT_EQ(service.Execute(), std::size_t{ 0 });
     EXPECT_EQ(service.Waiting(), std::size_t{ 1 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 

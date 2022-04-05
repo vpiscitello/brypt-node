@@ -37,9 +37,17 @@ bool Route::Router::Contains(std::string_view route) const
 
 bool Route::Router::Route(Message::Application::Parcel const& message, Peer::Action::Next& next) const
 {
+    constexpr std::string_view UnrecognizedRoute = 
+        "Failed to match a message handler to an unrecognized route (\"{}\") received from {}";
+    constexpr std::string_view HandlerWarning = 
+        "Failed to handle a message for the (\"{}\") route received from {}";
+
     if (auto const* const pMatchedNode = Match(message.GetRoute()); pMatchedNode) {
-        return pMatchedNode->OnMessage(message, next);
+        bool const success = pMatchedNode->OnMessage(message, next);
+        if (!success) { m_logger->warn(HandlerWarning, message.GetRoute(), message.GetSource()); }
+        return success;
     }
+    m_logger->warn(UnrecognizedRoute, message.GetRoute(), message.GetSource());
     return false;
 }
 
