@@ -59,6 +59,27 @@ Message::Application::Parcel& Message::Application::Parcel::operator=(Parcel con
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Message::Application::Parcel::operator==(Parcel const& other) const
+{
+	return 	m_context == other.m_context && 
+			m_header == other.m_header && 
+			m_route == other.m_route && 
+			m_payload == other.m_payload && 
+			std::ranges::equal(m_extensions, other.m_extensions, [&] (auto const& left, auto const& right) {
+				if (left.first != right.first) { return false; }
+				switch (left.first) {
+					case Extension::Awaitable::Key: {
+						return static_cast<Extension::Awaitable const&>(*left.second) == 
+								static_cast<Extension::Awaitable const&>(*right.second);
+					}
+					default: break;
+				}
+				return false;
+			});
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Application::Builder Message::Application::Parcel::GetBuilder() { return Builder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -462,6 +483,13 @@ Message::Application::Extension::Awaitable::Awaitable(Binding binding, ::Awaitab
 	: m_binding(binding)
 	, m_tracker(tracker)
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Message::Application::Extension::Awaitable::operator==(Awaitable const& other) const
+{
+	return m_binding == other.m_binding && m_tracker == m_tracker;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

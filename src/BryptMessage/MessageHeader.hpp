@@ -31,10 +31,12 @@ class Header;
 class Message::Header
 {
 public:
-	Header();
-
 	friend class Message::Application::Builder;
     friend class Message::Platform::Builder;
+
+	Header();
+
+	[[nodiscard]] bool operator==(Header const& other) const;
 
 	Protocol GetMessageProtocol() const;
     Version const& GetVersion() const;

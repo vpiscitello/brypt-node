@@ -108,13 +108,7 @@ TEST(PlatformMessageSuite, HandshakePackConstructorTest)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
-
-    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
-    ASSERT_TRUE(optPackMessage->GetDestination());
-    EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
-    EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
-    EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
-    EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
+    EXPECT_EQ(optPackMessage, optBaseMessage);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -134,11 +128,7 @@ TEST(PlatformMessageSuite, HeartbeatRequestPackConstructorTest)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
-
-    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
-    ASSERT_TRUE(optPackMessage->GetDestination());
-    EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
-    EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
+    EXPECT_EQ(optPackMessage, optBaseMessage);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -158,11 +148,7 @@ TEST(PlatformMessageSuite, HeartbeatResponsePackConstructorTest)
         .FromEncodedPack(pack)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
-
-    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
-    ASSERT_TRUE(optPackMessage->GetDestination());
-    EXPECT_EQ(*optPackMessage->GetDestination(), *optBaseMessage->GetDestination());
-    EXPECT_EQ(optPackMessage->GetType(), optBaseMessage->GetType());
+    EXPECT_EQ(optPackMessage, optBaseMessage);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

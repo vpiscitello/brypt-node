@@ -41,6 +41,19 @@ Message::Header::Header()
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Message::Header::operator==(Header const& other) const
+{
+    return m_protocol == other.m_protocol &&
+           m_version == other.m_version &&
+           m_size == other.m_size &&
+           m_source == other.m_source &&
+           m_destination == other.m_destination &&
+           m_optDestinationIdentifier == other.m_optDestinationIdentifier &&
+           m_timestamp == other.m_timestamp;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Protocol Message::Header::GetMessageProtocol() const { return m_protocol; }
 
 //----------------------------------------------------------------------------------------------------------------------

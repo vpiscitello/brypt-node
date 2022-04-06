@@ -90,12 +90,7 @@ TEST(MessageHeaderSuite, ApplicationPackTest)
     ASSERT_TRUE(optPackMessage);
 
     Message::Header const packHeader = optPackMessage->GetHeader();
-    EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
-    EXPECT_EQ(packHeader.GetSource(), baseHeader.GetSource());
-    EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
-    ASSERT_TRUE(packHeader.GetDestination());
-    EXPECT_EQ(*packHeader.GetDestination(), *baseHeader.GetDestination());
-    EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
+    EXPECT_EQ(optPackMessage->GetHeader(), baseHeader);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -144,13 +139,7 @@ TEST(MessageHeaderSuite, NetworkPackTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    Message::Header const packHeader = optPackMessage->GetHeader();
-    EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
-    EXPECT_EQ(packHeader.GetSource(), baseHeader.GetSource());
-    EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
-    ASSERT_TRUE(packHeader.GetDestination());
-    EXPECT_EQ(*packHeader.GetDestination(), *baseHeader.GetDestination());
-    EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
+    EXPECT_EQ(optPackMessage->GetHeader(), baseHeader);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -226,12 +215,7 @@ TEST(MessageHeaderSuite, ClusterPackTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    Message::Header const packHeader = optPackMessage->GetHeader();
-    EXPECT_EQ(packHeader.GetMessageProtocol(), baseHeader.GetMessageProtocol());
-    EXPECT_EQ(packHeader.GetSource(), baseHeader.GetSource());
-    EXPECT_EQ(packHeader.GetDestinationType(), baseHeader.GetDestinationType());
-    EXPECT_FALSE(packHeader.GetDestination());
-    EXPECT_EQ(packHeader.GetTimestamp(), baseHeader.GetTimestamp());
+    EXPECT_EQ(optPackMessage->GetHeader(), baseHeader);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

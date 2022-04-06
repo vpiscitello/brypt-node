@@ -36,6 +36,8 @@ public:
 	Parcel();
 	Parcel(Parcel const& other);
 
+	[[nodiscard]] bool operator==(Parcel const& other) const;
+
 	// Platform::Builder {
 	friend class Message::Platform::Builder;
 	static Message::Platform::Builder GetBuilder();

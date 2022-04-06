@@ -49,6 +49,16 @@ Message::Platform::Parcel::Parcel(Parcel const& other)
 }
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Message::Platform::Parcel::operator==(Parcel const& other) const
+{
+	return 	m_context == other.m_context &&
+			m_header == other.m_header &&
+			m_type == other.m_type &&
+			m_payload == other.m_payload;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Platform::Builder Message::Platform::Parcel::GetBuilder() { return Builder{}; }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -100,13 +100,7 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSource(), optBaseMessage->GetSource());
-    ASSERT_TRUE(optPackMessage->GetDestination());
-    EXPECT_EQ(optPackMessage->GetDestination(), optBaseMessage->GetDestination());
-    EXPECT_EQ(optPackMessage->GetRoute(), optBaseMessage->GetRoute());
-    EXPECT_EQ(optPackMessage->GetPayload(), optBaseMessage->GetPayload());
-    EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
-    EXPECT_FALSE(optPackMessage->GetExtension<Message::Application::Extension::Awaitable>());
+    EXPECT_EQ(optPackMessage, optBaseMessage);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -172,6 +166,8 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         auto const pack = optResponse->GetPack();
         EXPECT_EQ(pack.size(), optResponse->GetPackSize());
     }
+ 
+    EXPECT_NE(optRequest, optResponse);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -200,20 +196,7 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .ValidatedBuild();
     ASSERT_TRUE(optPackMessage);
 
-    EXPECT_EQ(optPackMessage->GetSource(), optBoundMessage->GetSource());
-    EXPECT_EQ(optPackMessage->GetDestination(), optBoundMessage->GetDestination());
-    EXPECT_EQ(optPackMessage->GetRoute(), optBoundMessage->GetRoute());
-    EXPECT_EQ(optPackMessage->GetPayload(), optBoundMessage->GetPayload());
-    EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
-
-    {
-        auto const optBoundAwaitable = optBoundMessage->GetExtension<Message::Application::Extension::Awaitable>();
-        auto const optPackAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();
-        ASSERT_TRUE(optBoundAwaitable && optPackAwaitable);
-        EXPECT_EQ(optPackAwaitable->get().GetBinding(), optPackAwaitable->get().GetBinding());
-        EXPECT_EQ(optPackAwaitable->get().GetTracker(), optPackAwaitable->get().GetTracker());
-    }
-    
+    EXPECT_EQ(optPackMessage, optBoundMessage);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

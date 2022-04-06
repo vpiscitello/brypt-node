@@ -65,6 +65,8 @@ public:
 	Parcel(Parcel&&) = default;
     Parcel& operator=(Parcel&&) = default;
 
+	[[nodiscard]] bool operator==(Parcel const& other) const;
+
 	// Message::Application::Builder {
 	friend class Builder;
 	static Builder GetBuilder();
@@ -161,6 +163,8 @@ public:
 	
 	Awaitable();
 	Awaitable(Binding binding, ::Awaitable::TrackerKey tracker);
+	
+	[[nodiscard]] bool operator==(Awaitable const& other) const;
 
 	// Extension {
 	[[nodiscard]] virtual std::uint16_t GetKey() const override;
