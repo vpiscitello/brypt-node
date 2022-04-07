@@ -12,7 +12,6 @@ target_sources(
     PRIVATE
     # Source Files
     AuthorizedProcessor.cpp
-    DiscoveryProtocol.cpp
     ExchangeProcessor.cpp)
 
 # Exported include dependencies

@@ -6,8 +6,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "AssociatedMessage.hpp"
 #include "BryptMessage/MessageTypes.hpp"
-#include "Components/Route/Handler.hpp"
+#include "Components/Route/MessageHandler.hpp"
 #include "Interfaces/MessageSink.hpp"
+#include "Utilities/InvokeContext.hpp"
+#include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -18,11 +20,15 @@
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
+namespace spdlog { class logger; }
+
+namespace Awaitable { class TrackingService; }
 namespace Peer { class Proxy; }
 namespace Scheduler { class Delegate; class Registrar; }
 namespace Message { class Context; }
 namespace Message::Application { class Parcel; }
 namespace Message::Platform { class Parcel; }
+namespace Route { class Router; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -30,37 +36,44 @@ class AuthorizedProcessor : public IMessageSink
 {
 public:
     AuthorizedProcessor(
-        Node::SharedIdentifier const& spNodeIdentifier,
-        Handler::Map const& handlers,
-        std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
+        std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     ~AuthorizedProcessor();
 
     // IMessageSink {
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+    [[nodiscard]] virtual bool CollectMessage(
+        std::weak_ptr<Peer::Proxy> const& wpProxy,
         Message::Context const& context,
         std::string_view buffer) override;
         
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
+    [[nodiscard]] virtual bool CollectMessage(
+        std::weak_ptr<Peer::Proxy> const& wpProxy,
         Message::Context const& context,
         std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
-    std::optional<AssociatedMessage> GetNextMessage();
-    std::size_t MessageCount() const;
+    [[nodiscard]] std::size_t MessageCount() const;
+    [[nodiscard]] std::size_t Execute();
+    
+    UT_SupportMethod(std::optional<AssociatedMessage> GetNextMessage());
 
 private:
+    [[nodiscard]] std::optional<AssociatedMessage> FetchMessage();
+
     [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Application::Parcel&& message);
+        std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Application::Parcel&& message);
     [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Platform::Parcel const& message);
+        std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Platform::Parcel const& message);
         
+    std::shared_ptr<spdlog::logger> m_logger;
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     Node::SharedIdentifier m_spNodeIdentifier;
+    std::shared_ptr<Route::Router> m_spRouter;
+    std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
+    std::weak_ptr<Node::ServiceProvider> m_wpServiceProvider;
     
-    mutable std::shared_mutex m_incomingMutex;
+    mutable std::shared_mutex m_mutex;
     std::queue<AssociatedMessage> m_incoming;
 };
 
