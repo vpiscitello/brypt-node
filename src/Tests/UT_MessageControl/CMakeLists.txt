@@ -13,10 +13,7 @@ target_sources(
     # Source Files
     AuthorizedProcessorTest.cpp
     ExchangeProcessorTest.cpp
-    UT_MessageControl.cpp
-    # Node Source Files
-    ${CMAKE_SOURCE_DIR}/BryptNode/BryptNode.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/RuntimePolicy.cpp)
+    UT_MessageControl.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
