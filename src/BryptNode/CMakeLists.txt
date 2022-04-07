@@ -18,12 +18,12 @@ target_sources(
 
 set(INTERNAL_LIBRARIES 
     Awaitable
-    Route
     Peer
     Network
     Security
     Configuration
     MessageControl
+    Route
     Event
     Scheduler
     State
