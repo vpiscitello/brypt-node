@@ -81,15 +81,17 @@ private:
 class MessageControl::Test::ConnectProtocol : public IConnectProtocol
 {
 public:
-    ConnectProtocol() : m_callers(0) { }
+    ConnectProtocol() : m_success(true), m_callers(0) { }
 
     // IConnectProtocol {
     virtual bool SendRequest(std::shared_ptr<Peer::Proxy> const& spProxy, Message::Context const&) const override
     {
         m_callers.emplace_back(spProxy->GetIdentifier<Node::Internal::Identifier>());
-        return true;
+        return m_success;
     }
     // } IConnectProtocol 
+
+    void FailSendRequests() { m_success = false; }
 
     [[nodiscard]] bool SentTo(Node::SharedIdentifier const& spNodeIdentifier) const
     {
@@ -100,6 +102,7 @@ public:
     [[nodiscard]] std::size_t Called() const { return m_callers.size(); }
 
 private:
+    mutable bool m_success;
     mutable std::vector<Node::Internal::Identifier> m_callers;
 };
 
@@ -108,13 +111,10 @@ private:
 class MessageControl::Test::ExchangeObserver : public IExchangeObserver
 {
 public:
-    ExchangeObserver(): m_status(ExchangeStatus::Failed), m_upSecurityStrategy() { }
+    ExchangeObserver() : m_optStatus(), m_upSecurityStrategy() { }
 
     // IExchangeObserver {
-    virtual void OnExchangeClose(ExchangeStatus status) override
-    {
-        m_status = status;
-    }
+    virtual void OnExchangeClose(ExchangeStatus status) override { m_optStatus = status; }
 
     virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) override
     {
@@ -122,11 +122,14 @@ public:
     }
     // } IExchangeObserver 
 
+    bool Notified() const { return m_optStatus.has_value(); }
+    std::optional<ExchangeStatus> GetExchangeStatus() const { return m_optStatus; }
+
     bool ExchangeSuccess() const
     {
         // The exchange was successful if we were notified of a success and acquired a synchronized
         // security strategy. 
-        bool const success = (m_status == ExchangeStatus::Success);
+        bool const success = (m_optStatus == ExchangeStatus::Success);
         bool const ready = (
             m_upSecurityStrategy &&
             m_upSecurityStrategy->GetSynchronizationStatus() == Security::SynchronizationStatus::Ready);
@@ -134,7 +137,7 @@ public:
     }
 
 private: 
-    ExchangeStatus m_status;
+    std::optional<ExchangeStatus> m_optStatus;
     std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
 };
 
