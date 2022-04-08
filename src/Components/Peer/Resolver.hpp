@@ -36,7 +36,7 @@ public:
     using OnExchangeCompleted = std::function<void(ExchangeStatus)>;
     using OnStrategyFulfilled = std::function<void(std::unique_ptr<ISecurityStrategy>&& upStrategy)>;
 
-    Resolver(Node::SharedIdentifier const& spSource, Security::Context context);
+    explicit Resolver(Security::Context context);
     ~Resolver();
 
     Resolver(Resolver&& other) = delete;
@@ -53,21 +53,25 @@ public:
     void BindCompletionHandlers(OnStrategyFulfilled const& onFulfilled, OnExchangeCompleted const& onCompleted);
 
     [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
-        Security::Strategy strategy, std::shared_ptr<IConnectProtocol> const& spProtocol);
-    [[nodiscard]] bool SetupExchangeAcceptor(Security::Strategy strategy);
+        Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
+
+    [[nodiscard]] bool SetupExchangeAcceptor(
+        Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     // Testing Methods  {
-    UT_SupportMethod([[nodiscard]] bool SetupTestProcessor(std::unique_ptr<ISecurityStrategy>&& upStrategy));
+    UT_SupportMethod([[nodiscard]] bool SetupTestProcessor(
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider,
+        std::unique_ptr<ISecurityStrategy>&& upStrategy));
     // } Testing Methods 
 
 private:
     [[nodiscard]] bool SetupExchangeProcessor(
-        std::unique_ptr<ISecurityStrategy>&& upStrategy, std::shared_ptr<IConnectProtocol> const& spProtocol);
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider,
+        std::unique_ptr<ISecurityStrategy>&& upStrategy);
         
     mutable std::shared_mutex m_mutex;
 
     Security::Context m_context;
-    Node::SharedIdentifier m_spSource;
     std::unique_ptr<ExchangeProcessor> m_upExchange;
     OnStrategyFulfilled m_onStrategyFulfilled;
     OnExchangeCompleted m_onExchangeCompleted;

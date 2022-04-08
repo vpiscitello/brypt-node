@@ -418,27 +418,22 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Peer::Proxy::StartExchange(
-    Node::SharedIdentifier const& spSource,
-    Security::Strategy strategy,
-    Security::Role role,
-    std::shared_ptr<IConnectProtocol> const& spProtocol)
+    Security::Strategy strategy, Security::Role role, std::shared_ptr<Node::ServiceProvider> spServiceProvider)
 {
-    assert(*spSource != *m_spIdentifier);
-
     {
         std::shared_lock lock{ m_securityMutex };
         if (m_upResolver) [[unlikely]] { return false; }
     }
 
-    auto upResolver = std::make_unique<Resolver>(spSource, Security::Context::Unique);
+    auto upResolver = std::make_unique<Resolver>(Security::Context::Unique);
     switch (role) {
         case Security::Role::Acceptor: {
-            bool const result = upResolver->SetupExchangeAcceptor(strategy);
+            bool const result = upResolver->SetupExchangeAcceptor(strategy, spServiceProvider);
             return result && AttachResolver(std::move(upResolver));
         }
         case Security::Role::Initiator: {
             assert(false); // Currently, we only support starting an accepting resolver. 
-            auto optRequest = upResolver->SetupExchangeInitiator(strategy, spProtocol);
+            auto optRequest = upResolver->SetupExchangeInitiator(strategy, spServiceProvider);
             if (!optRequest || !AttachResolver(std::move(upResolver))) { return false; }
             return ScheduleSend(std::numeric_limits<std::uint32_t>::max(), std::move(*optRequest));
         }

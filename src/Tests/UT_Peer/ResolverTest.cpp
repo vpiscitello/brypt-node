@@ -88,8 +88,8 @@ TEST_F(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 {
     {
         auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
-        auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
+        auto upResolver = std::make_unique<Peer::Resolver>(Security::Context::Unique);
+        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(m_spServiceProvider, std::move(upStrategyStub)));
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
@@ -117,9 +117,9 @@ TEST_F(PeerResolverSuite, SuccessfulExchangeTest)
     Peer::Resolver* pCapturedResolver = nullptr;
     {
         auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
-        auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
+        auto upResolver = std::make_unique<Peer::Resolver>(Security::Context::Unique);
         pCapturedResolver = upResolver.get();
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
+        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(m_spServiceProvider, std::move(upStrategyStub)));
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
@@ -149,9 +149,9 @@ TEST_F(PeerResolverSuite, FailedExchangeTest)
     Peer::Resolver* pCapturedResolver = nullptr;
     {
         auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
-        auto upResolver = std::make_unique<Peer::Resolver>(test::ServerIdentifier, Security::Context::Unique);
+        auto upResolver = std::make_unique<Peer::Resolver>(Security::Context::Unique);
         pCapturedResolver = upResolver.get();
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(std::move(upStrategyStub)));
+        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(m_spServiceProvider, std::move(upStrategyStub)));
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 

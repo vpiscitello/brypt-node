@@ -77,6 +77,9 @@ void Peer::Manager::UnpublishObserver(IPeerObserver* const observer)
 Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
     Network::RemoteAddress const& address, Node::SharedIdentifier const& spPeerIdentifier)
 {
+    auto const spServiceProvider = m_wpServiceProvider.lock();
+    if (!spServiceProvider) { return {}; }
+
     // Disallow endpoints from connecting to the same uri. If an endpoint has connection retry logic, it should store
     // the connection request message. However, there exists a race  condition when the peer wakes up while the endpoint
     // is still not sure a peer exists at that particular uri. In this case the peer may send a bootstrap request causing 
@@ -89,8 +92,8 @@ Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
     if (spPeerIdentifier) { return GenerateShortCircuitRequest(spPeerIdentifier); }
     
     // Store the resolver such that when the endpoint links the peer it can be attached to the real peer proxy. 
-    auto upResolver = std::make_unique<Resolver>(m_spNodeIdentifier, Security::Context::Unique);
-    auto optRequest = upResolver->SetupExchangeInitiator(m_strategyType, m_spConnectProtocol);
+    auto upResolver = std::make_unique<Resolver>(Security::Context::Unique);
+    auto optRequest = upResolver->SetupExchangeInitiator(m_strategyType, spServiceProvider);
     assert(optRequest);
 
     m_resolving[address] = std::move(upResolver);
@@ -312,9 +315,10 @@ void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy
         return;
     }
 
-    bool const result = spProxy->StartExchange(
-        m_spNodeIdentifier, m_strategyType, Security::Role::Acceptor, m_spConnectProtocol);
-    assert(result);
+    if (auto const spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
+        bool const result = spProxy->StartExchange(m_strategyType, Security::Role::Acceptor, spServiceProvider);
+        assert(result);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
