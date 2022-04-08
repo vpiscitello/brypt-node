@@ -165,9 +165,7 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Request);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
-        auto const buffer = optPackMessage->GetPayload();
-        std::string const data(buffer.begin(), buffer.end());
-        EXPECT_EQ(data, test::Data);  
+        EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
     }
 
     // Verify that we can generate an acceptor application pack that can be decrypted and verified by the initiator. 
@@ -205,9 +203,7 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Response);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
-        auto const buffer = optPackMessage->GetPayload();
-        std::string const data(buffer.begin(), buffer.end());
-        EXPECT_EQ(data, test::Data);  
+        EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
     }
 }
 
