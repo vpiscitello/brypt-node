@@ -47,6 +47,18 @@ Message::Platform::Parcel::Parcel(Parcel const& other)
 	, m_payload(other.m_payload)
 {
 }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Platform::Parcel& Message::Platform::Parcel::operator=(Parcel const& other)
+{
+	m_context = other.m_context;
+	m_header = other.m_header;
+	m_type = other.m_type;
+	m_payload = other.m_payload;
+	return *this;
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Message::Platform::Parcel::operator==(Parcel const& other) const
@@ -380,6 +392,24 @@ bool Message::Platform::Builder::UnpackExtensions(
 	}
 
 	return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+Message::Platform::Builder& Message::Platform::Builder::MakeClusterMessage<InvokeContext::Test>()
+{
+	m_parcel.m_header.m_destination = Message::Destination::Cluster;
+    return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+Message::Platform::Builder& Message::Platform::Builder::MakeNetworkMessage<InvokeContext::Test>()
+{
+	m_parcel.m_header.m_destination = Message::Destination::Network;
+    return *this;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -10,6 +10,7 @@
 #include "Payload.hpp"
 #include "ShareablePack.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <optional>
 #include <span>
@@ -35,7 +36,11 @@ class Message::Platform::Parcel
 public:
 	Parcel();
 	Parcel(Parcel const& other);
-
+    Parcel& operator=(Parcel const& other);
+    
+	Parcel(Parcel&&) = default;
+    Parcel& operator=(Parcel&&) = default;
+	
 	[[nodiscard]] bool operator==(Parcel const& other) const;
 
 	// Platform::Builder {
@@ -98,6 +103,9 @@ public:
 
     Parcel&& Build();
     OptionalParcel ValidatedBuild();
+
+	UT_SupportMethod(Builder& MakeClusterMessage());
+	UT_SupportMethod(Builder& MakeNetworkMessage());
 
 private:
 	[[nodiscard]] bool Unpack(std::span<std::uint8_t const> buffer);
