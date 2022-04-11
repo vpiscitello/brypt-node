@@ -1,10 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "MessageSinkStub.hpp"
-#include "SinglePeerMediatorStub.hpp"
+#include "TestHelpers.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/Route/HandlerDefinitions.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -49,8 +47,10 @@ auto const ClientIdentifier = std::make_shared<Node::Identifier const>(Node::Gen
 auto const ServerIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
 
 auto Options = Configuration::Options::Endpoint{ Network::Protocol::TCP, "lo", "*:35216" };
+
 constexpr std::uint32_t Iterations = 500;
 constexpr std::uint32_t MissedMessageLimit = 16;
+constexpr std::string_view QueryRoute = "/query";
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -79,7 +79,7 @@ private:
 TEST(TcpEndpointSuite, SingleConnectionTest)
 {
     using namespace std::chrono_literals;
-    ASSERT_TRUE(test::Options.Initialize(spdlog::get(Logger::Name::Core.data())));
+    ASSERT_TRUE(test::Options.Initialize(Network::Test::RuntimeOptions, spdlog::get(Logger::Name::Core.data())));
 
     auto const ServerAddress = Network::RemoteAddress{
         test::Options.GetProtocol(), test::Options.GetBinding().GetUri(), true, Network::RemoteAddress::Origin::User };
@@ -88,18 +88,22 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     auto const spEventPublisher = std::make_shared<Event::Publisher>(spRegistrar);
 
     // Create the server resources. The peer mediator stub will store a single Peer::Proxy representing the client.
-    auto upServerProcessor = std::make_unique<MessageSinkStub>(test::ServerIdentifier);
-    auto const spServerMediator = std::make_shared<SinglePeerMediatorStub>(
-        test::ServerIdentifier, upServerProcessor.get());
+    auto const spServerProvider = std::make_shared<Node::ServiceProvider>();
+    auto const upServerProcessor = std::make_unique<Network::Test::MessageProcessor>(test::ServerIdentifier);
+    auto const spServerMediator = std::make_shared<Network::Test::SinglePeerMediator>(
+        test::ServerIdentifier, upServerProcessor.get(), spServerProvider);
+    spServerProvider->Register<IPeerMediator>(spServerMediator);
     auto upServerEndpoint = local::MakeServer(spEventPublisher, spServerMediator);
     EXPECT_EQ(upServerEndpoint->GetProtocol(), Network::Protocol::TCP);
     EXPECT_EQ(upServerEndpoint->GetProperties().GetOperation(), Network::Operation::Server);
     ASSERT_EQ(upServerEndpoint->GetBinding(), test::Options.GetBinding()); // The binding should be cached before start. 
 
     // Create the client resources. The peer mediator stub will store a single Peer::Proxy representing the server.
-    auto upClientProcessor = std::make_unique<MessageSinkStub>(test::ClientIdentifier);
-    auto const spClientMediator = std::make_shared<SinglePeerMediatorStub>(
-        test::ClientIdentifier, upClientProcessor.get());
+    auto const spClientProvider = std::make_shared<Node::ServiceProvider>();
+    auto const upClientProcessor = std::make_unique<Network::Test::MessageProcessor>(test::ClientIdentifier);
+    auto const spClientMediator = std::make_shared<Network::Test::SinglePeerMediator>(
+        test::ClientIdentifier, upClientProcessor.get(), spClientProvider);
+    spClientProvider->Register<IPeerMediator>(spClientMediator);
     auto upClientEndpoint = local::MakeClient(spEventPublisher, spClientMediator, ServerAddress);
     EXPECT_EQ(upClientEndpoint->GetProtocol(), Network::Protocol::TCP);
     EXPECT_EQ(upClientEndpoint->GetProperties().GetOperation(), Network::Operation::Client);
@@ -141,8 +145,8 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
         .SetContext(*optClientContext)
         .SetSource(*test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
-        .SetCommand(Handler::Type::Query, 0)
-        .SetPayload("Query Request")
+        .SetRoute(test::QueryRoute)
+        .SetPayload({ "Query Request" })
         .ValidatedBuild();
     ASSERT_TRUE(optQueryRequest);
 
@@ -159,15 +163,18 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
         .SetContext(*optServerContext)
         .SetSource(*test::ServerIdentifier)
         .SetDestination(*test::ClientIdentifier)
-        .SetCommand(Handler::Type::Query, 1)
-        .SetPayload("Query Response")
+        .SetRoute(test::QueryRoute)
+        .SetPayload({ "Query Response" })
         .ValidatedBuild();
     ASSERT_TRUE(optQueryResponse);
 
     // Note: The requests and responses are typically moved during scheduling. We are going to create a new 
     // string to be moved each call instead of regenerating the packed content.  
     auto const spRequest = optQueryRequest->GetShareablePack();
+    ASSERT_TRUE(spRequest && !spRequest->empty());
+
     auto const spResponse = optQueryResponse->GetShareablePack();
+    ASSERT_TRUE(spResponse && !spResponse->empty());
 
     auto const PassMessages = [&] () {
         // Send the initial request to the server through the peer.

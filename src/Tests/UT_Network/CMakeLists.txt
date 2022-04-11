@@ -14,8 +14,6 @@ target_sources(
     AddressTest.cpp
     ConnectionDetailsTest.cpp
     NetworkManagerTest.cpp
-    MessageSinkStub.cpp
-    SinglePeerMediatorStub.cpp
     TcpEndpointTest.cpp
     UT_Network.cpp)
 
@@ -23,7 +21,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Peer Network Security MessageControl Configuration Event Scheduler BryptMessage BryptIdentifier 
+    Awaitable Peer Network Security MessageControl Configuration Route Event Scheduler State BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

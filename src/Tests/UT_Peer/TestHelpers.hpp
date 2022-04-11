@@ -53,7 +53,7 @@ constexpr Awaitable::TrackerKey TrackerKey = {
 Message::Context GenerateMessageContext();
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Awaitable::Test namespace
+} // Peer::Test namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class Peer::Test::PeerMediator : public IPeerMediator

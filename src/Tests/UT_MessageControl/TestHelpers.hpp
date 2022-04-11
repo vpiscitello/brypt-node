@@ -40,7 +40,7 @@ constexpr Awaitable::TrackerKey TrackerKey = {
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Route::Test namespace
+} // MessageControl::Test namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class MessageControl::Test::SecurityStrategy : public ISecurityStrategy
