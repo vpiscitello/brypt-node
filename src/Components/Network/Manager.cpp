@@ -6,6 +6,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Address.hpp"
 #include "Endpoint.hpp"
+#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
@@ -15,14 +17,11 @@
 #include <ranges>
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Manager::Manager(
-    RuntimeContext context,
-    std::shared_ptr<Scheduler::TaskService> const& spTaskService,    
-    Event::SharedPublisher const& spEventPublisher)
+Network::Manager::Manager(RuntimeContext context, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
     : m_active(false)
     , m_context(context)
-    , m_spEventPublisher(spEventPublisher)
-    , m_spTaskService(spTaskService)
+    , m_spEventPublisher(spServiceProvider->Fetch<Event::Publisher>())
+    , m_spTaskService(spServiceProvider->Fetch<Scheduler::TaskService>())
     , m_endpointsMutex()
     , m_endpoints()
     , m_cacheMutex()
@@ -30,16 +29,17 @@ Network::Manager::Manager(
     , m_bindings()
 {
     assert(m_spEventPublisher);
-    spEventPublisher->Advertise(Event::Type::CriticalNetworkFailure);
+    assert(m_spTaskService);
+    m_spEventPublisher->Advertise(Event::Type::CriticalNetworkFailure);
 
     // Register listeners to watch for error states that might trigger a critical network shutdown. 
     using BindingFailure = Event::Message<Event::Type::BindingFailed>::Cause;
-    spEventPublisher->Subscribe<Event::Type::BindingFailed>(
+    m_spEventPublisher->Subscribe<Event::Type::BindingFailed>(
         [this, context] (Network::Endpoint::Identifier, Network::BindingAddress const&, BindingFailure) {
             OnBindingFailed(context);
         });
 
-    spEventPublisher->Subscribe<Event::Type::EndpointStopped>(
+    m_spEventPublisher->Subscribe<Event::Type::EndpointStopped>(
         [this, context] (Endpoint::Identifier, Protocol, Operation, ShutdownCause cause) {
             OnEndpointShutdown(context, cause);
         });
@@ -56,7 +56,7 @@ Network::Manager::~Manager()
 
 bool Network::Manager::IsRegisteredAddress(Address const& address) const
 {
-    auto const matches = [&address] (auto const& binding) -> bool { return address.equivalent(binding); };
+    auto const matches = [&address] (auto const& binding) -> bool { return address.Equivalent(binding); };
     constexpr auto projection = [] (auto const& pair) -> auto { return pair.second; };
 
     std::shared_lock lock(m_cacheMutex);
@@ -104,11 +104,10 @@ void Network::Manager::Shutdown()
 
 bool Network::Manager::Attach(
     Configuration::Options::Endpoints const& endpoints,
-    IPeerMediator* const pPeerMediator,
-    IBootstrapCache const* const pBootstrapCache)
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
-    return std::ranges::all_of(endpoints, [this, pPeerMediator, pBootstrapCache] (auto const& endpoint) {
-        return Attach(endpoint, pPeerMediator, pBootstrapCache);
+    return std::ranges::all_of(endpoints, [this, &spServiceProvider] (auto const& endpoint) {
+        return Attach(endpoint, spServiceProvider);
     });
 }
 
@@ -116,8 +115,7 @@ bool Network::Manager::Attach(
 
 bool Network::Manager::Attach(
     Configuration::Options::Endpoint const& endpoint,
-    IPeerMediator* const pPeerMediator,
-    IBootstrapCache const* const pBootstrapCache)
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
     std::scoped_lock lock(m_endpointsMutex, m_cacheMutex);
     auto const protocol = endpoint.GetProtocol();
@@ -127,9 +125,7 @@ bool Network::Manager::Attach(
 
     // Create the endpoint resources required for the given protocol. 
     switch (protocol) {
-        case Protocol::TCP: {
-            CreateTcpEndpoints(endpoint, m_spEventPublisher, pPeerMediator, pBootstrapCache);
-        } break;
+        case Protocol::TCP: { CreateTcpEndpoints(endpoint, spServiceProvider); } break;
         default: break; // No other protocols have implemented endpoints
     }
 
@@ -302,19 +298,18 @@ bool Network::Manager::ScheduleConnect(RemoteAddress&& address, Node::SharedIden
 
 void Network::Manager::CreateTcpEndpoints(
     Configuration::Options::Endpoint const& options,
-    Event::SharedPublisher const& spEventPublisher,
-    IPeerMediator* const pPeerMediator,
-    IBootstrapCache const* const pBootstrapCache)
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
     assert(options.GetProtocol() == Protocol::TCP);
+    std::shared_ptr<IPeerMediator> const spPeerMediator{ spServiceProvider->Fetch<IPeerMediator>() };
 
     // Add the server based endpoint
     {
         auto const properties = Endpoint::Properties{ Operation::Server, options };
         auto spServer = std::make_shared<TCP::Endpoint>(properties);
         spServer->Register(this);
-        spServer->Register(spEventPublisher);
-        spServer->Register(pPeerMediator);
+        spServer->Register(m_spEventPublisher);
+        spServer->Register(spPeerMediator.get());
 
         [[maybe_unused]] bool const scheduled = spServer->ScheduleBind(options.GetBinding());
         assert(scheduled);
@@ -331,18 +326,22 @@ void Network::Manager::CreateTcpEndpoints(
         auto const properties = Endpoint::Properties{ Operation::Client, options };
         auto spClient = std::make_shared<TCP::Endpoint>(properties);
         spClient->Register(this);
-        spClient->Register(spEventPublisher);
-        spClient->Register(pPeerMediator);
+        spClient->Register(m_spEventPublisher);
+        spClient->Register(spPeerMediator.get());
 
-        // If we have been provided a bootstrap cache, schedule a one-shot task to be run in the core. 
-        if (pBootstrapCache) {
-            auto const connect = [spClient, pBootstrapCache] () {
-                assert(spClient && pBootstrapCache);
-                pBootstrapCache->ForEachBootstrap(Protocol::TCP, [&spClient] (auto const& bootstrap) -> auto { 
-                    [[maybe_unused]] bool const scheduled = spClient->ScheduleConnect(bootstrap);
-                    assert(scheduled);
-                    return CallbackIteration::Continue;
-                });
+        // If the endpoint should connect to the stored bootstraps, schedule a one-shot task to be run in the core. 
+        if (options.UseBootstraps()) {
+            auto const wpBootstrapCache = spServiceProvider->Fetch<BootstrapService>();
+            auto const connect = [wpClient = std::weak_ptr<IEndpoint>{ spClient }, wpBootstrapCache] () {
+                auto const spClient = wpClient.lock();
+                auto const spBootstrapCache = wpBootstrapCache.lock();
+                if (spClient && spBootstrapCache) {
+                    spBootstrapCache->ForEachBootstrap(Protocol::TCP, [&spClient] (auto const& bootstrap) -> auto { 
+                        [[maybe_unused]] bool const scheduled = spClient->ScheduleConnect(bootstrap);
+                        assert(scheduled);
+                        return CallbackIteration::Continue;
+                    });
+                }
             };
             m_spTaskService->Schedule(connect);
         }
@@ -421,6 +420,7 @@ void Network::Manager::RegisterEndpoint<InvokeContext::Test>(
 {
     std::scoped_lock lock{ m_endpointsMutex };
     UpdateBindingCache(spEndpoint->GetIdentifier(), options.GetBinding());
+    m_protocols.emplace(options.GetProtocol());
     m_endpoints.emplace(spEndpoint->GetIdentifier(), spEndpoint);
 }
 

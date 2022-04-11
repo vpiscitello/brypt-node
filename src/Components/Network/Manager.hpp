@@ -10,7 +10,6 @@
 #include "Protocol.hpp"
 #include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Options.hpp"
-#include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/SharedPublisher.hpp"
 #include "Components/Peer/Manager.hpp"
@@ -47,10 +46,7 @@ class Network::Manager final : public IEndpointMediator
 public:
     using SharedEndpoint = std::shared_ptr<IEndpoint>;
 
-    Manager(
-        RuntimeContext context,
-        std::shared_ptr<Scheduler::TaskService> const& spTaskService,    
-        Event::SharedPublisher const& spEventPublisher);
+    Manager(RuntimeContext context, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     Manager(Manager const& other) = delete;
     Manager& operator=(Manager const& other) = delete;
@@ -67,13 +63,11 @@ public:
 
     [[nodiscard]] bool Attach(
         Configuration::Options::Endpoints const& endpoints,
-        IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache);
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     [[nodiscard]] bool Attach(
         Configuration::Options::Endpoint const& endpoint,
-        IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache);
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     [[nodiscard]] bool Detach(Configuration::Options::Endpoint const& options);
 
@@ -99,9 +93,7 @@ private:
 
     void CreateTcpEndpoints(
         Configuration::Options::Endpoint const& options,
-        Event::SharedPublisher const& spEventPublisher,
-        IPeerMediator* const pPeerMediator,
-        IBootstrapCache const* const pBootstrapCache);
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     void UpdateBindingCache(Endpoint::Identifier identifier, BindingAddress const& binding);
 
