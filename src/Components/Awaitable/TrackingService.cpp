@@ -53,12 +53,12 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageRequest(
     Message::Application::Builder& builder)
 {
     using namespace Message::Application; 
-    assert(Assertions::Threading::IsCoreThread());
     assert(builder.GetDestination());
 
     constexpr std::string_view CreateMessage = "Creating awaitable tracker for a request to {}. [id={}]";
 
     if (auto const optTrackerKey = GenerateKey(builder.GetSource()); optTrackerKey) {
+        std::scoped_lock lock{ m_mutex };
         m_logger->debug(CreateMessage, *builder.GetDestination(), *optTrackerKey);
         builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, *optTrackerKey);
         m_trackers.emplace(*optTrackerKey, std::make_unique<RequestTracker>(wpRequestee, onResponse, onError));
@@ -77,13 +77,13 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
     Message::Application::Builder& builder)
 {
     using namespace Message::Application; 
-    assert(Assertions::Threading::IsCoreThread());
 
     constexpr std::string_view CreateMessage = "Creating awaitable tracker to fulfill deferred request from {}. [id={}]";
 
     if (auto const optExtension = deferred.GetExtension<Extension::Awaitable>(); !optExtension) { return {}; }
 
     if (auto const optTrackerKey = GenerateKey(builder.GetSource()); optTrackerKey) {
+        std::scoped_lock lock{ m_mutex };
         m_logger->debug(CreateMessage, deferred.GetSource(), *optTrackerKey);
         builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, *optTrackerKey);
         m_trackers.emplace(*optTrackerKey, std::make_unique<AggregateTracker>(wpRequestor, deferred, identifiers));
@@ -97,8 +97,6 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
 
 bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 {
-    assert(Assertions::Threading::IsCoreThread());
-
     constexpr std::string_view MissingWarning = "Received response for awaiting request. [id={}]";
     constexpr std::string_view SuccessMessage = "Received response for awaiting request. [id={}]";
     constexpr std::string_view ExpiredWarning = "Received late response for an expired awaitable from {}. [id={}]";
@@ -109,13 +107,21 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
     auto const& optExtension = message.GetExtension<Message::Application::Extension::Awaitable>();
     if (!optExtension) { return false; }
 
+    auto const key = optExtension->get().GetTracker(); 
+
     // Try to find the awaiting object in the awaiting container
-    auto const key = optExtension->get().GetTracker();
+    std::scoped_lock lock{ m_mutex };
     auto const awaitable = m_trackers.find(key);
     if(awaitable == m_trackers.end()) {
         m_logger->warn(MissingWarning, key);
         return false;
     }
+
+    auto const OnTrackerReady = [this] (TrackerKey key, std::unique_ptr<ITracker>&& upTracker) {
+        m_ready.emplace_back(std::move(upTracker));
+        m_trackers.erase(key);
+        m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
+    };
 
     // Update the response to the waiting message with the new message
     switch (awaitable->second->Update(std::move(message))) {
@@ -144,18 +150,23 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 bool Awaitable::TrackingService::Process(
     TrackerKey key, Node::Identifier const& identifier, Message::Payload&& data)
 {
-    assert(Assertions::Threading::IsCoreThread());
-
     constexpr std::string_view MissingWarning = "Adding direct response for awaiting request. [id={}]";
     constexpr std::string_view SuccessMessage = "Adding direct response for awaiting request. [id={}]";
     constexpr std::string_view FulfilledMessage = "Request has been fulfilled, ready to process response. [id={}]";
 
     // Try to find the awaiting object in the awaiting container
+    std::scoped_lock lock{ m_mutex };
     auto const awaitable = m_trackers.find(key);
     if(awaitable == m_trackers.end()) {
         m_logger->warn(MissingWarning, key);
         return false;
     }
+
+    auto const OnTrackerReady = [this] (TrackerKey key, std::unique_ptr<ITracker>&& upTracker) {
+        m_ready.emplace_back(std::move(upTracker));
+        m_trackers.erase(key);
+        m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
+    };
 
     // Update the response to the waiting message with the new message
     switch (awaitable->second->Update(identifier, std::move(data))) {
@@ -176,7 +187,7 @@ bool Awaitable::TrackingService::Process(
 
 std::size_t Awaitable::TrackingService::Waiting() const
 {
-    assert(Assertions::Threading::IsCoreThread());
+    std::scoped_lock lock{ m_mutex };
     return m_trackers.size();
 }
 
@@ -184,7 +195,7 @@ std::size_t Awaitable::TrackingService::Waiting() const
 
 std::size_t Awaitable::TrackingService::Ready() const
 {
-    assert(Assertions::Threading::IsCoreThread());
+    std::scoped_lock lock{ m_mutex };
     return m_ready.size();
 }
 
@@ -192,8 +203,7 @@ std::size_t Awaitable::TrackingService::Ready() const
 
 void Awaitable::TrackingService::CheckTrackers()
 {
-    assert(Assertions::Threading::IsCoreThread());
-
+    std::scoped_lock lock{ m_mutex };
     std::erase_if(m_trackers, [&] (auto&& entry) {
         auto const status = entry.second->GetStatus();
         auto const current = entry.second->CheckStatus();
@@ -210,7 +220,7 @@ void Awaitable::TrackingService::CheckTrackers()
 
 std::size_t Awaitable::TrackingService::Execute()
 {
-    assert(Assertions::Threading::IsCoreThread());
+    std::scoped_lock lock{ m_mutex };
 
     std::ranges::for_each(m_ready, [this] (auto const& upTracker) {
         [[maybe_unused]] bool const success = upTracker->Fulfill();
@@ -244,16 +254,6 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::GenerateKey(Nod
     if (!MD5_Final(digest.data(), &ctx)) { return {}; }
 
     return digest;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Awaitable::TrackingService::OnTrackerReady(TrackerKey key, std::unique_ptr<ITracker>&& upTracker)
-{
-    assert(Assertions::Threading::IsCoreThread());
-    m_ready.emplace_back(std::move(upTracker));
-    m_trackers.erase(key);
-    m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------

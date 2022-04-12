@@ -10,6 +10,7 @@
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
+#include <mutex>
 #include <set>
 #include <string_view>
 #include <unordered_map>
@@ -73,9 +74,9 @@ private:
     using ActiveTrackers = std::unordered_map<TrackerKey, std::unique_ptr<ITracker>, KeyHasher>;
 
     [[nodiscard]] std::optional<TrackerKey> GenerateKey(Node::Identifier const& identifier) const;
-    void OnTrackerReady(TrackerKey key, std::unique_ptr<ITracker>&& upTracker);
 
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
+    mutable std::mutex m_mutex;
     ActiveTrackers m_trackers;
     std::vector<std::unique_ptr<ITracker>> m_ready;
     std::shared_ptr<spdlog::logger> m_logger;
