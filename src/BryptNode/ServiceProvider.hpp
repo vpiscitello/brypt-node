@@ -4,8 +4,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "Utilities/TokenizedInstance.hpp"
-//----------------------------------------------------------------------------------------------------------------------
 #include <any>
 #include <memory>
 #include <typeindex>
@@ -23,7 +21,6 @@ class ServiceProvider;
 //----------------------------------------------------------------------------------------------------------------------
 
 class Node::ServiceProvider final 
-    : public std::enable_shared_from_this<ServiceProvider>, public TokenizedInstance<ServiceProvider>
 {
 public:
     ServiceProvider() = default;
@@ -46,8 +43,9 @@ private:
 template<typename Service>
 bool Node::ServiceProvider::Register(std::shared_ptr<Service> const& spService)
 {
-    auto const [itr, emplaced] = m_services.emplace(typeid(Service), std::weak_ptr<Service>{ spService });
-    return emplaced;
+    auto const [itr, result] = m_services.insert_or_assign(typeid(Service), std::weak_ptr<Service>{ spService });
+    assert(itr != m_services.end());
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
