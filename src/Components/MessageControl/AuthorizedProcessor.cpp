@@ -40,7 +40,7 @@ AuthorizedProcessor::AuthorizedProcessor(
 	assert(m_spRouter);
 	assert(m_spTrackingService);
 
-	m_spDelegate = spRegistrar->Register<AuthorizedProcessor>([this] () -> std::size_t {
+	m_spDelegate = spRegistrar->Register<AuthorizedProcessor>([this] (Scheduler::Frame const&) -> std::size_t {
 		return Execute();
     }); 
 

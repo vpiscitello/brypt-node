@@ -4,6 +4,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Tasks.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+#include <chrono>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -12,8 +15,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 namespace Scheduler {
 //----------------------------------------------------------------------------------------------------------------------
-
-using BasicTask = std::function<void()>;
 
 class Delegate;
 class Registrar;
@@ -26,15 +27,18 @@ class TaskService;
 class Scheduler::TaskService
 {
 public:
-    TaskService(std::shared_ptr<Registrar> const& spRegistrar);
+    explicit TaskService(std::shared_ptr<Registrar> const& spRegistrar);
     ~TaskService();
 
-    void Schedule(BasicTask const& callback);
+    void Schedule(OneShotTask::Callback const& callback);
+
+    [[nodiscard]] std::size_t Execute(Scheduler::Frame const& frame);
 
 private:
+    using Tasks = std::deque<std::unique_ptr<BasicTask>>;
     std::shared_ptr<Delegate> m_spDelegate;
     mutable std::mutex m_mutex;
-    std::deque<BasicTask> m_tasks;
+    Tasks m_tasks;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

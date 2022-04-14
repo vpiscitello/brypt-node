@@ -5,7 +5,9 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "Delegate.hpp"
+#include "Tasks.hpp"
 #include "Utilities/Assertions.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <cassert>
@@ -73,6 +75,8 @@ public:
     virtual void Delist(Delegate::Identifier identifier) override;
     // } Sentinel
 
+    UT_SupportMethod(std::size_t Run(Frame const& frames));
+
 private:
     std::shared_ptr<Delegate> GetDelegate(Delegate::Identifier identifier) const;
     [[nodiscard]] bool ResolveDependencies();
@@ -80,6 +84,7 @@ private:
 
     std::shared_ptr<spdlog::logger> m_logger;
     Delegates m_delegates;
+    Frame m_frame;
     bool m_initialized;
 };
 

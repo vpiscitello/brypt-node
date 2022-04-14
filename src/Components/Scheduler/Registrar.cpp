@@ -52,6 +52,7 @@ void Scheduler::Sentinel::OnTaskCompleted(std::size_t completed) { m_available -
 Scheduler::Registrar::Registrar()
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_delegates()
+    , m_frame(0)
     , m_initialized(false)
 {
     assert(Assertions::Threading::IsCoreThread());
@@ -74,16 +75,15 @@ std::size_t Scheduler::Registrar::Execute()
     assert(Assertions::Threading::IsCoreThread());
     assert(m_initialized);
 
-    std::size_t total = 0;
-    constexpr auto ready = [] (auto const& delegate) -> bool { return delegate->IsReady(); };
-    std::ranges::for_each(m_delegates | std::views::filter(ready), [this, &total] (auto const& delegate) { 
-       std::size_t const executed = delegate->Execute({});
-       assert(executed != 0); // The delegate should always indicate at least one task was executed. 
+    std::size_t completed = 0;
+    constexpr auto ready = [] (auto const& delegate) -> bool { return delegate->Ready(); };
+    std::ranges::for_each(m_delegates | std::views::filter(ready), [this, &completed] (auto const& delegate) { 
+       std::size_t const executed = delegate->Execute({}, ++m_frame);
        OnTaskCompleted(executed);
-       total += executed;
+       completed += executed;
     });
 
-    return total;
+    return completed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -122,17 +122,17 @@ bool Scheduler::Registrar::ResolveDependencies()
     RecursiveResolve const resolve = [&] (auto const& delegate, auto& resolved, auto& unresolved) -> bool {
         unresolved.emplace(delegate->GetIdentifier()); // Mark the current delegate as being actively resolved. 
         for (auto const dependency : delegate->GetDependencies()) {
-            // If we haven't already resolved the current dependency, integrate the ddependency's chain. 
+            // If we haven't already resolved the current dependency, integrate the dependency's chain. 
             if (!resolved.contains(dependency)) {
                  // If the dependency is also being resolved, we've encountered a cyclic dependency chain. 
                 if (unresolved.contains(dependency)) { return false; }
 
                 // If the dependency is registered, its dependencies are implicitly added. Otherwise, preserve 
-                // it in the set such that it can be resolved in a furture run. 
+                // it in the set such that it can be resolved in a future run. 
                 if (auto const next = GetDelegate(dependency); next) { 
                      if (!resolve(next, resolved, unresolved)) { return false; }
                 } else {
-                    resolved.emplace(dependency); // If the dependency is not regi
+                    resolved.emplace(dependency); // If the dependency is not registered
                 }
             }
         }
@@ -225,11 +225,21 @@ bool Scheduler::Registrar::UpdatePriorityOrder()
         }
     }
 
-    // Replace the registration order with the new priority ordered set. The priority order is reveresed, such that
+    // Replace the registration order with the new priority ordered set. The priority order is reversed, such that
     // the most most dependent delegates are executed last. 
     std::ranges::swap_ranges(m_delegates, resolved | std::views::reverse);
 
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+std::size_t Scheduler::Registrar::Run<InvokeContext::Test>(Frame const& frames)
+{
+    std::size_t completed = 0;
+    while (m_frame < frames) { completed += Execute(); }
+    return completed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

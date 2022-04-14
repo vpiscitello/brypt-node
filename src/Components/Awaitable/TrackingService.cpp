@@ -29,7 +29,7 @@ Awaitable::TrackingService::TrackingService(
     assert(Assertions::Threading::IsCoreThread());
     assert(m_logger);
 
-    m_spDelegate = spRegistrar->Register<TrackingService>([this] () -> std::size_t {
+    m_spDelegate = spRegistrar->Register<TrackingService>([this] (Scheduler::Frame const&) -> std::size_t {
         return Execute();  // Dispatch any fulfilled awaiting messages since this last cycle. 
     }); 
 

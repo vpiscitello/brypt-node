@@ -22,7 +22,7 @@ Event::Publisher::Publisher(std::shared_ptr<Scheduler::Registrar> const& spRegis
         // 1.) All subscriptions occur on the main thread.
         // 2.) Publishing does not begin until the main thread has suspended subscriptions. 
 
-    m_spDelegate = spRegistrar->Register<Publisher>([this] () -> std::size_t {
+    m_spDelegate = spRegistrar->Register<Publisher>([this] (Scheduler::Frame const&) -> std::size_t {
         return Dispatch();  // Dispatch any generated events that have been published since the last cycle. 
     }); 
     

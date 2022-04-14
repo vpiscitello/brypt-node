@@ -230,7 +230,7 @@ local::IndependentExecutor::IndependentExecutor(std::shared_ptr<Scheduler::Regis
     : m_spDelegate()
     , m_executed(false)
 {
-    auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
+    auto const OnExecute = [this] (Scheduler::Frame const&) -> std::size_t { m_executed = true; return 1; };
     m_spDelegate = spRegistrar->Register<IndependentExecutor>(OnExecute);
     m_spDelegate->OnTaskAvailable();
 }
@@ -241,7 +241,7 @@ local::DependentExecutorAlpha::DependentExecutorAlpha(std::shared_ptr<Scheduler:
     : m_spDelegate()
     , m_executed(false)
 {
-    auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
+    auto const OnExecute = [this] (Scheduler::Frame const&) -> std::size_t { m_executed = true; return 1; };
     m_spDelegate = spRegistrar->Register<DependentExecutorAlpha>(OnExecute);
     m_spDelegate->Depends<DependentExecutorGamma>();
     m_spDelegate->OnTaskAvailable();
@@ -253,7 +253,7 @@ local::DependentExecutorBeta::DependentExecutorBeta(std::shared_ptr<Scheduler::R
     : m_spDelegate()
     , m_executed(false)
 {
-    auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
+    auto const OnExecute = [this] (Scheduler::Frame const&) -> std::size_t { m_executed = true; return 1; };
     m_spDelegate = spRegistrar->Register<DependentExecutorBeta>(OnExecute);
     m_spDelegate->Depends<DependentExecutorAlpha, DependentExecutorGamma>();
     m_spDelegate->OnTaskAvailable();
@@ -265,7 +265,7 @@ local::DependentExecutorGamma::DependentExecutorGamma(std::shared_ptr<Scheduler:
     : m_spDelegate()
     , m_executed(false)
 {
-    auto const OnExecute = [this] () -> std::size_t { m_executed = true; return 1; };
+    auto const OnExecute = [this] (Scheduler::Frame const&) -> std::size_t { m_executed = true; return 1; };
     m_spDelegate = spRegistrar->Register<DependentExecutorGamma>(OnExecute);
     m_spDelegate->Depends<IndependentExecutor>();
     m_spDelegate->OnTaskAvailable();
@@ -276,7 +276,7 @@ local::DependentExecutorGamma::DependentExecutorGamma(std::shared_ptr<Scheduler:
 local::CyclicExecutorAlpha::CyclicExecutorAlpha(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
 {
-    auto const OnExecute = [this] () -> std::size_t { return 1; };
+    auto const OnExecute = [this] (Scheduler::Frame const&) -> std::size_t { return 1; };
     m_spDelegate = spRegistrar->Register<CyclicExecutorAlpha>(OnExecute);
     m_spDelegate->Depends<IndependentExecutor, CyclicExecutorBeta>();
     m_spDelegate->OnTaskAvailable();
@@ -287,7 +287,7 @@ local::CyclicExecutorAlpha::CyclicExecutorAlpha(std::shared_ptr<Scheduler::Regis
 local::CyclicExecutorBeta::CyclicExecutorBeta(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
 {
-    auto const OnExecute = [this] () -> std::size_t { return 1; };
+    auto const OnExecute = [this] (Scheduler::Frame const&) -> std::size_t { return 1; };
     m_spDelegate = spRegistrar->Register<CyclicExecutorBeta>(OnExecute);
     m_spDelegate->Depends<IndependentExecutor, CyclicExecutorAlpha>();
     m_spDelegate->OnTaskAvailable();

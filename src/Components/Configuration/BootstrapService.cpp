@@ -200,8 +200,8 @@ void BootstrapService::Register(std::shared_ptr<Scheduler::Registrar> const& spR
     assert(Assertions::Threading::IsCoreThread());
     assert(!m_spDelegate);
 
-    m_spDelegate = spRegistrar->Register<BootstrapService>([this] () -> std::size_t {
-        // Update the bootstrap cache with any changes that have occured since this last cycle. 
+    m_spDelegate = spRegistrar->Register<BootstrapService>([this] (Scheduler::Frame const&) -> std::size_t {
+        // Update the bootstrap cache with any changes that have occurred since this last cycle. 
         auto const& [applied, difference] = UpdateCache();
         return applied;  // Provide the number of tasks executed to the scheduler. 
     }); 

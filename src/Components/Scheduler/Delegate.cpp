@@ -4,6 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Delegate.hpp"
 #include "Registrar.hpp"
+#include "Utilities/Assertions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <limits>
 //----------------------------------------------------------------------------------------------------------------------
@@ -13,9 +14,11 @@ Scheduler::Delegate::Delegate(Identifier const& identifier, OnExecute const& cal
     , m_priority(std::numeric_limits<std::size_t>::max())
     , m_available(0)
     , m_execute(callback)
+    , m_tasks()
     , m_dependencies()
     , m_sentinel(sentinel)
 {
+    assert(Assertions::Threading::IsCoreThread());
     assert(m_sentinel);
 }
 
@@ -37,7 +40,7 @@ std::size_t Scheduler::Delegate::AvailableTasks() const { return m_available; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Scheduler::Delegate::IsReady() const { return m_available != 0; }
+bool Scheduler::Delegate::Ready() const { return m_available != 0 || !m_tasks.empty(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -56,12 +59,36 @@ void Scheduler::Delegate::SetPriority([[maybe_unused]] ExecuteKey key, std::size
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Scheduler::Delegate::Execute([[maybe_unused]] ExecuteKey key)
+Scheduler::TaskIdentifier const& Scheduler::Delegate::Schedule(
+    IntervalTask::Callback const& callback, Interval const& interval)
 {
-    assert(m_execute && m_available != 0);
-    std::size_t const completed = m_execute();
-    m_available -= completed;
-    return completed;
+    assert(Assertions::Threading::IsCoreThread());
+    auto const [itr, emplaced] = m_tasks.emplace(TaskIdentifier{}, std::make_unique<IntervalTask>(callback, interval));
+    assert(emplaced);
+    return itr->first;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Scheduler::Delegate::Execute([[maybe_unused]] ExecuteKey key, Frame const& frame)
+{
+    assert(Assertions::Threading::IsCoreThread());
+
+    // First run the scheduled tasks. These are tasks that do not represent a single unit of work (i.e. a state checker).
+    for (auto const& [identifier, upTask] : m_tasks) {
+        assert(upTask);
+        if (upTask->Ready(frame)) { upTask->Execute(); }
+    }
+    
+    // Run the main work executor registered with the delegate. 
+    std::size_t completed = 0;
+    if (m_available != 0) {
+        assert(m_execute);
+        completed = m_execute(frame);
+        m_available -= completed; // Decrement the amount of work available by the number completed. 
+    }
+
+    return completed; // Provide the registrar the units of work completed. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
