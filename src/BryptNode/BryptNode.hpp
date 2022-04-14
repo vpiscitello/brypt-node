@@ -10,7 +10,6 @@
 #include "ServiceProvider.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Configuration/Options.hpp"
-#include "Components/Route/Handler.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/ExecutionStatus.hpp"
@@ -31,6 +30,8 @@ namespace Configuration { class Parser; }
 namespace Event { class Publisher; }
 namespace Network { class Manager; }
 namespace Peer { class Manager; }
+namespace Route { class Router; }
+namespace Route::Fundamental::Connect { class DiscoveryProtocol; }
 namespace Scheduler { class Registrar; class TaskService; }
 
 class AuthorizedProcessor;
@@ -106,10 +107,11 @@ private:
     void OnUnexpectedError();
 
     std::reference_wrapper<ExecutionToken> m_token;
+    std::shared_ptr<spdlog::logger> m_logger;
+    
     std::shared_ptr<ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Scheduler::Registrar> m_spScheduler;
     std::unique_ptr<IRuntimePolicy> m_upRuntime;
-    std::shared_ptr<spdlog::logger> m_logger;
 
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<CoordinatorState> m_spCoordinatorState;
@@ -118,13 +120,14 @@ private:
 
     std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    std::shared_ptr<Route::Router> m_spRouter;
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
+    std::shared_ptr<Route::Fundamental::Connect::DiscoveryProtocol> m_spDiscoveryProtocol;
     std::shared_ptr<Network::Manager> m_spNetworkManager;
     std::shared_ptr<Peer::Manager> m_spPeerManager;
     std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
     std::shared_ptr<BootstrapService> m_spBootstrapService;
 
-    Handler::Map m_handlers;
     bool m_initialized;
 };
 
