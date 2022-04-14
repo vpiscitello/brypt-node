@@ -91,7 +91,7 @@ target_link_libraries(
     ${OQS_LIBRARIES}
     ${spdlog_LIBRARIES})
 
-# Compilier options
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")

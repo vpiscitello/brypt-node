@@ -21,7 +21,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${LITHIUM_JSON_INCLUDE_
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     ${Boost_INCLUDE_DIRS} ${OQS_INCLUDE_DIRS} ${OQSCPP_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
-# Compilier options
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------

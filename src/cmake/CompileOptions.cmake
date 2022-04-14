@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------------------------------------------------
-# A function to set the required compilier warnings, features, and system library flags. 
+# A function to set the required compiler warnings, features, and system library flags. 
 #-----------------------------------------------------------------------------------------------------------------------
 function(set_project_options project_name)
     set(GCC_WARNINGS

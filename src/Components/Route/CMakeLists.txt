@@ -22,7 +22,7 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     ${Boost_INCLUDE_DIRS} ${LITHIUM_JSON_INCLUDE_DIR} ${spdlog_INCLUDE_DIRS})
 
-# Compilier options
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------

@@ -21,7 +21,7 @@ target_sources(
 # Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
-# Compilier options
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------

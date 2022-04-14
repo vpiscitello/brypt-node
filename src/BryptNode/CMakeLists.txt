@@ -67,7 +67,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${spdlog_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${INTERNAL_LIBRARIES})
 target_link_libraries(${PROJECT_NAME} PUBLIC ${spdlog_LIBRARIES} ${Boost_LIBRARIES})
 
-# Compilier options
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 #-----------------------------------------------------------------------------------------------------------------------
