@@ -88,7 +88,7 @@ protected:
         m_spTaskService = std::make_shared<Scheduler::TaskService>(m_spRegistrar);
         m_spServiceProvider->Register(m_spTaskService);
 
-        m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar, m_spServiceProvider);
+        m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar);
         m_spServiceProvider->Register(m_spTrackingService);
 
         m_spEventPublisher = std::make_shared<Event::Publisher>(m_spRegistrar);
@@ -124,6 +124,8 @@ protected:
                 m_optResult = optMessage;
                 return true;
             });
+
+        EXPECT_TRUE(m_spRegistrar->Initialize());
     }
 
     static Message::Context m_context;
@@ -240,11 +242,11 @@ TEST_F(PeerActionSuite, ExpiredRequestTest)
     EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 0 });
     std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
 
-    m_spTrackingService->CheckTrackers();
+    auto const frames = Scheduler::Frame{ Awaitable::TrackingService::CheckInterval.GetValue() };
+    EXPECT_EQ(m_spRegistrar->Run<InvokeContext::Test>(frames), std::size_t{ 1 });
     EXPECT_EQ(m_spTrackingService->Waiting(), std::size_t{ 0 });
-    EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 1 });
+    EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 0 });
 
-    EXPECT_EQ(m_spTrackingService->Execute(), std::size_t{ 1 });
     EXPECT_EQ(optError, Peer::Action::Error::Expired);
     EXPECT_FALSE(optResponse);
 }

@@ -51,6 +51,7 @@ protected:
         m_spTaskService = std::make_shared<Scheduler::TaskService>(m_spScheduler);
         m_spServiceProvider->Register(m_spTaskService);
         m_context = Awaitable::Test::GenerateMessageContext();
+        EXPECT_TRUE(m_spScheduler->Initialize());
     }
 
     static void TearDownTestSuite()
@@ -108,7 +109,7 @@ Message::Context TrackingServiceSuite::m_context = {};
 
 TEST_F(TrackingServiceSuite, DeferredRequestFulfilledTest)
 {
-    Awaitable::TrackingService service{ m_spScheduler, m_spServiceProvider };
+    Awaitable::TrackingService service{ m_spScheduler };
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 
@@ -158,7 +159,7 @@ TEST_F(TrackingServiceSuite, DeferredRequestFulfilledTest)
 
 TEST_F(TrackingServiceSuite, ExpiredAwaitableTest)
 {
-    Awaitable::TrackingService service{ m_spScheduler, m_spServiceProvider };
+    Awaitable::TrackingService service{ m_spScheduler };
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 
@@ -184,11 +185,8 @@ TEST_F(TrackingServiceSuite, ExpiredAwaitableTest)
     EXPECT_EQ(service.Waiting(), std::size_t{ 1 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 
-    service.CheckTrackers();
-    EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
-    EXPECT_EQ(service.Ready(), std::size_t{ 1 });
-
-    EXPECT_EQ(service.Execute(), std::size_t{ 1 }); 
+    auto const frames = Scheduler::Frame{ Awaitable::TrackingService::CheckInterval.GetValue() };
+    EXPECT_EQ(m_spScheduler->Run<InvokeContext::Test>(frames), std::size_t{ 1 });
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 

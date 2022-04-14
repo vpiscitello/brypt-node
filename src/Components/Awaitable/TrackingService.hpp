@@ -7,6 +7,7 @@
 #include "Definitions.hpp"
 #include "Tracker.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Scheduler/Tasks.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
@@ -40,9 +41,9 @@ class TrackingService;
 class Awaitable::TrackingService
 {
 public:
-    TrackingService(
-        std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
-        std::shared_ptr<Node::ServiceProvider> const& spProvider);
+    static constexpr auto CheckInterval = Scheduler::Interval{ 4 };
+
+    explicit TrackingService(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     ~TrackingService();
 
     [[nodiscard]] std::optional<TrackerKey> StageRequest(
@@ -62,7 +63,6 @@ public:
     
     [[nodiscard]] std::size_t Waiting() const;
     [[nodiscard]] std::size_t Ready() const;
-    void CheckTrackers();
 
     [[nodiscard]] std::size_t Execute();
 
@@ -73,6 +73,7 @@ private:
 
     using ActiveTrackers = std::unordered_map<TrackerKey, std::unique_ptr<ITracker>, KeyHasher>;
 
+    void CheckTrackers();
     [[nodiscard]] std::optional<TrackerKey> GenerateKey(Node::Identifier const& identifier) const;
 
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;

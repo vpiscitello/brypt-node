@@ -743,7 +743,7 @@ local::ExchangeResources::ExchangeResources(
     m_spServiceProvider->Register(m_spEventPublisher);
     m_spServiceProvider->Register(m_spNodeState);
 
-    m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar, m_spServiceProvider);
+    m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar);
     m_spServiceProvider->Register(m_spTrackingService);
 
     m_spConnectProtocol = std::make_shared<MessageControl::Test::ConnectProtocol>();

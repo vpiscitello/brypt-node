@@ -41,7 +41,7 @@ protected:
         m_spTaskService = std::make_shared<Scheduler::TaskService>(m_spRegistrar);
         m_spServiceProvider->Register(m_spTaskService);
 
-        m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar, m_spServiceProvider);
+        m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar);
         m_spServiceProvider->Register(m_spTrackingService);
 
         m_spEventPublisher = std::make_shared<Event::Publisher>(m_spRegistrar);

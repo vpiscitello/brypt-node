@@ -7,6 +7,7 @@
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Scheduler/Delegate.hpp"
 #include "Components/Scheduler/Registrar.hpp"
+#include "Components/Scheduler/TaskService.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/container_hash/hash.hpp>
@@ -16,12 +17,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <array>
 #include <cassert>
+#include <chrono>
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::TrackingService::TrackingService(
-    std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
-    std::shared_ptr<Node::ServiceProvider> const& spProvider)
+Awaitable::TrackingService::TrackingService(std::shared_ptr<Scheduler::Registrar> const& spRegistrar)
     : m_spDelegate()
+    , m_mutex()
     , m_trackers()
     , m_ready()
     , m_logger(spdlog::get(Logger::Name::Core.data()))
@@ -32,6 +33,8 @@ Awaitable::TrackingService::TrackingService(
     m_spDelegate = spRegistrar->Register<TrackingService>([this] (Scheduler::Frame const&) -> std::size_t {
         return Execute();  // Dispatch any fulfilled awaiting messages since this last cycle. 
     }); 
+
+    m_spDelegate->Schedule([this] { CheckTrackers(); }, CheckInterval);
 
     assert(m_spDelegate);
 	m_spDelegate->Depends<AuthorizedProcessor>(); // Allows us to send messages fulfilled during the currect cycle. 
@@ -201,6 +204,21 @@ std::size_t Awaitable::TrackingService::Ready() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::size_t Awaitable::TrackingService::Execute()
+{
+    std::scoped_lock lock{ m_mutex };
+
+    std::ranges::for_each(m_ready, [this] (auto const& upTracker) {
+        [[maybe_unused]] bool const success = upTracker->Fulfill();
+    });
+
+    std::size_t executed = m_ready.size();
+    m_ready.clear();
+    return executed;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Awaitable::TrackingService::CheckTrackers()
 {
     std::scoped_lock lock{ m_mutex };
@@ -214,21 +232,6 @@ void Awaitable::TrackingService::CheckTrackers()
         }
         return ready;
     });
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Awaitable::TrackingService::Execute()
-{
-    std::scoped_lock lock{ m_mutex };
-
-    std::ranges::for_each(m_ready, [this] (auto const& upTracker) {
-        [[maybe_unused]] bool const success = upTracker->Fulfill();
-    });
-
-    std::size_t executed = m_ready.size();
-    m_ready.clear();
-    return executed;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

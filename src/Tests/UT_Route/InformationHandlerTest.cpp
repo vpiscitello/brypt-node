@@ -376,7 +376,7 @@ local::InformationResources::InformationResources(
     , m_spServiceProvider(std::make_shared<Node::ServiceProvider>())
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spRegistrar))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spRegistrar))
-    , m_spTrackingService()
+    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spRegistrar))
     , m_spCoordinatorState(std::make_shared<CoordinatorState>())
     , m_spNetworkState(std::make_shared<NetworkState>())
     , m_spNodeState(std::make_shared<NodeState>(spSelf, Network::ProtocolSet{}))
@@ -394,8 +394,6 @@ local::InformationResources::InformationResources(
     m_spServiceProvider->Register(m_spNodeState);
     m_spServiceProvider->Register(m_spBootstrapService);
     m_spServiceProvider->Register<IPeerCache>(m_spPeerCache);
-
-    m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar, m_spServiceProvider);
     m_spServiceProvider->Register(m_spTrackingService);
     
     auto options = Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(
