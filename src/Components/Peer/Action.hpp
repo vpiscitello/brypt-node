@@ -4,6 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageDefinitions.hpp"
 #include "BryptMessage/Payload.hpp"
 #include "Components/Awaitable/Definitions.hpp"
@@ -35,7 +36,7 @@ enum class Error : std::uint32_t { UnexpectedError, Expired };
 
 using OnResponse = std::function<void(Message::Application::Parcel const& response)>;
 using OnMessage = std::function<void(Message::Application::Parcel const& message, Next& next)>;
-using OnError = std::function<void(Error error)>;
+using OnError = std::function<void(Node::Identifier const&, Error error)>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Action namespace

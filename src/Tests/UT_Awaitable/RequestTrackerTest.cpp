@@ -61,7 +61,7 @@ protected:
         m_onResponse = [this] (auto const& response) {
             m_optFulfilledResponse = response;
         };
-        m_onError = [this] (auto const& error) {
+        m_onError = [this] (auto const&, auto const& error) {
             m_optError = error;
         };
 

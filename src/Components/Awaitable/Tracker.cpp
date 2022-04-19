@@ -105,7 +105,7 @@ bool Awaitable::RequestTracker::Fulfill()
     if (m_optResponse) {
         m_onResponse(*m_optResponse);
     } else {
-        m_onError(Peer::Action::Error::Expired);
+        m_onError(*m_spRequestee, Peer::Action::Error::Expired);
     }
 
     return true;

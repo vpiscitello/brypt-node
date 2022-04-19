@@ -257,8 +257,8 @@ bool Route::Fundamental::Connect::DiscoveryProtocol::SendRequest(
                 }
             }
         },
-        [this, spProxyIdentifier = spProxy->GetIdentifier()] ([[maybe_unused]] auto const& error) {
-            m_logger->warn("Encountered an error waiting for discovery response from: {}", spProxyIdentifier);
+        [this] (Node::Identifier const& identifier, Peer::Action::Error) {
+            m_logger->warn("Encountered an error waiting for discovery response from: {}", identifier);
         });
 }
 

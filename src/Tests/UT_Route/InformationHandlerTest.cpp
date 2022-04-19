@@ -245,7 +245,7 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
                 payload.update_timestamp, m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
             EXPECT_EQ(payload.protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
         },
-        [&] ([[maybe_unused]] auto const& error) { ASSERT_FALSE(true); });
+        [&] (auto const&, auto) { ASSERT_FALSE(true); });
     EXPECT_TRUE(hasSentRequest);
     ASSERT_TRUE(m_optRequest);
     EXPECT_EQ(m_client.GetTrackingService()->Waiting(), std::size_t{ 1 });
@@ -330,7 +330,7 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
             }
             EXPECT_TRUE(hasFoundServerResponse);
         },
-        [&] ([[maybe_unused]] auto const& error) { ASSERT_FALSE(true); });
+        [&] (auto const&, auto) { ASSERT_FALSE(true); });
     EXPECT_TRUE(hasSentRequest);
     ASSERT_TRUE(m_optRequest);
     EXPECT_EQ(m_client.GetTrackingService()->Waiting(), std::size_t{ 1 });

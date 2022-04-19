@@ -166,7 +166,7 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
     
     bool const result = m_spProxy->Request(builder, 
         [&optResponse] (auto const& response) { optResponse = response; },
-        [&optError] (auto const& error) { optError = error; });
+        [&optError] (auto const&, auto error) { optError = error; });
     EXPECT_TRUE(result);
     EXPECT_FALSE(optResponse);
     EXPECT_FALSE(optError);
@@ -233,7 +233,7 @@ TEST_F(PeerActionSuite, ExpiredRequestTest)
     
     bool const result = m_spProxy->Request(builder, 
         [&optResponse] (auto const& response) { optResponse = response; },
-        [&optError] (auto const& error) { optError = error; });
+        [&optError] (auto const&, auto error) { optError = error; });
     EXPECT_TRUE(result);
     EXPECT_FALSE(optResponse);
     EXPECT_FALSE(optError);
