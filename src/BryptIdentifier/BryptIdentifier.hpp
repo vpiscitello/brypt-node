@@ -25,6 +25,7 @@ enum class BufferContentType : std::uint8_t { Internal, Network };
 class Identifier;
 
 struct IdentifierHasher;
+struct SharedIdentifierHasher;
 
 std::string GenerateIdentifier();
 
@@ -94,6 +95,16 @@ struct Node::IdentifierHasher
     std::size_t operator() (Identifier const& identifier) const
     {
         return std::hash<Internal::Identifier>()(identifier);
+    }
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+struct Node::SharedIdentifierHasher 
+{
+    std::size_t operator() (SharedIdentifier const& spIdentifier) const
+    {
+        return std::hash<Internal::Identifier>()(*spIdentifier);
     }
 };
 

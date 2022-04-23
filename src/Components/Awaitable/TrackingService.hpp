@@ -42,7 +42,10 @@ class Awaitable::TrackingService
 {
 public:
     static constexpr auto CheckInterval = Scheduler::Interval{ 4 };
-
+    
+    using Correlator = std::function<bool(Node::SharedIdentifier const&)>;
+    using Correlatable = std::pair<TrackerKey, Correlator>;
+    
     explicit TrackingService(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     ~TrackingService();
 
@@ -51,6 +54,12 @@ public:
         Peer::Action::OnResponse const& onResponse,
         Peer::Action::OnError const& onError,
         Message::Application::Builder& builder);
+
+    [[nodiscard]] std::optional<Correlatable> StageRequest(
+        Node::Identifier const& self,
+        std::size_t expected,
+        Peer::Action::OnResponse const& onResponse,
+        Peer::Action::OnError const& onError);
 
     [[nodiscard]] std::optional<TrackerKey> StageDeferred(
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
@@ -71,7 +80,7 @@ private:
        [[nodiscard]] std::size_t operator()(TrackerKey const& key) const;
     };
 
-    using ActiveTrackers = std::unordered_map<TrackerKey, std::unique_ptr<ITracker>, KeyHasher>;
+    using ActiveTrackers = std::unordered_map<TrackerKey, std::shared_ptr<ITracker>, KeyHasher>;
 
     void CheckTrackers();
     [[nodiscard]] std::optional<TrackerKey> GenerateKey(Node::Identifier const& identifier) const;
@@ -79,7 +88,7 @@ private:
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     mutable std::mutex m_mutex;
     ActiveTrackers m_trackers;
-    std::vector<std::unique_ptr<ITracker>> m_ready;
+    std::vector<std::shared_ptr<ITracker>> m_ready;
     std::shared_ptr<spdlog::logger> m_logger;
 };
 

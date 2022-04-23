@@ -24,8 +24,9 @@ LI_SYMBOL(data)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::ITracker::ITracker(std::size_t expected)
-    : m_status(Status::Pending)
+Awaitable::ITracker::ITracker(Awaitable::TrackerKey key, std::size_t expected)
+    : m_key(key)
+    , m_status(Status::Pending)
     , m_expected(expected)
     , m_received(0)
     , m_expire(std::chrono::steady_clock::now() + ExpirationPeriod)
@@ -57,22 +58,45 @@ std::size_t Awaitable::ITracker::GetReceived() const { return m_received; }
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::RequestTracker::RequestTracker(
+    Awaitable::TrackerKey key, 
     std::weak_ptr<Peer::Proxy> const& wpProxy,
     Peer::Action::OnResponse const& onResponse,
     Peer::Action::OnError const& onError)
-    : ITracker(1)
-    , m_spRequestee()
-    , m_optResponse()
+    : ITracker(key, 1)
+    , m_ledger()
+    , m_responses()
     , m_onResponse(onResponse)
     , m_onError(onError)
-    , m_wpProxy(wpProxy)
 {
-    if (auto const spProxy = wpProxy.lock(); spProxy) {
-        m_spRequestee = spProxy->GetIdentifier();
-    }
-    assert(m_spRequestee);
+    if (auto const spProxy = wpProxy.lock(); spProxy) { m_ledger.emplace(spProxy->GetIdentifier(), false); }
+    assert(!m_ledger.empty());
     assert(m_onResponse);
     assert(m_onError);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::RequestTracker::RequestTracker(
+    Awaitable::TrackerKey key, 
+    std::size_t expected, 
+    Peer::Action::OnResponse const& onResponse, 
+    Peer::Action::OnError const& onError)
+    : ITracker(key, expected)
+    , m_ledger()
+    , m_responses()
+    , m_onResponse(onResponse)
+    , m_onError(onError)
+{
+    assert(m_onResponse);
+    assert(m_onError);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Awaitable::RequestTracker::Correlate(Node::SharedIdentifier const& identifier)
+{
+    auto const [itr, emplaced] = m_ledger.emplace(identifier, false);
+    return emplaced;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -80,11 +104,16 @@ Awaitable::RequestTracker::RequestTracker(
 Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(Message::Application::Parcel&& message)
 {
     if (m_expire < std::chrono::steady_clock::now()) { return UpdateResult::Expired; }
-    if(m_optResponse || message.GetSource() != *m_spRequestee) { return UpdateResult::Unexpected; }
-    m_optResponse = std::move(message);
-    ++m_received;
-    m_status = Status::Fulfilled;
-    return UpdateResult::Fulfilled;
+    auto const itr = std::ranges::find_if(m_ledger, [&source = message.GetSource()] (auto const& entry) {
+        return *entry.first == source;
+    });
+    if (itr == m_ledger.end()) { return UpdateResult::Unexpected; }
+
+    m_responses.emplace_back(std::move(message));
+    itr->second = true;
+
+    if (++m_received == m_expected) { m_status = Status::Fulfilled; return UpdateResult::Fulfilled; }
+    return UpdateResult::Partial;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -99,25 +128,34 @@ Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(
 
 bool Awaitable::RequestTracker::Fulfill()
 {
-    if(m_status != Status::Fulfilled) { return false; }
-    m_status = Status::Completed;
+    if (m_status == Status::Completed) { return false; }
+    
+    bool const expired = m_expire < std::chrono::steady_clock::now();
+    if (!expired && m_responses.empty()) { return false; }
 
-    if (m_optResponse) {
-        m_onResponse(*m_optResponse);
-    } else {
-        m_onError(*m_spRequestee, Peer::Action::Error::Expired);
+    for (auto const& response : m_responses) { m_onResponse(m_key, response); }
+
+    if (expired) {
+        for (auto const& [requestee, received] : m_ledger) { 
+            if (!received) { m_onError(m_key, requestee, Peer::Action::Error::Expired); }
+        }
+        m_received = m_expected;
     }
+
+    m_status = (m_received == m_expected) ? Status::Completed : Status::Pending;
+    m_responses.clear();
 
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::AggregateTracker::AggregateTracker(
+Awaitable::DeferredTracker::DeferredTracker(
+    Awaitable::TrackerKey key, 
     std::weak_ptr<Peer::Proxy> const& wpRequestor,
     Message::Application::Parcel const& request,
     std::vector<Node::SharedIdentifier> const& identifiers)
-    : ITracker(identifiers.size())
+    : ITracker(key, identifiers.size())
     , m_wpRequestor(wpRequestor)
     , m_request(request)
     , m_responses()
@@ -130,14 +168,18 @@ Awaitable::AggregateTracker::AggregateTracker(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(Message::Application::Parcel&& message)
+bool Awaitable::DeferredTracker::Correlate(Node::SharedIdentifier const&) { return false; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::ITracker::UpdateResult Awaitable::DeferredTracker::Update(Message::Application::Parcel&& message)
 {
     return Update(message.GetSource(), message.ExtractPayload());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(
+Awaitable::ITracker::UpdateResult Awaitable::DeferredTracker::Update(
     Node::Identifier const& identifier, Message::Payload&& payload)
 {
     if (m_expire < std::chrono::steady_clock::now()) { return UpdateResult::Expired; }
@@ -147,17 +189,13 @@ Awaitable::ITracker::UpdateResult Awaitable::AggregateTracker::Update(
 
     m_responses.modify(itr, [&payload] (Entry& entry) { entry.SetPayload(std::move(payload)); });
 
-    if (++m_received >= m_expected) {
-        m_status = Status::Fulfilled;
-        return UpdateResult::Fulfilled;
-    }
-
+    if (++m_received == m_expected) { m_status = Status::Fulfilled; return UpdateResult::Fulfilled; }
     return UpdateResult::Success;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Awaitable::AggregateTracker::Fulfill()
+bool Awaitable::DeferredTracker::Fulfill()
 {
     if(m_status != Status::Fulfilled) { return false; }
     m_status = Status::Completed;
@@ -207,7 +245,7 @@ bool Awaitable::AggregateTracker::Fulfill()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Awaitable::AggregateTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, Message::Payload&& payload)
+Awaitable::DeferredTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, Message::Payload&& payload)
     : m_spIdentifier(spIdentifier)
     , m_payload(std::move(payload))
 {
@@ -215,14 +253,14 @@ Awaitable::AggregateTracker::Entry::Entry(Node::SharedIdentifier const& spIdenti
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier const& Awaitable::AggregateTracker::Entry::GetIdentifier() const
+Node::SharedIdentifier const& Awaitable::DeferredTracker::Entry::GetIdentifier() const
 {
     return m_spIdentifier;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::Internal::Identifier const& Awaitable::AggregateTracker::Entry::GetInternalIdentifier() const
+Node::Internal::Identifier const& Awaitable::DeferredTracker::Entry::GetInternalIdentifier() const
 {
     assert(m_spIdentifier);
     return static_cast<Node::Internal::Identifier const&>(*m_spIdentifier);
@@ -230,13 +268,13 @@ Node::Internal::Identifier const& Awaitable::AggregateTracker::Entry::GetInterna
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Payload const& Awaitable::AggregateTracker::Entry::GetPayload() const { return m_payload; }
+Message::Payload const& Awaitable::DeferredTracker::Entry::GetPayload() const { return m_payload; }
 
 //----------------------------------------------------------------------------------------------------------------------
-bool Awaitable::AggregateTracker::Entry::IsEmpty() const { return m_payload.IsEmpty(); }
+bool Awaitable::DeferredTracker::Entry::IsEmpty() const { return m_payload.IsEmpty(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Awaitable::AggregateTracker::Entry::SetPayload(Message::Payload&& payload) { m_payload = std::move(payload); }
+void Awaitable::DeferredTracker::Entry::SetPayload(Message::Payload&& payload) { m_payload = std::move(payload); }
 
 //----------------------------------------------------------------------------------------------------------------------

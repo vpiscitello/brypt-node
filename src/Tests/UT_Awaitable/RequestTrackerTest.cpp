@@ -13,6 +13,7 @@
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <random>
 #include <thread>
 //----------------------------------------------------------------------------------------------------------------------
 using namespace std::chrono_literals;
@@ -56,12 +57,12 @@ protected:
 
     void SetUp() override
     {
-        m_optFulfilledResponse = {};
+        m_responses = {};
         m_spProxy = Peer::Proxy::CreateInstance(*test::ServerIdentifier, m_spServiceProvider);
-        m_onResponse = [this] (auto const& response) {
-            m_optFulfilledResponse = response;
+        m_onResponse = [this] (auto const&, auto const& response) {
+            m_responses.emplace_back(response);
         };
-        m_onError = [this] (auto const&, auto const& error) {
+        m_onError = [this] (auto const&, auto const&, auto const& error) {
             m_optError = error;
         };
 
@@ -77,7 +78,7 @@ protected:
     Peer::Action::OnResponse m_onResponse;
     Peer::Action::OnError m_onError;
     Message::Application::Parcel m_request;
-    std::optional<Message::Application::Parcel> m_optFulfilledResponse;
+    std::vector<Message::Application::Parcel> m_responses;
     std::optional<Peer::Action::Error> m_optError;
 };
 
@@ -88,13 +89,13 @@ Message::Context RequestTrackerSuite::m_context = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(RequestTrackerSuite, FulfilledRequestTest)
+TEST_F(RequestTrackerSuite, SingleRequestTest)
 {
-    Awaitable::RequestTracker tracker{ m_spProxy, m_onResponse, m_onError };
+    Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, m_spProxy, m_onResponse, m_onError };
 
     EXPECT_FALSE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
-    EXPECT_FALSE(m_optFulfilledResponse);
+    EXPECT_TRUE(m_responses.empty());
     EXPECT_FALSE(m_optError);
 
     auto optResponse = Awaitable::Test::GenerateResponse(
@@ -106,12 +107,12 @@ TEST_F(RequestTrackerSuite, FulfilledRequestTest)
     EXPECT_TRUE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 
-    ASSERT_TRUE(m_optFulfilledResponse);
-    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
+    EXPECT_EQ(m_responses.size(), std::size_t{ 1 });
+    EXPECT_EQ(m_responses.front().GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_responses.front().GetDestination(), test::ClientIdentifier);
+    EXPECT_EQ(m_responses.front().GetRoute(), Awaitable::Test::RequestRoute);
 
-    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_responses.front().GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
     EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);
@@ -119,9 +120,64 @@ TEST_F(RequestTrackerSuite, FulfilledRequestTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+TEST_F(RequestTrackerSuite, MultiRequestTest)
+{
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 5);
+    Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, identifiers.size(), m_onResponse, m_onError };
+
+    EXPECT_EQ(tracker.GetExpected(), identifiers.size());
+    EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
+    EXPECT_EQ(tracker.GetStatus(), Awaitable::ITracker::Status::Pending);
+
+    for (auto const& spIdentifier : identifiers) { EXPECT_TRUE(tracker.Correlate(spIdentifier)); }
+    EXPECT_EQ(tracker.GetExpected(), identifiers.size());
+    EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
+
+    EXPECT_FALSE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
+    EXPECT_TRUE(m_responses.empty());
+
+    std::ranges::for_each(identifiers, [&, updates = std::size_t{ 0 }] (auto const& spIdentifier) mutable {
+        ++updates;
+
+        auto optResponse = Awaitable::Test::GenerateResponse(
+            m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::RequestRoute, Awaitable::Test::TrackerKey);
+        ASSERT_TRUE(optResponse);
+        auto const status = tracker.Update(std::move(*optResponse));
+        {
+            auto const expected = (updates < identifiers.size()) ?
+                Awaitable::ITracker::UpdateResult::Partial : Awaitable::ITracker::UpdateResult::Fulfilled;
+            EXPECT_EQ(status, expected);
+        }
+
+        {
+            auto const expected = (updates < identifiers.size()) ? 
+              Awaitable::ITracker::Status::Pending : Awaitable::ITracker::Status::Fulfilled;
+            EXPECT_EQ(tracker.CheckStatus(), expected);
+        }
+        
+        EXPECT_TRUE(tracker.Fulfill());
+    });
+
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
+
+    EXPECT_EQ(m_responses.size(), identifiers.size());
+    for (auto const& response : m_responses) {
+        EXPECT_EQ(response.GetDestination(), *test::ServerIdentifier);
+        EXPECT_EQ(response.GetRoute(), Awaitable::Test::RequestRoute);
+        
+        auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
+        EXPECT_TRUE(optExtension);
+        EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+        EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 TEST_F(RequestTrackerSuite, DirectUpdateTest)
 {
-    Awaitable::RequestTracker tracker{ m_spProxy, m_onResponse, m_onError };
+    Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, m_spProxy, m_onResponse, m_onError };
     EXPECT_EQ(
         tracker.Update(*test::ServerIdentifier, Awaitable::Test::Message),
         Awaitable::ITracker::UpdateResult::Unexpected);
@@ -129,7 +185,7 @@ TEST_F(RequestTrackerSuite, DirectUpdateTest)
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
     EXPECT_FALSE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
-    EXPECT_FALSE(m_optFulfilledResponse);
+    EXPECT_TRUE(m_responses.empty());
     EXPECT_FALSE(m_optError);
 }
 
@@ -137,11 +193,11 @@ TEST_F(RequestTrackerSuite, DirectUpdateTest)
 
 TEST_F(RequestTrackerSuite, ExpiredRequestTest)
 {
-    Awaitable::RequestTracker tracker{ m_spProxy, m_onResponse, m_onError };
+    Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, m_spProxy, m_onResponse, m_onError };
 
     EXPECT_FALSE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
-    EXPECT_FALSE(m_optFulfilledResponse);
+    EXPECT_TRUE(m_responses.empty());
     EXPECT_FALSE(m_optError);
     
     std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
@@ -149,7 +205,7 @@ TEST_F(RequestTrackerSuite, ExpiredRequestTest)
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
     EXPECT_TRUE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
-    EXPECT_FALSE(m_optFulfilledResponse);
+    EXPECT_TRUE(m_responses.empty());
     ASSERT_TRUE(m_optError);
     EXPECT_EQ(*m_optError, Peer::Action::Error::Expired);
 
@@ -158,18 +214,73 @@ TEST_F(RequestTrackerSuite, ExpiredRequestTest)
     ASSERT_TRUE(optResponse);
     EXPECT_EQ(tracker.Update(std::move(*optResponse)), Awaitable::ITracker::UpdateResult::Expired);
     EXPECT_FALSE(tracker.Fulfill());
-    EXPECT_FALSE(m_optFulfilledResponse);
+    EXPECT_TRUE(m_responses.empty());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(RequestTrackerSuite, PartialExpiredRequestTest)
+{
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 5);
+    Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, identifiers.size(), m_onResponse, m_onError };
+
+    EXPECT_EQ(tracker.GetExpected(), identifiers.size());
+    EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
+    EXPECT_EQ(tracker.GetStatus(), Awaitable::ITracker::Status::Pending);
+
+    for (auto const& spIdentifier : identifiers) { EXPECT_TRUE(tracker.Correlate(spIdentifier)); }
+    EXPECT_EQ(tracker.GetExpected(), identifiers.size());
+    EXPECT_EQ(tracker.GetReceived(), std::size_t{ 0 });
+
+    EXPECT_FALSE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
+    EXPECT_TRUE(m_responses.empty());
+
+    std::random_device device;
+    std::mt19937 generator{ device() };
+    std::bernoulli_distribution distribution{ 0.5 };
+
+    std::size_t responded = 0;
+    auto selected = identifiers | std::views::filter([&] (auto const&) { return distribution(generator); });
+    std::ranges::for_each(selected, [&] (auto const& spIdentifier) mutable {
+        auto optResponse = Awaitable::Test::GenerateResponse(
+            m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::RequestRoute, Awaitable::Test::TrackerKey);
+        ASSERT_TRUE(optResponse);
+        auto const status = tracker.Update(std::move(*optResponse));
+        EXPECT_EQ(status, Awaitable::ITracker::UpdateResult::Partial);
+        EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
+        EXPECT_TRUE(tracker.Fulfill());
+        ++responded;
+    });
+
+    EXPECT_EQ(tracker.GetReceived(), responded);
+    std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
+
+    EXPECT_TRUE(tracker.Fulfill());
+    EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
+    EXPECT_EQ(tracker.GetReceived(), identifiers.size());
+
+    EXPECT_EQ(m_responses.size(), responded);
+    for (auto const& response : m_responses) {
+        EXPECT_EQ(response.GetDestination(), *test::ServerIdentifier);
+        EXPECT_EQ(response.GetRoute(), Awaitable::Test::RequestRoute);
+        
+        auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
+        EXPECT_TRUE(optExtension);
+        EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+        EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 TEST_F(RequestTrackerSuite, UnexpectedResponseTest)
 {
-    Awaitable::RequestTracker tracker{ m_spProxy, m_onResponse, m_onError };
+    Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, m_spProxy, m_onResponse, m_onError };
 
     EXPECT_FALSE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
-    EXPECT_FALSE(m_optFulfilledResponse);
+    EXPECT_TRUE(m_responses.empty());
     EXPECT_FALSE(m_optError);
 
     {
@@ -180,7 +291,7 @@ TEST_F(RequestTrackerSuite, UnexpectedResponseTest)
         EXPECT_EQ(tracker.Update(std::move(*optResponse)), Awaitable::ITracker::UpdateResult::Unexpected);
         EXPECT_FALSE(tracker.Fulfill());
         EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Pending);
-        EXPECT_FALSE(m_optFulfilledResponse);
+        EXPECT_TRUE(m_responses.empty());
         EXPECT_FALSE(m_optError);
     }
 
@@ -193,12 +304,12 @@ TEST_F(RequestTrackerSuite, UnexpectedResponseTest)
     EXPECT_TRUE(tracker.Fulfill());
     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 
-    ASSERT_TRUE(m_optFulfilledResponse);
-    EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
+    EXPECT_EQ(m_responses.size(), std::size_t{ 1 });
+    EXPECT_EQ(m_responses.front().GetSource(), *test::ServerIdentifier);
+    EXPECT_EQ(m_responses.front().GetDestination(), test::ClientIdentifier);
+    EXPECT_EQ(m_responses.front().GetRoute(), Awaitable::Test::RequestRoute);
 
-    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_responses.front().GetExtension<Message::Application::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
     EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);

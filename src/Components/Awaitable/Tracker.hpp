@@ -29,7 +29,7 @@ namespace Awaitable {
 //----------------------------------------------------------------------------------------------------------------------
 
 class ITracker;
-class AggregateTracker;
+class DeferredTracker;
 class RequestTracker;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -42,7 +42,7 @@ public:
     static constexpr auto ExpirationPeriod = std::chrono::milliseconds{ 1'500 };
 
     enum class Status : std::uint32_t { Pending, Fulfilled, Completed };
-    enum class UpdateResult : std::uint32_t { Expired, Unexpected, Success, Fulfilled };
+    enum class UpdateResult : std::uint32_t { Expired, Unexpected, Success, Partial, Fulfilled };
 
     virtual ~ITracker() = default;
 
@@ -51,14 +51,16 @@ public:
     [[nodiscard]] std::size_t GetExpected() const;
     [[nodiscard]] std::size_t GetReceived() const;
 
+    [[nodiscard]] virtual bool Correlate(Node::SharedIdentifier const& identifier) = 0;
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) = 0;
     [[nodiscard]] virtual UpdateResult Update(
         Node::Identifier const& identifier, Message::Payload&& data) = 0;
     [[nodiscard]] virtual bool Fulfill() = 0;
 
 protected:
-    explicit ITracker(std::size_t expected);
+    ITracker(Awaitable::TrackerKey key, std::size_t expected);
 
+    Awaitable::TrackerKey m_key;
     Status m_status;
     std::size_t m_expected;
     std::size_t m_received;
@@ -71,11 +73,19 @@ class Awaitable::RequestTracker : public Awaitable::ITracker
 {
 public:
     RequestTracker(
+        Awaitable::TrackerKey key, 
         std::weak_ptr<Peer::Proxy> const& wpProxy,
         Peer::Action::OnResponse const& onResponse,
         Peer::Action::OnError const& onError);
 
+    RequestTracker(
+        Awaitable::TrackerKey key,
+        std::size_t expected,
+        Peer::Action::OnResponse const& onResponse,
+        Peer::Action::OnError const& onError);
+
     // ITracker {
+    [[nodiscard]] virtual bool Correlate(Node::SharedIdentifier const& identifier) override;
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) override;
     [[nodiscard]] virtual UpdateResult Update(
         Node::Identifier const& identifier, Message::Payload&& data) override;
@@ -83,24 +93,25 @@ public:
     // } ITracker
 
 private:
-    Node::SharedIdentifier m_spRequestee;
-    std::optional<Message::Application::Parcel> m_optResponse;
+    std::unordered_map<Node::SharedIdentifier, bool, Node::SharedIdentifierHasher> m_ledger;
+    std::vector<Message::Application::Parcel> m_responses;
     Peer::Action::OnResponse m_onResponse;
     Peer::Action::OnError m_onError;
-    std::weak_ptr<Peer::Proxy> m_wpProxy;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Awaitable::AggregateTracker : public Awaitable::ITracker
+class Awaitable::DeferredTracker : public Awaitable::ITracker
 {
 public:
-    AggregateTracker(
+    DeferredTracker(
+        Awaitable::TrackerKey key, 
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
         Message::Application::Parcel const& request,
         std::vector<Node::SharedIdentifier> const& identifiers);
 
     // ITracker {
+    [[nodiscard]] virtual bool Correlate(Node::SharedIdentifier const& identifier) override;
     [[nodiscard]] virtual UpdateResult Update(Message::Application::Parcel&& message) override;
     [[nodiscard]] virtual UpdateResult Update(
         Node::Identifier const& identifier, Message::Payload&& data) override;

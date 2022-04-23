@@ -216,8 +216,9 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
         .SetSource(*test::ClientIdentifier)
         .SetRoute(Route::Fundamental::Information::NodeHandler::Path);
 
-    bool const hasSentRequest = m_client.GetProxy()->Request(builder,
-        [&, wpProxy = std::weak_ptr<Peer::Proxy>{ m_client.GetProxy() }] (Message::Application::Parcel const& response) {
+    auto const wpProxy = std::weak_ptr<Peer::Proxy>{ m_client.GetProxy() };
+    auto const optTrackerKey = m_client.GetProxy()->Request(builder,
+        [&] (Awaitable::TrackerKey const&, Message::Application::Parcel const& response) {
             auto const spProxy = wpProxy.lock();
             ASSERT_TRUE(spProxy);
 
@@ -245,8 +246,8 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
                 payload.update_timestamp, m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
             EXPECT_EQ(payload.protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
         },
-        [&] (auto const&, auto) { ASSERT_FALSE(true); });
-    EXPECT_TRUE(hasSentRequest);
+        [&] (auto const&, auto const&, auto) { ASSERT_FALSE(true); });
+    EXPECT_TRUE(optTrackerKey);
     ASSERT_TRUE(m_optRequest);
     EXPECT_EQ(m_client.GetTrackingService()->Waiting(), std::size_t{ 1 });
 
@@ -274,8 +275,9 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
         .SetSource(*test::ClientIdentifier)
         .SetRoute(Route::Fundamental::Information::FetchNodeHandler::Path);
 
-    bool const hasSentRequest = m_client.GetProxy()->Request(builder,
-        [&, wpProxy = std::weak_ptr<Peer::Proxy>{ m_client.GetProxy() }] (Message::Application::Parcel const& response) {
+    auto const wpProxy = std::weak_ptr<Peer::Proxy>{ m_client.GetProxy() };
+    auto const optTrackerKey = m_client.GetProxy()->Request(builder,
+        [&] (Awaitable::TrackerKey const&, Message::Application::Parcel const& response) {
             auto const spProxy = wpProxy.lock();
             ASSERT_TRUE(spProxy);
 
@@ -330,8 +332,8 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
             }
             EXPECT_TRUE(hasFoundServerResponse);
         },
-        [&] (auto const&, auto) { ASSERT_FALSE(true); });
-    EXPECT_TRUE(hasSentRequest);
+        [&] (auto const&, auto const&, auto) { ASSERT_FALSE(true); });
+    EXPECT_TRUE(optTrackerKey);
     ASSERT_TRUE(m_optRequest);
     EXPECT_EQ(m_client.GetTrackingService()->Waiting(), std::size_t{ 1 });
     EXPECT_EQ(m_server.GetTrackingService()->Waiting(), std::size_t{ 0 });

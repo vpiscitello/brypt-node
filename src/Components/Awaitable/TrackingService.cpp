@@ -64,8 +64,33 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageRequest(
         std::scoped_lock lock{ m_mutex };
         m_logger->debug(CreateMessage, *builder.GetDestination(), *optTrackerKey);
         builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, *optTrackerKey);
-        m_trackers.emplace(*optTrackerKey, std::make_unique<RequestTracker>(wpRequestee, onResponse, onError));
+        m_trackers.emplace(
+            *optTrackerKey, std::make_unique<RequestTracker>(*optTrackerKey, wpRequestee, onResponse, onError));
         return optTrackerKey;
+    }
+
+    return {};
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Awaitable::TrackingService::Correlatable> Awaitable::TrackingService::StageRequest(
+    Node::Identifier const& self,
+    std::size_t expected,
+    Peer::Action::OnResponse const& onResponse,
+    Peer::Action::OnError const& onError)
+{
+    using namespace Message::Application; 
+    constexpr std::string_view CreateMessage = "Staging awaitable tracker for a request to the cluster. [id={}]";
+
+    if (auto const optTrackerKey = GenerateKey(self); optTrackerKey) {
+        std::scoped_lock lock{ m_mutex };
+        m_logger->debug(CreateMessage, *optTrackerKey);
+        auto const spTracker = std::make_shared<RequestTracker>(*optTrackerKey, expected, onResponse, onError);
+        m_trackers.emplace(*optTrackerKey, spTracker);
+        return std::make_pair(*optTrackerKey, [spTracker] (auto const& spIdentifier) {
+            return spTracker->Correlate(spIdentifier);
+        });
     }
 
     return {};
@@ -89,7 +114,8 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
         std::scoped_lock lock{ m_mutex };
         m_logger->debug(CreateMessage, deferred.GetSource(), *optTrackerKey);
         builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, *optTrackerKey);
-        m_trackers.emplace(*optTrackerKey, std::make_unique<AggregateTracker>(wpRequestor, deferred, identifiers));
+        m_trackers.emplace(
+            *optTrackerKey, std::make_shared<DeferredTracker>(*optTrackerKey, wpRequestor, deferred, identifiers));
         return optTrackerKey;
     }
 
@@ -120,9 +146,14 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
         return false;
     }
 
-    auto const OnTrackerReady = [this] (TrackerKey key, std::unique_ptr<ITracker>&& upTracker) {
-        m_ready.emplace_back(std::move(upTracker));
+    auto const OnTrackerReady = [this] (TrackerKey key, std::shared_ptr<ITracker>&& spTracker) {
+        m_ready.emplace_back(std::move(spTracker));
         m_trackers.erase(key);
+        m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
+    };
+
+    auto const OnTrackerPartial = [this] (std::shared_ptr<ITracker> const& spTracker) {
+        m_ready.emplace_back(spTracker);
         m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
     };
 
@@ -130,6 +161,10 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
     switch (awaitable->second->Update(std::move(message))) {
         case ITracker::UpdateResult::Success: {
              m_logger->debug(SuccessMessage, key);
+        } break;
+        case ITracker::UpdateResult::Partial: {
+            m_logger->debug(SuccessMessage, key);
+            OnTrackerPartial(awaitable->second);
         } break;
         case ITracker::UpdateResult::Fulfilled: {
             m_logger->debug(FulfilledMessage, key);
@@ -165,8 +200,8 @@ bool Awaitable::TrackingService::Process(
         return false;
     }
 
-    auto const OnTrackerReady = [this] (TrackerKey key, std::unique_ptr<ITracker>&& upTracker) {
-        m_ready.emplace_back(std::move(upTracker));
+    auto const OnTrackerReady = [this] (TrackerKey key, std::shared_ptr<ITracker>&& spTracker) {
+        m_ready.emplace_back(std::move(spTracker));
         m_trackers.erase(key);
         m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
     };
@@ -208,8 +243,8 @@ std::size_t Awaitable::TrackingService::Execute()
 {
     std::scoped_lock lock{ m_mutex };
 
-    std::ranges::for_each(m_ready, [this] (auto const& upTracker) {
-        [[maybe_unused]] bool const success = upTracker->Fulfill();
+    std::ranges::for_each(m_ready, [this] (auto const& spTracker) {
+        [[maybe_unused]] bool const success = spTracker->Fulfill();
     });
 
     std::size_t executed = m_ready.size();

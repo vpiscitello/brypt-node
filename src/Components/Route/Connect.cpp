@@ -220,8 +220,8 @@ bool Route::Fundamental::Connect::DiscoveryProtocol::SendRequest(
         .SetRoute(Route::Fundamental::Connect::DiscoveryHandler::Path)
         .SetPayload(m_spSharedPayload);
 
-    return spProxy->Request(builder,
-        [this, wpProxy = std::weak_ptr<Peer::Proxy>{ spProxy }] (auto const& response) {
+    auto const optTrackerKey = spProxy->Request(builder,
+        [this, wpProxy = std::weak_ptr<Peer::Proxy>{ spProxy }] (auto const&, auto const& response) {
             auto const spProxy = wpProxy.lock();
             if (!spProxy) { return; }
 
@@ -257,9 +257,11 @@ bool Route::Fundamental::Connect::DiscoveryProtocol::SendRequest(
                 }
             }
         },
-        [this] (Node::Identifier const& identifier, Peer::Action::Error) {
-            m_logger->warn("Encountered an error waiting for discovery response from: {}", identifier);
+        [this] (Awaitable::TrackerKey const&, Node::SharedIdentifier const& spIdentifier, Peer::Action::Error) {
+            m_logger->warn("Encountered an error waiting for discovery response from: {}", spIdentifier);
         });
+    
+    return optTrackerKey.has_value();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

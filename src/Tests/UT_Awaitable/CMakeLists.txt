@@ -11,7 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
-    AggregateTrackerTest.cpp
+    DeferredTrackerTest.cpp
     RequestTrackerTest.cpp
     TrackingServiceTest.cpp
     UT_Awaitable.cpp)

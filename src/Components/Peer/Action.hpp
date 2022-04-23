@@ -34,9 +34,9 @@ class Next;
 
 enum class Error : std::uint32_t { UnexpectedError, Expired };
 
-using OnResponse = std::function<void(Message::Application::Parcel const& response)>;
+using OnResponse = std::function<void(Awaitable::TrackerKey const&, Message::Application::Parcel const& response)>;
 using OnMessage = std::function<void(Message::Application::Parcel const& message, Next& next)>;
-using OnError = std::function<void(Node::Identifier const&, Error error)>;
+using OnError = std::function<void(Awaitable::TrackerKey const&, Node::SharedIdentifier const&, Error error)>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Action namespace

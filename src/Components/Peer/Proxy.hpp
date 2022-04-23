@@ -11,6 +11,7 @@
 #include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageTypes.hpp"
 #include "BryptMessage/ShareablePack.hpp"
+#include "Components/Awaitable/Definitions.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Network/Actions.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
@@ -79,9 +80,10 @@ public:
     // } Message Receipt Methods
 
     // Message Dispatch Methods {
-    [[nodiscard]] bool Request(
+    [[nodiscard]] std::optional<Awaitable::TrackerKey> Request(
         Message::Application::Builder& builder, Action::OnResponse const& onResponse, Action::OnError const& onError);
     
+    [[nodiscard]] bool ScheduleSend(Message::Application::Builder& builder) const;
     [[nodiscard]] bool ScheduleSend(Network::Endpoint::Identifier identifier, std::string&& message) const;
     [[nodiscard]] bool ScheduleSend(
         Network::Endpoint::Identifier identifier, Message::ShareablePack const& spSharedPack) const;
@@ -139,6 +141,9 @@ public:
 private:
     using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;
     
+    [[nodiscard]] RegisteredEndpoints::const_iterator GetOrSetPreferredEndpoint(
+        Message::Application::Builder& builder) const; 
+    [[nodiscard]] RegisteredEndpoints::const_iterator FetchPreferredEndpoint() const; 
     void BindSecurityContext(Message::Context& context) const;
 
     Node::SharedIdentifier m_spIdentifier;

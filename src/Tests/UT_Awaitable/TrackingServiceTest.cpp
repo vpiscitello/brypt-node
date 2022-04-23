@@ -16,7 +16,9 @@
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <random>
 #include <thread>
+#include <unordered_set>
 //----------------------------------------------------------------------------------------------------------------------
 using namespace std::chrono_literals;
 //----------------------------------------------------------------------------------------------------------------------
@@ -107,7 +109,7 @@ Message::Context TrackingServiceSuite::m_context = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(TrackingServiceSuite, DeferredRequestFulfilledTest)
+TEST_F(TrackingServiceSuite, DeferredFulfillmentTest)
 {
     Awaitable::TrackingService service{ m_spScheduler };
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
@@ -191,6 +193,86 @@ TEST_F(TrackingServiceSuite, ExpiredAwaitableTest)
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 
     EXPECT_TRUE(m_optFulfilledResponse);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
+{
+    Awaitable::TrackingService service{ m_spScheduler };
+    EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
+    EXPECT_EQ(service.Ready(), std::size_t{ 0 });
+
+    std::vector<Message::Application::Parcel> responses;
+    auto const onResponse = [&responses] (auto const&, Message::Application::Parcel const& parcel) {
+        responses.emplace_back(parcel);
+    };
+
+    std::vector<std::tuple<Awaitable::TrackerKey, Node::SharedIdentifier, Peer::Action::Error>> errors;
+    auto const onError = [&errors] (auto const& key, auto const& spIdentifier, auto error) {
+        errors.emplace_back(std::make_tuple(key, spIdentifier, error));
+    };
+
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 3);
+
+    // Stage the deferred request such that other "nodes" can be notified and response.    
+    auto const optResult = service.StageRequest(*test::ServerIdentifier, identifiers.size(), onResponse, onError);
+    ASSERT_TRUE(optResult); // The service should supply a tracker key on success. 
+
+    auto const& [tracker, correlator] = *optResult;
+    EXPECT_NE(tracker, Awaitable::TrackerKey{}); // The key should not be defaulted.
+    for (auto const& spIdentifier : identifiers) { EXPECT_TRUE(correlator(spIdentifier)); }
+
+    std::random_device device;
+    std::mt19937 generator{ device() };
+    std::bernoulli_distribution distribution{ 0.5 };
+
+    std::size_t responded = 0;
+    auto selected = identifiers | std::views::filter([&] (auto const&) { return distribution(generator); });
+    std::ranges::for_each(selected, [&] (auto const& spIdentifier) mutable {
+        auto optResponse = Awaitable::Test::GenerateResponse(
+            m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::RequestRoute, tracker);
+        ASSERT_TRUE(optResponse);
+        EXPECT_TRUE(service.Process(std::move(*optResponse)));
+        EXPECT_EQ(service.Waiting(), std::size_t{ 1 });
+        EXPECT_EQ(service.Ready(), std::size_t{ 1 }); // The responses should be sent to the handler as they are received.
+        EXPECT_EQ(service.Execute(), std::size_t{ 1 });
+        ++responded;
+    });
+
+    std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
+
+    auto const frames = Scheduler::Frame{ Awaitable::TrackingService::CheckInterval.GetValue() };
+    EXPECT_EQ(m_spScheduler->Run<InvokeContext::Test>(frames), std::size_t{ 1 });
+    EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
+    EXPECT_EQ(service.Ready(), std::size_t{ 0 });
+
+    EXPECT_EQ(responses.size(), responded);
+    EXPECT_EQ(errors.size(), identifiers.size() - responded);
+
+    std::unordered_set<Node::Identifier, Node::IdentifierHasher> processed;
+    for (auto const& response : responses) {
+        auto const [itr, emplaced] = processed.emplace(response.GetSource());
+        EXPECT_TRUE(emplaced);
+        EXPECT_EQ(response.GetDestination(), *test::ServerIdentifier);
+        EXPECT_EQ(response.GetRoute(), Awaitable::Test::RequestRoute);
+        
+        auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
+        EXPECT_TRUE(optExtension);
+        EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+        EXPECT_EQ(optExtension->get().GetTracker(), tracker);  
+    }
+
+    for (auto const& [key, spIdentifier, error] : errors) {
+        EXPECT_EQ(key, tracker);
+
+        auto const [itr, emplaced] = processed.emplace(*spIdentifier);
+        EXPECT_TRUE(emplaced);
+
+        EXPECT_EQ(error, Peer::Action::Error::Expired);
+    }
+
+    for (auto const& spIdentifier : identifiers) { EXPECT_TRUE(processed.contains(*spIdentifier)); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

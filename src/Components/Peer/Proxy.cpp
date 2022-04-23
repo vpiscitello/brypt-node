@@ -131,34 +131,24 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Proxy::Request(
+std::optional<Awaitable::TrackerKey> Peer::Proxy::Request(
     Message::Application::Builder& builder, Action::OnResponse const& onResponse, Action::OnError const& onError)
 {
     auto const spTrackingService = m_wpTrackingService.lock();
-    if (!spTrackingService) { return false; }
+    if (!spTrackingService) { return {}; }
     
     std::scoped_lock lock{ m_endpointsMutex };
-    if (m_endpoints.empty()) { return false; }
-
-    // Fetch the endpoint to be used to send out the request. If the request builder does not have a context 
-    // attached, use one of the known registered endpoints. Otherwise, ensure the one that has been provided if
-    // it is valid. 
-    RegisteredEndpoints::const_iterator endpoint;
-    if (auto const& context = builder.GetContext(); context == Message::Context{}) {
-        endpoint = m_endpoints.begin(); // Note: Using preferred endpoint will be future work. 
-        auto const& [identifier, registration] = *endpoint;
-        builder.SetContext(registration.GetMessageContext());
-    } else {
-        endpoint = m_endpoints.find(context.GetEndpointIdentifier());
-        if (endpoint == m_endpoints.end()) { return false; }
-    }
+    if (m_endpoints.empty()) { return {}; }
+    
+    auto const endpoint = GetOrSetPreferredEndpoint(builder); // Fetch the endpoint to be used to send out the request. 
+    if (endpoint == m_endpoints.end()) { return {}; }
 
     builder.SetDestination(*m_spIdentifier); // Set the destination as the the one represented by this proxy. 
 
     // Use the tracking service to stage the outgoing request such that the associated callbacks can be 
     // executed when it has been fulfilled. 
-    auto const optTracker = spTrackingService->StageRequest(weak_from_this(), onResponse, onError, builder);
-    if (!optTracker) { return false; }
+    auto const optTrackerKey = spTrackingService->StageRequest(weak_from_this(), onResponse, onError, builder);
+    if (!optTrackerKey) { return {}; }
 
     if (auto const optRequest = builder.ValidatedBuild(); optRequest) [[likely]] {
         m_statistics.IncrementSentCount();
@@ -167,7 +157,29 @@ bool Peer::Proxy::Request(
         assert(optRequest->GetExtension<Message::Application::Extension::Awaitable>());
         auto const& [identifier, registration] = *endpoint;
         auto const& scheduler = registration.GetMessageAction();
-        return scheduler(*m_spIdentifier, Network::MessageVariant{ optRequest->GetPack() });
+        bool const success = scheduler(*m_spIdentifier, Network::MessageVariant{ optRequest->GetPack() });
+        if (success) { return optTrackerKey; }
+    }
+
+    return {};
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::ScheduleSend(Message::Application::Builder& builder) const
+{
+    auto const endpoint = GetOrSetPreferredEndpoint(builder);
+    if (endpoint == m_endpoints.end()) { return false; }
+
+    builder.SetDestination(*m_spIdentifier); // Set the destination as the the one represented by this proxy. 
+
+    if (auto const optMessage = builder.ValidatedBuild(); optMessage) [[likely]] {
+        m_statistics.IncrementSentCount();
+
+        assert(!optMessage->GetRoute().empty());
+        auto const& [identifier, registration] = *endpoint;
+        auto const& scheduler = registration.GetMessageAction();
+        return scheduler(*m_spIdentifier, Network::MessageVariant{ optMessage->GetPack() });
     }
 
     return false;
@@ -186,7 +198,7 @@ bool Peer::Proxy::ScheduleSend(Network::Endpoint::Identifier identifier, std::st
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetMessageAction();
         assert(m_spIdentifier && scheduler);
-        return scheduler(*m_spIdentifier, Network::MessageVariant{std::move(message)});
+        return scheduler(*m_spIdentifier, Network::MessageVariant{ std::move(message) });
     }
 
     return false;
@@ -206,7 +218,7 @@ bool Peer::Proxy::ScheduleSend(
         auto const& [key, endpoint] = *itr;
         auto const& scheduler = endpoint.GetMessageAction();
         assert(m_spIdentifier && scheduler);
-        return scheduler(*m_spIdentifier, Network::MessageVariant{spSharedPack});
+        return scheduler(*m_spIdentifier, Network::MessageVariant{ spSharedPack });
     }
 
     return false;
@@ -222,15 +234,11 @@ void Peer::Proxy::RegisterEndpoint(Registration const& registration)
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
-    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notification
-    // is deferred until an exchange is successfully completed. 
-    if (m_authorization == Security::State::Authorized) {
-        auto const spMediator = m_wpMediator.lock();
-        assert(spMediator);
-        auto const& identifier = registration.GetEndpointIdentifier();
-        auto const& address = registration.GetAddress();
-        spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
-    }
+    auto const spMediator = m_wpMediator.lock();
+    assert(spMediator);
+    auto const& identifier = registration.GetEndpointIdentifier();
+    auto const& address = registration.GetAddress();
+    spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -252,13 +260,9 @@ void Peer::Proxy::RegisterEndpoint(
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
-    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notification
-    // is deferred until an exchange is successfully completed. 
-    if (m_authorization == Security::State::Authorized) {
-        auto const spMediator = m_wpMediator.lock();
-        assert(spMediator);
-        spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
-    }
+    auto const spMediator = m_wpMediator.lock();
+    assert(spMediator);
+    spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -445,26 +449,39 @@ bool Peer::Proxy::StartExchange(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::State Peer::Proxy::GetAuthorization() const
+Security::State Peer::Proxy::GetAuthorization() const { return m_authorization; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsFlagged() const { return m_authorization == Security::State::Flagged; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsAuthorized() const { return m_authorization == Security::State::Authorized; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Peer::Proxy::RegisteredEndpoints::const_iterator Peer::Proxy::GetOrSetPreferredEndpoint(
+    Message::Application::Builder& builder) const
 {
-    std::shared_lock lock{ m_securityMutex };
-    return m_authorization;
+    // If the builder does not have a context  attached, use one of the known registered endpoints. Otherwise, ensure
+    // the one that has been provided if it is valid. 
+    RegisteredEndpoints::const_iterator endpoint = m_endpoints.end();
+    if (auto const& context = builder.GetContext(); context == Message::Context{}) {
+        endpoint = FetchPreferredEndpoint();
+        auto const& [identifier, registration] = *endpoint;
+        builder.SetContext(registration.GetMessageContext());
+    } else {
+        endpoint = m_endpoints.find(context.GetEndpointIdentifier());
+    }
+    return endpoint;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Proxy::IsFlagged() const
+Peer::Proxy::RegisteredEndpoints::const_iterator Peer::Proxy::FetchPreferredEndpoint() const
 {
-    std::shared_lock lock{ m_securityMutex };
-    return m_authorization == Security::State::Flagged;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Peer::Proxy::IsAuthorized() const
-{
-    std::shared_lock lock{ m_securityMutex };
-    return m_authorization == Security::State::Authorized;
+    return m_endpoints.begin(); // Note: Using preferred endpoint will be future work. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -523,10 +540,7 @@ void Peer::Proxy::SetReceiver<InvokeContext::Test>(IMessageSink* const pMessageS
 //----------------------------------------------------------------------------------------------------------------------
 
 template<>
-void Peer::Proxy::SetAuthorization<InvokeContext::Test>(Security::State state)
-{
-    m_authorization = state;
-}
+void Peer::Proxy::SetAuthorization<InvokeContext::Test>(Security::State state) { m_authorization = state; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

@@ -164,10 +164,10 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
     std::optional<Message::Application::Parcel> optResponse;
     std::optional<Peer::Action::Error> optError;
     
-    bool const result = m_spProxy->Request(builder, 
-        [&optResponse] (auto const& response) { optResponse = response; },
-        [&optError] (auto const&, auto error) { optError = error; });
-    EXPECT_TRUE(result);
+    auto const optTrackerKey = m_spProxy->Request(builder, 
+        [&optResponse] (auto const&, auto const& response) { optResponse = response; },
+        [&optError] (auto const&, auto const&, auto error) { optError = error; });
+    EXPECT_TRUE(optTrackerKey);
     EXPECT_FALSE(optResponse);
     EXPECT_FALSE(optError);
 
@@ -231,10 +231,10 @@ TEST_F(PeerActionSuite, ExpiredRequestTest)
     std::optional<Message::Application::Parcel> optResponse;
     std::optional<Peer::Action::Error> optError;
     
-    bool const result = m_spProxy->Request(builder, 
-        [&optResponse] (auto const& response) { optResponse = response; },
-        [&optError] (auto const&, auto error) { optError = error; });
-    EXPECT_TRUE(result);
+    auto const optTrackerKey = m_spProxy->Request(builder, 
+        [&optResponse] (auto const&, auto const& response) { optResponse = response; },
+        [&optError] (auto const&, auto const&, auto error) { optError = error; });
+    EXPECT_TRUE(optTrackerKey);
     EXPECT_FALSE(optResponse);
     EXPECT_FALSE(optError);
 
