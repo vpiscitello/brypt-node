@@ -11,6 +11,7 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    AuxiliaryHandlerTest.cpp
     ConnectHandlerTest.cpp
     InformationHandlerTest.cpp
     PathTest.cpp
