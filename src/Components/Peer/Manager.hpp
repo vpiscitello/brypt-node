@@ -25,6 +25,8 @@
 
 class IConnectProtocol;
 class IPeerObserver;
+
+namespace Awaitable { class TrackingService; }
 namespace Node { class ServiceProvider; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -40,6 +42,7 @@ class Manager;
 class Peer::Manager final : public IPeerMediator, public IPeerCache
 {
 public:
+    using Predicate = std::function<bool(Peer::Proxy const&)>;
     using ForEachFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const)>;
 
     Manager(Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
@@ -79,6 +82,30 @@ public:
     // } IPeerCache
 
     bool ForEach(ForEachFunction const& callback, Filter filter = Filter::Active) const;
+
+    [[nodiscard]] bool Dispatch(
+        std::string_view identifier, std::string_view route, Message::Payload&& payload) const;
+
+    [[nodiscard]] std::size_t Notify(
+        Message::Destination destination,
+        std::string_view route,
+        Message::Payload const& payload,
+        Predicate const& predicate = {}) const;
+
+    [[nodiscard]] std::optional<Awaitable::TrackerKey> Request(
+        std::string_view identifier,
+        std::string_view route, 
+        Message::Payload&& payload,
+        Action::OnResponse const& onResponse,
+        Action::OnError const& onError) const;
+
+    [[nodiscard]] std::optional<Awaitable::TrackerKey> Request(
+        Message::Destination destination,
+        std::string_view route, 
+        Message::Payload const& payload,
+        Action::OnResponse const& onResponse,
+        Action::OnError const& onError,
+        Predicate const& predicate = {}) const;
 
     bool ScheduleDisconnect(std::string_view identifier) const; 
     bool ScheduleDisconnect(Node::Identifier const& identifier) const; 
@@ -130,7 +157,9 @@ private:
     
     mutable std::shared_mutex m_peersMutex;
     PeerTrackingMap m_peers;
+    std::size_t m_active;
     
+    std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<IConnectProtocol> m_spConnectProtocol;
     std::weak_ptr<Node::ServiceProvider> const m_wpServiceProvider;
 };

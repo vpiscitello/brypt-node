@@ -4,6 +4,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptNode/ServiceProvider.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
@@ -54,6 +55,7 @@ private:
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
     std::shared_ptr<NodeState> m_spNodeState;
+    std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
     Message::Context m_context;
@@ -123,6 +125,7 @@ local::ExchangeResources::ExchangeResources()
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spRegistrar))
     , m_spNodeState(std::make_shared<NodeState>(
         std::make_shared<Node::Identifier>(Node::GenerateIdentifier()), Network::ProtocolSet{}))
+    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spRegistrar))
     , m_spConnectProtocol(std::make_shared<Peer::Test::ConnectProtocol>())
     , m_spMessageProcessor(std::make_shared<Peer::Test::MessageProcessor>())
     , m_context(
@@ -132,6 +135,7 @@ local::ExchangeResources::ExchangeResources()
 {
     m_spServiceProvider->Register(m_spEventPublisher);
     m_spServiceProvider->Register(m_spNodeState);
+    m_spServiceProvider->Register(m_spTrackingService);
     m_spServiceProvider->Register<IConnectProtocol>(m_spConnectProtocol);
     m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
 

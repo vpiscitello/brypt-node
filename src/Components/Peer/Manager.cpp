@@ -4,8 +4,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Manager.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/PlatformMessage.hpp"
 #include "BryptNode/ServiceProvider.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
@@ -16,6 +18,7 @@
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
+#include <random>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -41,6 +44,8 @@ Peer::Manager::Manager(Security::Strategy strategy, std::shared_ptr<Node::Servic
     , m_resolving()
     , m_peersMutex()
     , m_peers()
+    , m_active(0)
+    , m_spTrackingService(spServiceProvider->Fetch<Awaitable::TrackingService>())
     , m_spConnectProtocol(spServiceProvider->Fetch<IConnectProtocol>())
     , m_wpServiceProvider(spServiceProvider)
 {
@@ -137,32 +142,40 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
 //----------------------------------------------------------------------------------------------------------------------
 
 void Peer::Manager::OnEndpointRegistered(
-    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
+    std::shared_ptr<Peer::Proxy> const& spProxy,
     Network::Endpoint::Identifier identifier,
     Network::RemoteAddress const& address)
 {
-    using enum Event::Type;
-    NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
-    m_spEventPublisher->Publish<PeerConnected>(spPeerProxy, address);
+    // If this peer has already been marked as authorized, then dispatch the new address. Otherwise, the notification
+    // is deferred until an exchange is successfully completed. 
+    if (spProxy->GetAuthorization() == Security::State::Authorized) {
+        using enum Event::Type;
+        NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
+        m_spEventPublisher->Publish<PeerConnected>(spProxy, address);
+    }
+
+    if (spProxy->RegisteredEndpointCount() == 1) { ++m_active; }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Peer::Manager::OnEndpointWithdrawn(
-    std::shared_ptr<Peer::Proxy> const& spPeerProxy,
+    std::shared_ptr<Peer::Proxy> const& spProxy,
     Network::Endpoint::Identifier identifier,
     Network::RemoteAddress const& address, 
     WithdrawalCause cause)
 {
     // Withdrawing a registed endpoint is only a dispatchable event when not caused by a shutdown request and the
     // peer been authorized (indicating a prior connect event has been dispatched for the peer). 
-    auto const authorization = spPeerProxy->GetAuthorization();
+    auto const authorization = spProxy->GetAuthorization();
     bool dispatchable = cause != WithdrawalCause::NetworkShutdown && authorization == Security::State::Authorized;
     if (dispatchable) {
         using enum Event::Type;
         NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
-        m_spEventPublisher->Publish<PeerDisconnected>(spPeerProxy, address, cause);
+        m_spEventPublisher->Publish<PeerDisconnected>(spProxy, address, cause);
     }
+
+    if (spProxy->RegisteredEndpointCount() == 0) { --m_active; }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -223,6 +236,129 @@ bool Peer::Manager::ForEach(ForEachFunction const& callback, Filter filter) cons
     }
 
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Manager::Dispatch(
+    std::string_view identifier, std::string_view route, Message::Payload&& payload) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    auto const& index = m_peers.template get<ExternalIndex>();
+    if (auto const itr = index.find(identifier.data()); itr != index.end()) {
+        auto const spProxy = *itr;
+
+        auto builder = Message::Application::Parcel::GetBuilder()
+            .SetSource(*m_spNodeIdentifier)
+            .SetRoute(route)
+            .SetPayload(std::move(payload));
+
+        return spProxy->ScheduleSend(builder);
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Peer::Manager::Notify(
+    Message::Destination destination,
+    std::string_view route, 
+    Message::Payload const& payload,
+    Predicate const& predicate) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    std::size_t dispatched = 0;
+    for (auto const& spProxy : m_peers) {
+        if (spProxy->IsActive() && predicate && predicate(*spProxy)) {
+            auto builder = Message::Application::Parcel::GetBuilder()
+                .SetSource(*m_spNodeIdentifier)
+                .SetRoute(route)
+                .SetPayload(Message::Payload{ payload });
+
+            switch(destination) {
+                case Message::Destination::Cluster: builder.MakeClusterMessage(); break;
+                case Message::Destination::Network: builder.MakeNetworkMessage(); break;
+                default: assert(false); break;
+            }
+
+            bool const success = spProxy->ScheduleSend(builder);
+            if (success) { ++dispatched; }
+        }
+    }
+
+    return dispatched;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
+    std::string_view identifier,
+    std::string_view route, 
+    Message::Payload&& payload,
+    Action::OnResponse const& onResponse,
+    Action::OnError const& onError) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    
+    auto const& index = m_peers.template get<ExternalIndex>();
+    if (auto const itr = index.find(identifier.data()); itr != index.end()) {
+        auto const spProxy = *itr;
+
+        auto builder = Message::Application::Parcel::GetBuilder()
+            .SetSource(*m_spNodeIdentifier)
+            .SetRoute(route)
+            .SetPayload(std::move(payload));
+
+        return spProxy->Request(builder, onResponse, onError);
+    }
+
+    return {};
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
+    Message::Destination destination,
+    std::string_view route, 
+    Message::Payload const& payload,
+    Action::OnResponse const& onResponse,
+    Action::OnError const& onError,
+    Predicate const& predicate) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    
+    auto const optResult = m_spTrackingService->StageRequest(*m_spNodeIdentifier, m_active, onResponse, onError);
+    if (!optResult) { return {}; }
+
+    auto const& [key, correlator] = *optResult;
+
+    for (auto const& spProxy : m_peers) {
+        bool const included = (predicate) ? predicate(*spProxy) : spProxy->IsActive();
+        if (included) {
+            using namespace Message::Application;
+
+            [[maybe_unused]] bool const correlated = correlator(spProxy->GetIdentifier());
+            assert(correlated);
+
+            auto builder = Message::Application::Parcel::GetBuilder()
+                .SetSource(*m_spNodeIdentifier)
+                .SetRoute(route)
+                .SetPayload(Message::Payload{ payload });
+
+            switch(destination) {
+                case Message::Destination::Cluster: builder.MakeClusterMessage(); break;
+                case Message::Destination::Network: builder.MakeNetworkMessage(); break;
+                default: assert(false); break;
+            }
+            
+            builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, key);
+
+            [[maybe_unused]] bool const success = spProxy->ScheduleSend(builder);
+            assert(success);
+        }
+    }
+
+    return key;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -304,7 +440,7 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
 
 void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy, Network::RemoteAddress const& address)
 {
-    // If the endppint has declared the address as a resolving peer, this implies that we were the connection initiator. 
+    // If the endpoint has declared the address as a resolving peer, this implies that we were the connection initiator. 
     // In this case, we need to attach the external resolver to the full proxy to handle incoming responses. 
     // Otherwise, we are accepting a new request from an unknown address, in which we need to tell the proxy to start 
     // an resolver to process the messages. 
@@ -326,21 +462,12 @@ void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy
 std::size_t Peer::Manager::PeerCount(Filter filter) const
 {
     std::shared_lock lock(m_peersMutex);
-    if (filter == Filter::None) { return m_peers.size(); } // Short circuit the peer active state iteration. 
-
-    std::size_t count = 0;
-    for (auto const& spProxy: m_peers) {
-        bool isIncluded = false;
-        switch (filter) {
-            case Filter::Active: { isIncluded = spProxy->IsActive(); } break;
-            case Filter::Inactive: { isIncluded = !spProxy->IsActive(); } break;
-            default: assert(false); // What is this?
-        }
-        
-        if (isIncluded) { ++count; }
+    switch (filter) {
+        case Filter::None: return m_peers.size();
+        case Filter::Active: return m_active;
+        case Filter::Inactive: return m_peers.size() - m_active;
+        default: assert(false); // What is this?
     }
-
-    return count;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

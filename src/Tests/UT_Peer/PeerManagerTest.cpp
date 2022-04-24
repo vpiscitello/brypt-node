@@ -4,6 +4,7 @@
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptNode/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -53,6 +54,9 @@ protected:
 
         m_spNodeState = std::make_shared<NodeState>(test::ServerIdentifier, Network::ProtocolSet{});
         m_spServiceProvider->Register(m_spNodeState);
+        
+        m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar);
+        m_spServiceProvider->Register(m_spTrackingService);
 
         m_spConnectProtocol = std::make_shared<Peer::Test::ConnectProtocol>();
         m_spServiceProvider->Register<IConnectProtocol>(m_spConnectProtocol);
@@ -62,12 +66,15 @@ protected:
 
         m_spManager = std::make_shared<Peer::Manager>(Security::Strategy::PQNISTL3, m_spServiceProvider);
         m_spServiceProvider->Register<IPeerMediator>(m_spManager);
+     
+        EXPECT_TRUE(m_spRegistrar->Initialize());
     }
 
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
     std::shared_ptr<NodeState> m_spNodeState;
+    std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
     std::shared_ptr<Peer::Manager> m_spManager;
@@ -105,7 +112,7 @@ TEST_F(PeerManagerSuite, DuplicatePeerDeclarationTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(PeerManagerSuite, UndeclarePeerTest)
+TEST_F(PeerManagerSuite, UndeclaredPeerTest)
 {
     EXPECT_EQ(m_spManager->ResolvingCount(), std::size_t{ 0 });
     EXPECT_EQ(m_spManager->ActiveCount(), std::size_t{ 0 });
@@ -269,7 +276,7 @@ TEST_F(PeerManagerSuite, PeerMultipleEndpointDisconnectTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(PeerManagerSuite, SingleForEachIdentiferCacheTest)
+TEST_F(PeerManagerSuite, SingleForEachIdentifierCacheTest)
 {
     auto const spPeerProxy = m_spManager->LinkPeer(test::ClientIdentifier, Peer::Test::RemoteClientAddress);
     auto const identifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
@@ -296,7 +303,7 @@ TEST_F(PeerManagerSuite, SingleForEachIdentiferCacheTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST_F(PeerManagerSuite, MultipleForEachIdentiferCacheTest)
+TEST_F(PeerManagerSuite, MultipleForEachIdentifierCacheTest)
 {
     std::random_device device;
     std::mt19937 generator(device());
@@ -436,6 +443,71 @@ TEST_F(PeerManagerSuite, MultipleObserverTest)
     }
 
     EXPECT_TRUE(asynchronous.ReceivedExpectedEventSequence());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST_F(PeerManagerSuite, ClusterRequestTest)
+{
+    constexpr std::size_t GenerateIterations = 16;
+    auto const identifier = Network::Endpoint::IdentifierGenerator::Instance().Generate();
+    for (std::uint32_t idx = 0; idx < GenerateIterations; ++idx) {
+        auto const spProxy = m_spManager->LinkPeer(
+            Node::Identifier{ Node::GenerateIdentifier() }, Peer::Test::RemoteClientAddress);
+        spProxy->RegisterEndpoint(
+            identifier, Network::Protocol::TCP, Peer::Test::RemoteClientAddress,
+            [this] (auto const&, auto&&) -> bool { return true; });
+    }
+    
+    std::vector<Message::Application::Parcel> responses;
+    auto const onResponse = [&responses] (auto const&, Message::Application::Parcel const& parcel) {
+        responses.emplace_back(parcel);
+    };
+
+    std::vector<std::tuple<Awaitable::TrackerKey, Node::SharedIdentifier, Peer::Action::Error>> errors;
+    auto const onError = [&errors] (auto const& key, auto const& spIdentifier, auto error) {
+        errors.emplace_back(std::make_tuple(key, spIdentifier, error));
+    };
+
+    auto const optTrackerKey = m_spManager->Request(
+        Message::Destination::Cluster, Peer::Test::RequestRoute, Peer::Test::RequestPayload,
+        onResponse, onError);
+    ASSERT_TRUE(optTrackerKey); 
+    EXPECT_NE(*optTrackerKey, Awaitable::TrackerKey{}); 
+
+    auto const context = Peer::Test::GenerateMessageContext();
+    bool const responded = m_spManager->ForEach([&] (Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration {
+        auto optResponse = Message::Application::Parcel::GetBuilder()
+            .SetContext(context)
+            .SetSource(*spNodeIdentifier)
+            .SetDestination(*test::ServerIdentifier)
+            .SetRoute(Peer::Test::RequestRoute)
+            .SetPayload(Peer::Test::ApplicationPayload)
+            .BindExtension<Message::Application::Extension::Awaitable>(
+                Message::Application::Extension::Awaitable::Binding::Response, *optTrackerKey)
+            .ValidatedBuild();
+        if (optResponse) {
+            bool const processed = m_spTrackingService->Process(std::move(*optResponse));
+            return (processed) ? CallbackIteration::Continue : CallbackIteration::Stop;
+        }
+        return CallbackIteration::Stop;
+    }, IPeerCache::Filter::Active);
+    EXPECT_TRUE(responded);
+
+    auto const frames = Scheduler::Frame{ Awaitable::TrackingService::CheckInterval.GetValue() };
+    EXPECT_EQ(m_spRegistrar->Run<InvokeContext::Test>(frames), m_spManager->ActiveCount());
+
+    EXPECT_EQ(responses.size(), m_spManager->ActiveCount());
+    EXPECT_TRUE(errors.empty());
+
+    for (auto const& response : responses) {
+        EXPECT_EQ(response.GetRoute(), Peer::Test::RequestRoute);
+        
+        auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
+        EXPECT_TRUE(optExtension);
+        EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+        EXPECT_EQ(optExtension->get().GetTracker(), *optTrackerKey);  
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
