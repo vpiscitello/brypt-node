@@ -118,6 +118,43 @@ TEST_F(MessagePayloadSuite, SharedVectorStorageTypeTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+TEST_F(MessagePayloadSuite, SpanStorageTypeTest)
+{
+    m_payload = { std::span<std::uint8_t const>{ test::BufferPayload } };
+
+    EXPECT_TRUE(std::ranges::equal(
+        m_payload.GetReadableView(),
+        std::span{ reinterpret_cast<std::uint8_t const*>(test::StringPayload.data()), test::StringPayload.size() }));
+    EXPECT_EQ(m_payload.GetStringView(), test::StringPayload); 
+    EXPECT_FALSE(m_payload.IsEmpty());
+
+    EXPECT_EQ(m_payload.GetPackSize(), test::ExpectedPackSize);
+
+    Message::Buffer injectable;
+    m_payload.Inject(injectable);
+    EXPECT_TRUE(std::ranges::equal(std::span{ injectable }, test::ExpectedPackBuffer));
+
+    test::UnpackableExpectations const expectations = {
+        // Buffer packed correctly.
+        { { 0x00, 0x00, 0x00, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64 }, false },
+        // Buffer missing data.
+        { { 0x00, 0x00, 0x00, 0x07, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61 }, false },
+        // Buffer missing size field.
+        { { 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64 }, false },
+        // Buffer with mismatched size field, large.
+        { { 0xFF, 0xFF, 0xFF, 0xFF, 0x70, 0x61, 0x79, 0x6c, 0x6f, 0x61, 0x64 }, false },
+    };
+
+    // You can not unpack into a payload containing a reference view. 
+    for (auto const& [buffer, unpackable] : expectations) {
+        std::span bufferview{ buffer };
+        auto begin = bufferview.begin();
+        EXPECT_FALSE(m_payload.Unpack(begin, bufferview.end()));
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 TEST_F(MessagePayloadSuite, NullStorageTypeTest)
 {
     m_payload = { nullptr };

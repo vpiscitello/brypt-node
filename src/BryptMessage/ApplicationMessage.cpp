@@ -153,7 +153,7 @@ std::string Message::Application::Parcel::GetPack() const
     //      - Section 5.1 (1 byte): Extension Type      |   Extension Start
     //      - Section 5.2 (2 bytes): Extension Size     |
     //      - Section 5.3 (N bytes): Extension Data     |   Extension End
-    //  - Section 6 (N bytse): Authentication Token (Strategy Specific)
+    //  - Section 6 (N bytes): Authentication Token (Strategy Specific)
 
 	Message::Buffer buffer = m_header.GetPackedBuffer();
 	buffer.reserve(m_header.GetMessageSize());

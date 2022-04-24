@@ -23,7 +23,9 @@ namespace Message {
 
 template<typename Source>
 concept BufferStorageType = 
-    std::is_same_v<Source, Message::Buffer> || std::is_same_v<Source, std::string>;
+    std::is_same_v<Source, Message::Buffer> ||
+    std::is_same_v<Source, std::span<std::uint8_t const>> ||
+    std::is_same_v<Source, std::string>;
 
 template<typename Source>
 concept SharedStorageType = 
@@ -180,8 +182,8 @@ inline std::span<std::uint8_t const> Message::StorageContainer<std::string>::Get
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<>
-inline std::span<std::uint8_t const> Message::StorageContainer<Message::Buffer>::GetReadableView() const
+template<Message::BufferStorageType StorageType>
+inline std::span<std::uint8_t const> Message::StorageContainer<StorageType>::GetReadableView() const
 {
     return m_data;
 }
@@ -196,8 +198,8 @@ inline std::string_view Message::StorageContainer<std::string>::GetStringView() 
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<>
-inline std::string_view Message::StorageContainer<Message::Buffer>::GetStringView() const
+template<Message::BufferStorageType StorageType>
+inline std::string_view Message::StorageContainer<StorageType>::GetStringView() const
 {
     return std::string_view{ reinterpret_cast<char const*>(m_data.data()), m_data.size() };
 }
@@ -235,14 +237,22 @@ inline void Message::StorageContainer<StorageType>::Inject(Buffer& buffer) const
 
 template<Message::BufferStorageType StorageType>
 inline bool Message::StorageContainer<StorageType>::Unpack(
-    std::span<std::uint8_t const>::iterator& begin,
-	std::span<std::uint8_t const>::iterator const& end)
+    std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end)
 {
-    m_data.clear();
+    m_data = {};
     std::uint32_t size = 0;
     if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
     if (!PackUtils::UnpackChunk(begin, end, m_data, size)) { return false; }
     return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<>
+inline bool Message::StorageContainer<std::span<std::uint8_t const>>::Unpack(
+    std::span<std::uint8_t const>::iterator&, std::span<std::uint8_t const>::iterator const&)
+{
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
