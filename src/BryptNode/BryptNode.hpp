@@ -94,6 +94,7 @@ public:
     [[nodiscard]] std::weak_ptr<SecurityState> GetSecurityState() const;
 
     [[nodiscard]] std::weak_ptr<Event::Publisher> GetEventPublisher() const;
+    [[nodiscard]] std::weak_ptr<Route::Router> GetRouter() const;
     [[nodiscard]] std::weak_ptr<Awaitable::TrackingService> GetTrackingService() const;
     [[nodiscard]] std::weak_ptr<Network::Manager> GetNetworkManager() const;
     [[nodiscard]] std::weak_ptr<Peer::Manager> GetPeerManager() const;

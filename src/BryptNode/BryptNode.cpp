@@ -243,6 +243,10 @@ std::weak_ptr<Event::Publisher> Node::Core::GetEventPublisher() const { return m
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::weak_ptr<Route::Router> Node::Core::GetRouter() const { return m_spRouter; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::weak_ptr<Awaitable::TrackingService> Node::Core::GetTrackingService() const { return m_spTrackingService; }
 
 //----------------------------------------------------------------------------------------------------------------------
