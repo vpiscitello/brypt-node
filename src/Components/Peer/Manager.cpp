@@ -269,7 +269,8 @@ std::size_t Peer::Manager::Notify(
     std::shared_lock lock{ m_peersMutex };
     std::size_t dispatched = 0;
     for (auto const& spProxy : m_peers) {
-        if (spProxy->IsActive() && predicate && predicate(*spProxy)) {
+        bool const included = (predicate) ? predicate(*spProxy) : spProxy->IsActive();
+        if (included) {
             auto builder = Message::Application::Parcel::GetBuilder()
                 .SetSource(*m_spNodeIdentifier)
                 .SetRoute(route)
