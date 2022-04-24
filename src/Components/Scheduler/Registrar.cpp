@@ -238,7 +238,8 @@ template<>
 std::size_t Scheduler::Registrar::Run<InvokeContext::Test>(Frame const& frames)
 {
     std::size_t completed = 0;
-    while (m_frame < frames) { completed += Execute(); }
+    auto const last = m_frame + frames;
+    while (m_frame < last) { completed += Execute(); }
     return completed;
 }
 
