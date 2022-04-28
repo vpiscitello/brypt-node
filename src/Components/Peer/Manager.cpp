@@ -200,15 +200,27 @@ bool Peer::Manager::ForEach(IdentifierReadFunction const& callback, Filter filte
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ActiveCount() const { return PeerCount(Filter::Active); }
+std::size_t Peer::Manager::ActiveCount() const
+{
+    std::scoped_lock lock{ m_peersMutex };
+    return m_active;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::InactiveCount() const { return PeerCount(Filter::Inactive); }
+std::size_t Peer::Manager::InactiveCount() const
+{
+    std::scoped_lock lock{ m_peersMutex };
+    return m_peers.size() - m_active;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ObservedCount() const { return PeerCount(Filter::None); }
+std::size_t Peer::Manager::ObservedCount() const
+{
+    std::scoped_lock lock{ m_peersMutex };
+    return m_peers.size();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -260,13 +272,15 @@ bool Peer::Manager::Dispatch(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::Notify(
+Peer::Manager::ClusterDispatchResult Peer::Manager::Notify(
     Message::Destination destination,
     std::string_view route, 
     Message::Payload const& payload,
     Predicate const& predicate) const
 {
     std::shared_lock lock{ m_peersMutex };
+    if (m_peers.empty()) { return {}; }
+
     std::size_t dispatched = 0;
     for (auto const& spProxy : m_peers) {
         bool const included = (predicate) ? predicate(*spProxy) : spProxy->IsActive();
@@ -318,7 +332,7 @@ std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
+Peer::Manager::ClusterRequestResult Peer::Manager::Request(
     Message::Destination destination,
     std::string_view route, 
     Message::Payload const& payload,
@@ -327,12 +341,14 @@ std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
     Predicate const& predicate) const
 {
     std::shared_lock lock{ m_peersMutex };
+    if (m_peers.empty()) { return {}; }
     
     auto const optResult = m_spTrackingService->StageRequest(*m_spNodeIdentifier, m_active, onResponse, onError);
     if (!optResult) { return {}; }
 
     auto const& [key, correlator] = *optResult;
 
+    std::size_t requested = 0;
     for (auto const& spProxy : m_peers) {
         bool const included = (predicate) ? predicate(*spProxy) : spProxy->IsActive();
         if (included) {
@@ -354,12 +370,17 @@ std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
             
             builder.BindExtension<Extension::Awaitable>(Extension::Awaitable::Request, key);
 
-            [[maybe_unused]] bool const success = spProxy->ScheduleSend(builder);
-            assert(success);
+            bool const success = spProxy->ScheduleSend(builder);
+            if (success) { ++requested; }
         }
     }
 
-    return key;
+    if (requested == 0) {
+        m_spTrackingService->Cancel(key);
+        return std::make_pair(Awaitable::TrackerKey{}, 0);
+    }
+
+    return std::make_pair(key, requested);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -455,19 +476,6 @@ void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy
     if (auto const spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
         bool const result = spProxy->StartExchange(m_strategyType, Security::Role::Acceptor, spServiceProvider);
         assert(result);
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Peer::Manager::PeerCount(Filter filter) const
-{
-    std::shared_lock lock(m_peersMutex);
-    switch (filter) {
-        case Filter::None: return m_peers.size();
-        case Filter::Active: return m_active;
-        case Filter::Inactive: return m_peers.size() - m_active;
-        default: assert(false); // What is this?
     }
 }
 

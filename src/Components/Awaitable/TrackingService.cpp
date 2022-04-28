@@ -124,6 +124,17 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
 
 //----------------------------------------------------------------------------------------------------------------------
 
+void Awaitable::TrackingService::Cancel(Awaitable::TrackerKey const& key)
+{
+    constexpr std::string_view CancelMessage = "Canceling awaitable... [id={}]";
+
+    std::scoped_lock lock{ m_mutex };
+    m_logger->debug(CancelMessage, key);
+    m_trackers.erase(key);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 {
     constexpr std::string_view SuccessMessage = "Received a response for an awaitable. [id={}]";

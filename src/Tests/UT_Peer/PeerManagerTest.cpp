@@ -469,11 +469,12 @@ TEST_F(PeerManagerSuite, ClusterRequestTest)
         errors.emplace_back(std::make_tuple(key, spIdentifier, error));
     };
 
-    auto const optTrackerKey = m_spManager->Request(
+    auto const optResult = m_spManager->Request(
         Message::Destination::Cluster, Peer::Test::RequestRoute, Peer::Test::RequestPayload,
         onResponse, onError);
-    ASSERT_TRUE(optTrackerKey); 
-    EXPECT_NE(*optTrackerKey, Awaitable::TrackerKey{}); 
+    ASSERT_TRUE(optResult); 
+    EXPECT_NE(optResult->first, Awaitable::TrackerKey{}); 
+    EXPECT_NE(optResult->second, GenerateIterations); 
 
     auto const context = Peer::Test::GenerateMessageContext();
     bool const responded = m_spManager->ForEach([&] (Node::SharedIdentifier const& spNodeIdentifier) -> CallbackIteration {
@@ -484,7 +485,7 @@ TEST_F(PeerManagerSuite, ClusterRequestTest)
             .SetRoute(Peer::Test::RequestRoute)
             .SetPayload(Peer::Test::ApplicationPayload)
             .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Binding::Response, *optTrackerKey)
+                Message::Application::Extension::Awaitable::Binding::Response, optResult->first)
             .ValidatedBuild();
         if (optResponse) {
             bool const processed = m_spTrackingService->Process(std::move(*optResponse));
@@ -506,7 +507,7 @@ TEST_F(PeerManagerSuite, ClusterRequestTest)
         auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
         EXPECT_TRUE(optExtension);
         EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-        EXPECT_EQ(optExtension->get().GetTracker(), *optTrackerKey);  
+        EXPECT_EQ(optExtension->get().GetTracker(), optResult->first);  
     }
 }
 

@@ -44,6 +44,8 @@ class Peer::Manager final : public IPeerMediator, public IPeerCache
 public:
     using Predicate = std::function<bool(Peer::Proxy const&)>;
     using ForEachFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const)>;
+    using ClusterDispatchResult = std::optional<std::size_t>;
+    using ClusterRequestResult = std::optional<std::pair<Awaitable::TrackerKey, std::size_t>>;
 
     Manager(Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
@@ -86,7 +88,7 @@ public:
     [[nodiscard]] bool Dispatch(
         std::string_view identifier, std::string_view route, Message::Payload&& payload) const;
 
-    [[nodiscard]] std::size_t Notify(
+    [[nodiscard]] ClusterDispatchResult Notify(
         Message::Destination destination,
         std::string_view route,
         Message::Payload const& payload,
@@ -99,7 +101,7 @@ public:
         Action::OnResponse const& onResponse,
         Action::OnError const& onError) const;
 
-    [[nodiscard]] std::optional<Awaitable::TrackerKey> Request(
+    [[nodiscard]] ClusterRequestResult Request(
         Message::Destination destination,
         std::string_view route, 
         Message::Payload const& payload,
@@ -136,8 +138,6 @@ private:
     [[nodiscard]] std::shared_ptr<Peer::Proxy> CreatePeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address);
     void AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy, Network::RemoteAddress const& address);
-
-    std::size_t PeerCount(Filter filter) const;
 
     template<typename FunctionType, typename...Args>
     void NotifyObservers(FunctionType const& function, Args&&...args);

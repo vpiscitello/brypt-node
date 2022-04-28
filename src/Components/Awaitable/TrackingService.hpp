@@ -67,6 +67,8 @@ public:
         Message::Application::Parcel const& deferred,
         Message::Application::Builder& builder);
 
+    void Cancel(Awaitable::TrackerKey const& key);
+
     [[nodiscard]] bool Process(Message::Application::Parcel&& message);
     [[nodiscard]] bool Process(TrackerKey key, Node::Identifier const& identifier, Message::Payload&& data);
     
