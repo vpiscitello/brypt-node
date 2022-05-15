@@ -12,10 +12,9 @@
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Route/MessageHandler.hpp"
-#include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/Manager.hpp"
-#include "Components/Peer/Manager.hpp"
+#include "Components/Peer/ProxyStore.hpp"
 #include "Components/Route/Connect.hpp"
 #include "Components/Route/Information.hpp"
 #include "Components/Route/Router.hpp"
@@ -46,7 +45,7 @@ Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
     , m_spDiscoveryProtocol()
     , m_spNetworkManager()
-    , m_spPeerManager()
+    , m_spProxyStore()
     , m_spMessageProcessor()
     , m_spBootstrapService()
     , m_initialized(false)
@@ -76,7 +75,7 @@ Node::Core::Core(
     , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
     , m_spDiscoveryProtocol()
     , m_spNetworkManager()
-    , m_spPeerManager()
+    , m_spProxyStore()
     , m_spMessageProcessor()
     , m_spBootstrapService()
     , m_initialized(false)
@@ -159,15 +158,15 @@ bool Node::Core::CreateConfiguredResources(
             endpoints, m_spServiceProvider);
         m_spServiceProvider->Register<IConnectProtocol>(m_spDiscoveryProtocol);
 
-        m_spPeerManager = std::make_shared<Peer::Manager>(strategy, m_spServiceProvider);
-        m_spServiceProvider->Register<IPeerMediator>(m_spPeerManager);
-        m_spServiceProvider->Register<IPeerCache>(m_spPeerManager);
+        m_spProxyStore = std::make_shared<Peer::ProxyStore>(strategy, m_spScheduler, m_spServiceProvider);
+        m_spServiceProvider->Register<IResolutionService>(m_spProxyStore);
+        m_spServiceProvider->Register<IPeerCache>(m_spProxyStore);
     }
 
     // Store the provided bootstrap service and configure it with the node's resouces. 
     {
         m_spBootstrapService = spBootstrapService;
-        m_spBootstrapService->Register(m_spPeerManager.get());
+        m_spBootstrapService->Register(m_spProxyStore.get());
         m_spBootstrapService->Register(m_spScheduler);
         m_spServiceProvider->Register(m_spBootstrapService);
     }
@@ -255,7 +254,7 @@ std::weak_ptr<Network::Manager> Node::Core::GetNetworkManager() const { return m
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::weak_ptr<Peer::Manager> Node::Core::GetPeerManager() const { return m_spPeerManager; }
+std::weak_ptr<Peer::ProxyStore> Node::Core::GetProxyStore() const { return m_spProxyStore; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -313,7 +312,12 @@ ExecutionStatus Node::Core::StartComponents()
     assert(m_spEventPublisher->EventCount() == std::size_t(0)); // All events should be flushed between cycles. 
     m_spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
     m_spEventPublisher->Publish<Event::Type::RuntimeStarted>(); // Publish the first event indicating execution start. 
-    m_spNetworkManager->Startup();
+
+    // Schedule the network manager startup to guarentee the components are started only if the runtime has 
+    // chance to actually run (i.e. shutdown is not immediately called after startup). 
+    m_spTaskService->Schedule([this] () {
+        m_spNetworkManager->Startup();
+    });
 
     return ExecutionStatus::Standby;
 }

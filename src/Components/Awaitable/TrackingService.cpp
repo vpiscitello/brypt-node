@@ -11,6 +11,7 @@
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/container_hash/hash.hpp>
+#include <openssl/err.h>
 #include <openssl/md5.h>
 #include <openssl/rand.h>
 #include <spdlog/fmt/bundled/ranges.h>
@@ -284,23 +285,28 @@ void Awaitable::TrackingService::CheckTrackers()
 
 std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::GenerateKey(Node::Identifier const& identifier) const
 {
-    std::array<std::uint8_t, MD5_DIGEST_LENGTH> digest;
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> upDigestContext(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
+    std::array<std::uint8_t, MD5_DIGEST_LENGTH> digest{ 0 };
+	
+    if (ERR_get_error() != 0 || upDigestContext == nullptr) { return {}; }
 
-    MD5_CTX ctx;
-    if (!MD5_Init(&ctx)) { return {}; }
+    if(!EVP_DigestInit_ex(upDigestContext.get(), EVP_md5(), nullptr)) { return { }; }
 
     Node::Internal::Identifier const internal = identifier;
-    if (!MD5_Update(&ctx, &internal, sizeof(internal))) { return {}; }
+    if (!EVP_DigestUpdate(upDigestContext.get(), &internal, sizeof(internal))) { return { }; }
 
     auto const timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    if (!MD5_Update(&ctx, &timestamp, sizeof(timestamp))) { return {}; }
+    if (!EVP_DigestUpdate(upDigestContext.get(), &timestamp, sizeof(timestamp))) { return { }; }
 
-    std::array<std::uint8_t, 8> salt;
-    if (!RAND_bytes(salt.data(), salt.size())) { return {}; }
-    if (!MD5_Update(&ctx, salt.data(), salt.size())) { return {}; }
+    constexpr std::int32_t SaltSize = 8;
+    std::array<std::uint8_t, SaltSize> salt;
+    if (!RAND_bytes(salt.data(), SaltSize)) { return { }; }
+    if (!EVP_DigestUpdate(upDigestContext.get(), salt.data(), salt.size())) { return { }; }
 
-    if (!MD5_Final(digest.data(), &ctx)) { return {}; }
+    std::uint32_t length = MD5_DIGEST_LENGTH;
+    if (!EVP_DigestFinal_ex(upDigestContext.get(), digest.data(), &length)) { return { }; }
+    if(length != digest.size()) { return { }; }
 
     return digest;
 }

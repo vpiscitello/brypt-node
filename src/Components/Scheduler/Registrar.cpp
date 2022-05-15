@@ -75,10 +75,12 @@ std::size_t Scheduler::Registrar::Execute()
     assert(Assertions::Threading::IsCoreThread());
     assert(m_initialized);
 
+    ++m_frame;
+
     std::size_t completed = 0;
     constexpr auto ready = [] (auto const& delegate) -> bool { return delegate->Ready(); };
     std::ranges::for_each(m_delegates | std::views::filter(ready), [this, &completed] (auto const& delegate) { 
-       std::size_t const executed = delegate->Execute({}, ++m_frame);
+       std::size_t const executed = delegate->Execute({}, m_frame);
        OnTaskCompleted(executed);
        completed += executed;
     });

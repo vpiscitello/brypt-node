@@ -6,7 +6,7 @@ NodeState::NodeState(Node::SharedIdentifier const& spNodeIdentifier)
     : m_mutex()
     , m_spNodeIdentifier(spNodeIdentifier)
     , m_cluster(0)
-    , m_operation(NodeUtils::DeviceOperation::None)
+    , m_operation(NodeUtils::DeviceOperation::Leaf)
     , m_protocols()
 {
 }
@@ -19,14 +19,14 @@ NodeState::NodeState(
     : m_mutex()
     , m_spNodeIdentifier(spNodeIdentifier)
     , m_cluster(0)
-    , m_operation(NodeUtils::DeviceOperation::None)
+    , m_operation(NodeUtils::DeviceOperation::Leaf)
     , m_protocols(protocols)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Node::SharedIdentifier NodeState::GetNodeIdentifier() const
+Node::SharedIdentifier const& NodeState::GetNodeIdentifier() const
 {
     std::shared_lock lock(m_mutex);
     return m_spNodeIdentifier;

@@ -30,11 +30,11 @@ namespace local {
 class EventObserver;
 
 std::unique_ptr<Network::TCP::Endpoint> MakeServer(
-    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator);
+    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IResolutionService> const& spResolutionService);
 
 std::unique_ptr<Network::TCP::Endpoint> MakeClient(
     Event::SharedPublisher const& spEventPublisher,
-    std::shared_ptr<IPeerMediator> const& spPeerMediator,
+    std::shared_ptr<IResolutionService> const& spResolutionService,
     Network::RemoteAddress const& address);
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ auto const ServerIdentifier = std::make_shared<Node::Identifier const>(Node::Gen
 
 auto Options = Configuration::Options::Endpoint{ Network::Protocol::TCP, "lo", "*:35216" };
 
-constexpr std::uint32_t Iterations = 500;
+constexpr std::uint32_t Iterations = 10;
 constexpr std::uint32_t MissedMessageLimit = 16;
 constexpr std::string_view QueryRoute = "/query";
 
@@ -90,9 +90,9 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     // Create the server resources. The peer mediator stub will store a single Peer::Proxy representing the client.
     auto const spServerProvider = std::make_shared<Node::ServiceProvider>();
     auto const upServerProcessor = std::make_unique<Network::Test::MessageProcessor>(test::ServerIdentifier);
-    auto const spServerMediator = std::make_shared<Network::Test::SinglePeerMediator>(
+    auto const spServerMediator = std::make_shared<Network::Test::SingleResolutionService>(
         test::ServerIdentifier, upServerProcessor.get(), spServerProvider);
-    spServerProvider->Register<IPeerMediator>(spServerMediator);
+    spServerProvider->Register<IResolutionService>(spServerMediator);
     auto upServerEndpoint = local::MakeServer(spEventPublisher, spServerMediator);
     EXPECT_EQ(upServerEndpoint->GetProtocol(), Network::Protocol::TCP);
     EXPECT_EQ(upServerEndpoint->GetProperties().GetOperation(), Network::Operation::Server);
@@ -101,9 +101,9 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
     // Create the client resources. The peer mediator stub will store a single Peer::Proxy representing the server.
     auto const spClientProvider = std::make_shared<Node::ServiceProvider>();
     auto const upClientProcessor = std::make_unique<Network::Test::MessageProcessor>(test::ClientIdentifier);
-    auto const spClientMediator = std::make_shared<Network::Test::SinglePeerMediator>(
+    auto const spClientMediator = std::make_shared<Network::Test::SingleResolutionService>(
         test::ClientIdentifier, upClientProcessor.get(), spClientProvider);
-    spClientProvider->Register<IPeerMediator>(spClientMediator);
+    spClientProvider->Register<IResolutionService>(spClientMediator);
     auto upClientEndpoint = local::MakeClient(spEventPublisher, spClientMediator, ServerAddress);
     EXPECT_EQ(upClientEndpoint->GetProtocol(), Network::Protocol::TCP);
     EXPECT_EQ(upClientEndpoint->GetProperties().GetOperation(), Network::Operation::Client);
@@ -188,21 +188,20 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
             // Handle the reciept of a request sent to the server.
             {
                 std::uint32_t attempts = 0;
-                std::optional<AssociatedMessage> optAssociatedRequest;
+                std::optional<Message::Application::Parcel> optRequest;
                 do {
-                    optAssociatedRequest = upServerProcessor->GetNextMessage();
+                    optRequest = upServerProcessor->GetNextMessage();
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     ++attempts;
-                } while (!optAssociatedRequest && attempts < test::MissedMessageLimit);
-                ASSERT_TRUE(optAssociatedRequest);
+                } while (!optRequest && attempts < test::MissedMessageLimit);
+                ASSERT_TRUE(optRequest);
 
                 // Verify the received request matches the one that was sent through the client.
-                auto const& [wpRequestPeer, message] = *optAssociatedRequest;
-                EXPECT_EQ(message.GetPack(), *spRequest);
+                EXPECT_EQ(optRequest->GetPack(), *spRequest);
 
                 // Send a response to the client
-                if (auto const spRequestPeer = wpRequestPeer.lock(); spRequestPeer) {
-                    EXPECT_TRUE(spRequestPeer->ScheduleSend(message.GetContext().GetEndpointIdentifier(), spResponse));
+                if (auto const spRequestPeer = optRequest->GetContext().GetProxy().lock(); spRequestPeer) {
+                    EXPECT_TRUE(spRequestPeer->ScheduleSend(optRequest->GetContext().GetEndpointIdentifier(), spResponse));
                 }
             }
 
@@ -212,21 +211,20 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
             // Handle the reciept of a response sent to the client.
             {
                 std::uint32_t attempts = 0;
-                std::optional<AssociatedMessage> optAssociatedResponse;
+                std::optional<Message::Application::Parcel> optResponse;
                 do {
-                    optAssociatedResponse = upClientProcessor->GetNextMessage();
+                    optResponse = upClientProcessor->GetNextMessage();
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     ++attempts;
-                } while (!optAssociatedResponse && attempts < test::MissedMessageLimit);
-                ASSERT_TRUE(optAssociatedResponse);
+                } while (!optResponse && attempts < test::MissedMessageLimit);
+                ASSERT_TRUE(optResponse);
 
                 // Verify the received response matches the one that was sent through the server.
-                auto const& [wpResponsePeer, message] = *optAssociatedResponse;
-                EXPECT_EQ(message.GetPack(), *spResponse);
+                EXPECT_EQ(optResponse->GetPack(), *spResponse);
 
                 // Send a request to the server.
-                if (auto const spResponsePeer = wpResponsePeer.lock(); spResponsePeer) {
-                    EXPECT_TRUE(spResponsePeer->ScheduleSend(message.GetContext().GetEndpointIdentifier(), spRequest));
+                if (auto const spResponsePeer = optResponse->GetContext().GetProxy().lock(); spResponsePeer) {
+                    EXPECT_TRUE(spResponsePeer->ScheduleSend(optResponse->GetContext().GetEndpointIdentifier(), spRequest));
                 }
             }
         }
@@ -245,12 +243,11 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
         auto const optDisconnectedRequest = upServerProcessor->GetNextMessage();
         ASSERT_TRUE(optDisconnectedRequest);
 
-        auto const& [wpDisconnectedPeer, message] = *optDisconnectedRequest;
-        auto const spDisconnectedPeer = wpDisconnectedPeer.lock();
+        auto const spDisconnectedPeer = optDisconnectedRequest->GetContext().GetProxy().lock();
         ASSERT_TRUE(spDisconnectedPeer);
         EXPECT_EQ(spDisconnectedPeer, spServerPeer);
         EXPECT_EQ(spDisconnectedPeer->RegisteredEndpointCount(), 0);
-        EXPECT_EQ(message.GetPack(), *spRequest);
+        EXPECT_EQ(optDisconnectedRequest->GetPack(), *spRequest);
     }
 
     // Reset the heartbeat values for the next connect cycle. 
@@ -295,8 +292,7 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
         spServerPeer.reset();
         auto const optDisconnectedRequest = upServerProcessor->GetNextMessage();
         ASSERT_TRUE(optDisconnectedRequest);
-        auto const& [wpDisconnectedPeer, message] = *optDisconnectedRequest;
-        EXPECT_NE(message.GetPack(), *spRequest);
+        EXPECT_NE(optDisconnectedRequest->GetPack(), *spRequest);
     }
 
     EXPECT_EQ(upServerProcessor->InvalidMessageCount(), std::uint32_t(0));
@@ -307,12 +303,12 @@ TEST(TcpEndpointSuite, SingleConnectionTest)
 //----------------------------------------------------------------------------------------------------------------------
 
 std::unique_ptr<Network::TCP::Endpoint> local::MakeServer(
-    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IPeerMediator> const& spPeerMediator)
+    Event::SharedPublisher const& spEventPublisher, std::shared_ptr<IResolutionService> const& spResolutionService)
 {
     auto const properties = Network::Endpoint::Properties{ Network::Operation::Server, test::Options };
     auto upServerEndpoint = std::make_unique<Network::TCP::Endpoint>(properties);
     upServerEndpoint->Register(spEventPublisher);
-    upServerEndpoint->Register(spPeerMediator.get());
+    upServerEndpoint->Register(spResolutionService.get());
     bool const result = upServerEndpoint->ScheduleBind(test::Options.GetBinding());
     return (result) ? std::move(upServerEndpoint) : nullptr;
 }
@@ -321,13 +317,13 @@ std::unique_ptr<Network::TCP::Endpoint> local::MakeServer(
 
 std::unique_ptr<Network::TCP::Endpoint> local::MakeClient(
     Event::SharedPublisher const& spEventPublisher,
-    std::shared_ptr<IPeerMediator> const& spPeerMediator,
+    std::shared_ptr<IResolutionService> const& spResolutionService,
     Network::RemoteAddress const& address)
 {
     auto const properties = Network::Endpoint::Properties{ Network::Operation::Client, test::Options };
     auto upClientEndpoint = std::make_unique<Network::TCP::Endpoint>(properties);
     upClientEndpoint->Register(spEventPublisher);
-    upClientEndpoint->Register(spPeerMediator.get());
+    upClientEndpoint->Register(spResolutionService.get());
     bool const result = upClientEndpoint->ScheduleConnect(address);
     return (result) ? std::move(upClientEndpoint) : nullptr;
 }

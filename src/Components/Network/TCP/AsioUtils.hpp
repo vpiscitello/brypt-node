@@ -23,6 +23,9 @@ using SocketProcessor = boost::asio::awaitable<CompletionOrigin>;
 inline bool Network::TCP::IsInducedError(boost::system::error_code const& error)
 {
     switch (error.value()) {
+#if defined(WIN32)
+        case ERROR_CONNECTION_ABORTED:
+#endif
         case boost::asio::error::operation_aborted:
         case boost::asio::error::shut_down: {
             return true;

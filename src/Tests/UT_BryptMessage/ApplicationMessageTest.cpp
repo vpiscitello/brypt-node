@@ -2,6 +2,9 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/PackUtils.hpp"
+#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -18,6 +21,7 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::Context GenerateMessageContext();
+Message::Context GenerateExpiredContext();
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -27,6 +31,9 @@ namespace test {
 
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
+
+auto const ServiceProvider = std::make_shared<Node::ServiceProvider>();
+auto const Proxy = Peer::Proxy::CreateInstance(ClientIdentifier, ServiceProvider);
 
 constexpr std::string_view RequestRoute = "/request";
 constexpr std::string_view Data = "Hello World!";
@@ -201,9 +208,74 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+TEST(ApplicationMessageSuite, ExpiredContextBuilderTest)
+{
+    auto const optMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(local::GenerateExpiredContext())
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetRoute(test::RequestRoute)
+        .SetPayload(test::Data)
+        .BindExtension<Message::Application::Extension::Awaitable>(
+            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    auto const pack = optMessage->GetPack();
+    EXPECT_TRUE(pack.empty());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+TEST(ApplicationMessageSuite, ExpiredContextPackTest)
+{
+    auto const optMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(local::GenerateMessageContext())
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetRoute(test::RequestRoute)
+        .SetPayload(test::Data)
+        .BindExtension<Message::Application::Extension::Awaitable>(
+            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+        .ValidatedBuild();
+    ASSERT_TRUE(optMessage);
+
+    auto const optPackMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(local::GenerateExpiredContext())
+        .FromEncodedPack(optMessage->GetPack())
+        .ValidatedBuild();
+    EXPECT_FALSE(optPackMessage);
+
+    EXPECT_NE(optPackMessage, optMessage);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Context local::GenerateMessageContext()
 {
-    Message::Context context(test::EndpointIdentifier, test::EndpointProtocol);
+    Message::Context context(test::Proxy, test::EndpointIdentifier, test::EndpointProtocol);
+
+    context.BindEncryptionHandlers(
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type { 
+            return Security::Buffer(buffer.begin(), buffer.end()); 
+        },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type {
+            return Security::Buffer(buffer.begin(), buffer.end());
+        });
+
+    context.BindSignatureHandlers(
+        [] (auto&) -> Security::Signator::result_type { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
+
+    return context;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Context local::GenerateExpiredContext()
+{
+    Message::Context context(std::weak_ptr<Peer::Proxy>{}, test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [] (auto const& buffer, auto) -> Security::Encryptor::result_type { 

@@ -301,7 +301,7 @@ void Network::Manager::CreateTcpEndpoints(
     std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
 {
     assert(options.GetProtocol() == Protocol::TCP);
-    std::shared_ptr<IPeerMediator> const spPeerMediator{ spServiceProvider->Fetch<IPeerMediator>() };
+    std::shared_ptr<IResolutionService> const spResolutionService{ spServiceProvider->Fetch<IResolutionService>() };
 
     // Add the server based endpoint
     {
@@ -309,7 +309,7 @@ void Network::Manager::CreateTcpEndpoints(
         auto spServer = std::make_shared<TCP::Endpoint>(properties);
         spServer->Register(this);
         spServer->Register(m_spEventPublisher);
-        spServer->Register(spPeerMediator.get());
+        spServer->Register(spResolutionService.get());
 
         [[maybe_unused]] bool const scheduled = spServer->ScheduleBind(options.GetBinding());
         assert(scheduled);
@@ -327,7 +327,7 @@ void Network::Manager::CreateTcpEndpoints(
         auto spClient = std::make_shared<TCP::Endpoint>(properties);
         spClient->Register(this);
         spClient->Register(m_spEventPublisher);
-        spClient->Register(spPeerMediator.get());
+        spClient->Register(spResolutionService.get());
 
         // If the endpoint should connect to the stored bootstraps, schedule a one-shot task to be run in the core. 
         if (options.UseBootstraps()) {

@@ -494,7 +494,7 @@ bool Message::Application::Extension::Awaitable::operator==(Awaitable const& oth
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::uint16_t Message::Application::Extension::Awaitable::GetKey() const { return Key; }
+Message::Application::Extension::Key Message::Application::Extension::Awaitable::GetKey() const { return Key; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

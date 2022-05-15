@@ -71,7 +71,7 @@ Route::Router::Prefix* Route::Router::Register(std::string_view route)
         constexpr auto FindCommonPrefix = [] (std::string_view const& left, std::string_view const& right) {
             auto const result = std::ranges::mismatch(left, right);
             std::size_t const size = std::ranges::distance(left.begin(), result.in1);
-            return std::string_view{ left.cbegin(), size };
+            return std::string_view{ left.data(), size };
         };
 
         auto const& prefix = pCurrent->GetPrefix();

@@ -21,7 +21,7 @@ public:
         Node::SharedIdentifier const& spNodeIdentifier,
         Network::ProtocolSet const& protocols);
 
-    Node::SharedIdentifier GetNodeIdentifier() const;
+    Node::SharedIdentifier const& GetNodeIdentifier() const;
     NodeUtils::ClusterIdType GetCluster() const;
     NodeUtils::DeviceOperation GetOperation() const;
 

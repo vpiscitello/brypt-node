@@ -12,7 +12,7 @@
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Security/SecurityState.hpp"
-#include "Interfaces/PeerMediator.hpp"
+#include "Interfaces/ResolutionService.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -21,7 +21,7 @@
 Peer::Proxy::Proxy(
     InstanceToken, Node::Identifier const& identifier, std::shared_ptr<Node::ServiceProvider> const& spProvider)
     : m_spIdentifier()
-    , m_wpMediator(spProvider->Fetch<IPeerMediator>())
+    , m_wpResolutionService(spProvider->Fetch<IResolutionService>())
     , m_wpTrackingService(spProvider->Fetch<Awaitable::TrackingService>())
     , m_authorization(Security::State::Unauthorized)
     , m_securityMutex()
@@ -101,7 +101,7 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
         // Forward the message through the message sink
         std::scoped_lock sinkLock{ m_receiverMutex };
         if (m_pEnabledProcessor) [[likely]] {
-            return m_pEnabledProcessor->CollectMessage(weak_from_this(), context, buffer);
+            return m_pEnabledProcessor->CollectMessage(context, buffer);
         }
     }
 
@@ -122,7 +122,7 @@ bool Peer::Proxy::ScheduleReceive(Network::Endpoint::Identifier identifier, std:
         // Forward the message through the message sink
         std::scoped_lock sinkLock{ m_receiverMutex };
         if (m_pEnabledProcessor) [[likely]] {
-            return m_pEnabledProcessor->CollectMessage(weak_from_this(), context, buffer);
+            return m_pEnabledProcessor->CollectMessage(context, buffer);
         }
     }
 
@@ -226,23 +226,6 @@ bool Peer::Proxy::ScheduleSend(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Proxy::RegisterEndpoint(Registration const& registration)
-{
-    {
-        std::scoped_lock lock{ m_endpointsMutex };
-        auto [itr, result] = m_endpoints.try_emplace(registration.GetEndpointIdentifier(), registration);
-        BindSecurityContext(itr->second.GetWritableMessageContext());
-    }
-
-    auto const spMediator = m_wpMediator.lock();
-    assert(spMediator);
-    auto const& identifier = registration.GetEndpointIdentifier();
-    auto const& address = registration.GetAddress();
-    spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
 void Peer::Proxy::RegisterEndpoint(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
@@ -256,13 +239,14 @@ void Peer::Proxy::RegisterEndpoint(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
-            identifier, protocol, address, scheduler, disconnector);
+            weak_from_this(), identifier, protocol, address, scheduler, disconnector);
+
         BindSecurityContext(itr->second.GetWritableMessageContext());
     }
 
-    auto const spMediator = m_wpMediator.lock();
-    assert(spMediator);
-    spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
+    if (auto const spResolutionService = m_wpResolutionService.lock(); spResolutionService) {
+        spResolutionService->OnEndpointRegistered(shared_from_this(), identifier, address);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -277,10 +261,10 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
         reset = m_endpoints.empty();
     }
 
-    auto const spMediator = m_wpMediator.lock();
     auto const& address = extracted.mapped().GetAddress();
-    assert(spMediator);
-    spMediator->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
+    if (auto const spResolutionService = m_wpResolutionService.lock(); spResolutionService) {
+        spResolutionService->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
+    }
 
     // If this was the last registered endpoint for the peer, unset the authorization state and enabled processor
     // if this peer reconnects another exchange will need to be conducted as nodes do not save keys to the disk. 
@@ -358,6 +342,17 @@ std::size_t Peer::Proxy::RegisteredEndpointCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Peer::Proxy::ForEach(EndpointReader const& reader) const
+{
+    std::scoped_lock lock{ m_endpointsMutex };
+    for (auto const& [identifier, registration] : m_endpoints) {
+        if (reader(registration) != CallbackIteration::Continue) { return false; }
+    }
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool Peer::Proxy::ScheduleDisconnect() const
 {
     std::scoped_lock lock{ m_endpointsMutex };
@@ -406,17 +401,22 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
                 // For each registered endpoint, dispatch the associated address to notify the core of the newly
                 // connected addresses. 
                 for (auto const& [identifier, registration] : m_endpoints) {
-                    auto const spMediator = m_wpMediator.lock();
+                    auto const spResolutionService = m_wpResolutionService.lock();
                     auto const& address = registration.GetAddress();
-                    assert(spMediator);
-                    spMediator->OnEndpointRegistered(shared_from_this(), identifier, address);
+                    assert(spResolutionService);
+                    spResolutionService->OnEndpointRegistered(shared_from_this(), identifier, address);
                 }
             }
-
-            m_upResolver.reset(); // The resolver (i.e. the temporary exchange message processor) is no longer needed. 
         });
 
     return true; 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Peer::Proxy::DetachResolver()
+{
+    m_upResolver.reset(); // Cleanup the attached the resolver, this should be called after the peer has been resolved.
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -486,7 +486,7 @@ Peer::Proxy::RegisteredEndpoints::const_iterator Peer::Proxy::FetchPreferredEndp
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Proxy::BindSecurityContext(Message::Context& context) const
+void Peer::Proxy::BindSecurityContext(Message::Context& context)
 {
     auto const& upStrategy = m_upSecurityStrategy;
 
@@ -523,9 +523,10 @@ void Peer::Proxy::BindSecurityContext(Message::Context& context) const
 //----------------------------------------------------------------------------------------------------------------------
 
 template<>
-void Peer::Proxy::SetMediator<InvokeContext::Test>(std::weak_ptr<IPeerMediator> const& wpMediator)
+void Peer::Proxy::SetResolutionService<InvokeContext::Test>(
+    std::weak_ptr<IResolutionService> const& wpResolutionService)
 {
-    m_wpMediator = wpMediator;
+    m_wpResolutionService = wpResolutionService;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -561,24 +562,6 @@ void Peer::Proxy::AttachSecurityStrategy<InvokeContext::Test>(std::unique_ptr<IS
 //----------------------------------------------------------------------------------------------------------------------
 
 template <>
-void Peer::Proxy::DetachResolver<InvokeContext::Test>()
-{
-    m_upResolver.reset();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template <>
-void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(Registration const& registration)
-{
-    std::scoped_lock lock{ m_endpointsMutex };
-    auto [itr, result] = m_endpoints.try_emplace(registration.GetEndpointIdentifier(), registration);
-    BindSecurityContext(itr->second.GetWritableMessageContext());
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template <>
 void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
@@ -586,8 +569,22 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
     Network::MessageAction const& scheduler)
 {
     std::scoped_lock lock{ m_endpointsMutex };
-    auto [itr, result] =  m_endpoints.try_emplace(identifier, identifier, protocol, address, scheduler);
-    BindSecurityContext(itr->second.GetWritableMessageContext());
+    auto [itr, result] =  m_endpoints.try_emplace(
+        identifier, weak_from_this(), identifier, protocol, address, scheduler);
+
+    // By default, bind simple passthroughs for the context handlers. 
+    auto& context = itr->second.GetWritableMessageContext();
+ 
+    context.BindEncryptionHandlers(
+        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
+            { return Security::Buffer(buffer.begin(), buffer.end()); },
+        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
+            { return Security::Buffer(buffer.begin(), buffer.end()); });
+
+    context.BindSignatureHandlers(
+        [] (auto&) -> Security::Signator::result_type  { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 }
 
 //----------------------------------------------------------------------------------------------------------------------

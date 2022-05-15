@@ -11,6 +11,8 @@
 *.nosync
 *.tmp*
 out
+msvc
+wsl
 .vscode
 .vs
 src/external

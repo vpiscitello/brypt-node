@@ -15,7 +15,7 @@
 #include "Components/Event/Events.hpp"
 #include "Components/Event/SharedPublisher.hpp"
 #include "Interfaces/EndpointMediator.hpp"
-#include "Interfaces/PeerMediator.hpp"
+#include "Interfaces/ResolutionService.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <chrono>
 #include <memory>
@@ -113,7 +113,7 @@ public:
 
     void Register(Event::SharedPublisher const& spPublisher);
     void Register(IEndpointMediator* const pMediator);
-    void Register(IPeerMediator* const pMediator);
+    void Register(IResolutionService* const pResolutionService);
 
 protected: 
     using ShutdownCause = Event::Message<Event::Type::EndpointStopped>::Cause;
@@ -139,7 +139,7 @@ protected:
 
     Event::SharedPublisher m_spEventPublisher;
     IEndpointMediator* m_pEndpointMediator;
-    IPeerMediator* m_pPeerMediator;
+    IResolutionService* m_pResolutionService;
 
 private:
     void SetShutdownCause(ShutdownCause cause) const;

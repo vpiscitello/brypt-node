@@ -6,7 +6,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "ExecutionToken.hpp"
 #include "RuntimeContext.hpp"
-#include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Utilities/ExecutionStatus.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>

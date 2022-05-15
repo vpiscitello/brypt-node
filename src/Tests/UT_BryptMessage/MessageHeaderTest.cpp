@@ -3,6 +3,8 @@
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/PlatformMessage.hpp"
 #include "BryptMessage/MessageUtils.hpp"
+#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -27,6 +29,9 @@ namespace test {
 
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
+
+auto const ServiceProvider = std::make_shared<Node::ServiceProvider>();
+auto const Proxy = Peer::Proxy::CreateInstance(ClientIdentifier, ServiceProvider);
 
 constexpr std::string_view RequestRoute = "/request";
 
@@ -407,7 +412,7 @@ TEST(MessageHeaderSuite, PeekSourceEmptyBufferTest)
 
 Message::Context local::GenerateMessageContext()
 {
-    Message::Context context(test::EndpointIdentifier, test::EndpointProtocol);
+    Message::Context context(test::Proxy, test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
@@ -416,12 +421,9 @@ Message::Context local::GenerateMessageContext()
             { return Security::Buffer(buffer.begin(), buffer.end()); });
 
     context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type 
-            { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type 
-            { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type 
-            { return 0; });
+        [] (auto&) -> Security::Signator::result_type { return 0; },
+        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
+        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 
     return context;
 }

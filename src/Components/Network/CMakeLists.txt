@@ -21,8 +21,12 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(NETWORK_SYSTEM_LIBRARIES iphlpapi)
+endif()
+
 # Exported library dependencies
-target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${NETWORK_SYSTEM_LIBRARIES} ${Boost_LIBRARIES})
 
 # Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)

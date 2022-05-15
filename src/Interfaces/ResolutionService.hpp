@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: PeerMediator.hpp
+// File: ResolutionService.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -21,13 +21,13 @@ class IPeerObserver;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class IPeerMediator
+class IResolutionService
 {
 public:
     using OptionalRequest = std::optional<std::string>;
     using WithdrawalCause = Event::Message<Event::Type::PeerDisconnected>::Cause;
 
-    virtual ~IPeerMediator() = default;
+    virtual ~IResolutionService() = default;
 
     virtual void RegisterObserver(IPeerObserver* const observer) = 0;
     virtual void UnpublishObserver(IPeerObserver* const observer) = 0;

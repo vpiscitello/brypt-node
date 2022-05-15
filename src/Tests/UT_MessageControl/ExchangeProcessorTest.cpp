@@ -60,7 +60,7 @@ public:
     ExchangeResources(Node::SharedIdentifier const& spSelf, Node::SharedIdentifier const& spTarget);
     
     [[nodiscard]] std::shared_ptr<MessageControl::Test::ConnectProtocol> const& GetConnectProtocol() const { return m_spConnectProtocol; }
-    [[nodiscard]] Message::Context const& GetContext() const { return m_context; }
+    [[nodiscard]] Message::Context& GetContext() { return m_context; }
     [[nodiscard]] std::shared_ptr<Peer::Proxy> const& GetProxy() const { return m_spProxy; }
     [[nodiscard]] std::unique_ptr<MessageControl::Test::ExchangeObserver> const& GetObserver() const { return m_upExchangeObserver; }
     [[nodiscard]] std::unique_ptr<ExchangeProcessor> const& GetProcessor() const { return m_upExchangeProcessor; }
@@ -87,6 +87,7 @@ private:
 };
 
 //----------------------------------------------------------------------------------------------------------------------
+
 class test::PreperationStrategy : public ISecurityStrategy
 {
 public:
@@ -231,6 +232,10 @@ protected:
                 m_optResponse = optMessage;
                 return true;
             });
+        
+        auto const optServerContext = m_server.GetProxy()->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optServerContext);
+        m_server.GetContext() = *optServerContext;
 
         m_client.GetProxy()->RegisterSilentEndpoint<InvokeContext::Test>(
             MessageControl::Test::EndpointIdentifier,
@@ -248,6 +253,10 @@ protected:
                 m_optRequest = optMessage;
                 return true;
             });
+
+        auto const optClientContext = m_client.GetProxy()->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optClientContext);
+        m_client.GetContext() = *optClientContext;
     }
 
     void SetupLoopbackProxies()
@@ -260,7 +269,11 @@ protected:
                 return spProxy->ScheduleReceive(
                     MessageControl::Test::EndpointIdentifier, std::get<std::string>(message));
             });
-
+        
+        auto const optServerContext = m_server.GetProxy()->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optServerContext);
+        m_server.GetContext() = *optServerContext;
+        
         m_client.GetProxy()->RegisterSilentEndpoint<InvokeContext::Test>(
             MessageControl::Test::EndpointIdentifier,
             MessageControl::Test::EndpointProtocol,
@@ -269,8 +282,11 @@ protected:
                 return spProxy->ScheduleReceive(
                     MessageControl::Test::EndpointIdentifier, std::get<std::string>(message));
             });
-    }
 
+        auto const optClientContext = m_client.GetProxy()->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optClientContext);
+        m_client.GetContext() = *optClientContext;
+    }
     
     void SetupFailingProxies()
     {
@@ -279,12 +295,20 @@ protected:
             MessageControl::Test::EndpointProtocol,
             MessageControl::Test::RemoteClientAddress,
             [this] (auto const&, auto&&) -> bool { return false; });
+        
+        auto const optServerContext = m_server.GetProxy()->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optServerContext);
+        m_server.GetContext() = *optServerContext;
 
         m_client.GetProxy()->RegisterSilentEndpoint<InvokeContext::Test>(
             MessageControl::Test::EndpointIdentifier,
             MessageControl::Test::EndpointProtocol,
             MessageControl::Test::RemoteServerAddress,
             [this] (auto const&, auto&&) -> bool { return false; });
+
+        auto const optClientContext = m_client.GetProxy()->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optClientContext);
+        m_client.GetContext() = *optClientContext;
     }
 
     local::ExchangeResources m_server{ test::ServerIdentifier, test::ClientIdentifier };
@@ -327,8 +351,7 @@ TEST_F(ExchangeProcessorSuite, PrepareSuccessfulSecurityStrategyTest)
     EXPECT_FALSE(m_client.GetObserver()->Notified());
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_TRUE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_TRUE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     // The test strategy doesn't indicate synchronization completion, so the observer should still not be called. 
     EXPECT_FALSE(m_client.GetObserver()->Notified());
@@ -362,8 +385,7 @@ TEST_F(ExchangeProcessorSuite, PrepareFailingSecurityStrategyTest)
     EXPECT_FALSE(m_client.GetObserver()->ExchangeSuccess());
 
     // The processor should not collect messages when in the failure stage. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     EXPECT_FALSE(m_optResponse);
     EXPECT_FALSE(m_optRequest);
@@ -377,8 +399,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeInitiatorCloseTest)
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Positive, Security::Role::Initiator));
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_TRUE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_TRUE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     // The processor should respond immediately with the next synchronization message. 
     ASSERT_TRUE(m_optRequest);
@@ -407,8 +428,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeAcceptorCloseTest)
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Positive, Security::Role::Acceptor));
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_TRUE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_TRUE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     // The test strategy does not have any further handshake messages for acceptor role, so no responses should be sent. 
     EXPECT_FALSE(m_optResponse);
@@ -430,8 +450,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeFailingStrategyTest)
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Negative, Security::Role::Acceptor));
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     // After failing to prepare the exchange, the processor should now be in the failure stage. 
     EXPECT_EQ(m_client.GetProcessor()->GetProcessStage(), ExchangeProcessor::ProcessStage::Failure);
@@ -463,8 +482,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeUnexpectedDestinationTypeTest)
         ASSERT_TRUE(optHandshakeMessage);
 
         // The processor should collect messages when in the synchronization stage. 
-        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-            m_client.GetProxy(), m_client.GetContext(), optHandshakeMessage->GetPack()));
+        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), optHandshakeMessage->GetPack()));
 
         // After failing to prepare the exchange, the processor should now be in the failure stage. 
         EXPECT_EQ(m_client.GetProcessor()->GetProcessStage(), ExchangeProcessor::ProcessStage::Failure);
@@ -483,8 +501,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeUnexpectedDestinationTypeTest)
         ASSERT_TRUE(optHandshakeMessage);
 
         // The processor should collect messages when in the synchronization stage. 
-        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-            m_client.GetProxy(), m_client.GetContext(), optHandshakeMessage->GetPack()));
+        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), optHandshakeMessage->GetPack()));
 
         // After failing to prepare the exchange, the processor should now be in the failure stage. 
         EXPECT_EQ(m_client.GetProcessor()->GetProcessStage(), ExchangeProcessor::ProcessStage::Failure);
@@ -516,8 +533,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeUnexpectedDestinationTest)
     ASSERT_TRUE(optHandshakeMessage);
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), optHandshakeMessage->GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), optHandshakeMessage->GetPack()));
 
     // After failing to prepare the exchange, the processor should now be in the failure stage. 
     EXPECT_EQ(m_client.GetProcessor()->GetProcessStage(), ExchangeProcessor::ProcessStage::Failure);
@@ -539,8 +555,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeFailingPeerTest)
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Positive, Security::Role::Initiator));
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     // After failing to prepare the exchange, the processor should now be in the failure stage. 
     EXPECT_EQ(m_client.GetProcessor()->GetProcessStage(), ExchangeProcessor::ProcessStage::Failure);
@@ -565,8 +580,7 @@ TEST_F(ExchangeProcessorSuite, HandshakeFailingConnectProtocolTest)
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Positive, Security::Role::Initiator));
 
     // The processor should collect messages when in the synchronization stage. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     // After failing to prepare the exchange, the processor should now be in the failure stage. 
     EXPECT_EQ(m_client.GetProcessor()->GetProcessStage(), ExchangeProcessor::ProcessStage::Failure);
@@ -591,13 +605,13 @@ TEST_F(ExchangeProcessorSuite, CollectMalformedMessageBufferTest)
 
     {
         auto const buffer = Message::Buffer{};
-        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetProxy(), m_client.GetContext(), buffer));
+        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), buffer));
     }
 
     {
         auto buffer = Message::Buffer{};
         buffer.resize(10'000);
-        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetProxy(), m_client.GetContext(), buffer));
+        EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), buffer));
     }
 
     EXPECT_FALSE(m_optRequest);
@@ -611,8 +625,9 @@ TEST_F(ExchangeProcessorSuite, CollectMessageExpiredPeerTest)
     SetupCaptureProxies();
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Positive, Security::Role::Acceptor));
     
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        std::weak_ptr<Peer::Proxy>{}, m_client.GetContext(), m_handshake.GetPack()));
+    auto context = m_client.GetContext();
+    context.BindProxy<InvokeContext::Test>(std::weak_ptr<Peer::Proxy>{}); // Unbind the proxy.
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(context, m_handshake.GetPack()));
 
     EXPECT_FALSE(m_optRequest);
     EXPECT_FALSE(m_optResponse);
@@ -626,12 +641,10 @@ TEST_F(ExchangeProcessorSuite, CollectMessageUnexpectedStageTest)
     EXPECT_TRUE(m_client.CreateSynchronizationStrategy(test::CaseType::Positive, Security::Role::Acceptor));
 
     m_client.GetProcessor()->SetStage<InvokeContext::Test>(ExchangeProcessor::ProcessStage::Initialization);
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     m_client.GetProcessor()->SetStage<InvokeContext::Test>(ExchangeProcessor::ProcessStage::Failure);
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), m_handshake.GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), m_handshake.GetPack()));
 
     EXPECT_FALSE(m_optRequest);
     EXPECT_FALSE(m_optResponse);
@@ -653,8 +666,7 @@ TEST_F(ExchangeProcessorSuite, CollectPlatformParcelHeartbeatRequestTest)
     ASSERT_TRUE(optHeartbeatRequest);
 
     // Currently, heartbeat requests should be rejected by the exchange processor. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), optHeartbeatRequest->GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), optHeartbeatRequest->GetPack()));
 
     EXPECT_FALSE(m_optRequest);
     EXPECT_FALSE(m_optResponse);
@@ -676,8 +688,7 @@ TEST_F(ExchangeProcessorSuite, CollectPlatformParcelHeartbeatResponseTest)
     ASSERT_TRUE(optHeartbeatResponse);
     
     // Currently, heartbeat responses should be rejected by the exchange processor. 
-    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(
-        m_client.GetProxy(), m_client.GetContext(), optHeartbeatResponse->GetPack()));
+    EXPECT_FALSE(m_client.GetProcessor()->CollectMessage(m_client.GetContext(), optHeartbeatResponse->GetPack()));
     
     EXPECT_FALSE(m_optRequest);
     EXPECT_FALSE(m_optResponse);
@@ -736,7 +747,7 @@ local::ExchangeResources::ExchangeResources(
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spRegistrar))
     , m_spTrackingService()
     , m_spNodeState(std::make_shared<NodeState>(spSelf, Network::ProtocolSet{}))
-    , m_context(MessageControl::Test::GenerateMessageContext())
+    , m_context()
     , m_spProxy()
 {
     m_spServiceProvider->Register(m_spTaskService);

@@ -48,13 +48,9 @@ public:
     PreparationResult Prepare();
 
     // IMessageSink {
+    [[nodiscard]] virtual bool CollectMessage(Message::Context const& context, std::string_view buffer) override;
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::string_view buffer) override;
-        
-    [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpProxy,
-        Message::Context const& context,
-        std::span<std::uint8_t const> buffer) override;
+        Message::Context const& context, std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
     UT_SupportMethod(void SetStage(ProcessStage stage));

@@ -79,7 +79,6 @@ auto DeserializeNodeInformation(std::string_view json)
 {
     auto payload = li::mmm(
         s::cluster = std::uint32_t(),
-        s::coordinator = std::string(),
         s::neighbor_count = std::uint32_t(),
         s::designation = std::string(),
         s::protocols = std::vector<std::string>(),
@@ -130,7 +129,7 @@ public:
     [[nodiscard]] std::shared_ptr<NodeState> const& GetNodeState() const { return m_spNodeState; }   
     [[nodiscard]] std::shared_ptr<Network::Manager> const& GetNetworkManager() const { return m_spNetworkManager; }   
     [[nodiscard]] std::shared_ptr<Route::Test::PeerCache> const& GetPeerCache() const { return m_spPeerCache; }   
-    [[nodiscard]] Message::Context const& GetContext() const { return m_context; }
+    [[nodiscard]] Message::Context& GetContext() { return m_context; }
     [[nodiscard]] std::shared_ptr<Peer::Proxy> const& GetProxy() const { return m_spProxy; }   
 
 private:
@@ -173,6 +172,10 @@ protected:
                 return true;
             });
 
+        auto const optServerContext = m_server.GetProxy()->GetMessageContext(Route::Test::EndpointIdentifier);
+        ASSERT_TRUE(optServerContext);
+        m_server.GetContext() = *optServerContext;
+
         m_client.GetProxy()->RegisterSilentEndpoint<InvokeContext::Test>(
             Route::Test::EndpointIdentifier, Route::Test::EndpointProtocol, Route::Test::RemoteServerAddress,
             [this] ([[maybe_unused]] auto const& destination, auto&& message) -> bool {
@@ -187,6 +190,10 @@ protected:
                 m_optRequest = optMessage;
                 return true;
             });
+        
+        auto const optClientContext = m_client.GetProxy()->GetMessageContext(Route::Test::EndpointIdentifier);
+        ASSERT_TRUE(optClientContext);
+        m_client.GetContext() = *optClientContext;
 
         m_upNodeHandler = std::make_unique<Route::Fundamental::Information::NodeHandler>();
         ASSERT_TRUE(m_upNodeHandler->OnFetchServices(m_server.GetServiceProvider()));
@@ -239,7 +246,6 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
             EXPECT_TRUE(success);
 
             EXPECT_EQ(payload.cluster, m_server.GetNodeState()->GetCluster());
-            EXPECT_TRUE(payload.coordinator.empty());
             EXPECT_EQ(payload.neighbor_count,  static_cast<std::uint32_t>(m_server.GetPeerCache()->ActiveCount()));
             EXPECT_EQ(payload.designation, NodeUtils::GetDesignation(m_server.GetNodeState()->GetOperation()));
             EXPECT_EQ(
@@ -315,7 +321,6 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
                     EXPECT_TRUE(success);
 
                     EXPECT_EQ(payload.cluster, m_server.GetNodeState()->GetCluster());
-                    EXPECT_TRUE(payload.coordinator.empty());
                     EXPECT_EQ(
                         payload.neighbor_count,  static_cast<std::uint32_t>(m_server.GetPeerCache()->ActiveCount()));
                     EXPECT_EQ(payload.designation, NodeUtils::GetDesignation(m_server.GetNodeState()->GetOperation()));
@@ -386,7 +391,7 @@ local::InformationResources::InformationResources(
     , m_spNetworkManager()
     , m_spEndpoint()
     , m_spPeerCache(std::make_shared<Route::Test::PeerCache>(test::PeerCount))
-    , m_context(Route::Test::GenerateMessageContext())
+    , m_context()
     , m_spProxy()
 {
     m_spServiceProvider->Register(m_spTaskService);

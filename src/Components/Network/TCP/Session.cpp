@@ -100,19 +100,16 @@ boost::asio::ip::tcp::socket& Network::TCP::Session::GetSocket()
 void Network::TCP::Session::Initialize(Operation source, RemoteAddress::Origin origin)
 {
     assert(m_socket.is_open());
-
-    auto const endpoint = m_socket.remote_endpoint();
-    std::ostringstream uri;
-    uri << Network::TCP::Scheme << Network::SchemeSeperator;
-    uri << endpoint.address().to_string() << Network::ComponentSeperator << endpoint.port();
-
-    m_address = { Protocol::TCP, uri.str(), (source == Operation::Client), origin };
+    m_address = { m_socket.remote_endpoint(), (source == Operation::Client), origin };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 void Network::TCP::Session::Start()
 {
+    m_logger->info("Session started with {}.", m_address);
+    m_active = true;
+
     // Spawn the receiver coroutine.
     boost::asio::co_spawn(
         m_socket.get_executor(),
@@ -133,8 +130,6 @@ void Network::TCP::Session::Start()
             }
         });
 
-    m_logger->info("Session started with {}.", m_address);
-    m_active = true;
     m_optStopCause.reset(); // Ensure the stop cause has been reset for this cycle. 
 }
 
@@ -191,6 +186,7 @@ Network::TCP::CompletionOrigin Network::TCP::Session::OnSocketError(boost::syste
 
     // Note: The next error handler will handle notifying the endpoint. 
     switch (error.value()) {
+        case boost::asio::error::connection_reset:
         case boost::asio::error::eof: { OnPeerDisconnected(); } return CompletionOrigin::Peer;
         default: { OnUnexpectedError("An unexpected socket error occured");  } return CompletionOrigin::Error;
     }
@@ -303,9 +299,6 @@ Network::TCP::Session::Receiver::ReceiveResult Network::TCP::Session::Receiver::
     if (m_error || received != expected) [[unlikely]] { co_return std::nullopt; }
 
     m_instance.m_logger->debug("Received {} bytes from {}.", m_buffer.size(), m_instance.m_address);
-    m_instance.m_logger->trace("[{}] Received: {:p}...", m_instance.m_address,
-        spdlog::to_hex(std::string_view(reinterpret_cast<char const*>(
-            m_buffer.data()), std::min(m_buffer.size(), Message::Header::MaximumEncodedSize()))));
 
     // Decode the buffer into the message buffer after the header bytes.
     auto const size = m_message.size();
@@ -378,8 +371,6 @@ Network::TCP::SocketProcessor Network::TCP::Session::Dispatcher::operator()()
             if (m_error || sent != message.size()) { co_return m_instance.OnSocketError(m_error); }
 
             logger->debug("Dispatched {} bytes to {}.", message.size(), m_instance.m_address);
-            logger->trace("[{}] Dispatched: {:p}...", m_instance.m_address, spdlog::to_hex(
-                std::string_view(message.get().data(), std::min(message.size(), Message::Header::MaximumEncodedSize()))));
         }
     }
 

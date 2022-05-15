@@ -12,7 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     Action.cpp
-    Manager.cpp
+    ProxyStore.cpp
     Proxy.cpp
     Registration.cpp
     Resolver.cpp

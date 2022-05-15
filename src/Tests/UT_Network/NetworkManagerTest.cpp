@@ -137,7 +137,7 @@ private:
     std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
     std::shared_ptr<IMessageSink> m_spMessageProcessor;
-    std::shared_ptr<IPeerMediator> m_spPeerMediator;
+    std::shared_ptr<IResolutionService> m_spResolutionService;
     std::unique_ptr<Network::IEndpoint> m_upEndpoint;
 };
 
@@ -177,9 +177,9 @@ protected:
         m_spMessageProcessor = std::make_shared<Network::Test::MessageProcessor>(test::OriginIdentifier);
         m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
 
-        m_spPeerMediator = std::make_shared<Network::Test::SinglePeerMediator>(
+        m_spResolutionService = std::make_shared<Network::Test::SingleResolutionService>(
             test::OriginIdentifier, m_spMessageProcessor.get(), m_spServiceProvider);
-        m_spServiceProvider->Register<IPeerMediator>(m_spPeerMediator);
+        m_spServiceProvider->Register<IResolutionService>(m_spResolutionService);
 
         ASSERT_TRUE(m_spRegistrar->Initialize());
     }
@@ -192,7 +192,7 @@ protected:
     std::unique_ptr<local::EventObserver> m_upEventObserver;
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<IMessageSink> m_spMessageProcessor;
-    std::shared_ptr<IPeerMediator> m_spPeerMediator;
+    std::shared_ptr<IResolutionService> m_spResolutionService;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -346,14 +346,14 @@ bool local::TargetResources::Initialize(Configuration::Options::Endpoint const& 
     m_spMessageProcessor = std::make_unique<Network::Test::MessageProcessor>(test::TargetIdentifier);
     m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
 
-    m_spPeerMediator = std::make_unique<Network::Test::SinglePeerMediator>(
+    m_spResolutionService = std::make_unique<Network::Test::SingleResolutionService>(
         test::TargetIdentifier, m_spMessageProcessor.get(), m_spServiceProvider);
-    m_spServiceProvider->Register<IPeerMediator>(m_spPeerMediator);
+    m_spServiceProvider->Register<IResolutionService>(m_spResolutionService);
     
     auto const properties = Network::Endpoint::Properties{ Network::Operation::Server, options };
     m_upEndpoint = std::make_unique<Network::TCP::Endpoint>(properties);
     m_upEndpoint->Register(m_spEventPublisher);
-    m_upEndpoint->Register(m_spPeerMediator.get());
+    m_upEndpoint->Register(m_spResolutionService.get());
 
     if (!m_upEndpoint->ScheduleBind(options.GetBinding())) { return false; }
     m_upEndpoint->Startup();
@@ -368,7 +368,7 @@ bool local::TargetResources::Initialize(Configuration::Options::Endpoint const& 
 void local::TargetResources::Destroy()
 {
     m_upEndpoint.reset();
-    m_spPeerMediator.reset();
+    m_spResolutionService.reset();
     m_spMessageProcessor.reset();
     m_spEventPublisher.reset();
     m_spTaskService.reset();

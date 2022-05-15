@@ -69,7 +69,8 @@ set_target_properties(
     PUBLIC_HEADER "${EXPORTED_HEADERS}"
     POSITION_INDEPENDENT_CODE ON
     CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN ON)
+    VISIBILITY_INLINES_HIDDEN ON
+    DEBUG_POSTFIX d)
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE BRYPT_SHARED)
 
@@ -89,21 +90,23 @@ target_link_libraries(
     ${Boost_LIBRARIES}
     ${OPENSSL_CRYPTO_LIBRARY}
     ${OQS_LIBRARIES}
-    ${spdlog_LIBRARIES})
+    ${spdlog_LIBRARIES}
+    ${NETWORK_SYSTEM_LIBRARIES})
 
 # Compiler options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
-if(${CMAKE_CXX_COMPILER_ID} STREQUAL "GNU")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         add_compile_options(-fdata-sections)
         add_compile_options(-ffunction-sections)
         add_compile_options(-Wl,--gc-sections)
     endif()
-elseif(${CMAKE_CXX_COMPILER_ID} STREQUAL "MSVC")
-    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc /MTd /W2 /c)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc /MTd /W4 /c)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WIN_EXPORT)
     set_target_properties(${PROJECT_NAME} PROPERTIES CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    target_link_libraries(${PROJECT_NAME} PRIVATE iphlpapi)
 endif()
 
 #-----------------------------------------------------------------------------------------------------------------------

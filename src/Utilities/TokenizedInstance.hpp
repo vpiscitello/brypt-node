@@ -25,8 +25,14 @@ protected:
     struct InstanceToken {
     private:
         constexpr InstanceToken() noexcept = default;
+#if defined(WIN32)
+        // On Windows, we can't scope the InstanceToken to the CreateInstance method. But, we can still cause UNIX
+        // builds to fail if it's misused. 
+        friend class TokenizedInstance;
+#else
         template<typename... Arguments>
         friend std::shared_ptr<SharedType> TokenizedInstance::CreateInstance(Arguments&&... arguments);
+#endif
     };
 };
 

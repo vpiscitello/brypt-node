@@ -181,7 +181,7 @@ inline bool Z85::Decode(std::string_view source, WritableView destination)
         value *= CharacterSpace;
 
         std::uint8_t const mapping = static_cast<std::uint8_t>(encoded - CharacterOffset);
-        if (mapping >= IndexUpperBound) { return false; };
+        if (mapping >= IndexUpperBound) { return false; }
 
         std::uint32_t const DecodedUpperBound = DecodedBlockMaximum - value;
         std::uint32_t const decoded = DecodeMapping[mapping];

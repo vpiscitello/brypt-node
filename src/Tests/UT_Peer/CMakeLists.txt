@@ -13,7 +13,7 @@ target_sources(
     # Source Files
     ActionTest.cpp
     ExchangeTest.cpp
-    PeerManagerTest.cpp
+    ProxyStoreTest.cpp
     ResolverTest.cpp
     UT_Peer.cpp)
 
@@ -24,6 +24,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
+
+copy_dependencies(${PROJECT_NAME})
 
 #-----------------------------------------------------------------------------------------------------------------------
 gtest_discover_tests(${PROJECT_NAME})

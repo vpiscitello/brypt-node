@@ -8,10 +8,14 @@
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityTypes.hpp"
+#include "Utilities/InvokeContext.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <span>
+#include <memory>
 //----------------------------------------------------------------------------------------------------------------------
+
+namespace Peer { class Proxy; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Message {
@@ -33,13 +37,14 @@ class Context;
 class Message::Context {
 public:
 	Context();
-	Context(Network::Endpoint::Identifier identifier, Network::Protocol protocol);
+	Context(
+		std::weak_ptr<Peer::Proxy> const& wpProxy, Network::Endpoint::Identifier identifier, Network::Protocol protocol);
 
 	[[nodiscard]] bool operator==(Context const& other) const;
 
 	[[nodiscard]] Network::Endpoint::Identifier GetEndpointIdentifier() const;
 	[[nodiscard]] Network::Protocol GetEndpointProtocol() const;
-
+	[[nodiscard]] std::weak_ptr<Peer::Proxy> const& GetProxy() const;
 	[[nodiscard]] bool HasSecurityHandlers() const;
 
 	void BindEncryptionHandlers(
@@ -59,7 +64,11 @@ public:
 		std::span<std::uint8_t const> buffer) const;
 	[[nodiscard]] std::size_t GetSignatureSize() const;
 
+	UT_SupportMethod(void BindProxy(std::weak_ptr<Peer::Proxy> const& wpProxy));
+
 private:
+	std::weak_ptr<Peer::Proxy> m_wpProxy;
+
 	Network::Endpoint::Identifier m_endpointIdentifier;
 	Network::Protocol m_endpointProtocol;
 

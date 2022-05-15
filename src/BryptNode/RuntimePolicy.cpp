@@ -5,14 +5,8 @@
 #include "RuntimePolicy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptNode.hpp"
-#include "Components/Awaitable/TrackingService.hpp"
-#include "Components/Configuration/BootstrapService.hpp"
-#include "Components/Event/Publisher.hpp"
-#include "Components/MessageControl/AuthorizedProcessor.hpp"
-#include "Components/Peer/Manager.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Utilities/Assertions.hpp"
-#include "Utilities/CallbackIteration.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/spdlog.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -56,7 +50,7 @@ void Node::IRuntimePolicy::SetExecutionStatus(ExecutionStatus status)
 void Node::IRuntimePolicy::OnExecutionStarted()
 {
     assert(Assertions::Threading::RegisterCoreThread()); // Set the core thread to the thread context of the runtime. 
-    assert(IsExecutionRequested()); // A start notification should only occur when it has been requested.
+    if (!m_token.get().IsExecutionRequested()) { return; }
     m_instance.m_logger->debug("Starting the node's core runtime.");
     m_token.get().OnExecutionStarted({}); // Put the execution token into the executing state.
 }
@@ -129,12 +123,11 @@ RuntimeContext Node::BackgroundRuntime::Type() const
 ExecutionStatus Node::BackgroundRuntime::Start()
 {
     IRuntimePolicy::SetExecutionStatus(ExecutionStatus::ThreadSpawned);
-    m_worker = std::jthread([&]
-        {
-            IRuntimePolicy::OnExecutionStarted();
-            while (IRuntimePolicy::IsExecutionRequested()) { IRuntimePolicy::ProcessEvents(); }
-            IRuntimePolicy::OnExecutionStopped();
-        });
+    m_worker = std::jthread([&] {
+        IRuntimePolicy::OnExecutionStarted();
+        while (IRuntimePolicy::IsExecutionRequested()) { IRuntimePolicy::ProcessEvents(); }
+        IRuntimePolicy::OnExecutionStopped();
+    });
 
     // Indicate a thread for the runtime has been spawned. Unlike the foreground runtime, shutdown causes shall be 
     // propogated through the event publisher. 

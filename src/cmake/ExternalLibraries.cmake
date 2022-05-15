@@ -3,7 +3,9 @@
 include(ExternalProject)
 include(FetchContent)
 
-add_custom_target(external)
+if(BUILD_EXTERNAL)
+    add_custom_target(external)
+endif()
 
 set(DEPENDENCY_DIRECTORY ${CMAKE_SOURCE_DIR}/external)
 set(DEPENDENCY_TEMP_DIRECTORY ${DEPENDENCY_DIRECTORY}/temp)
@@ -20,13 +22,19 @@ else()
     set(STATIC_EXTENSION a)
 endif()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(COMPILER_OVERRIDES CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER})
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(CMAKE_C_COMPILER ${CMAKE_CXX_COMPILER})
+endif()
+
 #-----------------------------------------------------------------------------------------------------------------------
 # Boost Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(BOOST_VERSION "1.76.0")
-set(BOOST_DOWNLOAD_TARGET "boost_1_76_0.tar.gz")
+set(BOOST_VERSION "1.79.0")
+set(BOOST_DOWNLOAD_TARGET "boost_1_79_0.tar.gz")
 set(BOOST_URL "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_DOWNLOAD_TARGET}")
-set(BOOST_HASH "SHA256=7bd7ddceec1a1dfdcbdb3e609b60d01739c38390a5f956385a12f3122049f0ca")
+set(BOOST_HASH "SHA256=273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c")
 set(BOOST_DIRECTORY ${DEPENDENCY_DIRECTORY}/boost/${BOOST_VERSION})
 set(BOOST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/boost/${BOOST_VERSION})
 
@@ -35,7 +43,7 @@ set(Boost_USE_RELEASE_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
 
 find_package(Boost ${BOOST_VERSION} COMPONENTS program_options system HINTS ${BOOST_DIRECTORY} QUIET)
-if (NOT Boost_FOUND)
+if (NOT Boost_FOUND AND BUILD_EXTERNAL)
     if (NOT EXISTS ${BOOST_DOWNLOAD_DIRECTORY})
         message(STATUS "Boost was not found. Downloading now...")
 
@@ -47,27 +55,23 @@ if (NOT Boost_FOUND)
             DOWNLOAD_DIR ${BOOST_DOWNLOAD_DIRECTORY}
             SOURCE_DIR ${BOOST_DOWNLOAD_DIRECTORY})
 
-        if(NOT boost_POPULATED)
-            FetchContent_Populate(boost)
-        endif()
+        FetchContent_Populate(boost)
         
         message(STATUS "Boost downloaded to ${BOOST_DIRECTORY}")
     endif()
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(BOOST_CONFIGURE "./bootstrap.sh")
         set(BOOST_TOOLSET gcc)
         string(REGEX MATCHALL "[0-9]+" GCC_VERSION_COMPONENTS ${CMAKE_CXX_COMPILER_VERSION})
         list(GET GCC_VERSION_COMPONENTS 0 GCC_MAJOR)
         set(BOOST_TOOLSET_CONFIGURATION
             echo "using gcc : ${GCC_MAJOR} : ${CMAKE_CXX_COMPILER} $<SEMICOLON> " >> ${BOOST_DOWNLOAD_DIRECTORY}/tools/build/src/user-config.jam)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(BOOST_CONFIGURE "./bootstrap.bat")
+        set(BOOST_TOOLSET msvc)
     endif()
 
-    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        set(BOOST_FIXUP_DYLIBS
-            bash ${CMAKE_SOURCE_DIR}/cmake/MacOSFixupDylibRpaths.sh ${BOOST_DIRECTORY}/lib)
-    endif()
-    
-    set(BOOST_CONFIGURE "./bootstrap.sh")
     set(BOOST_CONFIGURE_PARAMS
         --prefix=${BOOST_DIRECTORY}
         --libdir=${BOOST_DIRECTORY}/lib
@@ -77,16 +81,27 @@ if (NOT Boost_FOUND)
 
     set(BOOST_BUILD "./b2")
     set(BOOST_BUILD_PARAMS
-        --toolset=${BOOST_TOOLSET}
-        --threading=multi
-        --link=shared
-        --variant=release
-        --layout=system
+        --prefix=${BOOST_DIRECTORY}
+        --libdir=${BOOST_DIRECTORY}/lib
         --build-type=minimal
+        --no-cmake-config
+        --with-chrono
+        --with-program_options
+        --with-system
+        --with-timer
+        toolset=${BOOST_TOOLSET}
+        threading=multi
+        link=shared
+        address-model=64
         -sNO_LZMA=1
         -sNO_ZSTD=1
         -j4)
-
+    
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        set(BOOST_FIXUP_DYLIBS
+            bash ${CMAKE_SOURCE_DIR}/cmake/MacOSFixupDylibRpaths.sh ${BOOST_DIRECTORY}/lib)
+    endif()
+    
     ExternalProject_Add(
         boost
         PREFIX ${BOOST_DOWNLOAD_DIRECTORY}
@@ -97,7 +112,7 @@ if (NOT Boost_FOUND)
         DOWNLOAD_COMMAND ""
         UPDATE_COMMAND ""
         CONFIGURE_COMMAND
-            CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+            ${COMPILER_OVERRIDES}
             ${BOOST_COMPILER} ${BOOST_CONFIGURE} ${BOOST_CONFIGURE_PARAMS}
         COMMAND
             ${BOOST_TOOLSET_CONFIGURATION}
@@ -109,21 +124,65 @@ if (NOT Boost_FOUND)
         INSTALL_DIR ${BOOST_DIRECTORY}
         EXCLUDE_FROM_ALL TRUE)
 
-    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
-
-    add_library(Boost::program_options SHARED IMPORTED)
-    set_target_properties(Boost::program_options PROPERTIES
-        IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_program_options.${SHARED_EXTENSION})
-
-    add_library(Boost::system SHARED IMPORTED)
-    set_target_properties(Boost::system PROPERTIES
-        IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_system.${SHARED_EXTENSION})
-
-    set(Boost_LIBRARIES "-Wl,-rpath,${BOOST_DIRECTORY}/lib/"
-        Boost::program_options Boost::system CACHE FILEPATH "" FORCE)
-
     add_dependencies(external boost)
 endif()
+
+if (NOT TARGET Boost::program_options)
+    add_library(Boost::program_options SHARED IMPORTED)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+        set_target_properties(Boost::program_options PROPERTIES
+            IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_program_options.${SHARED_EXTENSION}
+            IMPORTED_IMPLIB ${BOOST_DIRECTORY}/lib/libboost_program_options.${STATIC_EXTENSION})
+
+        set(Boost_LIBRARIES "-Wl,-rpath,${BOOST_DIRECTORY}/lib/"
+            Boost::program_options Boost::system CACHE FILEPATH "" FORCE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include/boost-1_79 CACHE FILEPATH "" FORCE)
+
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set_target_properties(Boost::program_options PROPERTIES
+                IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/boost_program_options-vc143-mt-gd-x64-1_79.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${BOOST_DIRECTORY}/lib/boost_program_options-vc143-mt-gd-x64-1_79.${STATIC_EXTENSION})
+        else()
+            set_target_properties(Boost::program_options PROPERTIES
+                IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/boost_program_options-vc143-mt-x64-1_79.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${BOOST_DIRECTORY}/lib/boost_program_options-vc143-mt-x64-1_79.${STATIC_EXTENSION})
+        endif()
+    endif()
+endif()
+
+if (NOT TARGET Boost::system)
+    add_library(Boost::system SHARED IMPORTED)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+        set_target_properties(Boost::system PROPERTIES
+            IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/libboost_system.${SHARED_EXTENSION}
+            IMPORTED_IMPLIB ${BOOST_DIRECTORY}/lib/libboost_system.${STATIC_EXTENSION})
+
+        set(Boost_LIBRARIES "-Wl,-rpath,${BOOST_DIRECTORY}/lib/"
+            Boost::system Boost::system CACHE FILEPATH "" FORCE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include/boost-1_79 CACHE FILEPATH "" FORCE)
+
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set_target_properties(Boost::system PROPERTIES
+                IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/boost_system-vc143-mt-gd-x64-1_79.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${BOOST_DIRECTORY}/lib/boost_system-vc143-mt-gd-x64-1_79.${STATIC_EXTENSION})
+        else()
+            set_target_properties(Boost::system PROPERTIES
+                IMPORTED_LOCATION ${BOOST_DIRECTORY}/lib/boost_system-vc143-mt-x64-1_79.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${BOOST_DIRECTORY}/lib/boost_system-vc143-mt-x64-1_79.${STATIC_EXTENSION})
+        endif()
+    endif()
+endif()
+
+
+set(Boost_LIBRARIES Boost::system CACHE FILEPATH "" FORCE)
 
 message(DEBUG "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
 message(DEBUG "Boost_LIBRARIES: ${Boost_LIBRARIES}")
@@ -139,12 +198,8 @@ set(GOOGLETEST_HASH "SHA256=9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e
 set(GOOGLETEST_DIRECTORY ${DEPENDENCY_DIRECTORY}/googletest/${GOOGLETEST_VERSION})
 set(GOOGLETEST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/googletest/${GOOGLETEST_VERSION})
 
-if(NOT DEFINED GTEST_ROOT)
-    set(GTEST_ROOT ${GOOGLETEST_DIRECTORY})
-endif()
-
-find_package(GTest ${GOOGLETEST_VERSION} QUIET)
-if (NOT GTEST_FOUND)
+find_package(GTest ${GOOGLETEST_VERSION} HINTS ${GOOGLETEST_DIRECTORY} QUIET)
+if (NOT GTEST_FOUND AND BUILD_EXTERNAL)
     if (NOT EXISTS ${GOOGLETEST_DOWNLOAD_DIRECTORY})
         message(STATUS "Googletest was not found. Downloading now...")
 
@@ -156,40 +211,111 @@ if (NOT GTEST_FOUND)
             DOWNLOAD_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
             SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY})
 
-        if(NOT googletest_POPULATED)
-            FetchContent_Populate(googletest)
-        endif()
+        FetchContent_Populate(googletest)
         
         message(STATUS "Googletest downloaded to ${GOOGLETEST_DIRECTORY}")
     endif()
 
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(GOOGLETEST_CONFIGURE_PARAMS
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} 
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DCMAKE_INSTALL_PREFIX=${GOOGLETEST_DIRECTORY})
+            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} 
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DCMAKE_INSTALL_PREFIX=${GOOGLETEST_DIRECTORY})
     
-    ExternalProject_Add(
-        googletest
-        PREFIX ${GOOGLETEST_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
-        BUILD_IN_SOURCE true
-        URL ""
-        DOWNLOAD_DIR ""
-        DOWNLOAD_COMMAND ""
-        UPDATE_COMMAND ""
-        CMAKE_ARGS ${GOOGLETEST_CONFIGURE_PARAMS}
-        INSTALL_DIR ${GOOGLETEST_DIRECTORY}
-        EXCLUDE_FROM_ALL TRUE)
-        
-    set(GTEST_INCLUDE_DIRS ${GOOGLETEST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
-    
-    add_library(GTest::gtest STATIC IMPORTED)
-    set_target_properties(GTest::gtest PROPERTIES
-        IMPORTED_LOCATION ${GOOGLETEST_DIRECTORY}/lib/libgtest.${STATIC_EXTENSION})
-    set(GTEST_LIBRARIES GTest::gtest CACHE FILEPATH "" FORCE)
-   
-    add_dependencies(external googletest)
+        ExternalProject_Add(
+            googletest
+            PREFIX ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            BUILD_IN_SOURCE true
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS ${GOOGLETEST_CONFIGURE_PARAMS}
+            INSTALL_DIR ${GOOGLETEST_DIRECTORY}
+            EXCLUDE_FROM_ALL TRUE)
+
+        add_dependencies(external googletest)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        find_program(GOOGLETEST_BUILD msbuild REQUIRED)
+
+        set(GOOGLETEST_CONFIGURE_PARAMS
+            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} 
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -Dgtest_force_shared_crt=ON)
+
+        ExternalProject_Add(
+            googletest-release
+            PREFIX ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}/build/release
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS ${GOOGLETEST_CONFIGURE_PARAMS}
+                -DCMAKE_INSTALL_PREFIX=${GOOGLETEST_DIRECTORY}/release
+                -DCMAKE_BUILD_TYPE=Release
+                -Dgtest_force_shared_crt=ON
+                -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL
+            INSTALL_DIR ${GOOGLETEST_DIRECTORY}/release
+            INSTALL_COMMAND 
+                ${GOOGLETEST_BUILD}
+                ${GOOGLETEST_DOWNLOAD_DIRECTORY}/build/release/INSTALL.vcxproj
+                /property:Configuration=Release
+            EXCLUDE_FROM_ALL TRUE)
+
+        ExternalProject_Add(
+            googletest-debug
+            PREFIX ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}/build/debug
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS ${GOOGLETEST_CONFIGURE_PARAMS}
+                -DCMAKE_INSTALL_PREFIX=${GOOGLETEST_DIRECTORY}/debug
+                -DCMAKE_BUILD_TYPE=Debug
+                -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDebugDLL
+            INSTALL_DIR ${GOOGLETEST_DIRECTORY}/debug
+            INSTALL_COMMAND 
+                ${GOOGLETEST_BUILD}
+                ${GOOGLETEST_DOWNLOAD_DIRECTORY}/build/debug/INSTALL.vcxproj
+                /property:Configuration=Debug
+            EXCLUDE_FROM_ALL TRUE)
+
+        add_dependencies(external googletest-release)
+        add_dependencies(external googletest-debug)
+    endif()
 endif()
+
+if (NOT TARGET GTest::gtest)
+    add_library(GTest::gtest STATIC IMPORTED)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(GTEST_INCLUDE_DIRS ${GOOGLETEST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+        set_target_properties(GTest::gtest PROPERTIES
+            IMPORTED_LOCATION ${GOOGLETEST_DIRECTORY}/lib/libgtest.${STATIC_EXTENSION})
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set(GTEST_INCLUDE_DIRS ${GOOGLETEST_DIRECTORY}/debug/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(GTest::gtest PROPERTIES
+                IMPORTED_LOCATION ${GOOGLETEST_DIRECTORY}/debug/lib/gtestd.${STATIC_EXTENSION})
+        else()
+            set(GTEST_INCLUDE_DIRS ${GOOGLETEST_DIRECTORY}/release/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(GTest::gtest PROPERTIES
+                IMPORTED_LOCATION ${GOOGLETEST_DIRECTORY}/release/lib/gtest.${STATIC_EXTENSION})
+        endif()
+    endif()
+endif()
+
+set(GTEST_LIBRARIES GTest::gtest CACHE FILEPATH "" FORCE)
 
 message(DEBUG "GTEST_INCLUDE_DIRS: ${GTEST_INCLUDE_DIRS}")
 message(DEBUG "GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
@@ -205,7 +331,7 @@ set(LITHIUM_JSON_URL "https://raw.githubusercontent.com/matt-42/lithium/master/s
 set(LITHIUM_JSON_DIRECTORY ${DEPENDENCY_DIRECTORY}/lithium/json/${LITHIUM_JSON_VERSION})
 set(LITHIUM_JSON_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/lithium/json/${LITHIUM_JSON_VERSION})
 
-if (NOT EXISTS "${LITHIUM_JSON_DIRECTORY}/${LITHIUM_JSON_FILE}")
+if (NOT EXISTS "${LITHIUM_JSON_DIRECTORY}/${LITHIUM_JSON_FILE}" AND BUILD_EXTERNAL)
     message(STATUS "Lithium JSON was not found. Downloading now...")
 
     FetchContent_Declare(
@@ -216,9 +342,7 @@ if (NOT EXISTS "${LITHIUM_JSON_DIRECTORY}/${LITHIUM_JSON_FILE}")
         SOURCE_DIR ${LITHIUM_JSON_DIRECTORY}
         DOWNLOAD_NO_EXTRACT true)
 
-    if(NOT lithium_json_POPULATED)
-        FetchContent_Populate(lithium_json)
-    endif()
+    FetchContent_Populate(lithium_json)
 
     message(STATUS "Lithium JSON downloaded to ${LITHIUM_JSON_DIRECTORY}")
 endif()
@@ -232,10 +356,9 @@ message(DEBUG "LITHIUM_JSON_INCLUDE_DIR: ${LITHIUM_JSON_INCLUDE_DIR}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OpenSSL Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OPENSSL_VERSION "1.1.1")
-set(OPENSSL_PATCH "i")
-set(OPENSSL_URL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}${OPENSSL_PATCH}.tar.gz")
-set(OPENSSL_HASH "SHA256=e8be6a35fe41d10603c3cc635e93289ed00bf34b79671a3a4de64fcee00d5242")
+set(OPENSSL_VERSION "3.0.3")
+set(OPENSSL_URL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz")
+set(OPENSSL_HASH "SHA256=ee0078adcef1de5f003c62c80cc96527721609c6f3bb42b7795df31f8b558c0b")
 set(OPENSSL_DIRECTORY ${DEPENDENCY_DIRECTORY}/openssl/${OPENSSL_VERSION}${OPENSSL_PATCH})
 set(OPENSSL_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/openssl/${OPENSSL_VERSION}${OPENSSL_PATCH})
 
@@ -243,13 +366,13 @@ if(NOT DEFINED OPENSSL_ROOT_DIR)
     set(OPENSSL_ROOT_DIR ${OPENSSL_DIRECTORY})
 endif()
 
-find_package(OpenSSL ${OPENSSL_VERSION} QUIET)
+find_package(OpenSSL ${OPENSSL_VERSION} HINTS ${OPENSSL_DIRECTORY} QUIET)
 # I'm still figuring out how to properly use CMake given the constraints of wanting pre-fetch, building if not found, 
 # and setting the rpath for the custom builds. 
 # Basically, OPENSSL_CUSTOM_BUILD acts a canary such that we can re-add the custom OpenSSL target. Otherwise, CMake 
 # won't know what OpenSSL::Crypto is on the second run. The intention of overriding find_package's exports is to make 
 # the ExternalProject custom builds act the same as if it was found with find_package.  
-if (NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD})
+if ((NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD}) AND BUILD_EXTERNAL)
     if (NOT EXISTS ${OPENSSL_DOWNLOAD_DIRECTORY})
         message(STATUS "OpenSSL was not found. Downloading now...")
 
@@ -261,20 +384,27 @@ if (NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD})
             DOWNLOAD_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
             SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY})
 
-        if(NOT openssl_POPULATED)
-            FetchContent_Populate(openssl)
-        endif()
+        FetchContent_Populate(openssl)
         
         message(STATUS "OpenSSL downloaded to ${OPENSSL_DIRECTORY}")
     endif()
 
-    set(OPENSSL_CONFIGURE "./config")
     set(OPENSSL_CONFIGURE_MODULES
         no-cast no-md2 no-md4 no-mdc2 no-rc4 no-rc5 no-engine no-idea no-mdc2 no-rc5
         no-camellia no-ssl3 no-heartbeats no-gost no-deprecated no-capieng no-comp no-dtls
         no-psk no-srp no-dso no-dsa no-rc2 no-des)
-    set(OPENSSL_CONFIGURE_PARAMS
-        --prefix=${OPENSSL_DIRECTORY} --openssldir=${OPENSSL_DIRECTORY} --libdir=lib)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(OPENSSL_CONFIGURE "./config")
+        find_program(OPENSSL_BUILD make REQUIRED)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set (PERL_POSSIBLE_BIN_PATHS ${PERL_POSSIBLE_BIN_PATHS}
+            "C:/Perl/bin" 
+            "C:/Strawberry/perl/bin")
+        find_program(PERL_EXECUTABLE perl REQUIRED PATHS ${PERL_POSSIBLE_BIN_PATHS})
+        set(OPENSSL_CONFIGURE ${PERL_EXECUTABLE} ${OPENSSL_DOWNLOAD_DIRECTORY}/configure VC-WIN64A)
+        find_program(OPENSSL_BUILD nmake REQUIRED)
+    endif()
 
     set(OPENSSL_BUILD_TARGET build_generated)
     set(OPENSSL_INSTALL_TARGET install_sw)
@@ -289,40 +419,113 @@ if (NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD})
             bash ${CMAKE_SOURCE_DIR}/cmake/MacOSFixupDylibRpaths.sh ${OPENSSL_DIRECTORY}/lib)
     endif()
 
-    find_program(OPENSSL_BUILD make REQUIRED)
-
     set(OPENSSL_CUSTOM_BUILD TRUE CACHE BOOL INTERNAL)
-    ExternalProject_Add(
-        openssl
-        PREFIX ${OPENSSL_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
-        BUILD_IN_SOURCE true
-        URL ""
-        DOWNLOAD_DIR ""
-        DOWNLOAD_COMMAND ""
-        UPDATE_COMMAND ""
-        CONFIGURE_COMMAND
-            CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} ${OPENSSL_KERNEL_BITS}
-        COMMAND
-            ${OPENSSL_CONFIGURE} ${OPENSSL_CONFIGURE_MODULES} ${OPENSSL_CONFIGURE_PARAMS}
-        BUILD_COMMAND
-            ${OPENSSL_BUILD} ${OPENSSL_MAKE_TARGET}
-        INSTALL_COMMAND
-            ${OPENSSL_BUILD} ${OPENSSL_INSTALL_TARGET}
-        COMMAND
-            ${OPENSSL_FIXUP_DYLIBS}
-        INSTALL_DIR ${OPENSSL_DIRECTORY}
-        EXCLUDE_FROM_ALL TRUE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        ExternalProject_Add(
+            openssl
+            PREFIX ${OPENSSL_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
+            BUILD_IN_SOURCE true
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CONFIGURE_COMMAND
+                ${COMPILER_OVERRIDES} ${OPENSSL_KERNEL_BITS}
+            COMMAND
+                ${OPENSSL_CONFIGURE} ${OPENSSL_CONFIGURE_MODULES}
+                --prefix=${OPENSSL_DIRECTORY} --openssldir=${OPENSSL_DIRECTORY} --libdir=lib
+            BUILD_COMMAND
+                ${OPENSSL_BUILD} ${OPENSSL_MAKE_TARGET}
+            INSTALL_COMMAND
+                ${OPENSSL_BUILD} ${OPENSSL_INSTALL_TARGET}
+            COMMAND
+                ${OPENSSL_FIXUP_DYLIBS}
+            INSTALL_DIR ${OPENSSL_DIRECTORY}
+            EXCLUDE_FROM_ALL TRUE)
+        
+        add_dependencies(external openssl)    
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        ExternalProject_Add(
+            openssl-release
+            PREFIX ${OPENSSL_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}/build/release
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CONFIGURE_COMMAND
+                ${COMPILER_OVERRIDES} ${OPENSSL_KERNEL_BITS}
+            COMMAND
+                ${OPENSSL_CONFIGURE} ${OPENSSL_CONFIGURE_MODULES} ${OPENSSL_CONFIGURE_PARAMS}
+                --prefix=${OPENSSL_DIRECTORY}/release --openssldir=${OPENSSL_DIRECTORY}/release --libdir=lib
+            BUILD_COMMAND
+                ${OPENSSL_BUILD} ${OPENSSL_MAKE_TARGET}
+            INSTALL_COMMAND
+                ${OPENSSL_BUILD} ${OPENSSL_INSTALL_TARGET}
+            COMMAND
+                ${OPENSSL_FIXUP_DYLIBS}
+            INSTALL_DIR ${OPENSSL_DIRECTORY}/release
+            EXCLUDE_FROM_ALL TRUE)
 
-    set(OPENSSL_INCLUDE_DIR ${OPENSSL_DIRECTORY}/include CACHE FILEPATH "" FORCE)
-
-    add_library(OpenSSL::Crypto SHARED IMPORTED)
-    set_target_properties(OpenSSL::Crypto PROPERTIES
-        IMPORTED_LOCATION ${OPENSSL_DIRECTORY}/lib/libcrypto.${SHARED_EXTENSION})
-    set(OPENSSL_CRYPTO_LIBRARY "-Wl,-rpath,${OPENSSL_DIRECTORY}/lib/" OpenSSL::Crypto CACHE FILEPATH "" FORCE)
-
-    add_dependencies(external openssl)
+        ExternalProject_Add(
+            openssl-debug
+            PREFIX ${OPENSSL_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}/build/debug
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CONFIGURE_COMMAND
+                ${COMPILER_OVERRIDES} ${OPENSSL_KERNEL_BITS}
+            COMMAND
+                ${OPENSSL_CONFIGURE} ${OPENSSL_CONFIGURE_MODULES} ${OPENSSL_CONFIGURE_PARAMS}
+                --prefix=${OPENSSL_DIRECTORY}/debug --openssldir=${OPENSSL_DIRECTORY}/debug --libdir=lib  --debug
+            BUILD_COMMAND
+                ${OPENSSL_BUILD} ${OPENSSL_MAKE_TARGET}
+            INSTALL_COMMAND
+                ${OPENSSL_BUILD} ${OPENSSL_INSTALL_TARGET}
+            COMMAND
+                ${OPENSSL_FIXUP_DYLIBS}
+            INSTALL_DIR ${OPENSSL_DIRECTORY}/debug
+            EXCLUDE_FROM_ALL TRUE)
+        
+        add_dependencies(external openssl-release)
+        add_dependencies(external openssl-debug)
+    endif()
 endif()
+
+if (NOT TARGET OpenSSL::Crypto)
+    add_library(OpenSSL::Crypto SHARED IMPORTED)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(OPENSSL_INCLUDE_DIR ${OPENSSL_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+        set_target_properties(OpenSSL::Crypto PROPERTIES
+            IMPORTED_LOCATION ${OPENSSL_DIRECTORY}/lib/libcrypto.${SHARED_EXTENSION}
+            IMPORTED_IMPLIB ${OPENSSL_DIRECTORY}/lib/libcrypto.${STATIC_EXTENSION})
+        set(OPENSSL_CRYPTO_LIBRARY "-Wl,-rpath,${OPENSSL_DIRECTORY}/lib/" OpenSSL::Crypto CACHE FILEPATH "" FORCE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set(OPENSSL_INCLUDE_DIR ${OPENSSL_DIRECTORY}/debug/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(OpenSSL::Crypto PROPERTIES
+                IMPORTED_LOCATION ${OPENSSL_DIRECTORY}/debug/bin/libcrypto-1_1-x64.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${OPENSSL_DIRECTORY}/debug/lib/libcrypto.${STATIC_EXTENSION})
+        else()
+            set(OPENSSL_INCLUDE_DIR ${OPENSSL_DIRECTORY}/release/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(OpenSSL::Crypto PROPERTIES
+                IMPORTED_LOCATION ${OPENSSL_DIRECTORY}/release/bin/libcrypto-1_1-x64.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${OPENSSL_DIRECTORY}/release/lib/libcrypto.${STATIC_EXTENSION})
+        endif()
+    endif()
+endif()
+
+set(OPENSSL_CRYPTO_LIBRARY OpenSSL::Crypto CACHE FILEPATH "" FORCE)
 
 message(DEBUG "OPENSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
 message(DEBUG "OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
@@ -332,13 +535,13 @@ message(DEBUG "OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQS_VERSION "0.5.0")
+set(OQS_VERSION "0.7.1")
 set(OQS_URL "https://github.com/open-quantum-safe/liboqs/archive/${OQS_VERSION}.tar.gz")
-set(OQS_HASH "SHA256=f677ea45ada4a1e97354bf2e734047ca6efe6183498224d8fc47b8b88c63a6b5")
+set(OQS_HASH "SHA256=c8a1ffcfd4facc90916557c0efae9a28c46e803b088d0cb32ee7b0b010555d3a")
 set(OQS_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs/${OQS_VERSION})
 set(OQS_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs/${OQS_VERSION})
 
-if (NOT EXISTS ${OQS_DOWNLOAD_DIRECTORY})
+if (NOT EXISTS ${OQS_DOWNLOAD_DIRECTORY} AND BUILD_EXTERNAL)
     set(OQS_BUILD_REQUIRED true)
 
     message(STATUS "Open Quantum Safe (liboqs) was not found. Downloading now...")
@@ -351,48 +554,134 @@ if (NOT EXISTS ${OQS_DOWNLOAD_DIRECTORY})
         DOWNLOAD_DIR ${OQS_DOWNLOAD_DIRECTORY}
         SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY})
 
-    if(NOT liboqs_POPULATED)
-        FetchContent_Populate(liboqs)
-    endif()
+    FetchContent_Populate(liboqs)
     
     message(STATUS "Open Quantum Safe (liboqs) downloaded to ${DEPENDENCY_DOWNLOAD_DIRECTORY}")
 endif()
 
-if (NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION} AND NOT DEFINED CACHE{OQS_LIBRARIES})
-    set(OQS_CONFIGURE_GENERATOR "Ninja")
-    set(OQS_CONFIGURE_PARAMS
-        -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-        -DBUILD_SHARED_LIBS=ON
-        -DOQS_BUILD_ONLY_LIB=ON
-        -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
-        -DCMAKE_INSTALL_PREFIX=${OQS_DIRECTORY})
-    find_program(OQS_BUILD ninja REQUIRED)
+if ((NOT EXISTS ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION} AND NOT DEFINED CACHE{OQS_LIBRARIES}) AND BUILD_EXTERNAL)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(OQS_CONFIGURE_GENERATOR "Ninja")
+        set(OQS_CONFIGURE_PARAMS
+            -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
+            -DBUILD_SHARED_LIBS=ON
+            -DOQS_BUILD_ONLY_LIB=ON
+            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR}
+            -DOQS_USE_SHA3_OPENSSL=ON
+            -DCMAKE_INSTALL_PREFIX=${OQS_DIRECTORY})
+        find_program(OQS_BUILD ninja REQUIRED)
 
-    ExternalProject_Add(
-        liboqs
-        PREFIX ${OQS_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY}
-        BINARY_DIR ${OQS_DOWNLOAD_DIRECTORY}/build
-        URL ""
-        DOWNLOAD_DIR ""
-        DOWNLOAD_COMMAND ""
-        UPDATE_COMMAND ""
-        CMAKE_GENERATOR ${OQS_CONFIGURE_GENERATOR}
-        CMAKE_ARGS ${OQS_CONFIGURE_PARAMS}
-        BUILD_COMMAND ${OQS_BUILD}
-        INSTALL_DIR ${OQS_DIRECTORY}
-        DEPENDS openssl # Ensures this project is built after openssl
-        EXCLUDE_FROM_ALL TRUE)
+        ExternalProject_Add(
+            liboqs
+            PREFIX ${OQS_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${OQS_DOWNLOAD_DIRECTORY}/build
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_GENERATOR ${OQS_CONFIGURE_GENERATOR}
+            CMAKE_ARGS ${OQS_CONFIGURE_PARAMS}
+            BUILD_COMMAND ${OQS_BUILD}
+            INSTALL_DIR ${OQS_DIRECTORY}
+            DEPENDS openssl # Ensures this project is built after openssl
+            EXCLUDE_FROM_ALL TRUE)
 
-    add_dependencies(external liboqs)
+        add_dependencies(external liboqs)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set(OQS_CONFIGURE_PARAMS
+            -DBUILD_SHARED_LIBS=ON
+            -DOQS_BUILD_ONLY_LIB=ON
+            -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR})
+        find_program(OQS_BUILD msbuild REQUIRED)
+
+        ExternalProject_Add(
+            liboqs-release
+            PREFIX ${OQS_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${OQS_DOWNLOAD_DIRECTORY}/build/release
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_GENERATOR "Visual Studio 17 2022"
+            CMAKE_ARGS 
+                ${OQS_CONFIGURE_PARAMS}
+                -DCMAKE_INSTALL_PREFIX=${OQS_DIRECTORY}/release
+                -DCMAKE_BUILD_TYPE=Release
+                -DOQS_DEBUG_BUILD=OFF
+            BUILD_COMMAND 
+                ${OQS_BUILD}
+                ${OQS_DOWNLOAD_DIRECTORY}/build/release/ALL_BUILD.vcxproj
+                /property:Configuration=Release
+            INSTALL_DIR ${OQS_DIRECTORY}/release
+            INSTALL_COMMAND 
+                ${OQS_BUILD}
+                ${OQS_DOWNLOAD_DIRECTORY}/build/release/INSTALL.vcxproj
+                /property:Configuration=Release
+            DEPENDS openssl-release # Ensures this project is built after openssl
+            EXCLUDE_FROM_ALL TRUE)
+
+        ExternalProject_Add(
+            liboqs-debug
+            PREFIX ${OQS_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${OQS_DOWNLOAD_DIRECTORY}/build/debug
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_GENERATOR "Visual Studio 17 2022"
+            CMAKE_ARGS 
+                ${OQS_CONFIGURE_PARAMS}
+                -DCMAKE_INSTALL_PREFIX=${OQS_DIRECTORY}/debug
+                -DCMAKE_BUILD_TYPE=Debug
+                -DOQS_DEBUG_BUILD=ON
+            BUILD_COMMAND
+                ${OQS_BUILD}
+                ${OQS_DOWNLOAD_DIRECTORY}/build/debug/ALL_BUILD.vcxproj
+                /property:Configuration=Debug
+            INSTALL_DIR ${OQS_DIRECTORY}/debug
+            INSTALL_COMMAND 
+                ${OQS_BUILD}
+                ${OQS_DOWNLOAD_DIRECTORY}/build/debug/INSTALL.vcxproj
+                /property:Configuration=Debug
+            DEPENDS openssl-debug # Ensures this project is built after openssl
+            EXCLUDE_FROM_ALL TRUE)
+
+        add_dependencies(external liboqs-release)
+        add_dependencies(external liboqs-debug)
+    endif()
 endif()
 
-set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+if (NOT TARGET OQS::oqs)
+    add_library(OQS::oqs SHARED IMPORTED)
 
-add_library(OQS::oqs SHARED IMPORTED)
-set_target_properties(OQS::oqs PROPERTIES
-    IMPORTED_LOCATION ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION})
-set(OQS_LIBRARIES "-Wl,-rpath,${OQS_DIRECTORY}/lib/" OQS::oqs CACHE FILEPATH "" FORCE)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+        set_target_properties(OQS::oqs PROPERTIES
+            IMPORTED_LOCATION ${OQS_DIRECTORY}/lib/liboqs.${SHARED_EXTENSION}
+            IMPORTED_IMPLIB ${OQS_DIRECTORY}/lib/liboqs.${STATIC_EXTENSION})
+        set(OQS_LIBRARIES "-Wl,-rpath,${OQS_DIRECTORY}/lib/" OQS::oqs CACHE FILEPATH "" FORCE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/debug/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(OQS::oqs PROPERTIES
+                IMPORTED_LOCATION ${OQS_DIRECTORY}/debug/bin/oqs.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${OQS_DIRECTORY}/debug/lib/oqs.${STATIC_EXTENSION})
+        else()
+            set(OQS_INCLUDE_DIRS ${OQS_DIRECTORY}/release/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(OQS::oqs PROPERTIES
+                IMPORTED_LOCATION ${OQS_DIRECTORY}/release/bin/oqs.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${OQS_DIRECTORY}/release/lib/oqs.${STATIC_EXTENSION})
+        endif()
+    endif()
+endif()
+
+set(OQS_LIBRARIES OQS::oqs CACHE FILEPATH "" FORCE)
 
 message(DEBUG "OQS_INCLUDE_DIRS: ${OQS_INCLUDE_DIRS}")
 message(DEBUG "OQS_LIBRARIES: ${OQS_LIBRARIES}")
@@ -402,13 +691,13 @@ message(DEBUG "OQS_LIBRARIES: ${OQS_LIBRARIES}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS CPP Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQSCPP_VERSION "0.4.0")
+set(OQSCPP_VERSION "0.7.1")
 set(OQSCPP_URL "https://github.com/open-quantum-safe/liboqs-cpp/archive/${OQSCPP_VERSION}.tar.gz")
-set(OQSCPP_HASH "SHA256=4f1db339632a3478c210d267ef2d2e325c93a4b0af6523e9cbddaf3390d38080")
+set(OQSCPP_HASH "SHA256=86ea3fbeec2fd69639065cc1b537fbe5c156bc0adb9fde7e0e3dc4b5c92b8e12")
 set(OQSCPP_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs-cpp/${OQSCPP_VERSION})
 set(OQSCPP_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs-cpp/${OQSCPP_VERSION})
 
-if (NOT EXISTS ${OQSCPP_DIRECTORY})
+if (NOT EXISTS ${OQSCPP_DIRECTORY} AND BUILD_EXTERNAL)
     message(STATUS "Open Quantum Safe (liboqs-cpp) was not found. Downloading now...")
 
     FetchContent_Declare(
@@ -419,9 +708,7 @@ if (NOT EXISTS ${OQSCPP_DIRECTORY})
         DOWNLOAD_DIR ${OQSCPP_DOWNLOAD_DIRECTORY}
         SOURCE_DIR ${OQSCPP_DOWNLOAD_DIRECTORY})
 
-    if(NOT liboqs-cpp_POPULATED)
-        FetchContent_Populate(liboqs-cpp)
-    endif()
+    FetchContent_Populate(liboqs-cpp)
 
     file(COPY ${OQSCPP_DOWNLOAD_DIRECTORY}/include/ DESTINATION ${OQSCPP_DIRECTORY}/include/oqscpp)
     
@@ -437,13 +724,13 @@ message(DEBUG "OQSCPP_INCLUDE_DIRS: ${OQSCPP_INCLUDE_DIRS}")
 #-----------------------------------------------------------------------------------------------------------------------
 # spdlog Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(SPDLOG_VERSION "1.8.2")
+set(SPDLOG_VERSION "1.10.0")
 set(SPDLOG_URL "https://github.com/gabime/spdlog/archive/v${SPDLOG_VERSION}.tar.gz")
-set(SPDLOG_HASH "SHA256=e20e6bd8f57e866eaf25a5417f0a38a116e537f1a77ac7b5409ca2b180cec0d5")
+set(SPDLOG_HASH "SHA256=697f91700237dbae2326b90469be32b876b2b44888302afbc7aceb68bcfe8224")
 set(SPDLOG_DIRECTORY ${DEPENDENCY_DIRECTORY}/spdlog/${SPDLOG_VERSION})
 set(SPDLOG_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/spdlog/${SPDLOG_VERSION})
 
-if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY})
+if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY} AND BUILD_EXTERNAL)
     message(STATUS "spdlog was not found. Downloading now...")
 
     FetchContent_Declare(
@@ -454,40 +741,119 @@ if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY})
         DOWNLOAD_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
         SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY})
 
-    if(NOT spdlog_POPULATED)
-        FetchContent_Populate(spdlog)
-    endif()
+    FetchContent_Populate(spdlog)
     
     message(STATUS "spdlog downloaded to ${SPDLOG_DIRECTORY}")
 endif()
     
-if (NOT EXISTS ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION} AND NOT DEFINED CACHE{spdlog_LIBRARIES})
-    set(SPDLOG_CONFIGURE_PARAMS
-        -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
-        -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY}
-        -DSPDLOG_BUILD_SHARED=ON)
+if ((NOT EXISTS ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION} AND NOT DEFINED CACHE{spdlog_LIBRARIES}) AND BUILD_EXTERNAL)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(SPDLOG_CONFIGURE_PARAMS
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY}
+            -DSPDLOG_BUILD_SHARED=ON)
     
-    ExternalProject_Add(
-        spdlog
-        PREFIX ${SPDLOG_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
-        BUILD_IN_SOURCE true
-        URL ""
-        DOWNLOAD_DIR ""
-        DOWNLOAD_COMMAND ""
-        UPDATE_COMMAND ""
-        CMAKE_ARGS ${SPDLOG_CONFIGURE_PARAMS}
-        INSTALL_DIR ${SPDLOG_DIRECTORY}
-        EXCLUDE_FROM_ALL TRUE)
+        ExternalProject_Add(
+            spdlog
+            PREFIX ${SPDLOG_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}/build
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS ${SPDLOG_CONFIGURE_PARAMS} -DCMAKE_BUILD_TYPE=Release
+            INSTALL_DIR ${SPDLOG_DIRECTORY}
+            EXCLUDE_FROM_ALL TRUE)
 
-    add_dependencies(external spdlog)
+        add_dependencies(external spdlog)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        find_program(SPDLOG_BUILD msbuild REQUIRED)
+
+        set(SPDLOG_CONFIGURE_PARAMS
+            -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+            -DSPDLOG_BUILD_SHARED=ON
+            -DSPDLOG_WCHAR_SUPPORT=ON
+            -DSPDLOG_WCHAR_FILENAMES=ON
+            -DSPDLOG_BUILD_EXAMPLE=OFF
+            -DSPDLOG_BUILD_EXAMPLE_HO=OFF
+            -DSPDLOG_BUILD_TESTS=OFF)
+    
+        ExternalProject_Add(
+            spdlog-release
+            PREFIX ${SPDLOG_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}/build/release
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS ${SPDLOG_CONFIGURE_PARAMS}
+                -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY}/release
+                -DCMAKE_BUILD_TYPE=Release
+            INSTALL_DIR ${SPDLOG_DIRECTORY}/release
+            INSTALL_COMMAND 
+                ${SPDLOG_BUILD}
+                ${SPDLOG_DOWNLOAD_DIRECTORY}/build/release/INSTALL.vcxproj
+                /property:Configuration=Release
+            EXCLUDE_FROM_ALL TRUE)
+
+        ExternalProject_Add(
+            spdlog-debug
+            PREFIX ${SPDLOG_DOWNLOAD_DIRECTORY}
+            SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
+            BINARY_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}/build/debug
+            BUILD_IN_SOURCE false
+            URL ""
+            DOWNLOAD_DIR ""
+            DOWNLOAD_COMMAND ""
+            UPDATE_COMMAND ""
+            CMAKE_ARGS ${SPDLOG_CONFIGURE_PARAMS}
+            ${CMAKE_INSTALL_LIBDIR}
+                -DCMAKE_INSTALL_PREFIX=${SPDLOG_DIRECTORY}/debug
+                -DCMAKE_BUILD_TYPE=Debug
+            INSTALL_DIR ${SPDLOG_DIRECTORY}/debug
+            INSTALL_COMMAND 
+                ${SPDLOG_BUILD}
+                ${SPDLOG_DOWNLOAD_DIRECTORY}/build/debug/INSTALL.vcxproj
+                /property:Configuration=Debug
+            EXCLUDE_FROM_ALL TRUE)
+
+        add_dependencies(external spdlog-release)
+        add_dependencies(external spdlog-debug)
+    endif()
 endif()
 
-set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/include CACHE FILEPATH "" FORCE)
-add_library(Spdlog::spdlog SHARED IMPORTED)
-set_target_properties(Spdlog::spdlog PROPERTIES
-    IMPORTED_LOCATION ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION})
-set(spdlog_LIBRARIES "-Wl,-rpath,${SPDLOG_DIRECTORY}/lib/" Spdlog::spdlog CACHE FILEPATH "" FORCE)
+if (NOT TARGET Spdlog::spdlog)
+    add_library(Spdlog::spdlog SHARED IMPORTED)
+
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/include CACHE FILEPATH "" FORCE)
+
+        set_target_properties(Spdlog::spdlog PROPERTIES
+            IMPORTED_LOCATION ${SPDLOG_DIRECTORY}/lib/libspdlog.${SHARED_EXTENSION}
+            IMPORTED_IMPLIB ${SPDLOG_DIRECTORY}/lib/libspdlog.${STATIC_EXTENSION})
+        set(spdlog_LIBRARIES "-Wl,-rpath,${SPDLOG_DIRECTORY}/lib/" Spdlog::spdlog CACHE FILEPATH "" FORCE)
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+            set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/debug/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(Spdlog::spdlog PROPERTIES
+                IMPORTED_LOCATION ${SPDLOG_DIRECTORY}/debug/bin/spdlogd.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${SPDLOG_DIRECTORY}/debug/lib/spdlogd.${STATIC_EXTENSION})
+        else()
+            set(spdlog_INCLUDE_DIRS ${SPDLOG_DIRECTORY}/release/include CACHE FILEPATH "" FORCE)
+
+            set_target_properties(Spdlog::spdlog PROPERTIES
+                IMPORTED_LOCATION ${SPDLOG_DIRECTORY}/release/bin/spdlog.${SHARED_EXTENSION}
+                IMPORTED_IMPLIB ${SPDLOG_DIRECTORY}/release/lib/spdlog.${STATIC_EXTENSION})
+        endif()
+    endif()
+endif()
+
+set(spdlog_LIBRARIES Spdlog::spdlog CACHE FILEPATH "" FORCE)
 
 message(DEBUG "spdlog_INCLUDE_DIRS: ${spdlog_INCLUDE_DIRS}")
 message(DEBUG "spdlog_LIBRARIES: ${spdlog_LIBRARIES}")

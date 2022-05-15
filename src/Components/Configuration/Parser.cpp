@@ -285,7 +285,11 @@ Configuration::StatusCode Configuration::Parser::FetchOptions()
     
     // Update the configuration file as the initialization of options may create new values for certain options.
     if (auto const status = Serialize(); status != StatusCode::Success) {
+        #if defined(WIN32)
+        m_logger->error(L"Failed to update configuration file at: {}!", fmt::to_string_view(m_filepath.c_str()));
+        #else
         m_logger->error("Failed to update configuration file at: {}!", m_filepath.c_str());
+        #endif
         return status;
     }
 
@@ -338,7 +342,11 @@ Configuration::StatusCode Configuration::Parser::LaunchGenerator()
 
     // If for some reason we could not serialize the options 
     if (StatusCode status = Serialize(); status != StatusCode::Success) {
+        #if defined(WIN32)
+        m_logger->error(L"Failed to save configuration options to: {}!", fmt::to_string_view(m_filepath.c_str()));
+        #else
         m_logger->error("Failed to save configuration options to: {}!", m_filepath.c_str());
+        #endif
         return status;
     }
 
@@ -750,7 +758,11 @@ void Configuration::Parser::OnFilepathChanged()
     bool const failed = m_runtime.useInteractiveConsole && !FileUtils::CreateFolderIfNoneExist(m_filepath);
     #endif
     if (failed) { 
-        m_logger->error("Failed to creatSe the filepath at: {}!", m_filepath.c_str());
+        #if defined(WIN32)
+        m_logger->error(L"Failed to create the filepath at: {}!", fmt::to_string_view(m_filepath.c_str()));
+        #else
+        m_logger->error("Failed to create the filepath at: {}!", m_filepath.c_str());
+        #endif
         DisableFilesystem(); // If we failed to create the filepath, we are unable to use the filesystem. 
     }
 }
@@ -769,7 +781,11 @@ Configuration::StatusCode Configuration::Parser::ProcessFile()
     // If the file is found and this is the first time we are reading the file, the deserializer should handle
     // the rest of the file processing. 
     if (found) {
+        #if defined(WIN32)
+        m_logger->debug(L"Reading configuration file at: {}.", fmt::to_string_view(m_filepath.c_str()));
+        #else
         m_logger->debug("Reading configuration file at: {}.", m_filepath.c_str());
+        #endif
         return Deserialize();
     }
 
@@ -778,14 +794,22 @@ Configuration::StatusCode Configuration::Parser::ProcessFile()
     #if defined(BRYPT_SHARED)
     // If we have been built as a shared library, we need to indicate to the user that an error has occured and
     // they need to resolve the options they have supplied. 
+    #if defined(WIN32)
+    m_logger->error(L"Failed to locate a configuration file at: {}", fmt::to_string_view(m_filepath.c_str()));
+    #else
     m_logger->error("Failed to locate a configuration file at: {}", m_filepath.c_str());
+    #endif
     #else
     // If we have been built as a console application, we may be able to launch the command line configuration 
     // generator to initialize the options. 
-    m_logger->warn("Failed to locate a configuration file at: {}", m_filepath.c_str());
+    //m_logger->warn("Failed to locate a configuration file at: {}", fmt::to_string_view(m_filepath.c_str()));
     bool const create = m_runtime.useInteractiveConsole && !m_validated && !found; // Can we launch the generator?
     if (create) {
+        #if defined(WIN32)
+        m_logger->info(L"Launching configuration generator for: {}.", fmt::to_string_view(m_filepath.c_str()));
+        #else
         m_logger->info("Launching configuration generator for: {}.", m_filepath.c_str());
+        #endif
         return LaunchGenerator();
     }
     m_logger->error("Unable to launch the configuration generator with \"--non-interactive\" enabled.");

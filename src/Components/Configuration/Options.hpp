@@ -33,7 +33,8 @@ namespace spdlog { class logger; }
 namespace Configuration {
 //----------------------------------------------------------------------------------------------------------------------
 
-std::filesystem::path const DefaultBryptFolder = "/brypt/";
+constexpr std::string_view DefaultBryptFolder = "/brypt/";
+
 std::filesystem::path const DefaultConfigurationFilename = "config.json";
 std::filesystem::path const DefaultBootstrapFilename = "bootstrap.json";
 

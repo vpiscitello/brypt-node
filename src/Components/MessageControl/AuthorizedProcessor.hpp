@@ -4,8 +4,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "AssociatedMessage.hpp"
+#include "BryptIdentifier/IdentifierTypes.hpp"
 #include "BryptMessage/MessageTypes.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Route/MessageHandler.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Utilities/InvokeContext.hpp"
@@ -42,29 +43,21 @@ public:
     ~AuthorizedProcessor();
 
     // IMessageSink {
+    [[nodiscard]] virtual bool CollectMessage(Message::Context const& context, std::string_view buffer) override;
     [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpProxy,
-        Message::Context const& context,
-        std::string_view buffer) override;
-        
-    [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpProxy,
-        Message::Context const& context,
-        std::span<std::uint8_t const> buffer) override;
+        Message::Context const& context, std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
     
     [[nodiscard]] std::size_t MessageCount() const;
     [[nodiscard]] std::size_t Execute();
     
-    UT_SupportMethod(std::optional<AssociatedMessage> GetNextMessage());
+    UT_SupportMethod(std::optional<Message::Application::Parcel> GetNextMessage());
 
 private:
-    [[nodiscard]] std::optional<AssociatedMessage> FetchMessage();
+    [[nodiscard]] std::optional<Message::Application::Parcel> FetchMessage();
 
-    [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Application::Parcel&& message);
-    [[nodiscard]] bool OnMessageCollected(
-        std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Platform::Parcel const& message);
+    [[nodiscard]] bool OnMessageCollected(Message::Application::Parcel&& message);
+    [[nodiscard]] bool OnMessageCollected(Message::Platform::Parcel const& message);
         
     std::shared_ptr<spdlog::logger> m_logger;
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
@@ -74,7 +67,7 @@ private:
     std::weak_ptr<Node::ServiceProvider> m_wpServiceProvider;
     
     mutable std::shared_mutex m_mutex;
-    std::queue<AssociatedMessage> m_incoming;
+    std::queue<Message::Application::Parcel> m_incoming;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

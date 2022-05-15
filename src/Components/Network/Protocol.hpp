@@ -37,7 +37,9 @@ inline Network::Protocol Network::ParseProtocol(std::string name)
     };
 
     // Adjust the provided protocol name to lowercase
-    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c){ return std::tolower(c); });
+    std::transform(name.begin(), name.end(), name.begin(), [] (char c) { 
+        return static_cast<char>(std::tolower(static_cast<std::int32_t>(c)));
+    });
     if (auto const itr = translations.find(name.data()); itr != translations.end()) {
         return itr->second;
     }

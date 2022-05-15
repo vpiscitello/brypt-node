@@ -101,7 +101,7 @@ struct local::EndpointEntry
 BootstrapService::BootstrapService()
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_spDelegate()
-    , m_mediator(nullptr)
+    , m_pResolutionService(nullptr)
     , m_filepath()
     , m_cache()
     , m_stage()
@@ -115,7 +115,7 @@ BootstrapService::BootstrapService()
 BootstrapService::BootstrapService(std::filesystem::path const& filepath, bool useFilepathDeduction)
     : m_logger(spdlog::get(Logger::Name::Core.data()))
     , m_spDelegate()
-    , m_mediator(nullptr)
+    , m_pResolutionService(nullptr)
     , m_filepath(filepath)
     , m_cache()
     , m_stage()
@@ -187,10 +187,12 @@ void BootstrapService::SetDefaults(Configuration::Options::Endpoints const& endp
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void BootstrapService::Register(IPeerMediator* const mediator)
+void BootstrapService::Register(IResolutionService* const pResolutionService)
 {
-    assert(!m_mediator);
-    if (m_mediator = mediator; m_mediator) [[unlikely]] { m_mediator->RegisterObserver(this); }
+    assert(!m_pResolutionService);
+    if (m_pResolutionService = pResolutionService; m_pResolutionService) [[unlikely]] { 
+        m_pResolutionService->RegisterObserver(this);
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -214,7 +216,7 @@ void BootstrapService::Register(std::shared_ptr<Scheduler::Registrar> const& spR
 void BootstrapService::UnregisterServices()
 {
     assert(Assertions::Threading::IsCoreThread());
-    m_mediator = nullptr;
+    m_pResolutionService = nullptr;
     m_spDelegate->Delist();
     m_spDelegate.reset();
 }
@@ -223,8 +225,12 @@ void BootstrapService::UnregisterServices()
 
 bool BootstrapService::FetchBootstraps()
 {
-    // We should not process the file if filesystem usage has been disabled or the cache is in use. 
-    if (m_filepath.empty() || !m_cache.empty()) { return true; }
+    // We should not process the file if the cache is in use. 
+    if (!m_cache.empty()) { return true; }
+
+    // We should not process the file filesystem usage has been disabled, but we should initialize the cache
+    // with the user provided defaults. 
+    if (m_filepath.empty()) { return InitializeCache() == Configuration::StatusCode::Success; }
 
     Configuration::StatusCode status = (std::filesystem::exists(m_filepath)) ? Deserialize() : InitializeCache();
     bool const success = (!m_cache.empty() || status == Configuration::StatusCode::Success);
@@ -476,7 +482,11 @@ Configuration::StatusCode BootstrapService::Deserialize()
     // it is intentional to have this node not have initial connections (e.g. the first run of the "root" node).
     bool const error = hasTransformError || (m_cache.empty() && local::HasDefaultBootstraps(m_defaults));
     if (error) [[unlikely]] {
+        #if defined(WIN32)
+        m_logger->error(L"Failed to decode bootstrap file at: {}!", fmt::to_string_view(m_filepath.c_str()));
+        #else
         m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.c_str());
+        #endif
         return DecodeError;
     }
 

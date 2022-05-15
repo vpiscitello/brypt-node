@@ -59,7 +59,7 @@ public:
     [[nodiscard]] bool RequestStop(ExecutionStatus reason = ExecutionStatus::RequestedShutdown) noexcept
     {
         // If the status is not in the executing state (e.g. already stopping), a stop can not be requested.
-        if (m_status != ExecutionStatus::Executing) { return false; }
+        if (m_status != ExecutionStatus::ThreadSpawned && m_status != ExecutionStatus::Executing) { return false; }
         assert(m_execute == true); // In the executing state, the execution flag should be set. 
         m_execute = false; // The runtime will stop processing the event loop when this flag is false. 
         m_status = reason; // Indicate execution is in a cleanup phase. 

@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Manager.hpp
+// File: ProxyStore.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -13,7 +13,7 @@
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Interfaces/PeerCache.hpp"
-#include "Interfaces/PeerMediator.hpp"
+#include "Interfaces/ResolutionService.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -28,28 +28,32 @@ class IPeerObserver;
 
 namespace Awaitable { class TrackingService; }
 namespace Node { class ServiceProvider; }
+namespace Scheduler { class Delegate; class Registrar; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Peer {
 //----------------------------------------------------------------------------------------------------------------------
 
-class Manager;
+class ProxyStore;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Peer namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Peer::Manager final : public IPeerMediator, public IPeerCache
+class Peer::ProxyStore final : public IResolutionService, public IPeerCache
 {
 public:
     using Predicate = std::function<bool(Peer::Proxy const&)>;
-    using ForEachFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const)>;
+    using ForEachFunction = std::function<CallbackIteration(std::shared_ptr<Peer::Proxy> const&)>;
     using ClusterDispatchResult = std::optional<std::size_t>;
     using ClusterRequestResult = std::optional<std::pair<Awaitable::TrackerKey, std::size_t>>;
 
-    Manager(Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
+    ProxyStore(
+        Security::Strategy strategy,
+        std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
-    // IPeerMediator {
+    // IResolutionService {
     virtual void RegisterObserver(IPeerObserver* const observer) override;
     virtual void UnpublishObserver(IPeerObserver* const observer) override;
 
@@ -71,7 +75,7 @@ public:
         Network::Endpoint::Identifier identifier,
         Network::RemoteAddress const& address, 
         WithdrawalCause cause) override;
-    // } IPeerMediator
+    // } IResolutionService
 
     // IPeerCache {
     virtual bool ForEach(
@@ -82,6 +86,8 @@ public:
     [[nodiscard]] virtual std::size_t ObservedCount() const override;
     [[nodiscard]] virtual std::size_t ResolvingCount() const override;
     // } IPeerCache
+
+    std::shared_ptr<Proxy> Find(std::string_view identifier) const;
 
     bool ForEach(ForEachFunction const& callback, Filter filter = Filter::Active) const;
 
@@ -113,6 +119,8 @@ public:
     bool ScheduleDisconnect(Node::Identifier const& identifier) const; 
     std::size_t ScheduleDisconnect(Network::Address const& address) const; 
 
+    [[nodiscard]] std::size_t Execute();
+
 private:
     struct InternalIndex {};
     struct ExternalIndex {};
@@ -134,6 +142,8 @@ private:
     using ResolvingPeerMap = std::unordered_map<
         Network::RemoteAddress, std::unique_ptr<Resolver>, Network::AddressHasher<Network::RemoteAddress>>;
 
+    using ResolvedPeers = std::vector<std::weak_ptr<Peer::Proxy>>;
+
     [[nodiscard]] OptionalRequest GenerateShortCircuitRequest(Node::SharedIdentifier const& spPeerIdentifier) const;
     [[nodiscard]] std::shared_ptr<Peer::Proxy> CreatePeer(
         Node::Identifier const& identifier, Network::RemoteAddress const& address);
@@ -145,6 +155,8 @@ private:
     template<typename FunctionType, typename...Args>
     void NotifyObserversConst(FunctionType const& function, Args&&...args) const;
 
+    std::shared_ptr<Scheduler::Delegate> m_spDelegate;
+
     Node::SharedIdentifier m_spNodeIdentifier;
     Event::SharedPublisher const m_spEventPublisher;
     Security::Strategy m_strategyType;
@@ -154,6 +166,7 @@ private:
 
     mutable std::shared_mutex m_resolvingMutex;
     ResolvingPeerMap m_resolving;
+    ResolvedPeers m_resolved;
     
     mutable std::shared_mutex m_peersMutex;
     PeerTrackingMap m_peers;

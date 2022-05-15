@@ -7,6 +7,7 @@
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
 #include "Components/State/NodeState.hpp"
+#include "Interfaces/ResolutionService.hpp"
 #include "Utilities/NodeUtils.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -53,9 +54,9 @@ protected:
         m_spMessageProcessor = std::make_shared<Network::Test::MessageProcessor>(test::ClientIdentifier);
         m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
         
-        m_spMediator = std::make_shared<Network::Test::SinglePeerMediator>(
+        m_spResolutionService = std::make_shared<Network::Test::SingleResolutionService>(
             test::ClientIdentifier, m_spMessageProcessor.get(), m_spServiceProvider);
-        m_spServiceProvider->Register<IPeerMediator>(m_spMediator);
+        m_spServiceProvider->Register<IResolutionService>(m_spResolutionService);
     }
 
     void GeneratePeerConnections(std::size_t generate)
@@ -91,7 +92,7 @@ protected:
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<Network::Test::MessageProcessor> m_spMessageProcessor;
-    std::shared_ptr<Network::Test::SinglePeerMediator> m_spMediator;
+    std::shared_ptr<Network::Test::SingleResolutionService> m_spResolutionService;
 
     std::vector<test::PeerConnection> m_connections;
     ConnectionTracker<test::ConnectionIdentifier> m_tracker;

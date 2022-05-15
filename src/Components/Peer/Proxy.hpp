@@ -19,6 +19,7 @@
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
+#include "Utilities/CallbackIteration.hpp"
 #include "Utilities/InvokeContext.hpp"
 #include "Utilities/TokenizedInstance.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -35,7 +36,7 @@
 
 class NodeState;
 class IConnectProtocol;
-class IPeerMediator;
+class IResolutionService;
 
 namespace Awaitable { class TrackingService; }
 namespace Network { class Address; }
@@ -91,8 +92,8 @@ public:
 
     // Endpoint Association Methods {
     using WithdrawalCause = Event::Message<Event::Type::PeerDisconnected>::Cause;
+    using EndpointReader = std::function<CallbackIteration(Registration const&)>;
 
-    void RegisterEndpoint(Registration const& registration);
     void RegisterEndpoint(
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
@@ -110,11 +111,14 @@ public:
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t RegisteredEndpointCount() const;
 
+    bool ForEach(EndpointReader const& reader) const;
+
     [[nodiscard]] bool ScheduleDisconnect() const;
     // } Endpoint Association Methods
 
     // Security Methods {
     [[nodiscard]] bool AttachResolver(std::unique_ptr<Resolver>&& upResolver);
+    void DetachResolver();
     [[nodiscard]] bool StartExchange(
         Security::Strategy strategy, Security::Role role, std::shared_ptr<Node::ServiceProvider> spServiceProvider);
     [[nodiscard]] Security::State GetAuthorization() const;
@@ -123,12 +127,10 @@ public:
     // } Security Methods
 
     // Testing Methods {
-    UT_SupportMethod(void SetMediator(std::weak_ptr<IPeerMediator> const& wpMediator));
+    UT_SupportMethod(void SetResolutionService(std::weak_ptr<IResolutionService> const& wpResolutionService));
     UT_SupportMethod(void SetReceiver(IMessageSink* const pMessageSink));
     UT_SupportMethod(void SetAuthorization(Security::State state));
     UT_SupportMethod(void AttachSecurityStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy));
-    UT_SupportMethod(void DetachResolver());
-    UT_SupportMethod(void RegisterSilentEndpoint(Registration const& registration));
     UT_SupportMethod(
         void RegisterSilentEndpoint(
             Network::Endpoint::Identifier identifier,
@@ -144,10 +146,10 @@ private:
     [[nodiscard]] RegisteredEndpoints::const_iterator GetOrSetPreferredEndpoint(
         Message::Application::Builder& builder) const; 
     [[nodiscard]] RegisteredEndpoints::const_iterator FetchPreferredEndpoint() const; 
-    void BindSecurityContext(Message::Context& context) const;
+    void BindSecurityContext(Message::Context& context);
 
     Node::SharedIdentifier m_spIdentifier;
-    std::weak_ptr<IPeerMediator> m_wpMediator;
+    std::weak_ptr<IResolutionService> m_wpResolutionService;
     std::weak_ptr<Awaitable::TrackingService> m_wpTrackingService;
     
     std::atomic<Security::State> m_authorization;

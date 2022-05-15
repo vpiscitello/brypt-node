@@ -20,7 +20,7 @@ using Frame = StrongType<std::uint32_t, struct FrameTag>;
 using Interval = StrongType<Frame::UnderlyingType, struct IntervalTag>;
 
 class TaskIdentifier;
-class TaskIdentifierHasher;
+struct TaskIdentifierHasher;
 
 class BasicTask;
 class OneShotTask;
@@ -45,7 +45,7 @@ public:
 
     TaskIdentifier() : m_value(Generator::Instance().Generate()) {}
     TaskIdentifier(TaskIdentifier const& other) : m_value(other.m_value) {}
-    TaskIdentifier(TaskIdentifier&& other) : m_value(std::move(other.m_value)) {}
+    TaskIdentifier(TaskIdentifier&& other) noexcept : m_value(std::move(other.m_value)) {}
     TaskIdentifier(UnderlyingType const& value) : m_value(value) {}
     TaskIdentifier(UnderlyingType&& value) : m_value(std::move(value)) {}
 

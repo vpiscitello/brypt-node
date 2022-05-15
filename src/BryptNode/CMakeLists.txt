@@ -32,7 +32,7 @@ set(INTERNAL_LIBRARIES
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME brypt)
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # TODO: Implement the install for the brypt executable 
     set(MACOS_INSTALL_RPATH
         "@executable_path/../lib/"
@@ -61,11 +61,15 @@ if(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
 endif()
 
 # Internal include dependencies
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${spdlog_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 # Exported library dependencies
 target_link_libraries(${PROJECT_NAME} PUBLIC ${INTERNAL_LIBRARIES})
-target_link_libraries(${PROJECT_NAME} PUBLIC ${spdlog_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC ${spdlog_LIBRARIES} ${Boost_LIBRARIES} Boost::program_options)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_definitions(${PROJECT_NAME} PUBLIC -DBOOST_PROGRAM_OPTIONS_DYN_LINK)
+endif()
 
 # Compiler options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

@@ -7,7 +7,6 @@
 #include "MessageHandler.hpp"
 #include "Path.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
-#include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Utilities/Assertions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/spdlog.h>
@@ -47,7 +46,18 @@ public:
 
     template<typename HandlerType, typename... Arguments>
 	    requires std::derived_from<HandlerType, IMessageHandler>
-    [[nodiscard]] bool Register(std::string_view route, Arguments&&... arguments);
+    [[nodiscard]] bool Register(std::string_view route, Arguments&&... arguments)
+    {
+        if (auto const pNode = Register(route); pNode) {
+            auto const result = pNode->Attach(std::make_unique<HandlerType>(std::forward<Arguments>(arguments)...));
+            if (result == Prefix::AttachResult::Replaced) {
+                m_logger->warn("The route handler for \"{}\" was replaced.", route);
+            }
+            return true;
+        }
+
+        return false;
+    }
 
     [[nodiscard]] bool Initialize(std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
@@ -94,21 +104,5 @@ private:
     std::shared_ptr<spdlog::logger> m_logger;
     Prefix m_root;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<typename HandlerType, typename... Arguments>
-    requires std::derived_from<HandlerType, Route::IMessageHandler>
-bool Route::Router::Register(std::string_view route, Arguments&&... arguments)
-{
-    if (auto const pNode = Register(route); pNode) {
-        auto const result = pNode->Attach(std::make_unique<HandlerType>(std::forward<Arguments>(arguments)...));
-        if (result == Prefix::AttachResult::Replaced) {
-            m_logger->warn("The route handler for \"{}\" was replaced.", route);
-        }
-        return true;
-    }
-    return false;
-}
 
 //----------------------------------------------------------------------------------------------------------------------

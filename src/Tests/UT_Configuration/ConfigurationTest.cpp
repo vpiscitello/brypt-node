@@ -35,6 +35,8 @@ constexpr auto RuntimeOptions = Configuration::Options::Runtime
     .useFilepathDeduction = false
 };
 
+Network::BindingAddress const BindingAddress{ Network::Protocol::TCP, "*:35216", "lo" };
+
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
 } // namespace
@@ -150,7 +152,7 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(parser.GetNodeLocation(), "node_location");
 
     EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35217" }));
-    EXPECT_TRUE(parser.GetEndpoint("tcp://127.0.0.1:35216"));
+    EXPECT_TRUE(parser.GetEndpoint(test::BindingAddress.GetUri()));
 
     EXPECT_FALSE(parser.SetConnectionTimeout(1441min));
     EXPECT_TRUE(parser.SetConnectionTimeout(0s));
@@ -215,8 +217,8 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     }
 
     {
-        auto const optEndpoint = parser.GetEndpoint("tcp://127.0.0.1:35216");
-        auto const optCheckEndpoint = checker.GetEndpoint("tcp://127.0.0.1:35216");
+        auto const optEndpoint = parser.GetEndpoint(test::BindingAddress.GetUri());
+        auto const optCheckEndpoint = checker.GetEndpoint(test::BindingAddress.GetUri());
         ASSERT_TRUE(optCheckEndpoint && optEndpoint);
         EXPECT_EQ(optCheckEndpoint->get(), optEndpoint->get());
         EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
@@ -383,27 +385,26 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
 
     // You should be able to fetch an initalized endpoint configuration after storing one.
     {
-        Network::BindingAddress const binding = { Network::Protocol::TCP, "*:35216", "lo" };
         Network::RemoteAddress const bootstrap = { 
             Network::Protocol::TCP, "127.0.0.1:35217", true, Network::RemoteAddress::Origin::Cache };
 
-        auto const optEndpoint = parser.GetEndpoint(binding);
+        auto const optEndpoint = parser.GetEndpoint(test::BindingAddress);
         ASSERT_TRUE(optEndpoint);
         EXPECT_EQ(optEndpoint->get().GetProtocol(), Network::Protocol::TCP);
         EXPECT_EQ(optEndpoint->get().GetProtocolString(), "TCP");
         EXPECT_EQ(optEndpoint->get().GetInterface(), "lo");
-        EXPECT_EQ(optEndpoint->get().GetBinding(), binding);
+        EXPECT_EQ(optEndpoint->get().GetBinding(), test::BindingAddress);
 
         auto optStoreBootstrap = optEndpoint->get().GetBootstrap();
         ASSERT_TRUE(optStoreBootstrap);
         EXPECT_EQ(*optStoreBootstrap, bootstrap);
         EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
 
-        auto const optUriEndpoint = parser.GetEndpoint(binding.GetUri()); 
+        auto const optUriEndpoint = parser.GetEndpoint(test::BindingAddress.GetUri()); 
         ASSERT_TRUE(optUriEndpoint);
         EXPECT_EQ(optEndpoint->get(), optUriEndpoint->get());
 
-        auto const optProtocolEndpoint = parser.GetEndpoint(binding.GetProtocol(), "*:35216");
+        auto const optProtocolEndpoint = parser.GetEndpoint(test::BindingAddress.GetProtocol(), "*:35216");
         ASSERT_TRUE(optProtocolEndpoint);
         EXPECT_EQ(optEndpoint->get(), optProtocolEndpoint->get());
 
@@ -421,7 +422,7 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
         Network::RemoteAddress const bootstrap = { 
             Network::Protocol::TCP, "127.0.0.1:35218", true, Network::RemoteAddress::Origin::Cache };
 
-        auto const optEndpoint = parser.GetEndpoint("tcp://127.0.0.1:35216");
+        auto const optEndpoint = parser.GetEndpoint(test::BindingAddress.GetUri());
         ASSERT_TRUE(optEndpoint);
         
         auto const optStoreBootstrap = optEndpoint->get().GetBootstrap();
@@ -449,21 +450,20 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
 
     // You should be able to remove an existing endpoint
     {
-        Network::BindingAddress const binding = { Network::Protocol::TCP, "*:35216", "lo" };
-        EXPECT_TRUE(parser.ExtractEndpoint(binding));
-        EXPECT_FALSE(parser.GetEndpoint(binding));
+        EXPECT_TRUE(parser.ExtractEndpoint(test::BindingAddress));
+        EXPECT_FALSE(parser.GetEndpoint(test::BindingAddress));
         EXPECT_FALSE(parser.Validated());
         EXPECT_TRUE(parser.Changed());
         
-        EXPECT_FALSE(parser.ExtractEndpoint(binding)); // You should not be able to remove it twice.
+        EXPECT_FALSE(parser.ExtractEndpoint(test::BindingAddress)); // You should not be able to remove it twice.
 
         // You should be able to re-add it.
         EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35218" }));
-        EXPECT_TRUE(parser.GetEndpoint(binding));
+        EXPECT_TRUE(parser.GetEndpoint(test::BindingAddress));
         EXPECT_FALSE(parser.Validated());
         EXPECT_TRUE(parser.Changed());
 
-        EXPECT_TRUE(parser.ExtractEndpoint(binding.GetUri()));
+        EXPECT_TRUE(parser.ExtractEndpoint(test::BindingAddress.GetUri()));
 
         EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35218" }));
         EXPECT_TRUE(parser.ExtractEndpoint(Network::Protocol::TCP, "*:35216"));
@@ -483,6 +483,9 @@ std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
     if (path.filename() == "UT_Configuration") { 
         return path / "files" / filename;
     } else {
+#if defined(WIN32)
+        path = path.parent_path();
+#endif
         if (path.filename() == "bin") { path.remove_filename(); }
         return path / "Tests/UT_Configuration/files" / filename;
     }

@@ -8,12 +8,12 @@
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
-#include "Components/Peer/Manager.hpp"
 #include "Components/Peer/Proxy.hpp"
+#include "Components/Peer/ProxyStore.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
-#include "Interfaces/PeerMediator.hpp"
+#include "Interfaces/ResolutionService.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -45,10 +45,11 @@ class local::ExchangeResources
 {
 public:
     ExchangeResources();
+
+    Scheduler::Registrar& GetScheduler() const;
     Node::Identifier const& GetIdentifier() const;
-    Message::Context const& GetContext() const;
     Peer::Test::ConnectProtocol const& GetConnectProtocol() const;
-    Peer::Manager& GetManager() const;
+    Peer::ProxyStore& GetProxyStore() const;
 
 private:
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
@@ -58,63 +59,83 @@ private:
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
-    Message::Context m_context;
     
-    std::shared_ptr<Peer::Manager> m_spManager;
+    std::shared_ptr<Peer::ProxyStore> m_spProxyStore;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
 
 TEST(PeerExchangeSuite, PQNISTL3ExchangeSetupTest)
 {
-    auto const client = local::ExchangeResources();
-    auto const server = local::ExchangeResources();
+    local::ExchangeResources server;
+    local::ExchangeResources client;
 
     std::shared_ptr<Peer::Proxy> spServerProxy; // The server peer is associated with the client's manager.
     std::shared_ptr<Peer::Proxy> spClientProxy; // The client peer is associated with the server's manager.
 
     // Simulate an endpoint delcaring that it is attempting to resolve a peer at a given uri. 
-    auto const optRequest = client.GetManager().DeclareResolvingPeer(Peer::Test::RemoteServerAddress);
+    auto const optRequest = client.GetProxyStore().DeclareResolvingPeer(Peer::Test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t{ 0 });
-    EXPECT_EQ(client.GetManager().ActiveCount(), std::size_t{ 0 });
+    EXPECT_EQ(client.GetProxyStore().ActiveCount(), std::size_t{ 0 });
 
     // Simulate the server receiving the connection request. 
-    spClientProxy = server.GetManager().LinkPeer(client.GetIdentifier(), Peer::Test::RemoteClientAddress);
+    spClientProxy = server.GetProxyStore().LinkPeer(client.GetIdentifier(), Peer::Test::RemoteClientAddress);
+    ASSERT_TRUE(spClientProxy);
     EXPECT_FALSE(spClientProxy->IsAuthorized());
     EXPECT_FALSE(spClientProxy->IsFlagged());
-    EXPECT_EQ(server.GetManager().ObservedCount(), std::size_t(1));
+    EXPECT_EQ(server.GetProxyStore().ObservedCount(), std::size_t(1));
 
     // Simulate the server's endpoint registering itself to the given client peer. 
     spClientProxy->RegisterEndpoint(
-        client.GetContext().GetEndpointIdentifier(), client.GetContext().GetEndpointProtocol(), Peer::Test::RemoteClientAddress,
-        [&spServerProxy, context = server.GetContext()] (auto const&, auto&& message) -> bool {
-            EXPECT_TRUE(spServerProxy->ScheduleReceive(context.GetEndpointIdentifier(), std::get<std::string>(message)));
+        Peer::Test::EndpointIdentifier,
+        Peer::Test::EndpointProtocol,
+        Peer::Test::RemoteClientAddress,
+        [&] (auto const&, auto&& message) -> bool {
+            auto const optContext = spServerProxy->GetMessageContext(Peer::Test::EndpointIdentifier);
+            if (!optContext) { return false; }
+
+            EXPECT_TRUE(spServerProxy->ScheduleReceive(
+                optContext->GetEndpointIdentifier(), std::get<std::string>(message)));
             return true;
         });
 
     // In practice the client would receive a response from the server before linking a peer. 
     // However, we need to create a peer to properly handle the exchange on the stack. 
-    spServerProxy = client.GetManager().LinkPeer(server.GetIdentifier(), Peer::Test::RemoteServerAddress);
+    spServerProxy = client.GetProxyStore().LinkPeer(server.GetIdentifier(), Peer::Test::RemoteServerAddress);
+    ASSERT_TRUE(spServerProxy);
     EXPECT_FALSE(spServerProxy->IsAuthorized());
     EXPECT_FALSE(spServerProxy->IsFlagged());
-    EXPECT_EQ(client.GetManager().ObservedCount(), std::size_t{ 1 });
+    EXPECT_EQ(client.GetProxyStore().ObservedCount(), std::size_t{ 1 });
 
     // Simulate the clients's endpoint registering itself to the given server peer. 
     spServerProxy->RegisterEndpoint(
-        server.GetContext().GetEndpointIdentifier(), server.GetContext().GetEndpointProtocol(), Peer::Test::RemoteServerAddress,
-        [&spClientProxy, context = client.GetContext()] (auto const&, auto&& message) -> bool {
-            EXPECT_TRUE(spClientProxy->ScheduleReceive(context.GetEndpointIdentifier(), std::get<std::string>(message)));
+        Peer::Test::EndpointIdentifier,
+        Peer::Test::EndpointProtocol,
+        Peer::Test::RemoteServerAddress,
+        [&] (auto const&, auto&& message) -> bool {
+            auto const optContext = spClientProxy->GetMessageContext(Peer::Test::EndpointIdentifier);
+            if (!optContext) { return false; }
+
+            EXPECT_TRUE(spClientProxy->ScheduleReceive(
+                optContext->GetEndpointIdentifier(), std::get<std::string>(message)));
             return true;
         });
 
+    auto const optContext = spClientProxy->GetMessageContext(Peer::Test::EndpointIdentifier);
+    ASSERT_TRUE(optContext);
+
     // Cause the key exchange setup by the peer manager to occur on the stack. 
-    EXPECT_TRUE(spClientProxy->ScheduleReceive(client.GetContext().GetEndpointIdentifier(), *optRequest));
+    EXPECT_TRUE(spClientProxy->ScheduleReceive(optContext->GetEndpointIdentifier(), *optRequest));
 
     // Verify the results of the key exchange
     EXPECT_TRUE(client.GetConnectProtocol().CalledOnce());
     EXPECT_TRUE(spClientProxy->IsAuthorized());
     EXPECT_TRUE(spServerProxy->IsAuthorized());
+
+    // The peer manager should have notified the scheduler in order to clean up the resolved peer's resolvers. 
+    EXPECT_EQ(client.GetScheduler().Execute(), std::size_t{ 1 });
+    EXPECT_EQ(server.GetScheduler().Execute(), std::size_t{ 1 });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -128,10 +149,7 @@ local::ExchangeResources::ExchangeResources()
     , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spRegistrar))
     , m_spConnectProtocol(std::make_shared<Peer::Test::ConnectProtocol>())
     , m_spMessageProcessor(std::make_shared<Peer::Test::MessageProcessor>())
-    , m_context(
-        Network::Endpoint::IdentifierGenerator::Instance().Generate(),
-        Network::Protocol::TCP)
-    , m_spManager()
+    , m_spProxyStore()
 {
     m_spServiceProvider->Register(m_spEventPublisher);
     m_spServiceProvider->Register(m_spNodeState);
@@ -139,10 +157,23 @@ local::ExchangeResources::ExchangeResources()
     m_spServiceProvider->Register<IConnectProtocol>(m_spConnectProtocol);
     m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
 
-    m_spManager = std::make_shared<Peer::Manager>(Security::Strategy::PQNISTL3, m_spServiceProvider);
-    m_spServiceProvider->Register<IPeerMediator>(m_spManager);
+    m_spProxyStore = std::make_shared<Peer::ProxyStore>(
+        Security::Strategy::PQNISTL3, m_spRegistrar, m_spServiceProvider);
+    m_spServiceProvider->Register<IResolutionService>(m_spProxyStore);
     
+    EXPECT_TRUE(m_spRegistrar->Initialize());
+
     m_spEventPublisher->SuspendSubscriptions();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Scheduler::Registrar& local::ExchangeResources::GetScheduler() const
+{
+    if (!m_spRegistrar) {
+        throw std::logic_error("Peer exchange test resources have not be properly initialied!");
+    }
+    return *m_spRegistrar;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -157,10 +188,6 @@ Node::Identifier const& local::ExchangeResources::GetIdentifier() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Context const& local::ExchangeResources::GetContext() const { return m_context; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
 Peer::Test::ConnectProtocol const& local::ExchangeResources::GetConnectProtocol() const
 {
     if (!m_spConnectProtocol) {
@@ -171,12 +198,12 @@ Peer::Test::ConnectProtocol const& local::ExchangeResources::GetConnectProtocol(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Manager& local::ExchangeResources::GetManager() const
+Peer::ProxyStore& local::ExchangeResources::GetProxyStore() const
 {
-    if (!m_spManager) {
+    if (!m_spProxyStore) {
         throw std::logic_error("Peer exchange test resources have not be properly initialied!");
     }
-    return *m_spManager;
+    return *m_spProxyStore;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

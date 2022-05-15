@@ -44,7 +44,9 @@ Peer::Resolver& Peer::Resolver::operator=(Resolver&& other)
 Peer::Resolver::~Resolver()
 {
     // If the exchange is still ongoing and there is a proxy waiting for notification, notify it that it has failed. 
-    if (!m_completed && m_onExchangeCompleted) { m_onExchangeCompleted(ExchangeStatus::Failed); }
+    if (!m_completed && m_onExchangeCompleted) {
+        m_onExchangeCompleted(ExchangeStatus::Failed);
+    }
     m_upExchange.reset();
 }
 
@@ -56,7 +58,9 @@ void Peer::Resolver::OnExchangeClose(ExchangeStatus status)
     m_completed = true;
     // If the completion handlers have been bound, the proxy should destroy this resolver instance in this call. 
     // It is no longer safe to use our resources after this call completes. 
-    if (m_onExchangeCompleted) [[likely]] { m_onExchangeCompleted(status); }   
+    if (m_onExchangeCompleted) [[likely]] {
+        m_onExchangeCompleted(status);
+    }   
 }
 
 //----------------------------------------------------------------------------------------------------------------------

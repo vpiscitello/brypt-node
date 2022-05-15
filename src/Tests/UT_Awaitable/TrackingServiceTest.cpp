@@ -52,7 +52,6 @@ protected:
         m_spServiceProvider = std::make_shared<Node::ServiceProvider>();
         m_spTaskService = std::make_shared<Scheduler::TaskService>(m_spScheduler);
         m_spServiceProvider->Register(m_spTaskService);
-        m_context = Awaitable::Test::GenerateMessageContext();
         EXPECT_TRUE(m_spScheduler->Initialize());
     }
 
@@ -61,7 +60,6 @@ protected:
         m_spTaskService.reset();
         m_spServiceProvider.reset();
         m_spScheduler.reset();
-        m_context = {};
     }
 
     void SetUp() override
@@ -85,6 +83,10 @@ protected:
                 return true;
             });
 
+        auto const optContext = m_spProxy->GetMessageContext(Awaitable::Test::EndpointIdentifier);
+        ASSERT_TRUE(optContext);
+        m_context = *optContext;
+
         auto const optRequest = Awaitable::Test::GenerateRequest(m_context, test::ClientIdentifier, *test::ServerIdentifier);
         ASSERT_TRUE(optRequest);
         m_request = *optRequest;
@@ -93,9 +95,9 @@ protected:
     static std::shared_ptr<Scheduler::Registrar> m_spScheduler;
     static std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     static std::shared_ptr<Scheduler::TaskService> m_spTaskService;
-    static Message::Context m_context;
 
     std::shared_ptr<Peer::Proxy> m_spProxy;
+    Message::Context m_context;
     Message::Application::Parcel m_request;
     std::optional<Message::Application::Parcel> m_optFulfilledResponse;
 };
@@ -105,7 +107,6 @@ protected:
 std::shared_ptr<Scheduler::Registrar> TrackingServiceSuite::m_spScheduler = {};
 std::shared_ptr<Node::ServiceProvider> TrackingServiceSuite::m_spServiceProvider = {};
 std::shared_ptr<Scheduler::TaskService> TrackingServiceSuite::m_spTaskService = {};
-Message::Context TrackingServiceSuite::m_context = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -213,7 +214,7 @@ TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
         errors.emplace_back(std::make_tuple(key, spIdentifier, error));
     };
 
-    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 3);
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 16);
 
     // Stage the deferred request such that other "nodes" can be notified and response.    
     auto const optResult = service.StageRequest(*test::ServerIdentifier, identifiers.size(), onResponse, onError);
@@ -225,11 +226,11 @@ TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
 
     std::random_device device;
     std::mt19937 generator{ device() };
-    std::bernoulli_distribution distribution{ 0.5 };
+    std::vector<Node::SharedIdentifier> sample;
+    std::ranges::sample(identifiers, std::back_inserter(sample), 8, generator);
 
     std::size_t responded = 0;
-    auto selected = identifiers | std::views::filter([&] (auto const&) { return distribution(generator); });
-    std::ranges::for_each(selected, [&] (auto const& spIdentifier) mutable {
+    std::ranges::for_each(sample, [&] (auto const& spIdentifier) {
         auto optResponse = Awaitable::Test::GenerateResponse(
             m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::RequestRoute, tracker);
         ASSERT_TRUE(optResponse);

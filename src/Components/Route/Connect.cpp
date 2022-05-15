@@ -22,6 +22,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <vector>
+#include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -163,6 +164,8 @@ bool Route::Fundamental::Connect::DiscoveryHandler::BuildResponse(Peer::Action::
     auto payload = li::mmm(
         s::cluster = std::uint32_t(),
         s::bootstraps = { li::mmm(s::protocol = std::string(), s::entries = std::vector<std::string>()) });
+    
+    payload.bootstraps.pop_back(); // By default there is an empty entry in the map. 
 
     if (auto const spNodeState = m_wpNodeState.lock(); spNodeState) { payload.cluster = spNodeState->GetCluster(); }
 

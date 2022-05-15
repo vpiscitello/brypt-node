@@ -2,6 +2,7 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Awaitable/Definitions.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -14,8 +15,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 namespace Awaitable::Test {
 //----------------------------------------------------------------------------------------------------------------------
-
-Message::Context GenerateMessageContext();
 
 std::vector<Node::SharedIdentifier> GenerateIdentifiers(
     Node::SharedIdentifier const& spBaseIdentifier, std::size_t count);
@@ -46,26 +45,6 @@ constexpr Awaitable::TrackerKey TrackerKey = {
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Awaitable::Test namespace
-//----------------------------------------------------------------------------------------------------------------------
-
-inline Message::Context Awaitable::Test::GenerateMessageContext()
-{
-    Message::Context context{ EndpointIdentifier, EndpointProtocol };
-
-    context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); });
-
-    context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type  { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
-
-    return context;
-}
-
 //----------------------------------------------------------------------------------------------------------------------
 
 inline std::vector<Node::SharedIdentifier> Awaitable::Test::GenerateIdentifiers(

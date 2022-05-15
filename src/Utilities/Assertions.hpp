@@ -68,7 +68,6 @@ private:
     [[nodiscard]] bool IsCoreThread([[maybe_unused]] AccessKey key)
     {
         std::shared_lock lock(m_mutex);
-        assert(!m_threads.empty()); // The core must set the id before any components can check. 
         return m_threads.contains(std::this_thread::get_id()); // Check to see if the current thread is the core thread. 
     }
 

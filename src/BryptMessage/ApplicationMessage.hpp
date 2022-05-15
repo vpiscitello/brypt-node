@@ -48,7 +48,7 @@ class Message::Application::Extension::Base : public virtual Message::DataInterf
 public:
 	Base() = default;
 	virtual ~Base() = default;
-	[[nodiscard]] virtual std::uint16_t GetKey() const = 0;
+	[[nodiscard]] virtual Key GetKey() const = 0;
 	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const = 0;
 	[[nodiscard]] virtual bool Validate() const = 0;
 };
@@ -83,7 +83,15 @@ public:
 	Payload&& ExtractPayload();
 
 	template<typename ExtensionType> requires std::derived_from<ExtensionType, Extension::Base>
-	std::optional<std::reference_wrapper<ExtensionType const>> GetExtension() const;
+	std::optional<std::reference_wrapper<ExtensionType const>> GetExtension() const
+	{
+		if (auto const itr = m_extensions.find(ExtensionType::Key); itr != m_extensions.end()) {
+			auto const pExtension = dynamic_cast<ExtensionType const*>(itr->second.get());
+			assert(pExtension);
+			return *pExtension;
+		}
+		return {};
+	}
 
     std::size_t GetPackSize() const;
 	std::string GetPack() const;
@@ -130,10 +138,19 @@ public:
 
 	template<typename ExtensionType, typename... Arguments>
 		requires std::derived_from<ExtensionType, Extension::Base>
-	Builder& BindExtension(Arguments&&... arguments);
+	Builder& BindExtension(Arguments&&... arguments)
+	{
+		m_parcel.m_extensions.emplace(
+			ExtensionType::Key, std::make_unique<ExtensionType>(std::forward<Arguments>(arguments)...));
+		return *this;
+	}
 
 	template<typename ExtensionType> requires std::derived_from<ExtensionType, Extension::Base>
-	Builder& BindExtension(std::unique_ptr<ExtensionType>&& upExtension);
+	Builder& BindExtension(std::unique_ptr<ExtensionType>&& upExtension)
+	{
+		m_parcel.m_extensions.emplace(ExtensionType::Key, std::move(upExtension));
+		return *this;
+	}
 
 	Builder& FromDecodedPack(std::span<std::uint8_t const> buffer);
 	Builder& FromEncodedPack(std::string_view pack);
@@ -167,7 +184,7 @@ public:
 	[[nodiscard]] bool operator==(Awaitable const& other) const;
 
 	// Extension {
-	[[nodiscard]] virtual std::uint16_t GetKey() const override;
+	[[nodiscard]] virtual Extension::Key GetKey() const override;
 	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const override;
 	[[nodiscard]] virtual bool Validate() const override;
 	// } Extension
@@ -187,38 +204,5 @@ private:
 	Binding m_binding;
 	::Awaitable::TrackerKey m_tracker;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Application::Extension::Base>
-std::optional<std::reference_wrapper<ExtensionType const>> Message::Application::Parcel::GetExtension() const
-{
-	if (auto const itr = m_extensions.find(ExtensionType::Key); itr != m_extensions.end()) {
-		auto const pExtension = dynamic_cast<ExtensionType const*>(itr->second.get());
-		assert(pExtension);
-		return *pExtension;
-	}
-	return {};
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<typename ExtensionType, typename... Arguments>
-	requires std::derived_from<ExtensionType, Message::Application::Extension::Base>
-Message::Application::Builder& Message::Application::Builder::BindExtension(Arguments&&... arguments)
-{
-	m_parcel.m_extensions.emplace(
-		ExtensionType::Key, std::make_unique<ExtensionType>(std::forward<Arguments>(arguments)...));
-	return *this;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<typename ExtensionType> requires std::derived_from<ExtensionType, Message::Application::Extension::Base>
-Message::Application::Builder& Message::Application::Builder::BindExtension(std::unique_ptr<ExtensionType>&& upExtension)
-{
-	m_parcel.m_extensions.emplace(ExtensionType::Key, std::move(upExtension));
-	return *this;
-}
 
 //----------------------------------------------------------------------------------------------------------------------

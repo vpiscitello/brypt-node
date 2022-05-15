@@ -16,7 +16,10 @@ namespace Configuration::Defaults {
 //----------------------------------------------------------------------------------------------------------------------
 
 constexpr std::uint32_t FileSizeLimit = 12'000; // Limit the configuration files to 12KB
+
+#if !defined(WIN32)
 std::filesystem::path const FallbackConfigurationFolder = "/etc/";
+#endif
 
 constexpr std::string_view IdentifierType = "Persistent";
 

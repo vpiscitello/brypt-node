@@ -12,6 +12,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(BaseConfiguration)
 include(CompileOptions)
 include(ExternalLibraries)
+include(CopyDependencies)
 #-----------------------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -39,6 +40,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 # Options
 #-----------------------------------------------------------------------------------------------------------------------
 option(ENABLE_TESTS "Enable Unit Test Builds" ON)
+option(BUILD_EXTERNAL "Download and Add External Dependencies as Targets" OFF)
 option(SKIP_BINARY "Skip Brypt Binary Build" OFF)
 option(SKIP_SHARED_LIBRARY "Skip Brypt Shared Library Build" OFF)
 #-----------------------------------------------------------------------------------------------------------------------

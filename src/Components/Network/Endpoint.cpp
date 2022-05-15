@@ -142,7 +142,7 @@ Network::IEndpoint::IEndpoint(Endpoint::Properties const& properties)
     , m_binding()
     , m_spEventPublisher()
     , m_pEndpointMediator(nullptr)
-    , m_pPeerMediator(nullptr)
+    , m_pResolutionService(nullptr)
     , m_optShutdownCause()
 {
     assert(m_properties.GetOperation() != Operation::Invalid);
@@ -180,10 +180,10 @@ void Network::IEndpoint::Register(IEndpointMediator* const pMediator)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::IEndpoint::Register(IPeerMediator* const pMediator)
+void Network::IEndpoint::Register(IResolutionService* const pResolutionService)
 {
     assert(!IsActive());
-    m_pPeerMediator = pMediator;
+    m_pResolutionService = pResolutionService;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -258,9 +258,9 @@ void Network::IEndpoint::OnUnexpectedError() const
 std::shared_ptr<Peer::Proxy> Network::IEndpoint::LinkPeer(
     Node::Identifier const& identifier, RemoteAddress const& address) const
 {
-    assert(m_pPeerMediator);
+    assert(m_pResolutionService);
     // Use the peer mediator to acquire and link a peer proxy for specified node identifier and address to this endpoint. 
-    return m_pPeerMediator->LinkPeer(identifier, address);
+    return m_pResolutionService->LinkPeer(identifier, address);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

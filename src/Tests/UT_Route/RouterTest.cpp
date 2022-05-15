@@ -111,22 +111,18 @@ private:
 class RouterSuite : public testing::Test
 {
 protected:
-    static void SetUpTestSuite()
-    {
-        m_context = Route::Test::GenerateMessageContext();
-    }
-
-    static void TearDownTestSuite()
-    {
-        m_context = {};
-    }
-
     void SetUp() override
     {
         m_spRegistrar = std::make_shared<Scheduler::Registrar>();
         m_spServiceProvider = std::make_shared<Node::ServiceProvider>();
 
         m_spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, m_spServiceProvider);
+        m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(
+            Route::Test::EndpointIdentifier, Route::Test::EndpointProtocol, Route::Test::RemoteClientAddress);
+
+        auto const optContext = m_spProxy->GetMessageContext(Route::Test::EndpointIdentifier);
+        ASSERT_TRUE(optContext);
+        m_context = *optContext;
 
         m_spInspectableService = std::make_shared<test::InspectableService>();
         m_spServiceProvider->Register(m_spInspectableService);
@@ -185,18 +181,14 @@ protected:
         EXPECT_EQ(m_spInspectableService->GetFetched(), std::size_t{ 1 });
     }
 
-    static Message::Context m_context;
 
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Peer::Proxy> m_spProxy;
+    Message::Context m_context;
     std::shared_ptr<test::InspectableService> m_spInspectableService;
     Route::Router m_router;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Context RouterSuite::m_context = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 

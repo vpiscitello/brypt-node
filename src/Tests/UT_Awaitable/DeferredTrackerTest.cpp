@@ -44,13 +44,11 @@ protected:
     static void SetUpTestSuite()
     {
         m_spServiceProvider = std::make_shared<Node::ServiceProvider>();
-        m_context = Awaitable::Test::GenerateMessageContext();
     }
 
     static void TearDownTestSuite()
     {
         m_spServiceProvider.reset();
-        m_context = {};
     }
 
     void SetUp() override
@@ -74,15 +72,18 @@ protected:
                 return true;
             });
 
+        auto const optContext = m_spProxy->GetMessageContext(Awaitable::Test::EndpointIdentifier);
+        ASSERT_TRUE(optContext);
+        m_context = *optContext;
+
         auto const optRequest = Awaitable::Test::GenerateRequest(m_context, test::ClientIdentifier, *test::ServerIdentifier);
         ASSERT_TRUE(optRequest);
         m_request = *optRequest;
     }
 
     static std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
-    static Message::Context m_context;
-
     std::shared_ptr<Peer::Proxy> m_spProxy;
+    Message::Context m_context;
     Message::Application::Parcel m_request;
     std::optional<Message::Application::Parcel> m_optFulfilledResponse;
 };
@@ -90,7 +91,6 @@ protected:
 //----------------------------------------------------------------------------------------------------------------------
 
 std::shared_ptr<Node::ServiceProvider> DeferredTrackerSuite::m_spServiceProvider = {};
-Message::Context DeferredTrackerSuite::m_context = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 

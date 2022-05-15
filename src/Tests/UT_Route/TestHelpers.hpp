@@ -22,8 +22,6 @@ namespace Route::Test {
 class PeerCache;
 class StandardEndpoint;
 
-Message::Context GenerateMessageContext();
-
 constexpr std::string_view Message = "Hello World!";
 
 constexpr Network::Endpoint::Identifier EndpointIdentifier = 1;
@@ -124,25 +122,5 @@ private:
     std::uint32_t m_scheduled;
     BootstrapService::BootstrapCache m_connected;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-inline Message::Context Route::Test::GenerateMessageContext()
-{
-    Message::Context context{ EndpointIdentifier, EndpointProtocol };
-
-    context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); });
-
-    context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type  { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
-
-    return context;
-}
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -41,8 +41,9 @@ constexpr std::string_view TcpBootstrapBase = "tcp://127.0.0.1:";
 constexpr std::uint16_t TcpBasePort = 35216;
 constexpr std::size_t FileStoredCount = 4;
 
-constexpr auto BootstrapGenerator = [] (std::size_t port) mutable -> Network::RemoteAddress
-    { return { Network::Protocol::TCP, test::TcpBootstrapBase.data() + std::to_string(port), true }; };
+constexpr auto BootstrapGenerator = [] (std::size_t port) mutable -> Network::RemoteAddress { 
+    return Network::RemoteAddress{ Network::Protocol::TCP, test::TcpBootstrapBase.data() + std::to_string(port), true }; 
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -124,7 +125,7 @@ TEST(BootstrapServiceSuite, ParseGoodFileTest)
 {
     std::array<Network::RemoteAddress, test::FileStoredCount> expectations;
     std::ranges::generate(expectations.begin(), expectations.end(), 
-        [current = std::uint16_t(test::TcpBasePort)] () mutable { return test::BootstrapGenerator(current++); });
+        [current = std::uint16_t{ test::TcpBasePort }]() mutable { return test::BootstrapGenerator(current++); });
 
     auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
     BootstrapService service(local::GetFilepath("good/bootstrap.json"));
@@ -319,6 +320,9 @@ std::filesystem::path local::GetFilepath(std::filesystem::path const& filename)
     if (path.filename() == "UT_Configuration") { 
         return path / "files" / filename;
     } else {
+#if defined(WIN32)
+        path = path.parent_path();
+#endif
         if (path.filename() == "bin") { path.remove_filename(); }
         return path / "Tests/UT_Configuration/files" / filename;
     }

@@ -32,7 +32,6 @@ namespace Json {
 
 std::string GenerateNodeInfo(
     std::weak_ptr<NodeState> const& wpNodeState,
-    std::weak_ptr<CoordinatorState> const& wpCoordinatorState,
     std::weak_ptr<NetworkState> const& wpNetworkState,
     std::weak_ptr<Network::Manager> const& wpNetworkManager,
     std::weak_ptr<IPeerCache> const& wpPeerCache);
@@ -107,8 +106,7 @@ bool Route::Fundamental::Information::NodeHandler::OnMessage(
     if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
 
     return next.Respond(
-        Json::GenerateNodeInfo(
-            m_wpNodeState, m_wpCoordinatorState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache));
+        Json::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -147,8 +145,7 @@ bool Route::Fundamental::Information::FetchNodeHandler::OnMessage(
             .route = NodeHandler::Path
         },
         .response = {
-            .payload = Json::GenerateNodeInfo(
-                m_wpNodeState, m_wpCoordinatorState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache)
+            .payload = Json::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache)
         }
     });
 
@@ -159,7 +156,6 @@ bool Route::Fundamental::Information::FetchNodeHandler::OnMessage(
 
 std::string Json::GenerateNodeInfo(
     std::weak_ptr<NodeState> const& wpNodeState,
-    std::weak_ptr<CoordinatorState> const& wpCoordinatorState,
     std::weak_ptr<NetworkState> const& wpNetworkState,
     std::weak_ptr<Network::Manager> const& wpNetworkManager,
     std::weak_ptr<IPeerCache> const& wpPeerCache)
@@ -167,17 +163,10 @@ std::string Json::GenerateNodeInfo(
     // Make a response message to filled out by the handler
     auto payload = li::mmm(
         s::cluster = std::uint32_t(),
-        s::coordinator = std::string(),
         s::neighbor_count = std::uint32_t(),
         s::designation = std::string(),
         s::protocols = std::vector<std::string>(),
         s::update_timestamp = std::uint64_t());
-
-    if (auto const spCoordinatorState = wpCoordinatorState.lock(); spCoordinatorState) { 
-        if (auto const spCoordinator = spCoordinatorState->GetNodeIdentifier(); spCoordinator) {
-            payload.coordinator = *spCoordinator;
-        }
-    }
 
     if (auto const spNodeState = wpNodeState.lock(); spNodeState) { 
         payload.cluster = spNodeState->GetCluster();

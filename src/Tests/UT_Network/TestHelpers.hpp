@@ -1,6 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
 #include "BryptMessage/MessageTypes.hpp"
 #include "BryptMessage/MessageUtils.hpp"
@@ -8,7 +9,6 @@
 #include "BryptNode/ServiceProvider.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
@@ -17,7 +17,7 @@
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerCache.hpp"
-#include "Interfaces/PeerMediator.hpp"
+#include "Interfaces/ResolutionService.hpp"
 #include "Interfaces/PeerObserver.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
@@ -36,7 +36,7 @@ namespace Network::Test {
 
 class MessageProcessor;
 class SecurityStrategy;
-class SinglePeerMediator;
+class SingleResolutionService;
 
 constexpr auto RuntimeOptions = Configuration::Options::Runtime
 { 
@@ -66,19 +66,14 @@ public:
     }
     
     // IMessageSink {
-    virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        Message::Context const& context,
-        std::string_view buffer) override
+    virtual bool CollectMessage(Message::Context const& context, std::string_view buffer) override
     {
         Message::Buffer const decoded = Z85::Decode(buffer); // Decode the buffer, it is expected to be Z85 encoded.
-        return CollectMessage(wpPeerProxy, context, decoded); // Forward the message to the decoded buffer method. 
+        return CollectMessage(context, decoded); // Forward the message to the decoded buffer method. 
     }
         
     virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        Message::Context const& context,
-        std::span<std::uint8_t const> buffer) override
+        Message::Context const& context, std::span<std::uint8_t const> buffer) override
     {
         auto const optProtocol = Message::PeekProtocol(buffer); // Peek the protocol in the packed buffer. 
         if (!optProtocol) { return false; }
@@ -89,7 +84,7 @@ public:
             // the queue if it is valid. 
             case Message::Protocol::Application: {
                 // Build the application message.
-                auto const optMessage = Message::Application::Parcel::GetBuilder()
+                auto optMessage = Message::Application::Parcel::GetBuilder()
                     .SetContext(context)
                     .FromDecodedPack(buffer)
                     .ValidatedBuild();
@@ -97,7 +92,7 @@ public:
                 // If the message is invalid increase the invalid count and return an error.
                 if (!optMessage) { ++m_invalidMessageCount; return false; }
 
-                return QueueMessage(wpPeerProxy, *optMessage);
+                return QueueMessage(std::move(*optMessage));
             }
             // In the case of the network protocol, build a network message and process the message.
             case Message::Protocol::Platform: {
@@ -122,8 +117,8 @@ public:
                             .ValidatedBuild();
                         assert(optResponse);
 
-                        if (auto const spPeerProxy = wpPeerProxy.lock(); spPeerProxy) {
-                            return spPeerProxy->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack());
+                        if (auto const spProxy = context.GetProxy().lock(); spProxy) {
+                            return spProxy->ScheduleSend(context.GetEndpointIdentifier(), optResponse->GetPack());
                         }
                         ++m_invalidMessageCount;
                     } return false;
@@ -141,7 +136,7 @@ public:
     }
     // }IMessageSink
 
-    std::optional<AssociatedMessage> GetNextMessage()
+    std::optional<Message::Application::Parcel> GetNextMessage()
     {
         std::scoped_lock lock{ m_mutex };
         if (m_incoming.empty()) { return {}; }
@@ -176,17 +171,17 @@ public:
     }
 
 private:
-    bool QueueMessage(std::weak_ptr<Peer::Proxy> const& wpPeerProxy, Message::Application::Parcel const& message)
+    bool QueueMessage(Message::Application::Parcel&& message)
     {
         std::scoped_lock lock{ m_mutex };
-        m_incoming.emplace(AssociatedMessage{ wpPeerProxy, message });
+        m_incoming.emplace(std::move(message));
         return true;
     }
 
     mutable std::shared_mutex m_mutex;
     
     Node::SharedIdentifier m_spNodeIdentifier;
-    std::queue<AssociatedMessage> m_incoming;
+    std::queue<Message::Application::Parcel> m_incoming;
 
     bool m_bReceivedHeartbeatRequest;
     bool m_bReceivedHeartbeatResponse;
@@ -230,10 +225,10 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Network::Test::SinglePeerMediator : public IPeerMediator
+class Network::Test::SingleResolutionService : public IResolutionService
 {
 public:
-    SinglePeerMediator(
+    SingleResolutionService(
         Node::SharedIdentifier const& spNodeIdentifier,
         IMessageSink* const pMessageSink,
         std::shared_ptr<Node::ServiceProvider> spServiceProvider)
@@ -244,7 +239,7 @@ public:
     {
     }
 
-    // IPeerMediator {
+    // IResolutionService {
     virtual void RegisterObserver(IPeerObserver* const) override { }
     virtual void UnpublishObserver(IPeerObserver* const) override { }
 
@@ -275,7 +270,7 @@ public:
         std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier,  Network::RemoteAddress const&) override { }
     virtual void OnEndpointWithdrawn(
         std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&, WithdrawalCause) override { }
-    // } IPeerMediator
+    // } IResolutionService
 
     std::shared_ptr<Peer::Proxy> GetPeer() const { return m_spPeer; }
     void Reset() { m_spPeer.reset(); }

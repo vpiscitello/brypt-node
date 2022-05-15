@@ -4,9 +4,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#define SPDLOG_DISABLE_DEFAULT_LOGGER
-#define SPDLOG_NO_THREAD_ID
-//----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -53,15 +50,16 @@ namespace Color {
 
 constexpr std::string_view Core = "\x1b[1;38;2;0;255;175m";
 constexpr std::string_view TCP = "\x1b[1;38;2;0;195;255m";
+constexpr std::string_view Reset = "\x1b[0m";
     
+#if !defined(WIN32)
 constexpr spdlog::string_view_t Info = "\x1b[38;2;26;204;148m";
 constexpr spdlog::string_view_t Warn = "\x1b[38;2;255;214;102m";
 constexpr spdlog::string_view_t Error = "\x1b[38;2;255;56;56m";
 constexpr spdlog::string_view_t Critical = "\x1b[1;38;2;255;56;56m";
 constexpr spdlog::string_view_t Debug = "\x1b[38;2;45;204;255m";
 constexpr spdlog::string_view_t Trace = "\x1b[38;2;255;255;255m";
-
-constexpr std::string_view Reset = "\x1b[0m";
+#endif
 
 std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> CreateTrueColorSink();
 
@@ -113,6 +111,7 @@ inline std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> Logger::Color::Creat
 {
     auto spColorSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
 
+#if !defined(WIN32)
     spColorSink->set_color_mode(spdlog::color_mode::always);
     spColorSink->set_color(spdlog::level::info, Color::Info);
     spColorSink->set_color(spdlog::level::warn, Color::Warn);
@@ -120,6 +119,7 @@ inline std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> Logger::Color::Creat
     spColorSink->set_color(spdlog::level::critical, Color::Critical);
     spColorSink->set_color(spdlog::level::debug, Color::Debug);
     spColorSink->set_color(spdlog::level::trace, Color::Trace);
+#endif
 
     return spColorSink;
 }

@@ -15,6 +15,12 @@
 #include <utility>
 #include <unordered_map>
 //----------------------------------------------------------------------------------------------------------------------
+#if defined(WIN32)
+#include <windows.h>
+#include <shlobj.h>
+#undef interface
+#endif
+//----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
@@ -30,12 +36,18 @@ std::string ConvertConnectionDuration(std::chrono::milliseconds const& value);
 
 std::filesystem::path Configuration::GetDefaultBryptFolder()
 {
-    std::string filepath = Defaults::FallbackConfigurationFolder; // Set the filepath root to /etc/ by default
+#if defined(WIN32)
+    std::filesystem::path filepath;
+    PWSTR pFetched; 
+    if (SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &pFetched) == S_OK) { filepath = pFetched; }
+    CoTaskMemFree(pFetched);
+#else
+    std::string filepath{ Defaults::FallbackConfigurationFolder }; // Set the filepath root to /etc/ by default
 
     // Attempt to get the $XDG_CONFIG_HOME enviroment variable to use as the configuration directory
     // If $XDG_CONFIG_HOME does not exist try to get the user home directory 
     auto const systemConfigHomePath = std::getenv("XDG_CONFIG_HOME");
-    if (systemConfigHomePath) { 
+    if (systemConfigHomePath) {
         std::size_t const length = strlen(systemConfigHomePath);
         filepath = std::string(systemConfigHomePath, length);
     } else {
@@ -45,8 +57,9 @@ std::filesystem::path Configuration::GetDefaultBryptFolder()
         if (userHomePath) {
             std::size_t const length = strlen(userHomePath);
             filepath = std::string(userHomePath, length) + "/.config";
-        } 
+        }
     }
+#endif
 
     // Concat /brypt/ to the condiguration folder path
     filepath += DefaultBryptFolder;
@@ -328,7 +341,7 @@ bool Configuration::Options::Connection::Initialize(std::shared_ptr<spdlog::logg
             auto count = boost::lexical_cast<std::uint32_t>(value.c_str(), size);
             switch (duration) {
                 case Duration::Minutes: count *= 60; [[fallthrough]];
-                case Duration::Seconds: count *= 1000;
+                case Duration::Seconds: count *= 1000; [[fallthrough]];
                 case Duration::Milliseconds: break; 
                 case Duration::Invalid: assert(false); return {};
             }
@@ -448,6 +461,7 @@ Configuration::Options::Endpoint::Endpoint()
     , constructed({
         .protocol = ::Network::Protocol::Invalid
     })
+    , transient()
 {
 }
 

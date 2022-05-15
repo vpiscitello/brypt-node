@@ -374,22 +374,22 @@ bool Message::Platform::Builder::Unpack(std::span<std::uint8_t const> buffer)
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Message::Platform::Builder::UnpackExtensions(
-	std::span<std::uint8_t const>::iterator& begin,
-	std::span<std::uint8_t const>::iterator const& end,
-	std::size_t extensions)
+	[[maybe_unused]] std::span<std::uint8_t const>::iterator& begin,
+	[[maybe_unused]] std::span<std::uint8_t const>::iterator const& end,
+	[[maybe_unused]] std::size_t extensions)
 {
-	std::size_t unpacked = 0;	
-	while (begin != end && unpacked < extensions) {
-		using ExtensionType = std::underlying_type_t<local::Extensions::Types>;
-		ExtensionType extension = 0;
-		PackUtils::UnpackChunk(begin, end, extension);
+	//std::size_t unpacked = 0;	
+	//while (begin != end && unpacked < extensions) {
+	//	using ExtensionType = std::underlying_type_t<local::Extensions::Types>;
+	//	ExtensionType extension = 0;
+	//	PackUtils::UnpackChunk(begin, end, extension);
 
-		switch (extension) {				
-			default: return false;
-		}
+	//	switch (extension) {				
+	//		default: return false;
+	//	}
 
-		++unpacked;
-	}
+	//	++unpacked;
+	//}
 
 	return true;
 }

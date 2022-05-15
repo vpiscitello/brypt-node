@@ -73,7 +73,7 @@ public:
     [[nodiscard]] std::shared_ptr<Network::Manager> const& GetNetworkManager() const { return m_spNetworkManager; }   
     [[nodiscard]] std::shared_ptr<Route::Test::StandardEndpoint> const& GetServerEndpoint() const { return m_spServerEndpoint; }   
     [[nodiscard]] std::shared_ptr<Route::Test::StandardEndpoint> const& GetClientEndpoint() const { return m_spClientEndpoint; }   
-    [[nodiscard]] Message::Context const& GetContext() const { return m_context; }
+    [[nodiscard]] Message::Context& GetContext() { return m_context; }
     [[nodiscard]] std::shared_ptr<Peer::Proxy> const& GetProxy() const { return m_spProxy; }   
 
 private:
@@ -114,6 +114,10 @@ protected:
                 return true;
             });
 
+        auto const optServerContext = m_server.GetProxy()->GetMessageContext(Route::Test::EndpointIdentifier);
+        ASSERT_TRUE(optServerContext);
+        m_server.GetContext() = *optServerContext;
+
         m_client.GetProxy()->RegisterSilentEndpoint<InvokeContext::Test>(
             Route::Test::EndpointIdentifier, Route::Test::EndpointProtocol, Route::Test::RemoteServerAddress,
             [this] ([[maybe_unused]] auto const& destination, auto&& message) -> bool {
@@ -128,6 +132,10 @@ protected:
                 m_optRequest = optMessage;
                 return true;
             });
+        
+        auto const optClientContext = m_client.GetProxy()->GetMessageContext(Route::Test::EndpointIdentifier);
+        ASSERT_TRUE(optClientContext);
+        m_client.GetContext() = *optClientContext;
 
         m_upConnectProtocol = std::make_unique<Route::Fundamental::Connect::DiscoveryProtocol>(
             m_client.GetEndpointConfiguration(), m_client.GetServiceProvider());
@@ -239,7 +247,7 @@ local::ConnectResources::ConnectResources(
     , m_spNetworkManager()
     , m_spServerEndpoint()
     , m_spClientEndpoint()
-    , m_context(Route::Test::GenerateMessageContext())
+    , m_context()
     , m_spProxy()
 {
     m_spServiceProvider->Register(m_spTaskService);

@@ -11,6 +11,7 @@
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
+#include "Interfaces/ResolutionService.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -60,8 +61,8 @@ protected:
         m_spMessageProcessor = std::make_shared<Peer::Test::MessageProcessor>();
         m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
         
-        m_spMediator = std::make_shared<Peer::Test::PeerMediator>();
-        m_spServiceProvider->Register<IPeerMediator>(m_spMediator);
+        m_spResolutionService = std::make_shared<Peer::Test::ResolutionService>();
+        m_spServiceProvider->Register<IResolutionService>(m_spResolutionService);
 
         m_spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, m_spServiceProvider);
     }
@@ -72,14 +73,8 @@ protected:
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
-    std::shared_ptr<Peer::Test::PeerMediator> m_spMediator;
+    std::shared_ptr<Peer::Test::ResolutionService> m_spResolutionService;
     std::shared_ptr<Peer::Proxy> m_spProxy;
-
-    Peer::Registration m_registration{ 
-        Peer::Test::EndpointIdentifier,
-        Peer::Test::EndpointProtocol,
-        Peer::Test::RemoteClientAddress
-    };
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -93,7 +88,10 @@ TEST_F(PeerResolverSuite, ExchangeProcessorLifecycleTest)
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
-    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(m_registration);
+    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>( 
+        Peer::Test::EndpointIdentifier,
+        Peer::Test::EndpointProtocol,
+        Peer::Test::RemoteClientAddress);
 
     auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
@@ -106,7 +104,7 @@ TEST_F(PeerResolverSuite, ExchangeProcessorLifecycleTest)
     EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 
     // Verify the node can't forward a message through the receiver, because it has been unset by the mediator. 
-    m_spProxy->DetachResolver<InvokeContext::Test>();
+    m_spProxy->DetachResolver();
     EXPECT_FALSE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 }
 
@@ -123,7 +121,10 @@ TEST_F(PeerResolverSuite, SuccessfulExchangeTest)
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
-    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(m_registration);
+    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>( 
+        Peer::Test::EndpointIdentifier,
+        Peer::Test::EndpointProtocol,
+        Peer::Test::RemoteClientAddress);
 
     auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)
@@ -155,7 +156,10 @@ TEST_F(PeerResolverSuite, FailedExchangeTest)
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
-    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(m_registration);
+    m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>( 
+        Peer::Test::EndpointIdentifier,
+        Peer::Test::EndpointProtocol,
+        Peer::Test::RemoteClientAddress);
     
     auto const optMessage = Message::Platform::Parcel::GetBuilder()
         .SetSource(*test::ServerIdentifier)

@@ -8,10 +8,12 @@
 #include "MessageTypes.hpp"
 #include "PackUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <algorithm>
 #include <cstdint>
 #include <concepts>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <string>
 #include <string_view>
@@ -89,24 +91,67 @@ public:
     StorageContainer() = default;
     ~StorageContainer() = default;
 
-    explicit StorageContainer(StorageType&& data);
+    explicit StorageContainer(StorageType&& data)
+        : m_data(std::move(data))
+    {
+        assert(m_data);
+    }
 
 	// StorageInterface {
-	[[nodiscard]] virtual std::unique_ptr<StorageInterface> Clone() const override;
+	[[nodiscard]] virtual std::unique_ptr<StorageInterface> Clone() const override
+    {
+        return std::make_unique<StorageContainer<StorageType>>(StorageType{ m_data });
+    }
 	// } StorageInterface
 
 	// Viewable {
     [[nodiscard]] virtual std::span<std::uint8_t const> GetReadableView() const override;
     [[nodiscard]] virtual std::string_view GetStringView() const override;
-    [[nodiscard]] virtual bool IsEmpty() const override;
+    [[nodiscard]] virtual bool IsEmpty() const override
+    {
+        if (!m_data) { return true; }
+        return m_data->empty();
+    }
 	// } Viewable
 
 	// Packable {
-	[[nodiscard]] virtual std::size_t GetPackSize() const override;
-    virtual void Inject(Buffer& buffer) const override;
+	[[nodiscard]] virtual std::size_t GetPackSize() const override
+    {
+        std::size_t size = 0;
+        size += sizeof(std::uint32_t); // 4 bytes for payload size
+        if (m_data) { size += m_data->size(); }
+        assert(std::in_range<std::uint32_t>(size));
+        return size;
+    }
+
+    virtual void Inject(Buffer& buffer) const override
+    {
+        if (m_data) {
+            assert(std::in_range<std::uint32_t>(m_data->size()));
+            PackUtils::PackChunk<std::uint32_t>(*m_data, buffer);
+        }
+        else {
+            PackUtils::PackChunk(std::uint32_t{ 0 }, buffer);
+        }
+    }
+
     [[nodiscard]] virtual bool Unpack(
         std::span<std::uint8_t const>::iterator& begin,
-        std::span<std::uint8_t const>::iterator const& end) override;
+        std::span<std::uint8_t const>::iterator const& end) override
+    {
+        std::uint32_t size = 0;
+        if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
+
+        auto const UnpackSharedStorage = [&] <typename InternalType> (std::shared_ptr<InternalType const>&container) -> bool {
+            InternalType data;
+            if (!PackUtils::UnpackChunk(begin, end, data, size)) { return false; }
+            container = std::make_shared<InternalType const>(std::move(data));
+            return true;
+        };
+        if (!UnpackSharedStorage(m_data)) { return false; }
+
+        return true;
+    }
 	// } Packable
 
 private:
@@ -129,9 +174,9 @@ public:
     Payload(std::string_view data);
     Payload(std::nullptr_t data);
 
-    Payload(Payload&& other);
+    Payload(Payload&& other) noexcept;
     Payload(Payload const& other);
-    Payload& operator=(Payload&& other);
+    Payload& operator=(Payload&& other) noexcept;
     Payload& operator=(Payload const& other);
 
     [[nodiscard]] bool operator==(Payload const& other) const;
@@ -257,23 +302,6 @@ inline bool Message::StorageContainer<std::span<std::uint8_t const>>::Unpack(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-template<Message::SharedStorageType StorageType>
-inline Message::StorageContainer<StorageType>::StorageContainer(StorageType&& data)
-    : m_data(std::move(data))
-{
-    assert(m_data);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Message::SharedStorageType StorageType>
-inline std::unique_ptr<Message::StorageInterface> Message::StorageContainer<StorageType>::StorageContainer::Clone() const
-{
-	return std::make_unique<StorageContainer<StorageType>>(StorageType{ m_data });
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
 template<>
 inline std::span<std::uint8_t const> Message::StorageContainer<std::shared_ptr<std::string const>>::GetReadableView() const
 {
@@ -306,61 +334,6 @@ inline std::string_view Message::StorageContainer<std::shared_ptr<Message::Buffe
 {
     if (!m_data) { return {}; }
     return std::string_view{ reinterpret_cast<char const*>(m_data->data()), m_data->size() };
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Message::SharedStorageType StorageType>
-inline bool Message::StorageContainer<StorageType>::IsEmpty() const
-{
-    if (!m_data) { return true; }
-    return m_data->empty();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Message::SharedStorageType StorageType>
-inline std::size_t Message::StorageContainer<StorageType>::GetPackSize() const
-{
-	std::size_t size = 0;
-	size += sizeof(std::uint32_t); // 4 bytes for payload size
-    if (m_data) { size += m_data->size(); }
-    assert(std::in_range<std::uint32_t>(size));
-	return size;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Message::SharedStorageType StorageType>
-inline void Message::StorageContainer<StorageType>::Inject(Buffer& buffer) const
-{
-    if (m_data) { 
-        assert(std::in_range<std::uint32_t>(m_data->size()));
-        PackUtils::PackChunk<std::uint32_t>(*m_data, buffer);
-    } else {
-        PackUtils::PackChunk(std::uint32_t{ 0 }, buffer);
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Message::SharedStorageType StorageType>
-inline bool Message::StorageContainer<StorageType>::Unpack(
-    std::span<std::uint8_t const>::iterator& begin,
-	std::span<std::uint8_t const>::iterator const& end)
-{
-    std::uint32_t size = 0;
-    if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
-
-    auto const UnpackSharedStorage = [&] <typename InternalType> (std::shared_ptr<InternalType const>& container) -> bool {
-        InternalType data;
-        if (!PackUtils::UnpackChunk(begin, end, data, size)) { return false; } 
-        container = std::make_shared<InternalType const>(std::move(data));
-        return true;
-    };
-    if (!UnpackSharedStorage(m_data)) { return false; }
-
-    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -402,7 +375,7 @@ inline Message::Payload::Payload(std::string_view data)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-inline Message::Payload::Payload(Payload&& other)
+inline Message::Payload::Payload(Payload&& other) noexcept
     : m_storage(std::move(other.m_storage))
 {
 }
@@ -416,7 +389,7 @@ inline Message::Payload::Payload(Payload const& other)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-inline Message::Payload& Message::Payload::operator=(Payload&& other)
+inline Message::Payload& Message::Payload::operator=(Payload&& other) noexcept
 {
     m_storage = std::move(other.m_storage);
     return *this;

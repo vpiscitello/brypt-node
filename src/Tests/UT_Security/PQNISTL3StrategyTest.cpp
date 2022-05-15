@@ -1,6 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/MessageContext.hpp"
+#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -24,6 +26,9 @@ namespace test {
 
 Node::Identifier const ClientIdentifier(Node::GenerateIdentifier());
 Node::Identifier const ServerIdentifier(Node::GenerateIdentifier());
+
+auto const ServiceProvider = std::make_shared<Node::ServiceProvider>();
+auto const Proxy = Peer::Proxy::CreateInstance(ClientIdentifier, ServiceProvider);
 
 constexpr std::string_view ApplicationRoute = "/request";
 constexpr std::string_view Data = "Hello World!";
@@ -211,7 +216,7 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
 
 Message::Context local::GenerateMessageContext(Security::PQNISTL3::Strategy const& strategy)
 {
-    Message::Context context(test::EndpointIdentifier, test::EndpointProtocol);
+    Message::Context context(test::Proxy, test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
         [&strategy] (auto const& buffer, auto nonce) -> Security::Encryptor::result_type { 

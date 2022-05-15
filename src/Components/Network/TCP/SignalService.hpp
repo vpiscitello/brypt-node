@@ -15,16 +15,21 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Utilities/Awaitable.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include <compare>
-#include <cstddef>
-#include <utility>
-//----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/detail/io_object_impl.hpp>
 #include <boost/asio/detail/non_const_lvalue.hpp>
 #include <boost/asio/detail/throw_error.hpp>
 #include <boost/asio/detail/wait_handler.hpp>
 #include <boost/asio/error.hpp>
+#if defined(WIN32)
+#include <boost/asio/detail/win_iocp_io_context.hpp>
+#else
+#include <boost/asio/detail/scheduler.hpp>
+#endif
+//----------------------------------------------------------------------------------------------------------------------
+#include <compare>
+#include <cstddef>
+#include <utility>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -58,6 +63,13 @@ class Network::TCP::SignalService
 public:
     using executor_type = Executor;
     template<typename OtherExecutor> struct rebind_executor { using other = SignalService<OtherExecutor>; };
+
+    // The scheduler implementation used to post completions.
+    #if defined(BOOST_ASIO_HAS_IOCP)
+    typedef class boost::asio::detail::win_iocp_io_context scheduler_type;
+    #else // defined(BOOST_ASIO_HAS_IOCP)
+    typedef class boost::asio::detail::scheduler scheduler_type;
+    #endif // defined(BOOST_ASIO_HAS_IOCP)
 
     explicit SignalService(executor_type const& executor) : m_impl(0, executor) { }
 
@@ -113,10 +125,10 @@ public:
         return result;
     }
 
-    template<boost::asio::completion_token_for<void(boost::system::error_code)> 
-        WaitHandler = boost::asio::default_completion_token<executor_type>::type>
-    [[nodiscard]] auto async_wait(
-        WaitHandler&& handler = typename boost::asio::default_completion_token<executor_type>::type())
+    template<BOOST_ASIO_COMPLETION_TOKEN_FOR(void(boost::system::error_code))
+        WaitHandler BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)>
+    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(WaitHandler, void(boost::system::error_code)) async_wait(
+        BOOST_ASIO_MOVE_ARG(WaitHandler) handler BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
     {
         return boost::asio::async_initiate<WaitHandler, void(boost::system::error_code)>(
             initiate_async_wait(this), handler);
@@ -151,7 +163,7 @@ private:
 
         explicit SignalServiceDetail(boost::asio::execution_context& context)
             : boost::asio::detail::execution_context_service_base<SignalServiceDetail>(context)
-            , m_scheduler(boost::asio::use_service<boost::asio::detail::scheduler>(context))
+            , m_scheduler(boost::asio::use_service<scheduler_type>(context))
         {
             m_scheduler.init_task();
         }
@@ -277,8 +289,8 @@ private:
 
             m_scheduler.post_immediate_completion(operation, false);
         }
-
-        boost::asio::detail::scheduler& m_scheduler;
+       
+        scheduler_type& m_scheduler;
     };
 
     boost::asio::detail::io_object_impl<SignalServiceDetail, executor_type> m_impl;

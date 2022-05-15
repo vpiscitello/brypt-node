@@ -45,22 +45,23 @@ constexpr std::string_view const ResponsePayload = "Response Payload";
 
 TEST(AuxillaryHandlerSuite, ExternalHandlerTest)
 {
-    auto const context = Route::Test::GenerateMessageContext();
     auto const spRegistrar = std::make_shared<Scheduler::Registrar>();
     auto const spServiceProvider = std::make_shared<Node::ServiceProvider>();
     auto const spNodeState = std::make_shared<NodeState>(test::ServerIdentifier, Network::ProtocolSet{});
-    auto const spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, spServiceProvider);
-
     spServiceProvider->Register(spNodeState);
 
     Route::Router router;
-
     std::optional<Message::Application::Parcel> optResponse;
+
+    auto const spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, spServiceProvider);
     spProxy->RegisterSilentEndpoint<InvokeContext::Test>(
         Route::Test::EndpointIdentifier, Route::Test::EndpointProtocol, Route::Test::RemoteClientAddress,
-        [&context, &optResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool {
+        [&spProxy, &optResponse] ([[maybe_unused]] auto const& destination, auto&& message) -> bool {
+            auto const optContext = spProxy->GetMessageContext(Route::Test::EndpointIdentifier);
+            if (!optContext) { return false; }
+
             auto optMessage = Message::Application::Parcel::GetBuilder()
-                .SetContext(context)
+                .SetContext(*optContext)
                 .FromEncodedPack(std::get<std::string>(message))
                 .ValidatedBuild();
             if(!optMessage) { return false; }
@@ -77,9 +78,12 @@ TEST(AuxillaryHandlerSuite, ExternalHandlerTest)
 
     EXPECT_TRUE(router.Register<Route::Auxiliary::ExternalHandler>(test::AuxiliaryRoute, onMessage));
     EXPECT_TRUE(router.Initialize(spServiceProvider));
+    
+    auto const optContext = spProxy->GetMessageContext(Route::Test::EndpointIdentifier);
+    ASSERT_TRUE(optContext);
 
     auto const optRequest = Message::Application::Parcel::GetBuilder()
-        .SetContext(context)
+        .SetContext(*optContext)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::AuxiliaryRoute)

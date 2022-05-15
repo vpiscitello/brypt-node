@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: Manager.cpp
+// File: ProxyStore.cpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-#include "Manager.hpp"
+#include "ProxyStore.hpp"
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "BryptMessage/ApplicationMessage.hpp"
 #include "BryptMessage/PlatformMessage.hpp"
@@ -11,6 +11,8 @@
 #include "Components/Event/Events.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
+#include "Components/Scheduler/Delegate.hpp"
+#include "Components/Scheduler/Registrar.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/MessageSink.hpp"
@@ -34,14 +36,19 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-Peer::Manager::Manager(Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
-    : m_spNodeIdentifier()
+Peer::ProxyStore::ProxyStore(
+    Security::Strategy strategy,
+    std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
+    std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
+    : m_spDelegate()
+    , m_spNodeIdentifier()
     , m_spEventPublisher(spServiceProvider->Fetch<Event::Publisher>())
     , m_strategyType(strategy)
     , m_observersMutex()
     , m_observers()
     , m_resolvingMutex()
     , m_resolving()
+    , m_resolved()
     , m_peersMutex()
     , m_peers()
     , m_active(0)
@@ -49,12 +56,18 @@ Peer::Manager::Manager(Security::Strategy strategy, std::shared_ptr<Node::Servic
     , m_spConnectProtocol(spServiceProvider->Fetch<IConnectProtocol>())
     , m_wpServiceProvider(spServiceProvider)
 {
+    assert(m_strategyType != Security::Strategy::Invalid);
+
+    m_spDelegate = spRegistrar->Register<Peer::ProxyStore>([this] (Scheduler::Frame const&) -> std::size_t {
+        return Execute();  // Dispatch any fulfilled awaiting messages since this last cycle. 
+    }); 
+    assert(m_spDelegate);
+
     if (auto const spState = spServiceProvider->Fetch<NodeState>().lock(); spState) {
         m_spNodeIdentifier = spState->GetNodeIdentifier();
     }
     assert(m_spNodeIdentifier);
-    assert(m_strategyType != Security::Strategy::Invalid);
-    assert(m_spEventPublisher);
+
     {
         using enum Event::Type;
         m_spEventPublisher->Advertise({ PeerConnected, PeerDisconnected });
@@ -63,7 +76,7 @@ Peer::Manager::Manager(Security::Strategy strategy, std::shared_ptr<Node::Servic
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::RegisterObserver(IPeerObserver* const observer)
+void Peer::ProxyStore::RegisterObserver(IPeerObserver* const observer)
 {
     std::scoped_lock lock(m_observersMutex);
     m_observers.emplace(observer);
@@ -71,7 +84,7 @@ void Peer::Manager::RegisterObserver(IPeerObserver* const observer)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::UnpublishObserver(IPeerObserver* const observer)
+void Peer::ProxyStore::UnpublishObserver(IPeerObserver* const observer)
 {
     std::scoped_lock lock(m_observersMutex);
     m_observers.erase(observer);
@@ -79,7 +92,7 @@ void Peer::Manager::UnpublishObserver(IPeerObserver* const observer)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
+Peer::ProxyStore::OptionalRequest Peer::ProxyStore::DeclareResolvingPeer(
     Network::RemoteAddress const& address, Node::SharedIdentifier const& spPeerIdentifier)
 {
     auto const spServiceProvider = m_wpServiceProvider.lock();
@@ -108,7 +121,7 @@ Peer::Manager::OptionalRequest Peer::Manager::DeclareResolvingPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::RescindResolvingPeer(Network::RemoteAddress const& address)
+void Peer::ProxyStore::RescindResolvingPeer(Network::RemoteAddress const& address)
 {
     std::scoped_lock lock(m_resolvingMutex);
     [[maybe_unused]] std::size_t const result = m_resolving.erase(address);
@@ -117,7 +130,7 @@ void Peer::Manager::RescindResolvingPeer(Network::RemoteAddress const& address)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
+std::shared_ptr<Peer::Proxy> Peer::ProxyStore::LinkPeer(
     Node::Identifier const& identifier, Network::RemoteAddress const& address)
 {
     // If the provided peer has an identifier that matches an already tracked peer, the tracked peer needs to be 
@@ -141,7 +154,7 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::LinkPeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::OnEndpointRegistered(
+void Peer::ProxyStore::OnEndpointRegistered(
     std::shared_ptr<Peer::Proxy> const& spProxy,
     Network::Endpoint::Identifier identifier,
     Network::RemoteAddress const& address)
@@ -152,14 +165,21 @@ void Peer::Manager::OnEndpointRegistered(
         using enum Event::Type;
         NotifyObservers(&IPeerObserver::OnRemoteConnected, identifier, address);
         m_spEventPublisher->Publish<PeerConnected>(spProxy, address);
+       
+        // If this is the first endpoint being registered, mark it such that the attached resolver can be cleaned up 
+        // and increment the count of active peers. 
+        if (spProxy->RegisteredEndpointCount() == 1) { 
+            std::scoped_lock lock{ m_resolvingMutex };
+            m_resolved.emplace_back(spProxy); // Store the resolved peer such that the attached resolver can be cleaned up. 
+            m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
+            ++m_active;
+        }
     }
-
-    if (spProxy->RegisteredEndpointCount() == 1) { ++m_active; }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::OnEndpointWithdrawn(
+void Peer::ProxyStore::OnEndpointWithdrawn(
     std::shared_ptr<Peer::Proxy> const& spProxy,
     Network::Endpoint::Identifier identifier,
     Network::RemoteAddress const& address, 
@@ -173,14 +193,13 @@ void Peer::Manager::OnEndpointWithdrawn(
         using enum Event::Type;
         NotifyObservers(&IPeerObserver::OnRemoteDisconnected, identifier, address);
         m_spEventPublisher->Publish<PeerDisconnected>(spProxy, address, cause);
+        if (spProxy->RegisteredEndpointCount() == 0) { --m_active; }
     }
-
-    if (spProxy->RegisteredEndpointCount() == 0) { --m_active; }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ForEach(IdentifierReadFunction const& callback, Filter filter) const
+bool Peer::ProxyStore::ForEach(IdentifierReadFunction const& callback, Filter filter) const
 {
     std::shared_lock lock(m_peersMutex);
     for (auto const& spProxy: m_peers) {
@@ -200,7 +219,7 @@ bool Peer::Manager::ForEach(IdentifierReadFunction const& callback, Filter filte
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ActiveCount() const
+std::size_t Peer::ProxyStore::ActiveCount() const
 {
     std::scoped_lock lock{ m_peersMutex };
     return m_active;
@@ -208,7 +227,7 @@ std::size_t Peer::Manager::ActiveCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::InactiveCount() const
+std::size_t Peer::ProxyStore::InactiveCount() const
 {
     std::scoped_lock lock{ m_peersMutex };
     return m_peers.size() - m_active;
@@ -216,7 +235,7 @@ std::size_t Peer::Manager::InactiveCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ObservedCount() const
+std::size_t Peer::ProxyStore::ObservedCount() const
 {
     std::scoped_lock lock{ m_peersMutex };
     return m_peers.size();
@@ -224,7 +243,7 @@ std::size_t Peer::Manager::ObservedCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ResolvingCount() const
+std::size_t Peer::ProxyStore::ResolvingCount() const
 {
     std::shared_lock lock(m_resolvingMutex);
     return m_resolving.size();
@@ -232,7 +251,19 @@ std::size_t Peer::Manager::ResolvingCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ForEach(ForEachFunction const& callback, Filter filter) const
+std::shared_ptr<Peer::Proxy> Peer::ProxyStore::Find(std::string_view identifier) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    auto const& index = m_peers.template get<ExternalIndex>();
+    if (auto const itr = index.find(identifier.data()); itr != index.end()) {
+        return *itr;
+    }
+    return nullptr;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::ProxyStore::ForEach(ForEachFunction const& callback, Filter filter) const
 {
     std::shared_lock lock(m_peersMutex);
     for (auto const& spProxy: m_peers) {
@@ -244,7 +275,7 @@ bool Peer::Manager::ForEach(ForEachFunction const& callback, Filter filter) cons
             default: assert(false); // What is this?
         }
 
-        if (included&& callback(spProxy) != CallbackIteration::Continue) { break; }
+        if (included && callback(spProxy) != CallbackIteration::Continue) { return false; }
     }
 
     return true;
@@ -252,7 +283,7 @@ bool Peer::Manager::ForEach(ForEachFunction const& callback, Filter filter) cons
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::Dispatch(
+bool Peer::ProxyStore::Dispatch(
     std::string_view identifier, std::string_view route, Message::Payload&& payload) const
 {
     std::shared_lock lock{ m_peersMutex };
@@ -272,7 +303,7 @@ bool Peer::Manager::Dispatch(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Manager::ClusterDispatchResult Peer::Manager::Notify(
+Peer::ProxyStore::ClusterDispatchResult Peer::ProxyStore::Notify(
     Message::Destination destination,
     std::string_view route, 
     Message::Payload const& payload,
@@ -306,7 +337,7 @@ Peer::Manager::ClusterDispatchResult Peer::Manager::Notify(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
+std::optional<Awaitable::TrackerKey> Peer::ProxyStore::Request(
     std::string_view identifier,
     std::string_view route, 
     Message::Payload&& payload,
@@ -332,7 +363,7 @@ std::optional<Awaitable::TrackerKey> Peer::Manager::Request(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Manager::ClusterRequestResult Peer::Manager::Request(
+Peer::ProxyStore::ClusterRequestResult Peer::ProxyStore::Request(
     Message::Destination destination,
     std::string_view route, 
     Message::Payload const& payload,
@@ -385,7 +416,7 @@ Peer::Manager::ClusterRequestResult Peer::Manager::Request(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ScheduleDisconnect(Node::Identifier const& identifier) const
+bool Peer::ProxyStore::ScheduleDisconnect(Node::Identifier const& identifier) const
 {
     std::shared_lock lock(m_peersMutex);
     if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) { 
@@ -397,7 +428,7 @@ bool Peer::Manager::ScheduleDisconnect(Node::Identifier const& identifier) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Manager::ScheduleDisconnect(std::string_view identifier) const
+bool Peer::ProxyStore::ScheduleDisconnect(std::string_view identifier) const
 {
     std::shared_lock lock(m_peersMutex);
     auto const& index = m_peers.template get<ExternalIndex>();
@@ -410,7 +441,7 @@ bool Peer::Manager::ScheduleDisconnect(std::string_view identifier) const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::size_t Peer::Manager::ScheduleDisconnect(Network::Address const& address) const
+std::size_t Peer::ProxyStore::ScheduleDisconnect(Network::Address const& address) const
 {
     std::shared_lock lock(m_peersMutex);
     return std::ranges::count_if(m_peers, [&address] (auto const& spProxy) {
@@ -421,7 +452,20 @@ std::size_t Peer::Manager::ScheduleDisconnect(Network::Address const& address) c
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
+std::size_t Peer::ProxyStore::Execute()
+{
+    auto const resolved = ( std::scoped_lock{ m_resolvingMutex }, std::exchange(m_resolved, {}) );
+    for (auto const& wpResolved : resolved) {
+        if (auto const spResolved = wpResolved.lock()) {
+            spResolved->DetachResolver();
+        }
+    }
+    return resolved.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Peer::ProxyStore::OptionalRequest Peer::ProxyStore::GenerateShortCircuitRequest(
     Node::SharedIdentifier const& spPeerIdentifier) const
 {
     // Note: The peers mutex must be locked before calling this method. 
@@ -443,7 +487,7 @@ Peer::Manager::OptionalRequest Peer::Manager::GenerateShortCircuitRequest(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
+std::shared_ptr<Peer::Proxy> Peer::ProxyStore::CreatePeer(
     Node::Identifier const& identifier, Network::RemoteAddress const& address)
 {
     if (auto const spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
@@ -460,7 +504,7 @@ std::shared_ptr<Peer::Proxy> Peer::Manager::CreatePeer(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy, Network::RemoteAddress const& address)
+void Peer::ProxyStore::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy, Network::RemoteAddress const& address)
 {
     // If the endpoint has declared the address as a resolving peer, this implies that we were the connection initiator. 
     // In this case, we need to attach the external resolver to the full proxy to handle incoming responses. 
@@ -474,7 +518,8 @@ void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy
     }
 
     if (auto const spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
-        bool const result = spProxy->StartExchange(m_strategyType, Security::Role::Acceptor, spServiceProvider);
+        [[maybe_unused]] bool const result = spProxy->StartExchange(
+            m_strategyType, Security::Role::Acceptor, spServiceProvider);
         assert(result);
     }
 }
@@ -482,7 +527,7 @@ void Peer::Manager::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spProxy
 //----------------------------------------------------------------------------------------------------------------------
 
 template<typename FunctionType, typename...Args>
-void Peer::Manager::NotifyObservers(FunctionType const& function, Args&&...args)
+void Peer::ProxyStore::NotifyObservers(FunctionType const& function, Args&&...args)
 {
     for (auto itr = m_observers.cbegin(); itr != m_observers.cend();) {
         auto const& observer = *itr; // Get a refernce to the current observer pointer.
@@ -497,7 +542,7 @@ void Peer::Manager::NotifyObservers(FunctionType const& function, Args&&...args)
 //----------------------------------------------------------------------------------------------------------------------
 
 template<typename FunctionType, typename...Args>
-void Peer::Manager::NotifyObserversConst(FunctionType const& function, Args&&...args) const
+void Peer::ProxyStore::NotifyObserversConst(FunctionType const& function, Args&&...args) const
 {
     for (auto const& observer: m_observers) {
         auto const binder = std::bind(function, observer, std::forward<Args>(args)...);

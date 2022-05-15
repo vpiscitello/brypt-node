@@ -9,8 +9,8 @@
 #include "Components/Network/Address.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Interfaces/BootstrapCache.hpp"
-#include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
+#include "Interfaces/ResolutionService.hpp"
 #include "Utilities/CallbackIteration.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <filesystem>
@@ -49,7 +49,7 @@ public:
 
     void SetDefaults(Configuration::Options::Endpoints const& endpoints);
 
-    void Register(IPeerMediator* const mediator);
+    void Register(IResolutionService* const pResolutionService);
     void Register(std::shared_ptr<Scheduler::Registrar> const& spRegistrar);
     void UnregisterServices();
 
@@ -87,7 +87,7 @@ private:
 
     std::shared_ptr<spdlog::logger> m_logger;
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
-    IPeerMediator* m_mediator;
+    IResolutionService* m_pResolutionService;
 
     std::filesystem::path m_filepath;
     BootstrapCache m_cache;

@@ -11,6 +11,7 @@
 #include "Components/Scheduler/TaskService.hpp"
 #include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Components/State/NodeState.hpp"
+#include "Interfaces/ResolutionService.hpp"
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -57,29 +58,6 @@ auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateI
 class PeerActionSuite : public testing::Test
 {
 protected:
-    static void SetUpTestSuite()
-    {
-        m_context = Peer::Test::GenerateMessageContext();
-
-        auto const optMessage = Message::Application::Parcel::GetBuilder()
-            .SetContext(m_context)
-            .SetSource(test::ClientIdentifier)
-            .SetDestination(*test::ServerIdentifier)
-            .SetRoute(Peer::Test::RequestRoute)
-            .SetPayload(Peer::Test::RequestPayload)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Request, Peer::Test::TrackerKey)
-            .ValidatedBuild();
-        ASSERT_TRUE(optMessage);
-        m_message = *optMessage;
-    }
-
-    static void TearDownTestSuite()
-    {
-        m_message = {};
-        m_context = {};
-    }
-
     void SetUp() override
     {
         m_spRegistrar = std::make_shared<Scheduler::Registrar>();
@@ -103,8 +81,8 @@ protected:
         m_spMessageProcessor = std::make_shared<Peer::Test::MessageProcessor>();
         m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
         
-        m_spMediator = std::make_shared<Peer::Test::PeerMediator>();
-        m_spServiceProvider->Register<IPeerMediator>(m_spMediator);
+        m_spResolutionService = std::make_shared<Peer::Test::ResolutionService>();
+        m_spServiceProvider->Register<IResolutionService>(m_spResolutionService);
 
         m_spCache = std::make_shared<Peer::Test::PeerCache>(5);
         m_spServiceProvider->Register<IPeerCache>(m_spCache);
@@ -125,11 +103,24 @@ protected:
                 return true;
             });
 
+        auto const optContext = m_spProxy->GetMessageContext(Peer::Test::EndpointIdentifier);
+        ASSERT_TRUE(optContext);
+        m_context = *optContext;
+
+        auto const optMessage = Message::Application::Parcel::GetBuilder()
+            .SetContext(m_context)
+            .SetSource(test::ClientIdentifier)
+            .SetDestination(*test::ServerIdentifier)
+            .SetRoute(Peer::Test::RequestRoute)
+            .SetPayload(Peer::Test::RequestPayload)
+            .BindExtension<Message::Application::Extension::Awaitable>(
+                Message::Application::Extension::Awaitable::Request, Peer::Test::TrackerKey)
+            .ValidatedBuild();
+        ASSERT_TRUE(optMessage);
+        m_message = *optMessage;
+
         EXPECT_TRUE(m_spRegistrar->Initialize());
     }
-
-    static Message::Context m_context;
-    static Message::Application::Parcel m_message;
 
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
@@ -139,17 +130,14 @@ protected:
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
-    std::shared_ptr<Peer::Test::PeerMediator> m_spMediator;
+    std::shared_ptr<Peer::Test::ResolutionService> m_spResolutionService;
     std::shared_ptr<Peer::Test::PeerCache> m_spCache;
     std::shared_ptr<Peer::Proxy> m_spProxy;
+    Message::Context m_context;
+    Message::Application::Parcel m_message;
 
     std::optional<Message::Application::Parcel> m_optResult;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Context PeerActionSuite::m_context = {};
-Message::Application::Parcel PeerActionSuite::m_message = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 

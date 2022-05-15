@@ -31,6 +31,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
+copy_dependencies(${PROJECT_NAME})
+
 #-----------------------------------------------------------------------------------------------------------------------
 gtest_discover_tests(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------

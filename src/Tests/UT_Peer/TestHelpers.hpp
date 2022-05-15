@@ -8,8 +8,8 @@
 #include "Components/Peer/Proxy.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/PeerCache.hpp"
-#include "Interfaces/PeerMediator.hpp"
 #include "Interfaces/PeerObserver.hpp"
+#include "Interfaces/ResolutionService.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -22,7 +22,7 @@
 namespace Peer::Test {
 //----------------------------------------------------------------------------------------------------------------------
 
-class PeerMediator;
+class ResolutionService;
 class PeerCache;
 class ConnectProtocol;
 class MessageProcessor;
@@ -50,16 +50,14 @@ constexpr Awaitable::TrackerKey TrackerKey = {
     0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01
 };
 
-Message::Context GenerateMessageContext();
-
 //----------------------------------------------------------------------------------------------------------------------
 } // Peer::Test namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class Peer::Test::PeerMediator : public IPeerMediator
+class Peer::Test::ResolutionService : public IResolutionService
 {
 public:
-    PeerMediator() = default;
+    ResolutionService() = default;
     virtual void RegisterObserver(IPeerObserver* const) override { }
     virtual void UnpublishObserver(IPeerObserver* const) override { }
     virtual OptionalRequest DeclareResolvingPeer(Network::RemoteAddress const&, Node::SharedIdentifier const&) override { return {}; }
@@ -133,13 +131,13 @@ class Peer::Test::MessageProcessor : public IMessageSink
 public:
     MessageProcessor() = default;
 
-    virtual bool CollectMessage(std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::string_view buffer) override
+    virtual bool CollectMessage(Message::Context const&, std::string_view buffer) override
     {
         m_pack = std::string{ buffer.begin(), buffer.end() };
         return true;
     }
 
-    virtual bool CollectMessage(std::weak_ptr<Peer::Proxy> const&, Message::Context const&, std::span<std::uint8_t const>) override
+    virtual bool CollectMessage(Message::Context const&, std::span<std::uint8_t const>) override
     {
         return false;
     }
@@ -183,7 +181,7 @@ private:
 class Peer::Test::SynchronousObserver : public IPeerObserver
 {
 public:
-    explicit SynchronousObserver(IPeerMediator* const mediator)
+    explicit SynchronousObserver(IResolutionService* const mediator)
         : m_mediator(mediator)
         , m_state(Network::Connection::State::Unknown)
     {
@@ -215,7 +213,7 @@ public:
     Network::Connection::State GetConnectionState() const { return m_state; }
 
 private:
-    IPeerMediator* m_mediator;
+    IResolutionService* m_mediator;
     Network::Connection::State m_state;
 };
 
@@ -292,25 +290,5 @@ private:
     Event::SharedPublisher m_spPublisher;
     EventTracker m_tracker;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-inline Message::Context Peer::Test::GenerateMessageContext()
-{
-    Message::Context context{ EndpointIdentifier, EndpointProtocol };
-
-    context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); });
-
-    context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type  { return 0; },
-        [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
-        [] () -> Security::SignatureSizeGetter::result_type { return 0; });
-
-    return context;
-}
 
 //----------------------------------------------------------------------------------------------------------------------

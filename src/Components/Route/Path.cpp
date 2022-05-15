@@ -107,6 +107,12 @@ void Route::Path::Build(std::string_view path)
 {
     if (!path.starts_with(Seperator)) { return; }
 
+#if defined(WIN32)
+    if (path.ends_with(Seperator)) {
+        path.remove_suffix(Seperator.size()); // Windows doesn't handle view seperators at the end well. 
+    }
+#endif
+
     bool error = false;
     std::ranges::transform(
         path | std::views::drop(Seperator.size()) | std::views::split(Seperator), std::back_inserter(m_components), 

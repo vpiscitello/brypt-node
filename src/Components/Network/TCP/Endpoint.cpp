@@ -17,6 +17,7 @@
 #include <boost/asio/detached.hpp>
 #include <boost/asio/redirect_error.hpp>
 #include <boost/asio/use_awaitable.hpp>
+#include <boost/asio/cancellation_signal.hpp>
 #include <spdlog/fmt/chrono.h>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -53,9 +54,6 @@ private:
         [[nodiscard]] SocketProcessor operator()();
         [[nodiscard]] bool Bind(BindingAddress const& binding);
         [[nodiscard]] BindingFailure GetFailure(boost::system::error_code const& error) const;
-
-        template<typename ...Arguments>
-        [[nodiscard]] CompletionOrigin OnError(std::string_view message, Arguments&&...arguments) const;
 
         ServerInstance m_server;
         boost::asio::ip::tcp::acceptor m_acceptor;
@@ -639,7 +637,13 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator
     while (m_server.m_active) {
         if (!m_acceptor.is_open()) {
             co_await m_server.m_signal.async_wait(boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
-            if (m_error) { co_return OnError(WaitError); }
+            if (m_error) {
+                // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
+                if (IsInducedError(m_error)) { co_return CompletionOrigin::Self; }
+                m_server.m_endpoint.m_logger->error(WaitError);
+                m_server.m_endpoint.OnBindingFailed(m_server.m_endpoint.m_binding, GetFailure(m_error));
+                co_return CompletionOrigin::Error;
+            }
         } else {
             // Create a new session that can be used for the peer that connects. 
             auto const spSession = endpoint.CreateSession();
@@ -651,7 +655,10 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Server::Listener::operator
                 // If the error is due to a rebinding operation, drop the session and skip to the next loop iteration. 
                 if (m_rebinding) { m_rebinding = false; continue; } 
                 // Otherwise, the error should be handled normally (e.g. shutdowns or unexpected errors).
-                co_return OnError(AcceptError, endpoint.m_binding); 
+                if (IsInducedError(m_error)) { co_return CompletionOrigin::Self; }
+                m_server.m_endpoint.m_logger->error(AcceptError, endpoint.m_binding);
+                m_server.m_endpoint.OnBindingFailed(m_server.m_endpoint.m_binding, GetFailure(m_error));
+                co_return CompletionOrigin::Error;
             }
 
             // Notify the endpoint that a new connection has been made. 
@@ -689,8 +696,14 @@ bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& bindin
     m_acceptor.set_option(boost::asio::ip::tcp::acceptor::keep_alive(true), error);
     if (error) [[unlikely]] { return OnBindError(); }
 
+#if defined(WIN32)
+    using namespace boost::asio::detail;
+    m_acceptor.set_option(socket_option::boolean<BOOST_ASIO_OS_DEF(SOL_SOCKET), SO_EXCLUSIVEADDRUSE>(true), error);
+    if (error) [[unlikely]] { return OnBindError(); }
+#else
     m_acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true), error);
     if (error) [[unlikely]] { return OnBindError(); }
+#endif
 
     m_acceptor.bind(endpoint, error);
     if (error) [[unlikely]] { return OnBindError(); }
@@ -699,19 +712,6 @@ bool Network::TCP::Endpoint::Server::Listener::Bind(BindingAddress const& bindin
     if (error) [[unlikely]] { return OnBindError(); }
 
     return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<typename ...Arguments>
-Network::TCP::CompletionOrigin Network::TCP::Endpoint::Server::Listener::OnError(
-    std::string_view message, Arguments&&...arguments) const
-{
-    // If the error is caused by an intentional operation (i.e. shutdown), then it is not unexpected. 
-    if (IsInducedError(m_error)) { return CompletionOrigin::Self; }
-    m_server.m_endpoint.m_logger->error(message, std::forward<Arguments>(arguments)...);
-    m_server.m_endpoint.OnBindingFailed(m_server.m_endpoint.m_binding, GetFailure(m_error));
-    return CompletionOrigin::Error;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -774,7 +774,7 @@ void Network::TCP::Endpoint::Client::Connect(RemoteAddress&& address, Node::Shar
     constexpr std::string_view DuplicateWarning = "Ignoring duplicate connection attempt to {}.";
     constexpr std::string_view ReflectiveWarning = "Ignoring reflective connection attempt to {}.";
     constexpr auto TicketGenerator = AddressHasher<RemoteAddress>{};
-    assert(m_endpoint.m_pPeerMediator);
+    assert(m_endpoint.m_pResolutionService);
 
     auto const& logger = m_endpoint.m_logger;
     switch (m_endpoint.IsConflictingAddress(address)) {
@@ -843,8 +843,8 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
     // or identifier takes precedence when generating the message. Currently, it is assumed that if we are not provided
     // a connection request it implies that the connection process is on going. Another existing coroutine has been
     // launched and is activley trying to establish a connection 
-    auto const pPeerMediator = m_client.m_endpoint.m_pPeerMediator;
-    std::optional<std::string> optConnectionRequest = pPeerMediator->DeclareResolvingPeer(m_address, m_spIdentifier);
+    auto const pResolutionService = m_client.m_endpoint.m_pResolutionService;
+    std::optional<std::string> optConnectionRequest = pResolutionService->DeclareResolvingPeer(m_address, m_spIdentifier);
     if (!optConnectionRequest) {
         m_client.m_endpoint.OnConnectionFailed(m_address, ConnectionFailure::InProgress);
         co_return CompletionOrigin::Self;
@@ -865,7 +865,7 @@ Network::TCP::SocketProcessor Network::TCP::Endpoint::Client::Delegate::operator
 
     // If a connection could not be established, handle cleaning up the connection attempt. 
     if (optConnectStatus.value() == false) {
-        pPeerMediator->RescindResolvingPeer(m_address); 
+        pResolutionService->RescindResolvingPeer(m_address); 
         co_return GetCompletionOrigin();
     }
 

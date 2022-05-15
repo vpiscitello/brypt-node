@@ -3,15 +3,17 @@
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #include "Registration.hpp"
+#include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Registration::Registration(
+    std::weak_ptr<Peer::Proxy> const& wpProxy,
     Network::Endpoint::Identifier identifier,
     Network::Protocol protocol,
     Network::RemoteAddress const& address,
     Network::MessageAction const& messenger,
     Network::DisconnectAction const& disconnector)
-    : m_context(identifier, protocol)
+    : m_context(wpProxy, identifier, protocol)
     , m_address(address)
     , m_messenger(messenger)
     , m_disconnector(disconnector)

@@ -20,10 +20,12 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GTEST_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptIdentifier BryptMessage
-    ${GTEST_LIBRARIES})
+    Awaitable Peer Security MessageControl Network Configuration Route Event Scheduler State BryptMessage BryptIdentifier 
+    ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
+
+copy_dependencies(${PROJECT_NAME})
 
 #-----------------------------------------------------------------------------------------------------------------------
 gtest_discover_tests(${PROJECT_NAME})

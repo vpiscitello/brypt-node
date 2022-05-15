@@ -13,7 +13,6 @@
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
-namespace Peer { class Proxy; }
 namespace Message { class Context; }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -22,16 +21,8 @@ class IMessageSink
 {
 public:
     virtual ~IMessageSink() = default;
-
-    [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        Message::Context const& context,
-        std::string_view buffer) = 0;
-        
-    [[nodiscard]] virtual bool CollectMessage(
-        std::weak_ptr<Peer::Proxy> const& wpPeerProxy,
-        Message::Context const& context,
-        std::span<std::uint8_t const> buffer) = 0;
+    [[nodiscard]] virtual bool CollectMessage(Message::Context const& context, std::string_view buffer) = 0;
+    [[nodiscard]] virtual bool CollectMessage(Message::Context const& context, std::span<std::uint8_t const> buffer) = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

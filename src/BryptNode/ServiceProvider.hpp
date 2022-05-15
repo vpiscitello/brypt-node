@@ -43,7 +43,8 @@ private:
 template<typename Service>
 bool Node::ServiceProvider::Register(std::shared_ptr<Service> const& spService)
 {
-    auto const [itr, result] = m_services.insert_or_assign(typeid(Service), std::weak_ptr<Service>{ spService });
+    [[maybe_unused]] auto const [itr, result] = m_services.insert_or_assign(
+        typeid(Service), std::weak_ptr<Service>{ spService });
     assert(itr != m_services.end());
     return true;
 }

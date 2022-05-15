@@ -121,9 +121,9 @@ struct fmt::formatter<Node::Identifier>
     }
 
     template <typename FormatContext>
-    auto format(Node::Identifier const& identifier, FormatContext& ctx)
+    auto format(Node::Identifier const& identifier, FormatContext& ctx) const -> decltype(ctx.out())
     {
-        return format_to(ctx.out(), "{}", static_cast<Node::External::Identifier const&>(identifier));
+        return format_to(ctx.out(), std::string_view{ "{}" }, static_cast<Node::External::Identifier const&>( identifier ));
     }
 };
 
@@ -140,12 +140,12 @@ struct fmt::formatter<Node::SharedIdentifier>
     }
 
     template <typename FormatContext>
-    auto format(Node::SharedIdentifier const& spIdentifier, FormatContext& ctx)
+    auto format(Node::SharedIdentifier const& spIdentifier, FormatContext& ctx) const -> decltype(ctx.out())
     {
         if (!spIdentifier) {
-            return format_to(ctx.out(), "[Unknown Identifier]");
+            return fmt::format_to(ctx.out(), "[Unknown Identifier]");
         }
-        return format_to(ctx.out(), "{}", static_cast<Node::External::Identifier const&>(*spIdentifier));
+        return fmt::format_to(ctx.out(), "{}", static_cast<Node::External::Identifier const&>( *spIdentifier ));
     }
 };
 

@@ -80,8 +80,7 @@ ExchangeProcessor::PreparationResult ExchangeProcessor::Prepare()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::string_view buffer)
+bool ExchangeProcessor::CollectMessage(Message::Context const& context, std::string_view buffer)
 {
     // If the exchange has been invalidated do not process the message.
     if (m_stage != ProcessStage::Synchronization) { return false; }
@@ -90,13 +89,12 @@ bool ExchangeProcessor::CollectMessage(
     Message::Buffer const decoded = Z85::Decode(buffer);
 
     // Pass on the message collection to the decoded buffer method. 
-    return CollectMessage(wpProxy, context, decoded);
+    return CollectMessage(context, decoded);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool ExchangeProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::span<std::uint8_t const> buffer)
+bool ExchangeProcessor::CollectMessage(Message::Context const& context, std::span<std::uint8_t const> buffer)
 {
     // If the exchange has been invalidated do not process the message.
     if (m_stage != ProcessStage::Synchronization) { return false; }
@@ -124,7 +122,9 @@ bool ExchangeProcessor::CollectMessage(
     if (!optMessage || optMessage->GetType() != Message::Platform::ParcelType::Handshake) { return false; }
 
     // The message may only be handled if the associated peer can be acquired. 
-    if (auto const spProxy = wpProxy.lock(); spProxy)  [[likely]] { return OnMessageCollected(spProxy, *optMessage); }
+    if (auto const spProxy = context.GetProxy().lock(); spProxy) [[likely]] {
+        return OnMessageCollected(spProxy, *optMessage);
+    }
 
     return false;
 }
@@ -195,7 +195,9 @@ bool ExchangeProcessor::OnSynchronizationMessageCollected(
             auto const role = m_upStrategy->GetRoleType();
 
             // If there is an exchange observer, provide it the prepared security strategy. 
-            if (m_pExchangeObserver) [[likely]] { m_pExchangeObserver->OnFulfilledStrategy(std::move(m_upStrategy)); }
+            if (m_pExchangeObserver) [[likely]] { 
+                m_pExchangeObserver->OnFulfilledStrategy(std::move(m_upStrategy));
+            }
 
             // If there is a provided connection protocol, provide it with the proxy to send the final request. 
             if (role == Security::Role::Initiator) [[likely]] {
@@ -205,7 +207,9 @@ bool ExchangeProcessor::OnSynchronizationMessageCollected(
 
             // If there is an exchange observer, notify the observe that the exchange has successfully completed and
             // provide it the prepared security strategy. 
-            if (m_pExchangeObserver) [[likely]] { m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Success); }
+            if (m_pExchangeObserver) [[likely]] { 
+                m_pExchangeObserver->OnExchangeClose(ExchangeStatus::Success);
+            }
         } break;
         // There is no additional handling needed while the exchange is processing. 
         case Security::SynchronizationStatus::Processing: break;

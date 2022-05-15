@@ -9,7 +9,7 @@ GTEST_API_ std::int32_t main(std::int32_t argc, char** argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     Logger::Initialize();
-    spdlog::set_level(spdlog::level::off);
+    spdlog::set_level(spdlog::level::info);
     assert(Assertions::Threading::RegisterCoreThread());
     return RUN_ALL_TESTS();
 }

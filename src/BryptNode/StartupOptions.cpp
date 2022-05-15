@@ -7,7 +7,11 @@
 #include <cstdint>
 #include <iostream>
 #include <optional>
+#if defined(WIN32)
+#include <windows.h>
+#else
 #include <sys/ioctl.h>
+#endif
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -294,9 +298,15 @@ Startup::Options::operator Configuration::Options::Runtime() const
 
 std::uint32_t local::GetTerminalWidth()
 {
+#if defined(WIN32)
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info);
+    return static_cast<std::uint32_t>(info.srWindow.Right - info.srWindow.Left + 1);
+#else
     struct winsize size;
     ::ioctl(::fileno(::stdout), TIOCGWINSZ, &size);
     return static_cast<std::uint32_t>(size.ws_col);
+#endif
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -15,6 +15,11 @@
 #include <string_view>
 //----------------------------------------------------------------------------------------------------------------------
 
+namespace boost::asio::ip { 
+    template<typename protocol_type> class basic_endpoint;
+    class tcp;
+}
+
 //----------------------------------------------------------------------------------------------------------------------
 namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
@@ -22,6 +27,9 @@ namespace Network {
 constexpr std::string_view Wildcard = "*"; 
 constexpr std::string_view ComponentSeperator = ":";
 constexpr std::string_view SchemeSeperator = "://";
+constexpr std::string_view ScopeSeperator = "%";
+
+constexpr std::string_view LoopbackInterface = "lo";
 
 class Address;
 class BindingAddress;
@@ -57,10 +65,11 @@ class Network::Address
 public:
     virtual ~Address() = default;
     
-    Address& operator=(Address const& other);
     Address(Address const& other);
-    Address& operator=(Address&& other);
-    Address(Address&& other);
+    Address& operator=(Address const& other);
+
+    Address(Address&& other) noexcept = default;
+    Address& operator=(Address&& other) noexcept = default;
 
     [[nodiscard]] std::strong_ordering operator<=>(Address const& other) const;
     [[nodiscard]] bool operator==(Address const& other) const;
@@ -85,9 +94,10 @@ public:
 
 protected:
     Address();
-    Address(Protocol protocol, std::string_view uri, bool bootstrapable);
+    Address(Protocol protocol, std::string_view uri, bool bootstrapable, bool skipAddressValidation = false);
 
-    [[nodiscard]] bool CacheAddressPartitions();
+    [[nodiscard]] bool CacheAddressPartitions(bool skipAddressValidation);
+    void CopyAddressPartitions(Address const& other);
     [[nodiscard]] std::size_t GetSchemeBoundary();
     [[nodiscard]] std::size_t PrependScheme();
     void Reset();
@@ -155,6 +165,8 @@ public:
 
     RemoteAddress();
     RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable, Origin origin = Origin::Network);
+    RemoteAddress(
+        boost::asio::ip::basic_endpoint<boost::asio::ip::tcp> const& endpoint, bool bootstrapable, Origin origin);
     ~RemoteAddress() = default;
 
     RemoteAddress& operator=(RemoteAddress const& other) = default;
@@ -216,12 +228,12 @@ struct fmt::formatter<AddressType>
     }
 
     template <typename FormatContext>
-    auto format(Network::Address const& address, FormatContext& ctx)
+    auto format(Network::Address const& address, FormatContext& ctx) const -> decltype(ctx.out())
     {
         if (!address.IsValid()) {
-            return format_to(ctx.out(), "[Unknown Address]");
+            return fmt::format_to(ctx.out(), "[Unknown Address]");
         }
-        return format_to(ctx.out(), "{}", address.GetUri());
+        return fmt::format_to(ctx.out(), "{}", address.GetUri());
     }
 };
 

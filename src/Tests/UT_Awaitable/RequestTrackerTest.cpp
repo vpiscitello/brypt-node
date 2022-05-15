@@ -46,19 +46,26 @@ protected:
     {
         
         m_spServiceProvider = std::make_shared<Node::ServiceProvider>();
-        m_context = Awaitable::Test::GenerateMessageContext();
     }
 
     static void TearDownTestSuite()
     {
         m_spServiceProvider.reset();
-        m_context = {};
     }
 
     void SetUp() override
     {
         m_responses = {};
         m_spProxy = Peer::Proxy::CreateInstance(*test::ServerIdentifier, m_spServiceProvider);
+        m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(
+            Awaitable::Test::EndpointIdentifier,
+            Awaitable::Test::EndpointProtocol,
+            Awaitable::Test::RemoteClientAddress);
+
+        auto const optContext = m_spProxy->GetMessageContext(Awaitable::Test::EndpointIdentifier);
+        ASSERT_TRUE(optContext);
+        m_context = *optContext;
+
         m_onResponse = [this] (auto const&, auto const& response) {
             m_responses.emplace_back(response);
         };
@@ -72,9 +79,10 @@ protected:
     }
 
     static std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
-    static Message::Context m_context;
 
     std::shared_ptr<Peer::Proxy> m_spProxy;
+    Message::Context m_context;
+
     Peer::Action::OnResponse m_onResponse;
     Peer::Action::OnError m_onError;
     Message::Application::Parcel m_request;
@@ -85,7 +93,6 @@ protected:
 //----------------------------------------------------------------------------------------------------------------------
 
 std::shared_ptr<Node::ServiceProvider> RequestTrackerSuite::m_spServiceProvider = {};
-Message::Context RequestTrackerSuite::m_context = {};
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -221,7 +228,7 @@ TEST_F(RequestTrackerSuite, ExpiredRequestTest)
 
 TEST_F(RequestTrackerSuite, PartialExpiredRequestTest)
 {
-    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 5);
+    auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 16);
     Awaitable::RequestTracker tracker{ Awaitable::Test::TrackerKey, identifiers.size(), m_onResponse, m_onError };
 
     EXPECT_EQ(tracker.GetExpected(), identifiers.size());
@@ -238,11 +245,11 @@ TEST_F(RequestTrackerSuite, PartialExpiredRequestTest)
 
     std::random_device device;
     std::mt19937 generator{ device() };
-    std::bernoulli_distribution distribution{ 0.5 };
+    std::vector<Node::SharedIdentifier> sample;
+    std::ranges::sample(identifiers, std::back_inserter(sample), 8, generator);
 
     std::size_t responded = 0;
-    auto selected = identifiers | std::views::filter([&] (auto const&) { return distribution(generator); });
-    std::ranges::for_each(selected, [&] (auto const& spIdentifier) mutable {
+    std::ranges::for_each(sample, [&] (auto const& spIdentifier) {
         auto optResponse = Awaitable::Test::GenerateResponse(
             m_context, *spIdentifier, *test::ServerIdentifier, Awaitable::Test::RequestRoute, Awaitable::Test::TrackerKey);
         ASSERT_TRUE(optResponse);

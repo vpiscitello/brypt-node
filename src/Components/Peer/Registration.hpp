@@ -18,6 +18,7 @@
 namespace Peer {
 //----------------------------------------------------------------------------------------------------------------------
 
+class Proxy;
 class Registration;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -28,6 +29,7 @@ class Peer::Registration
 {
 public:
     Registration(
+        std::weak_ptr<Peer::Proxy> const& wpProxy,
         Network::Endpoint::Identifier identifier,
         Network::Protocol protocol,
         Network::RemoteAddress const& address = {},

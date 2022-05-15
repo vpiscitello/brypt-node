@@ -6,7 +6,6 @@
 #include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/MessageControl/AssociatedMessage.hpp"
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -119,40 +118,6 @@ private:
 class AuthorizedProcessorSuite : public testing::Test
 {
 protected:
-    static void SetUpTestSuite()
-    {
-        auto const optRequest = Message::Application::Parcel::GetBuilder()
-            .SetContext(m_context)
-            .SetSource(test::ClientIdentifier)
-            .SetDestination(*test::ServerIdentifier)
-            .SetRoute(test::InspectableRoute)
-            .SetPayload(MessageControl::Test::Message)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
-            .ValidatedBuild();
-        ASSERT_TRUE(optRequest);
-        m_request = *optRequest;
-
-        auto const optResponse = Message::Application::Parcel::GetBuilder()
-            .SetContext(m_context)
-            .SetSource(*test::ServerIdentifier)
-            .SetDestination(test::ClientIdentifier)
-            .SetRoute(test::InspectableRoute)
-            .SetPayload(MessageControl::Test::Message)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
-            .ValidatedBuild();
-        ASSERT_TRUE(optResponse);
-        m_response = *optResponse;
-    }
-
-    static void TearDownTestSuite()
-    {
-        m_request = {};
-        m_response = {};
-        m_context = {};
-    }
-
     void SetUp() override
     {
         m_spRegistrar = std::make_shared<Scheduler::Registrar>();
@@ -201,6 +166,34 @@ protected:
                 m_optResult = std::get<std::string>(message);
                 return true;
             });
+
+        auto const optContext = m_spProxy->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        ASSERT_TRUE(optContext);
+        m_context = *optContext;
+        
+        auto const optRequest = Message::Application::Parcel::GetBuilder()
+            .SetContext(m_context)
+            .SetSource(test::ClientIdentifier)
+            .SetDestination(*test::ServerIdentifier)
+            .SetRoute(test::InspectableRoute)
+            .SetPayload(MessageControl::Test::Message)
+            .BindExtension<Message::Application::Extension::Awaitable>(
+                Message::Application::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+            .ValidatedBuild();
+        ASSERT_TRUE(optRequest);
+        m_request = *optRequest;
+
+        auto const optResponse = Message::Application::Parcel::GetBuilder()
+            .SetContext(m_context)
+            .SetSource(*test::ServerIdentifier)
+            .SetDestination(test::ClientIdentifier)
+            .SetRoute(test::InspectableRoute)
+            .SetPayload(MessageControl::Test::Message)
+            .BindExtension<Message::Application::Extension::Awaitable>(
+                Message::Application::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
+            .ValidatedBuild();
+        ASSERT_TRUE(optResponse);
+        m_response = *optResponse;
     }
 
     std::optional<Message::Application::Parcel> TranslateApplicationParcelResult()
@@ -235,9 +228,9 @@ protected:
         return std::move(*optMessage);
     }
 
-    static Message::Context m_context;
-    static Message::Application::Parcel m_request;
-    static Message::Application::Parcel m_response;
+    Message::Context m_context;
+    Message::Application::Parcel m_request;
+    Message::Application::Parcel m_response;
 
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
@@ -257,17 +250,11 @@ protected:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Message::Context AuthorizedProcessorSuite::m_context = MessageControl::Test::GenerateMessageContext();
-Message::Application::Parcel AuthorizedProcessorSuite::m_request = {};
-Message::Application::Parcel AuthorizedProcessorSuite::m_response = {};
-
-//----------------------------------------------------------------------------------------------------------------------
-
 TEST_F(AuthorizedProcessorSuite, CollectSingleMessageTest)
 {
     // Use the authorized processor to collect the request. During runtime this would be called  through the peer's 
     // ScheduleReceive method. 
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, m_request.GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, m_request.GetPack()));
 
     // Verify that the processor correctly queued the message to be processed by the the main event loop.
     EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), std::uint32_t{ 1 });
@@ -276,13 +263,13 @@ TEST_F(AuthorizedProcessorSuite, CollectSingleMessageTest)
     auto const optAssociatedMessage = m_spAuthorizedProcessor->GetNextMessage<InvokeContext::Test>();
     EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), std::uint32_t{ 0 });
     ASSERT_TRUE(optAssociatedMessage);
-    auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
+    auto& request = *optAssociatedMessage;
 
     // Verify that the sent request is the message that was pulled of the processor's queue.
     EXPECT_EQ(m_request.GetPack(), request.GetPack());
 
     // Verify the associated peer can be acquired and used to respond. 
-    if (auto const spAssociatedPeer = wpAssociatedPeer.lock(); spAssociatedPeer) {
+    if (auto const spAssociatedPeer = request.GetContext().GetProxy().lock(); spAssociatedPeer) {
         // Verify the peer that was used to send the request matches the peer that was associated with the message.
         EXPECT_EQ(spAssociatedPeer, m_spProxy);
         
@@ -304,7 +291,7 @@ TEST_F(AuthorizedProcessorSuite, CollectMultipleMessagesTest)
     for (std::uint32_t count = 0; count < test::Iterations; ++count) {
         // Use the authorized processor to collect the request. During runtime this would be called  through the peer's
         // ScheduleReceive method. 
-        EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, m_request.GetPack()));
+        EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, m_request.GetPack()));
     }
 
     // Verify that the processor correctly queued the messages to be processed by the the main  event loop.
@@ -317,10 +304,10 @@ TEST_F(AuthorizedProcessorSuite, CollectMultipleMessagesTest)
         --expectedQueueCount;
         EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), expectedQueueCount);     
         ASSERT_TRUE(optAssociatedMessage);
-        auto& [wpAssociatedPeer, request] = *optAssociatedMessage;
+        auto& request = *optAssociatedMessage;
 
         // Verify the associated peer can be acquired and used to respond. 
-        if (auto const spAssociatedPeer = wpAssociatedPeer.lock(); spAssociatedPeer) {
+        if (auto const spAssociatedPeer = request.GetContext().GetProxy().lock(); spAssociatedPeer) {
             // Verify the peer that was used to send the request matches the peer that was associated with the message.
             EXPECT_EQ(spAssociatedPeer, m_spProxy);
             
@@ -344,7 +331,7 @@ TEST_F(AuthorizedProcessorSuite, ProcessorExecutionRoutingSuccessfulHanderTest)
 {
     // Use the authorized processor to collect the request. During runtime this would be called  through the peer's 
     // ScheduleReceive method. 
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, m_request.GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, m_request.GetPack()));
 
     // Verify that the processor correctly queued the message to be processed by the the main event loop.
     EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), std::uint32_t{ 1 });
@@ -375,7 +362,7 @@ TEST_F(AuthorizedProcessorSuite, ProcessorExecutionRoutingFailingHanderTest)
 
     // Use the authorized processor to collect the request. During runtime this would be called  through the peer's 
     // ScheduleReceive method. 
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optFailingRequest->GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, optFailingRequest->GetPack()));
 
     // Verify that the processor correctly queued the message to be processed by the the main event loop.
     EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), std::uint32_t{ 1 });
@@ -419,7 +406,7 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelAwaitableResponseTest)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optResponse->GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, optResponse->GetPack()));
 
     // Awaitable responses are routed to the tracking service and will be executed as part of that execution cycle. 
     EXPECT_EQ(m_spAuthorizedProcessor->Execute(), std::size_t{ 0 });
@@ -444,7 +431,7 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelUnexpectedDestinationTe
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optResponse->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optResponse->GetPack()));
     EXPECT_EQ(m_spAuthorizedProcessor->Execute(), std::size_t{ 0 });
 }
 
@@ -463,7 +450,7 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelUnexpectedAwaitableResp
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optResponse->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optResponse->GetPack()));
     EXPECT_EQ(m_spAuthorizedProcessor->Execute(), std::size_t{ 0 });
     EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 0 });
     EXPECT_EQ(m_spTrackingService->Execute(), std::size_t{ 0 });
@@ -483,7 +470,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelHeartbeatRequestTest)
 
     // Use the authorized processor to collect the request. During runtime this would be called  through the peer's 
     // ScheduleReceive method. 
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHeartbeatRequest->GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, optHeartbeatRequest->GetPack()));
 
     // Verify that the processor did not queue the platform message into the application message queue. 
     EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), std::uint32_t{ 0 });
@@ -513,7 +500,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelHeartbeatResponseTest)
 
     // Use the authorized processor to collect the request. During runtime this would be called  through the peer's 
     // ScheduleReceive method. 
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHeartbeatResponse->GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, optHeartbeatResponse->GetPack()));
 
     // Verify that the processor did not queue the platform message into the application message queue. 
     EXPECT_EQ(m_spAuthorizedProcessor->MessageCount(), std::uint32_t{ 0 });
@@ -532,7 +519,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelHandshakeMessageTest)
         .MakeHandshakeMessage()
         .ValidatedBuild();
     ASSERT_TRUE(optHandshakeMessage);
-    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHandshakeMessage->GetPack()));
+    EXPECT_TRUE(m_spAuthorizedProcessor->CollectMessage(m_context, optHandshakeMessage->GetPack()));
 
     {
         auto const optHeartbeatRequest = TranslatePlatformParcelResult();
@@ -558,7 +545,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelHandshakeMessageTest)
         .ValidatedBuild();
     ASSERT_TRUE(optHandshakeMessageWithDestination);
     EXPECT_TRUE(
-        m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHandshakeMessageWithDestination->GetPack()));
+        m_spAuthorizedProcessor->CollectMessage(m_context, optHandshakeMessageWithDestination->GetPack()));
     
     {
         auto const optHeartbeatRequest = TranslatePlatformParcelResult();
@@ -583,7 +570,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelUnexpectedDestinationTest)
         .MakeHeartbeatResponse()
         .ValidatedBuild();
     ASSERT_TRUE(optHeartbeatResponse);
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHeartbeatResponse->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optHeartbeatResponse->GetPack()));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -597,7 +584,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelUnexpectedDestinationTypeT
         .MakeHeartbeatRequest()
         .ValidatedBuild();
     ASSERT_TRUE(optClusterHeartbeatRequest);
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optClusterHeartbeatRequest->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optClusterHeartbeatRequest->GetPack()));
 
     auto const optNetworkHeartbeatRequest = Message::Platform::Parcel::GetBuilder()
         .SetContext(m_context)
@@ -606,7 +593,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelUnexpectedDestinationTypeT
         .MakeHeartbeatRequest()
         .ValidatedBuild();
     ASSERT_TRUE(optNetworkHeartbeatRequest);
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optNetworkHeartbeatRequest->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optNetworkHeartbeatRequest->GetPack()));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -619,7 +606,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelMissingDestinationTest)
         .MakeHeartbeatRequest()
         .ValidatedBuild();
     ASSERT_TRUE(optHeartbeatRequest);
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHeartbeatRequest->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optHeartbeatRequest->GetPack()));
 
     auto const optHeartbeatResponse = Message::Platform::Parcel::GetBuilder()
         .SetContext(m_context)
@@ -627,7 +614,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelMissingDestinationTest)
         .MakeHeartbeatResponse()
         .ValidatedBuild();
     ASSERT_TRUE(optHeartbeatResponse);
-    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_spProxy, m_context, optHeartbeatResponse->GetPack()));
+    EXPECT_FALSE(m_spAuthorizedProcessor->CollectMessage(m_context, optHeartbeatResponse->GetPack()));
 }
 
 //----------------------------------------------------------------------------------------------------------------------

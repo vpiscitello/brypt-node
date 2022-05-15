@@ -33,9 +33,8 @@ Security::Strategy Security::ConvertToStrategy(std::string strategy)
         {"PQNISTL3", Strategy::PQNISTL3},
     };
 
-    std::transform(strategy.begin(), strategy.end(), strategy.begin(),
-    [](unsigned char c){
-        return std::toupper(c);
+    std::transform(strategy.begin(), strategy.end(), strategy.begin(), [] (char c) {
+        return static_cast<char>(std::toupper(static_cast<std::int32_t>(c)));
     });
 
     if(auto const itr = strategies.find(strategy.data()); itr != strategies.end()) {

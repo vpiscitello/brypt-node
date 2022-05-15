@@ -8,16 +8,21 @@
 #include "TCP/EndpointDefinitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/lexical_cast.hpp>
-#include <boost/asio/ip/address.hpp>
+#include <boost/asio/ip/tcp.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cctype>
+#if defined(WIN32)
+#include <windows.h>
+#include <iphlpapi.h>
+#else
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#endif
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -28,6 +33,7 @@ namespace local {
 std::string BuildBindingUri(
     Network::Protocol protocol, std::string_view uri, std::string_view interface);
 std::string GetInterfaceAddress(std::string_view interface);
+std::string BuildRemoteAddress(boost::asio::ip::tcp::endpoint const& endpoint);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -51,7 +57,7 @@ Network::Address::Address()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Address::Address(Protocol protocol, std::string_view uri, bool bootstrapable)
+Network::Address::Address(Protocol protocol, std::string_view uri, bool bootstrapable, bool skipAddressValidation)
     : m_protocol(protocol)
     , m_uri(uri)
     , m_scheme()
@@ -60,18 +66,7 @@ Network::Address::Address(Protocol protocol, std::string_view uri, bool bootstra
     , m_secondary()
     , m_bootstrapable(bootstrapable)
 {
-    if (!CacheAddressPartitions()) { Reset(); }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Network::Address& Network::Address::operator=(Address const& other)
-{
-    m_protocol = other.m_protocol;
-    m_uri = other.m_uri;
-    m_bootstrapable = other.m_bootstrapable;
-    if (!CacheAddressPartitions()) { Reset(); }
-    return *this;
+    if (!CacheAddressPartitions(skipAddressValidation)) { Reset(); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -85,36 +80,18 @@ Network::Address::Address(Address const& other)
     , m_secondary()
     , m_bootstrapable(other.m_bootstrapable)
 {
-    if (!CacheAddressPartitions()) { Reset(); }
+    CopyAddressPartitions(other);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Address& Network::Address::operator=(Address&& other)
+Network::Address& Network::Address::operator=(Address const& other)
 {
-    m_protocol = std::move(other.m_protocol);
-    m_uri = std::move(other.m_uri);
-    m_scheme = std::move(other.m_scheme);
-    m_authority = std::move(other.m_authority);
-    m_primary = std::move(other.m_primary);
-    m_secondary = std::move(other.m_secondary);
-    m_bootstrapable = std::move(other.m_bootstrapable);
-    other.Reset();
+    m_protocol = other.m_protocol;
+    m_uri = other.m_uri;
+    m_bootstrapable = other.m_bootstrapable;
+    CopyAddressPartitions(other);
     return *this;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Network::Address::Address(Address&& other)
-    : m_protocol(std::move(other.m_protocol))
-    , m_uri(std::move(other.m_uri))
-    , m_scheme(std::move(other.m_scheme))
-    , m_authority(std::move(other.m_authority))
-    , m_primary(std::move(other.m_primary))
-    , m_secondary(std::move(other.m_secondary))
-    , m_bootstrapable(std::move(other.m_bootstrapable))
-{
-    other.Reset();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -187,7 +164,7 @@ bool Network::Address::IsValid() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Network::Address::CacheAddressPartitions()
+bool Network::Address::CacheAddressPartitions(bool skipAddressValidation)
 {
     if (m_uri.empty()) { return false; }
 
@@ -209,14 +186,33 @@ bool Network::Address::CacheAddressPartitions()
     m_primary = { primary, secondary - 1 }; // Cache representation: e.g. tcp://<127.0.0.1>:1024.
     m_secondary = { secondary, m_uri.end() }; // Cache representation:e.g. tcp://127.0.0.1:<1024>.
 
-    // Validate the uri based on the protocol type. 
-    switch (m_protocol) {
-        case Protocol::TCP: return (Socket::ParseAddressType(*this) != Socket::Type::Invalid);
-        case Protocol::LoRa: return true;
-        case Protocol::Test: return true;
-        default: return false;
+    // If we need to validate the address, do so. We should only be skipping address validation if the address
+    // was constructed from a trusted third-party resouces (i.e. an actual socket already in use). 
+    if (!skipAddressValidation) {
+        switch (m_protocol) {
+            case Protocol::TCP: return ( Socket::ParseAddressType(*this) != Socket::Type::Invalid );
+            case Protocol::LoRa: return true;
+            case Protocol::Test: return true;
+            default: return false;
+        }
     }
-    return false;
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::Address::CopyAddressPartitions(Address const& other)
+{
+    if (m_uri.empty()) { return; }
+    m_scheme = { m_uri.begin(), m_uri.begin() + other.m_scheme.size() };
+
+    std::string::const_iterator const primary = m_uri.begin() + (m_scheme.size() + Network::SchemeSeperator.size());
+    std::string::const_iterator const secondary = primary + other.m_primary.size() + 1;
+
+    m_authority = { primary, m_uri.end()};
+    m_primary = { primary, secondary - 1 };
+    m_secondary = { secondary, m_uri.end() };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -340,6 +336,7 @@ Network::BindingAddress::BindingAddress(InvokeContext, std::string_view uri, std
 
 Network::RemoteAddress::RemoteAddress()
     : Address()
+    , m_origin(Origin::Invalid)
 {
 }
 
@@ -347,6 +344,14 @@ Network::RemoteAddress::RemoteAddress()
 
 Network::RemoteAddress::RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable, Origin origin)
     : Address(protocol, uri, bootstrapable)
+    , m_origin(origin)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::RemoteAddress::RemoteAddress(boost::asio::ip::tcp::endpoint const& endpoint, bool bootstrapable, Origin origin)
+    : Address(Protocol::TCP, local::BuildRemoteAddress(endpoint), bootstrapable, true)
     , m_origin(origin)
 {
 }
@@ -424,17 +429,34 @@ Network::Socket::Type Network::Socket::ParseAddressType(Address const& address)
 Network::Socket::Type Network::Socket::ParseAddressType(std::string_view const& partition)
 {
     // IPv6 Addresses must be wrapped with [..]. This is done to explicitly distinguish the types. 
-    // A copy of the partition must be made boost::asio only accepts null terminated strings. 
-    auto const check = (partition[0] == '[' && partition[partition.size() - 1] == ']') ? 
-        std::string { partition.data() + 1, partition.size() - 2 } :
-        std::string { partition.data(), partition.size() };
+    // A copy of the partition must be made inet_pton only accepts null terminated strings. 
+    bool const isIPv6Assumed = ( partition[0] == '[' && partition[partition.size() - 1] == ']' );
+    
+    std::string check = (isIPv6Assumed) ?
+        std::string{ partition.begin() + 1, partition.end() - 1 } : 
+        std::string{ partition.begin(), partition.end() };
 
-    boost::system::error_code error;
-    auto const ip = boost::asio::ip::address::from_string(check, error);
-    if (error) { return Type::Invalid; }
+    auto const family = (isIPv6Assumed) ? AF_INET6 : AF_INET;
 
-    if (ip.is_v4()) { return Type::IPv4; }
-    if (partition[0] == '[' && ip.is_v6()) { return Type::IPv6; }
+    switch (family) {
+        case AF_INET: {
+            sockaddr_in address;
+            if (auto const result = ::inet_pton(AF_INET, check.data(), &address.sin_addr); result > 0) { 
+                return Type::IPv4;
+            }
+        } [[fallthrough]];
+        case AF_INET6: {
+            std::size_t boundary = check.find_last_of(Network::ScopeSeperator);
+            if (boundary != std::string::npos) {
+                check.erase(check.begin() + boundary, check.end());
+            }
+
+            sockaddr_in6 address;
+            if (auto const result = ::inet_pton(family, check.data(), &address.sin6_addr); result > 0) { 
+                return Type::IPv6;
+            }
+        } break;
+    }
 
     return Type::Invalid;
 }
@@ -444,7 +466,7 @@ Network::Socket::Type Network::Socket::ParseAddressType(std::string_view const& 
 bool Network::Socket::IsValidAddressSize(Address const& address)
 {
     constexpr std::size_t MinimumLength = 9;
-    constexpr std::size_t MaximumLength = 53;
+    constexpr std::size_t MaximumLength = 256;
     if (address.m_primary.empty() || address.m_secondary.empty()) { return false; }
     bool const isOutOfRange = (address.m_uri.size() < MinimumLength || address.m_uri.size() > MaximumLength);
     return !isOutOfRange;
@@ -462,7 +484,7 @@ bool Network::Socket::IsValidPortNumber(std::string_view const& partition)
     try {
         auto const port = boost::lexical_cast<std::uint16_t>(partition);
         if (port < MinimumValue || port > MaximumValue) { return false; }
-    } catch(boost::bad_lexical_cast& exception) {
+    } catch(boost::bad_lexical_cast&) {
         return false;
     }
 
@@ -552,6 +574,7 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
         }
     } else {
         std::size_t const start = (scheme != std::string::npos) ? scheme + Network::SchemeSeperator.size() : 0;
+        if (start >= seperator) { return {}; }
         std::copy(uri.begin() + start, uri.begin() + seperator, std::ostream_iterator<char>(binding));
     }
 
@@ -565,30 +588,127 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
 
 std::string local::GetInterfaceAddress(std::string_view interface)
 {
-    struct ifaddrs* ifAddrStruct = nullptr;
-    struct ifaddrs* ifa = nullptr;
-    void* tmpAddrPtr = nullptr;
+    constexpr auto AddressToString = [] (sockaddr const& socket) -> std::string {
+        std::string address;
+        switch (socket.sa_family) {
+            case AF_INET: {
+                auto const& converted = reinterpret_cast<sockaddr_in const&>( socket );
+                std::array<char, INET_ADDRSTRLEN> buffer;
+                ::inet_ntop(converted.sin_family, &converted.sin_addr, buffer.data(), buffer.size());
+                address = std::string{ buffer.data() };
+            } break;
+            case AF_INET6: {
+                auto const& converted = reinterpret_cast<sockaddr_in6 const&>( socket );
+                std::array<char, INET6_ADDRSTRLEN> buffer;
+                ::inet_ntop(converted.sin6_family, &converted.sin6_addr, buffer.data(), buffer.size());
+                
+                std::ostringstream oss;
+                oss << "[" << buffer.data() << "%" << converted.sin6_scope_id << "]";
+                address = oss.str();
+            } break;
+            default: assert(false); break; 
+        }
+        return address;
+    };
 
-    getifaddrs(&ifAddrStruct);
+
+#if defined(WIN32)
+    constexpr UINT CodePage = CP_ACP;
+    constexpr DWORD MultiByteFlags = 0;
+    
+    std::wstring multiByteInterface;
+    if (interface == Network::LoopbackInterface) {
+        multiByteInterface = L"Loopback Pseudo-Interface";
+    } else {
+        std::int32_t const interfaceSize = static_cast<std::int32_t>( interface.size() );
+        std::int32_t const multiByteSize = MultiByteToWideChar(
+            CodePage, MultiByteFlags, interface.data(), interfaceSize, nullptr, 0);
+        if (multiByteSize <= 0) { return {}; }
+
+        multiByteInterface.resize(multiByteSize + 1);
+        std::int32_t const conversionResult = MultiByteToWideChar(
+            CodePage, MultiByteFlags, interface.data(), interfaceSize, multiByteInterface.data(), multiByteSize);
+        if (conversionResult <= 0) { return {}; }
+    }
+
+    constexpr ULONG DefaultBufferSize = 15'000;
+    constexpr ULONG Family = AF_UNSPEC;
+    constexpr ULONG AdapterFlags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+    
+    std::vector<std::uint8_t> buffer(DefaultBufferSize, 0x00);
+    PIP_ADAPTER_ADDRESSES pAdapterAddresses = reinterpret_cast<PIP_ADAPTER_ADDRESSES>(buffer.data());
+    
+    ULONG result = 0;
+    ULONG size = DefaultBufferSize;
+    for (;;) {
+        result = GetAdaptersAddresses(Family, AdapterFlags, nullptr, pAdapterAddresses, &size);
+        if (result != ERROR_BUFFER_OVERFLOW) { break; }
+        buffer.resize(size);
+        pAdapterAddresses = reinterpret_cast<PIP_ADAPTER_ADDRESSES>( buffer.data() );
+    }
+
+    if (result != ERROR_SUCCESS) { return {}; }
+
+    for (auto pAdapter = pAdapterAddresses; pAdapter; pAdapter = pAdapter = pAdapter->Next) {
+        if (pAdapter->OperStatus != IfOperStatusUp) { continue; }
+        switch (pAdapter->IfType) {
+            case IF_TYPE_IEEE80211:
+            case IF_TYPE_ETHERNET_CSMACD: 
+            case IF_TYPE_SOFTWARE_LOOPBACK: {
+                if (std::wstring{ pAdapter->FriendlyName }.find(multiByteInterface) == 0) {
+                    for (auto pAddress = pAdapter->FirstUnicastAddress; pAddress; pAddress = pAddress->Next) {
+                        SOCKET_ADDRESS const& socket = pAddress->Address;
+                        LPSOCKADDR const pSocketAddress = socket.lpSockaddr;
+                        if (pSocketAddress->sa_family == AF_INET || pSocketAddress->sa_family == AF_INET6) {
+                            return AddressToString(*pSocketAddress);
+                        }
+                    }
+                    
+                    return {}; // Stop parsing the adapters after matching the interface. 
+                }
+            } break;
+            default: break;
+        }
+    }
+
+    return {};
+#else
+    ifaddrs* pNetworkAddresses = nullptr;
+    getifaddrs(&pNetworkAddresses);
 
     std::string address;
-    for (ifa = ifAddrStruct; ifa != nullptr; ifa = ifa->ifa_next) {
-        if (!ifa->ifa_addr) { continue; }
-
-        if (ifa->ifa_addr->sa_family == AF_INET) {
-            tmpAddrPtr = &(reinterpret_cast<struct sockaddr_in *>(ifa->ifa_addr)->sin_addr);
-            char addressBuffer[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
-            if (std::string(ifa->ifa_name).find(interface) == 0) {
-                address = std::string(addressBuffer);
-                break;
+    for (auto pAddress = pNetworkAddresses; pAddress; pAddress = pAddress->ifa_next) {
+        if (pAddress->ifa_addr) {
+            if (pAddress->ifa_addr->sa_family == AF_INET || pAddress->ifa_addr->sa_family == AF_INET6) {
+                if (std::string{ pAddress->ifa_name }.find(interface) == 0) {
+                    address = AddressToString(*pAddress->ifa_addr);
+                    break;
+                }
             }
         }
     }
 
-    if (ifAddrStruct != nullptr) { freeifaddrs(ifAddrStruct); }
+    if (!pNetworkAddresses) { freeifaddrs(pNetworkAddresses); }
 
     return address;
+#endif
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string local::BuildRemoteAddress(boost::asio::ip::tcp::endpoint const& endpoint)
+{
+    std::ostringstream uri;
+    uri << Network::TCP::Scheme << Network::SchemeSeperator;
+    if (auto const& address = endpoint.address(); address.is_v6()) {
+        auto const ipv6 = address.to_v6();
+        ipv6.scope_id();
+        uri << "[" << ipv6.to_string()  << "%" << ipv6.scope_id() << "]";
+    } else {
+        uri << address.to_string();
+    }
+    uri << Network::ComponentSeperator << endpoint.port();
+    return uri.str();
 }
 
 //----------------------------------------------------------------------------------------------------------------------

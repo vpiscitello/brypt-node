@@ -59,20 +59,18 @@ AuthorizedProcessor::~AuthorizedProcessor()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::string_view buffer)
+bool AuthorizedProcessor::CollectMessage(Message::Context const& context, std::string_view buffer)
 {
     // Decode the buffer as it is expected to be encoded with Z85.
     Message::Buffer const decoded = Z85::Decode(buffer);
 
     // Pass on the message collection to the decoded buffer method. 
-    return CollectMessage(wpProxy, context, decoded);
+    return CollectMessage(context, decoded);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::CollectMessage(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Context const& context, std::span<std::uint8_t const> buffer)
+bool AuthorizedProcessor::CollectMessage(Message::Context const& context, std::span<std::uint8_t const> buffer)
 {
     // Peek the protocol in the packed buffer. 
     auto const optProtocol = Message::PeekProtocol(buffer);
@@ -88,7 +86,7 @@ bool AuthorizedProcessor::CollectMessage(
 
 			if (!optMessage) { return false; }
 
-			return OnMessageCollected(wpProxy, std::move(*optMessage));
+			return OnMessageCollected(std::move(*optMessage));
 		}
 		case Message::Protocol::Platform: {
 			auto const optMessage = Message::Platform::Parcel::GetBuilder()
@@ -98,7 +96,7 @@ bool AuthorizedProcessor::CollectMessage(
 
 			if (!optMessage) { return false; }
 
-			return OnMessageCollected(wpProxy, *optMessage);
+			return OnMessageCollected(*optMessage);
 		} 
         case Message::Protocol::Invalid:
 		default: return false;
@@ -118,10 +116,9 @@ std::size_t AuthorizedProcessor::MessageCount() const
 std::size_t AuthorizedProcessor::Execute()
 {
 	if (auto const optMessage = FetchMessage(); optMessage) {
-		auto& [wpProxy, message] = *optMessage;
-		Peer::Action::Next next{ wpProxy, message, m_wpServiceProvider };
+		Peer::Action::Next next{ optMessage->GetContext().GetProxy(), *optMessage, m_wpServiceProvider};
 		// TODO: What should happen when we fail to route or handle the message. 
-		[[maybe_unused]] bool const success = m_spRouter->Route(message, next);
+		[[maybe_unused]] bool const success = m_spRouter->Route(*optMessage, next);
 		return 1; // Provide the number of tasks executed to the scheduler. 
 	}
 	return 0; // Indicate that we were enable to execute a task this cycle. 
@@ -129,7 +126,7 @@ std::size_t AuthorizedProcessor::Execute()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<AssociatedMessage> AuthorizedProcessor::FetchMessage()
+std::optional<Message::Application::Parcel> AuthorizedProcessor::FetchMessage()
 {
     assert(Assertions::Threading::IsCoreThread());
 	std::scoped_lock lock(m_mutex);
@@ -141,8 +138,7 @@ std::optional<AssociatedMessage> AuthorizedProcessor::FetchMessage()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::OnMessageCollected(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Application::Parcel&& message)
+bool AuthorizedProcessor::OnMessageCollected(Message::Application::Parcel&& message)
 {
 	using namespace Message::Application;
 
@@ -156,7 +152,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 		return m_spTrackingService->Process(std::move(message));
 	} else {
 		std::scoped_lock lock(m_mutex);
-		m_incoming.emplace(AssociatedMessage{ wpProxy, std::move(message) });
+		m_incoming.emplace(std::move(message));
 		m_spDelegate->OnTaskAvailable();
 	}
 
@@ -165,8 +161,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool AuthorizedProcessor::OnMessageCollected(
-	std::weak_ptr<Peer::Proxy> const& wpProxy, Message::Platform::Parcel const& message)
+bool AuthorizedProcessor::OnMessageCollected(Message::Platform::Parcel const& message)
 {
     // Currently, there are no network messages that are sent network wide. 
     if (message.GetDestinationType() != Message::Destination::Node) { return false; }
@@ -182,7 +177,7 @@ bool AuthorizedProcessor::OnMessageCollected(
     // Currently, messages not destined for this node are note accepted. 
     if (optDestination && *optDestination != *m_spNodeIdentifier) { return false; }
 
-	auto const spProxy = wpProxy.lock();
+	auto const spProxy = message.GetContext().GetProxy().lock();
 	if (!spProxy) { return false; }
 
 	Message::Platform::ParcelType type = message.GetType();
@@ -220,7 +215,7 @@ bool AuthorizedProcessor::OnMessageCollected(
 //----------------------------------------------------------------------------------------------------------------------
 
 template<>
-std::optional<AssociatedMessage> AuthorizedProcessor::GetNextMessage<InvokeContext::Test>()
+std::optional<Message::Application::Parcel> AuthorizedProcessor::GetNextMessage<InvokeContext::Test>()
 {
     return FetchMessage();
 }

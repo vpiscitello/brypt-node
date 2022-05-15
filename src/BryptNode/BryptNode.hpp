@@ -29,7 +29,7 @@ namespace Awaitable { class TrackingService; }
 namespace Configuration { class Parser; }
 namespace Event { class Publisher; }
 namespace Network { class Manager; }
-namespace Peer { class Manager; }
+namespace Peer { class ProxyStore; }
 namespace Route { class Router; }
 namespace Route::Fundamental::Connect { class DiscoveryProtocol; }
 namespace Scheduler { class Registrar; class TaskService; }
@@ -97,7 +97,7 @@ public:
     [[nodiscard]] std::weak_ptr<Route::Router> GetRouter() const;
     [[nodiscard]] std::weak_ptr<Awaitable::TrackingService> GetTrackingService() const;
     [[nodiscard]] std::weak_ptr<Network::Manager> GetNetworkManager() const;
-    [[nodiscard]] std::weak_ptr<Peer::Manager> GetPeerManager() const;
+    [[nodiscard]] std::weak_ptr<Peer::ProxyStore> GetProxyStore() const;
     [[nodiscard]] std::weak_ptr<BootstrapService> GetBootstrapService() const;
 
 private:
@@ -125,7 +125,7 @@ private:
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Route::Fundamental::Connect::DiscoveryProtocol> m_spDiscoveryProtocol;
     std::shared_ptr<Network::Manager> m_spNetworkManager;
-    std::shared_ptr<Peer::Manager> m_spPeerManager;
+    std::shared_ptr<Peer::ProxyStore> m_spProxyStore;
     std::shared_ptr<AuthorizedProcessor> m_spMessageProcessor;
     std::shared_ptr<BootstrapService> m_spBootstrapService;
 

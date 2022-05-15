@@ -27,10 +27,16 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11.1)
     message(
       FATAL_ERROR
-      "GCC 11.1 is required to buld Brypt Node. Found: " ${CMAKE_CXX_COMPILER_VERSION})
+      "GCC 11.1 or later is required to buld Brypt Node. Found: " ${CMAKE_CXX_COMPILER_VERSION})
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.31.31104.0)
+    message(
+      FATAL_ERROR
+      "MSVC 19.31.31104.0 or later is required to buld Brypt Node. Found: " ${CMAKE_CXX_COMPILER_VERSION})
   endif()
 else()
-    message(FATAL_ERROR "The ${CMAKE_CXX_COMPILER_ID} compilier is currently unsupported.")
+    message(FATAL_ERROR "The ${CMAKE_CXX_COMPILER_ID} compiler is currently unsupported.")
 endif()
 
 #-----------------------------------------------------------------------------------------------------------------------

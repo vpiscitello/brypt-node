@@ -15,6 +15,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <atomic>
 #include <concepts>
+#include <deque>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -48,10 +49,32 @@ public:
     Publisher& operator=(Publisher&&) = delete; 
 
     template<Type SpecificType> requires MessageWithContent<SpecificType>
-    [[maybe_unused]] bool Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback);
+    bool Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
+    {
+        if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
+        assert(Assertions::Threading::IsCoreThread());
+
+        // In the case of events with content, the listener will need to cast to the derived event type to access the 
+        // event's content and then forward them to the supplied handler. 
+        m_listeners[SpecificType].emplace_back([callback](EventProxy const& upEventProxy) {
+            // Dispatch needs to ensure this callback is provided the correct event. 
+            assert(upEventProxy && upEventProxy->GetType() == SpecificType);
+            auto const pEvent = static_cast<Event::Message<SpecificType> const*>(upEventProxy.get());
+            std::apply(callback, pEvent->GetContent());
+            });
+        return true;
+    }
 
     template<Type SpecificType> requires MessageWithoutContent<SpecificType>
-    [[maybe_unused]] bool Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback);
+    bool Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
+    {
+        if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
+        assert(Assertions::Threading::IsCoreThread());
+
+        // In the case of events without content, the listener will simply invoke the callback.
+        m_listeners[SpecificType].emplace_back([callback](EventProxy const&) { std::invoke(callback); });
+        return true;
+    }
 
     void SuspendSubscriptions();
     
@@ -59,10 +82,18 @@ public:
     void Advertise(EventAdvertisements&& advertised);
 
     template<Type SpecificType, typename... Arguments> requires MessageWithContent<SpecificType>
-    void Publish(Arguments&&... arguments);
+    void Publish(Arguments&&... arguments)
+    {
+        // In the case of events with content, we can to forward the event's content to when creating the queued event. 
+        Publish(SpecificType, std::make_unique<Event::Message<SpecificType>>(std::forward<Arguments>(arguments)...));
+    }
 
     template<Type SpecificType> requires MessageWithoutContent<SpecificType>
-    void Publish();
+    void Publish()
+    {
+        // In the case of events with content, we simply need to create the event to queue it. 
+        Publish(SpecificType, std::make_unique<Event::Message<SpecificType>>());
+    }
 
     bool IsSubscribed(Type type) const;
     bool IsAdvertised(Type type) const;
@@ -91,55 +122,5 @@ private:
     mutable std::shared_mutex m_advertisedMutex;
     EventAdvertisements m_advertised;
 };
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Event::Type SpecificType> requires Event::MessageWithContent<SpecificType>
-bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
-{
-    if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
-    assert(Assertions::Threading::IsCoreThread());
-    
-    // In the case of events with content, the listener will need to cast to the derived event type to access the 
-    // event's content and then forward them to the supplied handler. 
-    m_listeners[SpecificType].emplace_back([callback] (EventProxy const& upEventProxy) {
-        // Dispatch needs to ensure this callback is provided the correct event. 
-        assert(upEventProxy && upEventProxy->GetType() == SpecificType);
-        auto const pEvent = static_cast<Event::Message<SpecificType> const*>(upEventProxy.get());
-        std::apply(callback, pEvent->GetContent());
-    });
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Event::Type SpecificType> requires Event::MessageWithoutContent<SpecificType>
-bool Event::Publisher::Subscribe(typename Event::Message<SpecificType>::CallbackTrait const& callback)
-{
-    if (m_hasSuspendedSubscriptions) { return false; } // Subscriptions are disabled when the event loop begins. 
-    assert(Assertions::Threading::IsCoreThread());
-    
-    // In the case of events without content, the listener will simply invoke the callback.
-    m_listeners[SpecificType].emplace_back([callback] (EventProxy const&) { std::invoke(callback); });
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Event::Type SpecificType, typename... Arguments> requires Event::MessageWithContent<SpecificType>
-void Event::Publisher::Publish(Arguments&&... arguments)
-{
-    // In the case of events with content, we can to forward the event's content to when creating the queued event. 
-    Publish(SpecificType, std::make_unique<Event::Message<SpecificType>>(std::forward<Arguments>(arguments)...));
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-template<Event::Type SpecificType> requires Event::MessageWithoutContent<SpecificType>
-void Event::Publisher::Publish()
-{
-    // In the case of events with content, we simply need to create the event to queue it. 
-    Publish(SpecificType, std::make_unique<Event::Message<SpecificType>>());
-}
 
 //----------------------------------------------------------------------------------------------------------------------

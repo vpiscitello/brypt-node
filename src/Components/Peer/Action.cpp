@@ -43,13 +43,13 @@ std::optional<Awaitable::TrackerKey> Peer::Action::Next::Defer(DeferredOptions&&
 
     if (auto const& spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
         auto const spNodeState = spServiceProvider->Fetch<NodeState>().lock();
-        auto const spPeerManager = spServiceProvider->Fetch<IPeerCache>().lock();
+        auto const spPeerCache = spServiceProvider->Fetch<IPeerCache>().lock();
         auto const spTrackingService = spServiceProvider->Fetch<Awaitable::TrackingService>().lock();
-        if (!spNodeState || !spPeerManager || !spTrackingService) { return {}; }
+        if (!spNodeState || !spPeerCache || !spTrackingService) { return {}; }
 
         std::vector<Node::SharedIdentifier> identifiers;
         identifiers.emplace_back(spNodeState->GetNodeIdentifier());
-        spPeerManager->ForEach([&identifiers] (Node::SharedIdentifier const& spPeerIdentifier) -> CallbackIteration {
+        spPeerCache->ForEach([&identifiers] (Node::SharedIdentifier const& spPeerIdentifier) -> CallbackIteration {
             identifiers.emplace_back(spPeerIdentifier);
             return CallbackIteration::Continue;
         });

@@ -14,7 +14,7 @@
 #include "Components/MessageControl/AuthorizedProcessor.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Network/Manager.hpp"
-#include "Components/Peer/Manager.hpp"
+#include "Components/Peer/ProxyStore.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/ExecutionStatus.hpp"
 #include "Utilities/Logger.hpp"
