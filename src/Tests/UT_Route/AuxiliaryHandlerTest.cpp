@@ -88,8 +88,8 @@ TEST(AuxillaryHandlerSuite, ExternalHandlerTest)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::AuxiliaryRoute)
         .SetPayload(test::RequestPayload)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, Route::Test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Request, Route::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optRequest);
 
@@ -102,9 +102,9 @@ TEST(AuxillaryHandlerSuite, ExternalHandlerTest)
     EXPECT_EQ(optResponse->GetRoute(), test::AuxiliaryRoute);
     EXPECT_EQ(optResponse->GetPayload().GetStringView(), test::ResponsePayload);
 
-    auto const optRequestExtension = optResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optRequestExtension = optResponse->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optRequestExtension);
-    EXPECT_EQ(optRequestExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optRequestExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
     ASSERT_EQ(optRequestExtension->get().GetTracker(), Route::Test::TrackerKey);
 }
 

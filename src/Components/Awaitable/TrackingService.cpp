@@ -56,7 +56,7 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageRequest(
     Peer::Action::OnError const& onError,
     Message::Application::Builder& builder)
 {
-    using namespace Message::Application; 
+    using namespace Message; 
     assert(builder.GetDestination());
 
     constexpr std::string_view CreateMessage = "Creating awaitable tracker for a request to {}. [id={}]";
@@ -81,7 +81,7 @@ std::optional<Awaitable::TrackingService::Correlatable> Awaitable::TrackingServi
     Peer::Action::OnResponse const& onResponse,
     Peer::Action::OnError const& onError)
 {
-    using namespace Message::Application; 
+    using namespace Message; 
     constexpr std::string_view CreateMessage = "Staging awaitable tracker for a request to the cluster. [id={}]";
 
     if (auto const optTrackerKey = GenerateKey(self); optTrackerKey) {
@@ -105,7 +105,7 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::StageDeferred(
     Message::Application::Parcel const& deferred,
     Message::Application::Builder& builder)
 {
-    using namespace Message::Application; 
+    using namespace Message; 
 
     constexpr std::string_view CreateMessage = "Creating awaitable tracker to fulfill deferred request from {}. [id={}]";
 
@@ -145,7 +145,7 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
     constexpr std::string_view FulfilledMessage = "Awaitable has been fulfilled, waiting for processing. [id={}]";
 
     // Try to get the awaitable extension from the supplied message.
-    auto const& optExtension = message.GetExtension<Message::Application::Extension::Awaitable>();
+    auto const& optExtension = message.GetExtension<Message::Extension::Awaitable>();
     if (!optExtension) { return false; }
 
     auto const key = optExtension->get().GetTracker(); 

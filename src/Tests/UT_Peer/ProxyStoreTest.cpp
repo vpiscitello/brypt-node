@@ -525,8 +525,10 @@ TEST_F(ProxyStoreSuite, ClusterRequestTest)
             .SetDestination(*test::ServerIdentifier)
             .SetRoute(Peer::Test::RequestRoute)
             .SetPayload(Peer::Test::ApplicationPayload)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Binding::Response, optResult->first)
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Binding::Response, optResult->first)
+            .BindExtension<Message::Extension::Status>(
+                Message::Extension::Status::Created)
             .ValidatedBuild();
 
         if (optResponse) {

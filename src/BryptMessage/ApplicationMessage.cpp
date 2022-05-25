@@ -70,7 +70,11 @@ bool Message::Application::Parcel::operator==(Parcel const& other) const
 				switch (left.first) {
 					case Extension::Awaitable::Key: {
 						return static_cast<Extension::Awaitable const&>(*left.second) == 
-								static_cast<Extension::Awaitable const&>(*right.second);
+							   static_cast<Extension::Awaitable const&>(*right.second);
+					}
+					case Extension::Status::Key: {
+						return static_cast<Extension::Status const&>(*left.second) == 
+							   static_cast<Extension::Status const&>(*right.second);
 					}
 					default: break;
 				}
@@ -459,7 +463,12 @@ bool Message::Application::Builder::UnpackExtensions(
 				auto upExtension = std::make_unique<Extension::Awaitable>();
 				if (!upExtension->Unpack(begin, end)) { return false; }
 				m_parcel.m_extensions.emplace(Extension::Awaitable::Key, std::move(upExtension));
-			} break;					
+			} break;
+			case Extension::Status::Key: {
+				auto upExtension = std::make_unique<Extension::Status>();
+				if (!upExtension->Unpack(begin, end)) { return false; }
+				m_parcel.m_extensions.emplace(Extension::Status::Key, std::move(upExtension));
+			} break;
 			default: return false;
 		}
 
@@ -468,107 +477,5 @@ bool Message::Application::Builder::UnpackExtensions(
 
 	return true;
 }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Application::Extension::Awaitable::Awaitable()
-	: m_binding(Invalid)
-	, m_tracker()
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Application::Extension::Awaitable::Awaitable(Binding binding, ::Awaitable::TrackerKey tracker)
-	: m_binding(binding)
-	, m_tracker(tracker)
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Message::Application::Extension::Awaitable::operator==(Awaitable const& other) const
-{
-	return m_binding == other.m_binding && m_tracker == m_tracker;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Application::Extension::Key Message::Application::Extension::Awaitable::GetKey() const { return Key; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::unique_ptr<Message::Application::Extension::Base> Message::Application::Extension::Awaitable::Clone() const
-{
-	return std::make_unique<Awaitable>(m_binding, m_tracker);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Message::Application::Extension::Awaitable::Validate() const
-{
-	return m_binding != Invalid && !std::ranges::all_of(m_tracker, [] (std::uint8_t byte) { return byte == 0x00; });
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Message::Application::Extension::Awaitable::GetPackSize() const 
-{
-	std::size_t size = 0;
-	size += sizeof(Key); // 1 byte for the extension type
-	size += sizeof(std::uint16_t); // 2 bytes for the extension size
-	size += sizeof(m_binding); // 1 byte for await tracker binding
-	size += sizeof(m_tracker); // 16 bytes for await tracker key
-	assert(std::in_range<std::uint16_t>(size));
-	return size;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Message::Application::Extension::Awaitable::Inject(Buffer& buffer) const
-{
-	std::uint16_t const size = static_cast<std::uint16_t>(GetPackSize());
-	PackUtils::PackChunk(Key, buffer);
-	PackUtils::PackChunk(size, buffer);
-	PackUtils::PackChunk(m_binding, buffer);
-	PackUtils::PackChunk(m_tracker, buffer);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Message::Application::Extension::Awaitable::Unpack(
-	std::span<std::uint8_t const>::iterator& begin,
-	std::span<std::uint8_t const>::iterator const& end)
-{
-	std::uint16_t size = 0;
-	if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
-	if (std::cmp_less(size, GetPackSize())) { return false; }
-
-	{
-		using BindingType = std::underlying_type_t<Binding>;
-		BindingType binding = 0;
-		if (!PackUtils::UnpackChunk(begin, end, binding)) { return {}; }
-		switch (binding) {
-			case static_cast<BindingType>(Request): { m_binding = Request; } break;
-			case static_cast<BindingType>(Response):  { m_binding = Response; } break;
-			default: return false;
-		}
-	}
-
-	if (!PackUtils::UnpackChunk(begin, end, m_tracker)) { return false; }
-
-	return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Application::Extension::Awaitable::Binding const& Message::Application::Extension::Awaitable::GetBinding() const
-{
-	return m_binding;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Awaitable::TrackerKey const& Message::Application::Extension::Awaitable::GetTracker() const { return m_tracker; }
 
 //----------------------------------------------------------------------------------------------------------------------

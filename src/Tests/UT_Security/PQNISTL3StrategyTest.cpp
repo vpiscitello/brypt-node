@@ -144,8 +144,8 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Request, test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Request, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -165,9 +165,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         EXPECT_EQ(optPackMessage->GetDestination(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
 
-        auto const optAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();
+        auto const optAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
-        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Request);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Request);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
         EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);
@@ -182,8 +182,8 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
             .SetDestination(test::ServerIdentifier)
             .SetRoute(test::ApplicationRoute)
             .SetPayload(test::Data)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Response, test::TrackerKey)
             .ValidatedBuild();
 
         return (optApplicationMessage) ? optApplicationMessage->GetPack() : "";
@@ -203,9 +203,9 @@ TEST(PQNISTL3StrategySuite, SynchronizationTest)
         EXPECT_EQ(optPackMessage->GetDestination(), test::ServerIdentifier);
         EXPECT_EQ(optPackMessage->GetRoute(), test::ApplicationRoute);
 
-        auto const optAwaitable = optPackMessage->GetExtension<Message::Application::Extension::Awaitable>();
+        auto const optAwaitable = optPackMessage->GetExtension<Message::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
-        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Response);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Response);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
 
         EXPECT_EQ(optPackMessage->GetPayload().GetStringView(), test::Data);

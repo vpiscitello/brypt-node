@@ -69,8 +69,8 @@ inline std::optional<Message::Application::Parcel> Awaitable::Test::GenerateRequ
         .SetDestination(destination)
         .SetRoute(RequestRoute)
         .SetPayload(Message)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Request, TrackerKey)
         .ValidatedBuild();
 }
 
@@ -89,8 +89,8 @@ inline std::optional<Message::Application::Parcel> Awaitable::Test::GenerateResp
         .SetDestination(destination)
         .SetRoute(route)
         .SetPayload(Message)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Binding::Response, key)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Binding::Response, key)
         .ValidatedBuild();
 }
 

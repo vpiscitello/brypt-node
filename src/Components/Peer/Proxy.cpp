@@ -154,7 +154,7 @@ std::optional<Awaitable::TrackerKey> Peer::Proxy::Request(
         m_statistics.IncrementSentCount();
 
         assert(!optRequest->GetRoute().empty());
-        assert(optRequest->GetExtension<Message::Application::Extension::Awaitable>());
+        assert(optRequest->GetExtension<Message::Extension::Awaitable>());
         auto const& [identifier, registration] = *endpoint;
         auto const& scheduler = registration.GetMessageAction();
         bool const success = scheduler(*m_spIdentifier, Network::MessageVariant{ optRequest->GetPack() });

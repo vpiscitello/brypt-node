@@ -133,7 +133,7 @@ TEST_F(TrackingServiceSuite, DeferredFulfillmentTest)
         ASSERT_TRUE(optNotice); // The notice builder should succeed. 
 
         // The notice should have an awaitable extension applied that associates it with the deferred request/
-        auto const optExtension = optNotice->GetExtension<Message::Application::Extension::Awaitable>();
+        auto const optExtension = optNotice->GetExtension<Message::Extension::Awaitable>();
         ASSERT_TRUE(optExtension);
         EXPECT_EQ(*optTrackerKey, optExtension->get().GetTracker());
     }

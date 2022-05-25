@@ -168,9 +168,9 @@ TEST_F(ConnectHandlerSuite, DiscoveryProtocolRequestTest)
     EXPECT_EQ(m_optRequest->GetRoute(), Route::Fundamental::Connect::DiscoveryHandler::Path);
     EXPECT_FALSE(m_optRequest->GetPayload().IsEmpty());
 
-    auto const optRequestExtension = m_optRequest->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optRequestExtension = m_optRequest->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optRequestExtension);
-    EXPECT_EQ(optRequestExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Request);
+    EXPECT_EQ(optRequestExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Request);
     ASSERT_NE(optRequestExtension->get().GetTracker(), Awaitable::TrackerKey{ 0 });
 }
 
@@ -206,11 +206,11 @@ TEST_F(ConnectHandlerSuite, DiscoveryHandlerValidMessageTest)
     EXPECT_EQ(m_optResponse->GetRoute(), Route::Fundamental::Connect::DiscoveryHandler::Path);
     EXPECT_FALSE(m_optResponse->GetPayload().IsEmpty());
 
-    auto const optResponseExtension = m_optResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optResponseExtension = m_optResponse->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optResponseExtension);
-    EXPECT_EQ(optResponseExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optResponseExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
 
-    auto const optRequestExtension = m_optRequest->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optRequestExtension = m_optRequest->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optRequestExtension);
     ASSERT_EQ(optResponseExtension->get().GetTracker(), optRequestExtension->get().GetTracker());
 

@@ -68,7 +68,7 @@ TEST(ApplicationMessageSuite, BaseConstructorTest)
     ASSERT_TRUE(optMessage->GetDestination());
     EXPECT_EQ(*optMessage->GetDestination(), test::ServerIdentifier);
     EXPECT_EQ(optMessage->GetRoute(), test::RequestRoute);
-    EXPECT_FALSE(optMessage->GetExtension<Message::Application::Extension::Awaitable>());
+    EXPECT_FALSE(optMessage->GetExtension<Message::Extension::Awaitable>());
 
     {
         EXPECT_EQ(optMessage->GetPayload().GetStringView(), test::Data);
@@ -112,7 +112,7 @@ TEST(ApplicationMessageSuite, PackConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
+TEST(ApplicationMessageSuite, BoundAwaitableConstructorTest)
 {
     Message::Context const context = local::GenerateMessageContext();
 
@@ -122,8 +122,8 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Request, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optRequest);
 
@@ -132,9 +132,9 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optRequest->GetRoute(), test::RequestRoute);
 
     {
-        auto const optAwaitable = optRequest->GetExtension<Message::Application::Extension::Awaitable>();
+        auto const optAwaitable = optRequest->GetExtension<Message::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
-        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Request);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Request);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
     }
 
@@ -151,8 +151,8 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
@@ -161,9 +161,9 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
     EXPECT_EQ(optResponse->GetRoute(), test::RequestRoute);
 
     {
-        auto const optAwaitable = optResponse->GetExtension<Message::Application::Extension::Awaitable>();
+        auto const optAwaitable = optResponse->GetExtension<Message::Extension::Awaitable>();
         ASSERT_TRUE(optAwaitable);
-        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Application::Extension::Awaitable::Response);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Response);
         EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
     }
 
@@ -179,7 +179,7 @@ TEST(ApplicationMessageSuite, BoundAwaitConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
+TEST(ApplicationMessageSuite, BoundAwaitablePackConstructorTest)
 {
     Message::Context const context = local::GenerateMessageContext();
 
@@ -189,8 +189,8 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optBoundMessage);
 
@@ -208,6 +208,50 @@ TEST(ApplicationMessageSuite, BoundAwaitPackConstructorTest)
 
 //----------------------------------------------------------------------------------------------------------------------
 
+TEST(ApplicationMessageSuite, ResponseStatusConstructorTest)
+{
+    Message::Context const context = local::GenerateMessageContext();
+
+    auto const optResponse = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
+        .SetSource(test::ClientIdentifier)
+        .SetDestination(test::ServerIdentifier)
+        .SetRoute(test::RequestRoute)
+        .SetPayload(test::Data)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, test::TrackerKey)
+        .BindExtension<Message::Extension::Status>(
+            Message::Extension::Status::TooManyRequests)
+        .ValidatedBuild();
+    ASSERT_TRUE(optResponse);
+
+    {
+        auto const optAwaitable = optResponse->GetExtension<Message::Extension::Awaitable>();
+        ASSERT_TRUE(optAwaitable);
+        EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Response);
+        EXPECT_EQ(optAwaitable->get().GetTracker(), test::TrackerKey);
+    }
+
+    {
+        auto const optStatus = optResponse->GetExtension<Message::Extension::Status>();
+        ASSERT_TRUE(optStatus);
+        EXPECT_EQ(optStatus->get().GetCode(), Message::Extension::Status::TooManyRequests);
+    }
+
+    auto const pack = optResponse->GetPack();
+    EXPECT_EQ(pack.size(), optResponse->GetPackSize());
+
+    auto const optPackMessage = Message::Application::Parcel::GetBuilder()
+        .SetContext(context)
+        .FromEncodedPack(pack)
+        .ValidatedBuild();
+    ASSERT_TRUE(optPackMessage);
+
+    EXPECT_EQ(optPackMessage, optResponse);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 TEST(ApplicationMessageSuite, ExpiredContextBuilderTest)
 {
     auto const optMessage = Message::Application::Parcel::GetBuilder()
@@ -216,8 +260,8 @@ TEST(ApplicationMessageSuite, ExpiredContextBuilderTest)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 
@@ -235,8 +279,8 @@ TEST(ApplicationMessageSuite, ExpiredContextPackTest)
         .SetDestination(test::ServerIdentifier)
         .SetRoute(test::RequestRoute)
         .SetPayload(test::Data)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optMessage);
 

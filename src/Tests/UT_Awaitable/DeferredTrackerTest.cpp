@@ -116,9 +116,9 @@ TEST_F(DeferredTrackerSuite, SingleResponseTest)
     EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
 
-    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
-    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);
 }
 
@@ -152,9 +152,9 @@ TEST_F(DeferredTrackerSuite, MultipleResponseTest)
     EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
     
-    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
-    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
 }
 
@@ -180,9 +180,9 @@ TEST_F(DeferredTrackerSuite, DirectUpdateTest)
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
     EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
 
-    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
-    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
 }
 
@@ -191,22 +191,22 @@ TEST_F(DeferredTrackerSuite, DirectUpdateTest)
 TEST_F(DeferredTrackerSuite, ExpiredNoResponsesTest)
 {
     Awaitable::DeferredTracker tracker { Awaitable::Test::TrackerKey, m_spProxy, m_request, { test::ServerIdentifier } };
-    // std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
+     std::this_thread::sleep_for(Awaitable::ITracker::ExpirationPeriod + 1ms);
 
-    // EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
-    // EXPECT_TRUE(tracker.Fulfill());
-    // EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
+     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Fulfilled);
+     EXPECT_TRUE(tracker.Fulfill());
+     EXPECT_EQ(tracker.CheckStatus(), Awaitable::ITracker::Status::Completed);
 
-    // ASSERT_TRUE(m_optFulfilledResponse);
-    // EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
-    // EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
-    // EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
-    // EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
+     ASSERT_TRUE(m_optFulfilledResponse);
+     EXPECT_EQ(m_optFulfilledResponse->GetSource(), *test::ServerIdentifier);
+     EXPECT_EQ(m_optFulfilledResponse->GetDestination(), test::ClientIdentifier);
+     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
+     EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
 
-    // auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
-    // EXPECT_TRUE(optExtension);
-    // EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-    // EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
+     auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Extension::Awaitable>();
+     EXPECT_TRUE(optExtension);
+     EXPECT_EQ(optExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
+     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -241,9 +241,9 @@ TEST_F(DeferredTrackerSuite, ExpiredSomeResponsesTest)
     EXPECT_EQ(m_optFulfilledResponse->GetRoute(), Awaitable::Test::RequestRoute);
     EXPECT_FALSE(m_optFulfilledResponse->GetPayload().IsEmpty());
 
-    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_optFulfilledResponse->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
-    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Awaitable::Test::TrackerKey);  
 }
 

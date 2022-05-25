@@ -101,7 +101,7 @@ bool Route::Fundamental::Information::NodeHandler::OnFetchServices(
 bool Route::Fundamental::Information::NodeHandler::OnMessage(
      Message::Application::Parcel const& message, Peer::Action::Next& next)
 {
-    using namespace Message::Application;
+    using namespace Message;
     auto const optAwaitable = message.GetExtension<Extension::Awaitable>(); 
     if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
 

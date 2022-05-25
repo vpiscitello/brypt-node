@@ -140,7 +140,7 @@ std::optional<Message::Application::Parcel> AuthorizedProcessor::FetchMessage()
 
 bool AuthorizedProcessor::OnMessageCollected(Message::Application::Parcel&& message)
 {
-	using namespace Message::Application;
+	using namespace Message;
 
 	// Currently, messages not destined for this node are note accepted. 
 	auto const& optDestination = message.GetDestination();

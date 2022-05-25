@@ -217,7 +217,7 @@ bool Awaitable::DeferredTracker::Fulfill()
     auto const& optNodeIdentifier = m_request.GetDestination();
     if (!optNodeIdentifier) { return false; }
 
-    auto const optExtension = m_request.GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_request.GetExtension<Message::Extension::Awaitable>();
     if (!optExtension) { return false; }
 
     auto const optResponse = Message::Application::Parcel::GetBuilder()
@@ -226,8 +226,8 @@ bool Awaitable::DeferredTracker::Fulfill()
         .SetDestination(m_request.GetSource())
         .SetRoute(m_request.GetRoute())
         .SetPayload(li::json_object_vector(s::identifier, s::data).encode(responses))
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Binding::Response,
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Binding::Response,
             optExtension->get().GetTracker())
         .ValidatedBuild();
     assert(optResponse);

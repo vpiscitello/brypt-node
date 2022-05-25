@@ -383,7 +383,7 @@ Peer::ProxyStore::ClusterRequestResult Peer::ProxyStore::Request(
     for (auto const& spProxy : m_peers) {
         bool const included = (predicate) ? predicate(*spProxy) : spProxy->IsActive();
         if (included) {
-            using namespace Message::Application;
+            using namespace Message;
 
             [[maybe_unused]] bool const correlated = correlator(spProxy->GetIdentifier());
             assert(correlated);

@@ -12,6 +12,7 @@ target_sources(
     PRIVATE
     # Source Files
     ApplicationMessage.cpp
+    Extension.cpp
     MessageContext.cpp
     MessageHeader.cpp
     MessageUtils.cpp

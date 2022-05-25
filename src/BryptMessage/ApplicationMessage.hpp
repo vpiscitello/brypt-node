@@ -5,6 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "DataInterface.hpp"
+#include "Extension.hpp"
 #include "MessageContext.hpp"
 #include "MessageHeader.hpp"
 #include "MessageTypes.hpp"
@@ -30,29 +31,7 @@ class Parcel;
 class Builder;
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Extension {
-//----------------------------------------------------------------------------------------------------------------------
-
-using Key = std::uint8_t;
-class Base;
-class Awaitable;
-
-//----------------------------------------------------------------------------------------------------------------------
-} // Extension namespace
-//----------------------------------------------------------------------------------------------------------------------
 } // Message::Application namespace
-//----------------------------------------------------------------------------------------------------------------------
-
-class Message::Application::Extension::Base : public virtual Message::DataInterface::Packable
-{
-public:
-	Base() = default;
-	virtual ~Base() = default;
-	[[nodiscard]] virtual Key GetKey() const = 0;
-	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const = 0;
-	[[nodiscard]] virtual bool Validate() const = 0;
-};
-
 //----------------------------------------------------------------------------------------------------------------------
 
 class Message::Application::Parcel
@@ -167,42 +146,6 @@ private:
 
     Parcel m_parcel;
 	bool m_hasStageFailure;
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class Message::Application::Extension::Awaitable : public Message::Application::Extension::Base
-{
-public:
-	static constexpr Extension::Key Key = 0xae;
-	
-	enum Binding : std::uint8_t { Invalid, Request, Response };
-	
-	Awaitable();
-	Awaitable(Binding binding, ::Awaitable::TrackerKey tracker);
-	
-	[[nodiscard]] bool operator==(Awaitable const& other) const;
-
-	// Extension {
-	[[nodiscard]] virtual Extension::Key GetKey() const override;
-	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const override;
-	[[nodiscard]] virtual bool Validate() const override;
-	// } Extension
-	
-	// Packable {
-	[[nodiscard]] virtual std::size_t GetPackSize() const override;
-	virtual void Inject(Buffer& buffer) const override;
-	[[nodiscard]] virtual bool Unpack(
-		std::span<std::uint8_t const>::iterator& begin,
-		std::span<std::uint8_t const>::iterator const& end) override;
-	// } Packable
-
-	[[nodiscard]] Binding const& GetBinding() const;
-	[[nodiscard]] ::Awaitable::TrackerKey const& GetTracker() const;
-
-private:
-	Binding m_binding;
-	::Awaitable::TrackerKey m_tracker;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

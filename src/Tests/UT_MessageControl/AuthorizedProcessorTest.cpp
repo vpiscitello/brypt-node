@@ -177,8 +177,8 @@ protected:
             .SetDestination(*test::ServerIdentifier)
             .SetRoute(test::InspectableRoute)
             .SetPayload(MessageControl::Test::Message)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
             .ValidatedBuild();
         ASSERT_TRUE(optRequest);
         m_request = *optRequest;
@@ -189,8 +189,8 @@ protected:
             .SetDestination(test::ClientIdentifier)
             .SetRoute(test::InspectableRoute)
             .SetPayload(MessageControl::Test::Message)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
             .ValidatedBuild();
         ASSERT_TRUE(optResponse);
         m_response = *optResponse;
@@ -355,8 +355,8 @@ TEST_F(AuthorizedProcessorSuite, ProcessorExecutionRoutingFailingHanderTest)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::FailingRoute)
         .SetPayload(MessageControl::Test::Message)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optFailingRequest);
 
@@ -401,8 +401,8 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelAwaitableResponseTest)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::InspectableRoute)
         .SetPayload(MessageControl::Test::Message)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, *optTrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, *optTrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
@@ -426,8 +426,8 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelUnexpectedDestinationTe
         .SetDestination(test::ClientIdentifier)
         .SetRoute(test::FailingRoute)
         .SetPayload(MessageControl::Test::Message)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
@@ -445,8 +445,8 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelUnexpectedAwaitableResp
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::FailingRoute)
         .SetPayload(MessageControl::Test::Message)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
