@@ -225,22 +225,9 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
 
     auto const wpProxy = std::weak_ptr<Peer::Proxy>{ m_client.GetProxy() };
     auto const optTrackerKey = m_client.GetProxy()->Request(builder,
-        [&] (Awaitable::TrackerKey const&, Message::Application::Parcel const& response) {
+        [&] (Peer::Action::Response const& response) {
             auto const spProxy = wpProxy.lock();
             ASSERT_TRUE(spProxy);
-
-            EXPECT_EQ(response.GetSource(), *test::ServerIdentifier);
-            EXPECT_EQ(response.GetDestination(), *test::ClientIdentifier);
-            EXPECT_EQ(response.GetRoute(), Route::Fundamental::Information::NodeHandler::Path);
-            EXPECT_FALSE(response.GetPayload().IsEmpty());
-
-            auto const optResponseExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
-            EXPECT_TRUE(optResponseExtension);
-            EXPECT_EQ(optResponseExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-
-            auto const optRequestExtension = m_optRequest->GetExtension<Message::Application::Extension::Awaitable>();
-            EXPECT_TRUE(optRequestExtension);
-            ASSERT_EQ(optResponseExtension->get().GetTracker(), optRequestExtension->get().GetTracker());
 
             auto [payload, success] = local::DeserializeNodeInformation(response.GetPayload().GetStringView());
             EXPECT_TRUE(success);
@@ -252,7 +239,7 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
                 payload.update_timestamp, m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
             EXPECT_EQ(payload.protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
         },
-        [&] (auto const&, auto const&, auto) { ASSERT_FALSE(true); });
+        [&] (Peer::Action::Response const&) { ASSERT_FALSE(true); });
     EXPECT_TRUE(optTrackerKey);
     ASSERT_TRUE(m_optRequest);
     EXPECT_EQ(m_client.GetTrackingService()->Waiting(), std::size_t{ 1 });
@@ -283,22 +270,9 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
 
     auto const wpProxy = std::weak_ptr<Peer::Proxy>{ m_client.GetProxy() };
     auto const optTrackerKey = m_client.GetProxy()->Request(builder,
-        [&] (Awaitable::TrackerKey const&, Message::Application::Parcel const& response) {
+        [&] (Peer::Action::Response const& response) {
             auto const spProxy = wpProxy.lock();
             ASSERT_TRUE(spProxy);
-
-            EXPECT_EQ(response.GetSource(), *test::ServerIdentifier);
-            EXPECT_EQ(response.GetDestination(), *test::ClientIdentifier);
-            EXPECT_EQ(response.GetRoute(), Route::Fundamental::Information::FetchNodeHandler::Path);
-            EXPECT_FALSE(response.GetPayload().IsEmpty());
-
-            auto const optResponseExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
-            EXPECT_TRUE(optResponseExtension);
-            EXPECT_EQ(optResponseExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-
-            auto const optRequestExtension = m_optRequest->GetExtension<Message::Application::Extension::Awaitable>();
-            EXPECT_TRUE(optRequestExtension);
-            ASSERT_EQ(optResponseExtension->get().GetTracker(), optRequestExtension->get().GetTracker());
 
             auto const json = response.GetPayload().GetStringView();
             struct PayloadEntry {
@@ -337,7 +311,7 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
             }
             EXPECT_TRUE(hasFoundServerResponse);
         },
-        [&] (auto const&, auto const&, auto) { ASSERT_FALSE(true); });
+        [&] (Peer::Action::Response const&) { ASSERT_FALSE(true); });
     EXPECT_TRUE(optTrackerKey);
     ASSERT_TRUE(m_optRequest);
     EXPECT_EQ(m_client.GetTrackingService()->Waiting(), std::size_t{ 1 });

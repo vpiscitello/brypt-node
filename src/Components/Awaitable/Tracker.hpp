@@ -97,6 +97,7 @@ private:
     std::vector<Message::Application::Parcel> m_responses;
     Peer::Action::OnResponse m_onResponse;
     Peer::Action::OnError m_onError;
+    std::size_t m_remaining;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

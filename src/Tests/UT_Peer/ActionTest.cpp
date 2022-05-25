@@ -148,16 +148,18 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
         .SetSource(*test::ServerIdentifier)
         .SetRoute(Peer::Test::RequestRoute)
         .SetPayload(Peer::Test::RequestPayload);
-        
-    std::optional<Message::Application::Parcel> optResponse;
-    std::optional<Peer::Action::Error> optError;
     
     auto const optTrackerKey = m_spProxy->Request(builder, 
-        [&optResponse] (auto const&, auto const& response) { optResponse = response; },
-        [&optError] (auto const&, auto const&, auto error) { optError = error; });
+        [&] (Peer::Action::Response const& response) { 
+            EXPECT_EQ(response.GetSource(), test::ClientIdentifier);
+            ASSERT_TRUE(response.HasPayload());
+            EXPECT_EQ(response.GetPayload(), Peer::Test::ApplicationPayload);
+            EXPECT_FALSE(response.HasErrorCode());
+            EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Accepted);
+        },
+        [&] (Peer::Action::Response const&) { EXPECT_FALSE(true); });
+
     EXPECT_TRUE(optTrackerKey);
-    EXPECT_FALSE(optResponse);
-    EXPECT_FALSE(optError);
 
     ASSERT_TRUE(m_optResult);
     EXPECT_EQ(m_optResult->GetSource(), *test::ServerIdentifier);
@@ -193,18 +195,6 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
     }
 
     EXPECT_EQ(m_spTrackingService->Execute(), std::size_t{ 1 });
-    EXPECT_FALSE(optError);
-
-    ASSERT_TRUE(optResponse);
-    EXPECT_EQ(optResponse->GetSource(), test::ClientIdentifier);
-    EXPECT_EQ(optResponse->GetDestination(), *test::ServerIdentifier);
-    EXPECT_EQ(optResponse->GetRoute(), Peer::Test::RequestRoute);
-    EXPECT_EQ(optResponse->GetPayload(), Peer::Test::ApplicationPayload);
-
-    auto const optResponseExtension = optResponse->GetExtension<Message::Application::Extension::Awaitable>();
-    EXPECT_TRUE(optResponseExtension);
-    EXPECT_EQ(optResponseExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-    ASSERT_EQ(optResponseExtension->get().GetTracker(), optRequestExtension->get().GetTracker());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -216,16 +206,16 @@ TEST_F(PeerActionSuite, ExpiredRequestTest)
         .SetSource(*test::ServerIdentifier)
         .SetRoute(Peer::Test::RequestRoute)
         .SetPayload(Peer::Test::RequestPayload);
-        
-    std::optional<Message::Application::Parcel> optResponse;
-    std::optional<Peer::Action::Error> optError;
     
-    auto const optTrackerKey = m_spProxy->Request(builder, 
-        [&optResponse] (auto const&, auto const& response) { optResponse = response; },
-        [&optError] (auto const&, auto const&, auto error) { optError = error; });
+    auto const optTrackerKey = m_spProxy->Request(builder,
+        [&] (Peer::Action::Response const& response) { EXPECT_FALSE(true); },
+        [&] (Peer::Action::Response const& response) { 
+            EXPECT_EQ(response.GetSource(), test::ClientIdentifier);
+            EXPECT_FALSE(response.HasPayload());
+            EXPECT_TRUE(response.HasErrorCode());
+            EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::RequestTimeout);
+        });
     EXPECT_TRUE(optTrackerKey);
-    EXPECT_FALSE(optResponse);
-    EXPECT_FALSE(optError);
 
     EXPECT_EQ(m_spTrackingService->Waiting(), std::size_t{ 1 });
     EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 0 });
@@ -235,9 +225,6 @@ TEST_F(PeerActionSuite, ExpiredRequestTest)
     EXPECT_EQ(m_spRegistrar->Run<InvokeContext::Test>(frames), std::size_t{ 1 });
     EXPECT_EQ(m_spTrackingService->Waiting(), std::size_t{ 0 });
     EXPECT_EQ(m_spTrackingService->Ready(), std::size_t{ 0 });
-
-    EXPECT_EQ(optError, Peer::Action::Error::Expired);
-    EXPECT_FALSE(optResponse);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

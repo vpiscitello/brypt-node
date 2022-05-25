@@ -498,14 +498,14 @@ TEST_F(ProxyStoreSuite, ClusterRequestTest)
     // The event publisher will have some work to do.
     EXPECT_EQ(m_spRegistrar->Execute(), m_spProxyStore->ActiveCount());
 
-    std::vector<Message::Application::Parcel> responses;
-    auto const onResponse = [&responses] (auto const&, Message::Application::Parcel const& parcel) {
-        responses.emplace_back(parcel);
+    auto const onResponse = [&] (Peer::Action::Response const& response) {
+        EXPECT_TRUE(m_spProxyStore->Find(static_cast<std::string const&>(response.GetSource())));
+        EXPECT_EQ(response.GetPayload(), Peer::Test::ApplicationPayload);
+        EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Created);
     };
 
-    std::vector<std::tuple<Awaitable::TrackerKey, Node::SharedIdentifier, Peer::Action::Error>> errors;
-    auto const onError = [&errors] (auto const& key, auto const& spIdentifier, auto error) {
-        errors.emplace_back(std::make_tuple(key, spIdentifier, error));
+    auto const onError = [&] (Peer::Action::Response const& response) {
+        EXPECT_FALSE(true);
     };
 
     auto const optResult = m_spProxyStore->Request(
@@ -542,18 +542,6 @@ TEST_F(ProxyStoreSuite, ClusterRequestTest)
 
     auto const frames = Scheduler::Frame{ Awaitable::TrackingService::CheckInterval.GetValue() };
     EXPECT_EQ(m_spRegistrar->Run<InvokeContext::Test>(frames), m_spProxyStore->ActiveCount());
-
-    EXPECT_EQ(responses.size(), m_spProxyStore->ActiveCount());
-    EXPECT_TRUE(errors.empty());
-
-    for (auto const& response : responses) {
-        EXPECT_EQ(response.GetRoute(), Peer::Test::RequestRoute);
-        
-        auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
-        EXPECT_TRUE(optExtension);
-        EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-        EXPECT_EQ(optExtension->get().GetTracker(), optResult->first);  
-    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -67,6 +67,7 @@ Awaitable::RequestTracker::RequestTracker(
     , m_responses()
     , m_onResponse(onResponse)
     , m_onError(onError)
+    , m_remaining(1)
 {
     if (auto const spProxy = wpProxy.lock(); spProxy) { m_ledger.emplace(spProxy->GetIdentifier(), false); }
     assert(!m_ledger.empty());
@@ -86,6 +87,7 @@ Awaitable::RequestTracker::RequestTracker(
     , m_responses()
     , m_onResponse(onResponse)
     , m_onError(onError)
+    , m_remaining(expected)
 {
     assert(m_onResponse);
     assert(m_onError);
@@ -107,7 +109,12 @@ Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(Message::App
     auto const itr = std::ranges::find_if(m_ledger, [&source = message.GetSource()] (auto const& entry) {
         return *entry.first == source;
     });
+
+    // Reject responses for peers that were not registered with the request intiially. 
     if (itr == m_ledger.end()) { return UpdateResult::Unexpected; }
+
+    // Reject duplicate responses from peers.
+    if (itr->second) { return UpdateResult::Unexpected; }
 
     m_responses.emplace_back(std::move(message));
     itr->second = true;
@@ -128,16 +135,40 @@ Awaitable::ITracker::UpdateResult Awaitable::RequestTracker::Update(
 
 bool Awaitable::RequestTracker::Fulfill()
 {
+    using namespace Message;
+
     if (m_status == Status::Completed) { return false; }
     
     bool const expired = m_expire < std::chrono::steady_clock::now();
     if (!expired && m_responses.empty()) { return false; }
 
-    for (auto const& response : m_responses) { m_onResponse(m_key, response); }
+    for (auto const& message : m_responses) { 
+        --m_remaining; // Decrement the number of remaining responses to be handled. 
+	    
+        auto const optStatus = message.GetExtension<Extension::Status>(); // Attempt to fetch the status extension.
+        
+        // Create the response object for this peer. Default the status code to "Ok" if one has not been set. 
+        Peer::Action::Response response{ 
+            m_key, message, (optStatus) ? optStatus->get().GetCode() : Message::Extension::Status::Ok, m_remaining
+        };
+
+        // If the response does not contain a status code representing an error, forward the response object to 
+        // the normal response handler. Otherwise, pass it to the error handler. 
+        if (!response.HasErrorCode()) {
+            m_onResponse(response);
+        } else {
+            m_onError(response);
+        }
+    }
 
     if (expired) {
         for (auto const& [requestee, received] : m_ledger) { 
-            if (!received) { m_onError(m_key, requestee, Peer::Action::Error::Expired); }
+            // If the response has not been received before the tracker's expirations, create a response object 
+            // representing a timeout error and forward it to the error handler. 
+            if (!received) { 
+                --m_remaining; // Decrement the number of remaining responses to be handled. 
+                m_onError(Peer::Action::Response{ m_key, *requestee, Message::Extension::Status::RequestTimeout, m_remaining });
+            }
         }
         m_received = m_expected;
     }

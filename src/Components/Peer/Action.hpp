@@ -5,9 +5,12 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/Extension.hpp"
 #include "BryptMessage/MessageDefinitions.hpp"
 #include "BryptMessage/Payload.hpp"
 #include "Components/Awaitable/Definitions.hpp"
+#include "Components/Network/Protocol.hpp"
+#include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <functional>
@@ -31,12 +34,23 @@ namespace Action {
 //----------------------------------------------------------------------------------------------------------------------
 
 class Next;
+class Response;
 
-enum class Error : std::uint32_t { UnexpectedError, Expired };
+using OnMessage = std::function<void(Message::Application::Parcel const&, Next&)>;
 
-using OnResponse = std::function<void(Awaitable::TrackerKey const&, Message::Application::Parcel const& response)>;
-using OnMessage = std::function<void(Message::Application::Parcel const& message, Next& next)>;
-using OnError = std::function<void(Awaitable::TrackerKey const&, Node::SharedIdentifier const&, Error error)>;
+using OnResponse = std::function<void(Response const&)>;
+using OnError = std::function<void(Response const&)>;
+
+//using OnResponse = std::function<void(
+//    Awaitable::TrackerKey const&,
+//    Message::Application::Parcel const&,
+//    std::size_t)>;
+//
+//using OnError = std::function<void(
+//    Awaitable::TrackerKey const&,
+//    Node::Identifier const&,
+//    Message::Extension::Status::Code,
+//    std::size_t)>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Action namespace
@@ -87,6 +101,51 @@ private:
     std::weak_ptr<Node::ServiceProvider> m_wpServiceProvider;
 
     std::optional<Awaitable::TrackerKey> m_optTrackerKey;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+class Peer::Action::Response
+{
+public:
+    using TrakerReference = std::reference_wrapper<Awaitable::TrackerKey const>;
+    using IdentifierReference = std::reference_wrapper<Node::Identifier const>;
+    using MessageReference = std::reference_wrapper<Message::Application::Parcel const>;
+
+    Response(
+        TrakerReference const& trackerKey,
+        MessageReference const& message,
+        Message::Extension::Status::Code statusCode,
+        std::size_t remaining);
+
+    Response(
+        TrakerReference const& trackerKey,
+        IdentifierReference const& identifier,
+        Message::Extension::Status::Code statusCode,
+        std::size_t remaining);
+
+    Response(Response const& other) = delete;
+    Response(Response&& other) = delete;
+    Response& operator=(Response const& other) = delete;
+    Response& operator=(Response&& other) = delete;
+
+    [[nodiscard]] Awaitable::TrackerKey const& GetTrackerKey() const;
+    [[nodiscard]] Node::Identifier const& GetSource() const;
+    [[nodiscard]] bool HasPayload() const;
+    [[nodiscard]] Message::Payload const& GetPayload() const;
+    [[nodiscard]] Network::Protocol GetEndpointProtocol() const;
+    [[nodiscard]] Message::Extension::Status::Code GetStatusCode() const;
+    [[nodiscard]] bool HasErrorCode() const;
+    [[nodiscard]] std::size_t GetRemaining() const;
+
+    UT_SupportMethod(Message::Application::Parcel const& GetUnderlyingMessage() const);
+
+private:
+    TrakerReference m_trackerKey;
+    IdentifierReference m_identifier;
+    std::optional<MessageReference> m_optMessage;
+    Message::Extension::Status::Code m_statusCode;
+    std::size_t m_remaining;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

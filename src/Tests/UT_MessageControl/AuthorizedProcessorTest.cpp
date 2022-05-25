@@ -388,8 +388,10 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelAwaitableResponseTest)
 
     std::optional<Message::Application::Parcel> optCapturedResponse;
     auto const optTrackerKey = m_spTrackingService->StageRequest(m_spProxy, 
-        [&optCapturedResponse] (auto const&, auto const& response) { optCapturedResponse = response; },
-        [&] (auto const&, auto const&, auto) { ASSERT_FALSE(true); }, builder);
+        [&optCapturedResponse] (Peer::Action::Response const& response) { 
+            optCapturedResponse = response.GetUnderlyingMessage<InvokeContext::Test>();
+        },
+        [&] (Peer::Action::Response const&) { ASSERT_FALSE(true); }, builder);
     ASSERT_TRUE(optTrackerKey); // The service should supply a tracker key on success. 
     ASSERT_FALSE(optCapturedResponse);
 

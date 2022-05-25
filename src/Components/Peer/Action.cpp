@@ -153,3 +153,79 @@ bool Peer::Action::Next::ScheduleSend(Message::Application::Parcel const& messag
 }
 
 //----------------------------------------------------------------------------------------------------------------------
+
+Peer::Action::Response::Response(
+    TrakerReference const& trackerKey,
+    MessageReference const& message,
+    Message::Extension::Status::Code statusCode,
+    std::size_t remaining)
+    : m_trackerKey(trackerKey)
+    , m_identifier(message.get().GetSource())
+    , m_optMessage(message)
+    , m_statusCode(statusCode)
+    , m_remaining(remaining)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Peer::Action::Response::Response(
+    TrakerReference const& trackerKey,
+    IdentifierReference const& identifier,
+    Message::Extension::Status::Code statusCode,
+    std::size_t remaining)
+    : m_trackerKey(trackerKey)
+    , m_identifier(identifier)
+    , m_optMessage()
+    , m_statusCode(statusCode)
+    , m_remaining(remaining)
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Awaitable::TrackerKey const& Peer::Action::Response::GetTrackerKey() const { return m_trackerKey.get(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::Identifier const& Peer::Action::Response::GetSource() const { return m_identifier.get(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Action::Response::HasPayload() const { return m_optMessage.has_value(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Payload const& Peer::Action::Response::GetPayload() const { return m_optMessage->get().GetPayload(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::Protocol Peer::Action::Response::GetEndpointProtocol() const 
+{ 
+    return m_optMessage->get().GetContext().GetEndpointProtocol();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Extension::Status::Code Peer::Action::Response::GetStatusCode() const { return m_statusCode; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Action::Response::HasErrorCode() const
+{
+    return Message::Extension::Status::IsErrorCode(m_statusCode);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Peer::Action::Response::GetRemaining() const { return m_remaining; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+Message::Application::Parcel const& Peer::Action::Response::GetUnderlyingMessage<InvokeContext::Test>() const
+{
+    return m_optMessage->get();
+}
+
+//----------------------------------------------------------------------------------------------------------------------

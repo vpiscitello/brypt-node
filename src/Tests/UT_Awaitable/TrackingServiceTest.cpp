@@ -204,14 +204,21 @@ TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
 
-    std::vector<Message::Application::Parcel> responses;
-    auto const onResponse = [&responses] (auto const&, Message::Application::Parcel const& parcel) {
-        responses.emplace_back(parcel);
+    std::unordered_set<Node::Identifier, Node::IdentifierHasher> processed;
+
+    auto const onResponse = [&processed] (Peer::Action::Response const& response) {
+        auto const [itr, emplaced] = processed.emplace(response.GetSource());
+        EXPECT_TRUE(emplaced);
+        ASSERT_TRUE(response.HasPayload());
+        EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Ok);
     };
 
-    std::vector<std::tuple<Awaitable::TrackerKey, Node::SharedIdentifier, Peer::Action::Error>> errors;
-    auto const onError = [&errors] (auto const& key, auto const& spIdentifier, auto error) {
-        errors.emplace_back(std::make_tuple(key, spIdentifier, error));
+    auto const onError = [&processed] (Peer::Action::Response const& response) {
+        auto const [itr, emplaced] = processed.emplace(response.GetSource());
+        EXPECT_TRUE(emplaced);
+        EXPECT_FALSE(response.HasPayload());
+        EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::RequestTimeout);
     };
 
     auto const identifiers = Awaitable::Test::GenerateIdentifiers(test::ServerIdentifier, 16);
@@ -247,31 +254,6 @@ TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
     EXPECT_EQ(m_spScheduler->Run<InvokeContext::Test>(frames), std::size_t{ 1 });
     EXPECT_EQ(service.Waiting(), std::size_t{ 0 });
     EXPECT_EQ(service.Ready(), std::size_t{ 0 });
-
-    EXPECT_EQ(responses.size(), responded);
-    EXPECT_EQ(errors.size(), identifiers.size() - responded);
-
-    std::unordered_set<Node::Identifier, Node::IdentifierHasher> processed;
-    for (auto const& response : responses) {
-        auto const [itr, emplaced] = processed.emplace(response.GetSource());
-        EXPECT_TRUE(emplaced);
-        EXPECT_EQ(response.GetDestination(), *test::ServerIdentifier);
-        EXPECT_EQ(response.GetRoute(), Awaitable::Test::RequestRoute);
-        
-        auto const optExtension = response.GetExtension<Message::Application::Extension::Awaitable>();
-        EXPECT_TRUE(optExtension);
-        EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-        EXPECT_EQ(optExtension->get().GetTracker(), tracker);  
-    }
-
-    for (auto const& [key, spIdentifier, error] : errors) {
-        EXPECT_EQ(key, tracker);
-
-        auto const [itr, emplaced] = processed.emplace(*spIdentifier);
-        EXPECT_TRUE(emplaced);
-
-        EXPECT_EQ(error, Peer::Action::Error::Expired);
-    }
 
     for (auto const& spIdentifier : identifiers) { EXPECT_TRUE(processed.contains(*spIdentifier)); }
 }
