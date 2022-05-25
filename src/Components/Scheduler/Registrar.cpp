@@ -182,7 +182,7 @@ bool Scheduler::Registrar::UpdatePriorityOrder()
 
         // Use the delegate's dependency set to compute the dependent counts for each referenced delegate. 
         std::ranges::for_each(delegates, [&dependents] (auto const& delegate) {
-            std::ranges::for_each(delegate->GetDependencies(), [&dependents] (auto dependency) { 
+            std::ranges::for_each(delegate->GetDependencies(), [&] (auto dependency) { 
                 dependents[dependency] += 1;
             });
         });

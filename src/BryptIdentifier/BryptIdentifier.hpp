@@ -123,7 +123,7 @@ struct fmt::formatter<Node::Identifier>
     template <typename FormatContext>
     auto format(Node::Identifier const& identifier, FormatContext& ctx) const -> decltype(ctx.out())
     {
-        return format_to(ctx.out(), std::string_view{ "{}" }, static_cast<Node::External::Identifier const&>( identifier ));
+        return fmt::format_to(ctx.out(), "{}", static_cast<Node::External::Identifier const&>( identifier ));
     }
 };
 
