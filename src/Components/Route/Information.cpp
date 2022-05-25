@@ -106,7 +106,8 @@ bool Route::Fundamental::Information::NodeHandler::OnMessage(
     if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
 
     return next.Respond(
-        Json::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache));
+        Json::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache),
+        Message::Extension::Status::Ok);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -73,7 +73,7 @@ TEST(AuxillaryHandlerSuite, ExternalHandlerTest)
         });
 
     auto const onMessage = [] (Message::Application::Parcel const&, Peer::Action::Next& next) -> bool {
-        return next.Respond(test::ResponsePayload);
+        return next.Respond(test::ResponsePayload, Message::Extension::Status::Ok);
     };
 
     EXPECT_TRUE(router.Register<Route::Auxiliary::ExternalHandler>(test::AuxiliaryRoute, onMessage));

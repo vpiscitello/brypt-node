@@ -108,10 +108,17 @@ bool Peer::Action::Next::Dispatch(std::string_view route, Message::Payload&& pay
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Action::Next::Respond(Message::Payload&& payload) const
+bool Peer::Action::Next::Respond(Message::Extension::Status::Code statusCode) const
+{
+    return Respond(Message::Payload{ }, statusCode);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Action::Next::Respond(Message::Payload&& payload, Message::Extension::Status::Code statusCode) const
 {
     if (auto const& spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
-        using namespace Message::Application;
+        using namespace Message;
         auto const optAwaitable = m_message.get().GetExtension<Extension::Awaitable>(); 
         if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
 
@@ -123,7 +130,8 @@ bool Peer::Action::Next::Respond(Message::Payload&& payload) const
             .SetDestination(m_message.get().GetSource())
             .SetRoute(m_message.get().GetRoute())
             .SetPayload(std::move(payload))
-            .BindExtension<Extension::Awaitable>(Extension::Awaitable::Response, optAwaitable->get().GetTracker());
+            .BindExtension<Extension::Awaitable>(Extension::Awaitable::Response, optAwaitable->get().GetTracker())
+            .BindExtension<Extension::Status>(statusCode);
 
         if (auto const optResponse = builder.ValidatedBuild(); optResponse) { 
             return ScheduleSend(*optResponse);

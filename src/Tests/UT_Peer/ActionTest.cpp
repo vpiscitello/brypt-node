@@ -113,8 +113,8 @@ protected:
             .SetDestination(*test::ServerIdentifier)
             .SetRoute(Peer::Test::RequestRoute)
             .SetPayload(Peer::Test::RequestPayload)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Request, Peer::Test::TrackerKey)
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Request, Peer::Test::TrackerKey)
             .ValidatedBuild();
         ASSERT_TRUE(optMessage);
         m_message = *optMessage;
@@ -165,9 +165,9 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::RequestRoute);
     EXPECT_EQ(m_optResult->GetPayload(), Peer::Test::RequestPayload);
     
-    auto const optRequestExtension = m_optResult->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optRequestExtension = m_optResult->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optRequestExtension);
-    EXPECT_EQ(optRequestExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Request);
+    EXPECT_EQ(optRequestExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Request);
     ASSERT_NE(optRequestExtension->get().GetTracker(), Awaitable::TrackerKey{ 0 });
     ASSERT_NE(optRequestExtension->get().GetTracker(), Peer::Test::TrackerKey);
     EXPECT_EQ(m_spTrackingService->Waiting(), std::size_t{ 1 });
@@ -180,9 +180,10 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
             .SetDestination(*test::ServerIdentifier)
             .SetRoute(Peer::Test::RequestRoute)
             .SetPayload(Peer::Test::ApplicationPayload)
-            .BindExtension<Message::Application::Extension::Awaitable>(
-                Message::Application::Extension::Awaitable::Binding::Response,
-                optRequestExtension->get().GetTracker())
+            .BindExtension<Message::Extension::Awaitable>(
+                Message::Extension::Awaitable::Binding::Response, optRequestExtension->get().GetTracker())
+            .BindExtension<Message::Extension::Status>(
+                Message::Extension::Status::Accepted)
             .ValidatedBuild();
         ASSERT_TRUE(optMessage);
             
@@ -283,9 +284,9 @@ TEST_F(PeerActionSuite, DeferTest)
     EXPECT_EQ(m_optResult->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::RequestRoute);
     
-    auto const optExtension = m_optResult->GetExtension<Message::Application::Extension::Awaitable>();
+    auto const optExtension = m_optResult->GetExtension<Message::Extension::Awaitable>();
     EXPECT_TRUE(optExtension);
-    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optExtension->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
     EXPECT_EQ(optExtension->get().GetTracker(), Peer::Test::TrackerKey);
 
     {
@@ -333,7 +334,7 @@ TEST_F(PeerActionSuite, DispatchTest)
     EXPECT_EQ(m_optResult->GetDestination(), test::ClientIdentifier);
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::ResponseRoute);
     EXPECT_EQ(m_optResult->GetPayload().GetStringView(), Peer::Test::ApplicationPayload);
-    EXPECT_FALSE(m_optResult->GetExtension<Message::Application::Extension::Awaitable>());
+    EXPECT_FALSE(m_optResult->GetExtension<Message::Extension::Awaitable>());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -343,7 +344,7 @@ TEST_F(PeerActionSuite, RespondExpectedTest)
     Peer::Action::Next next{ m_spProxy, m_message, m_spServiceProvider };
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
-    EXPECT_TRUE(next.Respond(Peer::Test::ApplicationPayload));
+    EXPECT_TRUE(next.Respond(Peer::Test::ApplicationPayload, Message::Extension::Status::Created));
     EXPECT_FALSE(next.GetTrackerKey());
 
     ASSERT_TRUE(m_optResult);
@@ -352,10 +353,14 @@ TEST_F(PeerActionSuite, RespondExpectedTest)
     EXPECT_EQ(m_optResult->GetRoute(), Peer::Test::RequestRoute);
     EXPECT_EQ(m_optResult->GetPayload().GetStringView(), Peer::Test::ApplicationPayload);
 
-    auto const optExtension = m_optResult->GetExtension<Message::Application::Extension::Awaitable>();
-    EXPECT_TRUE(optExtension);
-    EXPECT_EQ(optExtension->get().GetBinding(), Message::Application::Extension::Awaitable::Binding::Response);
-    EXPECT_EQ(optExtension->get().GetTracker(), Peer::Test::TrackerKey);  
+    auto const optAwaitable = m_optResult->GetExtension<Message::Extension::Awaitable>();
+    EXPECT_TRUE(optAwaitable);
+    EXPECT_EQ(optAwaitable->get().GetBinding(), Message::Extension::Awaitable::Binding::Response);
+    EXPECT_EQ(optAwaitable->get().GetTracker(), Peer::Test::TrackerKey);
+
+    auto const optStatus = m_optResult->GetExtension<Message::Extension::Status>();
+    EXPECT_TRUE(optStatus);
+    EXPECT_EQ(optStatus->get().GetCode(), Message::Extension::Status::Created);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -374,7 +379,7 @@ TEST_F(PeerActionSuite, RespondRequestMissingAwaitableTest)
     Peer::Action::Next next{ m_spProxy, *optRequest, m_spServiceProvider };
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
-    EXPECT_FALSE(next.Respond(Peer::Test::ApplicationPayload));
+    EXPECT_FALSE(next.Respond(Peer::Test::ApplicationPayload, Message::Extension::Status::Created));
     EXPECT_FALSE(m_optResult);
 }
 
@@ -388,15 +393,15 @@ TEST_F(PeerActionSuite, RespondRequestInvalidAwaitableTest)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(Peer::Test::RequestRoute)
         .SetPayload(Peer::Test::RequestPayload)
-        .BindExtension<Message::Application::Extension::Awaitable>(
-            Message::Application::Extension::Awaitable::Response, Peer::Test::TrackerKey)
+        .BindExtension<Message::Extension::Awaitable>(
+            Message::Extension::Awaitable::Response, Peer::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optRequest);
 
     Peer::Action::Next next{ m_spProxy, *optRequest, m_spServiceProvider };
     EXPECT_EQ(next.GetProxy().lock(), m_spProxy);
 
-    EXPECT_FALSE(next.Respond(Peer::Test::ApplicationPayload));
+    EXPECT_FALSE(next.Respond(Peer::Test::ApplicationPayload, Message::Extension::Status::Created));
     EXPECT_FALSE(m_optResult);
 }
 

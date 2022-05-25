@@ -66,12 +66,18 @@ public:
         std::reference_wrapper<Message::Application::Parcel const> const& message,
         std::weak_ptr<Node::ServiceProvider> const& wpServiceProvider);
 
+    Next(Next const& other) = delete;
+    Next(Next&& other) = delete;
+    Next& operator=(Next const& other) = delete;
+    Next& operator=(Next&& other) = delete;
+
     [[nodiscard]] std::weak_ptr<Proxy> const& GetProxy() const;
     [[nodiscard]] std::optional<Awaitable::TrackerKey> const& GetTrackerKey() const;
 
     [[nodiscard]] std::optional<Awaitable::TrackerKey> Defer(DeferredOptions&& options);
     [[nodiscard]] bool Dispatch(std::string_view route, Message::Payload&& payload = {}) const;
-    [[nodiscard]] bool Respond(Message::Payload&& payload = {}) const;
+    [[nodiscard]] bool Respond(Message::Extension::Status::Code statusCode) const;
+    [[nodiscard]] bool Respond(Message::Payload&& payload, Message::Extension::Status::Code statusCode) const;
 
 private:
     [[nodiscard]] bool ScheduleSend(Message::Application::Parcel const& message) const;
