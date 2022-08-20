@@ -199,6 +199,20 @@ Node::Identifier::operator Node::External::Identifier const&() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Node::Internal::Identifier const& Node::Identifier::ToInternal() const
+{
+    return m_internal;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Node::External::Identifier const& Node::Identifier::ToExternal() const
+{
+    return m_network;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::size_t Node::Identifier::Size() const
 {
     return m_network.size();

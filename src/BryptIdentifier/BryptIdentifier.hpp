@@ -76,6 +76,10 @@ public:
 
     operator Internal::Identifier const&() const;
     operator External::Identifier const&() const;
+
+    Internal::Identifier const& ToInternal() const;
+    External::Identifier const& ToExternal() const;
+
     std::size_t Size() const;
     bool IsValid() const;
 
