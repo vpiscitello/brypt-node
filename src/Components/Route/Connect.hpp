@@ -49,12 +49,10 @@ public:
     // }IMessageHandler
 
 private:
-    [[nodiscard]] bool HandleMessage(Message::Application::Parcel const& message, Peer::Action::Next& next);
-    [[nodiscard]] bool BuildResponse(Peer::Action::Next& next);
-
     std::weak_ptr<NodeState> m_wpNodeState;
     std::weak_ptr<BootstrapService> m_wpBootstrapService;
     std::weak_ptr<Network::Manager> m_wpNetworkManager;
+    Message::Payload m_response;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -78,7 +76,7 @@ public:
 private:
     Node::SharedIdentifier m_spNodeIdentifier;
     std::weak_ptr<Network::Manager> m_wpNetworkManager;
-    std::shared_ptr<std::string const> m_spSharedPayload;
+    Message::Payload m_payload;
     std::shared_ptr<spdlog::logger> m_logger;
 };
 

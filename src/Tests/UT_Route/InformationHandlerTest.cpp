@@ -20,8 +20,8 @@
 #include "Utilities/CallbackIteration.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <boost/json.hpp>
 #include <gtest/gtest.h>
-#include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <chrono>
@@ -32,61 +32,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-// Description: Symbol loading for JSON encoding
-//----------------------------------------------------------------------------------------------------------------------
-#ifndef LI_SYMBOL_identifier
-#define LI_SYMBOL_identifier
-LI_SYMBOL(identifier)
-#endif
-#ifndef LI_SYMBOL_cluster
-#define LI_SYMBOL_cluster
-LI_SYMBOL(cluster)
-#endif
-#ifndef LI_SYMBOL_coordinator
-#define LI_SYMBOL_coordinator
-LI_SYMBOL(coordinator)
-#endif
-#ifndef LI_SYMBOL_data
-#define LI_SYMBOL_data
-LI_SYMBOL(data)
-#endif
-#ifndef LI_SYMBOL_neighbor_count
-#define LI_SYMBOL_neighbor_count
-LI_SYMBOL(neighbor_count)
-#endif
-#ifndef LI_SYMBOL_designation
-#define LI_SYMBOL_designation
-LI_SYMBOL(designation)
-#endif
-#ifndef LI_SYMBOL_protocols
-#define LI_SYMBOL_protocols
-LI_SYMBOL(protocols)
-#endif
-#ifndef LI_SYMBOL_update_timestamp
-#define LI_SYMBOL_update_timestamp
-LI_SYMBOL(update_timestamp)
-#endif
-//----------------------------------------------------------------------------------------------------------------------
-
-//----------------------------------------------------------------------------------------------------------------------
 namespace {
 namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 class InformationResources;
-
-auto DeserializeNodeInformation(std::string_view json)
-{
-    auto payload = li::mmm(
-        s::cluster = std::uint32_t(),
-        s::neighbor_count = std::uint32_t(),
-        s::designation = std::string(),
-        s::protocols = std::vector<std::string>(),
-        s::update_timestamp = std::uint64_t());
-
-    auto error = li::json_decode(json, payload);
-    return std::make_pair(payload, !error.bad());
-}
 
 //----------------------------------------------------------------------------------------------------------------------
 } // local namespace
@@ -113,7 +63,20 @@ constexpr auto RuntimeOptions = Configuration::Options::Runtime
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-} // local namespace
+} // test namespace
+//----------------------------------------------------------------------------------------------------------------------
+namespace symbols {
+//----------------------------------------------------------------------------------------------------------------------
+
+auto const Cluster = "cluster";
+auto const Coordinator = "coordinator";
+auto const Designation = "designation";
+auto const NeighborCount = "neighbor_count";
+auto const Protocols = "protocols";
+auto const UpdateTimestamp = "update_timestamp";
+
+//----------------------------------------------------------------------------------------------------------------------
+} // symbols namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -229,15 +192,57 @@ TEST_F(InformationHandlerSuite, NodeHandlerTest)
             auto const spProxy = wpProxy.lock();
             ASSERT_TRUE(spProxy);
 
-            auto [payload, success] = local::DeserializeNodeInformation(response.GetPayload().GetStringView());
-            EXPECT_TRUE(success);
+            boost::json::error_code error;
+            auto const json = boost::json::parse(response.GetPayload().GetStringView());
+            ASSERT_FALSE(error);
+            ASSERT_TRUE(json.is_object());
 
-            EXPECT_EQ(payload.cluster, m_server.GetNodeState()->GetCluster());
-            EXPECT_EQ(payload.neighbor_count,  static_cast<std::uint32_t>(m_server.GetPeerCache()->ActiveCount()));
-            EXPECT_EQ(payload.designation, NodeUtils::GetDesignation(m_server.GetNodeState()->GetOperation()));
-            EXPECT_EQ(
-                payload.update_timestamp, m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
-            EXPECT_EQ(payload.protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
+            auto const& object = json.get_object();
+
+            {
+                auto const& field = object.at(symbols::Cluster);
+                ASSERT_TRUE(field.is_int64());
+
+                auto const& value = field.get_int64();
+                EXPECT_EQ(value, m_server.GetNodeState()->GetCluster());
+            }
+
+            {
+                auto const& field = object.at(symbols::Designation);
+                ASSERT_TRUE(field.is_string());
+
+                auto const& value = field.get_string();
+                EXPECT_EQ(value, NodeUtils::GetDesignation(m_server.GetNodeState()->GetOperation()));
+            }
+
+            {
+                auto const& field = object.at(symbols::NeighborCount);
+                ASSERT_TRUE(field.is_int64());
+
+                auto const& value = field.get_int64();
+                EXPECT_EQ(value, static_cast<std::int64_t>(m_server.GetPeerCache()->ActiveCount()));
+            }
+
+            {
+                auto const& field = object.at(symbols::Protocols);
+                ASSERT_TRUE(field.is_array());
+
+                auto const& value = field.get_array();
+                std::vector<std::string> protocols;
+                std::ranges::transform(value, std::back_inserter(protocols), [&] (boost::json::value const& entry) -> std::string {
+                    EXPECT_TRUE(entry.is_string());
+                    return entry.as_string().c_str();
+                });
+                EXPECT_EQ(protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
+            }
+
+            {
+                auto const& field = object.at(symbols::UpdateTimestamp);
+                ASSERT_TRUE(field.is_int64());
+
+                auto const& value = field.get_int64();
+                EXPECT_EQ(value, m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
+            }
         },
         [&] (Peer::Action::Response const&) { ASSERT_FALSE(true); });
     EXPECT_TRUE(optTrackerKey);
@@ -274,39 +279,77 @@ TEST_F(InformationHandlerSuite, FetchNodeHandlerTest)
             auto const spProxy = wpProxy.lock();
             ASSERT_TRUE(spProxy);
 
-            auto const json = response.GetPayload().GetStringView();
-            struct PayloadEntry {
-                std::string identifier;
-                std::vector<std::uint8_t> data;
-            };
-            std::vector<PayloadEntry> deserialized;
-            auto const error = li::json_object_vector(s::identifier, s::data).decode(json, deserialized);
-            EXPECT_FALSE(error.code);
 
-            // The response vector should include the server's response and all of its peers. 
-            EXPECT_EQ(deserialized.size(), test::PeerCount + 1); 
+            boost::json::error_code error;
+            auto const responseEntriesJson = boost::json::parse(response.GetPayload().GetStringView(), error);
+            ASSERT_FALSE(error);
+            ASSERT_TRUE(responseEntriesJson.is_object());
 
             std::string const& serverIdentifier = static_cast<std::string const&>(*test::ServerIdentifier);
             bool hasFoundServerResponse = false;
-            for (auto const& entry : deserialized) {
-                if (entry.identifier == serverIdentifier) {
-                    auto const json = std::string_view{ reinterpret_cast<char const*>(entry.data.data()), entry.data.size() };
-                    auto [payload, success] = local::DeserializeNodeInformation(json);
-                    EXPECT_TRUE(success);
+            for (auto const& [identifier, data]:responseEntriesJson.get_object()) {
+                ASSERT_TRUE(data.is_string());
 
-                    EXPECT_EQ(payload.cluster, m_server.GetNodeState()->GetCluster());
-                    EXPECT_EQ(
-                        payload.neighbor_count,  static_cast<std::uint32_t>(m_server.GetPeerCache()->ActiveCount()));
-                    EXPECT_EQ(payload.designation, NodeUtils::GetDesignation(m_server.GetNodeState()->GetOperation()));
-                    EXPECT_EQ(
-                        payload.update_timestamp,
-                        m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
-                    EXPECT_EQ(payload.protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
+                if (identifier == serverIdentifier) {
+                    //auto const json = std::string_view{ reinterpret_cast<char const*>(entry.data.data()), entry.data.size() };
+
+                    boost::json::error_code error;
+                    auto const json = boost::json::parse(response.GetPayload().GetStringView());
+                    ASSERT_FALSE(error);
+                    ASSERT_TRUE(json.is_object());
+
+                    auto const& object = json.get_object();
+
+                    {
+                        auto const& field = object.at(symbols::Cluster);
+                        ASSERT_TRUE(field.is_int64());
+
+                        auto const& value = field.get_int64();
+                        EXPECT_EQ(value, m_server.GetNodeState()->GetCluster());
+                    }
+
+                    {
+                        auto const& field = object.at(symbols::Designation);
+                        ASSERT_TRUE(field.is_string());
+
+                        auto const& value = field.get_string();
+                        EXPECT_EQ(value, NodeUtils::GetDesignation(m_server.GetNodeState()->GetOperation()));
+                    }
+
+                    {
+                        auto const& field = object.at(symbols::NeighborCount);
+                        ASSERT_TRUE(field.is_int64());
+
+                        auto const& value = field.get_int64();
+                        EXPECT_EQ(value, static_cast<std::int64_t>(m_server.GetPeerCache()->ActiveCount()));
+                    }
+
+                    {
+                        auto const& field = object.at(symbols::Protocols);
+                        ASSERT_TRUE(field.is_array());
+
+                        auto const& value = field.get_array();
+                        std::vector<std::string> protocols;
+                        std::ranges::transform(value, std::back_inserter(protocols), [&](boost::json::value const& entry) -> std::string {
+                            EXPECT_TRUE(entry.is_string());
+                            return entry.as_string().c_str();
+                        });
+                        EXPECT_EQ(protocols, std::vector<std::string>{ std::string{ Network::TestScheme } });
+                    }
+
+                    {
+                        auto const& field = object.at(symbols::UpdateTimestamp);
+                        ASSERT_TRUE(field.is_int64());
+
+                        auto const& value = field.get_int64();
+                        EXPECT_EQ(value, m_server.GetNetworkState()->GetUpdatedTimepoint().time_since_epoch().count());
+                    }
+
                     hasFoundServerResponse = true;
                 } else {
                     // TODO: The entries for the other "peers" are manually inserted. In a real deployment
                     // (when notices are implemented), they contain the node info response. 
-                    EXPECT_TRUE(std::ranges::equal(entry.data, Route::Test::Message));
+                    //EXPECT_TRUE(std::ranges::equal(entry.data, Route::Test::Message));
                 }
             }
             EXPECT_TRUE(hasFoundServerResponse);

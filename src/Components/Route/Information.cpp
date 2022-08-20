@@ -19,16 +19,21 @@
 #include "Interfaces/PeerCache.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include <lithium_json.hh>
+#include <boost/json.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
+namespace symbols {
 //----------------------------------------------------------------------------------------------------------------------
-namespace Json {
-//----------------------------------------------------------------------------------------------------------------------
+
+constexpr std::string_view Cluster = "cluster";
+constexpr std::string_view NeighborCount = "neighbor_count";
+constexpr std::string_view Designation = "designation";
+constexpr std::string_view Protocols = "protocols";
+constexpr std::string_view UpdateTimestamp = "update_timestamp";
 
 std::string GenerateNodeInfo(
     std::weak_ptr<NodeState> const& wpNodeState,
@@ -37,42 +42,14 @@ std::string GenerateNodeInfo(
     std::weak_ptr<IPeerCache> const& wpPeerCache);
 
 //----------------------------------------------------------------------------------------------------------------------
-} // Json namespace
-//----------------------------------------------------------------------------------------------------------------------
+} // symbols namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 // Description: Symbol loading for JSON encoding
 //----------------------------------------------------------------------------------------------------------------------
-#ifndef LI_SYMBOL_identifier
-#define LI_SYMBOL_identifier
-LI_SYMBOL(identifier)
-#endif
-#ifndef LI_SYMBOL_cluster
-#define LI_SYMBOL_cluster
-LI_SYMBOL(cluster)
-#endif
-#ifndef LI_SYMBOL_coordinator
-#define LI_SYMBOL_coordinator
-LI_SYMBOL(coordinator)
-#endif
-#ifndef LI_SYMBOL_neighbor_count
-#define LI_SYMBOL_neighbor_count
-LI_SYMBOL(neighbor_count)
-#endif
-#ifndef LI_SYMBOL_designation
-#define LI_SYMBOL_designation
-LI_SYMBOL(designation)
-#endif
-#ifndef LI_SYMBOL_protocols
-#define LI_SYMBOL_protocols
-LI_SYMBOL(protocols)
-#endif
-#ifndef LI_SYMBOL_update_timestamp
-#define LI_SYMBOL_update_timestamp
-LI_SYMBOL(update_timestamp)
-#endif
+//
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Route::Fundamental::Information::NodeHandler::OnFetchServices(
@@ -106,7 +83,7 @@ bool Route::Fundamental::Information::NodeHandler::OnMessage(
     if (!optAwaitable || optAwaitable->get().GetBinding() != Extension::Awaitable::Request) { return false; }
 
     return next.Respond(
-        Json::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache),
+        symbols::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache),
         Message::Extension::Status::Ok);
 }
 
@@ -146,7 +123,7 @@ bool Route::Fundamental::Information::FetchNodeHandler::OnMessage(
             .route = NodeHandler::Path
         },
         .response = {
-            .payload = Json::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache)
+            .payload = symbols::GenerateNodeInfo(m_wpNodeState, m_wpNetworkState, m_wpNetworkManager, m_wpPeerCache)
         }
     });
 
@@ -155,41 +132,36 @@ bool Route::Fundamental::Information::FetchNodeHandler::OnMessage(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string Json::GenerateNodeInfo(
+std::string symbols::GenerateNodeInfo(
     std::weak_ptr<NodeState> const& wpNodeState,
     std::weak_ptr<NetworkState> const& wpNetworkState,
     std::weak_ptr<Network::Manager> const& wpNetworkManager,
     std::weak_ptr<IPeerCache> const& wpPeerCache)
 {
-    // Make a response message to filled out by the handler
-    auto payload = li::mmm(
-        s::cluster = std::uint32_t(),
-        s::neighbor_count = std::uint32_t(),
-        s::designation = std::string(),
-        s::protocols = std::vector<std::string>(),
-        s::update_timestamp = std::uint64_t());
-
-    if (auto const spNodeState = wpNodeState.lock(); spNodeState) { 
-        payload.cluster = spNodeState->GetCluster();
-        payload.designation = NodeUtils::GetDesignation(spNodeState->GetOperation());
+    boost::json::object json;
+    if (auto const spNodeState = wpNodeState.lock(); spNodeState) {
+        json[symbols::Cluster] = spNodeState->GetCluster();
+        json[symbols::Designation] = NodeUtils::GetDesignation(spNodeState->GetOperation());
     }
 
     if (auto const spNetworkState = wpNetworkState.lock(); spNetworkState) { 
-        payload.update_timestamp = spNetworkState->GetUpdatedTimepoint().time_since_epoch().count();
+        json[symbols::UpdateTimestamp] = spNetworkState->GetUpdatedTimepoint().time_since_epoch().count();
     }
-
+    
+    boost::json::array protocols;
     if (auto const spNetworkManager = wpNetworkManager.lock(); spNetworkManager) { 
-        std::ranges::transform(
-            spNetworkManager->GetEndpointProtocols(),
-            std::back_inserter(payload.protocols),
-            [] (auto const& protocol) { return Network::ProtocolToString(protocol); });
+        for (auto const& protocol : spNetworkManager->GetEndpointProtocols()) {
+            protocols.emplace_back(Network::ProtocolToString(protocol));
+        }
     }
 
-    if (auto const spPeerCache = wpPeerCache.lock(); spPeerCache) { 
-        payload.neighbor_count = static_cast<std::uint32_t>(spPeerCache->ActiveCount());
+    json[symbols::Protocols] = std::move(protocols);
+
+    if (auto const spPeerCache = wpPeerCache.lock(); spPeerCache) {
+        json[symbols::NeighborCount] = spPeerCache->ActiveCount();
     }
 
-    return li::json_encode(payload);
+    return boost::json::serialize(json);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

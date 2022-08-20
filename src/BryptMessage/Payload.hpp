@@ -8,6 +8,8 @@
 #include "MessageTypes.hpp"
 #include "PackUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <boost/json/value.hpp>
+//----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cstdint>
 #include <concepts>
@@ -47,6 +49,7 @@ class StorageInterface : public virtual DataInterface::Viewable, public virtual 
 public:
     ~StorageInterface() = default;
 	[[nodiscard]] virtual std::unique_ptr<StorageInterface> Clone() const = 0;
+    virtual void ExtractToJsonValue(boost::json::value& target) = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -62,6 +65,7 @@ public:
 
 	// StorageInterface {
 	[[nodiscard]] virtual std::unique_ptr<StorageInterface> Clone() const override;
+    virtual void ExtractToJsonValue(boost::json::value& target) override;
 	// } StorageInterface
 
 	// Viewable {
@@ -101,6 +105,11 @@ public:
 	[[nodiscard]] virtual std::unique_ptr<StorageInterface> Clone() const override
     {
         return std::make_unique<StorageContainer<StorageType>>(StorageType{ m_data });
+    }
+
+    virtual void ExtractToJsonValue(boost::json::value& target) override
+    {
+        target = boost::json::value_from(*m_data);
     }
 	// } StorageInterface
 
@@ -181,6 +190,8 @@ public:
 
     [[nodiscard]] bool operator==(Payload const& other) const;
 
+    void ExtractToJsonValue(boost::json::value& target);
+
 	// Viewable {
     [[nodiscard]] virtual std::span<std::uint8_t const> GetReadableView() const override;
     [[nodiscard]] virtual std::string_view GetStringView() const override;
@@ -212,9 +223,17 @@ inline Message::StorageContainer<StorageType>::StorageContainer(StorageType&& da
 //----------------------------------------------------------------------------------------------------------------------
 
 template<Message::BufferStorageType StorageType>
-inline std::unique_ptr<Message::StorageInterface> Message::StorageContainer<StorageType>::StorageContainer::Clone() const
+inline std::unique_ptr<Message::StorageInterface> Message::StorageContainer<StorageType>::Clone() const
 {
 	return std::make_unique<StorageContainer<StorageType>>(StorageType{ m_data });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<Message::BufferStorageType StorageType>
+inline void Message::StorageContainer<StorageType>::ExtractToJsonValue(boost::json::value& target)
+{
+    target = boost::json::value_from(std::move(m_data));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -411,6 +430,13 @@ inline bool Message::Payload::operator==(Payload const& other) const
 {
     if (!m_storage || !other.m_storage) [[unlikely]] { return false; }
     return std::ranges::equal(m_storage->GetReadableView(), other.m_storage->GetReadableView());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline void Message::Payload::ExtractToJsonValue(boost::json::value& target)
+{
+    if (m_storage) [[likely]] { m_storage->ExtractToJsonValue(target); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------

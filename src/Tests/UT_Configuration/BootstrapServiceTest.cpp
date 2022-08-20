@@ -341,13 +341,16 @@ Configuration::Options::Endpoint local::GenerateTcpOptions(std::uint16_t port)
         .useFilepathDeduction = false
     };
 
-    Configuration::Options::Endpoint options;
-    options.protocol = "TCP";
-    options.interface = "lo";
-    options.binding = test::TcpBootstrapBase.data() + std::to_string(port);
-    options.bootstrap = test::TcpBootstrapBase.data() + std::to_string(port);
+    Configuration::Options::Endpoint options{
+        "TCP",
+        "lo",
+        test::TcpBootstrapBase.data() + std::to_string(port),
+        test::TcpBootstrapBase.data() + std::to_string(port)
+    };
+
     [[maybe_unused]] bool const success = options.Initialize(RuntimeOptions, spdlog::get(Logger::Name::Core.data()));
     assert(success);
+
     return options;
 }
 

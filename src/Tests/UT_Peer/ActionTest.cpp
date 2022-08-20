@@ -15,8 +15,8 @@
 #include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
+#include <boost/json.hpp>
 #include <gtest/gtest.h>
-#include <lithium_json.hh>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <memory>
@@ -26,24 +26,8 @@
 using namespace std::chrono_literals;
 //----------------------------------------------------------------------------------------------------------------------
 
-#ifndef LI_SYMBOL_identifier
-#define LI_SYMBOL_identifier
-LI_SYMBOL(identifier)
-#endif
-#ifndef LI_SYMBOL_data
-#define LI_SYMBOL_data
-LI_SYMBOL(data)
-#endif
-
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
-namespace local {
-//----------------------------------------------------------------------------------------------------------------------
-
-
-//----------------------------------------------------------------------------------------------------------------------
-} // local namespace
-//----------------------------------------------------------------------------------------------------------------------
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -52,6 +36,15 @@ auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateI
 
 //----------------------------------------------------------------------------------------------------------------------
 } // test namespace
+//----------------------------------------------------------------------------------------------------------------------
+namespace symbols {
+//----------------------------------------------------------------------------------------------------------------------
+
+auto const Identifier = "identifier";
+auto const Data = "data";
+
+//----------------------------------------------------------------------------------------------------------------------
+} // symbols namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -277,24 +270,31 @@ TEST_F(PeerActionSuite, DeferTest)
     EXPECT_EQ(optExtension->get().GetTracker(), Peer::Test::TrackerKey);
 
     {
-        auto const json = m_optResult->GetPayload().GetStringView();
-        struct PayloadEntry {
-            std::string identifier;
-            std::vector<std::uint8_t> data;
-        };
-        std::vector<PayloadEntry> deserialized;
-        auto const error = li::json_object_vector(s::identifier, s::data).decode(json, deserialized);
-        EXPECT_FALSE(error.code);
-        EXPECT_FALSE(deserialized.empty());
+        boost::json::error_code error;
+        auto const json = boost::json::parse(m_optResult->GetPayload().GetStringView());
+        ASSERT_FALSE(error);
+        ASSERT_TRUE(json.is_object());
 
         std::unordered_set<Node::Identifier, Node::IdentifierHasher> identifiers;
-        bool const isExpectedPayload = std::ranges::all_of(deserialized, [&] (PayloadEntry const& entry) -> bool {
-            Node::Identifier identifier{ entry.identifier };
-            if (!identifier.IsValid()) { return false; }
-            if (auto const& [itr, emplaced] = identifiers.emplace(identifier); !emplaced) { return false; }
-            auto const buffer = std::string_view{ reinterpret_cast<char const*>(entry.data.data()), entry.data.size() };
-            return buffer == Peer::Test::ApplicationPayload;
+        bool const isExpectedPayload = std::ranges::all_of(json.as_object(), [&] (auto const& entry) -> bool {
+            auto const& [key, value] = entry;
+
+            {
+                Node::Identifier identifier{ key.data() };
+                if (!identifier.IsValid()) { return false; }
+                if (auto const& [itr, emplaced] = identifiers.emplace(identifier); !emplaced) { return false; }
+            }
+
+            {
+                EXPECT_TRUE(value.is_string());
+                auto const& dataString = value.get_string();
+                auto const buffer = std::string_view{ reinterpret_cast<char const*>(dataString.data()), dataString.size() };
+                if (buffer != Peer::Test::ApplicationPayload) { return false; }
+            }
+
+            return true;
         });
+
         EXPECT_TRUE(isExpectedPayload);
 
         bool hasExpectedIdentifiers = true;

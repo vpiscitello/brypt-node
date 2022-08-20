@@ -29,15 +29,12 @@ class Parser;
 class Configuration::Parser final
 {
 public:
-    using FetchedEndpoint = std::optional<std::reference_wrapper<Options::Endpoint const>>;
-
     explicit Parser(Options::Runtime const& options);
     Parser(std::filesystem::path const& filepath, Options::Runtime const& options);
     ~Parser();
 
     [[nodiscard]] StatusCode FetchOptions();
     [[nodiscard]] StatusCode Serialize();
-    [[nodiscard]] StatusCode LaunchGenerator();
 
     std::filesystem::path const& GetFilepath() const;
     void SetFilepath(std::filesystem::path const& filepath);
@@ -58,9 +55,9 @@ public:
     [[nodiscard]] std::int32_t GetConnectionRetryLimit() const;
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionRetryInterval() const;
     [[nodiscard]] Options::Endpoints const& GetEndpoints() const;
-    [[nodiscard]] FetchedEndpoint GetEndpoint(Network::BindingAddress const& binding) const;
-    [[nodiscard]] FetchedEndpoint GetEndpoint(std::string_view const& uri) const;
-    [[nodiscard]] FetchedEndpoint GetEndpoint(Network::Protocol protocol, std::string_view const& binding) const;
+    [[nodiscard]] Options::Network::FetchedEndpoint GetEndpoint(Network::BindingAddress const& binding) const;
+    [[nodiscard]] Options::Network::FetchedEndpoint GetEndpoint(std::string_view const& uri) const;
+    [[nodiscard]] Options::Network::FetchedEndpoint GetEndpoint(Network::Protocol protocol, std::string_view const& binding) const;
     [[nodiscard]] Security::Strategy GetSecurityStrategy() const;
     [[nodiscard]] std::optional<std::string> const& GetNetworkToken() const;
 
@@ -79,7 +76,7 @@ public:
     [[nodiscard]] bool SetConnectionTimeout(std::chrono::milliseconds const& timeout);
     [[nodiscard]] bool SetConnectionRetryLimit(std::int32_t limit);
     [[nodiscard]] bool SetConnectionRetryInterval(std::chrono::milliseconds const& interval);
-    [[nodiscard]] FetchedEndpoint UpsertEndpoint(Options::Endpoint&& options);
+    [[nodiscard]] Options::Network::FetchedEndpoint UpsertEndpoint(Options::Endpoint&& options);
     std::optional<Options::Endpoint> ExtractEndpoint(Network::BindingAddress const& binding);
     std::optional<Options::Endpoint> ExtractEndpoint(std::string_view const& uri);
     std::optional<Options::Endpoint> ExtractEndpoint(Network::Protocol protocol, std::string_view const& binding);
@@ -93,8 +90,6 @@ private:
     [[nodiscard]] bool AreOptionsAllowable() const;
     
     [[nodiscard]] StatusCode Deserialize();
-
-    void GetOptionsFromUser();
     
     std::shared_ptr<spdlog::logger> m_logger;
 

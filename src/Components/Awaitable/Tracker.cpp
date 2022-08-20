@@ -6,25 +6,14 @@
 #include "BryptIdentifier/BryptIdentifier.hpp"
 #include "Components/Peer/Proxy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include <lithium_json.hh>
+#include <boost/json.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cassert>
 #include <ranges>
 //----------------------------------------------------------------------------------------------------------------------
 
-#ifndef LI_SYMBOL_identifier
-#define LI_SYMBOL_identifier
-LI_SYMBOL(identifier)
-#endif
-#ifndef LI_SYMBOL_data
-#define LI_SYMBOL_data
-LI_SYMBOL(data)
-#endif
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Awaitable::ITracker::ITracker(Awaitable::TrackerKey key, std::size_t expected)
+Awaitable::ITracker::ITracker(TrackerKey key, std::size_t expected)
     : m_key(key)
     , m_status(Status::Pending)
     , m_expected(expected)
@@ -58,7 +47,7 @@ std::size_t Awaitable::ITracker::GetReceived() const { return m_received; }
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::RequestTracker::RequestTracker(
-    Awaitable::TrackerKey key, 
+    TrackerKey key, 
     std::weak_ptr<Peer::Proxy> const& wpProxy,
     Peer::Action::OnResponse const& onResponse,
     Peer::Action::OnError const& onError)
@@ -78,7 +67,7 @@ Awaitable::RequestTracker::RequestTracker(
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::RequestTracker::RequestTracker(
-    Awaitable::TrackerKey key, 
+    TrackerKey key, 
     std::size_t expected, 
     Peer::Action::OnResponse const& onResponse, 
     Peer::Action::OnError const& onError)
@@ -182,7 +171,7 @@ bool Awaitable::RequestTracker::Fulfill()
 //----------------------------------------------------------------------------------------------------------------------
 
 Awaitable::DeferredTracker::DeferredTracker(
-    Awaitable::TrackerKey key, 
+    TrackerKey key, 
     std::weak_ptr<Peer::Proxy> const& wpRequestor,
     Message::Application::Parcel const& request,
     std::vector<Node::SharedIdentifier> const& identifiers)
@@ -192,9 +181,10 @@ Awaitable::DeferredTracker::DeferredTracker(
     , m_responses()
 {
     auto const matches = [&source = m_request.GetSource()] (auto const& identifier) { return *identifier != source; };
-    std::ranges::for_each(
-        identifiers | std::views::filter(matches),
-        [this] (auto const& identifier) { m_responses.emplace(Entry{ identifier, {} }); });
+    std::ranges::for_each(identifiers | std::views::filter(matches), [this] (auto const& identifier) { 
+        m_responses.emplace(
+            static_cast<std::string const&>(*identifier), boost::json::value_from(Message::Buffer{}));
+    });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -214,11 +204,11 @@ Awaitable::ITracker::UpdateResult Awaitable::DeferredTracker::Update(
     Node::Identifier const& identifier, Message::Payload&& payload)
 {
     if (m_expire < std::chrono::steady_clock::now()) { return UpdateResult::Expired; }
+    
+    auto const itr = m_responses.find(static_cast<std::string const&>(identifier));
+    if(itr == m_responses.end() || !itr->value().as_array().empty()) { return UpdateResult::Unexpected; }
 
-    auto const itr = m_responses.find(identifier);
-    if(itr == m_responses.end() || !itr->IsEmpty()) { return UpdateResult::Unexpected; }
-
-    m_responses.modify(itr, [&payload] (Entry& entry) { entry.SetPayload(std::move(payload)); });
+    payload.ExtractToJsonValue(itr->value());
 
     if (++m_received == m_expected) { m_status = Status::Fulfilled; return UpdateResult::Fulfilled; }
     return UpdateResult::Success;
@@ -230,19 +220,6 @@ bool Awaitable::DeferredTracker::Fulfill()
 {
     if(m_status != Status::Fulfilled) { return false; }
     m_status = Status::Completed;
-
-    struct ResponseItem {
-        std::string const& identifier;
-        std::vector<std::uint8_t> data;
-    };
-    std::vector<ResponseItem> responses;
-    std::transform(m_responses.begin(), m_responses.end(), std::back_inserter(responses), [] (auto const& entry) {
-        // TODO: Creating a copy of the data is not ideal. Updating this method to avoid making copies should be included
-        // in future work. Unfortunately, the JSON encoder only accepts std::vector to encode JSON arrays. 
-        assert(entry.GetIdentifier());
-        auto const readable = entry.GetPayload().GetReadableView();
-        return ResponseItem{ *entry.GetIdentifier(), { readable.begin(), readable.end() } };
-    });
 
     // Note: The destination of the stored request should always represent to the current node's identifier. 
     auto const& optNodeIdentifier = m_request.GetDestination();
@@ -256,7 +233,7 @@ bool Awaitable::DeferredTracker::Fulfill()
         .SetSource(*optNodeIdentifier)
         .SetDestination(m_request.GetSource())
         .SetRoute(m_request.GetRoute())
-        .SetPayload(li::json_object_vector(s::identifier, s::data).encode(responses))
+        .SetPayload(boost::json::serialize(m_responses))
         .BindExtension<Message::Extension::Awaitable>(
             Message::Extension::Awaitable::Binding::Response,
             optExtension->get().GetTracker())
@@ -273,39 +250,5 @@ bool Awaitable::DeferredTracker::Fulfill()
 
     return false;
 }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Awaitable::DeferredTracker::Entry::Entry(Node::SharedIdentifier const& spIdentifier, Message::Payload&& payload)
-    : m_spIdentifier(spIdentifier)
-    , m_payload(std::move(payload))
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Node::SharedIdentifier const& Awaitable::DeferredTracker::Entry::GetIdentifier() const
-{
-    return m_spIdentifier;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Node::Internal::Identifier const& Awaitable::DeferredTracker::Entry::GetInternalIdentifier() const
-{
-    assert(m_spIdentifier);
-    return static_cast<Node::Internal::Identifier const&>(*m_spIdentifier);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Payload const& Awaitable::DeferredTracker::Entry::GetPayload() const { return m_payload; }
-
-//----------------------------------------------------------------------------------------------------------------------
-bool Awaitable::DeferredTracker::Entry::IsEmpty() const { return m_payload.IsEmpty(); }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Awaitable::DeferredTracker::Entry::SetPayload(Message::Payload&& payload) { m_payload = std::move(payload); }
 
 //----------------------------------------------------------------------------------------------------------------------

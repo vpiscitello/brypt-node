@@ -1,5 +1,5 @@
 [
 	{
 		protocol": "TCP",
-		"bootstraps": 			{ "targt": "127.0.0.1:35220" 
+		"bootstraps": 			{ "targt": "127.0.0.1:35220"  ]
 ]

@@ -5,13 +5,13 @@
 	},
 	"details": {
 		"name": "alpha",
-		"description": "The first node on the Brypt network.",
+		"description": "The first node on the brypt network.",
 		"location": "44.5638° N, 123.2794° W"
 	},
 	"network": {
 		"endpoints": [
 			{
-				"protocol": "TCP",
+				"protocol": "tcp",
 				"interface": "lo",
 				"binding": "*:35216"
 			}
@@ -22,10 +22,10 @@
 				"limit": 5,
 				"interval": "500ms"
 			}
-		}
+		},
+		"token": "token"
 	},
 	"security": {
-		"strategy": "PQNISTL3",
-		"token": ""
+		"strategy": "PQNISTL3"
 	}
 }

@@ -9,7 +9,7 @@
 #include "Utilities/FileUtils.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include <lithium_json.hh>
+#include <boost/json.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cstdlib>
@@ -43,6 +43,16 @@ constexpr std::size_t FileSizeLimit = 8 * 1024 * 1024; // Limit bootstrap files 
 
 //----------------------------------------------------------------------------------------------------------------------
 } // default namespace
+//----------------------------------------------------------------------------------------------------------------------
+namespace symbols {
+//----------------------------------------------------------------------------------------------------------------------
+
+constexpr std::string_view Bootstraps = "bootstraps";
+constexpr std::string_view Target = "target";
+constexpr std::string_view Protocol = "protocol";
+
+//----------------------------------------------------------------------------------------------------------------------
+} // symbols namespace
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -59,20 +69,6 @@ constexpr std::size_t FileSizeLimit = 8 * 1024 * 1024; // Limit bootstrap files 
 //  }
 // ...,
 // ]
-
-#ifndef LI_SYMBOL_bootstraps
-#define LI_SYMBOL_bootstraps
-LI_SYMBOL(bootstraps)
-#endif
-#ifndef LI_SYMBOL_target
-#define LI_SYMBOL_target
-LI_SYMBOL(target)
-#endif
-#ifndef LI_SYMBOL_protocol
-#define LI_SYMBOL_protocol
-LI_SYMBOL(protocol)
-#endif
-
 //----------------------------------------------------------------------------------------------------------------------
 
 struct local::BootstrapEntry
@@ -423,58 +419,73 @@ Configuration::StatusCode BootstrapService::Deserialize()
         }
     }
 
-    // Decode the JSON string into the bootstrap struct
-    local::EndpointEntriesVector deserialized;
-    {
+    BootstrapCache bootstraps;
+    bool hasTransformError = false; // A flag to detect decode errors when transforming the decoded bootstraps. 
+
+    try {
+        constexpr boost::json::parse_options ParserOptions{
+            .allow_comments = true,
+            .allow_trailing_commas = true,
+        };
+
         std::stringstream buffer;
-        std::ifstream reader(m_filepath);
-        if (reader.fail()) [[unlikely]] { return FileError; }
-        buffer << reader.rdbuf(); // Read the file into the buffer stream
+        {
+            std::ifstream reader{ m_filepath };
+            if (reader.fail()) [[unlikely]] {
+                return FileError;
+            }
+            buffer << reader.rdbuf(); // Read the file into the buffer stream.
+        }
 
-        std::string_view json = buffer.view();
-        if (json.empty()) { return InputError; } // Report an error if there is nothing in the file. 
+        auto const serialized = buffer.view();
+        if (serialized.empty()) {
+            return InputError;
+        }
 
-        auto const error = li::json_object_vector(s::protocol, s::bootstraps = li::json_object_vector(s::target))
-            .decode(json, deserialized);
-        
-        // Report an error if the decoder reported an error or the desrialized container is still empty. 
-        if (error.code || deserialized.empty()) {
+        boost::json::error_code error;
+        auto const json = boost::json::parse(buffer.view(), error, boost::json::storage_ptr{}, ParserOptions).as_array();
+        if (error) {
             constexpr std::string_view DefaultContext = "[\n\n]\n";
-            if (json == DefaultContext) { return Success; } // We shouldn't consider an empty file an error.
+            if (serialized == DefaultContext) { return Success; } // We shouldn't consider an empty file an error.
             DisableFilesystem(); // Prevent the malformed file from being overwritten. 
             return DecodeError;
         }
-    }
 
-    // Transform the decoded bootstraps and emplace them into the cache.
-    BootstrapCache bootstraps;
-    bool hasTransformError = false; // A flag to detect decode errors when transforming the decoded bootstraps. 
-    bootstraps.reserve(deserialized.size());
-    std::ranges::for_each(deserialized, 
-        [this, &bootstraps, &hasTransformError] (local::EndpointEntry& entry)
-        {
-            if (hasTransformError) { return; } // If we encoutnered a prior error continue from this iteration early.
+        // Transform the decoded bootstraps and emplace them into the cache.
+        bootstraps.reserve(json.size());
 
-            auto const protocol = Network::ParseProtocol(entry.protocol);
-            if (protocol == Network::Protocol::Invalid) { hasTransformError = true; return; }
-            
-            bootstraps.reserve(bootstraps.size() + entry.bootstraps.size());
-            std::ranges::for_each(entry.bootstraps, 
+        for (auto const& group : json) {
+            boost::json::object const& object = group.as_object();
+
+            auto const protocolField = object.at(symbols::Protocol).as_string();
+            auto const protocol = Network::ParseProtocol(protocolField.c_str());
+            if (protocol == Network::Protocol::Invalid) {
+                hasTransformError = true;
+                break;
+            }
+
+            std::ranges::for_each(object.at(symbols::Bootstraps).as_array(),
                 [&] (Network::RemoteAddress bootstrap) {
                     // If there was a prior error or the bootstrap is invalid continue from this iteration early.
-                    if (hasTransformError || !bootstrap.IsValid()) { hasTransformError = true; return; }
+                    if (hasTransformError || !bootstrap.IsValid()) { 
+                        hasTransformError = true;
+                        return;
+                    }
                     assert(bootstrap.IsBootstrapable()); // The address should always be marked as bootstrapable. 
                     bootstraps.emplace(std::move(bootstrap));
-                }, 
-                [&] (local::BootstrapEntry const& bootstrap) -> Network::RemoteAddress {
+                },
+                [&] (boost::json::value const& bootstrap) -> Network::RemoteAddress {
                     using Origin = Network::RemoteAddress::Origin;
-                    return { protocol, bootstrap.target, true, Origin::Cache };
+                    return { protocol, bootstrap.at(symbols::Target).as_string(), true, Origin::Cache };
                 });
 
             if (!MaybeAddDefaultBootstrap(protocol, bootstraps)) {
-                m_logger->warn("The {} network protocol has no associated bootstraps.", entry.protocol);
+                m_logger->warn("The {} network protocol has no associated bootstraps.", protocolField);
             }
-        });
+        }
+    } catch (...) {
+        hasTransformError = true;
+    }
 
     m_cache = std::move(bootstraps);
 
@@ -487,6 +498,9 @@ Configuration::StatusCode BootstrapService::Deserialize()
         #else
         m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.c_str());
         #endif
+
+        DisableFilesystem(); // Prevent writing out to the malformed file in the event we can't parse it. 
+        
         return DecodeError;
     }
 

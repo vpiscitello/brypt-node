@@ -10,9 +10,7 @@
 #include "Components/Peer/Action.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include <boost/multi_index_container.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/mem_fun.hpp>
+#include <boost/json/array.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <chrono>
@@ -58,9 +56,9 @@ public:
     [[nodiscard]] virtual bool Fulfill() = 0;
 
 protected:
-    ITracker(Awaitable::TrackerKey key, std::size_t expected);
+    ITracker(TrackerKey key, std::size_t expected);
 
-    Awaitable::TrackerKey m_key;
+    TrackerKey m_key;
     Status m_status;
     std::size_t m_expected;
     std::size_t m_received;
@@ -73,13 +71,13 @@ class Awaitable::RequestTracker : public Awaitable::ITracker
 {
 public:
     RequestTracker(
-        Awaitable::TrackerKey key, 
+        TrackerKey key, 
         std::weak_ptr<Peer::Proxy> const& wpProxy,
         Peer::Action::OnResponse const& onResponse,
         Peer::Action::OnError const& onError);
 
     RequestTracker(
-        Awaitable::TrackerKey key,
+        TrackerKey key,
         std::size_t expected,
         Peer::Action::OnResponse const& onResponse,
         Peer::Action::OnError const& onError);
@@ -106,7 +104,7 @@ class Awaitable::DeferredTracker : public Awaitable::ITracker
 {
 public:
     DeferredTracker(
-        Awaitable::TrackerKey key, 
+        TrackerKey key, 
         std::weak_ptr<Peer::Proxy> const& wpRequestor,
         Message::Application::Parcel const& request,
         std::vector<Node::SharedIdentifier> const& identifiers);
@@ -120,32 +118,9 @@ public:
     // } ITracker
 
 private:
-    class Entry {
-    public:
-        Entry(Node::SharedIdentifier const& spNodeIdentifier, Message::Payload&& data);
-        
-        [[nodiscard]] Node::SharedIdentifier const& GetIdentifier() const;
-        [[nodiscard]] Node::Internal::Identifier const& GetInternalIdentifier() const;
-
-        [[nodiscard]] Message::Payload const& GetPayload() const;
-        [[nodiscard]] bool IsEmpty() const;
-        void SetPayload(Message::Payload&& payload);
-
-    private:
-        Node::SharedIdentifier const m_spIdentifier;
-        Message::Payload m_payload;
-    };
-
-    using Responses = boost::multi_index_container<
-        Entry,
-        boost::multi_index::indexed_by<
-            boost::multi_index::hashed_unique<
-                boost::multi_index::const_mem_fun<
-                    Entry, Node::Internal::Identifier const&, &Entry::GetInternalIdentifier>>>>;
-
     std::weak_ptr<Peer::Proxy> m_wpRequestor;
     Message::Application::Parcel const m_request;
-    Responses m_responses;
+    boost::json::object m_responses;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
