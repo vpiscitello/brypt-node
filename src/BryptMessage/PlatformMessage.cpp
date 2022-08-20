@@ -309,6 +309,14 @@ Message::Platform::Builder& Message::Platform::Builder::SetPayload(Payload&& pay
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Platform::Builder& Message::Platform::Builder::SetPayload(Payload const& payload)
+{
+	m_parcel.m_payload = Payload{ payload };
+	return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Platform::Builder& Message::Platform::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
 	bool const success = !buffer.empty() && Unpack(buffer);

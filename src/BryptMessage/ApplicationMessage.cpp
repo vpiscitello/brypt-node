@@ -357,6 +357,14 @@ Message::Application::Builder& Message::Application::Builder::SetPayload(Payload
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Application::Builder& Message::Application::Builder::SetPayload(Payload const& payload)
+{
+	m_parcel.m_payload = Payload{ payload };
+	return *this;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Application::Builder& Message::Application::Builder::FromDecodedPack(std::span<std::uint8_t const> buffer)
 {
 	assert(m_parcel.m_context.HasSecurityHandlers());

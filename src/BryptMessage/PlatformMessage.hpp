@@ -97,6 +97,7 @@ public:
 	Builder& MakeHeartbeatRequest();
 	Builder& MakeHeartbeatResponse();
 	Builder& SetPayload(Payload&& payload);
+	Builder& SetPayload(Payload const& payload);
 
 	Builder& FromDecodedPack(std::span<std::uint8_t const> buffer);
 	Builder& FromEncodedPack(std::string_view pack);

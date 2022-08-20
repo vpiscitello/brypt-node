@@ -114,6 +114,7 @@ public:
 	Builder& SetRoute(std::string_view route);
 	Builder& SetRoute(std::string&& route);
 	Builder& SetPayload(Payload&& payload);
+	Builder& SetPayload(Payload const& payload);
 
 	template<typename ExtensionType, typename... Arguments>
 		requires std::derived_from<ExtensionType, Extension::Base>
