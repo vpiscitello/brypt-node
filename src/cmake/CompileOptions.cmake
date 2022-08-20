@@ -25,11 +25,10 @@ function(set_project_options project_name)
             -Wno-missing-field-initializers
             -Wno-missing-braces
             -Wformat=2)
-        set(PROJECT_FEATURES -fcoroutines)
+        set(PROJECT_FEATURES -fcoroutines -fvisibility=hidden -fvisibility-inlines-hidden)
         set(PROJECT_LINKS -pthread)
 
         set(PROJECT_DEFINITIONS 
-            -DFMT_HEADER_ONLY=1
             -DSPDLOG_DISABLE_DEFAULT_LOGGER=1
             -DSPDLOG_NO_THREAD_ID=1)
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
@@ -47,7 +46,6 @@ function(set_project_options project_name)
             -D_WIN32_WINNT=${windows_version_tag}
             -DNOMINMAX
             -DBOOST_ALL_NO_LIB
-            -DFMT_HEADER_ONLY
             -DSPDLOG_DISABLE_DEFAULT_LOGGER
             -DSPDLOG_NO_THREAD_ID
             -DSPDLOG_WCHAR_TO_UTF8_SUPPORT)
@@ -58,7 +56,6 @@ function(set_project_options project_name)
     else()
         set(PROJECT_DEFINITIONS ${PROJECT_DEFINITIONS} -DNDEBUG)
     endif()
-
 
     target_compile_options(${project_name} INTERFACE ${PROJECT_WARNINGS})
     target_compile_options(${project_name} INTERFACE ${PROJECT_FEATURES})

@@ -22,7 +22,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Awaitable Route Peer Security Configuration MessageControl Network State Event Scheduler BryptMessage BryptIdentifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC  PROJECT_OPTIONS)
+target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
 copy_dependencies(${PROJECT_NAME})
 

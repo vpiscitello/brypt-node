@@ -14,9 +14,6 @@ target_sources(
     AuthorizedProcessor.cpp
     ExchangeProcessor.cpp)
 
-# Exported include dependencies
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${LITHIUM_JSON_INCLUDE_DIR})
-
 # Internal include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
     ${Boost_INCLUDE_DIRS} ${OQS_INCLUDE_DIRS} ${OQSCPP_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})

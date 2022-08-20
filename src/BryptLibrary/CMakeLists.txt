@@ -78,7 +78,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE BRYPT_SHARED)
 target_include_directories(
     ${PROJECT_NAME} SYSTEM PRIVATE
     ${Boost_INCLUDE_DIRS}
-    ${LITHIUM_JSON_INCLUDE_DIR} 
     ${OPENSSL_INCLUDE_DIR}
     ${OQS_INCLUDE_DIRS}
     ${OQSCPP_INCLUDE_DIRS} 
@@ -103,7 +102,7 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         add_compile_options(-Wl,--gc-sections)
     endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc /MTd /W4 /c)
+    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc /W4 /c)
     target_compile_definitions(${PROJECT_NAME} PRIVATE WIN_EXPORT)
     set_target_properties(${PROJECT_NAME} PROPERTIES CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
     target_link_libraries(${PROJECT_NAME} PRIVATE iphlpapi)
