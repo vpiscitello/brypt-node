@@ -72,6 +72,7 @@ bool Message::Application::Parcel::operator==(Parcel const& other) const
 						return static_cast<Extension::Awaitable const&>(*left.second) == 
 							   static_cast<Extension::Awaitable const&>(*right.second);
 					}
+					case Extension::Echo::Key: return true;
 					case Extension::Status::Key: {
 						return static_cast<Extension::Status const&>(*left.second) == 
 							   static_cast<Extension::Status const&>(*right.second);
@@ -463,6 +464,11 @@ bool Message::Application::Builder::UnpackExtensions(
 				auto upExtension = std::make_unique<Extension::Awaitable>();
 				if (!upExtension->Unpack(begin, end)) { return false; }
 				m_parcel.m_extensions.emplace(Extension::Awaitable::Key, std::move(upExtension));
+			} break;
+			case Extension::Echo::Key: {
+				auto upExtension = std::make_unique<Extension::Echo>();
+				if (!upExtension->Unpack(begin, end)) { return false; }
+				m_parcel.m_extensions.emplace(Extension::Echo::Key, std::move(upExtension));
 			} break;
 			case Extension::Status::Key: {
 				auto upExtension = std::make_unique<Extension::Status>();

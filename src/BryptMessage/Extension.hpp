@@ -18,6 +18,7 @@ namespace Message::Extension {
 using Key = std::uint16_t;
 class Base;
 class Awaitable;
+class Echo;
 class Status;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -79,6 +80,28 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
+class Message::Extension::Echo : public Message::Extension::Base
+{
+public:
+	static constexpr Extension::Key Key = 0xec40;
+	Echo();
+
+	// Extension {
+	[[nodiscard]] virtual Extension::Key GetKey() const override;
+	[[nodiscard]] virtual std::unique_ptr<Base> Clone() const override;
+	[[nodiscard]] virtual bool Validate() const override;
+	// } Extension
+	
+	// Packable {
+	[[nodiscard]] virtual std::size_t GetPackSize() const override;
+	virtual void Inject(Buffer& buffer) const override;
+	[[nodiscard]] virtual bool Unpack(
+		std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end) override;
+	// } Packable
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
 class Message::Extension::Status : public Message::Extension::Base
 {
 public:
@@ -134,8 +157,15 @@ public:
 		std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end) override;
 	// } Packable
 
-	[[nodiscard]] static constexpr bool IsSuccessCode(Code code);
-	[[nodiscard]] static constexpr bool IsErrorCode(Code code);
+	[[nodiscard]] static constexpr bool IsSuccessCode(Code code)
+	{
+		return static_cast<std::underlying_type_t<Code>>(code) < 300; // Codes 0 - 299 are indicative of a success.
+	}
+
+	[[nodiscard]] static constexpr bool IsErrorCode(Code code)
+	{
+		return !IsSuccessCode(code);
+	}
 
 	[[nodiscard]] bool HasSuccessCode() const;
 	[[nodiscard]] bool HasErrorCode() const;

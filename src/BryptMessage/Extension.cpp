@@ -93,7 +93,7 @@ bool Message::Extension::Awaitable::Unpack(
 		if (!PackUtils::UnpackChunk(begin, end, binding)) { return {}; }
 		switch (binding) {
 			case static_cast<BindingType>(Request): { m_binding = Request; } break;
-			case static_cast<BindingType>(Response):  { m_binding = Response; } break;
+			case static_cast<BindingType>(Response): { m_binding = Response; } break;
 			default: return false;
 		}
 	}
@@ -116,6 +116,48 @@ Awaitable::TrackerKey const& Message::Extension::Awaitable::GetTracker() const {
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Message::Extension::Echo::Echo()
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Message::Extension::Key Message::Extension::Echo::GetKey() const { return Key; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::unique_ptr<Message::Extension::Base> Message::Extension::Echo::Clone() const { return std::make_unique<Echo>(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Message::Extension::Echo::Validate() const { return true; }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Message::Extension::Echo::GetPackSize() const  { return Base::GetPackSize(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Message::Extension::Echo::Inject(Buffer& buffer) const
+{
+	std::uint16_t const size = static_cast<std::uint16_t>(GetPackSize());
+	PackUtils::PackChunk(Key, buffer);
+	PackUtils::PackChunk(size, buffer);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Message::Extension::Echo::Unpack(
+	std::span<std::uint8_t const>::iterator& begin, std::span<std::uint8_t const>::iterator const& end)
+{
+	std::uint16_t size = 0;
+	if (!PackUtils::UnpackChunk(begin, end, size)) { return false; }
+	if (std::cmp_less(size, GetPackSize())) { return false; }
+	return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 Message::Extension::Status::Status()
 	: m_code(Unknown)
 {
@@ -127,17 +169,6 @@ Message::Extension::Status::Status(Code code)
 	: m_code(code)
 {
 }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-constexpr bool Message::Extension::Status::IsSuccessCode(Code code)
-{
-	return static_cast<std::underlying_type_t<Code>>(code) < 300; // Codes 0 - 299 are indicative of a success.
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-constexpr bool Message::Extension::Status::IsErrorCode(Code code) { return !IsSuccessCode(code); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
