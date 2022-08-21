@@ -140,8 +140,8 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 {
     constexpr std::string_view SuccessMessage = "Received a response for an awaitable. [id={}]";
     constexpr std::string_view MissingWarning = "Ignoring message for an unknown awaitable from {}. [id={}]";
-    constexpr std::string_view ExpiredWarning = "Ignoring late response for an expired awaitable from {}. [id={}]";
-    constexpr std::string_view UnexpectedWarning = "Ignoring an unexpected response for an awaitable from {}. [id={}]";
+    constexpr std::string_view ExpiredWarning = "Ignoring late response for an expired awaitable. [id={}]";
+    constexpr std::string_view UnexpectedWarning = "Ignoring an unexpected response for an awaitable. [id={}]";
     constexpr std::string_view FulfilledMessage = "Awaitable has been fulfilled, waiting for processing. [id={}]";
 
     // Try to get the awaitable extension from the supplied message.
@@ -159,13 +159,13 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
     }
 
     auto const OnTrackerReady = [this] (TrackerKey key, std::shared_ptr<ITracker>&& spTracker) {
-        m_ready.emplace_back(std::move(spTracker));
+        m_ready.emplace(key, std::move(spTracker));
         m_trackers.erase(key);
         m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
     };
 
-    auto const OnTrackerPartial = [this] (std::shared_ptr<ITracker> const& spTracker) {
-        m_ready.emplace_back(spTracker);
+    auto const OnTrackerPartial = [this] (TrackerKey key, std::shared_ptr<ITracker> const& spTracker) {
+        m_ready.emplace(key, spTracker);
         m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
     };
 
@@ -176,18 +176,18 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
         } break;
         case ITracker::UpdateResult::Partial: {
             m_logger->debug(SuccessMessage, key);
-            OnTrackerPartial(awaitable->second);
+            OnTrackerPartial(key, awaitable->second);
         } break;
         case ITracker::UpdateResult::Fulfilled: {
             m_logger->debug(FulfilledMessage, key);
             OnTrackerReady(key, std::move(awaitable->second));
         } break;
         case ITracker::UpdateResult::Expired: {
-            m_logger->warn(ExpiredWarning, message.GetSource(), key);
+            m_logger->warn(ExpiredWarning, key);
             OnTrackerReady(key, std::move(awaitable->second));
         } return false;
         case ITracker::UpdateResult::Unexpected: {
-            m_logger->warn(UnexpectedWarning, message.GetSource(), key);
+            m_logger->warn(UnexpectedWarning, key);
         } return false;
         default: assert(false); return false;
     }
@@ -200,7 +200,7 @@ bool Awaitable::TrackingService::Process(Message::Application::Parcel&& message)
 bool Awaitable::TrackingService::Process(
     TrackerKey key, Node::Identifier const& identifier, Message::Payload&& data)
 {
-    constexpr std::string_view MissingWarning = "Adding direct response for awaiting request. [id={}]";
+    constexpr std::string_view MissingWarning = "Ignoring direct response for an unknown awaitable. [id={}]";
     constexpr std::string_view SuccessMessage = "Adding direct response for awaiting request. [id={}]";
     constexpr std::string_view FulfilledMessage = "Request has been fulfilled, ready to process response. [id={}]";
 
@@ -213,7 +213,7 @@ bool Awaitable::TrackingService::Process(
     }
 
     auto const OnTrackerReady = [this] (TrackerKey key, std::shared_ptr<ITracker>&& spTracker) {
-        m_ready.emplace_back(std::move(spTracker));
+        m_ready.emplace(key, std::move(spTracker));
         m_trackers.erase(key);
         m_spDelegate->OnTaskAvailable(); // Notify the scheduler that we have a tasks that can be executed. 
     };
@@ -255,12 +255,23 @@ std::size_t Awaitable::TrackingService::Execute()
 {
     std::scoped_lock lock{ m_mutex };
 
-    std::ranges::for_each(m_ready, [this] (auto const& spTracker) {
-        [[maybe_unused]] bool const success = spTracker->Fulfill();
+    std::ranges::for_each(m_ready | std::views::values, [this] (auto const& spTracker) {
+        constexpr std::string_view FailureWarning = "Failed to fulfill awaitable. [id={}]";
+        constexpr std::string_view ExceptionError = "Encountered an exception fulfilling an awaitable: \"{}\". [id={}]";
+
+        try {
+            bool const success = spTracker->Fulfill();
+            if (!success) {
+                m_logger->warn(FailureWarning, spTracker->GetKey());
+            }
+        } catch (std::exception const& e) {
+            m_logger->error(ExceptionError, e.what(), spTracker->GetKey());
+        }
     });
 
-    std::size_t executed = m_ready.size();
+    std::size_t const executed = m_ready.size();
     m_ready.clear();
+
     return executed;
 }
 
@@ -274,7 +285,7 @@ void Awaitable::TrackingService::CheckTrackers()
         auto const current = entry.second->CheckStatus();
         bool const ready = current != ITracker::Status::Pending && status != current;
         if (ready) {
-            m_ready.emplace_back(std::move(entry.second));
+            m_ready.emplace(entry.first, std::move(entry.second));
             m_spDelegate->OnTaskAvailable();
         }
         return ready;

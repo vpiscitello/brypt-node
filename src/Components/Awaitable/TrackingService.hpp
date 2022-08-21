@@ -82,15 +82,15 @@ private:
        [[nodiscard]] std::size_t operator()(TrackerKey const& key) const;
     };
 
-    using ActiveTrackers = std::unordered_map<TrackerKey, std::shared_ptr<ITracker>, KeyHasher>;
+    using TrackerContainer = std::unordered_map<TrackerKey, std::shared_ptr<ITracker>, KeyHasher>;
 
     void CheckTrackers();
     [[nodiscard]] std::optional<TrackerKey> GenerateKey(Node::Identifier const& identifier) const;
 
     std::shared_ptr<Scheduler::Delegate> m_spDelegate;
     mutable std::mutex m_mutex;
-    ActiveTrackers m_trackers;
-    std::vector<std::shared_ptr<ITracker>> m_ready;
+    TrackerContainer m_trackers;
+    TrackerContainer m_ready;
     std::shared_ptr<spdlog::logger> m_logger;
 };
 

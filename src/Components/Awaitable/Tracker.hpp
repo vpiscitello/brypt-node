@@ -44,6 +44,7 @@ public:
 
     virtual ~ITracker() = default;
 
+    [[nodiscard]] TrackerKey GetKey() const;
     [[nodiscard]] Status GetStatus() const;
     [[nodiscard]] Status CheckStatus();
     [[nodiscard]] std::size_t GetExpected() const;
