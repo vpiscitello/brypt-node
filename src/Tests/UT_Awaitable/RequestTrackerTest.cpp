@@ -92,8 +92,8 @@ TEST_F(RequestTrackerSuite, SingleRequestTest)
     auto const onResponse = [&] (Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
         EXPECT_EQ(response.GetSource(), *test::ServerIdentifier);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetEndpointProtocol(), Awaitable::Test::EndpointProtocol);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Ok);
         EXPECT_FALSE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -141,8 +141,8 @@ TEST_F(RequestTrackerSuite, MultiRequestTest)
 
     auto const onResponse = [&] (Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetEndpointProtocol(), Awaitable::Test::EndpointProtocol);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Ok);
         EXPECT_FALSE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -239,7 +239,8 @@ TEST_F(RequestTrackerSuite, ExpiredRequestTest)
     auto const onError = [&] (Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
         EXPECT_EQ(response.GetSource(), *test::ServerIdentifier);
-        EXPECT_FALSE(response.HasPayload());
+        EXPECT_TRUE(response.GetPayload().IsEmpty());
+        EXPECT_EQ(response.GetEndpointProtocol(), Network::Protocol::Invalid);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::RequestTimeout);
         EXPECT_TRUE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -274,8 +275,8 @@ TEST_F(RequestTrackerSuite, DuplicateResponseTest)
 
     auto const onResponse = [&] (Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetEndpointProtocol(), Awaitable::Test::EndpointProtocol);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Ok);
         EXPECT_FALSE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -338,8 +339,8 @@ TEST_F(RequestTrackerSuite, PartialExpiredRequestTest)
 
     auto const onResponse = [&] (Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetEndpointProtocol(), Awaitable::Test::EndpointProtocol);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Ok);
         EXPECT_FALSE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -361,7 +362,7 @@ TEST_F(RequestTrackerSuite, PartialExpiredRequestTest)
 
     auto const onError = [&] (Peer::Action::Response const& response) { 
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
-        EXPECT_FALSE(response.HasPayload());
+        EXPECT_EQ(response.GetEndpointProtocol(), Network::Protocol::Invalid);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::RequestTimeout);
         EXPECT_TRUE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -415,8 +416,8 @@ TEST_F(RequestTrackerSuite, ResponsesWithStatusCodesTest)
 {
     auto const onResponse = [&](Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetEndpointProtocol(), Awaitable::Test::EndpointProtocol);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Accepted);
         EXPECT_FALSE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);
@@ -439,8 +440,8 @@ TEST_F(RequestTrackerSuite, ResponsesWithStatusCodesTest)
 
     auto const onError = [&](Peer::Action::Response const& response) {
         EXPECT_EQ(response.GetTrackerKey(), Awaitable::Test::TrackerKey);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
+        EXPECT_EQ(response.GetEndpointProtocol(), Awaitable::Test::EndpointProtocol);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::BadRequest);
         EXPECT_TRUE(response.HasErrorCode());
         EXPECT_EQ(response.GetRemaining(), --m_remaining);

@@ -16,6 +16,18 @@
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
 
+//----------------------------------------------------------------------------------------------------------------------
+namespace {
+namespace local {
+//----------------------------------------------------------------------------------------------------------------------
+
+auto const EmptyPayload = Message::Payload{};
+
+//----------------------------------------------------------------------------------------------------------------------
+} // local namespace
+} // namespace
+//----------------------------------------------------------------------------------------------------------------------
+
 Peer::Action::Next::Next(
     std::weak_ptr<Proxy> const& wpProxy,
     std::reference_wrapper<Message::Application::Parcel const> const& message,
@@ -115,6 +127,13 @@ bool Peer::Action::Next::Respond(Message::Extension::Status::Code statusCode) co
 
 //----------------------------------------------------------------------------------------------------------------------
 
+bool Peer::Action::Next::Respond(Message::Payload const& payload, Message::Extension::Status::Code statusCode) const
+{
+    return Respond(Message::Payload{ payload }, statusCode);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 bool Peer::Action::Next::Respond(Message::Payload&& payload, Message::Extension::Status::Code statusCode) const
 {
     if (auto const& spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
@@ -155,7 +174,7 @@ bool Peer::Action::Next::ScheduleSend(Message::Application::Parcel const& messag
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Action::Response::Response(
-    TrakerReference const& trackerKey,
+    TrackerReference const& trackerKey,
     MessageReference const& message,
     Message::Extension::Status::Code statusCode,
     std::size_t remaining)
@@ -170,7 +189,7 @@ Peer::Action::Response::Response(
 //----------------------------------------------------------------------------------------------------------------------
 
 Peer::Action::Response::Response(
-    TrakerReference const& trackerKey,
+    TrackerReference const& trackerKey,
     IdentifierReference const& identifier,
     Message::Extension::Status::Code statusCode,
     std::size_t remaining)
@@ -192,17 +211,16 @@ Node::Identifier const& Peer::Action::Response::GetSource() const { return m_ide
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Peer::Action::Response::HasPayload() const { return m_optMessage.has_value(); }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Message::Payload const& Peer::Action::Response::GetPayload() const { return m_optMessage->get().GetPayload(); }
+Message::Payload const& Peer::Action::Response::GetPayload() const
+{
+    return (m_optMessage) ? m_optMessage->get().GetPayload() : local::EmptyPayload;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Protocol Peer::Action::Response::GetEndpointProtocol() const 
 { 
-    return m_optMessage->get().GetContext().GetEndpointProtocol();
+    return (m_optMessage) ? m_optMessage->get().GetContext().GetEndpointProtocol() : Network::Protocol::Invalid;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

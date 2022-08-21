@@ -91,6 +91,7 @@ public:
     [[nodiscard]] std::optional<Awaitable::TrackerKey> Defer(DeferredOptions&& options);
     [[nodiscard]] bool Dispatch(std::string_view route, Message::Payload&& payload = {}) const;
     [[nodiscard]] bool Respond(Message::Extension::Status::Code statusCode) const;
+    [[nodiscard]] bool Respond(Message::Payload const& payload, Message::Extension::Status::Code statusCode) const;
     [[nodiscard]] bool Respond(Message::Payload&& payload, Message::Extension::Status::Code statusCode) const;
 
 private:
@@ -108,18 +109,18 @@ private:
 class Peer::Action::Response
 {
 public:
-    using TrakerReference = std::reference_wrapper<Awaitable::TrackerKey const>;
+    using TrackerReference = std::reference_wrapper<Awaitable::TrackerKey const>;
     using IdentifierReference = std::reference_wrapper<Node::Identifier const>;
     using MessageReference = std::reference_wrapper<Message::Application::Parcel const>;
 
     Response(
-        TrakerReference const& trackerKey,
+        TrackerReference const& trackerKey,
         MessageReference const& message,
         Message::Extension::Status::Code statusCode,
         std::size_t remaining);
 
     Response(
-        TrakerReference const& trackerKey,
+        TrackerReference const& trackerKey,
         IdentifierReference const& identifier,
         Message::Extension::Status::Code statusCode,
         std::size_t remaining);
@@ -131,7 +132,6 @@ public:
 
     [[nodiscard]] Awaitable::TrackerKey const& GetTrackerKey() const;
     [[nodiscard]] Node::Identifier const& GetSource() const;
-    [[nodiscard]] bool HasPayload() const;
     [[nodiscard]] Message::Payload const& GetPayload() const;
     [[nodiscard]] Network::Protocol GetEndpointProtocol() const;
     [[nodiscard]] Message::Extension::Status::Code GetStatusCode() const;
@@ -141,7 +141,7 @@ public:
     UT_SupportMethod(Message::Application::Parcel const& GetUnderlyingMessage() const);
 
 private:
-    TrakerReference m_trackerKey;
+    TrackerReference m_trackerKey;
     IdentifierReference m_identifier;
     std::optional<MessageReference> m_optMessage;
     Message::Extension::Status::Code m_statusCode;

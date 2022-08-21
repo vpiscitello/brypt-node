@@ -209,7 +209,6 @@ TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
     auto const onResponse = [&processed] (Peer::Action::Response const& response) {
         auto const [itr, emplaced] = processed.emplace(response.GetSource());
         EXPECT_TRUE(emplaced);
-        ASSERT_TRUE(response.HasPayload());
         EXPECT_EQ(response.GetPayload(), Awaitable::Test::Message);
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Ok);
     };
@@ -217,7 +216,7 @@ TEST_F(TrackingServiceSuite, RequestFulfillmentTest)
     auto const onError = [&processed] (Peer::Action::Response const& response) {
         auto const [itr, emplaced] = processed.emplace(response.GetSource());
         EXPECT_TRUE(emplaced);
-        EXPECT_FALSE(response.HasPayload());
+        EXPECT_TRUE(response.GetPayload().IsEmpty());
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::RequestTimeout);
     };
 

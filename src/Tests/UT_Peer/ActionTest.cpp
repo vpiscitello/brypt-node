@@ -142,11 +142,11 @@ TEST_F(PeerActionSuite, FulfilledRequestTest)
         .SetRoute(Peer::Test::RequestRoute)
         .SetPayload(Peer::Test::RequestPayload);
     
-    auto const optTrackerKey = m_spProxy->Request(builder, 
-        [&] (Peer::Action::Response const& response) { 
+    auto const optTrackerKey = m_spProxy->Request(builder,
+        [&] (Peer::Action::Response const& response) {
             EXPECT_EQ(response.GetSource(), test::ClientIdentifier);
-            ASSERT_TRUE(response.HasPayload());
             EXPECT_EQ(response.GetPayload(), Peer::Test::ApplicationPayload);
+            EXPECT_EQ(response.GetEndpointProtocol(), Peer::Test::EndpointProtocol);
             EXPECT_FALSE(response.HasErrorCode());
             EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Accepted);
         },
@@ -201,10 +201,11 @@ TEST_F(PeerActionSuite, ExpiredRequestTest)
         .SetPayload(Peer::Test::RequestPayload);
     
     auto const optTrackerKey = m_spProxy->Request(builder,
-        [&] (Peer::Action::Response const& response) { EXPECT_FALSE(true); },
-        [&] (Peer::Action::Response const& response) { 
+        [&] (Peer::Action::Response const&) { EXPECT_FALSE(true); },
+        [&] (Peer::Action::Response const& response) {
             EXPECT_EQ(response.GetSource(), test::ClientIdentifier);
-            EXPECT_FALSE(response.HasPayload());
+            EXPECT_TRUE(response.GetPayload().IsEmpty());
+            EXPECT_EQ(response.GetEndpointProtocol(), Network::Protocol::Invalid);
             EXPECT_TRUE(response.HasErrorCode());
             EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::RequestTimeout);
         });
