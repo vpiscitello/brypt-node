@@ -57,10 +57,9 @@ Network::Manager::~Manager()
 bool Network::Manager::IsRegisteredAddress(Address const& address) const
 {
     auto const matches = [&address] (auto const& binding) -> bool { return address.Equivalent(binding); };
-    constexpr auto projection = [] (auto const& pair) -> auto { return pair.second; };
 
     std::shared_lock lock(m_cacheMutex);
-    return std::ranges::any_of(m_bindings, matches, projection);
+    return std::ranges::any_of(m_bindings | std::views::elements<1>, matches);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -151,7 +150,7 @@ bool Network::Manager::Detach(Configuration::Options::Endpoint const& options)
 
     // Setup the detach method for erase_if, before removing it from our container we need to shut it down explicitly
     // in case another resource is keeping the shared_ptr alive. 
-    auto const detach = [&protocol, &bindings = m_bindings] (auto const& entry) -> bool { 
+    auto const detach = [&protocol] (auto const& entry) -> bool { 
         auto const& [identifier, spEndpoint] = entry;
         if (spEndpoint->GetProtocol() != protocol) { return false; }
         [[maybe_unused]] bool const stopped = spEndpoint->Shutdown();
@@ -240,6 +239,21 @@ std::size_t Network::Manager::ActiveProtocolCount() const
     std::shared_lock lock(m_endpointsMutex);
     std::ranges::for_each(m_endpoints | std::views::values, append);
     return protocols.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Network::Manager::ForEach(BindingCallback const& callback) const
+{
+    std::shared_lock lock(m_cacheMutex);
+
+    std::size_t read = 0;
+    for (auto const& [identifier, binding] : m_bindings) {
+        ++read; // Increment the number of binding addresses read. 
+        if (callback(identifier, binding) != CallbackIteration::Continue) { break; }
+    }
+
+    return read;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

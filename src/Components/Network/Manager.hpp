@@ -17,6 +17,7 @@
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerObserver.hpp"
 #include "Interfaces/ResolutionService.hpp"
+#include "Utilities/CallbackIteration.hpp"
 #include "Utilities/InvokeContext.hpp"
 #include "Utilities/NodeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -45,6 +46,7 @@ class Network::Manager final : public IEndpointMediator
 {
 public:
     using SharedEndpoint = std::shared_ptr<IEndpoint>;
+    using BindingCallback = std::function<CallbackIteration(Endpoint::Identifier, BindingAddress const&)>;
 
     Manager(RuntimeContext context, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
@@ -77,6 +79,7 @@ public:
     [[nodiscard]] BindingAddress GetEndpointBinding(Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t ActiveEndpointCount() const;
     [[nodiscard]] std::size_t ActiveProtocolCount() const;
+    std::size_t ForEach(BindingCallback const& callback) const;
 
     [[nodiscard]] bool ScheduleBind(BindingAddress const& binding);
     [[nodiscard]] bool ScheduleConnect(RemoteAddress const& address);
