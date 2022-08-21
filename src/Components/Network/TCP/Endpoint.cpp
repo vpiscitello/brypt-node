@@ -445,7 +445,8 @@ bool Network::TCP::Endpoint::OnMessageReceived(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::TCP::ConflictResult Network::TCP::Endpoint::IsConflictingAddress(RemoteAddress const& address) const
+Network::TCP::ConflictResult Network::TCP::Endpoint::IsConflictingAddress(
+    RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier) const
 {
     // Determine if the provided URI matches any of the node's hosted entrypoints. If the URI matched an entrypoint, 
     // the connection should not be allowed as it would be a connection to oneself.
@@ -455,7 +456,7 @@ Network::TCP::ConflictResult Network::TCP::Endpoint::IsConflictingAddress(Remote
 
     // If the URI matches a currently connected or resolving peer. The connection should not be allowed as it break 
     // a valid connection. 
-    if (m_tracker.IsUriTracked(address.GetUri())) { return ConflictResult::Duplicate; }
+    if (m_tracker.IsKnownPeerOrUri(address.GetUri(), spIdentifier)) { return ConflictResult::Duplicate; }
 
     return ConflictResult::Success;
 }
@@ -706,7 +707,7 @@ void Network::TCP::Endpoint::Agent::Connect(RemoteAddress&& address, Node::Share
     assert(m_endpoint.m_pResolutionService);
 
     auto const& logger = m_endpoint.m_logger;
-    switch (m_endpoint.IsConflictingAddress(address)) {
+    switch (m_endpoint.IsConflictingAddress(address, spIdentifier)) {
         case ConflictResult::Success: break; // If the address doesn't conflict with any existing address we can proceed. 
         // If an error has occured, log a debugging statement and early return.
         case ConflictResult::Duplicate: { 

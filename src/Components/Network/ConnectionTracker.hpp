@@ -490,6 +490,25 @@ public:
 
     //----------------------------------------------------------------------------------------------------------------------
 
+    bool IsKnownPeerOrUri(std::string_view const& uri, Node::SharedIdentifier const& spIdentifier) const
+    {
+        std::scoped_lock lock(m_mutex);
+
+        if (spIdentifier) {
+            auto const& index = m_connections.template get<IdentifierIndex>();
+            if (auto const itr = index.find(*spIdentifier); itr != index.end()) { return true; }
+        }
+
+        {
+            auto const& index = m_connections.template get<UriIndex>();
+            if (auto const itr = index.find(uri.data()); itr != index.end()) { return true; }
+        }
+
+        return false;
+    }
+
+    //----------------------------------------------------------------------------------------------------------------------
+
     std::size_t GetSize() const
     {
         std::scoped_lock lock(m_mutex);
