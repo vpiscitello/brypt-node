@@ -38,16 +38,24 @@ bool Route::Router::Contains(std::string_view route) const
 bool Route::Router::Route(Message::Application::Parcel const& message, Peer::Action::Next& next) const
 {
     constexpr std::string_view UnrecognizedRoute = 
-        "Failed to match a message handler to an unrecognized route (\"{}\") received from {}";
+        "Failed to match a message handler to an unrecognized route [\"{}\"] received from {}";
     constexpr std::string_view HandlerWarning = 
-        "Failed to handle a message for the (\"{}\") route received from {}";
+        "Route [\"{}\"] failed to handle a message received from {}";
+    constexpr std::string_view ExceptionError =
+        "Route [\"{}\"] encountered an exception handling a message received from {}: \"{}\"";
 
-    if (auto const* const pMatchedNode = Match(message.GetRoute()); pMatchedNode) {
-        bool const success = pMatchedNode->OnMessage(message, next);
-        if (!success) { m_logger->warn(HandlerWarning, message.GetRoute(), message.GetSource()); }
-        return success;
+    try {
+        if (auto const* const pMatchedNode = Match(message.GetRoute()); pMatchedNode) {
+            bool const success = pMatchedNode->OnMessage(message, next);
+            if (!success) { m_logger->warn(HandlerWarning, message.GetRoute(), message.GetSource()); }
+            return success;
+        }
+
+        m_logger->warn(UnrecognizedRoute, message.GetRoute(), message.GetSource());
+    } catch (std::exception const& e) {
+        m_logger->error(ExceptionError, message.GetRoute(), message.GetSource(), e.what());
     }
-    m_logger->warn(UnrecognizedRoute, message.GetRoute(), message.GetSource());
+
     return false;
 }
 
