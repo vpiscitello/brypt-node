@@ -107,7 +107,11 @@ Peer::ProxyStore::OptionalRequest Peer::ProxyStore::DeclareResolvingPeer(
 
     // If the we are provided an identifier for the peer, prefer short circuiting the exchange and send a hearbeat 
     // request to instantiate the endpoint's connection. Otherwise, create a resolver to initiate the exchange. 
-    if (spPeerIdentifier) { return GenerateShortCircuitRequest(spPeerIdentifier); }
+    if (spPeerIdentifier) {
+        if (auto const optShortCircuitRequest = GenerateShortCircuitRequest(spPeerIdentifier); optShortCircuitRequest) {
+            return optShortCircuitRequest;
+        }
+    }
     
     // Store the resolver such that when the endpoint links the peer it can be attached to the real peer proxy. 
     auto upResolver = std::make_unique<Resolver>(Security::Context::Unique);
