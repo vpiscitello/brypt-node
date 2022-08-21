@@ -53,7 +53,6 @@ auto const TargetIdentifier = std::make_shared<Node::Identifier const>(Node::Gen
 
 constexpr std::string_view Interface = "lo";
 constexpr std::string_view OriginBinding = "*:35216";
-constexpr std::size_t ExpectedEndpoints = 2;
 
 auto TargetOptions = Configuration::Options::Endpoint{ Network::Protocol::TCP, Interface, "*:35217" };
 
@@ -207,7 +206,7 @@ TEST_F(NetworkManagerSuite, LifecycleTest)
     auto optConfiguration = local::CreateConfigurationResources(test::OriginBinding);
     ASSERT_TRUE(optConfiguration);
     auto const& [configurations, spBootstrapCache] = *optConfiguration;
-    ASSERT_EQ(configurations.size() * 2, test::ExpectedEndpoints);
+    ASSERT_EQ(configurations.size(), std::size_t{ 1 });
     m_spServiceProvider->Register<IBootstrapCache>(spBootstrapCache);
     
     // Create our Network::Manager to start the tests of its operations and state. 
@@ -226,21 +225,15 @@ TEST_F(NetworkManagerSuite, LifecycleTest)
     EXPECT_GT(m_spEventPublisher->Dispatch(), std::size_t{ 0 });
 
     // Test the effects and state of starting up the manager. 
-    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), test::ExpectedEndpoints);
+    EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t{ 1 });
     EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), configurations.size());
     EXPECT_TRUE(upNetworkManager->IsRegisteredAddress(configurations.front().GetBinding()));
-    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStarted, test::ExpectedEndpoints));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStarted, std::size_t{ 1 }));
 
-    auto const spServerEndpoint = upNetworkManager->GetEndpoint(Network::Protocol::TCP, Network::Operation::Server);
-    EXPECT_TRUE(spServerEndpoint);
-    EXPECT_EQ(spServerEndpoint, upNetworkManager->GetEndpoint(spServerEndpoint->GetIdentifier()));
-    EXPECT_EQ(upNetworkManager->GetEndpointBinding(
-            spServerEndpoint->GetIdentifier()), configurations.front().GetBinding());
-
-    auto const spClientEndpoint = upNetworkManager->GetEndpoint(Network::Protocol::TCP, Network::Operation::Client);
-    EXPECT_TRUE(spClientEndpoint);
-    EXPECT_EQ(spClientEndpoint, upNetworkManager->GetEndpoint(spClientEndpoint->GetIdentifier()));
-    EXPECT_EQ(upNetworkManager->GetEndpointBinding(spClientEndpoint->GetIdentifier()), Network::BindingAddress{});
+    auto const spEndpoint = upNetworkManager->GetEndpoint(Network::Protocol::TCP);
+    EXPECT_TRUE(spEndpoint);
+    EXPECT_EQ(spEndpoint, upNetworkManager->GetEndpoint(spEndpoint->GetIdentifier()));
+    EXPECT_EQ(upNetworkManager->GetEndpointBinding(spEndpoint->GetIdentifier()), configurations.front().GetBinding());
     
     upNetworkManager->Shutdown();
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the endpoints a chance to shutdown. 
@@ -249,7 +242,7 @@ TEST_F(NetworkManagerSuite, LifecycleTest)
     // Test the effects and state of shutting down the manager. 
     EXPECT_EQ(upNetworkManager->ActiveEndpointCount(), std::size_t{ 0 });
     EXPECT_EQ(upNetworkManager->ActiveProtocolCount(), std::size_t{ 0 });
-    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStopped, test::ExpectedEndpoints));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStopped, std::size_t{ 1 }));
     EXPECT_FALSE(m_upEventObserver->ReceivedAnyErrorEvents());
 }
 
@@ -263,7 +256,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
     auto optConfiguration = local::CreateConfigurationResources(test::TargetOptions.GetBinding().GetUri());
     ASSERT_TRUE(optConfiguration);
     auto const& [configurations, spBootstrapCache] = *optConfiguration;
-    ASSERT_EQ(configurations.size() * 2, test::ExpectedEndpoints);
+    ASSERT_EQ(configurations.size(), std::size_t{ 1 });
     m_spServiceProvider->Register<IBootstrapCache>(spBootstrapCache);
 
     // Create our Network::Manager to start the tests of its operations and state. 
@@ -285,7 +278,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
     // The network shutdown event will be published when the binding failure handler is invoked in this call. 
     // The events fired by an event handler are currently handled on the next dispatch cycle. 
     EXPECT_GT(m_spEventPublisher->Dispatch(), std::size_t{ 0 });
-    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStarted, test::ExpectedEndpoints));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStarted, std::size_t{ 1 }));
     EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::BindingFailed, configurations.size()));
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); // Give the endpoints a chance to shutdown. 
 
@@ -300,7 +293,7 @@ TEST_F(NetworkManagerSuite, CriticalShutdownTest)
 
     // The cache state before a network shutdown should not be cleared when a critical error occurs. 
     EXPECT_TRUE(upNetworkManager->IsRegisteredAddress(configurations.front().GetBinding())); 
-    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStopped, test::ExpectedEndpoints));
+    EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::EndpointStopped, std::size_t{ 1 }));
     
     m_spEventPublisher->Dispatch(); // Verify that only one critical error has been published. 
     EXPECT_TRUE(m_upEventObserver->ReceivedExpectedEvents(Event::Type::CriticalNetworkFailure, 1));
@@ -350,7 +343,7 @@ bool local::TargetResources::Initialize(Configuration::Options::Endpoint const& 
         test::TargetIdentifier, m_spMessageProcessor.get(), m_spServiceProvider);
     m_spServiceProvider->Register<IResolutionService>(m_spResolutionService);
     
-    auto const properties = Network::Endpoint::Properties{ Network::Operation::Server, options };
+    Network::Endpoint::Properties const properties{ options };
     m_upEndpoint = std::make_unique<Network::TCP::Endpoint>(properties);
     m_upEndpoint->Register(m_spEventPublisher);
     m_upEndpoint->Register(m_spResolutionService.get());
@@ -384,11 +377,11 @@ local::EventObserver::EventObserver(Event::SharedPublisher const& spEventPublish
     , m_hasUnexpectedError(false)
 {
     // Subscribe to all events fired by an endpoint. Each listener should only record valid events. 
-    m_spEventPublisher->Subscribe<Event::Type::EndpointStarted>([&] (auto, auto, auto) {
+    m_spEventPublisher->Subscribe<Event::Type::EndpointStarted>([&] (auto, auto const&) {
         ++m_events[Event::Type::EndpointStarted];
     });
 
-    m_spEventPublisher->Subscribe<Event::Type::EndpointStopped>([&] (auto, auto, auto, auto) {
+    m_spEventPublisher->Subscribe<Event::Type::EndpointStopped>([&] (auto, auto const&, auto) {
         ++m_events[Event::Type::EndpointStopped];
     });
 

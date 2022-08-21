@@ -427,8 +427,7 @@ local::InformationResources::InformationResources(
     m_spNetworkManager = std::make_shared<Network::Manager>(test::RuntimeOptions.context, m_spServiceProvider);
     m_spServiceProvider->Register(m_spNetworkManager);
 
-    m_spEndpoint = std::make_shared<Route::Test::StandardEndpoint>(
-        Network::Endpoint::Properties{ Network::Operation::Server, options });
+    m_spEndpoint = std::make_shared<Route::Test::StandardEndpoint>(Network::Endpoint::Properties{ options });
     m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(options, m_spEndpoint);
 
     m_spEventPublisher->SuspendSubscriptions();

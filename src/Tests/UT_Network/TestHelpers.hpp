@@ -145,13 +145,13 @@ public:
         return message;
     }
 
-    bool ReceviedHeartbeatRequest() const
+    bool ReceivedHeartbeatRequest() const
     {
         std::scoped_lock lock{ m_mutex };
         return m_bReceivedHeartbeatRequest;
     }
 
-    bool ReceviedHeartbeatResponse() const
+    bool ReceivedHeartbeatResponse() const
     {
         std::scoped_lock lock{ m_mutex };
         return m_bReceivedHeartbeatResponse;

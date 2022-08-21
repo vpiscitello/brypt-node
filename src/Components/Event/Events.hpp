@@ -156,7 +156,7 @@ class Event::Message<Event::Type::EndpointStarted> : public Event::IMessage
 {
     EVENT_MESSAGE_CORE(
         Event::Type::EndpointStarted,
-        Network::Endpoint::Identifier, Network::Protocol, Network::Operation)
+        Network::Endpoint::Identifier, Network::BindingAddress)
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -168,7 +168,7 @@ class Event::Message<Event::Type::EndpointStopped> : public Event::IMessage
     EVENT_MESSAGE_CAUSE(ShutdownRequest, BindingFailed, UnexpectedError)
     EVENT_MESSAGE_CORE(
         Event::Type::EndpointStopped,
-        Network::Endpoint::Identifier, Network::Protocol, Network::Operation, Cause)
+        Network::Endpoint::Identifier, Network::BindingAddress, Cause)
 };
 
 //----------------------------------------------------------------------------------------------------------------------

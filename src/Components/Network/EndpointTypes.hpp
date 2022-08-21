@@ -12,7 +12,6 @@ namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
 
 enum class Instruction : std::uint8_t { Bind, Connect, Dispatch };
-enum class Operation : std::uint8_t { Server, Client, Invalid };
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Network namespace

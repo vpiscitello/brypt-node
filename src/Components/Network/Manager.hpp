@@ -72,7 +72,7 @@ public:
     [[nodiscard]] bool Detach(Configuration::Options::Endpoint const& options);
 
     [[nodiscard]] SharedEndpoint GetEndpoint(Endpoint::Identifier identifier) const;
-    [[nodiscard]] SharedEndpoint GetEndpoint(Protocol protocol, Operation operation) const;
+    [[nodiscard]] SharedEndpoint GetEndpoint(Protocol protocol) const;
     [[nodiscard]] ProtocolSet GetEndpointProtocols() const;
     [[nodiscard]] BindingAddress GetEndpointBinding(Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t ActiveEndpointCount() const;

@@ -55,7 +55,7 @@ public:
     explicit Endpoint(Network::Endpoint::Properties const& properties);
     ~Endpoint() override;
 
-    // IEndpoint{
+    // IEndpoint {
     [[nodiscard]] virtual Network::Protocol GetProtocol() const override;
     [[nodiscard]] virtual std::string_view GetScheme() const override;
     [[nodiscard]] virtual BindingAddress GetBinding() const override;
@@ -75,35 +75,13 @@ public:
     [[nodiscard]] virtual bool ScheduleSend(
         Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) override;
     [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message) override;
-    // }IEndpoint
+    // } IEndpoint
     
 private:
     using EndpointInstance = Endpoint&;
     using ExtendedDetails = ConnectionDetails<void>;
 
-    class Agent {
-    public:
-        explicit Agent(EndpointInstance endpoint);
-        virtual ~Agent() = default;
-        [[nodiscard]] virtual Operation Type() const = 0;
-        [[nodiscard]] virtual bool IsActive() const;
-        [[nodiscard]] bool Launched() const;
-        void OnEndpointReady();
-
-    protected:
-        void Launch(std::function<void()> const& setup, std::function<void()> const& teardown);
-        void Stop();
-        virtual void Setup() = 0;
-        virtual void Teardown() = 0;
-
-        EndpointInstance m_endpoint;
-        std::latch m_latch;
-        std::atomic_bool m_active;
-        std::jthread m_worker;
-    };
-
-    class Server;
-    class Client;
+    class Agent;
 
     void PollContext();
     void ProcessEvents(std::stop_token token);
@@ -114,7 +92,7 @@ private:
 
     [[nodiscard]] SharedSession CreateSession();
 
-    void OnSessionStarted(SharedSession const& spSession, RemoteAddress::Origin origin);
+    void OnSessionStarted(SharedSession const& spSession, RemoteAddress::Origin origin, bool bootstrappable);
     void OnSessionStopped(SharedSession const& spSession);
 
     [[nodiscard]] bool OnMessageReceived(

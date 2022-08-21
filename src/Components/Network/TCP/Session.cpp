@@ -97,10 +97,10 @@ boost::asio::ip::tcp::socket& Network::TCP::Session::GetSocket()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::TCP::Session::Initialize(Operation source, RemoteAddress::Origin origin)
+void Network::TCP::Session::Initialize(RemoteAddress::Origin origin, bool bootstrappable)
 {
     assert(m_socket.is_open());
-    m_address = { m_socket.remote_endpoint(), (source == Operation::Client), origin };
+    m_address = { m_socket.remote_endpoint(), bootstrappable, origin };
 }
 
 //----------------------------------------------------------------------------------------------------------------------

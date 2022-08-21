@@ -64,7 +64,7 @@ public:
     template <Event EventName>
     void Subscribe(typename Callback<EventName>::Trait const& callback);
 
-    void Initialize(Operation source, RemoteAddress::Origin origin);
+    void Initialize(RemoteAddress::Origin origin, bool bootstrappable);
     void Start();
     void Stop();
     

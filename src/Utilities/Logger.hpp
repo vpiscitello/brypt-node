@@ -17,15 +17,14 @@
 namespace Logger {
 //----------------------------------------------------------------------------------------------------------------------
 
-void Initialize(spdlog::level::level_enum verbosity = spdlog::level::debug);
+void Initialize(spdlog::level::level_enum verbosity = spdlog::level::debug, bool useStdOutSink = true);
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Name {
 //----------------------------------------------------------------------------------------------------------------------
 
 constexpr std::string_view Core = "core";
-constexpr std::string_view TcpServer = "tcp-server";
-constexpr std::string_view TcpClient = "tcp-client";
+constexpr std::string_view TCP = "tcp";
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Loggers namespace
@@ -68,38 +67,45 @@ std::shared_ptr<spdlog::sinks::stdout_color_sink_mt> CreateTrueColorSink();
 } // FileUtils namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-inline void Logger::Initialize(spdlog::level::level_enum verbosity)
+inline void Logger::Initialize(spdlog::level::level_enum verbosity, bool useStdOutSink)
 {
     auto spCore = spdlog::get(Name::Core.data());
     if (spCore) {
-        assert(spdlog::get(Name::TcpServer.data()));
-        assert(spdlog::get(Name::TcpClient.data()));
+        assert(spdlog::get(Name::TCP.data()));
         return; // There is nothing to do if the core logger has already been initialized. 
     }
 
-    spCore = std::make_shared<spdlog::logger>(Name::Core.data(), Color::CreateTrueColorSink()); 
-    spCore->set_pattern(Pattern::Generate(Color::Core, { "core" }));
+    spCore = std::make_shared<spdlog::logger>(Name::Core.data()); 
     spdlog::register_logger(spCore);
+    
+    auto const spTcp = std::make_shared<spdlog::logger>(Name::TCP.data());
+    spdlog::register_logger(spTcp);
+    
+    if (useStdOutSink) {
+        auto spCoreSink = Color::CreateTrueColorSink();
+        spCoreSink->set_pattern(Pattern::Generate(Color::Core, { "core" }));
+        spCore->sinks().emplace_back(std::move(spCoreSink));
 
-    auto const spTcpServer = std::make_shared<spdlog::logger>(Name::TcpServer.data(), Color::CreateTrueColorSink());
-    spTcpServer->set_pattern(Pattern::Generate(Color::TCP, { "tcp", "server" }));
-    spdlog::register_logger(spTcpServer);
-
-    auto const spTcpClient = std::make_shared<spdlog::logger>(Name::TcpClient.data(), Color::CreateTrueColorSink());
-    spTcpClient->set_pattern(Pattern::Generate(Color::TCP, { "tcp", "client" }));
-    spdlog::register_logger(spTcpClient);
+        auto spTcpSink = Color::CreateTrueColorSink();
+        spTcpSink->set_pattern(Pattern::Generate(Color::TCP, { "tcp" }));
+        spTcp->sinks().emplace_back(std::move(spTcpSink));
+    }
 
     spdlog::set_level(verbosity);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 inline std::string Logger::Pattern::Generate(
-    std::string_view color, std::vector<std::string> const& tags)
+    [[maybe_unused]] std::string_view color, std::vector<std::string> const& tags)
 {
     std::ostringstream oss;
     oss << Prefix << TagSeperator << Date << TagSeperator;
     for (auto const& tag : tags) {
+#if defined(BRYPT_SHARED)
+        oss << TagOpen << tag << TagClose << TagSeperator;
+#else
         oss << TagOpen << color << tag << Color::Reset << TagClose << TagSeperator;
+#endif
     }
     oss << Message;
     return oss.str();

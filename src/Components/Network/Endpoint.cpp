@@ -15,8 +15,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Endpoint::Properties::Properties()
-    : m_protocol(Protocol::Invalid)
-    , m_operation(Operation::Invalid)
+    : m_binding()
     , m_connection()
 {
     static_assert(std::in_range<std::uint32_t>(Configuration::Defaults::ConnectionRetryLimit));
@@ -27,9 +26,8 @@ Network::Endpoint::Properties::Properties()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Endpoint::Properties::Properties(Operation operation, Configuration::Options::Endpoint const& options)
-    : m_protocol(options.GetProtocol())
-    , m_operation(operation)
+Network::Endpoint::Properties::Properties(Configuration::Options::Endpoint const& options)
+    : m_binding(options.GetBinding())
     , m_connection()
 {
     assert(std::in_range<std::uint32_t>(options.GetConnectionRetryLimit()));
@@ -41,8 +39,7 @@ Network::Endpoint::Properties::Properties(Operation operation, Configuration::Op
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Endpoint::Properties::Properties(Properties const& other)
-    : m_protocol(other.m_protocol)
-    , m_operation(other.m_operation)
+    : m_binding(other.m_binding)
     , m_connection()
 {
     m_connection.m_timeout = other.m_connection.m_timeout.load();
@@ -53,8 +50,7 @@ Network::Endpoint::Properties::Properties(Properties const& other)
 //----------------------------------------------------------------------------------------------------------------------
 
 Network::Endpoint::Properties::Properties(Properties&& other)
-    : m_protocol(std::move(other.m_protocol))
-    , m_operation(std::move(other.m_operation))
+    : m_binding(std::move(other.m_binding))
     , m_connection()
 {
     m_connection.m_timeout = other.m_connection.m_timeout.load();
@@ -66,8 +62,7 @@ Network::Endpoint::Properties::Properties(Properties&& other)
 
 Network::Endpoint::Properties& Network::Endpoint::Properties::operator=(Properties const& other)
 {
-    m_protocol = other.m_protocol;
-    m_operation = other.m_operation;
+    m_binding = other.m_binding;
     m_connection.m_timeout = other.m_connection.m_timeout.load();
     m_connection.m_limit = other.m_connection.m_limit.load();
     m_connection.m_interval = other.m_connection.m_interval.load();
@@ -78,8 +73,7 @@ Network::Endpoint::Properties& Network::Endpoint::Properties::operator=(Properti
 
 Network::Endpoint::Properties& Network::Endpoint::Properties::operator=(Properties&& other)
 {
-    m_protocol = std::move(other.m_protocol);
-    m_operation = std::move(other.m_operation);
+    m_binding = std::move(other.m_binding);
     m_connection.m_timeout = other.m_connection.m_timeout.load();
     m_connection.m_limit = other.m_connection.m_limit.load();
     m_connection.m_interval = other.m_connection.m_interval.load();
@@ -88,11 +82,11 @@ Network::Endpoint::Properties& Network::Endpoint::Properties::operator=(Properti
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Protocol Network::Endpoint::Properties::GetProtocol() const { return m_protocol; }
+Network::Protocol Network::Endpoint::Properties::GetProtocol() const { return m_binding.GetProtocol(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Operation Network::Endpoint::Properties::GetOperation() const { return m_operation; }
+Network::BindingAddress Network::Endpoint::Properties::GetBinding() const { return m_binding; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -111,6 +105,10 @@ std::chrono::milliseconds Network::Endpoint::Properties::GetConnectionRetryInter
 {
     return std::chrono::milliseconds{ m_connection.m_interval.load() };
 }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Network::Endpoint::Properties::SetBinding(Network::BindingAddress const& binding) { m_binding = binding; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -139,13 +137,11 @@ void Network::Endpoint::Properties::SetConnectionRetryInterval(std::chrono::mill
 Network::IEndpoint::IEndpoint(Endpoint::Properties const& properties)
     : m_identifier(Endpoint::IdentifierGenerator::Instance().Generate())
     , m_properties(properties)
-    , m_binding()
     , m_spEventPublisher()
     , m_pEndpointMediator(nullptr)
     , m_pResolutionService(nullptr)
     , m_optShutdownCause()
 {
-    assert(m_properties.GetOperation() != Operation::Invalid);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -195,21 +191,20 @@ bool Network::IEndpoint::IsStopping() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::IEndpoint::OnStarted() const
+void Network::IEndpoint::OnStarted()
 {
     m_optShutdownCause.reset(); // Ensure the shutdown cause has been reset for this cycle.
     m_spEventPublisher->Publish<Event::Type::EndpointStarted>(
-        m_identifier, m_properties.GetProtocol(), m_properties.GetOperation());
+        m_identifier, m_properties.GetBinding());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Network::IEndpoint::OnStopped() const
+void Network::IEndpoint::OnStopped()
 {
     m_spEventPublisher->Publish<Event::Type::EndpointStopped>(
         m_identifier,
-        m_properties.GetProtocol(),
-        m_properties.GetOperation(), 
+        m_properties.GetBinding(),
         m_optShutdownCause.value_or(ShutdownCause::ShutdownRequest));
 }
 
@@ -226,7 +221,6 @@ void Network::IEndpoint::OnBindingUpdated(BindingAddress const& binding)
 
 void Network::IEndpoint::OnBindingFailed(BindingAddress const& binding, BindingFailure failure) const
 {
-    assert(m_properties.GetOperation() == Operation::Server);
     SetShutdownCause(ShutdownCause::BindingFailed);
     m_spEventPublisher->Publish<Event::Type::BindingFailed>(m_identifier, binding, failure);
 }
@@ -235,7 +229,6 @@ void Network::IEndpoint::OnBindingFailed(BindingAddress const& binding, BindingF
 
 void Network::IEndpoint::OnConnectionFailed(RemoteAddress const& address, ConnectionFailure failure) const
 {
-    assert(m_properties.GetOperation() == Operation::Client);
     m_spEventPublisher->Publish<Event::Type::ConnectionFailed>(m_identifier, address, failure);
 }
 

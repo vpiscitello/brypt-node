@@ -47,7 +47,7 @@ class Network::Endpoint::Properties
 {
 public:
     Properties();
-    Properties(Operation operation, Configuration::Options::Endpoint const& options);
+    explicit Properties(Configuration::Options::Endpoint const& options);
     ~Properties() = default;
 
     Properties(Properties const& other);
@@ -59,10 +59,12 @@ public:
     [[nodiscard]] bool operator==(Properties const& other) const = default;
 
     [[nodiscard]] Protocol GetProtocol() const;
-    [[nodiscard]] Operation GetOperation() const;
+    [[nodiscard]] BindingAddress GetBinding() const;
     [[nodiscard]] std::chrono::milliseconds GetConnectionTimeout() const;
     [[nodiscard]] std::uint32_t GetConnectionRetryLimit() const;
     [[nodiscard]] std::chrono::milliseconds GetConnectionRetryInterval() const;
+
+    void SetBinding(Network::BindingAddress const& binding);
 
     void SetConnectionTimeout(std::chrono::milliseconds const& value);
     void SetConnectionRetryLimit(std::int32_t value);
@@ -75,8 +77,7 @@ private:
         std::atomic_int64_t m_interval;
     };
 
-    Protocol m_protocol;
-    Operation m_operation;
+    Network::BindingAddress m_binding;
     Connection m_connection;
 };
 
@@ -124,8 +125,8 @@ protected:
 
     [[nodiscard]] bool IsStopping() const;
 
-    void OnStarted() const;
-    void OnStopped() const;
+    virtual void OnStarted();
+    virtual void OnStopped();
 
     void OnBindingUpdated(BindingAddress const& binding);
     void OnBindingFailed(BindingAddress const& binding, BindingFailure failure) const;
@@ -135,7 +136,6 @@ protected:
     
     Endpoint::Identifier const m_identifier;
     Endpoint::Properties m_properties;
-    BindingAddress m_binding;
 
     Event::SharedPublisher m_spEventPublisher;
     IEndpointMediator* m_pEndpointMediator;
