@@ -255,6 +255,17 @@ std::size_t Peer::ProxyStore::ResolvingCount() const
 
 //----------------------------------------------------------------------------------------------------------------------
 
+std::shared_ptr<Peer::Proxy> Peer::ProxyStore::Find(Node::Identifier const& identifier) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) {
+        return *itr;
+    }
+    return nullptr;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 std::shared_ptr<Peer::Proxy> Peer::ProxyStore::Find(std::string_view identifier) const
 {
     std::shared_lock lock{ m_peersMutex };
@@ -263,6 +274,52 @@ std::shared_ptr<Peer::Proxy> Peer::ProxyStore::Find(std::string_view identifier)
         return *itr;
     }
     return nullptr;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::ProxyStore::Contains(Node::Identifier const& identifier) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) {
+        return true;
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::ProxyStore::Contains(std::string_view identifier) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    auto const& index = m_peers.template get<ExternalIndex>();
+    if (auto const itr = index.find(identifier.data()); itr != index.end()) {
+        return true;
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::ProxyStore::IsActive(Node::Identifier const& identifier) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    if (auto const itr = m_peers.find(identifier); itr != m_peers.end()) {
+        return itr->get()->IsActive();
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::ProxyStore::IsActive(std::string_view identifier) const
+{
+    std::shared_lock lock{ m_peersMutex };
+    auto const& index = m_peers.template get<ExternalIndex>();
+    if (auto const itr = index.find(identifier.data()); itr != index.end()) {
+        return itr->get()->IsActive();
+    }
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------

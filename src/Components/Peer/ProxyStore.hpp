@@ -87,7 +87,12 @@ public:
     [[nodiscard]] virtual std::size_t ResolvingCount() const override;
     // } IPeerCache
 
-    std::shared_ptr<Proxy> Find(std::string_view identifier) const;
+    [[nodiscard]] std::shared_ptr<Proxy> Find(Node::Identifier const& identifier) const;
+    [[nodiscard]] std::shared_ptr<Proxy> Find(std::string_view identifier) const;
+    [[nodiscard]] bool Contains(Node::Identifier const& identifier) const;
+    [[nodiscard]] bool Contains(std::string_view identifier) const;
+    [[nodiscard]] bool IsActive(Node::Identifier const& identifier) const;
+    [[nodiscard]] bool IsActive(std::string_view identifier) const;
 
     bool ForEach(ForEachFunction const& callback, Filter filter = Filter::Active) const;
 
