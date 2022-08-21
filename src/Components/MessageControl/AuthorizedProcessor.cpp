@@ -117,9 +117,11 @@ std::size_t AuthorizedProcessor::Execute()
 {
 	if (auto const optMessage = FetchMessage(); optMessage) {
 		Peer::Action::Next next{ optMessage->GetContext().GetProxy(), *optMessage, m_wpServiceProvider};
-		// TODO: What should happen when we fail to route or handle the message. 
-		[[maybe_unused]] bool const success = m_spRouter->Route(*optMessage, next);
-		return 1; // Provide the number of tasks executed to the scheduler. 
+		if (!next.GetProxy().expired()) {
+			// TODO: What should happen when we fail to route or handle the message. 
+			[[maybe_unused]] bool const success = m_spRouter->Route(*optMessage, next);
+			return 1; // Provide the number of tasks executed to the scheduler. 
+		}
 	}
 	return 0; // Indicate that we were enable to execute a task this cycle. 
 }
