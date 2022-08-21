@@ -15,9 +15,21 @@
 namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
 
+enum class Protocol : std::uint32_t { LoRa, TCP, Test, Invalid };
+
 constexpr std::string_view TestScheme = "test";
 
-enum class Protocol : std::uint8_t { LoRa, TCP, Test, Invalid };
+static std::unordered_map<std::string, Protocol> const ProtocolStringTranslations = {
+    { "lora", Protocol::LoRa },
+    { "tcp", Protocol::TCP },
+    { std::string{ TestScheme }, Protocol::Test },
+};
+
+static std::unordered_map<Protocol, std::string> const ProtocolEnumTranslations = {
+    { Protocol::LoRa, "lora" },
+    { Protocol::TCP, "tcp" },
+    { Protocol::Test,  std::string{ TestScheme } },
+};
 
 using ProtocolSet = std::set<Network::Protocol>;
 
@@ -30,19 +42,15 @@ std::string ProtocolToString(Protocol protocol);
 
 inline Network::Protocol Network::ParseProtocol(std::string name)
 {
-    static std::unordered_map<std::string, Protocol> const translations = {
-        { "lora", Protocol::LoRa },
-        { "tcp", Protocol::TCP },
-        { std::string{ TestScheme }, Protocol::Test },
-    };
-
     // Adjust the provided protocol name to lowercase
     std::transform(name.begin(), name.end(), name.begin(), [] (char c) { 
         return static_cast<char>(std::tolower(static_cast<std::int32_t>(c)));
     });
-    if (auto const itr = translations.find(name.data()); itr != translations.end()) {
+
+    if (auto const itr = ProtocolStringTranslations.find(name.data()); itr != ProtocolStringTranslations.end()) {
         return itr->second;
     }
+
     return Protocol::Invalid;
 }
 
@@ -50,15 +58,10 @@ inline Network::Protocol Network::ParseProtocol(std::string name)
 
 inline std::string Network::ProtocolToString(Protocol protocol)
 {
-    static std::unordered_map<Protocol, std::string> const translations = {
-        { Protocol::LoRa, "lora" },
-        { Protocol::TCP, "tcp" },
-        { Protocol::Test,  std::string{ TestScheme } },
-    };
-
-    if(auto const itr = translations.find(protocol); itr != translations.end()) {
+    if(auto const itr = ProtocolEnumTranslations.find(protocol); itr != ProtocolEnumTranslations.end()) {
         return itr->second;
     }
+    
     return {};
 }
 
