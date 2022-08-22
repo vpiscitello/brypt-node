@@ -10,30 +10,20 @@ set(
     ${CMAKE_SOURCE_DIR}/BryptIdentifier/BryptIdentifier.cpp
     ${CMAKE_SOURCE_DIR}/BryptIdentifier/ReservedIdentifiers.cpp
     ${CMAKE_SOURCE_DIR}/BryptMessage/ApplicationMessage.cpp
+    ${CMAKE_SOURCE_DIR}/BryptMessage/Extension.cpp
     ${CMAKE_SOURCE_DIR}/BryptMessage/MessageContext.cpp
     ${CMAKE_SOURCE_DIR}/BryptMessage/MessageHeader.cpp
     ${CMAKE_SOURCE_DIR}/BryptMessage/MessageUtils.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/NetworkMessage.cpp
+    ${CMAKE_SOURCE_DIR}/BryptMessage/PlatformMessage.cpp
     ${CMAKE_SOURCE_DIR}/BryptNode/BryptNode.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/CoordinatorState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/NetworkState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/NodeState.cpp
     ${CMAKE_SOURCE_DIR}/BryptNode/RuntimePolicy.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/SecurityState.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/SensorState.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Await/ResponseTracker.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Await/TrackingManager.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Awaitable/Tracker.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Awaitable/TrackingService.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/BootstrapService.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/Parser.cpp
     ${CMAKE_SOURCE_DIR}/Components/Configuration/Options.cpp
     ${CMAKE_SOURCE_DIR}/Components/Event/Publisher.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Handler/Connect.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Handler/Election.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Handler/Handler.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Handler/Information.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Handler/Query.cpp
     ${CMAKE_SOURCE_DIR}/Components/MessageControl/AuthorizedProcessor.cpp
-    ${CMAKE_SOURCE_DIR}/Components/MessageControl/DiscoveryProtocol.cpp
     ${CMAKE_SOURCE_DIR}/Components/MessageControl/ExchangeProcessor.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/Address.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/Endpoint.cpp
@@ -42,18 +32,37 @@ set(
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Endpoint.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Events.cpp
     ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Session.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Manager.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/ProxyStore.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Proxy.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Peer/Action.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Registration.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Resolver.cpp
     ${CMAKE_SOURCE_DIR}/Components/Peer/Statistics.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Route/Auxiliary.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Route/Connect.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Route/Information.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Route/MessageHandler.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Route/Path.cpp
+    ${CMAKE_SOURCE_DIR}/Components/Route/Router.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/KeyStore.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecureBuffer.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/SecurityUtils.cpp
     ${CMAKE_SOURCE_DIR}/Components/Security/PostQuantum/NISTSecurityLevelThree.cpp
     ${CMAKE_SOURCE_DIR}/Components/Scheduler/Delegate.cpp
     ${CMAKE_SOURCE_DIR}/Components/Scheduler/Registrar.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Scheduler/TaskService.cpp)
+    ${CMAKE_SOURCE_DIR}/Components/Scheduler/TaskService.cpp
+    ${CMAKE_SOURCE_DIR}/Components/State/CoordinatorState.cpp
+    ${CMAKE_SOURCE_DIR}/Components/State/NetworkState.cpp
+    ${CMAKE_SOURCE_DIR}/Components/State/NodeState.cpp
+    ${CMAKE_SOURCE_DIR}/Components/State/SecurityState.cpp)
+
+target_sources(
+    ${PROJECT_NAME} PRIVATE
+    ${PROJECT_SOURCES}
+    brypt.cpp
+    service.cpp)
+
+set(C_INTERFACE_EXPORTED_HEADERS brypt.h)
 
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES} brypt.cpp)
 
