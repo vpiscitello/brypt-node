@@ -18,7 +18,7 @@ target_sources(
     # Source Files
     OptionTest.cpp
     ServiceTest.cpp
-    StatusTest.cpp
+    ResultTest.cpp
     UT_BryptLibrary.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
@@ -28,10 +28,24 @@ target_link_libraries(${PROJECT_NAME} PUBLIC brypt ${GTEST_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
+copy_dependencies(${PROJECT_NAME})
+
 #-----------------------------------------------------------------------------------------------------------------------
 
-configure_file("config/config.json" "config/config.json" COPYONLY)
-configure_file("config/bootstrap.json" "config/bootstrap.json" COPYONLY)
+configure_file("config/config.json" "config/config.json" COPYONLY) 
+ 
+#-----------------------------------------------------------------------------------------------------------------------
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(BRYPT_LIBRARY_SUFFIX "d")
+    endif()
+
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_BINARY_DIR}/lib/${CMAKE_BUILD_TYPE}/brypt${BRYPT_LIBRARY_SUFFIX}.${SHARED_EXTENSION}
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>)
+endif()
 
 #-----------------------------------------------------------------------------------------------------------------------
 gtest_discover_tests(${PROJECT_NAME})

@@ -8,60 +8,60 @@
 #include <filesystem>
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptLibrarySuite, StatusDefaultConstructorTest)
+TEST(LibraryStatusSuite, StatusDefaultConstructorTest)
 {
     brypt::status status;
-    EXPECT_TRUE(status.is_nominal());
+    EXPECT_TRUE(status.is_success());
     EXPECT_FALSE(status.is_error());
-    EXPECT_EQ(status, brypt::success_code::accepted);
+    EXPECT_EQ(status, brypt::status_code::accepted);
     EXPECT_EQ(status.value(), BRYPT_ACCEPTED);
     EXPECT_STREQ(status.what(), brypt_error_description(BRYPT_ACCEPTED));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptLibrarySuite, StatusCAPIConstructorTest)
+TEST(LibraryStatusSuite, StatusCAPIConstructorTest)
 {
-    brypt::status status(BRYPT_EOPERTIMEOUT);
-    EXPECT_FALSE(status.is_nominal());
+    brypt::status status(BRYPT_ETIMEOUT);
+    EXPECT_FALSE(status.is_success());
     EXPECT_TRUE(status.is_error());
-    EXPECT_EQ(status, brypt::error_code::operation_timeout);
-    EXPECT_EQ(status.value(), BRYPT_EOPERTIMEOUT);
-    EXPECT_STREQ(status.what(), brypt_error_description(BRYPT_EOPERTIMEOUT));
+    EXPECT_EQ(status, brypt::status_code::timeout);
+    EXPECT_EQ(status.value(), BRYPT_ETIMEOUT);
+    EXPECT_STREQ(status.what(), brypt_error_description(BRYPT_ETIMEOUT));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptLibrarySuite, StatusSuccessCodeConstructorTest)
+TEST(LibraryStatusSuite, StatusSuccessCodeConstructorTest)
 {
-    brypt::status status(brypt::success_code::accepted);
-    EXPECT_TRUE(status.is_nominal());
+    brypt::status status(brypt::status_code::accepted);
+    EXPECT_TRUE(status.is_success());
     EXPECT_FALSE(status.is_error());
-    EXPECT_EQ(status, brypt::success_code::accepted);
+    EXPECT_EQ(status, brypt::status_code::accepted);
     EXPECT_EQ(status.value(), BRYPT_ACCEPTED);
     EXPECT_STREQ(status.what(), brypt_error_description(BRYPT_ACCEPTED));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptLibrarySuite, StatusErrorCodeConstructorTest)
+TEST(LibraryStatusSuite, StatusErrorCodeConstructorTest)
 {
-    brypt::status status(brypt::error_code::unspecified);
-    EXPECT_FALSE(status.is_nominal());
+    brypt::status status(brypt::status_code::unspecified);
+    EXPECT_FALSE(status.is_success());
     EXPECT_TRUE(status.is_error());
-    EXPECT_EQ(status, brypt::error_code::unspecified);
+    EXPECT_EQ(status, brypt::status_code::unspecified);
     EXPECT_EQ(status.value(), BRYPT_EUNSPECIFIED);
     EXPECT_STREQ(status.what(), brypt_error_description(BRYPT_EUNSPECIFIED));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(BryptLibrarySuite, StatusComparisonTest)
+TEST(LibraryStatusSuite, StatusComparisonTest)
 {
     brypt::status status(BRYPT_EFILENOTFOUND);
-    EXPECT_EQ(status, brypt::status(brypt::error_code::file_not_found));
-    EXPECT_EQ(status, brypt::error_code::file_not_found);
-    EXPECT_NE(status, brypt::success_code::accepted);
+    EXPECT_EQ(status, brypt::status(brypt::status_code::file_not_found));
+    EXPECT_EQ(status, brypt::status_code::file_not_found);
+    EXPECT_NE(status, brypt::status_code::accepted);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

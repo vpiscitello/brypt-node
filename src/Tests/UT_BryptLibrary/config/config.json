@@ -1,22 +1,32 @@
 {
 	"version": "0.0.0",
 	"identifier": {
-		"type": "Ephemeral"
+		"type": "Persistent"
 	},
 	"details": {
-		"name": "alpha",
-		"description": "",
-		"location": ""
+		"name": "name",
+		"description": "description",
+		"location": "location"
 	},
-	"endpoints": [
-		{
-			"protocol": "TCP",
-			"interface": "lo",
-			"binding": "*:35216"
+	"network": {
+		"endpoints": [
+			{
+				"protocol": "TCP",
+				"interface": "lo",
+				"binding": "127.0.0.1:35217",
+				"bootstrap": "127.0.0.1:35216"
+			}
+		],
+		"connection": {
+			"timeout": "250ms",
+			"retry": {
+				"limit": 5,
+				"interval": "100ms"
+			}
 		}
-	],
+	},
 	"security": {
 		"strategy": "PQNISTL3",
-		"token": ""
+		"token": "token"
 	}
 }
