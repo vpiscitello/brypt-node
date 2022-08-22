@@ -90,9 +90,10 @@ public:
         Network::Endpoint::Identifier identifier, Message::ShareablePack const& spSharedPack) const;
     // } Message Dispatch Methods
 
-    // Endpoint Association Methods {
+    // Network Association Methods {
     using WithdrawalCause = Event::Message<Event::Type::PeerDisconnected>::Cause;
     using EndpointReader = std::function<CallbackIteration(Registration const&)>;
+    using AddressReader = std::function<CallbackIteration(Network::RemoteAddress const&, bool)>;
 
     void RegisterEndpoint(
         Network::Endpoint::Identifier identifier,
@@ -102,19 +103,31 @@ public:
         Network::DisconnectAction const& disconnector = {});
     void WithdrawEndpoint(Network::Endpoint::Identifier identifier, WithdrawalCause cause);
 
+    void AssociateRemote(Network::RemoteAddress const& remote);
+
     [[nodiscard]] bool IsActive() const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] bool IsEndpointRegistered(Network::Address const& address) const;
+    [[nodiscard]] bool IsEndpointRegistered(std::string_view uri) const;
     [[nodiscard]] std::optional<Message::Context> GetMessageContext(
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::optional<Network::RemoteAddress> GetRegisteredAddress(
         Network::Endpoint::Identifier identifier) const;
     [[nodiscard]] std::size_t RegisteredEndpointCount() const;
 
+    [[nodiscard]] bool IsRemoteAssociated(Network::RemoteAddress const& remote) const;
+    [[nodiscard]] bool IsRemoteAssociated(Network::Protocol protocol, std::string_view address) const;
+    [[nodiscard]] bool IsRemoteAssociated(std::string_view uri) const;
+
+    [[nodiscard]] bool IsRemoteConnected(Network::RemoteAddress const& remote) const;
+    [[nodiscard]] bool IsRemoteConnected(Network::Protocol protocol, std::string_view address) const;
+    [[nodiscard]] bool IsRemoteConnected(std::string_view uri) const;
+
     bool ForEach(EndpointReader const& reader) const;
+    bool ForEach(AddressReader const& reader) const;
 
     [[nodiscard]] bool ScheduleDisconnect() const;
-    // } Endpoint Association Methods
+    // } Network Association Methods
 
     // Security Methods {
     [[nodiscard]] bool AttachResolver(std::unique_ptr<Resolver>&& upResolver);
@@ -142,10 +155,15 @@ public:
     
 private:
     using RegisteredEndpoints = std::unordered_map<Network::Endpoint::Identifier, Registration>;
+    using AssociatedAddresses = std::unordered_map<Network::RemoteAddress, bool, Network::AddressHasher<Network::RemoteAddress>>;
     
     [[nodiscard]] RegisteredEndpoints::const_iterator GetOrSetPreferredEndpoint(
         Message::Application::Builder& builder) const; 
     [[nodiscard]] RegisteredEndpoints::const_iterator FetchPreferredEndpoint() const; 
+
+    AssociatedAddresses::const_iterator FindRemote(Network::Protocol protocol, std::string_view address) const;
+    AssociatedAddresses::const_iterator FindRemote(std::string_view uri) const;
+
     void BindSecurityContext(Message::Context& context);
 
     Node::SharedIdentifier m_spIdentifier;
@@ -159,6 +177,9 @@ private:
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;
+
+    mutable std::shared_mutex m_associatedMutex;
+    AssociatedAddresses m_associated;
 
     mutable std::recursive_mutex m_receiverMutex;
     IMessageSink* m_pEnabledProcessor;

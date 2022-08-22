@@ -29,6 +29,8 @@ Peer::Proxy::Proxy(
     , m_upSecurityStrategy()
     , m_endpointsMutex()
     , m_endpoints()
+    , m_associatedMutex()
+    , m_associated()
     , m_receiverMutex()
     , m_pEnabledProcessor()
     , m_wpCoreProcessor(spProvider->Fetch<IMessageSink>())
@@ -234,14 +236,17 @@ void Peer::Proxy::RegisterEndpoint(
     Network::DisconnectAction const& disconnector)
 {
     {
-        std::scoped_lock lock{ m_endpointsMutex };
-        auto [itr, result] = m_endpoints.try_emplace(
+        std::scoped_lock lock{ m_endpointsMutex, m_associatedMutex };
+        auto [itr, isEndpointEmplaced] = m_endpoints.try_emplace(
             // Registered Endpoint Key
             identifier,
             // Registered Endpoint Arguments
             weak_from_this(), identifier, protocol, address, scheduler, disconnector);
 
         BindSecurityContext(itr->second.GetWritableMessageContext());
+
+       auto [jtr, isAddressEmplaced] = m_associated.emplace(address, true);
+       if (!isAddressEmplaced) { jtr->second = true; }
     }
 
     if (auto const spResolutionService = m_wpResolutionService.lock(); spResolutionService) {
@@ -256,13 +261,15 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
     bool reset = false;
     RegisteredEndpoints::node_type extracted;
     {
-        std::scoped_lock lock{ m_endpointsMutex };
+        std::scoped_lock lock{ m_endpointsMutex, m_associatedMutex };
         if (extracted = m_endpoints.extract(identifier); !extracted) { return; }
+        assert(m_associated.contains(extracted.mapped().GetAddress()));
+        m_associated[extracted.mapped().GetAddress()] = false;
         reset = m_endpoints.empty();
     }
 
-    auto const& address = extracted.mapped().GetAddress();
     if (auto const spResolutionService = m_wpResolutionService.lock(); spResolutionService) {
+        auto const& address = extracted.mapped().GetAddress();
         spResolutionService->OnEndpointWithdrawn(shared_from_this(), identifier, address, cause);
     }
 
@@ -280,6 +287,14 @@ void Peer::Proxy::WithdrawEndpoint(Network::Endpoint::Identifier identifier, Wit
         m_authorization = Security::State::Unauthorized;
         m_pEnabledProcessor = nullptr;
     }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Peer::Proxy::AssociateRemote(Network::RemoteAddress const& remote)
+{
+    std::scoped_lock lock{ m_associatedMutex };
+    [[maybe_unused]] auto const [jtr, emplaced] = m_associated.emplace(remote, false);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -305,6 +320,16 @@ bool Peer::Proxy::IsEndpointRegistered(Network::Address const& address) const
     std::scoped_lock lock{ m_endpointsMutex };
     return std::ranges::any_of(m_endpoints, [&address] (auto const& entry) {
         return address == entry.second.GetAddress();
+    });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsEndpointRegistered(std::string_view uri) const
+{
+    std::scoped_lock lock{ m_endpointsMutex };
+    return std::ranges::any_of(m_endpoints, [&uri] (auto const& entry) {
+        return uri == entry.second.GetAddress().GetUri();
     });
 }
 
@@ -338,6 +363,63 @@ std::size_t Peer::Proxy::RegisteredEndpointCount() const
 {
     std::scoped_lock lock{ m_endpointsMutex };
     return m_endpoints.size();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsRemoteAssociated(Network::RemoteAddress const& remote) const
+{
+    std::shared_lock lock{ m_associatedMutex };
+    return m_associated.find(remote) != m_associated.end();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsRemoteAssociated(Network::Protocol protocol, std::string_view address) const
+{
+    std::shared_lock lock{ m_associatedMutex };
+    return FindRemote(protocol, address) != m_associated.end();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsRemoteAssociated(std::string_view uri) const
+{
+    std::shared_lock lock{ m_associatedMutex };
+    return FindRemote(uri) != m_associated.end();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsRemoteConnected(Network::RemoteAddress const& remote) const
+{
+    std::shared_lock lock{ m_associatedMutex };
+    if (auto const itr = m_associated.find(remote); itr != m_associated.end()) {
+        return itr->second;
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsRemoteConnected(Network::Protocol protocol, std::string_view address) const
+{
+    std::shared_lock lock{ m_associatedMutex };
+    if (auto const itr = FindRemote(protocol, address); itr != m_associated.end()) {
+        return itr->second;
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Peer::Proxy::IsRemoteConnected(std::string_view uri) const
+{
+    std::shared_lock lock{ m_associatedMutex };
+    if (auto const itr = FindRemote(uri); itr != m_associated.end()) {
+        return itr->second;
+    }
+    return false;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -486,6 +568,25 @@ Peer::Proxy::RegisteredEndpoints::const_iterator Peer::Proxy::FetchPreferredEndp
 
 //----------------------------------------------------------------------------------------------------------------------
 
+Peer::Proxy::AssociatedAddresses::const_iterator Peer::Proxy::FindRemote(
+    Network::Protocol protocol, std::string_view address) const
+{
+    return std::find_if(m_associated.begin(), m_associated.end(), [&](auto const& entry) {
+        return protocol == entry.first.GetProtocol() && address == entry.first.GetAuthority();
+    });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Peer::Proxy::AssociatedAddresses::const_iterator Peer::Proxy::FindRemote(std::string_view uri) const
+{
+    return std::find_if(m_associated.begin(), m_associated.end(), [&](auto const& entry) {
+        return uri == entry.first.GetUri();
+    });
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 void Peer::Proxy::BindSecurityContext(Message::Context& context)
 {
     auto const& upStrategy = m_upSecurityStrategy;
@@ -568,11 +669,11 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
     Network::RemoteAddress const& address,
     Network::MessageAction const& scheduler)
 {
-    std::scoped_lock lock{ m_endpointsMutex };
+    std::scoped_lock lock{ m_endpointsMutex, m_associatedMutex };
     auto [itr, result] =  m_endpoints.try_emplace(
         identifier, weak_from_this(), identifier, protocol, address, scheduler);
 
-    // By default, bind simple passthroughs for the context handlers. 
+    // By default, bind simple passthrough for the context handlers. 
     auto& context = itr->second.GetWritableMessageContext();
  
     context.BindEncryptionHandlers(
@@ -585,6 +686,9 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
         [] (auto&) -> Security::Signator::result_type  { return 0; },
         [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type { return 0; });
+
+    auto [jtr, isAddressEmplaced] = m_associated.emplace(address, true);
+    if (!isAddressEmplaced) { jtr->second = true; }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -593,8 +697,11 @@ template <>
 void Peer::Proxy::WithdrawSilentEndpoint<InvokeContext::Test>(
     Network::Endpoint::Identifier identifier, [[maybe_unused]] Network::Protocol protocol)
 {
-    std::scoped_lock lock{ m_endpointsMutex };
-    m_endpoints.erase(identifier);
+    std::scoped_lock lock{ m_endpointsMutex, m_associatedMutex };
+    if (auto const itr = m_endpoints.find(identifier); itr != m_endpoints.end()) {
+        m_endpoints.erase(itr);
+        m_associated[itr->second.GetAddress()] = false; // The remote is now disconnected. 
+    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
