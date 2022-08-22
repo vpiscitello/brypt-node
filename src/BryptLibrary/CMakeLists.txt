@@ -64,9 +64,19 @@ target_sources(
 
 set(C_INTERFACE_EXPORTED_HEADERS brypt.h)
 
-target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCES} brypt.cpp)
+set(
+    CXX20_EXPORTED_HEADERS 
+    LanguageBindings/cpp20/action.hpp
+    LanguageBindings/cpp20/brypt.hpp
+    LanguageBindings/cpp20/helpers.hpp
+    LanguageBindings/cpp20/identifier.hpp
+    LanguageBindings/cpp20/options.hpp
+    LanguageBindings/cpp20/peer.hpp
+    LanguageBindings/cpp20/protocol.hpp
+    LanguageBindings/cpp20/result.hpp
+    LanguageBindings/cpp20/status.hpp)
 
-set(EXPORTED_HEADERS brypt.h brypt.hpp)
+set(EXPORTED_HEADERS ${C_INTERFACE_EXPORTED_HEADERS} ${CXX20_EXPORTED_HEADERS})
 
 set_target_properties(
     # Library Name
