@@ -81,16 +81,19 @@ public:
         : IEndpoint(properties)
         , m_scheduled(0)
         , m_connected()
+        , m_spPeerIdentifier()
     {
     }
 
     std::uint32_t const& GetScheduled() const { return m_scheduled; }
     BootstrapService::BootstrapCache const& GetConnected() const { return m_connected; }
+    Node::SharedIdentifier const& GetPeerIdentifier() const { return m_spPeerIdentifier; }
+    void ClearPeerIdentifier() { m_spPeerIdentifier = nullptr; }
 
     // IEndpoint {
-    [[nodiscard]] virtual Network::Protocol GetProtocol() const override { return Network::Protocol::Test; }
+    [[nodiscard]] virtual Network::Protocol GetProtocol() const override { return m_properties.GetProtocol(); }
     [[nodiscard]] virtual std::string_view GetScheme() const override { return Network::TestScheme; }
-    [[nodiscard]] virtual Network::BindingAddress GetBinding() const override { return m_binding; }
+    [[nodiscard]] virtual Network::BindingAddress GetBinding() const override { return m_properties.GetBinding(); }
 
     virtual void Startup() override {}
 	[[nodiscard]] virtual bool Shutdown() override { return true; }
@@ -105,10 +108,12 @@ public:
     {
         return ScheduleConnect(std::move(address), nullptr);
     }
-    [[nodiscard]] virtual bool ScheduleConnect(Network::RemoteAddress&& address, Node::SharedIdentifier const&) override
+    [[nodiscard]] virtual bool ScheduleConnect(
+        Network::RemoteAddress&& address, Node::SharedIdentifier const& spPeerIdentifier) override
     {
         ++m_scheduled;
         m_connected.emplace(address);
+        m_spPeerIdentifier = spPeerIdentifier;
         return true;
     }
     [[nodiscard]] virtual bool ScheduleDisconnect(Network::RemoteAddress const&) override { return false; }
@@ -121,6 +126,7 @@ public:
 private:
     std::uint32_t m_scheduled;
     BootstrapService::BootstrapCache m_connected;
+    Node::SharedIdentifier m_spPeerIdentifier;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

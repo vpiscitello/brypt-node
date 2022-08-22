@@ -135,6 +135,12 @@ bool Node::Core::CreateConfiguredResources(
         m_spServiceProvider->Register(m_spSecurityState);
     }
 
+    // Store the provided bootstrap service and register it with the service provider. 
+    {
+        m_spBootstrapService = spBootstrapService;
+        m_spServiceProvider->Register(m_spBootstrapService);
+    }
+
     // Create the main execution services, these components will drive the main execution loop by notifying 
     // the scheduler when work becomes available. 
     {
@@ -154,25 +160,25 @@ bool Node::Core::CreateConfiguredResources(
     // Make a discovery protocol such that the peers can automatically perform a connection procedure without
     // forwarding messages into the core. 
     {
-        m_spDiscoveryProtocol = std::make_shared<Route::Fundamental::Connect::DiscoveryProtocol>(
-            endpoints, m_spServiceProvider);
+        m_spDiscoveryProtocol = std::make_shared<Route::Fundamental::Connect::DiscoveryProtocol>();
         m_spServiceProvider->Register<IConnectProtocol>(m_spDiscoveryProtocol);
+    }
 
+    // Make the proxy store and register the associated interfaces. 
+    {
         m_spProxyStore = std::make_shared<Peer::ProxyStore>(strategy, m_spScheduler, m_spServiceProvider);
+        m_spServiceProvider->Register<Peer::ProxyStore>(m_spProxyStore);
         m_spServiceProvider->Register<IResolutionService>(m_spProxyStore);
         m_spServiceProvider->Register<IPeerCache>(m_spProxyStore);
     }
 
-    // Store the provided bootstrap service and configure it with the node's resouces. 
-    {
-        m_spBootstrapService = spBootstrapService;
-        m_spBootstrapService->Register(m_spProxyStore.get());
-        m_spBootstrapService->Register(m_spScheduler);
-        m_spServiceProvider->Register(m_spBootstrapService);
-    }
+    // Configure the BootstrapService to use the node's resouces. 
+    m_spBootstrapService->Register(m_spProxyStore.get());
+    m_spBootstrapService->Register(m_spScheduler);
 
     if (!m_spNetworkManager->Attach(endpoints, m_spServiceProvider)) { return false; }
-    
+    if (!m_spDiscoveryProtocol->CompileRequest(m_spServiceProvider)) { return false; }
+
     m_initialized = true;
     
     return true;

@@ -6,6 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "MessageHandler.hpp"
 #include "BryptIdentifier/IdentifierTypes.hpp"
+#include "BryptMessage/Payload.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/EndpointMediator.hpp"
@@ -20,7 +21,7 @@ class NodeState;
 
 namespace spdlog { class logger; }
 
-namespace Peer { class Proxy; }
+namespace Peer { class Proxy; class ProxyStore; }
 namespace Message { class Context; }
 namespace Node { class ServiceProvider; }
 namespace Network { class Manager; }
@@ -49,9 +50,12 @@ public:
     // }IMessageHandler
 
 private:
+    [[nodiscard]] bool GenerateResponsePayload();
+
     std::weak_ptr<NodeState> m_wpNodeState;
     std::weak_ptr<BootstrapService> m_wpBootstrapService;
     std::weak_ptr<Network::Manager> m_wpNetworkManager;
+    std::weak_ptr<Peer::ProxyStore> m_wpProxyStore;
     Message::Payload m_response;
 };
 
@@ -60,13 +64,13 @@ private:
 class Route::Fundamental::Connect::DiscoveryProtocol : public IConnectProtocol
 {
 public:
-    DiscoveryProtocol(
-        Configuration::Options::Endpoints const& endpoints,
-        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
+    DiscoveryProtocol();
 
     DiscoveryProtocol(DiscoveryProtocol&&) = delete;
     DiscoveryProtocol(DiscoveryProtocol const&) = delete;
     void operator=(DiscoveryProtocol const&) = delete;
+
+    [[nodiscard]] bool CompileRequest(std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     // IConnectProtocol {
     virtual bool SendRequest(
@@ -74,8 +78,12 @@ public:
     // } IConnectProtocol
 
 private:
-    Node::SharedIdentifier m_spNodeIdentifier;
+    [[nodiscard]] bool GenerateRequestPayload();
+
+    std::weak_ptr<NodeState> m_wpNodeState;
+    std::weak_ptr<BootstrapService> m_wpBootstrapService;
     std::weak_ptr<Network::Manager> m_wpNetworkManager;
+    std::weak_ptr<Peer::ProxyStore> m_wpProxyStore;
     Message::Payload m_payload;
     std::shared_ptr<spdlog::logger> m_logger;
 };
