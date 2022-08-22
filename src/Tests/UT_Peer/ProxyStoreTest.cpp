@@ -504,7 +504,7 @@ TEST_F(ProxyStoreSuite, ClusterRequestTest)
         EXPECT_EQ(response.GetStatusCode(), Message::Extension::Status::Created);
     };
 
-    auto const onError = [&] (Peer::Action::Response const& response) {
+    auto const onError = [&] (Peer::Action::Response const&) {
         EXPECT_FALSE(true);
     };
 
@@ -541,7 +541,7 @@ TEST_F(ProxyStoreSuite, ClusterRequestTest)
     EXPECT_TRUE(responded);
 
     auto const frames = Scheduler::Frame{ Awaitable::TrackingService::CheckInterval.GetValue() };
-    EXPECT_EQ(m_spRegistrar->Run<InvokeContext::Test>(frames), m_spProxyStore->ActiveCount());
+    EXPECT_EQ(m_spRegistrar->Run<InvokeContext::Test>(frames), std::size_t{ 1 });
 }
 
 //----------------------------------------------------------------------------------------------------------------------
