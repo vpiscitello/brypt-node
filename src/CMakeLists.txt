@@ -1,5 +1,5 @@
 #-----------------------------------------------------------------------------------------------------------------------
-cmake_minimum_required(VERSION 3.19 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 #-----------------------------------------------------------------------------------------------------------------------
 
 project(BryptNode VERSION 0.0.0 LANGUAGES CXX)
@@ -39,24 +39,15 @@ include_directories(${CMAKE_SOURCE_DIR})
 # Options
 #-----------------------------------------------------------------------------------------------------------------------
 option(ENABLE_TESTS "Enable Unit Test Builds" ON)
+option(ENABLE_EXAMPLES "Enable Examples Builds" ON)
 option(BUILD_EXTERNAL "Download and Add External Dependencies as Targets" OFF)
-option(SKIP_BINARY "Skip Brypt Binary Build" OFF)
-option(SKIP_SHARED_LIBRARY "Skip Brypt Shared Library Build" OFF)
 #-----------------------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------------------
 # Project source build. 
 #-----------------------------------------------------------------------------------------------------------------------
-if(NOT SKIP_BINARY)
-    add_subdirectory(BryptIdentifier)
-    add_subdirectory(BryptMessage)
-    add_subdirectory(Components)
-    add_subdirectory(BryptNode)
-endif()
-
-if(NOT SKIP_SHARED_LIBRARY)
-    add_subdirectory(BryptLibrary)
-endif()
+add_subdirectory(BryptLibrary)
+add_subdirectory(Components)
 #-----------------------------------------------------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -65,5 +56,13 @@ endif()
 if(ENABLE_TESTS)
   enable_testing()
   add_subdirectory(Tests)
+endif()
+#-----------------------------------------------------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------------------------------------------------
+# Examples build.
+#-----------------------------------------------------------------------------------------------------------------------
+if(ENABLE_EXAMPLES)
+    add_subdirectory(Examples)
 endif()
 #-----------------------------------------------------------------------------------------------------------------------
