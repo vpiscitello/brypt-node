@@ -15,13 +15,12 @@ msvc
 wsl
 .vscode
 .vs
-external
+src/external
 src/build
 
-external/*
 src/temp/*
+src/external/*
 src/*build*/*
 src/bin/*
 
 .DS_Store
-/build/Debug
