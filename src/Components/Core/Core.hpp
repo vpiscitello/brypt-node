@@ -1,5 +1,5 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: BryptNode.hpp
+// File: Core.hpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
@@ -8,8 +8,8 @@
 #include "RuntimeContext.hpp"
 #include "RuntimePolicy.hpp"
 #include "ServiceProvider.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Configuration/Options.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
 #include "Components/Network/EndpointTypes.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/ExecutionStatus.hpp"
@@ -33,6 +33,7 @@ namespace Peer { class ProxyStore; }
 namespace Route { class Router; }
 namespace Route::Fundamental::Connect { class DiscoveryProtocol; }
 namespace Scheduler { class Registrar; class TaskService; }
+namespace Security { class CipherService; }
 
 class AuthorizedProcessor;
 class BootstrapService;
@@ -56,11 +57,6 @@ class Node::Core final
 {
 public:
     explicit Core(std::reference_wrapper<ExecutionToken> const& token);
-
-    Core(
-        std::reference_wrapper<ExecutionToken> const& token,
-        std::unique_ptr<Configuration::Parser> const& upParser,
-        std::shared_ptr<BootstrapService> const& spBootstrapService);
 
     Core(Core const& other) = delete;
     Core(Core&& other) = delete;
@@ -118,9 +114,10 @@ private:
     std::shared_ptr<CoordinatorState> m_spCoordinatorState;
     std::shared_ptr<NetworkState> m_spNetworkState;
     std::shared_ptr<SecurityState> m_spSecurityState;
-
+    
     std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    std::shared_ptr<Security::CipherService> m_spCipherService;
     std::shared_ptr<Route::Router> m_spRouter;
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Route::Fundamental::Connect::DiscoveryProtocol> m_spDiscoveryProtocol;
@@ -147,7 +144,7 @@ template<Node::ValidRuntimePolicy RuntimePolicy>
     ExecutionStatus result = m_upRuntime->Start(); // Start the execution of the main event loop. 
     if (result != ExecutionStatus::ThreadSpawned) {
         // Note: At this point it's assumed that if the start call returned anything other than a notification of 
-        // a spawned thread, it has fully completed exuction. Given we have already returned if the runtime is 
+        // a spawned thread, it has fully completed execution. Given we have already returned if the runtime is 
         // in an executing state, the runtime is no longer needed and a subsequent call to start should be possible. 
         m_upRuntime.reset();
     }

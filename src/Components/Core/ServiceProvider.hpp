@@ -5,6 +5,7 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include <any>
+#include <cassert>
 #include <memory>
 #include <typeindex>
 #include <unordered_map>

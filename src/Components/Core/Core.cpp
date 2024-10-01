@@ -1,29 +1,29 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: BryptNode.cpp
+// File: Core.cpp
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptNode.hpp"
+#include "Core.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/ReservedIdentifiers.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/Route/MessageHandler.hpp"
-#include "Components/MessageControl/AuthorizedProcessor.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Identifier/ReservedIdentifiers.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/Manager.hpp"
+#include "Components/Processor/AuthorizedProcessor.hpp"
 #include "Components/Peer/ProxyStore.hpp"
 #include "Components/Route/Connect.hpp"
 #include "Components/Route/Information.hpp"
+#include "Components/Route/MessageHandler.hpp"
 #include "Components/Route/Router.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
+#include "Components/Security/CipherService.hpp"
 #include "Components/State/CoordinatorState.hpp"
 #include "Components/State/NetworkState.hpp"
 #include "Components/State/NodeState.hpp"
-#include "Components/State/SecurityState.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
@@ -31,7 +31,7 @@
 
 Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     : m_token(token)
-    , m_logger(spdlog::get(Logger::Name::Core.data()))
+    , m_logger(spdlog::get(Logger::Name.data()))
     , m_spServiceProvider(std::make_shared<ServiceProvider>())
     , m_spScheduler(std::make_shared<Scheduler::Registrar>())
     , m_upRuntime(nullptr)
@@ -52,37 +52,6 @@ Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
 {
     assert(m_logger);
     CreateStaticResources();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Node::Core::Core(
-    std::reference_wrapper<ExecutionToken> const& token,
-    std::unique_ptr<Configuration::Parser> const& upParser,
-    std::shared_ptr<BootstrapService> const& spBootstrapService)
-    : m_token(token)
-    , m_logger(spdlog::get(Logger::Name::Core.data()))
-    , m_spServiceProvider(std::make_shared<ServiceProvider>())
-    , m_spScheduler(std::make_shared<Scheduler::Registrar>())
-    , m_upRuntime(nullptr)
-    , m_spNodeState()
-    , m_spCoordinatorState(std::make_shared<CoordinatorState>())
-    , m_spNetworkState(std::make_shared<NetworkState>())
-    , m_spSecurityState()
-    , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
-    , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
-    , m_spRouter(std::make_shared<Route::Router>())
-    , m_spTrackingService(std::make_shared<Awaitable::TrackingService>(m_spScheduler))
-    , m_spDiscoveryProtocol()
-    , m_spNetworkManager()
-    , m_spProxyStore()
-    , m_spMessageProcessor()
-    , m_spBootstrapService()
-    , m_initialized(false)
-{
-    assert(m_logger);
-    CreateStaticResources();
-    [[maybe_unused]] bool const result = CreateConfiguredResources(upParser, spBootstrapService);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -117,22 +86,21 @@ bool Node::Core::CreateConfiguredResources(
     assert(m_spRouter->Contains(Route::Fundamental::Information::NodeHandler::Path));
     assert(m_spRouter->Contains(Route::Fundamental::Information::FetchNodeHandler::Path));
 
-    auto const& spIdentifier = upParser->GetNodeIdentifier();
-    auto const strategy = upParser->GetSecurityStrategy();
-    auto const& endpoints = upParser->GetEndpoints();
-
     // Save the applicable configured state to be used during execution. 
     {
         Network::ProtocolSet protocols;
-        std::ranges::transform(endpoints, std::inserter(protocols, protocols.begin()), [] (auto const& endpoint) {
+        std::ranges::transform(upParser->GetEndpoints(), std::inserter(protocols, protocols.begin()), [] (auto const& endpoint) {
             return endpoint.GetProtocol();
         });
 
-        m_spNodeState = std::make_shared<NodeState>(spIdentifier, protocols);
+        m_spNodeState = std::make_shared<NodeState>(upParser->GetNodeIdentifier(), protocols);
         m_spServiceProvider->Register(m_spNodeState);
-        
-        m_spSecurityState = std::make_shared<SecurityState>(strategy);
-        m_spServiceProvider->Register(m_spSecurityState);
+    }
+
+    // Create the cipher service and register it with the service provider. 
+    {
+        m_spCipherService = std::make_shared<Security::CipherService>(upParser->GetSupportedAlgorithms());
+        m_spServiceProvider->Register(m_spCipherService);
     }
 
     // Store the provided bootstrap service and register it with the service provider. 
@@ -148,8 +116,8 @@ bool Node::Core::CreateConfiguredResources(
         m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
     }
 
-    // If we should perform the inital connection bootstrapping based on the stored peers, then provide the 
-    // network manager a bootstrap cache to use. Otherwise, do not provide the cache and no inital connections
+    // If we should perform the initial connection bootstrapping based on the stored peers, then provide the 
+    // network manager a bootstrap cache to use. Otherwise, do not provide the cache and no initial connections
     // will be scheduled. 
     {
         auto const context = upParser->GetRuntimeContext();
@@ -166,17 +134,17 @@ bool Node::Core::CreateConfiguredResources(
 
     // Make the proxy store and register the associated interfaces. 
     {
-        m_spProxyStore = std::make_shared<Peer::ProxyStore>(strategy, m_spScheduler, m_spServiceProvider);
+        m_spProxyStore = std::make_shared<Peer::ProxyStore>(m_spScheduler, m_spServiceProvider);
         m_spServiceProvider->Register<Peer::ProxyStore>(m_spProxyStore);
         m_spServiceProvider->Register<IResolutionService>(m_spProxyStore);
         m_spServiceProvider->Register<IPeerCache>(m_spProxyStore);
     }
 
-    // Configure the BootstrapService to use the node's resouces. 
+    // Configure the BootstrapService to use the node's resources. 
     m_spBootstrapService->Register(m_spProxyStore.get());
     m_spBootstrapService->Register(m_spScheduler);
 
-    if (!m_spNetworkManager->Attach(endpoints, m_spServiceProvider)) { return false; }
+    if (!m_spNetworkManager->Attach(upParser->GetEndpoints(), m_spServiceProvider)) { return false; }
     if (!m_spDiscoveryProtocol->CompileRequest(m_spServiceProvider)) { return false; }
 
     m_initialized = true;
@@ -319,7 +287,7 @@ ExecutionStatus Node::Core::StartComponents()
     m_spEventPublisher->SuspendSubscriptions(); // Event subscriptions are disabled after this point.
     m_spEventPublisher->Publish<Event::Type::RuntimeStarted>(); // Publish the first event indicating execution start. 
 
-    // Schedule the network manager startup to guarentee the components are started only if the runtime has 
+    // Schedule the network manager startup to guarantee the components are started only if the runtime has 
     // chance to actually run (i.e. shutdown is not immediately called after startup). 
     m_spTaskService->Schedule([this] () {
         m_spNetworkManager->Startup();
@@ -334,7 +302,7 @@ void Node::Core::OnRuntimeStopped(ExecutionStatus status)
 {
     m_spNetworkManager->Shutdown();
 
-    // Note: Durning the destruction of the core it is no longer safe to use the event publisher. Some subscribers
+    // Note: During the destruction of the core it is no longer safe to use the event publisher. Some subscribers
     // may have been destroyed and may not be executed. 
     if (status != ExecutionStatus::ResourceShutdown) {
         using StopCause = Event::Message<Event::Type::RuntimeStopped>::Cause;
