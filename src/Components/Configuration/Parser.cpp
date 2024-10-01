@@ -4,14 +4,16 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Parser.hpp"
 #include "Defaults.hpp"
+#include "SerializationErrors.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptNode/RuntimeContext.hpp"
+#include "Components/Core/RuntimeContext.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/Assertions.hpp"
 #include "Utilities/FileUtils.hpp"
 #include "Utilities/Logger.hpp"
 #include "Utilities/PrettyPrinter.hpp"
+#include "Utilities/WideString.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/json.hpp>
 #include <spdlog/spdlog.h>
@@ -83,7 +85,7 @@ constexpr std::string_view Version = "version";
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Parser::Parser(Options::Runtime const& options)
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
     , m_version()
     , m_filepath()
     , m_runtime(options)
@@ -100,7 +102,7 @@ Configuration::Parser::Parser(Options::Runtime const& options)
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Parser::Parser(std::filesystem::path const& filepath, Options::Runtime const& options)
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
     , m_version()
     , m_filepath(filepath)
     , m_runtime(options)
@@ -126,57 +128,76 @@ Configuration::Parser::~Parser()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Parser::FetchOptions()
+Configuration::DeserializationResult Configuration::Parser::FetchOptions()
 {
     // If we have a filepath, we must first process the file. 
-    if (auto const status = ProcessFile(); status != StatusCode::Success) { return status; } 
-    if (auto const status = ValidateOptions(); status != StatusCode::Success) { return status; }
-    
+    if (auto const status = ProcessFile(); status.first != StatusCode::Success) { return status; } 
+    if (auto const status = ValidateOptions(); status.first != StatusCode::Success) { return status; }
+
     // Update the configuration file as the initialization of options may create new values for certain options.
-    if (auto const status = Serialize(); status != StatusCode::Success) {
+    auto const status = Serialize(); 
+    if (status.first != StatusCode::Success) {
         #if defined(WIN32)
-        m_logger->error(L"Failed to update configuration file at: {}!", fmt::to_string_view(m_filepath.c_str()));
+        m_logger->error(L"Failed to update configuration file at: {}! Reason: {}", m_filepath.c_str(), toWideString(status.second));
         #else
-        m_logger->error("Failed to update configuration file at: {}!", m_filepath.c_str());
+        m_logger->error("Failed to update configuration file at: {}! Reason: {}", m_filepath.c_str(), status.second);
         #endif
-        return status;
     }
 
-    return StatusCode::Success;
+    return status;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Parser::Serialize()
+Configuration::SerializationResult Configuration::Parser::Serialize()
 {
     // If the options the options have changed, validate them to ensure they are valid values and have been initialized.
     if (m_changed) {
-        if (auto const status = ValidateOptions(); status != StatusCode::Success) { return status; }
+        if (auto const status = ValidateOptions(); status.first != StatusCode::Success) { return status; }
     }
 
     // If the filesystem is disabled, there is nothing to do.
     if (m_filepath.empty()) {
         m_changed = false; // Mark 
-        return StatusCode::Success;
+        return { StatusCode::Success, "" };
     }
 
     std::ofstream os(m_filepath, std::ofstream::out);
-    if (os.fail()) { return StatusCode::FileError; }
+    if (os.fail()) {
+        return { StatusCode::FileError, "Failed to open file." };
+    }
 
     boost::json::object json;
 
-    json[symbols::Version] = m_version;
-    m_identifier.Write(json);
-    m_details.Write(json);
-    m_network.Write(json);
-    m_security.Write(json);
+    json[symbols::Version] = m_version.GetValue();
+
+    if (auto const status = m_identifier.Write(json); status.first != StatusCode::Success) { return status; } 
+    if (auto const status = m_details.Write(json); status.first != StatusCode::Success) { return status; } 
+    if (auto const status = m_network.Write(json); status.first != StatusCode::Success) { return status; } 
+    if (auto const status = m_security.Write(json); status.first != StatusCode::Success) { return status; } 
 
     JSON::PrettyPrinter{}.Format(json, os);
 
     os.close();
     m_changed = false; // On success, reset the changed flag to indicate all changes have been processed. 
 
-    return StatusCode::Success;
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::ValidationResult Configuration::Parser::ValidateOptions()
+{
+    m_validated = false; // Explicitly disable the validation result in case anything fails. 
+
+    if (auto const status = m_identifier.AreOptionsAllowable(); status.first != StatusCode::Success) { return status; }
+    if (auto const status = m_details.AreOptionsAllowable(); status.first != StatusCode::Success) { return status; }
+    if (auto const status = m_network.AreOptionsAllowable(m_runtime); status.first != StatusCode::Success) { return status; }
+    if (auto const status = m_security.AreOptionsAllowable(m_runtime); status.first != StatusCode::Success) { return status; }
+
+    m_validated = true;
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -231,7 +252,10 @@ bool Configuration::Parser::UseFilepathDeduction() const { return m_runtime.useF
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Identifier::Type Configuration::Parser::GetIdentifierType() const { return m_identifier.GetType(); }
+Configuration::Options::Identifier::Persistence Configuration::Parser::GetIdentifierPersistence() const
+{
+    return m_identifier.GetPersistence();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -298,7 +322,10 @@ Configuration::Options::Network::FetchedEndpoint Configuration::Parser::GetEndpo
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Strategy Configuration::Parser::GetSecurityStrategy() const { return m_security.GetStrategy(); }
+Configuration::Options::SupportedAlgorithms const& Configuration::Parser::GetSupportedAlgorithms() const
+{
+    return m_security.GetSupportedAlgorithms();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -354,11 +381,11 @@ void Configuration::Parser::SetUseFilepathDeduction(bool use)
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::SetNodeIdentifier(Options::Identifier::Type type)
+bool Configuration::Parser::SetNodeIdentifier(Options::Identifier::Persistence persistence)
 {
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     // Additionally, setting the type should always cause a change in the identifier. 
-    return m_identifier.SetIdentifier(type, m_changed, m_logger);
+    return m_identifier.SetIdentifier(persistence, m_changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -410,7 +437,8 @@ bool Configuration::Parser::SetConnectionRetryInterval(std::chrono::milliseconds
 
 Configuration::Options::Network::FetchedEndpoint Configuration::Parser::UpsertEndpoint(Options::Endpoint&& options)
 {
-    return m_network.UpsertEndpoint(std::move(options), m_runtime, m_logger, m_changed);
+    options.SetRuntimeOptions(m_runtime);
+    return m_network.UpsertEndpoint(std::move(options), m_changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -438,16 +466,27 @@ std::optional<Configuration::Options::Endpoint> Configuration::Parser::ExtractEn
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Parser::SetSecurityStrategy(Security::Strategy strategy)
+bool Configuration::Parser::SetNetworkToken(std::string_view const& token)
 {
-    m_security.SetStrategy(strategy, m_changed);
+    return m_network.SetToken(token, m_changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Parser::SetNetworkToken(std::string_view const& token)
+void Configuration::Parser::ClearSupportedAlgorithms()
 {
-    return m_network.SetToken(token, m_changed);
+    m_security.ClearSupportedAlgorithms();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Parser::SetSupportedAlgorithms(
+    ::Security::ConfidentialityLevel level,
+    std::vector<std::string> keyAgreements,
+    std::vector<std::string> ciphers,
+    std::vector<std::string> hashFunctions)
+{
+    return m_security.SetSupportedAlgorithmsAtLevel(level, keyAgreements, ciphers, hashFunctions, m_changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -475,7 +514,7 @@ void Configuration::Parser::OnFilepathChanged()
     #endif
     if (failed) { 
         #if defined(WIN32)
-        m_logger->error(L"Failed to create the filepath at: {}!", fmt::to_string_view(m_filepath.c_str()));
+        m_logger->error(L"Failed to create the filepath at: {}!", m_filepath.c_str());
         #else
         m_logger->error("Failed to create the filepath at: {}!", m_filepath.c_str());
         #endif
@@ -485,72 +524,45 @@ void Configuration::Parser::OnFilepathChanged()
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Parser::ProcessFile()
+Configuration::DeserializationResult Configuration::Parser::ProcessFile()
 {
-    if (m_filepath.empty()) { return StatusCode::Success; } // If filesystem usage is disabled, there is nothing to do.
-    if (m_validated && !m_changed) { return StatusCode::Success; } // If there are no changes, there is nothing to do.
+    if (m_filepath.empty()) { return { StatusCode::Success, "" }; } // If filesystem usage is disabled, there is nothing to do.
+    if (m_validated && !m_changed) { return { StatusCode::Success, "" }; } // If there are no changes, there is nothing to do.
 
     bool const found = std::filesystem::exists(m_filepath); // Determine if we have an existing file to process.
-    bool const updated = m_changed && m_validated && found; // Have read a file and are now applying changes?
-    if (updated) { return StatusCode::Success; } // If either condition is true, there is nothing to do.
+    // Have we already read this file, validated the results, and are there changes pending?
+    bool const isPendingSerialization = found && m_validated && m_changed; 
+    if (isPendingSerialization) { return { StatusCode::Success, "" }; } // If changes are pending serialzation, we should merge in old data.
 
     // If the file is found and this is the first time we are reading the file, the deserializer should handle
     // the rest of the file processing. 
     if (found) {
         #if defined(WIN32)
-        m_logger->debug(L"Reading configuration file at: {}.", fmt::to_string_view(m_filepath.c_str()));
+        m_logger->debug(L"Reading configuration file at: {}.", m_filepath.c_str());
         #else
         m_logger->debug("Reading configuration file at: {}.", m_filepath.c_str());
         #endif
         return Deserialize();
     }
 
-    // If we have been built as a shared library, we need to indicate to the user that an error has occured and
-    // they need to resolve the options they have supplied. 
-    #if defined(WIN32)
-    m_logger->error(L"Failed to locate a configuration file at: {}", fmt::to_string_view(m_filepath.c_str()));
-    #else
-    m_logger->error("Failed to locate a configuration file at: {}", m_filepath.c_str());
-    #endif
+    // If we have been built as a shared library, we need to indicate to the user that an error has occurred and
+    // they need to resolve the options they have supplied.
+    std::string error = [&filepath = m_filepath] () {
+        std::ostringstream oss;
+        oss << "Failed to locate a configuration file at: ";
+        oss << filepath;
+        return oss.str();
+    }();
 
-    return StatusCode::FileError;
+    return { StatusCode::FileError, std::move(error) };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::StatusCode Configuration::Parser::ValidateOptions()
-{
-    m_validated = false; // Explicitly disable the validation result in case anything fails. 
-
-    if (!AreOptionsAllowable()) { return StatusCode::DecodeError; }
-
-    if (!m_identifier.Initialize(m_logger)) { return StatusCode::InputError; }
-    if (!m_details.Initialize(m_logger)) { return StatusCode::InputError; }
-    if (!m_network.Initialize(m_runtime, m_logger)) { return StatusCode::InputError; }
-    if (!m_security.Initialize(m_logger)) { return StatusCode::InputError; }
-
-    m_validated = true;
-
-    return StatusCode::Success;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Parser::AreOptionsAllowable() const
-{
-    if (!m_identifier.IsAllowable()) { return false; }
-    if (!m_network.IsAllowable(m_runtime)) { return false; }
-    if (!m_security.IsAllowable()) { return false; }
-
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Configuration::StatusCode Configuration::Parser::Deserialize()
+Configuration::DeserializationResult Configuration::Parser::Deserialize()
 {
     // If the filepath is empty, filesystem usage has been disabled. 
-    if (m_filepath.empty()) { return StatusCode::Success; }
+    if (m_filepath.empty()) { return { StatusCode::Success, "" }; }
 
     try {
         constexpr boost::json::parse_options ParserOptions{
@@ -562,38 +574,119 @@ Configuration::StatusCode Configuration::Parser::Deserialize()
         {
             std::ifstream reader{ m_filepath };
             if (reader.fail()) [[unlikely]] {
-                return StatusCode::FileError;
+                return { StatusCode::FileError, "Failed to open configuration file for reading." };
             }
             buffer << reader.rdbuf(); // Read the file into the buffer stream.
         }
 
         auto const serialized = buffer.view();
         if (serialized.empty()) {
-            return StatusCode::InputError;
+            return { StatusCode::DecodeError, "The configuration file is empty." };
         }
 
         boost::json::error_code error;
         auto const json = boost::json::parse(buffer.view(), error, boost::json::storage_ptr{}, ParserOptions).as_object();
         if (error) {
-            return StatusCode::DecodeError;
+            return { StatusCode::DecodeError, "Failed to read the configuration file as valid JSON." };
         }
 
         // Required field parsing.
-        m_version = json.at(symbols::Version).as_string();
-        m_identifier.Merge(json.at(Options::Identifier::Symbol).as_object());
-        m_network.Merge(json.at(Options::Network::Symbol).as_object());
-        m_security.Merge(json.at(Options::Security::Symbol).as_object());
-
-        // Optional field parsing.
-        if (auto const itr = json.find(Options::Details::Symbol); itr != json.end()) {
-            m_details.Merge(itr->value().as_object());
+        if (auto itr = json.find(m_version.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_version.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(m_version.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", m_version.GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(m_version.GetFieldName())
+            };
         }
 
+        if (auto itr = json.find(Options::Identifier::GetFieldName()); itr != json.end()) {
+            if (itr->value().is_object()) {
+                auto const& value = itr->value().as_object();
+                if (auto const status = m_identifier.Merge(value); status.first != StatusCode::Success) { 
+                    return status;
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("object", Options::Identifier::GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(Options::Identifier::GetFieldName())
+            };
+        }
+
+        if (auto itr = json.find(Options::Details::GetFieldName()); itr != json.end()) {
+            if (itr->value().is_object()) {
+                auto const& value = itr->value().as_object();
+                if (auto const status = m_details.Merge(value); status.first != StatusCode::Success) { 
+                    return status;
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("object", Options::Details::GetFieldName())
+                };
+            }
+        }
+        
+        if (auto itr = json.find(Options::Network::GetFieldName()); itr != json.end()) {
+            if (itr->value().is_object()) {
+                auto const& value = itr->value().as_object();
+                if (auto const status = m_network.Merge(value, m_runtime); status.first != StatusCode::Success) { 
+                    return status;
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("object", Options::Network::GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(Options::Network::GetFieldName())
+            };
+        }
+
+        if (auto itr = json.find(Options::Security::GetFieldName()); itr != json.end()) {
+            if (itr->value().is_object()) {
+                auto const& value = itr->value().as_object();
+                if (auto const status = m_security.Merge(value, m_runtime); status.first != StatusCode::Success) { 
+                    return status;
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("object", Options::Security::GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(Options::Security::GetFieldName())
+            };
+        }
     } catch (...) {
-        return StatusCode::DecodeError;
+        return { StatusCode::DecodeError, "Encountered an unexpected error while deserializing the configuration file." };
     }
 
-    return StatusCode::Success;
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------

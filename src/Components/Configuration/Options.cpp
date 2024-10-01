@@ -4,6 +4,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Options.hpp"
 #include "Defaults.hpp"
+#include "SerializationErrors.hpp"
+#include "Components/Security/Algorithms.hpp"
+#include "Utilities/Enumerate.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
@@ -12,6 +15,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cctype>
+#include <format>
 #include <map>
 #include <ranges>
 #include <utility>
@@ -26,71 +30,128 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace {
-namespace local {
-//----------------------------------------------------------------------------------------------------------------------
-
-std::string ConvertConnectionDuration(std::chrono::milliseconds const& value);
-
-//----------------------------------------------------------------------------------------------------------------------
-} // local namespace
-namespace symbols {
-//----------------------------------------------------------------------------------------------------------------------
-
-constexpr std::string_view Binding = "binding";
-constexpr std::string_view Bootstrap = "bootstrap";
-constexpr std::string_view Description = "description";
-constexpr std::string_view Endpoints = "endpoints";
-constexpr std::string_view Interface = "interface";
-constexpr std::string_view Interval = "interval";
-constexpr std::string_view Limit = "limit";
-constexpr std::string_view Location = "location";
-constexpr std::string_view Name = "name";
-constexpr std::string_view Protocol = "protocol";
-constexpr std::string_view Retry = "retry";
-constexpr std::string_view Strategy = "strategy";
-constexpr std::string_view Timeout = "timeout";
-constexpr std::string_view Token = "token";
-constexpr std::string_view Type = "type";
-constexpr std::string_view Value = "value";
-
-//----------------------------------------------------------------------------------------------------------------------
-} // symbols namespace
-//----------------------------------------------------------------------------------------------------------------------
 namespace allowable {
 //----------------------------------------------------------------------------------------------------------------------
 
-std::array<std::string_view, 2> IdentifierTypes = { "Ephemeral", "Persistent" };
-std::array<std::string_view, 2> EndpointTypes = { "TCP" };
-std::array<std::string_view, 1> StrategyTypes = { "PQNISTL3" };
+using namespace Configuration;
 
-template <typename ArrayType, std::size_t ArraySize>
-std::optional<std::string> IfAllowableGetValue(
-    std::array<ArrayType, ArraySize> const& values,
+//----------------------------------------------------------------------------------------------------------------------
+
+static std::array<std::pair<std::string, Options::Identifier::Persistence>, 2> const PersistenceValues = { 
+    std::make_pair("ephemeral", Options::Identifier::Persistence::Ephemeral),
+    std::make_pair("persistent", Options::Identifier::Persistence::Persistent),
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static std::array<std::pair<std::string, Network::Protocol>, 2> const ProtocolValues = { 
+    std::make_pair("tcp", Network::Protocol::TCP),
+    std::make_pair("test", Network::Protocol::Test)
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+static std::array<std::pair<std::string, Security::ConfidentialityLevel>, 3> const ConfidentialityValues = { 
+    std::make_pair("low", Security::ConfidentialityLevel::Low),
+    std::make_pair("medium", Security::ConfidentialityLevel::Medium),
+    std::make_pair("high", Security::ConfidentialityLevel::High),
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<typename ValueType, std::size_t ArraySize>
+[[nodiscard]] bool IsAllowable(
+    std::array<std::pair<std::string_view, ValueType>, ArraySize> const& values,
     std::string_view value)
 {
+    using PairType = std::pair<std::string_view, ValueType>;
+
     if (value.empty()) { return {}; }
 
-    auto const found = std::ranges::find_if(values, [&value] (std::string_view const& entry) { 
-        return (boost::iequals(value, entry)); 
+    auto const lower = value | std::ranges::views::transform([] (unsigned char c) { return std::tolower(c); });
+    auto const comparison = [] (PairType const& left, PairType const& right) {
+        return (left.first | std::ranges::views::transform([] (unsigned char c) { return std::tolower(c); })) < right.first;
+    };
+    
+    return std::ranges::binary_search(values, lower, comparison);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template<typename ValueType, std::size_t ArraySize>
+[[nodiscard]] std::optional<ValueType> IfAllowableGetValue(
+    std::array<std::pair<std::string, ValueType>, ArraySize> const& values,
+    std::string_view value)
+{
+    using PairType = std::pair<std::string_view, ValueType>;
+
+    if (value.empty()) { return {}; }
+
+    auto const found = std::ranges::find_if(values, [&value] (PairType const& entry) { 
+        return (boost::iequals(value, entry.first)); 
     });
 
     if (found == values.end()) { return {}; }
-    return std::string(found->begin(), found->end());
+    return found->second;
 }
 
-template <typename ArrayType, std::size_t ArraySize>
-void OutputValues(std::array<ArrayType, ArraySize> const& values)
+//----------------------------------------------------------------------------------------------------------------------
+
+template<typename ValueType, std::size_t ArraySize>
+[[nodiscard]] std::optional<std::string> IfAllowableGetString(
+    std::array<std::pair<std::string, ValueType>, ArraySize> const& values,
+    ValueType value)
 {
-    std::cout << "[";
-    for (std::uint32_t idx = 0; idx < values.size(); ++idx) {
-        std::cout << "\"" << values[idx] << "\"";
-        if (idx != values.size() - 1) { std::cout << ", "; }
-    }
-    std::cout << "]" << std::endl;
+    using PairType = std::pair<std::string_view, ValueType>;
+
+    auto const found = std::ranges::find_if(values, [&value] (PairType const& entry) { 
+        return value == entry.second; 
+    });
+
+    if (found == values.end()) { return {}; }
+    return std::string{ found->first.data(), found->first.size() };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 } // allowable namespace
+//----------------------------------------------------------------------------------------------------------------------
+namespace local {
+//----------------------------------------------------------------------------------------------------------------------
+
+using namespace Configuration;
+
+//---------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<Options::Identifier::Persistence> StringToPersistence(std::string_view value);
+[[nodiscard]] std::optional<std::string >StringFromPersistence(Options::Identifier::Persistence value);
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<Node::SharedIdentifier> StringToSharedIdentifier(std::string_view value);
+[[nodiscard]] std::optional<std::string >StringFromSharedIdentifier(Node::SharedIdentifier const& spIdentifier);
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<std::chrono::milliseconds> StringToMilliseconds(std::string_view value);
+[[nodiscard]] std::optional<std::string> StringFromMilliseconds(std::chrono::milliseconds const& value);
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<Network::Protocol> StringToNetworkProtocol(std::string_view value);
+[[nodiscard]] std::optional<std::string> StringFromNetworkProtocol(Network::Protocol const& value);
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<std::string> StringFromBindingAddress(Network::BindingAddress const& value);
+[[nodiscard]] std::optional<std::string> StringFromRemoteAddress(Network::RemoteAddress const& value);
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<Security::ConfidentialityLevel> StringToConfidentialityLevel(std::string_view value);
+[[nodiscard]] std::optional<std::string >StringFromConfidentialityLevel(Security::ConfidentialityLevel value);
+
+//----------------------------------------------------------------------------------------------------------------------
+} // local namespace
 //----------------------------------------------------------------------------------------------------------------------
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -105,14 +166,14 @@ std::filesystem::path Configuration::GetDefaultBryptFolder()
 #else
     std::string filepath{ Defaults::FallbackConfigurationFolder }; // Set the filepath root to /etc/ by default
 
-    // Attempt to get the $XDG_CONFIG_HOME enviroment variable to use as the configuration directory
+    // Attempt to get the $XDG_CONFIG_HOME environment variable to use as the configuration directory
     // If $XDG_CONFIG_HOME does not exist try to get the user home directory 
     auto const systemConfigHomePath = std::getenv("XDG_CONFIG_HOME");
     if (systemConfigHomePath) {
         std::size_t const length = strlen(systemConfigHomePath);
         filepath = std::string(systemConfigHomePath, length);
     } else {
-        // Attempt to get the $HOME enviroment variable to use the the configuration directory
+        // Attempt to get the $HOME environment variable to use the the configuration directory
         // If $HOME does not exist continue with the fall configuration path
         auto const userHomePath = std::getenv("HOME");
         if (userHomePath) {
@@ -122,7 +183,7 @@ std::filesystem::path Configuration::GetDefaultBryptFolder()
     }
 #endif
 
-    // Concat /brypt/ to the condiguration folder path
+    // Concat /brypt/ to the configuration folder path
     filepath += DefaultBryptFolder;
 
     return filepath;
@@ -139,65 +200,58 @@ std::filesystem::path Configuration::GetDefaultConfigurationFilepath()
 
 std::filesystem::path Configuration::GetDefaultBootstrapFilepath()
 {
-    return GetDefaultBryptFolder() / DefaultBootstrapFilename; // ../bootstrap.json
+    return GetDefaultBryptFolder() / DefaultBootstrapFilename; // ../bootstraps.json
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Identifier::Identifier()
-    : m_type()
-    , m_optValue()
-    , m_constructed({
-        .type = Type::Invalid
-    })
+    : m_persistence(
+        local::StringToPersistence,
+        local::StringFromPersistence,
+        [] (auto const& value) { return value != Persistence::Invalid; })
+    , m_optValue(
+        local::StringToSharedIdentifier,
+        local::StringFromSharedIdentifier,
+        [] (auto const& value) { return value != nullptr; })
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Identifier::Identifier(std::string_view type, std::string_view value)
-    : m_type(type)
-    , m_optValue(value)
-    , m_constructed({
-        .type = Type::Invalid
-    })
+Configuration::Options::Identifier::Identifier(std::string_view persistence, std::string_view value)
+    : m_persistence(
+        persistence,
+        local::StringToPersistence,
+        local::StringFromPersistence,
+        [] (auto const& value) { return value != Persistence::Invalid; })
+    , m_optValue(
+        value,
+        local::StringToSharedIdentifier,
+        local::StringFromSharedIdentifier,
+        [] (auto const& value) { return value != nullptr; })
 {
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::strong_ordering Configuration::Options::Identifier::operator<=>(Identifier const& other) const noexcept
-{
-    if (auto const result = m_type <=> other.m_type; result != std::strong_ordering::equal) { return result; }
-    if (auto const result = m_optValue <=> other.m_optValue; result != std::strong_ordering::equal) { return result; }
-    return std::strong_ordering::equal;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Identifier::operator==(Identifier const& other) const noexcept
 {
-    return m_type == other.m_type && m_optValue == other.m_optValue;
+    return m_persistence == other.m_persistence && m_optValue == other.m_optValue;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Identifier::Merge(Identifier& other)
+std::strong_ordering Configuration::Options::Identifier::operator<=>(Identifier const& other) const noexcept
 {
-    // If this option set is an ephemeral and the other's is persistent, choose the other's value. Otherwise, the 
-    // current values shall remain as there's no need to generate a new identifier. 
-    if (m_constructed.type == Type::Invalid || (m_constructed.type == Type::Ephemeral && other.m_type == "Persistent")) {
-        m_type = std::move(other.m_type);
-        m_constructed.type = other.m_constructed.type;
-
-        m_optValue = std::move(other.m_optValue);
-        m_constructed.value = std::move(other.m_constructed.value);
-    }
+    if (auto const result = m_persistence <=> other.m_persistence; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = m_optValue <=> other.m_optValue; result != std::strong_ordering::equal) { return result; }
+    return std::strong_ordering::equal;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Identifier::Merge(boost::json::object const& json)
+Configuration::DeserializationResult Configuration::Options::Identifier::Merge(boost::json::object const& json)
 {
     // JSON Schema:
     // "identifier": {
@@ -205,122 +259,168 @@ void Configuration::Options::Identifier::Merge(boost::json::object const& json)
     //     "value": Optional String
     // },
 
-    auto const type = json.at(symbols::Type).as_string();
-    if (m_constructed.type == Type::Invalid || (m_constructed.type == Type::Ephemeral && type == "Persistent")) {
-        m_type = type;
-        if (auto itr = json.find(symbols::Value); itr != json.end()) {
-            m_optValue = itr->value().as_string();
+    auto const itr = json.find(m_persistence.GetFieldName());
+    if (itr == json.end()) {
+        return { 
+            StatusCode::DecodeError,
+            CreateMissingFieldMessage(GetFieldName(), m_persistence.GetFieldName())
+        };
+    }
+
+    if (!itr->value().is_string()) {
+        return {
+            StatusCode::DecodeError,
+            CreateMismatchedValueTypeMessage("string", GetFieldName(), m_persistence.GetFieldName())
+        };
+    }
+
+    auto const& persistence = itr->value().as_string();
+
+    // If this option set is an ephemeral and the other's is persistent, choose the other's value. Otherwise, the 
+    // current values shall remain as there's no need to generate a new identifier. 
+    //if (m_constructed.type == Persistence::Invalid || (m_constructed.type == Persistence::Ephemeral && other.m_type == "Persistent")) {
+    if (m_persistence.NotModified()) {
+        {
+            bool const success = m_persistence.SetValueFromConfig(persistence);
+            if (!success) {
+                return {
+                    StatusCode::InputError,
+                    CreateUnexpectedValueMessage(allowable::PersistenceValues, GetFieldName(), m_persistence.GetFieldName())
+                };
+            }
+        }
+
+        auto const GenerateIdentifier = [this] () -> DeserializationResult {
+            // Generate a new Brypt Identifier and store the network representation as the value.
+            auto const spIdentifier = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
+            if (auto const valid = spIdentifier->IsValid(); !valid) {
+                return { StatusCode::InputError, CreateInvalidValueMessage(GetFieldName(), m_optValue.GetFieldName()) };
+            }
+
+            if (!m_optValue.SetValue(spIdentifier)) {
+                return { StatusCode::InputError,  CreateUnexpectedErrorMessage(GetFieldName(), m_optValue.GetFieldName()) };
+            }
+
+            return { StatusCode::Success, "" };
+        };
+
+        // Determine how the identifier value should be processed by casing on the persistence type. 
+        switch (m_persistence.GetValue()) {
+            // If the identifier is ephemeral generate a new identifier and return the result.
+            case Persistence::Ephemeral: {
+                return GenerateIdentifier();
+            } break;
+            // If the identifier is persistent attempt to read a stored value, if one does not exist generate a new identifier.
+            case Persistence::Persistent: {
+                if (auto const itr = json.find(m_optValue.GetFieldName()); itr != json.end()) {
+                    if (!itr->value().is_string()) {
+                        return {
+                            StatusCode::InputError,
+                            CreateMismatchedValueTypeMessage("string", GetFieldName(), m_optValue.GetFieldName())
+                        };
+                    }
+
+                    bool const success = m_optValue.SetValueFromConfig(itr->value().as_string());
+                    if (!success) {
+                        return {
+                            StatusCode::InputError,
+                            CreateInvalidValueMessage(GetFieldName(), m_optValue.GetFieldName())
+                        };
+                    }
+                } else {
+                    return GenerateIdentifier();
+                }
+            } break;
+            default: assert(false); break;
         }
     }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Identifier::Write(boost::json::object& json) const
+Configuration::SerializationResult Configuration::Options::Identifier::Write(boost::json::object& json) const
 {
     boost::json::object group;
-    group[symbols::Type] = m_type;
-    if (m_constructed.type == Type::Persistent) {
-        group[symbols::Value] = static_cast<std::string const&>(*m_constructed.value);
+    group[m_persistence.GetFieldName()] = m_persistence.GetSerializedValue();
+    if (m_persistence.GetValue() == Persistence::Persistent) {
+        if (m_optValue.HasValue()) {
+            group[m_optValue.GetFieldName()] = m_optValue.GetSerializedValue();
+        } else {
+            return {
+                StatusCode::InputError,
+                "Attempted to write an invalid identifier value"
+            };
+        }
     }
     json.emplace(Symbol, std::move(group));
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Identifier::Initialize(std::shared_ptr<spdlog::logger> const& logger)
+Configuration::ValidationResult Configuration::Options::Identifier::AreOptionsAllowable() const
 {
-    auto const GenerateIdentifier = [this, &logger] () -> bool {
-        // Generate a new Brypt Identifier and store the network representation as the value.
-        m_constructed.value = std::make_shared<Node::Identifier const>(Node::GenerateIdentifier());
-        m_optValue = *m_constructed.value;
-        auto const valid = m_constructed.value->IsValid();
-        if (!valid) { logger->warn("Failed to generate a valid brypt identifier for the node."); }
-        return valid;
-    };
-
-    // If the identifier type is Ephemeral, then a new identifier should be generated. 
-    if (m_type == "Ephemeral") {
-        m_constructed.type = Type::Ephemeral;
-        
-        // If we already have a constructed value and is valid, don't regenerate the identifier. 
-        if (m_constructed.value && m_constructed.value->IsValid()) { return true; }
-
-        return GenerateIdentifier();
+    if (m_persistence.GetValue() == Persistence::Invalid) {
+        return {
+            StatusCode::InputError,
+            CreateUnexpectedValueMessage(allowable::PersistenceValues, GetFieldName(), m_persistence.GetFieldName())
+        };
     }
 
-    // If the identifier type is Persistent, the we shall attempt to use provided value.
-    if (m_type == "Persistent") {
-        m_constructed.type = Type::Persistent;
-        // If an identifier value has been parsed, attempt to use the provided value asthe identifier. We need to check 
-        // the validity of the identifier to ensure the value was properly formatted. Otherwise, one will be generated. 
-        if (m_optValue) {
-            m_constructed.value = std::make_shared<Node::Identifier const>(*m_optValue);
-            if (m_constructed.value->IsValid()) { return true; }
-            m_constructed.value = nullptr;
-            m_optValue.reset();
-            logger->warn("Detected an invalid value in the identifier.value field.");
-        }
-
-        return GenerateIdentifier();
+    if (!m_optValue.HasValue() || !m_optValue.GetValue()->IsValid()) {
+        return {
+            StatusCode::InputError,
+            CreateInvalidValueMessage(GetFieldName(), m_optValue.GetFieldName())
+        };
     }
 
-    logger->warn("Detected an invalid value in the identifier.type field.");
-
-    return false;
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Identifier::IsAllowable() const
+Configuration::Options::Identifier::Persistence Configuration::Options::Identifier::GetPersistence() const
 {
-    if (m_type.empty()) { return false; }
-    return allowable::IfAllowableGetValue(allowable::IdentifierTypes, m_type).has_value();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Configuration::Options::Identifier::Type Configuration::Options::Identifier::GetType() const
-{
-    return m_constructed.type;
+    return m_persistence.GetValue();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Node::SharedIdentifier const& Configuration::Options::Identifier::GetValue() const
 {
-    return m_constructed.value;
+    return m_optValue.GetValueOrElse(nullptr);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Identifier::SetIdentifier(
-    Type type, bool& changed, std::shared_ptr<spdlog::logger> const& logger)
+bool Configuration::Options::Identifier::SetIdentifier(Persistence persistence, bool& changed)
 {
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     // Additionally, setting the type should always cause a change in the identifier. 
     changed = true;
 
-    m_constructed.type = type;
-    switch (type) {
-        case Options::Identifier::Type::Ephemeral: m_type = "Ephemeral"; break;
-        case Options::Identifier::Type::Persistent: m_type = "Persistent"; break;
-        default: assert(false); break;
+    {
+        bool const success = m_persistence.SetValue(persistence);
+        if (!success) { return false; }
     }
 
-    // Currently, changes  to the identifier type will always update the actual identifier. 
-    m_optValue.reset();
-    m_constructed.value.reset();
+    {
+        bool const success = m_optValue.SetValue(""); // Setting the identifier to an empty string will force a new identifier to be generated.
+        if (!success) { return false; }
+    }
 
-    return Initialize(logger);
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Details::Details()
-    : m_name()
-    , m_description()
-    , m_location()
+    : m_optName([] (auto const& value) { return value.size() <= NameSizeLimit; })
+    , m_optDescription([] (auto const& value) { return value.size() <= DescriptionSizeLimit; })
+    , m_optLocation([] (auto const& value) { return value.size() <= LocationSizeLimit; })
 {
 }
 
@@ -328,25 +428,34 @@ Configuration::Options::Details::Details()
 
 Configuration::Options::Details::Details(
     std::string_view name, std::string_view description, std::string_view location)
-    : m_name(name)
-    , m_description(description)
-    , m_location(location)
+    : m_optName(name, [] (auto const& value) { return value.size() <= NameSizeLimit; })
+    , m_optDescription(description, [] (auto const& value) { return value.size() <= DescriptionSizeLimit; })
+    , m_optLocation(location, [] (auto const& value) { return value.size() <= LocationSizeLimit; })
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Details::Merge(Details& other)
+bool Configuration::Options::Details::operator==(Details const& other) const noexcept
 {
-    // The existing values of this object is chosen over the other's values. 
-    if (m_name.empty()) { m_name = std::move(other.m_name); }
-    if (m_description.empty()) { m_description = std::move(other.m_description); }
-    if (m_location.empty()) { m_location = std::move(other.m_location); }
+    return m_optName == other.m_optName &&
+           m_optDescription == other.m_optDescription &&
+           m_optLocation == other.m_optLocation;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Details::Merge(boost::json::object const& json)
+std::strong_ordering Configuration::Options::Details::operator<=>(Details const& other) const noexcept
+{
+    if (auto const result = m_optName <=> other.m_optName; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = m_optDescription <=> other.m_optDescription; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = m_optLocation <=> other.m_optLocation; result != std::strong_ordering::equal) { return result; }
+    return std::strong_ordering::equal;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::DeserializationResult Configuration::Options::Details::Merge(boost::json::object const& json)
 {
     // JSON Schema:
     // "details": {
@@ -355,82 +464,106 @@ void Configuration::Options::Details::Merge(boost::json::object const& json)
     //     "location": Optional String
     // },
 
-    if (m_name.empty()) {
-        if (auto itr = json.find(symbols::Name); itr != json.end()) {
-            m_name = itr->value().as_string();
+    // Deserialize the name field from the details object.
+    if (m_optName.NotModified()) {
+        if (auto const itr = json.find(m_optName.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optName.SetValueFromConfig(itr->value().as_string())) {
+                    return { 
+                        StatusCode::InputError,
+                        CreateExceededCharacterLimitMessage(NameSizeLimit, GetFieldName(), m_optName.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", GetFieldName(), m_optName.GetFieldName())
+                };
+            }
         }
     }
 
-    if (m_description.empty()) {
-        if (auto const itr = json.find(symbols::Description); itr != json.end()) {
-            m_description = itr->value().as_string();
+    // Deserialize the description field from the details object.
+    if (m_optDescription.NotModified()) {
+        if (auto const itr = json.find(m_optDescription.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optDescription.SetValueFromConfig(itr->value().as_string())) {
+                    return { 
+                        StatusCode::InputError,
+                        CreateExceededCharacterLimitMessage(DescriptionSizeLimit, GetFieldName(), m_optName.GetFieldName())
+                    };
+                }
+            } else {
+                return {
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", GetFieldName(), m_optDescription.GetFieldName())
+                };
+            }
         }
     }
 
-    if (m_location.empty()) {
-        if (auto itr = json.find(symbols::Location); itr != json.end()) {
-            m_location = itr->value().as_string();
+    // Deserialize the location field from the details object.
+    if (m_optLocation.NotModified()) {
+        if (auto const itr = json.find(m_optLocation.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optLocation.SetValueFromConfig(itr->value().as_string())) {
+                    return { 
+                        StatusCode::InputError,
+                        CreateExceededCharacterLimitMessage(LocationSizeLimit, GetFieldName(), m_optName.GetFieldName())
+                    };
+                }
+            } else {
+                return {
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", GetFieldName(), m_optLocation.GetFieldName())
+                };
+            }
         }
     }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Details::Write(boost::json::object& json) const
+Configuration::SerializationResult Configuration::Options::Details::Write(boost::json::object& json) const
 {
     boost::json::object group;
-    if (!m_name.empty()) { group[symbols::Name] = m_name; }
-    if (!m_description.empty()) { group[symbols::Description] = m_description; }
-    if (!m_location.empty()) { group[symbols::Location] = m_location; }
+
+    if (m_optName.HasValue()) { group[m_optName.GetFieldName()] = m_optName.GetValue(); }
+    if (m_optDescription.HasValue()) { group[m_optDescription.GetFieldName()] = m_optDescription.GetValue(); }
+    if (m_optLocation.HasValue()) { group[m_optLocation.GetFieldName()] = m_optLocation.GetValue(); }
+
     if (!group.empty()) { json.emplace(Symbol, std::move(group)); }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Details::Initialize(std::shared_ptr<spdlog::logger> const& logger)
+Configuration::ValidationResult Configuration::Options::Details::AreOptionsAllowable() const
 {
-    if (constexpr std::size_t limit = 64; m_name.size() > limit) {
-        logger->warn("Detected a value exceeding the {} character limit in the details.name field.", limit);
-        return false;
-    }
-
-    if (constexpr std::size_t limit = 256; m_description.size() > limit) {
-        logger->warn("Detected a value exceeding the {} character limit in the details.description field.", limit);
-        return false;
-    }
-    
-    if (constexpr std::size_t limit = 256; m_location.size() > limit) {
-        logger->warn("Detected a value exceeding the {} character limit in the details.location field.", limit);
-        return false;
-    }
-
-    return true;
+    return { StatusCode::Success, "" }; // There are no requirements for this set of options. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Options::Details::GetName() const { return m_name; }
+std::string const& Configuration::Options::Details::GetName() const { return m_optName.GetValueOrElse(""); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Options::Details::GetDescription() const { return m_description; }
+std::string const& Configuration::Options::Details::GetDescription() const { return m_optDescription.GetValueOrElse(""); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Options::Details::GetLocation() const { return m_location; }
+std::string const& Configuration::Options::Details::GetLocation() const { return m_optLocation.GetValueOrElse(""); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Details::SetName(std::string_view const& name, bool& changed)
 {
-    constexpr std::size_t limit = 64;
-    if (name.size() > limit) { return false; }
-
-    if (name != m_name) {
-        m_name = name;
-        changed = true;
-    }
-
+    if (!m_optName.SetValue(name)) { return false; }
+    changed = m_optName.Modified();
     return true;
 }
 
@@ -438,14 +571,8 @@ bool Configuration::Options::Details::SetName(std::string_view const& name, bool
 
 bool Configuration::Options::Details::SetDescription(std::string_view const& description, bool& changed)
 {
-    constexpr std::size_t limit = 256;
-    if (description.size() > limit) { return false; }
-
-    if (description != m_description) {
-        m_description = description;
-        changed = true;
-    }
-
+    if (!m_optDescription.SetValue(description)) { return false; }
+    changed = m_optDescription.Modified();
     return true;
 }
 
@@ -453,26 +580,209 @@ bool Configuration::Options::Details::SetDescription(std::string_view const& des
 
 bool Configuration::Options::Details::SetLocation(std::string_view const& location, bool& changed) 
 {
-    constexpr std::size_t limit = 256;
-    if (location.size() > limit) { return false; }
+    if (!m_optLocation.SetValue(location)) { return false; }
+    changed = m_optLocation.Modified();
+    return true;
+}
 
-    if (location != m_location) {
-        m_location = location;
-        changed = true;
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::Retry::Retry()
+    : m_optLimit()
+    , m_optInterval(
+        local::StringToMilliseconds,
+        local::StringFromMilliseconds,
+        [] (auto const& value) { return value <= std::chrono::hours{ 24 }; })
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::Retry::Retry(std::uint32_t limit, std::chrono::milliseconds const& interval)
+    : m_optLimit(limit)
+    , m_optInterval(
+        interval,
+        local::StringToMilliseconds,
+        local::StringFromMilliseconds,
+        [] (auto const& value) { return value <= std::chrono::hours{ 24 }; })
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Retry::operator==(Retry const& other) const noexcept
+{
+    return m_optLimit == other.m_optLimit &&
+           m_optInterval == other.m_optInterval;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::strong_ordering Configuration::Options::Retry::operator<=>(Retry const& other) const noexcept
+{
+    if (auto const result = m_optLimit <=> other.m_optLimit; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = m_optInterval <=> other.m_optInterval; result != std::strong_ordering::equal) { return result; }
+    return std::strong_ordering::equal;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::DeserializationResult Configuration::Options::Retry::Merge(Retry& other)
+{
+    // The existing values of this object is chosen over the other's values. 
+    if (m_optLimit.NotModified()) { m_optLimit = std::move(other.m_optLimit); }
+    if (m_optInterval.NotModified()) { m_optInterval = std::move(other.m_optInterval); }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::DeserializationResult Configuration::Options::Retry::Merge(
+    boost::json::object const& json,
+    std::string_view context,
+    GlobalConnectionOptionsReference optGlobalOptions)
+{
+    // Deserialize the limit field from the retry object.
+    if (m_optLimit.NotModified()) {
+        if (auto const jtr = json.find(m_optLimit.GetFieldName()); jtr != json.end()) {
+            if (jtr->value().is_int64()) {
+                auto const& value = jtr->value().as_int64();
+                bool const success = std::in_range<std::uint32_t>(value) &&
+                    m_optLimit.SetValueFromConfig(static_cast<std::uint32_t>(value));
+                if (!success) {
+                    return {
+                        StatusCode::InputError,
+                        CreateExceededValueLimitMessage(
+                            std::numeric_limits<std::uint32_t>::max(), context, GetFieldName(), m_optLimit.GetFieldName())
+                    };
+                }
+            } else {
+                return {
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("integer", context, GetFieldName(), m_optLimit.GetFieldName())
+                };
+            }
+        } else if (optGlobalOptions) {
+            [[maybe_unused]] bool const success = m_optLimit.SetValueFromConfig(optGlobalOptions->get().GetRetryLimit());
+            assert(success);
+        }
     }
 
+    // Deserialize the interval field from the retry object.
+    if (m_optInterval.NotModified()) {
+        if (auto const itr = json.find(m_optInterval.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optInterval.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(context, GetFieldName(), m_optInterval.GetFieldName())
+                    };
+                }
+            } else {
+                return {
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", context, GetFieldName(), m_optInterval.GetFieldName())
+                };
+            }
+        } else if (optGlobalOptions) {
+            [[maybe_unused]] bool const success = m_optInterval.SetValueFromConfig(optGlobalOptions->get().GetRetryInterval());
+            assert(success);
+        }
+    }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::SerializationResult Configuration::Options::Retry::Write(
+    boost::json::object& json, GlobalConnectionOptionsReference optGlobalOptions) const
+{
+    boost::json::object group;
+
+    bool const shouldWriteLimit =
+        // Write if the limit is not equal to the default connection limit.
+        !m_optLimit.WouldMatchDefault(Defaults::ConnectionRetryLimit) && 
+        // And, there is no global options, or if there are, the limit is not equal to the global limit option.
+        (!optGlobalOptions || !m_optLimit.WouldMatchDefault(optGlobalOptions->get().GetRetryLimit()));
+
+    if (shouldWriteLimit) {
+        group[m_optLimit.GetFieldName()] = m_optLimit.GetValue();
+    }
+
+    bool const shouldWriteInterval =
+        // Write if the interval is not equal to the default connection interval.
+        !m_optInterval.WouldMatchDefault(Defaults::ConnectionTimeout) && 
+        // And, there is no global options, or if there are, the interval is not equal to the global interval option.
+        (!optGlobalOptions || !m_optInterval.WouldMatchDefault(optGlobalOptions->get().GetTimeout()));
+
+    if (shouldWriteInterval) {
+        group[m_optInterval.GetFieldName()] = m_optInterval.GetSerializedValue();
+    }
+        
+    if (!group.empty()) { json.emplace(GetFieldName(), std::move(group)); }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::ValidationResult Configuration::Options::Retry::AreOptionsAllowable() const
+{
+    return { StatusCode::Success, "" };  // There are no requirements for this set of options. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::uint32_t Configuration::Options::Retry::GetLimit() const
+{
+    return m_optLimit.GetValueOrElse(Defaults::ConnectionRetryLimit);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::chrono::milliseconds const& Configuration::Options::Retry::GetInterval() const
+{
+    return m_optInterval.GetValueOrElse(Defaults::ConnectionRetryInterval);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Retry::SetLimit(std::int32_t value, bool& changed)
+{
+    if (!std::in_range<std::uint32_t>(value)) { return false; } // Currently, we only prevent negative values. 
+    if (!m_optLimit.SetValue(static_cast<std::uint32_t>(value))) { return false; }
+    changed = m_optLimit.Modified();
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Retry::SetLimit(std::uint32_t value, bool& changed)
+{
+    if (!m_optLimit.SetValue(value)) { return false; }
+    changed = m_optLimit.Modified();
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Retry::SetInterval(std::chrono::milliseconds const& value, bool& changed)
+{
+    if (!m_optInterval.SetValue(value)) { return false; }
+    changed = m_optInterval.Modified();
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Connection::Connection()
-    : m_timeout()
-    , m_retry({ .limit = Defaults::ConnectionRetryLimit })
-    , m_constructed({
-        .timeout = Defaults::ConnectionTimeout,
-        .interval = Defaults::ConnectionRetryInterval
-    })
+    : m_optTimeout(
+        local::StringToMilliseconds,
+        local::StringFromMilliseconds,
+        [] (auto const& value) { return value <= std::chrono::hours{ 24 }; })
+    , m_retryOptions()
 {
 }
 
@@ -480,69 +790,51 @@ Configuration::Options::Connection::Connection()
 
 Configuration::Options::Connection::Connection(
     std::chrono::milliseconds const& timeout, std::int32_t limit, std::chrono::milliseconds const& interval)
-    : m_timeout(local::ConvertConnectionDuration(timeout))
-    , m_retry({
-        .limit = limit,
-        .interval = local::ConvertConnectionDuration(interval)
-    })
-    , m_constructed({
-        .timeout = timeout,
-        .interval = interval
-    })
+    : m_optTimeout(
+        timeout,
+        local::StringToMilliseconds,
+        local::StringFromMilliseconds,
+        [] (auto const& value) { return value <= std::chrono::hours{ 24 }; })
+    , m_retryOptions(limit, interval)
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::strong_ordering Configuration::Options::Connection::operator<=>(Connection const& other) const noexcept
-{
-    if (auto const result = m_timeout <=> other.m_timeout; result != std::strong_ordering::equal) { return result; }
-    if (auto const result = m_retry <=> other.m_retry; result != std::strong_ordering::equal) { return result; }
-    return std::strong_ordering::equal;
-}
+ bool Configuration::Options::Connection::operator==(Connection const& other) const noexcept
+ {
+     return m_optTimeout == other.m_optTimeout && m_retryOptions == other.m_retryOptions;
+ }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Connection::operator==(Connection const& other) const noexcept
-{
-    return m_timeout == other.m_timeout && m_retry == other.m_retry;
-}
+ std::strong_ordering Configuration::Options::Connection::operator<=>(Connection const& other) const noexcept
+ {
+     if (auto const result = m_optTimeout <=> other.m_optTimeout; result != std::strong_ordering::equal) { return result; }
+     if (auto const result = m_retryOptions <=> other.m_retryOptions; result != std::strong_ordering::equal) { return result; }
+     return std::strong_ordering::equal;
+ }
 
-//----------------------------------------------------------------------------------------------------------------------
+ //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Connection::Merge(Connection& other)
+Configuration::DeserializationResult Configuration::Options::Connection::Merge(Connection& other)
 {
-    if (m_timeout.empty()) {
-        m_timeout = std::move(other.m_timeout);
-        m_constructed.timeout = std::move(other.m_constructed.timeout);
+    // The existing values of this object is chosen over the other's values. 
+    if (m_optTimeout.NotModified()) { m_optTimeout = std::move(other.m_optTimeout); }
+
+    if (auto const result = m_retryOptions.Merge(other.m_retryOptions); result.first != StatusCode::Success) {
+        return result;
     }
 
-    if (m_retry.limit == Defaults::ConnectionRetryLimit) { m_retry.limit = std::move(other.m_retry.limit); }
-    if (m_retry.interval.empty()) {
-        m_retry.interval = std::move(other.m_retry.interval);
-        m_constructed.interval = std::move(other.m_constructed.interval);
-    }
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Connection::Merge(Connection const& other)
-{
-    if (m_timeout.empty()) {
-        m_timeout = other.m_timeout;
-        m_constructed.timeout = other.m_constructed.timeout;
-    }
-
-    if (m_retry.limit == Defaults::ConnectionRetryLimit) { m_retry.limit = other.m_retry.limit; }
-    if (m_retry.interval.empty()) { 
-        m_retry.interval = other.m_retry.interval;
-        m_constructed.interval = other.m_constructed.interval;
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Connection::Merge(boost::json::object const& json)
+Configuration::DeserializationResult Configuration::Options::Connection::Merge(
+    boost::json::object const& json,
+    std::string_view context,
+    GlobalConnectionOptionsReference optGlobalOptions)
 {
     // JSON Schema:
     // "connection": {
@@ -553,171 +845,108 @@ void Configuration::Options::Connection::Merge(boost::json::object const& json)
     //   },
     // },
 
-    if (m_timeout.empty()) {
-        if (auto const itr = json.find(symbols::Timeout); itr != json.end()) {
-            m_timeout = itr->value().as_string();
+    // Deserialize the timeout field from the connection object.
+    if (m_optTimeout.NotModified()) {
+        if (auto const itr = json.find(m_optTimeout.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optTimeout.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(context, GetFieldName(), m_optTimeout.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", context, GetFieldName(), m_optTimeout.GetFieldName())
+                };
+            }
+        } else if (optGlobalOptions) {
+            [[maybe_unused]] bool const success = m_optTimeout.SetValueFromConfig(optGlobalOptions->get().GetTimeout());
+            assert(success);
         }
     }
     
-    if (auto const itr = json.find(symbols::Retry); itr != json.end()) {
-        auto const& retry = itr->value().as_object();
-        if (m_retry.limit == Defaults::ConnectionRetryLimit) {
-            if (auto const jtr = retry.find(symbols::Limit); jtr != retry.end()) {
-                auto const& value = jtr->value().as_int64();
-                if (std::in_range<std::int32_t>(value)) {
-                    m_retry.limit = static_cast<std::int32_t>(value);
-                }
+    // Deserialize the retry object from the connection object.
+    if (auto const itr = json.find(m_retryOptions.GetFieldName()); itr != json.end()) {
+        if (itr->value().is_object()) {
+            auto const& group = itr->value().as_object();
+            std::string const currentContext = std::string{ context } + std::string{ GetFieldName() };
+            if (auto const result = m_retryOptions.Merge(group, currentContext, optGlobalOptions); result.first != StatusCode::Success) {
+                return result;
             }
-        }
-
-        if (m_retry.interval.empty()) {
-            if (auto const jtr = retry.find(symbols::Interval); jtr != retry.end()) {
-                m_retry.interval = jtr->value().as_string();
-            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage("object", context, GetFieldName(), m_retryOptions.GetFieldName())
+            };
         }
     }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Connection::Write(
-    boost::json::object& json, GlobalOptionsReference optGlobalConnectionOptions) const
+Configuration::SerializationResult Configuration::Options::Connection::Write(
+    boost::json::object& json, GlobalConnectionOptionsReference optGlobalOptions) const
 {
     boost::json::object group;
 
-    if (m_constructed.timeout != Defaults::ConnectionTimeout) {
-        if (!optGlobalConnectionOptions || m_constructed.timeout != optGlobalConnectionOptions->get().GetTimeout()) {
-            group[symbols::Timeout] = m_timeout; 
-        }
+    bool const shouldWriteTimeout =
+        // Write if the timeout is not equal to the default connection timeout.
+        !m_optTimeout.WouldMatchDefault(Defaults::ConnectionTimeout) && 
+        // And, there is no global options, or if there are, the timeout is not equal to the global timeout option.
+        (!optGlobalOptions || !m_optTimeout.WouldMatchDefault(optGlobalOptions->get().GetTimeout()));
+
+    if (shouldWriteTimeout) {
+        group[m_optTimeout.GetFieldName()] = m_optTimeout.GetSerializedValue();
     }
 
-    {
-        boost::json::object retry;
-        if (m_retry.limit != Defaults::ConnectionRetryLimit) { 
-            if (!optGlobalConnectionOptions || m_retry.limit != optGlobalConnectionOptions->get().GetRetryLimit()) {
-                retry[symbols::Limit] = m_retry.limit;
-            }
-        }
-        
-        if (m_constructed.interval != Defaults::ConnectionRetryInterval) {
-            if (!optGlobalConnectionOptions || m_constructed.interval != optGlobalConnectionOptions->get().GetRetryInterval()) {
-                retry[symbols::Interval] = m_retry.interval;
-            }
-        }
-        
-        if (!retry.empty()) { group.emplace(symbols::Retry, std::move(retry)); }
+    auto const result = m_retryOptions.Write(group, optGlobalOptions);
+    if (result.first != StatusCode::Success) {
+        return result;
     }
 
-    if (!group.empty()) { json.emplace(Symbol, std::move(group)); }
+    if (!group.empty()) { json.emplace(GetFieldName(), std::move(group)); }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Connection::Initialize(std::shared_ptr<spdlog::logger> const& logger)
+Configuration::ValidationResult Configuration::Options::Connection::AreOptionsAllowable() const
 {
-    constexpr auto ConstructDuration = [] (std::string const& value) -> std::optional<std::chrono::milliseconds> {
-        enum class Duration : std::uint32_t { Milliseconds, Seconds, Minutes, Invalid };
-        constexpr auto ParseDuration = [] (std::string const& value) -> std::pair<Duration, std::size_t> {
-            static std::unordered_map<Duration, std::string> const durations = { 
-                { Duration::Milliseconds, "ms" },
-                { Duration::Seconds, "s" },
-                { Duration::Minutes, "min" }
-            };
-
-            // Find the first instance of a non-numeric character. 
-            auto const first = std::ranges::find_if(value, [] (char c) { return std::isalpha(c); });
-            if (first == value.end()) { return { Duration::Invalid, 0 }; } // No postfix was found. 
-
-            // Attempt to map the postfix to a duration entry. 
-            std::string_view const postfix = { first, value.end() };
-            auto const entry = std::ranges::find_if(durations | std::views::values, [&] (std::string_view const& value) { 
-                return postfix == value;
-            });
-
-            // If no mapping could be found, indicate an error has occured. 
-            if (entry.base() == durations.end()) { return { Duration::Invalid, 0 }; }
-
-            // Returns the type of entry and the number of characters in the numeric value. 
-            return { entry.base()->first, value.size() - postfix.size() };
-        };
-        
-        try {
-            auto const [duration, size] = ParseDuration(value); // Get the duration and end of the numeric value.
-            if (duration == Duration::Invalid || size == 0) { return {}; } // No valid duration was found.
-
-            // Attempt to cast the provided value to a number and then adjust it to milliseconds. 
-            auto count = boost::lexical_cast<std::uint32_t>(value.c_str(), size);
-            switch (duration) {
-                case Duration::Minutes: count *= 60; [[fallthrough]];
-                case Duration::Seconds: count *= 1000; [[fallthrough]];
-                case Duration::Milliseconds: break; 
-                case Duration::Invalid: assert(false); return {};
-            }
-
-            return std::chrono::milliseconds{ count };
-        } catch(boost::bad_lexical_cast& exception) {
-            return {};
-        }
-    };
-
-    if (m_timeout.empty()) {
-        assert(m_constructed.timeout == Defaults::ConnectionTimeout);
-        m_timeout = local::ConvertConnectionDuration(m_constructed.timeout);
-    } else {
-        auto const optConstructedTimeout = ConstructDuration(m_timeout);
-        if (!optConstructedTimeout) {
-            logger->warn("Detected an invalid value in the network.connection.timeout field.");
-            return false;
-        }
-        m_constructed.timeout = *optConstructedTimeout;
-    }
-
-    if (m_retry.limit < 0) {
-        logger->warn("Detected a negative value in the network.connection.retry.limit field.");
-        return false;
-    }
-
-    if (m_retry.interval.empty()) {
-        assert(m_constructed.interval == Defaults::ConnectionRetryInterval);
-        m_retry.interval = local::ConvertConnectionDuration(m_constructed.interval);
-    } else {
-        auto const optConstructedInterval = ConstructDuration(m_retry.interval);
-        if (!optConstructedInterval) { 
-            logger->warn("Detected an invalid value in the network.connection.retry.interval field.");
-            return false;
-        }
-        m_constructed.interval = *optConstructedInterval;
-    }
-
-    return true; 
+    return { StatusCode::Success, "" }; // There are no requirements for this set of options. 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::chrono::milliseconds const& Configuration::Options::Connection::GetTimeout() const
 {
-    return m_constructed.timeout;
+    return m_optTimeout.GetValueOrElse(Defaults::ConnectionTimeout);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::int32_t Configuration::Options::Connection::GetRetryLimit() const { return m_retry.limit; }
+[[nodiscard]] std::int32_t Configuration::Options::Connection::GetRetryLimit() const
+{
+    return m_retryOptions.GetLimit();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::chrono::milliseconds const& Configuration::Options::Connection::GetRetryInterval() const
+[[nodiscard]] std::chrono::milliseconds const& Configuration::Options::Connection::GetRetryInterval() const
 {
-    return m_constructed.interval;
+    return m_retryOptions.GetInterval();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Connection::SetTimeout(std::chrono::milliseconds const& value, bool& changed)
 {
-    if (value > std::chrono::hours{ 24 }) { return false; } // An arbitrary, but still unrestrictive limit (1440m);
-    if (m_timeout = local::ConvertConnectionDuration(value); m_timeout.empty()) { return false; }
-    m_constructed.timeout = value;
-    changed = true;
+    if (!m_optTimeout.SetValue(value)) { return false; }
+    changed = m_optTimeout.Modified();
     return true;
 }
 
@@ -725,50 +954,38 @@ bool Configuration::Options::Connection::SetTimeout(std::chrono::milliseconds co
 
 bool Configuration::Options::Connection::SetRetryLimit(std::int32_t value, bool& changed)
 {
-    if (!std::in_range<std::uint32_t>(value)) { return false; } // Currently, we only prevent negative values. 
-    m_retry.limit = value;
-    changed = true;
-    return true;
+    return m_retryOptions.SetLimit(value, changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
-
+    
 bool Configuration::Options::Connection::SetRetryInterval(std::chrono::milliseconds const& value, bool& changed)
 {
-    if (value > std::chrono::hours{ 24 }) { return false; } // An arbitrary, but still unrestrictive limit (1440m);
-    if (m_retry.interval = local::ConvertConnectionDuration(value); m_retry.interval.empty()) { return false; }
-    m_constructed.interval = value;
-    changed = true;
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::strong_ordering Configuration::Options::Connection::Retry::operator<=>(Connection::Retry const& other) const noexcept
-{
-    if (auto const result = limit <=> other.limit; result != std::strong_ordering::equal) { return result; }
-    if (auto const result = interval <=> other.interval; result != std::strong_ordering::equal) { return result; }
-    return std::strong_ordering::equal;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Options::Connection::Retry::operator==(Connection::Retry const& other) const noexcept
-{
-    return limit == other.limit && interval == other.interval;
+    return m_retryOptions.SetInterval(value, changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Endpoint::Endpoint()
-    : m_protocol()
+    : m_transient()
+    , m_protocol(
+        local::StringToNetworkProtocol,
+        local::StringFromNetworkProtocol,
+        [] (auto const& value) { return value != ::Network::Protocol::Invalid; })
     , m_interface()
-    , m_binding()
-    , m_optBootstrap()
-    , m_constructed({
-        .protocol = ::Network::Protocol::Invalid
-    })
-    , m_transient()
+    , m_binding(
+        [&] (auto const& value) {
+            return ::Network::BindingAddress{ m_protocol.GetValue(), value, m_interface.GetValue() };
+        },
+        local::StringFromBindingAddress,
+        [] (auto const& value) { return value.IsValid(); })
+    , m_optBootstrap(
+        [&] (auto const& value) {
+            return ::Network::RemoteAddress{ m_protocol.GetValue(), value, true, ::Network::RemoteAddress::Origin::User };
+        },
+        local::StringFromRemoteAddress,
+        [] (auto const& value) { return value.IsValid(); })
+    , m_connectionOptions()
 {
 }
 
@@ -778,23 +995,30 @@ Configuration::Options::Endpoint::Endpoint(
     ::Network::Protocol protocol,
     std::string_view interface,
     std::string_view binding,
-    std::optional<std::string> const& bootstrap)
-    : m_protocol()
+    std::optional<std::string> const& optBootstrap)
+    : m_transient({ .useBootstraps = true })
+    , m_protocol(
+        protocol,
+        local::StringToNetworkProtocol,
+        local::StringFromNetworkProtocol,
+        [] (auto const& value) { return value != ::Network::Protocol::Invalid; })
     , m_interface(interface)
-    , m_binding(binding)
-    , m_optBootstrap(bootstrap)
-    , m_constructed({
-        .protocol = protocol
-    })
-    , m_transient({
-        .useBootstraps = true
-    })
+    , m_binding(
+        binding,
+        [&] (std::string_view value) {
+            return ::Network::BindingAddress{ m_protocol.GetValue(), value, m_interface.GetValue() };
+        },
+        local::StringFromBindingAddress,
+        [] (auto const& value) { return value.IsValid(); })
+    , m_optBootstrap(
+        optBootstrap,
+        [&] (std::string_view value) {
+            return ::Network::RemoteAddress{ m_protocol.GetValue(), value, true, ::Network::RemoteAddress::Origin::User };
+        },
+        local::StringFromRemoteAddress,
+        [] (auto const& value) { return value.IsValid(); })
+    , m_connectionOptions()
 {
-    switch (m_constructed.protocol) {
-        case ::Network::Protocol::TCP: m_protocol = "TCP"; break;
-        case ::Network::Protocol::LoRa: m_protocol = "LoRa"; break;
-        default: assert(false); break;
-    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -803,39 +1027,30 @@ Configuration::Options::Endpoint::Endpoint(
     std::string_view protocol,
     std::string_view interface,
     std::string_view binding,
-    std::optional<std::string> const& bootstrap)
-    : m_protocol(protocol)
+    std::optional<std::string> const& optBootstrap)
+    : m_transient({ .useBootstraps = true })
+    , m_protocol(
+        protocol,
+        local::StringToNetworkProtocol,
+        local::StringFromNetworkProtocol,
+        [] (auto const& value) { return value != ::Network::Protocol::Invalid; })
     , m_interface(interface)
-    , m_binding(binding)
-    , m_optBootstrap(bootstrap)
-    , m_optConnection()
-    , m_constructed({
-        .protocol = ::Network::Protocol::Invalid
-    })
-    , m_transient({
-        .useBootstraps = true
-    })
+    , m_binding(
+        binding,
+        [&] (std::string_view value) {
+            return ::Network::BindingAddress{ m_protocol.GetValue(), value, m_interface.GetValue() };
+        },
+        local::StringFromBindingAddress,
+        [] (auto const& value) { return value.IsValid(); })
+    , m_optBootstrap(
+        optBootstrap,
+        [&] (std::string_view value) {
+            return ::Network::RemoteAddress{ m_protocol.GetValue(), value, true, ::Network::RemoteAddress::Origin::User };
+        },
+        local::StringFromRemoteAddress,
+        [] (auto const& value) { return value.IsValid(); })
+    , m_connectionOptions()
 {
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Configuration::Options::Endpoint::Endpoint(boost::json::object const& json)
-    : m_protocol(json.at(symbols::Protocol).as_string())
-    , m_interface(json.at(symbols::Interface).as_string())
-    , m_binding(json.at(symbols::Binding).as_string())
-    , m_optBootstrap()
-    , m_optConnection()
-    , m_constructed({
-        .protocol = ::Network::Protocol::Invalid
-    })
-    , m_transient({
-        .useBootstraps = true
-    })
-{
-    if (auto const itr = json.find(symbols::Bootstrap); itr != json.end()) {
-        m_optBootstrap = itr->value().as_string();
-    }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -846,7 +1061,7 @@ std::strong_ordering Configuration::Options::Endpoint::operator<=>(Endpoint cons
     if (auto const result = m_interface <=> other.m_interface; result != std::strong_ordering::equal) { return result; }
     if (auto const result = m_binding <=> other.m_binding; result != std::strong_ordering::equal) { return result; }
     if (auto const result = m_optBootstrap <=> other.m_optBootstrap; result != std::strong_ordering::equal) { return result; }
-    if (auto const result = m_optConnection <=> other.m_optConnection; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = m_connectionOptions <=> other.m_connectionOptions; result != std::strong_ordering::equal) { return result; }
     return std::strong_ordering::equal;
 }
 
@@ -854,39 +1069,37 @@ std::strong_ordering Configuration::Options::Endpoint::operator<=>(Endpoint cons
 
 bool Configuration::Options::Endpoint::operator==(Endpoint const& other) const noexcept
 {
-    return m_protocol == other.m_protocol && m_interface == other.m_interface && m_binding == other.m_binding &&
-        m_optBootstrap == other.m_optBootstrap && m_optConnection == other.m_optConnection;
+    return m_protocol == other.m_protocol && 
+           m_interface == other.m_interface && 
+           m_binding == other.m_binding &&
+           m_optBootstrap == other.m_optBootstrap &&
+           m_connectionOptions == other.m_connectionOptions;
 }
-
+//
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Endpoint::Merge(Endpoint& other)
+Configuration::DeserializationResult Configuration::Options::Endpoint::Merge(Endpoint& other)
 {
     // The existing values of this object is chosen over the other's values. 
-    if (m_protocol.empty()) { m_protocol = std::move(other.m_protocol); }
+    if (m_protocol.NotModified()) { m_protocol = std::move(other.m_protocol); }
+    if (m_interface.NotModified()) { m_interface = std::move(other.m_interface); }
+    if (m_binding.NotModified()) { m_binding = std::move(other.m_binding); }
+    if (m_optBootstrap.NotModified()) { m_optBootstrap = std::move(other.m_optBootstrap); }
 
-    if (m_interface.empty()) { m_interface = std::move(other.m_interface); }
-
-    if (m_binding.empty()) {
-        m_binding = std::move(other.m_binding);
-        m_constructed.binding = std::move(other.m_constructed.binding);
+    if (auto const result = m_connectionOptions.Merge(other.m_connectionOptions); result.first != StatusCode::Success) {
+        return result;
     }
 
-    if (!m_optBootstrap.has_value()) {
-        m_optBootstrap = std::move(other.m_optBootstrap);
-        m_constructed.bootstrap = std::move(other.m_constructed.bootstrap);
-    }
-
-    if (m_optConnection.has_value() && other.m_optConnection.has_value()) {
-        m_optConnection->Merge(*other.m_optConnection);
-    } else if (!m_optConnection.has_value()) {
-        m_optConnection = std::move(other.m_optConnection);
-    }
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Endpoint::Merge(boost::json::object const& json)
+Configuration::DeserializationResult Configuration::Options::Endpoint::Merge(
+    boost::json::object const& json,
+    Runtime const& runtime,
+    std::string_view context,
+    GlobalConnectionOptionsReference optGlobalOptions)
 {
     // JSON Schema:
     // "endpoints": [{
@@ -897,102 +1110,199 @@ void Configuration::Options::Endpoint::Merge(boost::json::object const& json)
     //     "connection": Optional Object,
     // }],
 
-    if (m_protocol.empty()) {
-        m_protocol = json.at(symbols::Protocol).as_string();
-    }
-
-    if (m_interface.empty()) {
-        m_interface = json.at(symbols::Interface).as_string();
-    }
-
-    if (m_binding.empty()) {
-        m_binding = json.at(symbols::Bootstrap).as_string();
-    }
-
-    if (!m_optBootstrap.has_value()) {
-        if (auto const itr = json.find(symbols::Bootstrap); itr != json.end()) {
-            m_optBootstrap = itr->value().as_string();
-        }
-    }
-
-    if (auto const itr = json.find(Connection::Symbol); itr != json.end()) {
-        if (!m_optConnection) { m_optConnection = Connection{}; }
-        m_optConnection->Merge(itr->value().as_object());
-    }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Endpoint::Write(
-    boost::json::object& json, Connection::GlobalOptionsReference optGlobalConnectionOptions) const
-{
-    json[symbols::Protocol] = m_protocol;
-    json[symbols::Interface] = m_interface;
-    json[symbols::Binding] = m_binding;
-    if (m_optBootstrap.has_value()) { json[symbols::Bootstrap] = *m_optBootstrap; }
-    if (m_optConnection) { m_optConnection->Write(json, optGlobalConnectionOptions); }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Options::Endpoint::Initialize(Runtime runtime, std::shared_ptr<spdlog::logger> const& logger)
-{
-    if (!m_protocol.empty()) { m_constructed.protocol = ::Network::ParseProtocol(m_protocol); }
-    if (m_constructed.protocol == ::Network::Protocol::Invalid || m_binding.empty() || m_interface.empty()) { return false; }
-
-    m_constructed.binding = { m_constructed.protocol, m_binding, m_interface };
-    if (!m_constructed.binding.IsValid()) {
-        logger->warn("Detected an invalid address in an endpoint.binding field.");
-        m_constructed.binding = {};
-        return false;
-    }
-
-    if (m_optBootstrap && !m_optBootstrap->empty()) {
-        m_constructed.bootstrap = { m_constructed.protocol, *m_optBootstrap, true, ::Network::RemoteAddress::Origin::User };
-        if (!m_constructed.bootstrap->IsValid()) { 
-            logger->warn("Detected an invalid address in an endpoint.bootstrap field.");
-            m_constructed.bootstrap.reset();
-            return false;
-        }
-    }
-
-    if (m_optConnection && !m_optConnection->Initialize(logger)) { return false; }
-
+    // Capture the use bootstraps flag.
     m_transient.useBootstraps = runtime.useBootstraps;
 
-    return true;
+    // Deserialize the protocol field from the endpoint object.
+    if (m_protocol.NotModified()) {
+        if (auto const itr = json.find(m_protocol.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_protocol.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateUnexpectedValueMessage(allowable::ProtocolValues, context, m_protocol.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", context, m_protocol.GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(context, m_protocol.GetFieldName())
+            };
+        }
+    }
+
+    // Deserialize the interface field from the endpoint object.
+    if (m_interface.NotModified()) {
+        if (auto const itr = json.find(m_interface.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_interface.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(context, m_interface.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", context, m_interface.GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(context, m_interface.GetFieldName())
+            };
+        }
+    }
+
+    // Deserialize the binding field from the endpoint object.
+    if (m_binding.NotModified()) {
+        if (auto const itr = json.find(m_binding.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_binding.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(context, m_binding.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", context, m_binding.GetFieldName())
+                };
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMissingFieldMessage(context, m_binding.GetFieldName())
+            };
+        }
+    }
+
+    // Deserialize the bootstrap field from the endpoint object.
+    if (m_optBootstrap.NotModified()) {
+        if (auto const itr = json.find(m_optBootstrap.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optBootstrap.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(context, m_optBootstrap.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", context, m_optBootstrap.GetFieldName())
+                };
+            }
+        }
+    }
+
+    // Deserialize the retry object from the connection object.
+    if (auto const itr = json.find(m_connectionOptions.GetFieldName()); itr != json.end()) {
+        if (itr->value().is_object()) {
+            auto const& group = itr->value().as_object();
+            if (auto const result = m_connectionOptions.Merge(group, context, optGlobalOptions); result.first != StatusCode::Success) {
+                return result;
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage("object", context, m_connectionOptions.GetFieldName())
+            };
+        }
+    } else if (optGlobalOptions) {
+        m_connectionOptions = *optGlobalOptions;
+    }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::Protocol Configuration::Options::Endpoint::GetProtocol() const { return m_constructed.protocol; }
+Configuration::SerializationResult Configuration::Options::Endpoint::Write(
+    boost::json::object& json, GlobalConnectionOptionsReference optGlobalOptions) const
+{
+    json[m_protocol.GetFieldName()] = m_protocol.GetSerializedValue();
+    json[m_interface.GetFieldName()] = m_interface.GetValue();
+    json[m_binding.GetFieldName()] = m_binding.GetSerializedValue();
+    if (m_optBootstrap.HasValue()) { json[m_optBootstrap.GetFieldName()] = m_optBootstrap.GetSerializedValue(); }
+
+    auto const result = m_connectionOptions.Write(json, optGlobalOptions);
+    if (result.first != StatusCode::Success) {
+        return result;
+    }
+
+    return { StatusCode::Success, "" };
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Options::Endpoint::GetProtocolString() const { return m_protocol; }
+Configuration::ValidationResult Configuration::Options::Endpoint::AreOptionsAllowable(std::string_view context) const
+{
+    if (m_protocol.GetValue() == ::Network::Protocol::Invalid) {
+        return {
+            StatusCode::InputError,
+            CreateUnexpectedValueMessage(allowable::ProtocolValues, context, m_protocol.GetFieldName())
+        };
+    }
+
+    if (m_interface.GetValue().empty()) {
+        return {
+            StatusCode::InputError,
+            CreateInvalidValueMessage(context, m_interface.GetFieldName())
+        };
+    }
+
+    if (!m_binding.GetValue().IsValid()) {
+        return {
+            StatusCode::InputError,
+            CreateInvalidValueMessage(context, m_binding.GetFieldName())
+        };
+    }
+
+    if (m_optBootstrap.HasValue() && !m_optBootstrap.GetValue().IsValid()) {
+        return {
+            StatusCode::InputError,
+            CreateInvalidValueMessage(context, m_optBootstrap.GetFieldName())
+        };
+    }
+
+    return m_connectionOptions.AreOptionsAllowable();
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Options::Endpoint::GetInterface() const { return m_interface; }
+Network::Protocol Configuration::Options::Endpoint::GetProtocol() const { return m_protocol.GetValue(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string const& Configuration::Options::Endpoint::GetBindingField() const { return m_binding; }
+std::string const& Configuration::Options::Endpoint::GetProtocolString() const { return m_protocol.GetSerializedValue(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Network::BindingAddress const& Configuration::Options::Endpoint::GetBinding() const { return m_constructed.binding; }
+std::string const& Configuration::Options::Endpoint::GetInterface() const { return m_interface.GetValue(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Network::BindingAddress const& Configuration::Options::Endpoint::GetBinding() const { return m_binding.GetValue(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::string const& Configuration::Options::Endpoint::GetBindingString() const { return m_binding.GetSerializedValue(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::optional<Network::RemoteAddress> const& Configuration::Options::Endpoint::GetBootstrap() const
 {
-    return m_constructed.bootstrap;
+    return m_optBootstrap.GetInternalOptionalValueMember();
 }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::optional<std::string> const& Configuration::Options::Endpoint::GetBootstrapField() const { return m_optBootstrap; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -1002,74 +1312,65 @@ bool Configuration::Options::Endpoint::UseBootstraps() const { return m_transien
 
 std::chrono::milliseconds const& Configuration::Options::Endpoint::GetConnectionTimeout() const
 {
-    if (!m_optConnection) { return Defaults::ConnectionTimeout; }
-    return m_optConnection->GetTimeout();
+    return m_connectionOptions.GetTimeout();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::int32_t Configuration::Options::Endpoint::GetConnectionRetryLimit() const
 { 
-    if (!m_optConnection) { return Defaults::ConnectionRetryLimit; }
-    return m_optConnection->GetRetryLimit();
+    return m_connectionOptions.GetRetryLimit();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::chrono::milliseconds const& Configuration::Options::Endpoint::GetConnectionRetryInterval() const
 {
-    if (!m_optConnection) { return Defaults::ConnectionRetryInterval; }
-    return m_optConnection->GetRetryInterval();
+    return m_connectionOptions.GetRetryInterval();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Options::Endpoint::SetRuntimeOptions(Runtime const& runtime)
+{
+    m_transient.useBootstraps = runtime.useBootstraps;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Endpoint::SetConnectionTimeout(std::chrono::milliseconds const& timeout, bool& changed)
 {
-    if (!m_optConnection) { m_optConnection = Connection{}; }
-    return m_optConnection->SetTimeout(timeout, changed);
+    return m_connectionOptions.SetTimeout(timeout, changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Endpoint::SetConnectionRetryLimit(std::int32_t limit, bool& changed)
 {
-    if (!m_optConnection) { m_optConnection = Connection{}; }
-    return m_optConnection->SetRetryLimit(limit, changed);
+    return m_connectionOptions.SetRetryLimit(limit, changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Endpoint::SetConnectionRetryInterval(std::chrono::milliseconds const& interval, bool& changed)
 {
-    if (!m_optConnection) { m_optConnection = Connection{}; }
-    return m_optConnection->SetRetryInterval(interval, changed);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Endpoint::UpsertConnectionOptions(Connection const& options)
-{
-    if (m_optConnection) { 
-        m_optConnection->Merge(options);
-    } else {
-        m_optConnection = options;
-    }
+    return m_connectionOptions.SetRetryInterval(interval, changed);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 template<>
 Configuration::Options::Endpoint Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(
-    ::Network::BindingAddress const& _binding)
+    ::Network::BindingAddress const& binding)
 {
-    Endpoint options;
-    options.m_protocol = ::Network::TestScheme;
-    options.m_interface = _binding.GetInterface();
-    options.m_binding = _binding.GetAuthority();
-    options.m_constructed.protocol = _binding.GetProtocol();
-    options.m_constructed.binding = _binding;
+    Endpoint options{
+        ::Network::Protocol::Test,
+        binding.GetInterface(),
+        binding.GetAuthority()
+    };
+
     options.m_transient.useBootstraps = true;
+
     return options;
 }
 
@@ -1077,16 +1378,16 @@ Configuration::Options::Endpoint Configuration::Options::Endpoint::CreateTestOpt
 
 template<>
 Configuration::Options::Endpoint Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(
-    std::string_view _interface, std::string_view _binding)
+    std::string_view interface, std::string_view binding)
 {
-    Endpoint options;
-    options.m_protocol = ::Network::TestScheme;
-    options.m_interface = _interface;
-    options.m_binding = _binding;
-    options.m_constructed.protocol = ::Network::Protocol::Test;
-    options.m_constructed.binding = ::Network::BindingAddress::CreateTestAddress<InvokeContext::Test>(
-        _binding, _interface);
+    Endpoint options{
+        ::Network::Protocol::Test,
+         interface,
+         binding,
+    };
+
     options.m_transient.useBootstraps = true;
+    
     return options;
 }
 
@@ -1094,9 +1395,18 @@ Configuration::Options::Endpoint Configuration::Options::Endpoint::CreateTestOpt
 
 Configuration::Options::Network::Network()
     : m_endpoints()
-    , m_connection()
+    , m_connectionOptions()
     , m_optToken()
 {
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Network::operator==(Network const& other) const noexcept
+{
+    return m_endpoints == other.m_endpoints && 
+           m_connectionOptions == other.m_connectionOptions && 
+           m_optToken == other.m_optToken;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1104,117 +1414,166 @@ Configuration::Options::Network::Network()
 std::strong_ordering Configuration::Options::Network::operator<=>(Network const& other) const noexcept
 {
     if (auto const result = m_endpoints <=> other.m_endpoints; result != std::strong_ordering::equal) { return result; }
-    if (auto const result = m_connection <=> other.m_connection; result != std::strong_ordering::equal) { return result; }
+    if (auto const result = m_connectionOptions <=> other.m_connectionOptions; result != std::strong_ordering::equal) { return result; }
     if (auto const result = m_optToken <=> other.m_optToken; result != std::strong_ordering::equal) { return result; }
     return std::strong_ordering::equal;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Network::operator==(Network const& other) const noexcept
-{
-    return m_endpoints == other.m_endpoints && m_connection == other.m_connection && m_optToken == other.m_optToken;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Network::Merge(Network& other)
-{
-    std::ranges::for_each(other.m_endpoints, [this] (Endpoint& options) {
-        auto const itr = std::ranges::find_if(m_endpoints, [&options] (Endpoint const& existing) {
-            return options.GetBinding() == existing.GetBinding();
-        });
-        if (itr == m_endpoints.end()) { m_endpoints.emplace_back(options); } else { itr->Merge(options); }
-    });
-
-    m_connection.Merge(other.m_connection);
-
-    if (!m_optToken) { m_optToken = std::move(other.m_optToken); }
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Network::Merge(boost::json::object const& json)
+Configuration::DeserializationResult Configuration::Options::Network::Merge(
+    boost::json::object const& json, Runtime const& runtime)
 {
     // JSON Schema:
     // "network": {
     //   "endpoints": Array,
     //   "connection": Optional Object,
-    //   "token": Optional String
+    //   "token": Optional String,
     // },
 
-    auto const endpoints = json.at(symbols::Endpoints).as_array();
-    std::ranges::for_each(endpoints, [&] (boost::json::value const& value) {
-        Endpoint options{ value.as_object() };
-        auto const itr = std::ranges::find_if(m_endpoints, [&options] (Endpoint const& existing) {
-            return options.GetBinding() == existing.GetBinding();
-        });
-        if (itr == m_endpoints.end()) { m_endpoints.emplace_back(options); } else { itr->Merge(options); }
-    });
-
-
-    if (auto const itr = json.find(Connection::Symbol); itr != json.end()) {
-        m_connection.Merge(itr->value().as_object());
-    }
-
-    if (!m_optToken) {
-        if (auto const itr = json.find(symbols::Token); itr != json.end()) {
-            m_optToken = itr->value().as_string();
+    // Deserialize the connection options object from the network object.
+    if (auto const itr = json.find(m_connectionOptions.GetFieldName()); itr != json.end()) {
+        if (itr->value().is_object()) {
+            auto const& group = itr->value().as_object();
+            if (auto const result = m_connectionOptions.Merge(group, GetFieldName()); result.first != StatusCode::Success) {
+                return result;
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage("object", GetFieldName(), m_connectionOptions.GetFieldName())
+            };
         }
     }
+     
+    // Deserialize the endpoints array from the network object.
+    if (auto const itr = json.find(Symbols::Endpoints::GetFieldName()); itr != json.end()) {
+        if (itr->value().is_array()) {
+            for (auto const& [idx, value] : enumerate(itr->value().as_array())) {
+                if (value.is_object()) {
+                    Endpoint options;
+                    
+                    auto const result = options.Merge(
+                        value.as_object(),
+                        runtime,
+                        CreateArrayContextString(idx, GetFieldName(), Symbols::Endpoints::GetFieldName()),
+                        m_connectionOptions);
+
+                    auto const itr = std::ranges::find_if(m_endpoints, [&options] (Endpoint const& existing) {
+                        return options.GetBinding() == existing.GetBinding();
+                    });
+                    
+                    if (itr == m_endpoints.end()) { 
+                        m_endpoints.emplace_back(options);
+                    } else { 
+                       if (auto const result = itr->Merge(options); result.first != StatusCode::Success) {
+                            return result;
+                       }
+                    }
+                } else {
+                    return { 
+                        StatusCode::DecodeError,
+                        CreateMismatchedValueTypeMessage("object", GetFieldName(), m_connectionOptions.GetFieldName())
+                    };
+                }
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage("array", GetFieldName(), Symbols::Endpoints::GetFieldName())
+            };
+        }
+    }
+
+    // If we were unable to deserialize any endpoints and we are running as the main process indicate, a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_endpoints.empty()) { 
+        return { 
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(GetFieldName(), Symbols::Endpoints::GetFieldName())
+        };
+    }
+
+    // Deserialize the token string from the network object.
+    if (m_optToken.NotModified()) {
+        if (auto const itr = json.find(m_optToken.GetFieldName()); itr != json.end()) {
+            if (itr->value().is_string()) {
+                if (!m_optToken.SetValueFromConfig(itr->value().as_string())) {
+                    return {
+                        StatusCode::InputError,
+                        CreateInvalidValueMessage(GetFieldName(), m_optToken.GetFieldName())
+                    };
+                }
+            } else {
+                return { 
+                    StatusCode::DecodeError,
+                    CreateMismatchedValueTypeMessage("string", GetFieldName(), m_optToken.GetFieldName())
+                };
+            }
+        }
+    }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Network::Write(boost::json::object& json) const
+Configuration::SerializationResult Configuration::Options::Network::Write(boost::json::object& json) const
 {
     boost::json::object group;
 
+    // Serialize the endpoints into the json object.
     if (!m_endpoints.empty()) {
         boost::json::array endpoints;
-        std::ranges::for_each(m_endpoints, [&] (auto const& endpoint) {
+        
+        for (auto const& endpoint : m_endpoints) {
             boost::json::object object;
-            endpoint.Write(object, m_connection);
+            if (auto const result = endpoint.Write(object, m_connectionOptions); result.first != StatusCode::Success) {
+                return result;
+            }
             endpoints.emplace_back(std::move(object));
-        });
-        group.emplace(symbols::Endpoints, std::move(endpoints));
-    }
-
-    m_connection.Write(group);
-    if (m_optToken) { group[symbols::Token] = *m_optToken; }
-
-    json.emplace(Symbol, std::move(group));
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Options::Network::Initialize(Runtime const& runtime, std::shared_ptr<spdlog::logger> const& logger)
-{
-    if (!m_connection.Initialize(logger)) { return false; }
-
-    return std::ranges::all_of(m_endpoints, [&] (Endpoint& endpoint) {
-        endpoint.UpsertConnectionOptions(m_connection); // Add or merge the global connection options for the endpoint. 
-
-        bool const success = endpoint.Initialize(runtime, logger);
-        if (!success) { 
-            logger->warn("Detected an invalid configuration for a {} endpoint", endpoint.GetProtocolString());
         }
 
-        return success;
-    });
+        group.emplace(Symbols::Endpoints::GetFieldName(), std::move(endpoints));
+    }
+
+    // Serialize the global connection options into the json object.
+    if (auto const result = m_connectionOptions.Write(group); result.first != StatusCode::Success) {
+        return result;
+    }
+
+    // Serialize the token string into the json object.
+    if (m_optToken.HasValue()) { group[m_optToken.GetFieldName()] = m_optToken.GetValue(); }
+
+    json.emplace(GetFieldName(), std::move(group));
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool Configuration::Options::Network::IsAllowable(Runtime const& runtime) const
+Configuration::ValidationResult Configuration::Options::Network::AreOptionsAllowable(Runtime const& runtime) const
 {
-    // If the node is running in the foreground, the node will not be able to connect to the network when no endpoint 
-    // options are defined in the configuration file. In the case of the background context, the library user is able
-    // to attach endpoints any time. 
-    if (runtime.context == RuntimeContext::Foreground && m_endpoints.empty()) { return false; }
-    return std::ranges::all_of(m_endpoints, [] (auto const& endpoint) {
-        return allowable::IfAllowableGetValue(allowable::EndpointTypes, endpoint.GetProtocolString()).has_value();
-    });
+    if (auto const status = m_connectionOptions.AreOptionsAllowable(); status.first != StatusCode::Success) {
+        return status;
+    }
+
+    // If we were unable to deserialize any endpoints and we are running as the main process indicate, a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_endpoints.empty()) { 
+        return { 
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(GetFieldName(), Symbols::Endpoints::GetFieldName())
+        };
+    }
+
+    for (auto const& [idx, endpoint] : enumerate(m_endpoints)) {
+        auto const status = endpoint.AreOptionsAllowable(
+            CreateArrayContextString(idx, GetFieldName(), Symbols::Endpoints::GetFieldName()));
+        if (status.first != StatusCode::Success) {
+            return status;
+        }
+    }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1253,7 +1612,7 @@ Configuration::Options::Network::FetchedEndpoint Configuration::Options::Network
     ::Network::Protocol protocol, std::string_view const& binding) const
 {
     auto const itr = std::ranges::find_if(m_endpoints, [&protocol, &binding] (Endpoint const& existing) {
-        return protocol == existing.GetProtocol() && binding == existing.GetBindingField();
+        return protocol == existing.GetProtocol() && binding == existing.GetBindingString();
     });
 
     if (itr == m_endpoints.end()) { return {}; }
@@ -1264,35 +1623,33 @@ Configuration::Options::Network::FetchedEndpoint Configuration::Options::Network
 
 std::chrono::milliseconds const& Configuration::Options::Network::GetConnectionTimeout() const
 {
-    return m_connection.GetTimeout();
+    return m_connectionOptions.GetTimeout();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::int32_t Configuration::Options::Network::GetConnectionRetryLimit() const { return m_connection.GetRetryLimit(); }
+std::int32_t Configuration::Options::Network::GetConnectionRetryLimit() const { return m_connectionOptions.GetRetryLimit(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 std::chrono::milliseconds const& Configuration::Options::Network::GetConnectionRetryInterval() const
 {
-    return m_connection.GetRetryInterval();
+    return m_connectionOptions.GetRetryInterval();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::optional<std::string> const& Configuration::Options::Network::GetToken() const { return m_optToken; }
+std::optional<std::string> const& Configuration::Options::Network::GetToken() const { return m_optToken.GetInternalOptionalValueMember(); }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Configuration::Options::Network::FetchedEndpoint Configuration::Options::Network::UpsertEndpoint(
-    Endpoint&& options, Runtime const& runtime, std::shared_ptr<spdlog::logger> const& logger, bool& changed)
+    Endpoint&& options, bool& changed)
 {
-    if (!options.Initialize(runtime, logger)) { return {}; } // If the provided options are invalid, return false. 
-
     // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
     changed = true;
     auto const itr = std::ranges::find_if(m_endpoints, [&options] (Options::Endpoint const& existing) {
-        return options.GetBindingField() == existing.GetBindingField();
+        return options.GetBindingString() == existing.GetBindingString();
     });
 
     // If no matching options were found, insert the options and return the initialized values. 
@@ -1341,7 +1698,7 @@ std::optional<Configuration::Options::Endpoint> Configuration::Options::Network:
 {
     std::optional<Options::Endpoint> optExtractedOptions;
     auto const count = std::erase_if(m_endpoints, [&] (Options::Endpoint& existing) {
-        bool const found = protocol == existing.GetProtocol() && binding == existing.GetBindingField();
+        bool const found = protocol == existing.GetProtocol() && binding == existing.GetBindingString();
         if (found) { optExtractedOptions = std::move(existing); }
         return found;
     });
@@ -1354,143 +1711,832 @@ std::optional<Configuration::Options::Endpoint> Configuration::Options::Network:
 
 bool Configuration::Options::Network::SetConnectionTimeout(std::chrono::milliseconds const& timeout, bool& changed)
 {
-    return m_connection.SetTimeout(timeout, changed);
+    if (!m_connectionOptions.SetTimeout(timeout, changed)) {
+        return false;
+    }
+
+    bool const result = std::ranges::all_of(m_endpoints, [&timeout, &changed] (Endpoint& options) {
+        return options.SetConnectionTimeout(timeout, changed);
+    });
+
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Network::SetConnectionRetryLimit(std::int32_t limit, bool& changed)
 {
-    return m_connection.SetRetryLimit(limit, changed);
+    if (!m_connectionOptions.SetRetryLimit(limit, changed)) {
+        return false;
+    }
+
+    bool const result = std::ranges::all_of(m_endpoints, [&limit, &changed] (Endpoint& options) {
+        return options.SetConnectionRetryLimit(limit, changed);
+    });
+
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool  Configuration::Options::Network::SetConnectionRetryInterval(std::chrono::milliseconds const& interval, bool& changed)
 {
-    return m_connection.SetRetryInterval(interval, changed);
+    if (!m_connectionOptions.SetRetryInterval(interval, changed)) {
+        return false;
+    }
+
+    bool const result = std::ranges::all_of(m_endpoints, [&interval, &changed] (Endpoint& options) {
+        return options.SetConnectionRetryInterval(interval, changed);
+    });
+
+    return result;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Network::SetToken(std::string_view const& token, bool& changed)
 {
-    if (!m_optToken || *m_optToken != token) {
-        m_optToken = token;
-        changed = true;
-    }
+    if (!m_optToken.SetValue(token)) { return false; }
+    changed = m_optToken.Modified();
     return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Security::Security()
-    : m_strategy()
-    , m_constructed({
-        .strategy = ::Security::Strategy::Invalid
-    })
+Configuration::Options::Algorithms::Algorithms(std::string_view fieldName)
+    : m_fieldName(fieldName)
+    , m_modified(false)
+    , m_keyAgreements()
+    , m_ciphers()
+    , m_hashFunctions()
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Configuration::Options::Security::Security(std::string_view strategy)
-    : m_strategy(strategy)
-    , m_constructed({
-        .strategy = ::Security::Strategy::Invalid
-    })
+Configuration::Options::Algorithms::Algorithms(
+    std::string_view fieldName,
+    std::vector<std::string>&& keyAgreements,
+    std::vector<std::string>&& ciphers,
+    std::vector<std::string>&& hashFunctions)
+    : m_fieldName(fieldName)
+    , m_modified(false)
+    , m_keyAgreements(std::move(keyAgreements))
+    , m_ciphers(std::move(ciphers))
+    , m_hashFunctions(std::move(hashFunctions))
 {
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::strong_ordering Configuration::Options::Security::operator<=>(Security const& other) const noexcept
+Configuration::DeserializationResult Configuration::Options::Algorithms::Merge(
+    boost::json::object const& json, Runtime const& runtime)
 {
-    if (auto const result = m_strategy <=> other.m_strategy; result != std::strong_ordering::equal) { return result; }
+    // Deserialize the key agreements from the cipher suite object.
+    if (auto const itr = json.find(Symbols::KeyAgreements::GetFieldName()); itr != json.end()) {
+        if (itr->value().is_array()) {
+            auto const& elements = itr->value().as_array();
+            if (elements.size() > ::Security::MaximumSupportedAlgorithmElements) {
+                return {
+                    StatusCode::InputError,
+                    CreateExceededElementLinitMessage(
+                        ::Security::MaximumSupportedAlgorithmElements,
+                        Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName())
+                };
+            }
+
+            for (auto const& [idx, value] : enumerate(elements)) {
+                if (value.is_string()) {
+                    std::string_view keyAgreement = value.as_string();
+                    if (keyAgreement.size() > ::Security::MaximumSupportedAlgorithmNameSize) {
+                        return {
+                            StatusCode::InputError,
+                            CreateExceededCharacterLimitMessage(
+                                ::Security::MaximumSupportedAlgorithmNameSize,
+                                CreateArrayContextString(
+                                    idx, Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName()))
+                        };
+                    }
+
+                    if (::Security::SupportedKeyAgreementNames.contains(keyAgreement.data())) {
+                        m_keyAgreements.emplace_back(keyAgreement);
+                    } else {
+                        return {
+                            StatusCode::InputError,
+                            CreateInvalidValueMessage(
+                                CreateArrayContextString(
+                                    idx, Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName()))
+                        };
+                    }
+                } else {
+                    return { 
+                        StatusCode::DecodeError,
+                        CreateMismatchedValueTypeMessage(
+                            "string",
+                            CreateArrayContextString(
+                                idx, Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName()))
+                    };
+                }
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage(
+                    "array", Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName())
+            };
+        }
+    }
+
+    // If we were unable to deserialize any key agreements and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_keyAgreements.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(
+                Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName())
+        };
+    }
+
+    // Deserialize the ciphers from the cipher suite object.
+    if (auto const itr = json.find(Symbols::Ciphers::GetFieldName()); itr != json.end()) {
+        if (itr->value().is_array()) {
+            auto const& elements = itr->value().as_array();
+            if (elements.size() > ::Security::MaximumSupportedAlgorithmElements) {
+                return {
+                    StatusCode::InputError,
+                    CreateExceededElementLinitMessage(
+                        ::Security::MaximumSupportedAlgorithmElements,
+                        Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName())
+                };
+            }
+
+            for (auto const& [idx, value] : enumerate(elements)) {
+                if (value.is_string()) {
+                    std::string_view ciphers = value.as_string();
+                    if (ciphers.size() > ::Security::MaximumSupportedAlgorithmNameSize) {
+                        return {
+                            StatusCode::InputError,
+                            CreateExceededCharacterLimitMessage(
+                                ::Security::MaximumSupportedAlgorithmNameSize,
+                                CreateArrayContextString(
+                                    idx, Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName()))
+                        };
+                    }
+
+                    if (::Security::SupportedCipherNames.contains(ciphers.data())) {
+                        m_ciphers.emplace_back(ciphers);
+                    } else {
+                        return {
+                            StatusCode::InputError,
+                            CreateInvalidValueMessage(
+                                CreateArrayContextString(
+                                    idx, Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName()))
+                        };
+                    }
+                } else {
+                    return { 
+                        StatusCode::DecodeError,
+                        CreateMismatchedValueTypeMessage(
+                            "string",
+                            CreateArrayContextString(
+                                idx, Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName()))
+                    };
+                }
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage(
+                    "array", Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName())
+            };
+        }
+    }
+
+    // If we were unable to deserialize any ciphers and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_ciphers.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(
+                Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName())
+        };
+    }
+
+    // Deserialize the hash functions from the cipher suite object.
+    if (auto const itr = json.find(Symbols::HashFunctions::GetFieldName()); itr != json.end()) {
+        if (itr->value().is_array()) {
+            auto const& elements = itr->value().as_array();
+            if (elements.size() > ::Security::MaximumSupportedAlgorithmElements) {
+                return {
+                    StatusCode::InputError,
+                    CreateExceededElementLinitMessage(
+                        ::Security::MaximumSupportedAlgorithmElements,
+                        Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName())
+                };
+            }
+
+            for (auto const& [idx, value] : enumerate(elements)) {
+                if (value.is_string()) {
+                    std::string_view hashFunction = value.as_string();
+                    if (hashFunction.size() > ::Security::MaximumSupportedAlgorithmNameSize) {
+                        return {
+                            StatusCode::InputError,
+                            CreateExceededCharacterLimitMessage(
+                                ::Security::MaximumSupportedAlgorithmNameSize,
+                                CreateArrayContextString(
+                                    idx, Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName()))
+                        };
+                    }
+
+                    if (::Security::SupportedHashFunctionNames.contains(hashFunction.data())) {
+                        m_hashFunctions.emplace_back(hashFunction);
+                    } else {
+                        return {
+                            StatusCode::InputError,
+                            CreateInvalidValueMessage(
+                                CreateArrayContextString(
+                                    idx, Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName()))
+                        };
+                    }
+                } else {
+                    return { 
+                        StatusCode::DecodeError,
+                        CreateMismatchedValueTypeMessage(
+                            "string",
+                            CreateArrayContextString(
+                                idx, Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName()))
+                    };
+                }
+            }
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage(
+                    "array", Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName())
+            };
+        }
+    }
+
+    // If we were unable to deserialize any hash functions and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_hashFunctions.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(
+                Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName())
+        };
+    }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::SerializationResult Configuration::Options::Algorithms::Write(boost::json::object& json) const
+{
+    boost::json::object object;
+
+    {
+        boost::json::array keyAgreements;
+        keyAgreements.reserve(m_keyAgreements.size());
+        std::ranges::transform(m_keyAgreements, std::back_inserter(keyAgreements), [](auto const& item) {
+            return boost::json::string{ item };
+        });
+        object.emplace(Symbols::KeyAgreements::GetFieldName(), std::move(keyAgreements));
+    }
+
+    {
+        boost::json::array ciphers;
+        ciphers.reserve(m_ciphers.size());
+        std::ranges::transform(m_ciphers, std::back_inserter(ciphers), [](auto const& item) {
+            return boost::json::string{ item };
+        });
+        object.emplace(Symbols::Ciphers::GetFieldName(), std::move(ciphers));
+    }
+
+    {
+        boost::json::array hashFunctions;
+        hashFunctions.reserve(m_hashFunctions.size());
+        std::ranges::transform(m_hashFunctions, std::back_inserter(hashFunctions), [](auto const& item) {
+            return boost::json::string{ item };
+        });
+        object.emplace(Symbols::HashFunctions::GetFieldName(), std::move(hashFunctions));
+    }
+
+    json.emplace(GetFieldName(), std::move(object));
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::ValidationResult Configuration::Options::Algorithms::AreOptionsAllowable(Runtime const& runtime) const
+{
+    // If we were unable to deserialize any key agreements and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_keyAgreements.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(
+                Security::GetFieldName(), GetFieldName(), Symbols::KeyAgreements::GetFieldName())
+        };
+    }
+
+    // If we were unable to deserialize any ciphers and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_ciphers.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(
+                Security::GetFieldName(), GetFieldName(), Symbols::Ciphers::GetFieldName())
+        };
+    }
+
+    // If we were unable to deserialize any hash functions and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_hashFunctions.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateEmptyArrayFieldMessage(
+                Security::GetFieldName(), GetFieldName(), Symbols::HashFunctions::GetFieldName())
+        };
+    }
+
+    if (!HasAtLeastOneAlgorithmForEachComponent()) {
+        return {
+            StatusCode::InputError,
+            "The security." + GetFieldName() + " field must contain at least one element in each algorithm array."
+        };
+    }
+
+    return { StatusCode::Success, "" }; // There are no requirements for this set of options. 
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Algorithms::HasAtLeastOneAlgorithmForEachComponent() const
+{
+    return !m_keyAgreements.empty() && !m_ciphers.empty() && !m_hashFunctions.empty();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Algorithms::SetKeyAgreements(std::vector<std::string>&& keyAgreements, bool& changed)
+{
+    if (std::ranges::equal(m_keyAgreements, keyAgreements)) { return true; }
+
+    auto const validated = std::ranges::all_of(keyAgreements, [] (std::string const& value) {
+        return ::Security::SupportedKeyAgreementNames.contains(value);
+    });
+    if (!validated) { return false; }
+    
+    m_keyAgreements = std::move(keyAgreements);
+    m_modified = true;
+    changed = true;
+    
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Algorithms::SetCiphers(std::vector<std::string>&& ciphers, bool& changed)
+{
+    if (std::ranges::equal(m_ciphers, ciphers)) { return true; }
+    
+    auto const validated = std::ranges::all_of(ciphers, [] (std::string const& value) {
+        return ::Security::SupportedCipherNames.contains(value);
+    });
+    if (!validated) { return false; }
+
+    m_ciphers = std::move(ciphers);
+    m_modified = true;
+    changed = true;
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Algorithms::SetHashFunctions(std::vector<std::string>&& hashFunctions, bool& changed)
+{
+    if (std::ranges::equal(m_hashFunctions, hashFunctions)) { return true; }
+    
+    auto const validated = std::ranges::all_of(hashFunctions, [] (std::string const& value) {
+        return ::Security::SupportedHashFunctionNames.contains(value);
+    });
+    if (!validated) { return false; }
+
+    m_hashFunctions = std::move(hashFunctions);
+    m_modified = true;
+    changed = true;
+    
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::SupportedAlgorithms::SupportedAlgorithms()
+    : m_modified(false)
+    , m_container()
+{
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::SupportedAlgorithms::SupportedAlgorithms(Container&& container)
+    : m_modified(false)
+    , m_container(std::move(container))
+{
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::operator==(SupportedAlgorithms const& other) const noexcept
+{
+    if (m_container.size() != other.m_container.size()) {
+        return false;
+    }
+
+    constexpr auto compare = [] (Algorithms const& lhs, Algorithms const& rhs) {
+        return lhs.GetKeyAgreements() == rhs.GetKeyAgreements() &&
+               lhs.GetCiphers() == rhs.GetCiphers() &&
+               lhs.GetHashFunctions() == rhs.GetHashFunctions();
+    };
+
+    // Compare the Algorithms objects
+    for (auto itr = m_container.begin(), jtr = other.m_container.begin(); itr != m_container.end(); ++itr, ++jtr) {
+        if (!compare(itr->second, jtr->second)) { return false; }
+    }
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::strong_ordering Configuration::Options::SupportedAlgorithms::operator<=>(SupportedAlgorithms const& other) const noexcept
+{
+    if (auto const result = m_container.size() <=> other.m_container.size(); result != std::strong_ordering::equal) {
+        return result;
+    }
+
+    constexpr auto compare = [] (Algorithms const& lhs, Algorithms const& rhs) {
+        if (auto const result = lhs.GetKeyAgreements() <=> rhs.GetKeyAgreements(); result != std::strong_ordering::equal) {
+            return result;
+        }
+
+        if (auto const result = lhs.GetCiphers() <=> rhs.GetCiphers(); result != std::strong_ordering::equal) {
+            return result;
+        }
+
+        if (auto const result = lhs.GetHashFunctions() <=> rhs.GetHashFunctions(); result != std::strong_ordering::equal) {
+            return result;
+        }
+
+        return std::strong_ordering::equal;
+    };
+
+    // Compare the Algorithms objects
+    for (auto itr = m_container.begin(), jtr = other.m_container.begin(); itr != m_container.end(); ++itr, ++jtr) {
+        if (auto const result = compare(itr->second, jtr->second); result != std::strong_ordering::equal) {
+            return result;
+        }
+    }
+
     return std::strong_ordering::equal;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::DeserializationResult Configuration::Options::SupportedAlgorithms::Merge(
+    boost::json::object const& json, Runtime const& runtime)
+{
+    if (m_modified) {
+        return { StatusCode::Success, "" }; // Take the existing set of algorithms over the set contained in the file.  
+    }
+
+    if (json.size() > ::Security::SupportedConfidentialityLevelSize) {
+        return {
+            StatusCode::InputError,
+            CreateExceededElementLinitMessage(
+                ::Security::SupportedConfidentialityLevelSize, Security::GetFieldName(), GetFieldName())
+        };
+    }
+
+    for (auto const& [key, value] : json) {
+        auto const optLevel = local::StringToConfidentialityLevel(key);
+        if (!optLevel) {
+            return {
+                StatusCode::InputError,
+                CreateUnexpectedFieldMessage(
+                    allowable::ConfidentialityValues, Security::GetFieldName(), GetFieldName(), key)
+            };
+        }
+
+        Algorithms algorithms{ key };
+        if (auto const result = algorithms.Merge(value.as_object(), runtime); result.first != StatusCode::Success) {
+            return result;
+        }
+
+        m_container.emplace(*optLevel, std::move(algorithms));
+    }
+
+    // If we were unable to deserialize any algorithms and we are running as the main process, indicate a bad state would occur. 
+    if (runtime.context == RuntimeContext::Foreground && m_container.empty()) {
+        return {
+            StatusCode::DecodeError,
+            CreateMissingFieldMessage(Security::GetFieldName(), GetFieldName())
+        };
+    }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::SerializationResult Configuration::Options::SupportedAlgorithms::Write(
+    boost::json::object& json) const
+{
+    auto const [itr, emplaced] = json.emplace(GetFieldName(), boost::json::object{});
+    assert(emplaced);
+
+    auto& group = itr->value().as_object();
+
+    for (auto const& [level, algorithms] : m_container) {
+        if (auto const result = algorithms.Write(group); result.first != StatusCode::Success) {
+            return result;
+        }
+    }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::ValidationResult Configuration::Options::SupportedAlgorithms::AreOptionsAllowable(Runtime const& runtime) const
+{
+    if (runtime.context == RuntimeContext::Foreground && m_container.empty()) {
+        return {
+            StatusCode::InputError,
+            CreateMissingFieldMessage(Security::GetFieldName(), GetFieldName())
+        };
+    }
+
+    for (auto const& [level, algorithms] : m_container) {
+        auto const status = algorithms.AreOptionsAllowable(runtime);
+        if (status.first != StatusCode::Success) {
+            return status;
+        }
+    }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::HasAlgorithmsForLevel(::Security::ConfidentialityLevel level) const
+{
+    if (auto const itr = m_container.find(level); itr != m_container.end()) {
+        return itr->second.HasAtLeastOneAlgorithmForEachComponent();
+    }
+    return false;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::SupportedAlgorithms::FetchedAlgorithms Configuration::Options::SupportedAlgorithms::FetchAlgorithms(
+    ::Security::ConfidentialityLevel level) const
+{
+    if (auto const itr = m_container.find(level); itr != m_container.end()) {
+        return itr->second;
+    }
+    return {};
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::ForEachSupportedAlgorithm(AlgorithmsReader const& reader) const
+{
+    for (auto const& [level, algorithms] : m_container) {
+        if (reader(level, algorithms) != CallbackIteration::Continue) { return false; }
+    }
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::ForEachSupportedKeyAgreement(KeyAgreementReader const& reader) const
+{
+    for (auto const& [level, algorithms] : m_container) {
+        for (auto const& keyAgreement : algorithms.GetKeyAgreements()) {
+            if (reader(level, keyAgreement) != CallbackIteration::Continue) { return false; }
+        }
+    }
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::ForEachSupportedCipher(CipherReader& reader) const
+{
+    for (auto const& [level, algorithms] : m_container) {
+        for (auto const& cipher : algorithms.GetCiphers()) {
+            if (reader(level, cipher) != CallbackIteration::Continue) { return false; }
+        }
+    }
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::ForEachSupportedHashFunction(HashFunctionReader& reader) const
+{
+    for (auto const& [level, algorithms] : m_container) {
+        for (auto const& hashFunction : algorithms.GetHashFunctions()) {
+            if (reader(level, hashFunction) != CallbackIteration::Continue) { return false; }
+        }
+    }
+
+    return true;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::SupportedAlgorithms::SetAlgorithmsAtLevel(
+    ::Security::ConfidentialityLevel level,
+    std::vector<std::string> keyAgreements,
+    std::vector<std::string> ciphers,
+    std::vector<std::string> hashFunctions,
+    bool& changed)
+{
+    auto const optFieldName = local::StringFromConfidentialityLevel(level);
+    if (!optFieldName) { return false; }
+
+    auto const& [itr, emplaced] = m_container.emplace(level, *optFieldName);
+    auto& [key, value] = *itr;
+
+    // Could pass in on construction and verify none of the algorithm vectors are empty
+
+    {
+        bool const success = value.SetKeyAgreements(std::move(keyAgreements), changed);
+        if (!success) {
+            // If this is a new entry in the container, but validating the algorithms failed, remove the entry. 
+            if (emplaced) { m_container.erase(itr); } 
+            return false;
+        }
+    }
+
+    {
+        bool const success = value.SetCiphers(std::move(ciphers), changed);
+        if (!success) {
+            // If this is a new entry in the container, but validating the algorithms failed, remove the entry. 
+            if (emplaced) { m_container.erase(itr); } 
+            return false;
+        }
+    }
+    {
+        bool const success = value.SetHashFunctions(std::move(hashFunctions), changed);
+        if (!success) {
+            // If this is a new entry in the container, but validating the algorithms failed, remove the entry. 
+            if (emplaced) { m_container.erase(itr); } 
+            return false;
+        }
+    }
+
+    m_modified = value.Modified();
+    
+    return true;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Configuration::Options::Security::operator==(Security const& other) const noexcept
 {
-    return m_strategy == other.m_strategy;
+    return m_supportedAlgorithms == other.m_supportedAlgorithms;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Security::Merge(Security& other)
+std::strong_ordering Configuration::Options::Security::operator<=>(Security const& other) const noexcept
 {
-    // The existing values of this object is chosen over the other's values. 
-    if (m_strategy.empty()) {
-        m_strategy = std::move(other.m_strategy);
-        m_constructed.strategy = other.m_constructed.strategy;
-    }
+    return m_supportedAlgorithms <=> other.m_supportedAlgorithms;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-void Configuration::Options::Security::Merge(boost::json::object const& json)
+Configuration::DeserializationResult Configuration::Options::Security::Merge(
+    boost::json::object const& json, Runtime const& runtime)
 {
     // JSON Schema:
     // "security": {
-    //     "strategy": String,
+    //     "algorithms": {
+    //         "<level>" : {
+    //             "key_agreements" : Array[String],
+    //             "ciphers" : Array[String],
+    //             "hash_functions" : Array[String],
+    //         },
+    //     }
     // }
 
-    m_strategy = json.at(symbols::Strategy).as_string();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Security::Write(boost::json::object& json) const
-{
-    boost::json::object group;
-    group[symbols::Strategy] = m_strategy;
-    json.emplace(Symbol, std::move(group));
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-[[nodiscard]] bool Configuration::Options::Security::Initialize(std::shared_ptr<spdlog::logger> const& logger)
-{
-    m_constructed.strategy = ::Security::ConvertToStrategy({ m_strategy.data(), m_strategy.size() });
-    if (m_constructed.strategy == ::Security::Strategy::Invalid) {
-        logger->warn("Detected an invalid value in an security.strategy field.");
-        m_strategy.clear();
-        return false;
-    }
-    return true;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-bool Configuration::Options::Security::IsAllowable() const
-{
-    return allowable::IfAllowableGetValue(allowable::StrategyTypes, m_strategy).has_value();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-::Security::Strategy Configuration::Options::Security::GetStrategy() const { return m_constructed.strategy; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Configuration::Options::Security::SetStrategy(::Security::Strategy strategy, bool& changed)
-{
-    // Note: Updates to initializable fields must ensure the option set are always initialized in the store. 
-    if (strategy != m_constructed.strategy) {
-        m_constructed.strategy = strategy;
-        switch (strategy) {
-            case ::Security::Strategy::PQNISTL3: m_strategy = "PQNISTL3"; break;
-            default: assert(false); break;
+    // Deserialize the cipher suites stored in the algorithms objects. 
+    if (auto const itr = json.find(m_supportedAlgorithms.GetFieldName()); itr != json.end()) {
+        if (itr->value().is_object()) {
+        if (auto const result = m_supportedAlgorithms.Merge(itr->value().as_object(), runtime); result.first != StatusCode::Success) {
+            return result;
         }
-        changed = true;
+        } else {
+            return { 
+                StatusCode::DecodeError,
+                CreateMismatchedValueTypeMessage("object", Security::GetFieldName(), GetFieldName())
+            };
+        }
     }
+
+    return { StatusCode::Success, "" };
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::string local::ConvertConnectionDuration(std::chrono::milliseconds const& value)
+Configuration::SerializationResult Configuration::Options::Security::Write(boost::json::object& json) const
+{
+    auto const [itr, emplaced] = json.emplace(GetFieldName(), boost::json::object{});
+    assert(emplaced);
+
+    auto& group = itr->value().as_object();
+
+    // Serialize the supported algorithms into the json object.
+    if (auto const result = m_supportedAlgorithms.Write(group); result.first != StatusCode::Success) {
+        return result;
+    }
+
+    if (group.empty()) {
+        return { StatusCode::InputError, "" };
+    }
+
+    return { StatusCode::Success, "" };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::ValidationResult Configuration::Options::Security::AreOptionsAllowable(Runtime const& runtime) const
+{
+    return m_supportedAlgorithms.AreOptionsAllowable(runtime);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Configuration::Options::SupportedAlgorithms const& Configuration::Options::Security::GetSupportedAlgorithms() const
+{
+    return m_supportedAlgorithms;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+bool Configuration::Options::Security::SetSupportedAlgorithmsAtLevel(
+    ::Security::ConfidentialityLevel level,
+    std::vector<std::string> keyAgreements,
+    std::vector<std::string> ciphers,
+    std::vector<std::string> hashFunctions,
+    bool& changed)
+{
+    return m_supportedAlgorithms.SetAlgorithmsAtLevel(
+        level, std::move(keyAgreements), std::move(ciphers), std::move(hashFunctions), changed);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+void Configuration::Options::Security::ClearSupportedAlgorithms() { m_supportedAlgorithms.Clear(); }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Configuration::Options::Identifier::Persistence> local::StringToPersistence(std::string_view value)
+{
+    return allowable::IfAllowableGetValue(allowable::PersistenceValues, value);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<std::string> local::StringFromPersistence(Options::Identifier::Persistence value)
+{
+    return allowable::IfAllowableGetString(allowable::PersistenceValues, value);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Node::SharedIdentifier> local::StringToSharedIdentifier(std::string_view value)
+{
+    auto const spIdentifier = (value.empty()) ? 
+        std::make_shared<Node::Identifier const>(Node::GenerateIdentifier()) : 
+        std::make_shared<Node::Identifier const>(value);
+    return spIdentifier->IsValid() ? std::make_optional(spIdentifier) : std::nullopt;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<std::string> local::StringFromSharedIdentifier(Node::SharedIdentifier const& spIdentifier)
+{
+    return (spIdentifier) ? std::make_optional(spIdentifier->ToExternal()) : std::nullopt;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<std::string> local::StringFromMilliseconds(std::chrono::milliseconds const& value)
 {
     assert(value <= std::chrono::hours{ 24 });
 
@@ -1502,13 +2548,116 @@ std::string local::ConvertConnectionDuration(std::chrono::milliseconds const& va
         { std::chrono::milliseconds::max(), "?" } // Ensures we get a proper mapping for minutes. 
     };
 
-    // Get the first value that is less than or equal to the provided value, start the seach from the largest bound. 
+    // Get the first value that is less than or equal to the provided value, start the search from the largest bound. 
     auto const bounds = durations | std::views::reverse | std::views::keys;
     auto const bound = std::ranges::find_if(bounds, [&] (auto const& duration) { return value >= duration;  });
     assert(bound.base() != durations.rbegin()); // The provided value should never greater than the millisecond max. 
-    auto const divisor = std::max((*bound).count(), std::int64_t(1)); // Binc the zero bound to one. 
+    auto const divisor = std::max((*bound).count(), std::int64_t(1)); // Bind the zero bound to one. 
     auto const& postfix = bound.base()->second;
     return std::to_string(value.count() / divisor).append(postfix);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<std::chrono::milliseconds> local::StringToMilliseconds(std::string_view value)
+{
+    constexpr auto ConstructDuration = [] (std::string_view value) -> std::optional<std::chrono::milliseconds> {
+        enum class Duration : std::uint32_t { Milliseconds, Seconds, Minutes, Hours, Days, Weeks, Invalid };
+
+        constexpr auto ParseDuration = [] (std::string_view value) -> std::pair<Duration, std::size_t> {
+            static std::unordered_map<Duration, std::string> const durations = { 
+                { Duration::Milliseconds, "ms" },
+                { Duration::Seconds, "s" },
+                { Duration::Minutes, "min" },
+                { Duration::Hours, "h" },
+                { Duration::Days, "d" },
+                { Duration::Weeks, "w" }
+            };
+
+            // Find the first instance of a non-numeric character. 
+            auto const first = std::ranges::find_if(value, [] (char c) { return std::isalpha(c); });
+            if (first == value.end()) {
+                return { Duration::Invalid, 0 }; // No postfix was found. 
+            }
+
+            // Attempt to map the postfix to a duration entry. 
+            std::string_view const postfix = { first, value.end() };
+            auto const entry = std::ranges::find_if(durations | std::views::values, [&] (std::string_view const& value) { 
+                return postfix == value;
+            });
+
+            // If no mapping could be found, indicate an error has occurred. 
+            if (entry.base() == durations.end()) { return { Duration::Invalid, 0 }; }
+
+            // Returns the type of entry and the number of characters in the numeric value. 
+            return { entry.base()->first, value.size() - postfix.size() };
+        };
+
+        try {
+            auto const [duration, size] = ParseDuration(value); // Get the duration and end of the numeric value.
+            if (duration == Duration::Invalid || size == 0) { return {}; } // No valid duration was found.
+
+            // Attempt to cast the provided value to a number and then adjust it to milliseconds. 
+            auto count = boost::lexical_cast<std::uint32_t>(value.data(), size);
+            switch (duration) {
+                case Duration::Weeks: count *= 7; [[fallthrough]];
+                case Duration::Days: count *= 24; [[fallthrough]];
+                case Duration::Hours: count *= 60; [[fallthrough]];
+                case Duration::Minutes: count *= 60; [[fallthrough]];
+                case Duration::Seconds: count *= 1000; [[fallthrough]];
+                case Duration::Milliseconds: break; 
+                case Duration::Invalid: assert(false); return {};
+            }
+
+            return std::chrono::milliseconds{ count };
+        } catch(boost::bad_lexical_cast& exception) {
+            return {};
+        }
+    };
+
+    return ConstructDuration(value);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Network::Protocol> local::StringToNetworkProtocol(std::string_view value)
+{
+    return allowable::IfAllowableGetValue(allowable::ProtocolValues, value);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<std::string> local::StringFromNetworkProtocol(Network::Protocol const& value)
+{
+    return allowable::IfAllowableGetString(allowable::ProtocolValues, value);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<std::string> local::StringFromBindingAddress(Network::BindingAddress const& value)
+{
+    return std::string{ value.GetAuthority() };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+[[nodiscard]] std::optional<std::string> local::StringFromRemoteAddress(Network::RemoteAddress const& value)
+{
+    return std::string{ value.GetAuthority() };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<Security::ConfidentialityLevel>  local::StringToConfidentialityLevel(std::string_view value)
+{
+    return allowable::IfAllowableGetValue(allowable::ConfidentialityValues, value);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::optional<std::string> local::StringFromConfidentialityLevel(Security::ConfidentialityLevel value)
+{
+    return allowable::IfAllowableGetString(allowable::ConfidentialityValues, value);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

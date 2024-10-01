@@ -5,13 +5,19 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
+#include <string>
+#include <utility>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Configuration {
 //----------------------------------------------------------------------------------------------------------------------
 
-enum class StatusCode : std::uint8_t { Success, DecodeError, InputError, FileError };
+enum class StatusCode : std::uint32_t { Success, DecodeError, InputError, FileError };
+
+using DeserializationResult = std::pair<StatusCode, std::string>;
+using SerializationResult = std::pair<StatusCode, std::string>;
+using ValidationResult = std::pair<StatusCode, std::string>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Configuration namespace

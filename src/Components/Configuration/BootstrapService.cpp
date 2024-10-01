@@ -95,7 +95,7 @@ struct local::EndpointEntry
 //----------------------------------------------------------------------------------------------------------------------
 
 BootstrapService::BootstrapService()
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
     , m_spDelegate()
     , m_pResolutionService(nullptr)
     , m_filepath()
@@ -109,7 +109,7 @@ BootstrapService::BootstrapService()
 //----------------------------------------------------------------------------------------------------------------------
 
 BootstrapService::BootstrapService(std::filesystem::path const& filepath, bool useFilepathDeduction)
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
     , m_spDelegate()
     , m_pResolutionService(nullptr)
     , m_filepath(filepath)
@@ -489,12 +489,12 @@ Configuration::StatusCode BootstrapService::Deserialize()
 
     m_cache = std::move(bootstraps);
 
-    // If the cache is still empty when we have defauts an error occured. It's valid to have an empty cache when 
+    // If the cache is still empty when we have defauts an error occurred. It's valid to have an empty cache when 
     // it is intentional to have this node not have initial connections (e.g. the first run of the "root" node).
     bool const error = hasTransformError || (m_cache.empty() && local::HasDefaultBootstraps(m_defaults));
     if (error) [[unlikely]] {
         #if defined(WIN32)
-        m_logger->error(L"Failed to decode bootstrap file at: {}!", fmt::to_string_view(m_filepath.c_str()));
+        m_logger->error(L"Failed to decode bootstrap file at: {}!", m_filepath.c_str());
         #else
         m_logger->error("Failed to decode bootstrap file at: {}!", m_filepath.c_str());
         #endif

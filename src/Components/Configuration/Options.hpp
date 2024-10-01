@@ -4,12 +4,15 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptNode/RuntimeContext.hpp"
+#include "Field.hpp"
+#include "StatusCode.hpp"
+#include "Components/Core/RuntimeContext.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Components/Security/SecurityUtils.hpp"
+#include "Utilities/CallbackIteration.hpp"
 #include "Utilities/InvokeContext.hpp"
 #include "Utilities/Version.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -21,14 +24,12 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 //----------------------------------------------------------------------------------------------------------------------
-
-namespace spdlog { class logger; }
-
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Configuration {
@@ -37,7 +38,7 @@ namespace Configuration {
 constexpr std::string_view DefaultBryptFolder = "/brypt/";
 
 std::filesystem::path const DefaultConfigurationFilename = "config.json";
-std::filesystem::path const DefaultBootstrapFilename = "bootstrap.json";
+std::filesystem::path const DefaultBootstrapFilename = "bootstraps.json";
 
 std::filesystem::path GetDefaultBryptFolder();
 std::filesystem::path GetDefaultConfigurationFilepath();
@@ -48,17 +49,56 @@ namespace Options {
 //----------------------------------------------------------------------------------------------------------------------
 
 struct Runtime;
+
 class Identifier;
 class Details;
+class Retry;
 class Connection;
 class Endpoint;
 class Network;
+class Algorithms;
+class SupportedAlgorithms;
 class Security;
+
+using GlobalConnectionOptionsReference = std::optional<std::reference_wrapper<Connection const>>;
 
 using Endpoints = std::vector<Endpoint>;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Options namespace
+//----------------------------------------------------------------------------------------------------------------------
+namespace Symbols {
+//----------------------------------------------------------------------------------------------------------------------
+
+DEFINE_FIELD_NAME(Algorithms);
+DEFINE_FIELD_NAME(Binding);
+DEFINE_FIELD_NAME(Bootstrap);
+DEFINE_FIELD_NAME(Ciphers);
+DEFINE_FIELD_NAME(Connection);
+DEFINE_FIELD_NAME(Description);
+DEFINE_FIELD_NAME(Details);
+DEFINE_FIELD_NAME(Endpoints);
+DEFINE_FIELD_NAME(HashFunctions);
+DEFINE_FIELD_NAME(Identifier);
+DEFINE_FIELD_NAME(Interface);
+DEFINE_FIELD_NAME(Interval);
+DEFINE_FIELD_NAME(KeyAgreements);
+DEFINE_FIELD_NAME(Limit);
+DEFINE_FIELD_NAME(Location);
+DEFINE_FIELD_NAME(Name);
+DEFINE_FIELD_NAME(Network);
+DEFINE_FIELD_NAME(Persistence);
+DEFINE_FIELD_NAME(Protocol);
+DEFINE_FIELD_NAME(Retry);
+DEFINE_FIELD_NAME(Security);
+DEFINE_FIELD_NAME(Strategy);
+DEFINE_FIELD_NAME(Timeout);
+DEFINE_FIELD_NAME(Token);
+DEFINE_FIELD_NAME(Type);
+DEFINE_FIELD_NAME(Value);
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Symbols namespace
 //----------------------------------------------------------------------------------------------------------------------
 } // Configuration namespace
 //----------------------------------------------------------------------------------------------------------------------
@@ -76,58 +116,63 @@ struct Configuration::Options::Runtime
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-// Description: The set of options defined at runtime (e.g. cli flags or or shared library methods).
+// Description: The set of options used to establish an identifier for the brypt node. 
 //----------------------------------------------------------------------------------------------------------------------
 class Configuration::Options::Identifier
 {
 public:
-    static constexpr std::string_view Symbol = "identifier";
+    static constexpr std::string_view Symbol = Symbols::Identifier{};
 
-    enum Type : std::uint32_t { Invalid, Ephemeral, Persistent};
+    enum class Persistence : std::uint32_t { Invalid, Ephemeral, Persistent };
 
     Identifier();
-    explicit Identifier(std::string_view type, std::string_view value = "");
-    [[nodiscard]] std::strong_ordering operator<=>(Identifier const& other) const noexcept;
+    explicit Identifier(std::string_view persistence, std::string_view value = "");
+
     [[nodiscard]] bool operator==(Identifier const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(Identifier const& other) const noexcept;
 
-    void Merge(Identifier& other);
-    void Merge(boost::json::object const& json);
-    void Write(boost::json::object& json) const;
-    [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
-    [[nodiscard]] bool IsAllowable() const;
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional(){ return false; }
 
-    [[nodiscard]] Type GetType() const;
+    [[nodiscard]] DeserializationResult Merge(boost::json::object const& json);
+    [[nodiscard]] SerializationResult Write(boost::json::object& json) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable() const;
+
+    [[nodiscard]] Persistence GetPersistence() const;
     [[nodiscard]] Node::SharedIdentifier const& GetValue() const;
 
-    [[nodiscard]] bool SetIdentifier(Type type, bool& changed, std::shared_ptr<spdlog::logger> const& logger);
+    [[nodiscard]] bool SetIdentifier(Persistence persistance, bool& changed);
 
 private:
-    struct ConstructedValues { 
-        Type type;
-        Node::SharedIdentifier value;
-    };
-
-    std::string m_type;
-    std::optional<std::string> m_optValue;
-
-    ConstructedValues m_constructed;
+    ConstructedField<Symbols::Persistence, Persistence> m_persistence;
+    OptionalConstructedField<Symbols::Value, Node::SharedIdentifier> m_optValue;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-// Description: The set of options used to establish an identifier for the brypt node. 
+// Description: The set of options used to describe some details about the node.
 //----------------------------------------------------------------------------------------------------------------------
 class Configuration::Options::Details
 {
 public:
-    static constexpr std::string_view Symbol = "details";
+    static constexpr std::string_view Symbol = Symbols::Details{};
+    static constexpr std::size_t NameSizeLimit = 256;
+    static constexpr std::size_t DescriptionSizeLimit = 1024;
+    static constexpr std::size_t LocationSizeLimit = 1024;
 
     Details();
     explicit Details(std::string_view name, std::string_view description = "", std::string_view location = "");
 
-    void Merge(Details& other);
-    void Merge(boost::json::object const& json);
-    void Write(boost::json::object& json) const;
-    [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
+    [[nodiscard]] bool operator==(Details const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(Details const& other) const noexcept;
+
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional() { return true; }
+
+    [[nodiscard]] DeserializationResult Merge(boost::json::object const& json);
+    [[nodiscard]] SerializationResult Write(boost::json::object& json) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable() const;
 
     [[nodiscard]] std::string const& GetName() const;
     [[nodiscard]] std::string const& GetDescription() const;
@@ -138,9 +183,48 @@ public:
     [[nodiscard]] bool SetLocation(std::string_view const& name, bool& changed);
 
 private:
-    std::string m_name;
-    std::string m_description;
-    std::string m_location;
+    OptionalField<Symbols::Name, std::string> m_optName;
+    OptionalField<Symbols::Description, std::string> m_optDescription;
+    OptionalField<Symbols::Location, std::string> m_optLocation;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+// Description: The set of options used for retry. 
+//----------------------------------------------------------------------------------------------------------------------
+class Configuration::Options::Retry
+{
+public:
+    static constexpr std::string_view Symbol = Symbols::Retry{};
+
+    Retry();
+    Retry(std::uint32_t limit, std::chrono::milliseconds const& interval);
+
+    [[nodiscard]] bool operator==(Retry const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(Retry const& other) const noexcept;
+
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional() { return true; }
+
+    [[nodiscard]] DeserializationResult Merge(Retry& other);
+    [[nodiscard]] DeserializationResult Merge(
+        boost::json::object const& json,
+        std::string_view context = "",
+        GlobalConnectionOptionsReference optGlobalOptions = {});
+    [[nodiscard]] SerializationResult Write(
+        boost::json::object& json, GlobalConnectionOptionsReference optGlobalOptions = {}) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable() const;
+
+    [[nodiscard]] std::uint32_t GetLimit() const;
+    [[nodiscard]] std::chrono::milliseconds const& GetInterval() const;
+
+    [[nodiscard]] bool SetLimit(std::int32_t value, bool& changed);
+    [[nodiscard]] bool SetLimit(std::uint32_t value, bool& changed);
+    [[nodiscard]] bool SetInterval(std::chrono::milliseconds const& value, bool& changed);
+
+private:
+    OptionalField<Symbols::Limit, std::uint32_t> m_optLimit;
+    OptionalConstructedField<Symbols::Interval, std::chrono::milliseconds> m_optInterval;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -149,22 +233,27 @@ private:
 class Configuration::Options::Connection
 {
 public:
-    static constexpr std::string_view Symbol = "connection";
-    using GlobalOptionsReference = std::optional<std::reference_wrapper<Connection const>>;
+    static constexpr std::string_view Symbol = Symbols::Connection{};
 
     Connection();
     Connection(
-        std::chrono::milliseconds const& _timeout, std::int32_t _limit, std::chrono::milliseconds const& _interval);
+        std::chrono::milliseconds const& timeout, std::int32_t limit, std::chrono::milliseconds const& interval);
 
-    [[nodiscard]] std::strong_ordering operator<=>(Connection const& other) const noexcept;
     [[nodiscard]] bool operator==(Connection const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(Connection const& other) const noexcept;
 
-    void Merge(Connection& other);
-    void Merge(Connection const& other);
-    void Merge(boost::json::object const& json);
-    void Write(
-        boost::json::object& json, GlobalOptionsReference optGlobalConnectionOptions = {}) const;
-    [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional() { return true; }
+
+    [[nodiscard]] DeserializationResult Merge(Connection& other);
+    [[nodiscard]] DeserializationResult Merge(
+        boost::json::object const& json,
+        std::string_view context = "",
+        GlobalConnectionOptionsReference optGlobalOptions = {});
+    [[nodiscard]] SerializationResult Write(
+        boost::json::object& json, GlobalConnectionOptionsReference optGlobalOptions = {}) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable() const;
 
     [[nodiscard]] std::chrono::milliseconds const& GetTimeout() const;
     [[nodiscard]] std::int32_t GetRetryLimit() const;
@@ -175,23 +264,8 @@ public:
     [[nodiscard]] bool SetRetryInterval(std::chrono::milliseconds const& value, bool& changed);
 
 private:
-    struct ConstructedValues {
-        std::chrono::milliseconds timeout;
-        std::chrono::milliseconds interval;
-    };
-
-    struct Retry {
-        [[nodiscard]] std::strong_ordering operator<=>(Retry const& other) const noexcept;
-        [[nodiscard]] bool operator==(Retry const& other) const noexcept;
-
-        std::int32_t limit;
-        std::string interval;
-    };
-
-    std::string m_timeout;
-    Retry m_retry;
-
-    ConstructedValues m_constructed;
+    OptionalConstructedField<Symbols::Timeout, std::chrono::milliseconds> m_optTimeout;
+    Retry m_retryOptions;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -214,56 +288,51 @@ public:
         std::string_view binding,
         std::optional<std::string> const& bootstrap = {});
 
-    Endpoint(boost::json::object const& json);
-
-    [[nodiscard]] std::strong_ordering operator<=>(Endpoint const& other) const noexcept;
     [[nodiscard]] bool operator==(Endpoint const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(Endpoint const& other) const noexcept;
 
-    void Merge(Endpoint& other);
-    void Merge(boost::json::object const& json);
-    void Write(
-        boost::json::object& json, Connection::GlobalOptionsReference optGlobalConnectionOptions = {}) const;
-    [[nodiscard]] bool Initialize(Runtime runtime, std::shared_ptr<spdlog::logger> const& logger);
+    [[nodiscard]] DeserializationResult Merge(Endpoint& other);
+    [[nodiscard]] DeserializationResult Merge(
+        boost::json::object const& json,
+        Runtime const& runtime,
+        std::string_view context = "",
+        GlobalConnectionOptionsReference optGlobalOptions = {});
+    [[nodiscard]] SerializationResult Write(
+        boost::json::object& json, GlobalConnectionOptionsReference optGlobalOptions = {}) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable(std::string_view context = "") const;
 
     [[nodiscard]] ::Network::Protocol GetProtocol() const;
     [[nodiscard]] std::string const& GetProtocolString() const;
     [[nodiscard]] std::string const& GetInterface() const;
-    [[nodiscard]] std::string const& GetBindingField() const;
     [[nodiscard]] ::Network::BindingAddress const& GetBinding() const;
+    [[nodiscard]] std::string const& GetBindingString() const;
     [[nodiscard]] std::optional<::Network::RemoteAddress> const& GetBootstrap() const;
-    [[nodiscard]] std::optional<std::string> const& GetBootstrapField() const;
     [[nodiscard]] bool UseBootstraps() const;
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionTimeout() const;
     [[nodiscard]] std::int32_t GetConnectionRetryLimit() const;
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionRetryInterval() const;
 
+    void SetRuntimeOptions(Runtime const& runtime);
     [[nodiscard]] bool SetConnectionRetryLimit(std::int32_t limit, bool& changed);
     [[nodiscard]] bool SetConnectionTimeout(std::chrono::milliseconds const& timeout, bool& changed);
     [[nodiscard]] bool SetConnectionRetryInterval(std::chrono::milliseconds const& interval, bool& changed);
-    void UpsertConnectionOptions(Connection const& options);
 
     UT_SupportMethod(static Endpoint CreateTestOptions(::Network::BindingAddress const& _binding));
     UT_SupportMethod(static Endpoint CreateTestOptions(std::string_view _interface, std::string_view _binding));
 
 private:
-    struct ConstructedValues {
-        ::Network::Protocol protocol;
-        ::Network::BindingAddress binding;
-        std::optional<::Network::RemoteAddress> bootstrap;
-    };
-
     struct TransientValues {
         bool useBootstraps;
     };
 
-    std::string m_protocol;
-    std::string m_interface;
-    std::string m_binding;
-    std::optional<std::string> m_optBootstrap;
-    std::optional<Connection> m_optConnection;
-
-    ConstructedValues m_constructed;
     TransientValues m_transient;
+
+    ConstructedField<Symbols::Protocol, ::Network::Protocol> m_protocol;
+    Field<Symbols::Interface, std::string> m_interface;
+    ConstructedField<Symbols::Binding, ::Network::BindingAddress> m_binding;
+    OptionalConstructedField<Symbols::Bootstrap, ::Network::RemoteAddress> m_optBootstrap;
+    Connection m_connectionOptions;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -272,20 +341,22 @@ private:
 class Configuration::Options::Network
 {
 public:
-    static constexpr std::string_view Symbol = "network";
+    static constexpr std::string_view Symbol = Symbols::Network{};
 
-    using FetchedEndpoint = std::optional<std::reference_wrapper<Options::Endpoint const>>;
+    using FetchedEndpoint = std::optional<std::reference_wrapper<Endpoint const>>;
 
     Network();
 
     [[nodiscard]] std::strong_ordering operator<=>(Network const& other) const noexcept;
     [[nodiscard]] bool operator==(Network const& other) const noexcept;
 
-    void Merge(Network& other);
-    void Merge(boost::json::object const& json);
-    void Write(boost::json::object& json) const;
-    [[nodiscard]] bool Initialize(Runtime const& runtime, std::shared_ptr<spdlog::logger> const& logger);
-    [[nodiscard]] bool IsAllowable(Runtime const& runtime) const;
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional() { return false; }
+ 
+    [[nodiscard]] DeserializationResult Merge(boost::json::object const& json, Runtime const& runtime);
+    [[nodiscard]] SerializationResult Write(boost::json::object& json) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable(Runtime const& runtime) const;
 
     [[nodiscard]] Endpoints const& GetEndpoints() const;
     [[nodiscard]] FetchedEndpoint GetEndpoint(::Network::BindingAddress const& binding) const;
@@ -296,8 +367,7 @@ public:
     [[nodiscard]] std::chrono::milliseconds const& GetConnectionRetryInterval() const;
     [[nodiscard]] std::optional<std::string> const& GetToken() const;
 
-    [[nodiscard]] FetchedEndpoint UpsertEndpoint(
-        Endpoint&& options, Runtime const& runtime, std::shared_ptr<spdlog::logger> const& logger, bool& changed);
+    [[nodiscard]] FetchedEndpoint UpsertEndpoint(Endpoint&& options, bool& changed);
     [[nodiscard]] std::optional<Endpoint> ExtractEndpoint(::Network::BindingAddress const& binding, bool& changed);
     [[nodiscard]] std::optional<Endpoint> ExtractEndpoint(std::string_view const& uri, bool& changed);
     [[nodiscard]] std::optional<Endpoint> ExtractEndpoint(
@@ -309,8 +379,111 @@ public:
 
 private:
     Endpoints m_endpoints;
-    Connection m_connection;
-    std::optional<std::string> m_optToken;
+    Connection m_connectionOptions;
+    OptionalField<Symbols::Token, std::string> m_optToken;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+// Description: The set of options used to configure a set of security algorithms
+//----------------------------------------------------------------------------------------------------------------------
+class Configuration::Options::Algorithms
+{
+public:
+    explicit Algorithms(std::string_view fieldName);
+
+    Algorithms(
+        std::string_view fieldName,
+        std::vector<std::string>&& keyAgreements,
+        std::vector<std::string>&& ciphers,
+        std::vector<std::string>&& hashFunctions);
+
+    auto operator<=>(Algorithms const&) const;
+
+    [[nodiscard]] std::string const& GetFieldName() const { return m_fieldName; }
+    [[nodiscard]] bool Modified() const { return m_modified; }
+    [[nodiscard]] bool NotModified() const { return !m_modified; }
+
+    [[nodiscard]] DeserializationResult Merge(boost::json::object const& json, Runtime const& runtime);
+    [[nodiscard]] SerializationResult Write(boost::json::object& json) const;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable(Runtime const& runtime) const;
+    [[nodiscard]] bool HasAtLeastOneAlgorithmForEachComponent() const;
+
+    [[nodiscard]] std::vector<std::string> const& GetKeyAgreements() const { return m_keyAgreements; }
+    [[nodiscard]] std::vector<std::string> const& GetCiphers() const { return m_ciphers; }
+    [[nodiscard]] std::vector<std::string> const& GetHashFunctions() const { return m_hashFunctions; }
+
+    [[nodiscard]] bool SetKeyAgreements(std::vector<std::string>&& keyAgreements, bool& changed);
+    [[nodiscard]] bool SetCiphers(std::vector<std::string>&& ciphers, bool& changed);
+    [[nodiscard]] bool SetHashFunctions(std::vector<std::string>&& hashFunctions, bool& changed);
+
+private:
+    std::string const m_fieldName;
+    bool m_modified;
+
+    std::vector<std::string> m_keyAgreements;
+    std::vector<std::string> m_ciphers;
+    std::vector<std::string> m_hashFunctions;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+// Description: The set of options used to contain the supported algorithms by confidentiality level 
+//----------------------------------------------------------------------------------------------------------------------
+class Configuration::Options::SupportedAlgorithms
+{
+public:
+    static constexpr std::string_view Symbol = Symbols::Algorithms{};
+    
+    using Container = std::map<
+        ::Security::ConfidentialityLevel, Algorithms, std::greater<::Security::ConfidentialityLevel>>;
+
+    using AlgorithmsReader = std::function<CallbackIteration(::Security::ConfidentialityLevel, Algorithms const&)>;
+    using KeyAgreementReader = std::function<CallbackIteration(::Security::ConfidentialityLevel, std::string_view)>;
+    using CipherReader = std::function<CallbackIteration(::Security::ConfidentialityLevel, std::string_view)>;
+    using HashFunctionReader = std::function<CallbackIteration(::Security::ConfidentialityLevel, std::string_view)>;
+
+    using FetchedAlgorithms = std::optional<std::reference_wrapper<Algorithms const>>;
+
+    SupportedAlgorithms();
+    // TODO: Add flag for validating supplied algorithms 
+    explicit SupportedAlgorithms(Container&& container);
+
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional() { return false; }
+
+    [[nodiscard]] bool Modified() const { return m_modified; }
+    [[nodiscard]] bool NotModified() const { return !m_modified; }
+
+    [[nodiscard]] DeserializationResult Merge(boost::json::object const& json, Runtime const& runtime);
+    [[nodiscard]] SerializationResult Write(boost::json::object& json) const;
+
+    [[nodiscard]] bool operator==(SupportedAlgorithms const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(SupportedAlgorithms const& other) const noexcept;
+
+    [[nodiscard]] ValidationResult AreOptionsAllowable(Runtime const& runtime) const;
+    [[nodiscard]] bool HasAlgorithmsForLevel(::Security::ConfidentialityLevel level) const;
+    [[nodiscard]] std::size_t Size() const { return m_container.size(); }
+    [[nodiscard]] bool Empty() const { return m_container.empty(); }
+
+    [[nodiscard]] FetchedAlgorithms FetchAlgorithms(::Security::ConfidentialityLevel level) const;
+
+    bool ForEachSupportedAlgorithm(AlgorithmsReader const& reader) const;
+    bool ForEachSupportedKeyAgreement(KeyAgreementReader const& reader) const;
+    bool ForEachSupportedCipher(CipherReader& reader) const;
+    bool ForEachSupportedHashFunction(HashFunctionReader& reader) const;
+
+    [[nodiscard]] bool SetAlgorithmsAtLevel(
+        ::Security::ConfidentialityLevel level,
+        std::vector<std::string> keyAgreements,
+        std::vector<std::string> ciphers,
+        std::vector<std::string> hashFunctions,
+        bool& changed);
+
+    void Clear() { m_modified = true; m_container.clear(); }
+
+private:
+    bool m_modified;
+    Container m_container;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -319,28 +492,37 @@ private:
 class Configuration::Options::Security
 {
 public:
-    static constexpr std::string_view Symbol = "security";
+    static constexpr std::string_view Symbol = Symbols::Security{};
 
-    Security();
-    explicit Security(std::string_view strategy);
-    [[nodiscard]] std::strong_ordering operator<=>(Security const& other) const noexcept;
+    Security() = default;
+    explicit Security(SupportedAlgorithms&& supportedAlgorithms) : m_supportedAlgorithms(std::move(supportedAlgorithms)) {}
+
     [[nodiscard]] bool operator==(Security const& other) const noexcept;
+    [[nodiscard]] std::strong_ordering operator<=>(Security const& other) const noexcept;
 
-    void Merge(Security& other);
-    void Merge(boost::json::object const& json);
-    void Write(boost::json::object& json) const;
-    [[nodiscard]] bool Initialize(std::shared_ptr<spdlog::logger> const& logger);
-    [[nodiscard]] bool IsAllowable() const;
+    [[nodiscard]] static constexpr std::string_view GetFieldName() { return Symbol; }
+    [[nodiscard]] static constexpr bool IsOptional() { return false; }
+ 
+    [[nodiscard]] DeserializationResult Merge(boost::json::object const& json, Runtime const& runtime);
+    [[nodiscard]] SerializationResult Write(boost::json::object& json) const;
 
-    [[nodiscard]] ::Security::Strategy GetStrategy() const;
-    void SetStrategy(::Security::Strategy strategy, bool& changed);
+    [[nodiscard]] ValidationResult AreOptionsAllowable(Runtime const& runtime) const;
+
+    [[nodiscard]] SupportedAlgorithms const& GetSupportedAlgorithms() const;
+
+    //[[nodiscard]] bool SetCipherSuite(SuiteIdentifier) const; // TODO: ...?
+
+    [[nodiscard]] bool SetSupportedAlgorithmsAtLevel(
+        ::Security::ConfidentialityLevel level,
+        std::vector<std::string> keyAgreements,
+        std::vector<std::string> ciphers,
+        std::vector<std::string> hashFunctions,
+        bool& changed);
+
+    void ClearSupportedAlgorithms();
 
 private:
-    struct ConstructedValues { ::Security::Strategy strategy; };
-    
-    std::string m_strategy;
-
-    ConstructedValues m_constructed;
+    SupportedAlgorithms m_supportedAlgorithms;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

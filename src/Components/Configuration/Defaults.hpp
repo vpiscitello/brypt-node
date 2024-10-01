@@ -33,7 +33,6 @@ constexpr auto ConnectionTimeout = std::chrono::milliseconds{ 15'000 };
 constexpr std::uint32_t ConnectionRetryLimit = 3;
 constexpr auto ConnectionRetryInterval = std::chrono::milliseconds{ 5'000 }; 
 
-constexpr std::string_view SecurityStrategy = "PQNISTL3";
 constexpr std::string_view NetworkToken = "";
 
 //----------------------------------------------------------------------------------------------------------------------

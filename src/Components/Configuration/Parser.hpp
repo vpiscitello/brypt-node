@@ -4,9 +4,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include "Field.hpp"
 #include "Options.hpp"
 #include "StatusCode.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <filesystem>
@@ -23,18 +24,27 @@ namespace Configuration {
 class Parser;
 
 //----------------------------------------------------------------------------------------------------------------------
+namespace Symbols {
+//----------------------------------------------------------------------------------------------------------------------
+
+DEFINE_FIELD_NAME(Version);
+
+//----------------------------------------------------------------------------------------------------------------------
+} // Symbols namespace
+//----------------------------------------------------------------------------------------------------------------------
 } // Configuration namespace
 //----------------------------------------------------------------------------------------------------------------------
 
 class Configuration::Parser final
 {
 public:
+
     explicit Parser(Options::Runtime const& options);
     Parser(std::filesystem::path const& filepath, Options::Runtime const& options);
     ~Parser();
 
-    [[nodiscard]] StatusCode FetchOptions();
-    [[nodiscard]] StatusCode Serialize();
+    [[nodiscard]] DeserializationResult FetchOptions();
+    [[nodiscard]] SerializationResult Serialize();
 
     std::filesystem::path const& GetFilepath() const;
     void SetFilepath(std::filesystem::path const& filepath);
@@ -46,7 +56,7 @@ public:
     [[nodiscard]] bool UseInteractiveConsole() const;
     [[nodiscard]] bool UseBootstraps() const;
     [[nodiscard]] bool UseFilepathDeduction() const;
-    [[nodiscard]] Options::Identifier::Type GetIdentifierType() const;
+    [[nodiscard]] Options::Identifier::Persistence GetIdentifierPersistence() const;
     [[nodiscard]] Node::SharedIdentifier const& GetNodeIdentifier() const;
     [[nodiscard]] std::string const& GetNodeName() const;
     [[nodiscard]] std::string const& GetNodeDescription() const;
@@ -58,7 +68,7 @@ public:
     [[nodiscard]] Options::Network::FetchedEndpoint GetEndpoint(Network::BindingAddress const& binding) const;
     [[nodiscard]] Options::Network::FetchedEndpoint GetEndpoint(std::string_view const& uri) const;
     [[nodiscard]] Options::Network::FetchedEndpoint GetEndpoint(Network::Protocol protocol, std::string_view const& binding) const;
-    [[nodiscard]] Security::Strategy GetSecurityStrategy() const;
+    [[nodiscard]] Options::SupportedAlgorithms const& GetSupportedAlgorithms() const;
     [[nodiscard]] std::optional<std::string> const& GetNetworkToken() const;
 
     [[nodiscard]] bool Validated() const;
@@ -69,7 +79,7 @@ public:
     void SetUseInteractiveConsole(bool use);
     void SetUseBootstraps(bool use);
     void SetUseFilepathDeduction(bool use);
-    [[nodiscard]] bool SetNodeIdentifier(Options::Identifier::Type type);
+    [[nodiscard]] bool SetNodeIdentifier(Options::Identifier::Persistence persistence);
     [[nodiscard]] bool SetNodeName(std::string_view const& name);
     [[nodiscard]] bool SetNodeDescription(std::string_view const& description);
     [[nodiscard]] bool SetNodeLocation(std::string_view const& location);
@@ -80,20 +90,26 @@ public:
     std::optional<Options::Endpoint> ExtractEndpoint(Network::BindingAddress const& binding);
     std::optional<Options::Endpoint> ExtractEndpoint(std::string_view const& uri);
     std::optional<Options::Endpoint> ExtractEndpoint(Network::Protocol protocol, std::string_view const& binding);
-    void SetSecurityStrategy(Security::Strategy strategy);
     [[nodiscard]] bool SetNetworkToken(std::string_view const& token);
+
+    void ClearSupportedAlgorithms();
+
+    [[nodiscard]] bool SetSupportedAlgorithms(
+        ::Security::ConfidentialityLevel level,
+        std::vector<std::string> keyAgreements,
+        std::vector<std::string> ciphers,
+        std::vector<std::string> hashFunctions);
 
 private:
     void OnFilepathChanged();
-    [[nodiscard]] StatusCode ProcessFile();
-    [[nodiscard]] StatusCode ValidateOptions();
-    [[nodiscard]] bool AreOptionsAllowable() const;
-    
-    [[nodiscard]] StatusCode Deserialize();
+    [[nodiscard]] DeserializationResult ProcessFile();
+    [[nodiscard]] DeserializationResult Deserialize();
+
+    [[nodiscard]] ValidationResult ValidateOptions();
     
     std::shared_ptr<spdlog::logger> m_logger;
 
-    std::string m_version;
+    Field<Symbols::Version, std::string> m_version;
     std::filesystem::path m_filepath;
     
     Options::Runtime m_runtime;
