@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "service.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptNode/BryptNode.hpp"
-#include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/Core.hpp"
+#include "Components/Core/RuntimeContext.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Peer/ProxyStore.hpp"
@@ -41,7 +41,7 @@ constexpr std::string_view BootstrapFilename = "brypt.bootstrap.json";
 constexpr RuntimeContext Context = RuntimeContext::Background;
 constexpr spdlog::level::level_enum Level = spdlog::level::off;
 constexpr bool UseBootstraps = true;
-constexpr Configuration::Options::Identifier::Type IdentifierType = Configuration::Options::Identifier::Type::Ephemeral;
+constexpr Configuration::Options::Identifier::Persistence IdentifierPersistence = Configuration::Options::Identifier::Persistence::Ephemeral;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // defaults namespace
@@ -53,6 +53,7 @@ passthrough_logger::passthrough_logger()
     , m_watcher(nullptr)
     , m_context(nullptr)
 {
+    set_formatter(std::make_unique<spdlog::pattern_formatter>(spdlog::pattern_time_type::local, ""));
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -71,7 +72,7 @@ void passthrough_logger::sink_it_(spdlog::details::log_msg const& message)
     std::shared_lock lock{ m_mutex };
     if (m_watcher) {
         spdlog::memory_buf_t formatted;
-        spdlog::sinks::base_sink<std::mutex>::formatter_->format(message, formatted);
+        formatter_->format(message, formatted);
         m_watcher(local::translate_log_level(message.level), formatted.data(), formatted.size(), m_context);
     }
 }
@@ -99,23 +100,19 @@ brypt_service_t::brypt_service_t()
     , m_passthrough_logger(std::make_shared<passthrough_logger>())
     , m_core()
 {
-    auto const spCore = spdlog::get(Logger::Name::Core.data());
-    spCore->sinks().emplace_back(m_passthrough_logger);
-    
-    auto const spTcp = spdlog::get(Logger::Name::TCP.data());
-    spTcp->sinks().emplace_back(m_passthrough_logger);
+    Logger::AttachSink(m_passthrough_logger);
 
     // By default, the configuration and bootstrap services should have the filesystem usage disabled. 
     assert(m_configuration_service->FilesystemDisabled() && m_bootstrap_service->FilesystemDisabled());
 
     // Initialize the identifier value now to set it to a reasonable default. If the configuration file has a 
     // persistent identifier it will be read when the base filepath is set. 
-    if (!m_configuration_service->SetNodeIdentifier(defaults::IdentifierType)) {
+    if (!m_configuration_service->SetNodeIdentifier(defaults::IdentifierPersistence)) {
         throw std::runtime_error("Failed to generate brypt identifier!"); // Force the nothrow allocator to return a nullptr.
     }
 
     // Set some reasonable defaults for the required configuration fields. 
-    m_configuration_service->SetSecurityStrategy(Security::Strategy::PQNISTL3); 
+    //m_configuration_service->SetSecurityStrategy(Security::Strategy::PQNISTL3); 
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -180,13 +177,14 @@ bool brypt_service_t::get_use_bootstraps() const noexcept {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-std::int32_t brypt_service_t::get_identifier_type() const noexcept
+std::int32_t brypt_service_t::get_identifier_persistence() const noexcept
 {
     assert(m_configuration_service);
     using namespace Configuration::Options;
-    switch (m_configuration_service->GetIdentifierType()) {
-        case Identifier::Type::Ephemeral: return BRYPT_IDENTIFIER_EPHEMERAL;
-        case Identifier::Type::Persistent: return BRYPT_IDENTIFIER_PERSISTENT;
+    using enum Identifier::Persistence;
+    switch (m_configuration_service->GetIdentifierPersistence()) {
+        case Ephemeral: return BRYPT_IDENTIFIER_EPHEMERAL;
+        case Persistent: return BRYPT_IDENTIFIER_PERSISTENT;
         default: assert(false); return BRYPT_UNKNOWN;
     }
 }
@@ -199,18 +197,15 @@ std::string const& brypt_service_t::get_identifier()
     using namespace Configuration::Options;
     auto const& spIdentifier = m_configuration_service->GetNodeIdentifier();
     assert(spIdentifier);
-    return static_cast<std::string const&>(*spIdentifier);
+    return spIdentifier->ToExternal();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_strategy_t brypt_service_t::get_security_strategy() const noexcept
+Configuration::Options::SupportedAlgorithms const& brypt_service_t::get_supported_algorithms() const
 {
     assert(m_configuration_service);
-    switch (m_configuration_service->GetSecurityStrategy()) {
-        case Security::Strategy::PQNISTL3: return BRYPT_STRATEGY_PQNISTL3;
-        default: assert(false); return BRYPT_UNKNOWN;
-    }
+    return m_configuration_service->GetSupportedAlgorithms();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -307,7 +302,7 @@ brypt_result_t brypt_service_t::set_base_path(std::string_view filepath)
     bool const allowable = filepath.empty() || validate_filepath(m_filepath);
     if (allowable) { 
         // If the filepath is not empty, we need to ensure the configuration and bootstrap filepaths are set. 
-        // Otherise, an empty base path implictly disables both the configuration and bootstrap file usage. 
+        // Otherwise, an empty base path implicitly disables both the configuration and bootstrap file usage. 
         if (!m_filepath.empty()) {
             m_configuration_service->SetFilepath(get_configuration_filepath());
             m_bootstrap_service->SetFilepath(get_bootstrap_filepath());
@@ -398,14 +393,15 @@ void brypt_service_t::set_use_bootstraps(bool value) noexcept
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_result_t brypt_service_t::set_identifier_type(brypt_identifier_type_t type) noexcept
+brypt_result_t brypt_service_t::set_identifier_persistence(brypt_identifier_persistence_t type) noexcept
 {
     assert(m_configuration_service);
     using namespace Configuration::Options;
-    Identifier::Type translated;
+    using enum Identifier::Persistence;
+    Identifier::Persistence translated;
     switch (type) {
-        case BRYPT_IDENTIFIER_EPHEMERAL: translated = Identifier::Type::Ephemeral; break;
-        case BRYPT_IDENTIFIER_PERSISTENT: translated = Identifier::Type::Persistent; break;
+        case BRYPT_IDENTIFIER_EPHEMERAL: translated = Ephemeral; break;
+        case BRYPT_IDENTIFIER_PERSISTENT: translated = Persistent; break;
         default: return BRYPT_EINVALIDARGUMENT;
     }
     return m_configuration_service->SetNodeIdentifier(translated) ? BRYPT_ACCEPTED : BRYPT_EUNSPECIFIED;
@@ -413,14 +409,24 @@ brypt_result_t brypt_service_t::set_identifier_type(brypt_identifier_type_t type
 
 //----------------------------------------------------------------------------------------------------------------------
 
-brypt_result_t brypt_service_t::set_security_strategy(brypt_strategy_t strategy) noexcept
+void brypt_service_t::clear_supported_algorithms() noexcept
 {
     assert(m_configuration_service);
-    switch (strategy) {
-        case BRYPT_STRATEGY_PQNISTL3: m_configuration_service->SetSecurityStrategy(Security::Strategy::PQNISTL3); break;
-        default: return BRYPT_EINVALIDARGUMENT;
-    }
-    return BRYPT_ACCEPTED;
+    m_configuration_service->ClearSupportedAlgorithms();
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_result_t brypt_service_t::set_supported_algorithms(
+    ::Security::ConfidentialityLevel level,
+    std::vector<std::string>&& keyAgreements,
+    std::vector<std::string>&& ciphers,
+    std::vector<std::string>&& hashFunctions) noexcept
+{
+    assert(m_configuration_service);
+    bool const result = m_configuration_service->SetSupportedAlgorithms(
+        level, std::move(keyAgreements), std::move(ciphers), std::move(hashFunctions));
+    return (result) ? BRYPT_ACCEPTED : BRYPT_EINVALIDARGUMENT;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -493,9 +499,8 @@ brypt_result_t brypt_service_t::attach_endpoint(Configuration::Options::Endpoint
 {
     using namespace Network;
     assert(m_configuration_service && m_bootstrap_service);
-    
-    auto const optPriorOptions = m_configuration_service->ExtractEndpoint(
-        options.GetProtocol(), options.GetBindingField());
+
+    auto const optPriorOptions = m_configuration_service->ExtractEndpoint(options.GetProtocol(), options.GetBindingString());
     auto const optStoredOptions = m_configuration_service->UpsertEndpoint(std::move(options));
 
     // If the provided options could not be initialized and stored return an error. 
@@ -512,8 +517,8 @@ brypt_result_t brypt_service_t::attach_endpoint(Configuration::Options::Endpoint
         if (!optPriorOptions) {
             if (!m_core->Attach(optStoredOptions->get())) { return BRYPT_ENOTSUPPORTED; }
 
-            // If the provided options have a bootstrap, scheduele a connect becuase the bootstrap won't contain
-            // the configured address when the connections taks is run on the core thread.
+            // If the provided options have a bootstrap, schedule a connect because the bootstrap won't contain
+            // the configured address when the connections task is run on the core thread.
             if (auto const optStoredBootstrap = optStoredOptions->get().GetBootstrap(); optStoredBootstrap) { 
                 if (!spNetworkManager->ScheduleConnect(*optStoredBootstrap)) {
                     return BRYPT_ECONNECTIONFAILED;
@@ -669,10 +674,12 @@ std::filesystem::path brypt_service_t::get_bootstrap_filepath() const
 brypt_result_t brypt_service_t::fetch_configuration()
 {
     assert(m_configuration_service);
-    switch (m_configuration_service->FetchOptions()) {
-        case Configuration::StatusCode::FileError: return BRYPT_EFILENOTFOUND;
-        case Configuration::StatusCode::DecodeError: return BRYPT_EFILENOTSUPPORTED;
-        case Configuration::StatusCode::InputError: return BRYPT_EINVALIDCONFIG;
+    using enum Configuration::StatusCode;
+    auto const [status, message] = m_configuration_service->FetchOptions();
+    switch (status) {
+        case FileError: return BRYPT_EFILENOTFOUND;
+        case DecodeError: return BRYPT_EFILENOTSUPPORTED;
+        case InputError: return BRYPT_EINVALIDCONFIG;
         default: break;
     }
     return BRYPT_ACCEPTED;
