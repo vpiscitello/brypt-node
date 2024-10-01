@@ -6,7 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "MessageHandler.hpp"
 #include "Path.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Utilities/Assertions.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/spdlog.h>
@@ -81,7 +81,6 @@ private:
         [[nodiscard]] bool ReferencesHandler() const;
 
         void Split(std::size_t boundary);
-        [[nodiscard]] Prefix* Insert(std::string_view route);
         std::pair<bool, Children::iterator> BinaryFind(char const& value);
         std::pair<bool, Children::const_iterator> BinaryFind(char const& value) const;
         [[nodiscard]] Prefix* Insert(std::string_view route, Children::iterator const& hint);

@@ -24,7 +24,7 @@ class Path;
 class Route::Path
 {
 public: 
-    static constexpr std::string_view Seperator = "/";
+    static constexpr std::string_view Separator = "/";
 
     Path() = default;
     explicit Path(std::string_view path);

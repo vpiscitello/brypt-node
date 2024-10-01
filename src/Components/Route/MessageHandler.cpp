@@ -9,7 +9,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 Route::IMessageHandler::IMessageHandler()
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
 {
 }
 

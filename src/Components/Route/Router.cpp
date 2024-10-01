@@ -3,7 +3,7 @@
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #include "Router.hpp"
-#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -21,8 +21,8 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 
 Route::Router::Router()
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
-    , m_root(Path::Seperator)
+    : m_logger(spdlog::get(Logger::Name.data()))
+    , m_root(Path::Separator)
 {
 }
 
@@ -68,8 +68,8 @@ Route::Router::Prefix* Route::Router::Register(std::string_view route)
     // If the provided route is not valid, then it cannot be registered. 
     if (auto const path = Path{ route }; !path.IsValid()) { return nullptr; }
 
-    // If the route ends with a seperator, it is implicity removed (i.e. "/route/" is just "/route").
-    if (route.ends_with(Path::Seperator)) { route.remove_suffix(1); }
+    // If the route ends with a separator, it is implicitly removed (i.e. "/route/" is just "/route").
+    if (route.ends_with(Path::Separator)) { route.remove_suffix(1); }
 
     // The router is implemented as a radix trie. This will determine where a new prefix node 
     // should be inserted. Existing node's may be split and/or children re-ordered to keep the nodes sorted. 
@@ -127,8 +127,8 @@ Route::Router::Prefix const* Route::Router::Match(std::string_view route) const
 
     if (route.empty()) [[unlikely]] { return nullptr; }
 
-    // If the route ends with a seperator, it is implicity removed (i.e. "/route/" is just "/route").
-    if (route.ends_with(Path::Seperator)) { route.remove_suffix(1); }
+    // If the route ends with a separator, it is implicitly removed (i.e. "/route/" is just "/route").
+    if (route.ends_with(Path::Separator)) { route.remove_suffix(1); }
     
     auto pCurrent = &m_root;
     while (true) {

@@ -70,7 +70,7 @@ std::size_t Route::Path::GetComponentsSize() const { return m_components.size();
 std::string Route::Path::ToString() const
 {
     std::ostringstream path;
-    std::ranges::for_each(m_components, [&path] (auto const& str) { path << Seperator << str; });
+    std::ranges::for_each(m_components, [&path] (auto const& str) { path << Separator << str; });
     return path.str();
 }
 
@@ -105,17 +105,17 @@ bool Route::Path::SetTail(std::string&& component)
 
 void Route::Path::Build(std::string_view path)
 {
-    if (!path.starts_with(Seperator)) { return; }
+    if (!path.starts_with(Separator)) { return; }
 
 #if defined(WIN32)
-    if (path.ends_with(Seperator)) {
-        path.remove_suffix(Seperator.size()); // Windows doesn't handle view seperators at the end well. 
+    if (path.ends_with(Separator)) {
+        path.remove_suffix(Separator.size()); // Windows doesn't handle view seperators at the end well. 
     }
 #endif
 
     bool error = false;
     std::ranges::transform(
-        path | std::views::drop(Seperator.size()) | std::views::split(Seperator), std::back_inserter(m_components), 
+        path | std::views::drop(Separator.size()) | std::views::split(Separator), std::back_inserter(m_components), 
         [&error] (auto&& partition) {
             std::string component;
             auto const size = static_cast<std::size_t>(std::ranges::distance(partition));

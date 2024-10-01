@@ -5,9 +5,9 @@
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "MessageHandler.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/Payload.hpp"
 #include "Components/Configuration/Options.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/Payload.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 //----------------------------------------------------------------------------------------------------------------------

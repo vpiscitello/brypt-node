@@ -4,11 +4,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Connect.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
@@ -203,7 +203,7 @@ Route::Fundamental::Connect::DiscoveryProtocol::DiscoveryProtocol()
     , m_wpNetworkManager()
     , m_wpProxyStore()
     , m_payload()
-    , m_logger(spdlog::get(Logger::Name::Core.data()))
+    , m_logger(spdlog::get(Logger::Name.data()))
 {
 }
 
