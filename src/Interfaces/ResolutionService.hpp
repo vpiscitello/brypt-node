@@ -4,8 +4,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Event/Events.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>

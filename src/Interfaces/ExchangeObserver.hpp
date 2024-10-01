@@ -9,7 +9,7 @@
 #include <memory>
 //----------------------------------------------------------------------------------------------------------------------
 
-class ISecurityStrategy;
+namespace Security { class CipherPackage; }
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ public:
     virtual ~IExchangeObserver() = default;
 
     virtual void OnExchangeClose(ExchangeStatus status) = 0;
-    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) = 0;
+    virtual void OnFulfilledStrategy(std::unique_ptr<Security::CipherPackage>&& upCipherPackage) = 0;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
