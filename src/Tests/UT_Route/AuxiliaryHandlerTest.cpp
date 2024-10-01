@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Peer/Action.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Route/Auxiliary.hpp"

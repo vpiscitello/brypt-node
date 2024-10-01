@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Identifier/ReservedIdentifiers.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/ReservedIdentifiers.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Identifier/ReservedIdentifiers.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
@@ -41,7 +41,7 @@ constexpr std::string_view TcpBootstrapBase = "tcp://127.0.0.1:";
 constexpr std::uint16_t TcpBasePort = 35216;
 constexpr std::size_t FileStoredCount = 4;
 
-constexpr auto BootstrapGenerator = [] (std::size_t port) mutable -> Network::RemoteAddress { 
+constexpr auto BootstrapGenerator = [] (std::size_t port) -> Network::RemoteAddress { 
     return Network::RemoteAddress{ Network::Protocol::TCP, test::TcpBootstrapBase.data() + std::to_string(port), true }; 
 };
 
@@ -294,7 +294,7 @@ TEST(BootstrapServiceSuite, CacheUpdateTest)
         // Verify the states of the cache after the updates are collated.
         auto const [applied, difference] = service.UpdateCache();
         EXPECT_EQ(applied, ExpectedUpdateCount);
-        EXPECT_EQ(difference, -ExpectedUpdateCount); 
+        EXPECT_EQ(difference, -static_cast<std::int32_t>(ExpectedUpdateCount)); 
         EXPECT_EQ(service.BootstrapCount(), test::FileStoredCount);
 
         // Verify we can no longer find the bootstraps after removal. 
@@ -347,9 +347,6 @@ Configuration::Options::Endpoint local::GenerateTcpOptions(std::uint16_t port)
         test::TcpBootstrapBase.data() + std::to_string(port),
         test::TcpBootstrapBase.data() + std::to_string(port)
     };
-
-    [[maybe_unused]] bool const success = options.Initialize(RuntimeOptions, spdlog::get(Logger::Name::Core.data()));
-    assert(success);
 
     return options;
 }

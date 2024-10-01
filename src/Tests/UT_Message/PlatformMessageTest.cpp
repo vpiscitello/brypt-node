@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/PlatformMessage.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/PlatformMessage.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------

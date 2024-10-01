@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Awaitable/Definitions.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"

@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/Definitions.hpp"
 #include "Components/Awaitable/Tracker.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"

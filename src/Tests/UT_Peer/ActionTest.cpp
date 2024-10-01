@@ -1,18 +1,16 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/MessageContext.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Resolver.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
-#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Interfaces/ResolutionService.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/json.hpp>

@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Action.hpp"

@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptNode/ServiceProvider.hpp"
-#include "Components/Event/Publisher.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Event/Publisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -12,6 +12,7 @@
 #include "Components/Peer/ProxyStore.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Scheduler/Registrar.hpp"
+#include "Components/Security/CipherService.hpp"
 #include "Components/State/NodeState.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
@@ -32,6 +33,10 @@ namespace local {
 //----------------------------------------------------------------------------------------------------------------------
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
+
+std::string const KeyAgreementName = "kem-kyber768";
+std::string const CipherName = "aes-256-ctr";
+std::string const HashFunctionName = "sha384";
 
 auto const ClientIdentifier = Node::Identifier{ Node::GenerateIdentifier() };
 auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
@@ -54,7 +59,19 @@ protected:
 
         m_spNodeState = std::make_shared<NodeState>(test::ServerIdentifier, Network::ProtocolSet{});
         m_spServiceProvider->Register(m_spNodeState);
-        
+
+        auto const options = Configuration::Options::SupportedAlgorithms{
+            {
+                {
+                    Security::ConfidentialityLevel::High,
+                    Configuration::Options::Algorithms{ "high", { test::KeyAgreementName }, { test::CipherName }, { test::HashFunctionName } }
+                }
+            }
+        };
+
+        m_spCipherService = std::make_shared<Security::CipherService>(options);
+        m_spServiceProvider->Register(m_spCipherService);
+
         m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar);
         m_spServiceProvider->Register(m_spTrackingService);
 
@@ -64,8 +81,7 @@ protected:
         m_spMessageProcessor = std::make_shared<Peer::Test::MessageProcessor>();
         m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
 
-        m_spProxyStore = std::make_shared<Peer::ProxyStore>(
-            Security::Strategy::PQNISTL3, m_spRegistrar, m_spServiceProvider);
+        m_spProxyStore = std::make_shared<Peer::ProxyStore>(m_spRegistrar, m_spServiceProvider);
         m_spServiceProvider->Register<IResolutionService>(m_spProxyStore);
      
         EXPECT_TRUE(m_spRegistrar->Initialize());
@@ -75,6 +91,7 @@ protected:
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
     std::shared_ptr<NodeState> m_spNodeState;
+    std::shared_ptr<Security::CipherService> m_spCipherService;
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;

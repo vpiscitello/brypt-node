@@ -1,14 +1,14 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptMessage/MessageTypes.hpp"
-#include "BryptMessage/MessageUtils.hpp"
-#include "BryptMessage/PlatformMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Configuration/Options.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/MessageContext.hpp"
+#include "Components/Message/MessageTypes.hpp"
+#include "Components/Message/MessageUtils.hpp"
+#include "Components/Message/PlatformMessage.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
@@ -19,6 +19,7 @@
 #include "Interfaces/PeerCache.hpp"
 #include "Interfaces/ResolutionService.hpp"
 #include "Interfaces/PeerObserver.hpp"
+#include "Tests/UT_Security/TestHelpers.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <memory>
@@ -35,7 +36,6 @@ namespace Network::Test {
 //----------------------------------------------------------------------------------------------------------------------
 
 class MessageProcessor;
-class SecurityStrategy;
 class SingleResolutionService;
 
 constexpr auto RuntimeOptions = Configuration::Options::Runtime
@@ -55,8 +55,8 @@ class Network::Test::MessageProcessor : public IMessageSink
 {
 public:
     explicit MessageProcessor(Node::SharedIdentifier const& spNodeIdentifier)
-    	: m_mutex()
-	    , m_spNodeIdentifier(spNodeIdentifier)
+        : m_mutex()
+        , m_spNodeIdentifier(spNodeIdentifier)
         , m_incoming()
         , m_bReceivedHeartbeatRequest(false)
         , m_bReceivedHeartbeatResponse(false)
@@ -190,41 +190,6 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Network::Test::SecurityStrategy : public ISecurityStrategy
-{
-public:
-    SecurityStrategy() = default;
-
-    virtual Security::Strategy GetStrategyType() const override { return Security::Strategy::Invalid; }
-    virtual Security::Role GetRoleType() const override { return Security::Role::Initiator; }
-    virtual Security::Context GetContextType() const override { return Security::Context::Unique; }
-    virtual std::size_t GetSignatureSize() const override { return 0; }
-
-    virtual std::uint32_t GetSynchronizationStages() const override { return 0; }
-    virtual Security::SynchronizationStatus GetSynchronizationStatus() const override { return Security::SynchronizationStatus::Processing; }
-    virtual Security::SynchronizationResult PrepareSynchronization() override { return { Security::SynchronizationStatus::Processing, {} }; }
-    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override { return { Security::SynchronizationStatus::Processing, {} }; }
-
-    virtual Security::OptionalBuffer Encrypt(Security::ReadableView buffer, std::uint64_t) const override
-    {
-        return Security::Buffer{ buffer.begin(), buffer.end() };
-    }
-
-    virtual Security::OptionalBuffer Decrypt(Security::ReadableView buffer, std::uint64_t) const override
-    {
-        return Security::Buffer{ buffer.begin(), buffer.end() };
-    }
-
-    virtual std::int32_t Sign(Security::Buffer&) const override { return 0; }
-    virtual Security::VerificationStatus Verify(Security::ReadableView) const override { return Security::VerificationStatus::Success; }
-
-private: 
-    virtual std::int32_t Sign(Security::ReadableView, Security::Buffer&) const override { return 0; }
-    virtual Security::OptionalBuffer GenerateSignature(Security::ReadableView, Security::ReadableView) const override { return {}; }
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
 class Network::Test::SingleResolutionService : public IResolutionService
 {
 public:
@@ -233,7 +198,6 @@ public:
         IMessageSink* const pMessageSink,
         std::shared_ptr<Node::ServiceProvider> spServiceProvider)
         : m_spNodeIdentifier(spNodeIdentifier)
-        , m_spPeer()
         , m_pMessageSink(pMessageSink)
         , m_wpServiceProvider(spServiceProvider)
     {
@@ -243,7 +207,7 @@ public:
     virtual void RegisterObserver(IPeerObserver* const) override { }
     virtual void UnpublishObserver(IPeerObserver* const) override { }
 
-    virtual OptionalRequest DeclareResolvingPeer(Network::RemoteAddress const&, Node::SharedIdentifier const&) override
+    virtual OptionalRequest DeclareResolvingPeer(RemoteAddress const&, Node::SharedIdentifier const&) override
     {
         auto const optHeartbeatRequest = Message::Platform::Parcel::GetBuilder()
             .MakeHeartbeatRequest()
@@ -256,23 +220,24 @@ public:
 
     virtual void RescindResolvingPeer(Network::RemoteAddress const&) override { }
 
-    virtual std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const& identifier, Network::RemoteAddress const&) override
+    virtual std::shared_ptr<Peer::Proxy> LinkPeer(Node::Identifier const& identifier, RemoteAddress const&) override
     {
         if (!m_spPeer) { 
             m_spPeer = Peer::Proxy::CreateInstance(identifier, m_wpServiceProvider.lock());
         }
-        m_spPeer->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<SecurityStrategy>());
+
+        m_spPeer->AttachCipherPackage<InvokeContext::Test>(std::move(m_upCipherPackage));
         m_spPeer->SetReceiver<InvokeContext::Test>(m_pMessageSink);
+
         return m_spPeer;
     }
 
-    virtual void OnEndpointRegistered(
-        std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier,  Network::RemoteAddress const&) override { }
-    virtual void OnEndpointWithdrawn(
-        std::shared_ptr<Peer::Proxy> const&, Network::Endpoint::Identifier, Network::RemoteAddress const&, WithdrawalCause) override { }
+    virtual void OnEndpointRegistered(std::shared_ptr<Peer::Proxy> const&, Endpoint::Identifier,  RemoteAddress const&) override { }
+    virtual void OnEndpointWithdrawn(std::shared_ptr<Peer::Proxy> const&, Endpoint::Identifier, RemoteAddress const&, WithdrawalCause) override { }
     // } IResolutionService
 
     std::shared_ptr<Peer::Proxy> GetPeer() const { return m_spPeer; }
+    void SetCipherPackage(std::unique_ptr<Security::CipherPackage>&& upCipherPackage) { m_upCipherPackage = std::move(upCipherPackage); }
     void Reset() { m_spPeer.reset(); }
 
 private:
@@ -280,6 +245,7 @@ private:
     std::shared_ptr<Peer::Proxy> m_spPeer;
     IMessageSink* const m_pMessageSink;
     std::weak_ptr<Node::ServiceProvider> m_wpServiceProvider;
+    std::unique_ptr<Security::CipherPackage> m_upCipherPackage;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -64,6 +64,7 @@ TEST(NetworkAddressSuite, TcpBindingAddressValidationTest)
         { "tcp://", "", Network::Socket::Type::Invalid, false },
         { "127.0.0.1", "", Network::Socket::Type::Invalid, false },
         { "tcp://127.0.0.1", "", Network::Socket::Type::Invalid, false },
+        { "abcd", "", Network::Socket::Type::Invalid, false },
         { "ipaddress", "", Network::Socket::Type::Invalid, false },
         { "-1", "", Network::Socket::Type::Invalid, false },
         { "          ", "", Network::Socket::Type::Invalid, false },
@@ -135,7 +136,7 @@ TEST(NetworkAddressSuite, TcpBindingAddressValidationTest)
 
 TEST(NetworkAddressSuite, TcpBindingAddressComponentTest)
 {
-    // Interfce Address
+    // Interface Address
     {
         // The interface could be matched to an IPv4 or IPv6 address depending on the system running the test. 
         constexpr std::string_view ExpectedIPv4Address = "127.0.0.1";
@@ -222,6 +223,7 @@ TEST(NetworkAddressSuite, TcpRemoteAddressValidationTest)
         { "tcp://", "", Network::Socket::Type::Invalid, false },
         { "127.0.0.1", "", Network::Socket::Type::Invalid, false },
         { "tcp://127.0.0.1", "", Network::Socket::Type::Invalid, false },
+        { "abcd", "", Network::Socket::Type::Invalid, false },
         { "ipaddress", "", Network::Socket::Type::Invalid, false },
         { "-1", "", Network::Socket::Type::Invalid, false },
         { "          ", "", Network::Socket::Type::Invalid, false },

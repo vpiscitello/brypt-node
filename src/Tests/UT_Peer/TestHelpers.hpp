@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
@@ -26,7 +26,7 @@ class ResolutionService;
 class PeerCache;
 class ConnectProtocol;
 class MessageProcessor;
-class SecurityStrategy;
+class Synchronizer;
 class SynchronousObserver;
 class AsynchronousObserver;
 
@@ -150,30 +150,31 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class Peer::Test::SecurityStrategy : public ISecurityStrategy
+class Peer::Test::Synchronizer : public ISynchronizer
 {
 public:
-    SecurityStrategy() = default;
+    Synchronizer() = default;
 
-    virtual Security::Strategy GetStrategyType() const override { return Security::Strategy::Invalid; }
-    virtual Security::Role GetRoleType() const override { return Security::Role::Initiator; }
-    virtual Security::Context GetContextType() const override { return Security::Context::Unique; }
-    virtual std::size_t GetSignatureSize() const override { return 0; }
+    [[nodiscard]] virtual Security::ExchangeRole GetExchangeRole() const override { return Security::ExchangeRole::Initiator; }
 
-    virtual std::uint32_t GetSynchronizationStages() const override { return 0; }
-    virtual Security::SynchronizationStatus GetSynchronizationStatus() const override { return Security::SynchronizationStatus::Processing; }
-    virtual Security::SynchronizationResult PrepareSynchronization() override { return { Security::SynchronizationStatus::Processing, {} }; }
-    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override { return { Security::SynchronizationStatus::Processing, {} }; }
+    [[nodiscard]] virtual std::uint32_t GetStages() const override { return 0; }
+    [[nodiscard]] virtual Security::SynchronizationStatus GetStatus() const override { return Security::SynchronizationStatus::Processing; }
+    [[nodiscard]] virtual bool Synchronized() const override { return false; }
 
-    virtual Security::OptionalBuffer Encrypt(Security::ReadableView, std::uint64_t) const override { return {}; }
-    virtual Security::OptionalBuffer Decrypt(Security::ReadableView, std::uint64_t) const override { return {}; }
+    [[nodiscard]] virtual Security::SynchronizationResult Initialize() override
+    {
+        return { Security::SynchronizationStatus::Processing, {} };
+    }
 
-    virtual std::int32_t Sign(Security::Buffer&) const override { return 0; }
-    virtual Security::VerificationStatus Verify(Security::ReadableView) const override { return Security::VerificationStatus::Failed; }
+    [[nodiscard]] virtual Security::SynchronizationResult Synchronize(Security::ReadableView buffer) override
+    {
+        return { Security::SynchronizationStatus::Processing, {} };
+    }
 
-private: 
-    virtual std::int32_t Sign(Security::ReadableView, Security::Buffer&) const override { return 0; }
-    virtual Security::OptionalBuffer GenerateSignature(Security::ReadableView, Security::ReadableView) const override { return {}; }
+    [[nodiscard]] virtual std::unique_ptr<Security::CipherPackage> Finalize() override
+    {
+        return nullptr;
+    }
 };
 
 //----------------------------------------------------------------------------------------------------------------------

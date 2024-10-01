@@ -1,16 +1,15 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/PlatformMessage.hpp"
-#include "BryptMessage/MessageContext.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/PlatformMessage.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Resolver.hpp"
 #include "Components/Scheduler/Registrar.hpp"
-#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
+#include "Components/Security/CipherService.hpp"
 #include "Components/State/NodeState.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 #include "Interfaces/ResolutionService.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -33,6 +32,10 @@ void CloseExchange(Peer::Resolver* pResolver, ExchangeStatus status);
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
+std::string const KeyAgreementName = "kem-kyber768";
+std::string const CipherName = "aes-256-ctr";
+std::string const HashFunctionName = "sha384";
+
 auto const ClientIdentifier = Node::Identifier{ Node::GenerateIdentifier() };
 auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
     
@@ -52,6 +55,18 @@ protected:
         m_spEventPublisher = std::make_shared<Event::Publisher>(m_spRegistrar);
         m_spServiceProvider->Register(m_spEventPublisher);
 
+        auto const options = Configuration::Options::SupportedAlgorithms{
+            {
+                {
+                    Security::ConfidentialityLevel::High,
+                    Configuration::Options::Algorithms{ "high", { test::KeyAgreementName }, { test::CipherName }, { test::HashFunctionName } }
+                }
+            }
+        };
+
+        m_spCipherService = std::make_shared<Security::CipherService>(options);
+        m_spServiceProvider->Register(m_spCipherService);
+
         m_spNodeState = std::make_shared<NodeState>(test::ServerIdentifier, Network::ProtocolSet{});
         m_spServiceProvider->Register(m_spNodeState);
 
@@ -70,6 +85,7 @@ protected:
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    std::shared_ptr<Security::CipherService> m_spCipherService;
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
@@ -82,9 +98,8 @@ protected:
 TEST_F(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 {
     {
-        auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
-        auto upResolver = std::make_unique<Peer::Resolver>(Security::Context::Unique);
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(m_spServiceProvider, std::move(upStrategyStub)));
+        auto upResolver = std::make_unique<Peer::Resolver>();
+        ASSERT_TRUE(upResolver->SetupCustomExchange<InvokeContext::Test>(m_spServiceProvider, std::make_unique<Peer::Test::Synchronizer>()));
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
@@ -105,6 +120,7 @@ TEST_F(PeerResolverSuite, ExchangeProcessorLifecycleTest)
 
     // Verify the node can't forward a message through the receiver, because it has been unset by the mediator. 
     m_spProxy->DetachResolver();
+
     EXPECT_FALSE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 }
 
@@ -114,10 +130,9 @@ TEST_F(PeerResolverSuite, SuccessfulExchangeTest)
 {
     Peer::Resolver* pCapturedResolver = nullptr;
     {
-        auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
-        auto upResolver = std::make_unique<Peer::Resolver>(Security::Context::Unique);
+        auto upResolver = std::make_unique<Peer::Resolver>();
         pCapturedResolver = upResolver.get();
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(m_spServiceProvider, std::move(upStrategyStub)));
+        ASSERT_TRUE(upResolver->SetupCustomExchange<InvokeContext::Test>(m_spServiceProvider, std::make_unique<Peer::Test::Synchronizer>()));
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 
@@ -136,7 +151,7 @@ TEST_F(PeerResolverSuite, SuccessfulExchangeTest)
     std::string const pack = optMessage->GetPack();
     EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
 
-    // Verify the receiver is swapped to the authorized processor when resolver is notified of a sucessful exchange. 
+    // Verify the receiver is swapped to the authorized processor when resolver is notified of a successful exchange. 
     local::CloseExchange(pCapturedResolver, ExchangeStatus::Success);
     EXPECT_EQ(m_spProxy->GetAuthorization(), Security::State::Authorized);
     EXPECT_TRUE(m_spProxy->ScheduleReceive(Peer::Test::EndpointIdentifier, pack));
@@ -149,10 +164,9 @@ TEST_F(PeerResolverSuite, FailedExchangeTest)
 {
     Peer::Resolver* pCapturedResolver = nullptr;
     {
-        auto upStrategyStub = std::make_unique<Peer::Test::SecurityStrategy>();
-        auto upResolver = std::make_unique<Peer::Resolver>(Security::Context::Unique);
+        auto upResolver = std::make_unique<Peer::Resolver>();
         pCapturedResolver = upResolver.get();
-        ASSERT_TRUE(upResolver->SetupTestProcessor<InvokeContext::Test>(m_spServiceProvider, std::move(upStrategyStub)));
+        ASSERT_TRUE(upResolver->SetupCustomExchange<InvokeContext::Test>(m_spServiceProvider, std::make_unique<Peer::Test::Synchronizer>()));
         ASSERT_TRUE(m_spProxy->AttachResolver(std::move(upResolver)));
     }
 

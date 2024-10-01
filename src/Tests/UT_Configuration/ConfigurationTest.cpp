@@ -42,6 +42,8 @@ Network::BindingAddress const BindingAddress{ Network::Protocol::TCP, "*:35216",
 } // namespace
 //----------------------------------------------------------------------------------------------------------------------
 
+// TODO: Test security algorithms maximum elements handling.
+
 TEST(ConfigurationParserSuite, GenerateConfigurationFilepathTest)
 {
     auto const filepath = Configuration::GetDefaultConfigurationFilepath();
@@ -60,7 +62,11 @@ TEST(ConfigurationParserSuite, ParseGoodFileTest)
     EXPECT_FALSE(parser.FilesystemDisabled());
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::Success);
+
+    auto const [status, message] = parser.FetchOptions();
+    EXPECT_EQ(status, Configuration::StatusCode::Success);
+    EXPECT_TRUE(message.empty());
+
     EXPECT_TRUE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
 }
@@ -73,7 +79,11 @@ TEST(ConfigurationParserSuite, ParseMalformedFileTest)
     EXPECT_FALSE(parser.FilesystemDisabled());
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
-    EXPECT_NE(parser.FetchOptions(), Configuration::StatusCode::Success);
+    
+    auto const [status, message] = parser.FetchOptions();
+    EXPECT_NE(status, Configuration::StatusCode::Success);
+    EXPECT_FALSE(message.empty());
+
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
 }
@@ -86,7 +96,11 @@ TEST(ConfigurationParserSuite, ParseMissingFileTest)
     EXPECT_FALSE(parser.FilesystemDisabled());
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::FileError);
+    
+    auto const [status, message] = parser.FetchOptions();
+    EXPECT_EQ(status, Configuration::StatusCode::FileError);
+    EXPECT_FALSE(message.empty());
+
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
 }
@@ -102,7 +116,12 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_FALSE(parser.FilesystemDisabled());
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::FileError);
+
+    {
+        auto const [status, message] = parser.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::FileError);
+        EXPECT_FALSE(message.empty());
+    }
 
     // Verify the default options are set the the expected values. 
     EXPECT_EQ(parser.GetRuntimeContext(), test::RuntimeOptions.context);
@@ -110,7 +129,7 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(parser.UseInteractiveConsole(), test::RuntimeOptions.useInteractiveConsole);
     EXPECT_EQ(parser.UseBootstraps(), test::RuntimeOptions.useBootstraps);
     EXPECT_EQ(parser.UseFilepathDeduction(), test::RuntimeOptions.useFilepathDeduction);
-    EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Invalid);
+    EXPECT_EQ(parser.GetIdentifierPersistence(), Configuration::Options::Identifier::Persistence::Invalid);
     EXPECT_FALSE(parser.GetNodeIdentifier());
     EXPECT_EQ(parser.GetNodeName(), "");
     EXPECT_EQ(parser.GetNodeDescription(), "");
@@ -119,8 +138,8 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(parser.GetConnectionTimeout(), Configuration::Defaults::ConnectionTimeout);
     EXPECT_EQ(parser.GetConnectionRetryLimit(), Configuration::Defaults::ConnectionRetryLimit);
     EXPECT_EQ(parser.GetConnectionRetryInterval(), Configuration::Defaults::ConnectionRetryInterval);
-    EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::Invalid);
     EXPECT_FALSE(parser.GetNetworkToken());
+    EXPECT_TRUE(parser.GetSupportedAlgorithms().Empty());
 
     // Verify that that all setters and getters work as expected. 
     parser.SetRuntimeContext(RuntimeContext::Background);
@@ -138,8 +157,8 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     parser.SetUseFilepathDeduction(true);
     EXPECT_TRUE(parser.UseFilepathDeduction());
 
-    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent));
-    EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Persistent);
+    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Persistence::Persistent));
+    EXPECT_EQ(parser.GetIdentifierPersistence(), Configuration::Options::Identifier::Persistence::Persistent);
     EXPECT_TRUE(parser.GetNodeIdentifier());
 
     EXPECT_TRUE(parser.SetNodeName("node_name"));
@@ -171,8 +190,39 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_TRUE(parser.SetConnectionRetryInterval(250ms));
     EXPECT_EQ(parser.GetConnectionRetryInterval(), 250ms);
 
-    parser.SetSecurityStrategy(Security::Strategy::PQNISTL3);
-    EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::PQNISTL3);
+    {
+        EXPECT_TRUE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Low, { "ffdhe-2048", "ffdhe-4096" }, { "des-ede-cbc" }, { "md5", "md5-sha1" }));
+        EXPECT_TRUE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::High, { "kem-kyber768" }, { "aes-256-ctr", "aria-256-ctr", "camellia-256-ctr" }, { "sha512", "blake2b512" }));
+
+        EXPECT_FALSE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Unknown, { "ecdh-secp-521-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-512-r1" }, { "aes-128-cbc", "aes-256-ctr" }, { "sha1" }));
+        EXPECT_FALSE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Medium, { "unknown", "ecdh-sect-571-r1", "ecdh-brainpool-p-512-r1" }, { "aes-128-cbc", "aes-256-ctr" }, { "sha1" }));
+        EXPECT_FALSE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Medium, { "ecdh-secp-521-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-512-r1" }, { "aes-128-cbc", "unknown" }, { "sha1" }));
+        EXPECT_FALSE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Medium, { "ecdh-secp-521-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-512-r1" }, { "aes-128-cbc", "aes-256-ctr" }, { "unknown" }));
+
+        auto const supportedAlgorithms = parser.GetSupportedAlgorithms();
+        EXPECT_EQ(supportedAlgorithms.Size(), std::size_t{ 2 });
+
+        {
+            ASSERT_TRUE(supportedAlgorithms.HasAlgorithmsForLevel(Security::ConfidentialityLevel::Low));
+
+            auto const optAlgorithms = supportedAlgorithms.FetchAlgorithms(Security::ConfidentialityLevel::Low);
+            ASSERT_TRUE(optAlgorithms);
+            EXPECT_TRUE(std::ranges::equal(optAlgorithms->get().GetKeyAgreements(), std::vector<std::string>{ "ffdhe-2048", "ffdhe-4096" }));
+            EXPECT_TRUE(std::ranges::equal(optAlgorithms->get().GetCiphers(), std::vector<std::string>{ "des-ede-cbc" }));
+            EXPECT_TRUE(std::ranges::equal(optAlgorithms->get().GetHashFunctions(), std::vector<std::string>{ "md5", "md5-sha1" }));
+        }
+
+        {
+            ASSERT_TRUE(supportedAlgorithms.HasAlgorithmsForLevel(Security::ConfidentialityLevel::High));
+
+            auto const optAlgorithms = supportedAlgorithms.FetchAlgorithms(Security::ConfidentialityLevel::High);
+            ASSERT_TRUE(optAlgorithms);
+            EXPECT_TRUE(std::ranges::equal(optAlgorithms->get().GetKeyAgreements(), std::vector<std::string>{ "kem-kyber768" }));
+            EXPECT_TRUE(std::ranges::equal(optAlgorithms->get().GetCiphers(), std::vector<std::string>{ "aes-256-ctr", "aria-256-ctr", "camellia-256-ctr" }));
+            EXPECT_TRUE(std::ranges::equal(optAlgorithms->get().GetHashFunctions(), std::vector<std::string>{ "sha512", "blake2b512" }));
+        }
+    }
+
 
     EXPECT_TRUE(parser.SetNetworkToken("network_token"));
     ASSERT_TRUE(parser.GetNetworkToken());
@@ -181,12 +231,23 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
 
-    EXPECT_EQ(parser.Serialize(), Configuration::StatusCode::Success);
+    {
+        auto const [status, message] = parser.Serialize();
+        EXPECT_EQ(status, Configuration::StatusCode::Success);
+        EXPECT_TRUE(message.empty());
+    }
+
     EXPECT_TRUE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
 
     Configuration::Parser checker(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
-    EXPECT_EQ(checker.FetchOptions(), Configuration::StatusCode::Success);
+
+    {
+        auto const [status, message] = checker.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::Success);
+        EXPECT_TRUE(message.empty());
+    }
+
     EXPECT_TRUE(checker.Validated());
     EXPECT_FALSE(checker.Changed());
 
@@ -198,12 +259,11 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
     EXPECT_EQ(checker.UseFilepathDeduction(), test::RuntimeOptions.useFilepathDeduction);
 
     // Verify the check and original parser values match. 
-    EXPECT_EQ(checker.GetIdentifierType(), parser.GetIdentifierType());
+    EXPECT_EQ(checker.GetIdentifierPersistence(), parser.GetIdentifierPersistence());
     EXPECT_EQ(checker.GetNodeName(), parser.GetNodeName());
     EXPECT_EQ(checker.GetNodeDescription(), parser.GetNodeDescription());
     EXPECT_EQ(checker.GetNodeLocation(), parser.GetNodeLocation());
     EXPECT_EQ(checker.GetEndpoints().size(), parser.GetEndpoints().size());
-    EXPECT_EQ(checker.GetSecurityStrategy(), parser.GetSecurityStrategy());
     EXPECT_EQ(checker.GetConnectionTimeout(), parser.GetConnectionTimeout());
     EXPECT_EQ(checker.GetConnectionRetryLimit(), parser.GetConnectionRetryLimit());
     EXPECT_EQ(checker.GetConnectionRetryInterval(), parser.GetConnectionRetryInterval());
@@ -224,6 +284,8 @@ TEST(ConfigurationParserSuite, FileGenerationTest)
         EXPECT_EQ(optEndpoint->get().UseBootstraps(), parser.UseBootstraps());
     }
 
+    EXPECT_EQ(parser.GetSupportedAlgorithms(), checker.GetSupportedAlgorithms());
+
     std::filesystem::remove(parser.GetFilepath());
     EXPECT_FALSE(std::filesystem::exists(parser.GetFilepath())); // Verify the file has been successfully deleted
 }
@@ -236,7 +298,7 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     Configuration::Parser parser(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
     if (std::filesystem::exists(parser.GetFilepath())) { std::filesystem::remove(parser.GetFilepath()); }
 
-    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Persistent));
+    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Persistence::Persistent));
     EXPECT_TRUE(parser.SetNodeName("original_name"));
     EXPECT_TRUE(parser.SetNodeDescription("original_description"));
     EXPECT_TRUE(parser.SetNodeLocation("original_location"));
@@ -245,17 +307,24 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     EXPECT_TRUE(parser.SetConnectionRetryLimit(15));
     EXPECT_TRUE(parser.SetConnectionRetryInterval(250ms));
 
-    parser.SetSecurityStrategy(Security::Strategy::PQNISTL3);
     EXPECT_TRUE(parser.SetNetworkToken("original_token"));
 
-    EXPECT_EQ(parser.Serialize(), Configuration::StatusCode::Success);
+    EXPECT_TRUE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Low, { "ffdhe-2048", "ffdhe-4096" }, { "des-ede-cbc" }, { "md5", "md5-sha1" }));
+    EXPECT_TRUE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::High, { "kem-kyber768" }, { "aes-256-ctr", "aria-256-ctr", "camellia-256-ctr" }, { "sha512", "blake2b512" }));
+
+    {
+        auto const [status, message] = parser.Serialize();
+        EXPECT_EQ(status, Configuration::StatusCode::Success);
+        EXPECT_TRUE(message.empty());
+    }
+
     EXPECT_TRUE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
 
     Configuration::Parser merger(local::GetFilepath("good/generated.json"), test::RuntimeOptions);
 
     // Set some values before deserializing the configuration file. 
-    EXPECT_TRUE(merger.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral));
+    EXPECT_TRUE(merger.SetNodeIdentifier(Configuration::Options::Identifier::Persistence::Ephemeral));
     EXPECT_TRUE(merger.SetNodeLocation("merge_location"));
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35216", "127.0.0.1:35217" }));
     EXPECT_TRUE(merger.UpsertEndpoint({ "TCP", "merge_interface", "127.0.0.1:35226" }));
@@ -263,13 +332,21 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     EXPECT_TRUE(merger.SetConnectionTimeout(500ms));
     EXPECT_TRUE(merger.SetConnectionRetryLimit(30));
 
-    EXPECT_EQ(merger.FetchOptions(), Configuration::StatusCode::Success);
+    EXPECT_TRUE(merger.SetSupportedAlgorithms(Security::ConfidentialityLevel::Low, { "ffdhe-3072" }, { "chacha20" }, { "sha256" }));
+    EXPECT_TRUE(merger.SetSupportedAlgorithms(Security::ConfidentialityLevel::High, { "kem-classic-mceliece-6960119" }, { "chacha20-poly1305" }, { "blake2s256" }));
+
+    {
+        auto const [status, message] = merger.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::Success);
+        EXPECT_TRUE(message.empty());
+    }
+
     EXPECT_TRUE(merger.Validated());
     EXPECT_FALSE(merger.Changed());
 
     // Verify the merged values have been chosen correctly. Values that were set before, reading the file should
     // be selected over the values from the file. 
-    EXPECT_EQ(merger.GetIdentifierType(), parser.GetIdentifierType()); // The persistent identifier should be chosen.
+    EXPECT_NE(merger.GetIdentifierPersistence(), parser.GetIdentifierPersistence()); // The persistence type should differ. 
     EXPECT_EQ(merger.GetNodeName(), parser.GetNodeName());
     EXPECT_EQ(merger.GetNodeDescription(), parser.GetNodeDescription());
     EXPECT_NE(merger.GetNodeLocation(), parser.GetNodeLocation()); // The node location should differ. 
@@ -278,16 +355,34 @@ TEST(ConfigurationParserSuite, MergeOptionsTest)
     EXPECT_EQ(merger.GetConnectionTimeout(), 500ms);
     EXPECT_EQ(merger.GetConnectionRetryLimit(), 30);
     EXPECT_EQ(merger.GetConnectionRetryInterval(), parser.GetConnectionRetryInterval());
-    EXPECT_EQ(merger.GetSecurityStrategy(), parser.GetSecurityStrategy());
     ASSERT_TRUE(merger.GetNetworkToken());
     EXPECT_NE(merger.GetNetworkToken(), parser.GetNetworkToken()); // The network token should differ. 
     EXPECT_EQ(*merger.GetNetworkToken(), "merge_token"); // The network token should differ. 
 
     {
+        EXPECT_NE(merger.GetSupportedAlgorithms(), parser.GetSupportedAlgorithms());  // The supported algorithms should differ. 
+
+        auto const expectedSupportedAlgorithms = Configuration::Options::SupportedAlgorithms{
+            {
+                {
+                    Security::ConfidentialityLevel::Low,
+                    Configuration::Options::Algorithms{ "low", { "ffdhe-3072" }, { "chacha20" }, { "sha256" } }
+                },
+                {
+                    Security::ConfidentialityLevel::High,
+                    Configuration::Options::Algorithms{ "high", { "kem-classic-mceliece-6960119" }, { "chacha20-poly1305" }, { "blake2s256" } }
+                }
+            }
+        };
+
+        EXPECT_EQ(merger.GetSupportedAlgorithms(), expectedSupportedAlgorithms);
+    }
+
+    {
         auto const spIdentifier = parser.GetNodeIdentifier();
         auto const spCheckIdentifier = merger.GetNodeIdentifier();
         ASSERT_TRUE(spCheckIdentifier && spIdentifier);
-        EXPECT_EQ(*spCheckIdentifier, *spIdentifier); // The identifier value should differ. 
+        EXPECT_NE(*spCheckIdentifier, *spIdentifier); // The identifier value should differ. 
     }
 
     {
@@ -321,8 +416,8 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
 
-    // All fields should be defaulted to empty, invalid, or resonable defaults. 
-    EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Invalid);
+    // All fields should be defaulted to empty, invalid, or reasonable defaults. 
+    EXPECT_EQ(parser.GetIdentifierPersistence(), Configuration::Options::Identifier::Persistence::Invalid);
     EXPECT_FALSE(parser.GetNodeIdentifier());
     EXPECT_EQ(parser.GetNodeName(), "");
     EXPECT_EQ(parser.GetNodeDescription(), "");
@@ -331,15 +426,20 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_EQ(parser.GetConnectionTimeout(), Configuration::Defaults::ConnectionTimeout);
     EXPECT_EQ(parser.GetConnectionRetryLimit(), Configuration::Defaults::ConnectionRetryLimit);
     EXPECT_EQ(parser.GetConnectionRetryInterval(), Configuration::Defaults::ConnectionRetryInterval);
-    EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::Invalid);
     EXPECT_FALSE(parser.GetNetworkToken());
+    EXPECT_TRUE(parser.GetSupportedAlgorithms().Empty());
 
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::DecodeError);
+    {
+        auto const [status, message] = parser.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::InputError);
+        EXPECT_FALSE(message.empty());
+    }
+
     EXPECT_FALSE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
     
     // No field should change after a failed fetch if no values have changed. 
-    EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Invalid);
+    EXPECT_EQ(parser.GetIdentifierPersistence(), Configuration::Options::Identifier::Persistence::Invalid);
     EXPECT_FALSE(parser.GetNodeIdentifier());
     EXPECT_EQ(parser.GetNodeName(), "");
     EXPECT_EQ(parser.GetNodeDescription(), "");
@@ -348,16 +448,15 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_EQ(parser.GetConnectionTimeout(), Configuration::Defaults::ConnectionTimeout);
     EXPECT_EQ(parser.GetConnectionRetryLimit(), Configuration::Defaults::ConnectionRetryLimit);
     EXPECT_EQ(parser.GetConnectionRetryInterval(), Configuration::Defaults::ConnectionRetryInterval);
-    EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::Invalid);
     EXPECT_FALSE(parser.GetNetworkToken());
 
     // The parser should flip the changed flag when a field has been set. 
-    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Type::Ephemeral));
+    EXPECT_TRUE(parser.SetNodeIdentifier(Configuration::Options::Identifier::Persistence::Ephemeral));
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
 
     // The identifier field should be initialized after setting the type. 
-    EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Ephemeral);
+    EXPECT_EQ(parser.GetIdentifierPersistence(), Configuration::Options::Identifier::Persistence::Ephemeral);
     auto const spIdentifier = parser.GetNodeIdentifier();
     ASSERT_TRUE(spIdentifier);
     EXPECT_TRUE(spIdentifier->IsValid());
@@ -367,17 +466,19 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_LE(identifier.size(), Node::Identifier::MaximumSize);
 
     // The parser should still fail to fetch if not all of the required fields are set. 
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::DecodeError);
+    {
+        auto const [status, message] = parser.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::InputError);
+        EXPECT_FALSE(message.empty());
+    }
+
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
 
     // The identifier should remain unchanged after fetching. 
-    EXPECT_EQ(parser.GetIdentifierType(), Configuration::Options::Identifier::Type::Ephemeral);
+    EXPECT_EQ(parser.GetIdentifierPersistence(), Configuration::Options::Identifier::Persistence::Ephemeral);
     ASSERT_TRUE(parser.GetNodeIdentifier());
     EXPECT_EQ(*parser.GetNodeIdentifier(), *spIdentifier);
-
-    parser.SetSecurityStrategy(Security::Strategy::PQNISTL3); // You should be able to set a valid security strategy. 
-    EXPECT_EQ(parser.GetSecurityStrategy(), Security::Strategy::PQNISTL3);
 
     // You should be able to insert a new valid endpoint configuration.
     EXPECT_TRUE(parser.UpsertEndpoint({ "TCP", "lo", "*:35216", "127.0.0.1:35217" }));
@@ -435,18 +536,56 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     EXPECT_FALSE(parser.GetEndpoint("tcp://127.0.0.1:35217"));
 
     // You should not be able to set an invalid endpoint. 
-    EXPECT_FALSE(parser.UpsertEndpoint({ "Invalid", "lo", "*:35216", "127.0.0.1:35218" }));
-    EXPECT_FALSE(parser.UpsertEndpoint({ "Invalid", "lo", "abcd", "127.0.0.1:35218" }));
-    EXPECT_FALSE(parser.UpsertEndpoint({ "Invalid", "lo", "*:35216", "abcd" }));
+    EXPECT_ANY_THROW(parser.UpsertEndpoint({ "Invalid", "lo", "*:35216", "127.0.0.1:35218" }));
+    EXPECT_ANY_THROW(parser.UpsertEndpoint({ "Invalid", "lo", "abcd", "127.0.0.1:35218" }));
+    EXPECT_ANY_THROW(parser.UpsertEndpoint({ "Invalid", "lo", "*:35216", "abcd" }));
+    
+    // The validation and changed flags should remain the same after applying all updates. 
+    EXPECT_FALSE(parser.Validated());
+    EXPECT_TRUE(parser.Changed());
+
+    // You must provide a set of security algorithms before the parser indicates a success. 
+    {
+        auto const [status, message] = parser.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::InputError);
+        EXPECT_FALSE(message.empty());
+    }
+    
+    EXPECT_TRUE(parser.SetSupportedAlgorithms(Security::ConfidentialityLevel::Medium, { "ecdh-secp-384-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-384-r1" }, { "aes-256-ctr" }, { "sha256", "blake2s256" }));
 
     // The validation and changed flags should remain the same after applying all updates. 
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
 
     // You should be able to fetch the options with all required fields set, this should validate the changes. 
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::Success);
+    {
+        auto const [status, message] = parser.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::Success);
+        EXPECT_TRUE(message.empty());
+    }
+
     EXPECT_TRUE(parser.Validated());
     EXPECT_FALSE(parser.Changed());
+
+    // Options should not change after fetching them. 
+    {
+        auto const expectedSupportedAlgorithms = Configuration::Options::SupportedAlgorithms{
+            {
+                {
+                    Security::ConfidentialityLevel::Medium,
+                    Configuration::Options::Algorithms{ "low", { "ecdh-secp-384-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-384-r1" }, { "aes-256-ctr" }, { "sha256", "blake2s256" } }
+                },
+            }
+        };
+
+        EXPECT_EQ(parser.GetSupportedAlgorithms(), expectedSupportedAlgorithms);
+    }
+
+    // You should be able to clear the supported algorithms
+    {
+        parser.ClearSupportedAlgorithms();
+        EXPECT_TRUE(parser.GetSupportedAlgorithms().Empty());
+    }
 
     // You should be able to remove an existing endpoint
     {
@@ -470,7 +609,12 @@ TEST(ConfigurationParserSuite, DisableFilesystemTest)
     }
 
     // You should not be able fetch the options after removing a required component. 
-    EXPECT_EQ(parser.FetchOptions(), Configuration::StatusCode::DecodeError);
+    {
+        auto const [status, message] = parser.FetchOptions();
+        EXPECT_EQ(status, Configuration::StatusCode::InputError);
+        EXPECT_FALSE(message.empty());
+    }
+
     EXPECT_FALSE(parser.Validated());
     EXPECT_TRUE(parser.Changed());
 }

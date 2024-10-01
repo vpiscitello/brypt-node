@@ -19,7 +19,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    Awaitable Route Peer Security Configuration MessageControl Network State Event Scheduler BryptMessage BryptIdentifier 
+    Awaitable Route Peer Security Configuration Processor Network State Event Scheduler Message Identifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

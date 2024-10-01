@@ -1,8 +1,8 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/PackUtils.hpp"
-#include "BryptNode/ServiceProvider.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/PackUtils.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/TimeUtils.hpp"
@@ -300,15 +300,15 @@ Message::Context local::GenerateMessageContext()
     Message::Context context(test::Proxy, test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type { 
-            return Security::Buffer(buffer.begin(), buffer.end()); 
+        [] (auto plaintext, auto& destination) -> Security::Encryptor::result_type {
+            std::ranges::copy(plaintext, std::back_inserter(destination));
+            return true;
         },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type {
-            return Security::Buffer(buffer.begin(), buffer.end());
-        });
+        [] (auto ciphertext) { return Security::Buffer{ ciphertext.begin(), ciphertext.end() }; },
+        [] (std::size_t const& size) { return size; });
 
     context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type { return 0; },
+        [] (auto&) -> Security::Signator::result_type { return true; },
         [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 
@@ -322,15 +322,15 @@ Message::Context local::GenerateExpiredContext()
     Message::Context context(std::weak_ptr<Peer::Proxy>{}, test::EndpointIdentifier, test::EndpointProtocol);
 
     context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type { 
-            return Security::Buffer(buffer.begin(), buffer.end()); 
+        [] (auto plaintext, auto& destination) -> Security::Encryptor::result_type {
+            std::ranges::copy(plaintext, std::back_inserter(destination));
+            return true;
         },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type {
-            return Security::Buffer(buffer.begin(), buffer.end());
-        });
+        [] (auto ciphertext) { return Security::Buffer{ ciphertext.begin(), ciphertext.end() }; },
+        [] (std::size_t const& size) { return size; });
 
     context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type { return 0; },
+        [] (auto&) -> Security::Signator::result_type { return true; },
         [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 

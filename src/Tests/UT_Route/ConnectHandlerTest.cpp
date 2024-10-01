@@ -1,10 +1,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/Manager.hpp"
 #include "Components/Peer/Action.hpp"
@@ -15,6 +15,7 @@
 #include "Components/Route/Router.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
+#include "Components/Security/CipherService.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -42,12 +43,16 @@ class ConnectResources;
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
+std::string const KeyAgreementName = "kem-kyber768";
+std::string const CipherName = "aes-256-ctr";
+std::string const HashFunctionName = "sha384";
+
 auto const ClientIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
 auto const ServerIdentifier = std::make_shared<Node::Identifier>(Node::GenerateIdentifier());
 
 constexpr std::string_view NetworkInterface = "lo";
-constexpr std::string_view ServerBinding = "*:35216";
-constexpr std::string_view ClientBinding = "*:35217";
+constexpr std::string_view ServerBinding = "127.0.0.1:35216";
+constexpr std::string_view ClientBinding = "127.0.0.1:35217";
 
 constexpr auto RuntimeOptions = Configuration::Options::Runtime
 { 
@@ -91,13 +96,14 @@ public:
         return m_spNetworkManager->GetEndpoint(protocol);
     }
 
-    [[nodiscard]] bool AddGeneratedEndpoints(std::vector<Network::BindingAddress> const& bindings);
+    [[nodiscard]] bool AddGeneratedEndpoint(Network::Protocol protocol, std::string_view uri, std::string_view interface);
 
 private:
     std::shared_ptr<Scheduler::Registrar> m_spRegistrar;
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
+    std::shared_ptr<Security::CipherService> m_spCipherService;
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<BootstrapService> m_spBootstrapService;
@@ -111,7 +117,7 @@ private:
 
     std::shared_ptr<Route::Fundamental::Connect::DiscoveryProtocol> m_spDiscoveryProtocol;
     std::unique_ptr<Route::Fundamental::Connect::DiscoveryHandler> m_upDiscoveryHandler;
-    bool m_isConstructionSuccessful;
+    bool m_isConstructionSuccessful{ false };
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -274,8 +280,8 @@ TEST_F(ConnectHandlerSuite, DiscoveryHandlerSingleEntrypointTest)
     EXPECT_EQ(m_client.GetTrackingService()->Ready(), std::size_t{ 1 });
     EXPECT_EQ(m_client.GetTrackingService()->Execute(), std::size_t{ 1 });
 
-    // The discovery response should cause the receiving node to add the acceptors's bootstrap cache 
-    // whether or not it can actaullly connect to them. 
+    // The discovery response should cause the receiving node to add the acceptor's bootstrap cache 
+    // whether or not it can actually connect to them. 
     EXPECT_EQ(m_client.GetBootstrapService()->BootstrapCount(), std::size_t{ 1 });
 
     // The discovery response handler should not schedule a connection if the peer only has one 
@@ -339,10 +345,9 @@ TEST_F(ConnectHandlerSuite, DiscoveryHandlerSingleEntrypointTest)
 TEST_F(ConnectHandlerSuite, DiscoveryHandlerMultipleEntrypointsTest)
 {
     // Setup an additional endpoint for the connection acceptor. 
-    Network::BindingAddress const serverTcpBindingAddress{ Network::Protocol::TCP, test::ServerBinding, "lo" };
     Network::RemoteAddress const serverTcpRemoteAddress{ 
-        Network::Protocol::TCP, serverTcpBindingAddress.GetUri(), true, Network::RemoteAddress::Origin::User};
-    ASSERT_TRUE(m_server.AddGeneratedEndpoints({ serverTcpBindingAddress }));
+        Network::Protocol::TCP, std::format("tcp://{}", test::ServerBinding), true, Network::RemoteAddress::Origin::User};
+    ASSERT_TRUE(m_server.AddGeneratedEndpoint(Network::Protocol::TCP, test::ServerBinding, "lo"));
     
     auto const spServerTestEndpoint = std::dynamic_pointer_cast<Route::Test::StandardEndpoint>(
         m_server.FindEndpoint(Network::Protocol::Test));
@@ -353,10 +358,9 @@ TEST_F(ConnectHandlerSuite, DiscoveryHandlerMultipleEntrypointsTest)
     ASSERT_TRUE(spServerTcpEndpoint);
     
     // Setup an additional endpoint for the connection initiator.
-    Network::BindingAddress const clientTcpBindingAddress{ Network::Protocol::TCP, test::ClientBinding, "lo" };
     Network::RemoteAddress const clientTcpRemoteAddress{ 
-        Network::Protocol::TCP, clientTcpBindingAddress.GetUri(), true, Network::RemoteAddress::Origin::User};
-    ASSERT_TRUE(m_client.AddGeneratedEndpoints({ clientTcpBindingAddress }));
+        Network::Protocol::TCP,  std::format("tcp://{}", test::ClientBinding), true, Network::RemoteAddress::Origin::User};
+    ASSERT_TRUE(m_client.AddGeneratedEndpoint(Network::Protocol::TCP, test::ClientBinding, "lo"));
 
     auto const spClientTestEndpoint = std::dynamic_pointer_cast<Route::Test::StandardEndpoint>(
         m_client.FindEndpoint(Network::Protocol::Test));
@@ -383,7 +387,7 @@ TEST_F(ConnectHandlerSuite, DiscoveryHandlerMultipleEntrypointsTest)
     EXPECT_TRUE(m_server.GetDiscoveryHandler().OnMessage(*m_optRequest, next));
 
     // The discovery request should cause the receiving node to add the initiator's bootstrap cache 
-    // whether or not it can actaullly connect to them. 
+    // whether or not it can actually connect to them. 
     EXPECT_EQ(m_server.GetBootstrapService()->BootstrapCount(), std::size_t{ 2 });
 
     // The discovery request should cause the receiving node to connect to the initiator's server addresses. 
@@ -443,11 +447,11 @@ TEST_F(ConnectHandlerSuite, DiscoveryHandlerMultipleEntrypointsTest)
     EXPECT_EQ(m_client.GetTrackingService()->Ready(), std::size_t{ 1 });
     EXPECT_EQ(m_client.GetTrackingService()->Execute(), std::size_t{ 1 });
 
-    // The discovery response should cause the receiving node to add the acceptors's bootstrap cache 
-    // whether or not it can actaullly connect to them. 
+    // The discovery response should cause the receiving node to add the acceptor's bootstrap cache 
+    // whether or not it can actually connect to them. 
     EXPECT_EQ(m_client.GetBootstrapService()->BootstrapCount(), std::size_t{ 2 });
 
-    // The discovery response should cause the receiving node to connect to the acceptors's server addresses. 
+    // The discovery response should cause the receiving node to connect to the acceptor's server addresses. 
     EXPECT_EQ(spClientTestEndpoint->GetScheduled(), std::uint32_t{ 0 });
     EXPECT_EQ(spClientTcpEndpoint->GetScheduled(), std::uint32_t{ 1 });
     EXPECT_TRUE(spClientTcpEndpoint->GetConnected().contains(serverTcpRemoteAddress));
@@ -532,7 +536,21 @@ void local::ConnectResources::Initialize(
 
     m_spEventPublisher = std::make_shared<Event::Publisher>(m_spRegistrar);
     m_spServiceProvider->Register(m_spEventPublisher);
-    
+
+    {
+        auto const options = Configuration::Options::SupportedAlgorithms{
+            {
+                {
+                    Security::ConfidentialityLevel::High,
+                    Configuration::Options::Algorithms{ "high", { test::KeyAgreementName }, { test::CipherName }, { test::HashFunctionName } }
+                }
+            }
+        };
+
+        m_spCipherService = std::make_shared<Security::CipherService>(options);
+        m_spServiceProvider->Register(m_spCipherService);
+    }
+
     m_spTrackingService = std::make_shared<Awaitable::TrackingService>(m_spRegistrar);
     m_spServiceProvider->Register(m_spTrackingService);
     
@@ -545,20 +563,21 @@ void local::ConnectResources::Initialize(
     m_spNetworkManager = std::make_shared<Network::Manager>(test::RuntimeOptions.context, m_spServiceProvider);
     m_spServiceProvider->Register(m_spNetworkManager);
 
-    auto const options = Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(
-        test::NetworkInterface, binding);
-    m_configuration.emplace_back(options);
+    {
+        auto const options = Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(
+            test::NetworkInterface, binding);
+        m_configuration.emplace_back(options);
 
-    m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(
-        options, std::make_shared<Route::Test::StandardEndpoint>(Network::Endpoint::Properties{ options }));
+        m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(
+            options, std::make_shared<Route::Test::StandardEndpoint>(Network::Endpoint::Properties{ options }));
+    }
 
     m_spDiscoveryProtocol = std::make_shared<Route::Fundamental::Connect::DiscoveryProtocol>();
     m_spServiceProvider->Register<IConnectProtocol>(m_spDiscoveryProtocol);
 
     m_upDiscoveryHandler = std::make_unique<Route::Fundamental::Connect::DiscoveryHandler>();
 
-    m_spProxyStore = std::make_shared<Peer::ProxyStore>(
-        Security::Strategy::PQNISTL3, m_spRegistrar, m_spServiceProvider);
+    m_spProxyStore = std::make_shared<Peer::ProxyStore>(m_spRegistrar, m_spServiceProvider);
     m_spServiceProvider->Register(m_spProxyStore);
 
     m_isConstructionSuccessful = m_spDiscoveryProtocol->CompileRequest(m_spServiceProvider);
@@ -604,17 +623,15 @@ void local::ConnectResources::Initialize(
 
 //----------------------------------------------------------------------------------------------------------------------
 
-bool local::ConnectResources::AddGeneratedEndpoints(std::vector<Network::BindingAddress> const& bindings)
+bool local::ConnectResources::AddGeneratedEndpoint(Network::Protocol protocol, std::string_view uri, std::string_view interface)
 {
     m_isConstructionSuccessful = false;
 
-    for (auto const& binding : bindings) {
-        auto const options = Configuration::Options::Endpoint::CreateTestOptions<InvokeContext::Test>(binding);
-        m_configuration.emplace_back(options);
+    Configuration::Options::Endpoint options{ protocol, interface, uri };
+    m_configuration.emplace_back(options);
 
-        m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(
-            options, std::make_shared<Route::Test::StandardEndpoint>(Network::Endpoint::Properties{ options }));
-    }
+    m_spNetworkManager->RegisterEndpoint<InvokeContext::Test>(
+        options, std::make_shared<Route::Test::StandardEndpoint>(Network::Endpoint::Properties{ options }));
 
     // Regenerate the discovery handlers such that they can recompile the discovery payloads. 
     m_upDiscoveryHandler = std::make_unique<Route::Fundamental::Connect::DiscoveryHandler>();

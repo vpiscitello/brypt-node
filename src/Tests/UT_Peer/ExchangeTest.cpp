@@ -1,19 +1,21 @@
 
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Peer/ProxyStore.hpp"
 #include "Components/Scheduler/Registrar.hpp"
+#include "Components/Security/CipherService.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/ResolutionService.hpp"
+#include "Tests/UT_Security/TestHelpers.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -36,6 +38,10 @@ class ExchangeResources;
 namespace test {
 //----------------------------------------------------------------------------------------------------------------------
 
+std::string const KeyAgreementName = "kem-kyber768";
+std::string const CipherName = "aes-256-ctr";
+std::string const HashFunctionName = "sha384";
+
 //----------------------------------------------------------------------------------------------------------------------
 } // test namespace
 } // namespace
@@ -56,6 +62,7 @@ private:
     std::shared_ptr<Node::ServiceProvider> m_spServiceProvider;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
     std::shared_ptr<NodeState> m_spNodeState;
+    std::shared_ptr<Security::CipherService> m_spCipherService;
     std::shared_ptr<Awaitable::TrackingService> m_spTrackingService;
     std::shared_ptr<Peer::Test::ConnectProtocol> m_spConnectProtocol;
     std::shared_ptr<Peer::Test::MessageProcessor> m_spMessageProcessor;
@@ -65,7 +72,7 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-TEST(PeerExchangeSuite, PQNISTL3ExchangeSetupTest)
+TEST(PeerExchangeSuite, BasicExchangeSetupTest)
 {
     local::ExchangeResources server;
     local::ExchangeResources client;
@@ -73,7 +80,7 @@ TEST(PeerExchangeSuite, PQNISTL3ExchangeSetupTest)
     std::shared_ptr<Peer::Proxy> spServerProxy; // The server peer is associated with the client's manager.
     std::shared_ptr<Peer::Proxy> spClientProxy; // The client peer is associated with the server's manager.
 
-    // Simulate an endpoint delcaring that it is attempting to resolve a peer at a given uri. 
+    // Simulate an endpoint declaring that it is attempting to resolve a peer at a given uri. 
     auto const optRequest = client.GetProxyStore().DeclareResolvingPeer(Peer::Test::RemoteServerAddress);
     ASSERT_TRUE(optRequest);
     EXPECT_GT(optRequest->size(), std::size_t{ 0 });
@@ -108,7 +115,7 @@ TEST(PeerExchangeSuite, PQNISTL3ExchangeSetupTest)
     EXPECT_FALSE(spServerProxy->IsFlagged());
     EXPECT_EQ(client.GetProxyStore().ObservedCount(), std::size_t{ 1 });
 
-    // Simulate the clients's endpoint registering itself to the given server peer. 
+    // Simulate the client's endpoint registering itself to the given server peer. 
     spServerProxy->RegisterEndpoint(
         Peer::Test::EndpointIdentifier,
         Peer::Test::EndpointProtocol,
@@ -151,14 +158,25 @@ local::ExchangeResources::ExchangeResources()
     , m_spMessageProcessor(std::make_shared<Peer::Test::MessageProcessor>())
     , m_spProxyStore()
 {
+    auto const options = Configuration::Options::SupportedAlgorithms{
+        {
+            {
+                Security::ConfidentialityLevel::High,
+                Configuration::Options::Algorithms{ "high", { test::KeyAgreementName }, { test::CipherName }, { test::HashFunctionName } }
+            }
+        }
+    };
+
+    m_spCipherService = std::make_shared<Security::CipherService>(options);
+    m_spServiceProvider->Register(m_spCipherService);
+
     m_spServiceProvider->Register(m_spEventPublisher);
     m_spServiceProvider->Register(m_spNodeState);
     m_spServiceProvider->Register(m_spTrackingService);
     m_spServiceProvider->Register<IConnectProtocol>(m_spConnectProtocol);
     m_spServiceProvider->Register<IMessageSink>(m_spMessageProcessor);
 
-    m_spProxyStore = std::make_shared<Peer::ProxyStore>(
-        Security::Strategy::PQNISTL3, m_spRegistrar, m_spServiceProvider);
+    m_spProxyStore = std::make_shared<Peer::ProxyStore>(m_spRegistrar, m_spServiceProvider);
     m_spServiceProvider->Register<IResolutionService>(m_spProxyStore);
     
     EXPECT_TRUE(m_spRegistrar->Initialize());
@@ -171,7 +189,7 @@ local::ExchangeResources::ExchangeResources()
 Scheduler::Registrar& local::ExchangeResources::GetScheduler() const
 {
     if (!m_spRegistrar) {
-        throw std::logic_error("Peer exchange test resources have not be properly initialied!");
+        throw std::logic_error("Peer exchange test resources have not be properly initialized!");
     }
     return *m_spRegistrar;
 }
@@ -181,7 +199,7 @@ Scheduler::Registrar& local::ExchangeResources::GetScheduler() const
 Node::Identifier const& local::ExchangeResources::GetIdentifier() const
 {
     if (!m_spNodeState || !m_spNodeState->GetNodeIdentifier()) {
-        throw std::logic_error("Peer exchange test resources have not be properly initialied!");
+        throw std::logic_error("Peer exchange test resources have not be properly initialized!");
     }
     return *m_spNodeState->GetNodeIdentifier();
 }
@@ -191,7 +209,7 @@ Node::Identifier const& local::ExchangeResources::GetIdentifier() const
 Peer::Test::ConnectProtocol const& local::ExchangeResources::GetConnectProtocol() const
 {
     if (!m_spConnectProtocol) {
-        throw std::logic_error("Peer exchange test resources have not be properly initialied!");
+        throw std::logic_error("Peer exchange test resources have not be properly initialized!");
     }
     return *m_spConnectProtocol;
 }
@@ -201,7 +219,7 @@ Peer::Test::ConnectProtocol const& local::ExchangeResources::GetConnectProtocol(
 Peer::ProxyStore& local::ExchangeResources::GetProxyStore() const
 {
     if (!m_spProxyStore) {
-        throw std::logic_error("Peer exchange test resources have not be properly initialied!");
+        throw std::logic_error("Peer exchange test resources have not be properly initialized!");
     }
     return *m_spProxyStore;
 }
