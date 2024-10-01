@@ -9,6 +9,7 @@
 #include "PackUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <boost/json/value.hpp>
+#include <boost/json/value_from.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <algorithm>
 #include <cstdint>
@@ -109,7 +110,7 @@ public:
 
     virtual void ExtractToJsonValue(boost::json::value& target) override
     {
-        target = boost::json::value_from(*m_data);
+        target = boost::json::value_from(*m_data, boost::json::storage_ptr{});
     }
 	// } StorageInterface
 
@@ -233,7 +234,7 @@ inline std::unique_ptr<Message::StorageInterface> Message::StorageContainer<Stor
 template<Message::BufferStorageType StorageType>
 inline void Message::StorageContainer<StorageType>::ExtractToJsonValue(boost::json::value& target)
 {
-    target = boost::json::value_from(std::move(m_data));
+    target = boost::json::value_from(std::move(m_data), boost::json::storage_ptr{});
 }
 
 //----------------------------------------------------------------------------------------------------------------------

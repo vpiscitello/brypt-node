@@ -4,6 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
+#include <algorithm>
 #include <bit>
 #include <cassert>
 #include <cmath>
@@ -45,7 +46,7 @@ void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-// Note: Variable length buffers must be preceeded by its size. The caller must supply a unsigned 
+// Note: Variable length buffers must be preceded by its size. The caller must supply a unsigned 
 // integral type to indicate the size limit and ensure the source buffer does not exceed the 
 // maximum value representable by that type. If no type is provided, it assumed the source 
 // buffer is of a fixed size buffer and thus no size field will be appended. 
@@ -53,7 +54,7 @@ void PackChunk(Source const& source, std::vector<std::uint8_t>& destination)
 template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField>
 void PackChunk(std::span<std::uint8_t const> source, std::vector<std::uint8_t>& destination)
 {
-	// If the SizeField type is not void then preceed the buffer with its size.
+	// If the SizeField type is not void then precede the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
 		[[maybe_unused]] constexpr std::size_t FieldLimit = sizeof(SizeField);
 		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));
@@ -67,7 +68,7 @@ void PackChunk(std::span<std::uint8_t const> source, std::vector<std::uint8_t>& 
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-// Note: Variable length buffers must be preceeded by its size. The caller must supply a unsigned 
+// Note: Variable length buffers must be preceded by its size. The caller must supply a unsigned 
 // integral type to indicate the size limit and ensure the source buffer does not exceed the 
 // maximum value representable by that type. If no type is provided, it assumed the source 
 // buffer is of a fixed size buffer and thus no size field will be appended. 
@@ -75,7 +76,7 @@ void PackChunk(std::span<std::uint8_t const> source, std::vector<std::uint8_t>& 
 template<typename SizeField = void> requires std::is_void_v<SizeField> || std::unsigned_integral<SizeField> 
 void PackChunk(std::string_view source, std::vector<std::uint8_t>& destination)
 {
-	// If the SizeField type is not void then preceed the buffer with its size.
+	// If the SizeField type is not void then precede the buffer with its size.
 	if constexpr (!std::is_void_v<SizeField>) {
 		[[maybe_unused]] constexpr std::size_t FieldLimit = sizeof(SizeField);
 		assert(static_cast<double>(source.size()) < std::pow(2, 8 * FieldLimit));

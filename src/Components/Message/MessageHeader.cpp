@@ -111,7 +111,7 @@ Message::Buffer Message::Header::GetPackedBuffer() const
     //      - (Optional) Section 6.1 (1 byte): Destination Identifier Size
     //      - (Optional) Section 6.2 (N bytes): Destination Identifier
     //  - Section 7 (8 bytes): Message Timestamp
-    //  - Section 8 (1 byte): Extenstions Count
+    //  - Section 8 (1 byte): Extensions Count
     //      - Section 8.1 (1 byte): Extension Type      |   Start Repetition
     //      - Section 8.2 (2 bytes): Extension Size     |
     //      - Section 8.3 (N bytes): Extension Data     |   End Repetition
@@ -164,7 +164,7 @@ bool Message::Header::ParseBuffer(
 
     // Unpack the message protocol
     m_protocol = local::UnpackProtocol(begin, end);
-    // If the unpacked message protocol is invalid there is no need to contianue
+    // If the unpacked message protocol is invalid there is no need to continue
     if (m_protocol == Message::Protocol::Invalid) { return false; }
 
     // Unpack the message major and minor version numbers

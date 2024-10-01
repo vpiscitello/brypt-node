@@ -6,7 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "MessageTypes.hpp"
 #include "PackUtils.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
 #include "Utilities/TimeUtils.hpp"
 #include "Utilities/Z85.hpp"
 //----------------------------------------------------------------------------------------------------------------------

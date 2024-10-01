@@ -134,7 +134,7 @@ std::string Message::Platform::Parcel::GetPack() const
     //  - Section 1 (1 bytes): Network Message Type
     //  - Section 2 (4 bytes): Network Payload Size
     //  - Section 3 (N bytes): Network Payload
-    //  - Section 4 (1 byte): Extenstions Count
+    //  - Section 4 (1 byte): Extensions Count
     //      - Section 4.1 (1 byte): Extension Type      |   Extension Start
     //      - Section 4.2 (2 bytes): Extension Size     |
     //      - Section 4.3 (N bytes): Extension Data     |   Extension End
@@ -144,12 +144,6 @@ std::string Message::Platform::Parcel::GetPack() const
 
 	// Extension Packing
 	PackUtils::PackChunk(std::uint8_t(0), buffer);
-
-	// Calculate the number of bytes needed to pad to next 4 byte boundary
-	auto const paddingBytesRequired = (4 - (buffer.size() & 3)) & 3;
-	// Pad the message to ensure the encoding method doesn't add padding to the end of the message.
-	Message::Buffer padding(paddingBytesRequired, 0);
-	buffer.insert(buffer.end(), padding.begin(), padding.end());
 
 	return Z85::Encode(buffer);
 }

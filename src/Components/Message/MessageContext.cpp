@@ -73,10 +73,13 @@ bool Message::Context::HasSecurityHandlers() const
 //----------------------------------------------------------------------------------------------------------------------
 
 void Message::Context::BindEncryptionHandlers(
-	Security::Encryptor const& encryptor, Security::Decryptor const& decryptor)
+	Security::Encryptor const& encryptor,
+	Security::Decryptor const& decryptor,
+	Security::EncryptedSizeGetter const& encryptedSizeGetter)
 {
 	m_encryptor = encryptor;
 	m_decryptor = decryptor;
+	m_getEncryptedSize = encryptedSizeGetter;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -84,38 +87,42 @@ void Message::Context::BindEncryptionHandlers(
 void Message::Context::BindSignatureHandlers(
 	Security::Signator const& signator,
 	Security::Verifier const& verifier,
-	Security::SignatureSizeGetter const& getter)
+	Security::SignatureSizeGetter const& signatureSizeGetter)
 {
 	m_signator = signator;
 	m_verifier = verifier;
-	m_getSignatureSize = getter;
+	m_getSignatureSize = signatureSizeGetter;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Encryptor::result_type Message::Context::Encrypt(
-	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
+Security::Encryptor::result_type Message::Context::Encrypt(Security::ReadableView plaintext, Security::Buffer& destination) const
 {
-    assert(timestamp.count() >= 0);
 	if (m_wpProxy.expired()) { return {}; }
-	return m_encryptor(buffer, static_cast<std::uint64_t>(timestamp.count()));
+	return m_encryptor(plaintext, destination);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::Decryptor::result_type Message::Context::Decrypt(
-	std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const
+Security::Decryptor::result_type Message::Context::Decrypt(Security::ReadableView ciphertext) const
 {
-    assert(timestamp.count() >= 0);
 	if (m_wpProxy.expired()) { return {}; }
-	return m_decryptor(buffer, static_cast<std::uint64_t>(timestamp.count()));
+	return m_decryptor(ciphertext);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+std::size_t Message::Context::GetEncryptedSize(std::size_t size) const
+{
+	if (m_wpProxy.expired()) { return std::numeric_limits<std::size_t>::min(); }
+	return m_getEncryptedSize(size);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
 Security::Signator::result_type Message::Context::Sign(Message::Buffer& buffer) const
 {
-	if (m_wpProxy.expired()) { return std::numeric_limits<Security::Signator::result_type>::min(); }
+	if (m_wpProxy.expired()) { return false; }
 	return m_signator(buffer);
 }
 

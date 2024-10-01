@@ -5,7 +5,7 @@
 #include "MessageUtils.hpp"
 #include "MessageHeader.hpp"
 #include "PackUtils.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 
 Message::Protocol Message::ConvertToProtocol(std::underlying_type_t<Message::Protocol> protocol)

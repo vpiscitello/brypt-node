@@ -48,20 +48,20 @@ public:
 	[[nodiscard]] bool HasSecurityHandlers() const;
 
 	void BindEncryptionHandlers(
-		Security::Encryptor const& encryptor, Security::Decryptor const& decryptor);
+		Security::Encryptor const& encryptor,
+		Security::Decryptor const& decryptor,
+		Security::EncryptedSizeGetter const& encryptedSizeGetter);
 	
 	void BindSignatureHandlers(
 		Security::Signator const& signator,
 		Security::Verifier const& verifier,
-		Security::SignatureSizeGetter const& getter);
+		Security::SignatureSizeGetter const& signatureSizeGetter);
 
-	[[nodiscard]] Security::Encryptor::result_type Encrypt(
-		std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const;
-	[[nodiscard]] Security::Decryptor::result_type Decrypt(
-		std::span<std::uint8_t const> buffer, TimeUtils::Timestamp const& timestamp) const;
+	[[nodiscard]] Security::Encryptor::result_type Encrypt(Security::ReadableView plaintext, Security::Buffer& destination) const;
+	[[nodiscard]] Security::Decryptor::result_type Decrypt(Security::ReadableView ciphertext) const;
+	[[nodiscard]] std::size_t GetEncryptedSize(std::size_t size) const;
 	[[nodiscard]] Security::Signator::result_type Sign(Message::Buffer& buffer) const;
-	[[nodiscard]] Security::Verifier::result_type Verify(
-		std::span<std::uint8_t const> buffer) const;
+	[[nodiscard]] Security::Verifier::result_type Verify(std::span<std::uint8_t const> buffer) const;
 	[[nodiscard]] std::size_t GetSignatureSize() const;
 
 	UT_SupportMethod(void BindProxy(std::weak_ptr<Peer::Proxy> const& wpProxy));
@@ -74,6 +74,7 @@ private:
 
 	Security::Encryptor m_encryptor;
 	Security::Decryptor m_decryptor;
+	Security::EncryptedSizeGetter m_getEncryptedSize;
 	Security::Signator m_signator;
 	Security::Verifier m_verifier;
 	Security::SignatureSizeGetter m_getSignatureSize;
