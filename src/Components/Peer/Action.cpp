@@ -4,10 +4,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Action.hpp"
 #include "Proxy.hpp"
-#include "BryptIdentifier/ReservedIdentifiers.hpp"
-#include "BryptMessage/MessageDefinitions.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Identifier/ReservedIdentifiers.hpp"
+#include "Components/Message/MessageDefinitions.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/State/NetworkState.hpp"
 #include "Components/State/NodeState.hpp"

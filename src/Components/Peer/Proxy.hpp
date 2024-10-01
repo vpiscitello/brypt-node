@@ -8,17 +8,17 @@
 #include "Registration.hpp"
 #include "Resolver.hpp"
 #include "Statistics.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/MessageTypes.hpp"
-#include "BryptMessage/ShareablePack.hpp"
 #include "Components/Awaitable/Definitions.hpp"
 #include "Components/Event/Events.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/MessageTypes.hpp"
+#include "Components/Message/ShareablePack.hpp"
 #include "Components/Network/Actions.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
+#include "Components/Security/CipherPackage.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/MessageSink.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/CallbackIteration.hpp"
 #include "Utilities/InvokeContext.hpp"
 #include "Utilities/TokenizedInstance.hpp"
@@ -133,7 +133,7 @@ public:
     [[nodiscard]] bool AttachResolver(std::unique_ptr<Resolver>&& upResolver);
     void DetachResolver();
     [[nodiscard]] bool StartExchange(
-        Security::Strategy strategy, Security::Role role, std::shared_ptr<Node::ServiceProvider> spServiceProvider);
+        Security::ExchangeRole role, std::shared_ptr<Node::ServiceProvider> spServiceProvider);
     [[nodiscard]] Security::State GetAuthorization() const;
     [[nodiscard]] bool IsFlagged() const;
     [[nodiscard]] bool IsAuthorized() const;
@@ -143,7 +143,7 @@ public:
     UT_SupportMethod(void SetResolutionService(std::weak_ptr<IResolutionService> const& wpResolutionService));
     UT_SupportMethod(void SetReceiver(IMessageSink* const pMessageSink));
     UT_SupportMethod(void SetAuthorization(Security::State state));
-    UT_SupportMethod(void AttachSecurityStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy));
+    UT_SupportMethod(void AttachCipherPackage(std::unique_ptr<Security::CipherPackage>&& upCipherPackage));
     UT_SupportMethod(
         void RegisterSilentEndpoint(
             Network::Endpoint::Identifier identifier,
@@ -173,7 +173,7 @@ private:
     std::atomic<Security::State> m_authorization;
     mutable std::shared_mutex m_securityMutex;
     std::unique_ptr<Resolver> m_upResolver;
-    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
+    std::unique_ptr<Security::CipherPackage> m_upCipherPackage;
 
     mutable std::recursive_mutex m_endpointsMutex;
     RegisteredEndpoints m_endpoints;

@@ -6,8 +6,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Proxy.hpp"
 #include "Resolver.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
 #include "Components/Event/SharedPublisher.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -49,7 +49,6 @@ public:
     using ClusterRequestResult = std::optional<std::pair<Awaitable::TrackerKey, std::size_t>>;
 
     ProxyStore(
-        Security::Strategy strategy,
         std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
         std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
@@ -164,7 +163,6 @@ private:
 
     Node::SharedIdentifier m_spNodeIdentifier;
     Event::SharedPublisher const m_spEventPublisher;
-    Security::Strategy m_strategyType;
     
     mutable std::mutex m_observersMutex;
     ObserverSet m_observers;

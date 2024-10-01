@@ -3,17 +3,16 @@
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #include "Proxy.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/ReservedIdentifiers.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Identifier/ReservedIdentifiers.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/MessageContext.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/ResolutionService.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 //----------------------------------------------------------------------------------------------------------------------
@@ -26,7 +25,7 @@ Peer::Proxy::Proxy(
     , m_authorization(Security::State::Unauthorized)
     , m_securityMutex()
     , m_upResolver()
-    , m_upSecurityStrategy()
+    , m_upCipherPackage()
     , m_endpointsMutex()
     , m_endpoints()
     , m_associatedMutex()
@@ -460,9 +459,9 @@ bool Peer::Proxy::AttachResolver(std::unique_ptr<Resolver>&& upResolver)
     m_pEnabledProcessor = pExchangeSink;
 
     m_upResolver->BindCompletionHandlers(
-        [this] (std::unique_ptr<ISecurityStrategy>&& upSecurityStrategy) {
+        [this] (std::unique_ptr<Security::CipherPackage>&& upCipherPackage) {
             std::scoped_lock lock{ m_securityMutex };
-            m_upSecurityStrategy = std::move(upSecurityStrategy);
+            m_upCipherPackage = std::move(upCipherPackage);
         },
         [this] (ExchangeStatus status) {
             std::scoped_lock lock{ m_securityMutex, m_receiverMutex };
@@ -504,22 +503,22 @@ void Peer::Proxy::DetachResolver()
 //----------------------------------------------------------------------------------------------------------------------
 
 bool Peer::Proxy::StartExchange(
-    Security::Strategy strategy, Security::Role role, std::shared_ptr<Node::ServiceProvider> spServiceProvider)
+    Security::ExchangeRole role, std::shared_ptr<Node::ServiceProvider> spServiceProvider)
 {
     {
         std::shared_lock lock{ m_securityMutex };
         if (m_upResolver) [[unlikely]] { return false; }
     }
 
-    auto upResolver = std::make_unique<Resolver>(Security::Context::Unique);
+    auto upResolver = std::make_unique<Resolver>();
     switch (role) {
-        case Security::Role::Acceptor: {
-            bool const result = upResolver->SetupExchangeAcceptor(strategy, spServiceProvider);
+        case Security::ExchangeRole::Acceptor: {
+            bool const result = upResolver->SetupExchangeAcceptor(spServiceProvider);
             return result && AttachResolver(std::move(upResolver));
         }
-        case Security::Role::Initiator: {
+        case Security::ExchangeRole::Initiator: {
             assert(false); // Currently, we only support starting an accepting resolver. 
-            auto optRequest = upResolver->SetupExchangeInitiator(strategy, spServiceProvider);
+            auto optRequest = upResolver->SetupExchangeInitiator(spServiceProvider);
             if (!optRequest || !AttachResolver(std::move(upResolver))) { return false; }
             return ScheduleSend(std::numeric_limits<std::uint32_t>::max(), std::move(*optRequest));
         }
@@ -589,35 +588,38 @@ Peer::Proxy::AssociatedAddresses::const_iterator Peer::Proxy::FindRemote(std::st
 
 void Peer::Proxy::BindSecurityContext(Message::Context& context)
 {
-    auto const& upStrategy = m_upSecurityStrategy;
-
     context.BindEncryptionHandlers(
-        [&mutex = m_securityMutex, &upStrategy] (auto buffer, auto nonce) -> Security::Encryptor::result_type {
-            std::shared_lock lock{ mutex };
-            if (!upStrategy) [[unlikely]] { return {}; }
-            return upStrategy->Encrypt(buffer, nonce);
+        [this] (auto plaintext, auto& destination) -> Security::Encryptor::result_type {
+            std::shared_lock lock{ m_securityMutex };
+            if (!m_upCipherPackage) [[unlikely]] { return {}; }
+            return m_upCipherPackage->Encrypt(plaintext, destination);
         },
-        [&mutex = m_securityMutex, &upStrategy] (auto buffer, auto nonce) -> Security::Decryptor::result_type {
-            std::shared_lock lock{ mutex };
-            if (!upStrategy) [[unlikely]] { return {}; }
-            return upStrategy->Decrypt(buffer, nonce);
+        [this] (auto ciphertext) -> Security::Decryptor::result_type {
+            std::shared_lock lock{ m_securityMutex };
+            if (!m_upCipherPackage) [[unlikely]] { return {}; }
+            return m_upCipherPackage->Decrypt(ciphertext);
+        },
+        [this] (std::size_t size) -> Security::EncryptedSizeGetter::result_type {
+            std::shared_lock lock{ m_securityMutex };
+            if (!m_upCipherPackage) [[unlikely]] { return size; }
+            return m_upCipherPackage->GetSuite().GetEncryptedSize(size);
         });
 
     context.BindSignatureHandlers(
-        [&mutex = m_securityMutex, &upStrategy] (auto& buffer) -> Security::Signator::result_type {
-            std::shared_lock lock{ mutex };
-            if (!upStrategy) [[unlikely]] { return -1; }
-            return upStrategy->Sign(buffer);
+        [this] (auto& buffer) -> Security::Signator::result_type {
+            std::shared_lock lock{ m_securityMutex };
+            if (!m_upCipherPackage) [[unlikely]] { return false; }
+            return m_upCipherPackage->Sign(buffer);
         },
-        [&mutex = m_securityMutex, &upStrategy] (auto buffer) -> Security::Verifier::result_type {
-            std::shared_lock lock{ mutex };
-            if (!upStrategy) [[unlikely]] { return Security::VerificationStatus::Failed; }
-            return upStrategy->Verify(buffer);
+        [this] (auto buffer) -> Security::Verifier::result_type {
+            std::shared_lock lock{ m_securityMutex };
+            if (!m_upCipherPackage) [[unlikely]] { return Security::VerificationStatus::Failed; }
+            return m_upCipherPackage->Verify(buffer);
         },
-        [&mutex = m_securityMutex, &upStrategy] () -> Security::SignatureSizeGetter::result_type {
-            std::shared_lock lock{ mutex };
-            if (!upStrategy) [[unlikely]] { return 0; }
-            return upStrategy->GetSignatureSize();
+        [this] () -> Security::SignatureSizeGetter::result_type {
+            std::shared_lock lock{ m_securityMutex };
+            if (!m_upCipherPackage) [[unlikely]] { return 0; }
+            return m_upCipherPackage->GetSuite().GetSignatureSize();
         });
 }
 
@@ -647,11 +649,11 @@ void Peer::Proxy::SetAuthorization<InvokeContext::Test>(Security::State state) {
 //----------------------------------------------------------------------------------------------------------------------
 
 template <>
-void Peer::Proxy::AttachSecurityStrategy<InvokeContext::Test>(std::unique_ptr<ISecurityStrategy>&& upStrategy)
+void Peer::Proxy::AttachCipherPackage<InvokeContext::Test>(std::unique_ptr<Security::CipherPackage>&& upCipherPackage)
 {
     assert(!m_upResolver);
-    m_upSecurityStrategy = std::move(upStrategy);
-    assert(m_upSecurityStrategy);
+    m_upCipherPackage = std::move(upCipherPackage);
+    assert(m_upCipherPackage);
 
     // Ensure any registered endpoints have their message contexts updated to the new mediator's security context.
     std::scoped_lock endpointsLock{ m_endpointsMutex };
@@ -675,15 +677,21 @@ void Peer::Proxy::RegisterSilentEndpoint<InvokeContext::Test>(
 
     // By default, bind simple passthrough for the context handlers. 
     auto& context = itr->second.GetWritableMessageContext();
- 
+
     context.BindEncryptionHandlers(
-        [] (auto const& buffer, auto) -> Security::Encryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); },
-        [] (auto const& buffer, auto) -> Security::Decryptor::result_type 
-            { return Security::Buffer(buffer.begin(), buffer.end()); });
+        [] (auto plaintext, auto& destination) -> Security::Encryptor::result_type {
+            std::ranges::copy(plaintext, std::back_inserter(destination));
+            return true;
+        },
+        [] (auto ciphertext) -> Security::Decryptor::result_type {
+            return Security::Buffer(ciphertext.begin(), ciphertext.end());
+        },
+        [] (std::size_t size) -> Security::EncryptedSizeGetter::result_type {
+            return size;
+        });
 
     context.BindSignatureHandlers(
-        [] (auto&) -> Security::Signator::result_type  { return 0; },
+        [] (auto&) -> Security::Signator::result_type  { return true; },
         [] (auto const&) -> Security::Verifier::result_type { return Security::VerificationStatus::Success; },
         [] () -> Security::SignatureSizeGetter::result_type { return 0; });
 

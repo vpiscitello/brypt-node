@@ -4,11 +4,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/Extension.hpp"
-#include "BryptMessage/MessageDefinitions.hpp"
-#include "BryptMessage/Payload.hpp"
 #include "Components/Awaitable/Definitions.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/Extension.hpp"
+#include "Components/Message/MessageDefinitions.hpp"
+#include "Components/Message/Payload.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------

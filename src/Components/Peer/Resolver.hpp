@@ -4,10 +4,11 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Security/CipherPackage.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
 #include "Components/Security/SecurityState.hpp"
-#include "Components/MessageControl/ExchangeProcessor.hpp"
+#include "Components/Processor/ExchangeProcessor.hpp"
 #include "Interfaces/ExchangeObserver.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -18,7 +19,6 @@
 
 class ExchangeProcessor;
 class IConnectProtocol;
-class ISecurityStrategy;
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Peer {
@@ -35,9 +35,9 @@ class Peer::Resolver final : public IExchangeObserver
 {
 public:
     using OnExchangeCompleted = std::function<void(ExchangeStatus)>;
-    using OnStrategyFulfilled = std::function<void(std::unique_ptr<ISecurityStrategy>&& upStrategy)>;
+    using OnStrategyFulfilled = std::function<void(std::unique_ptr<Security::CipherPackage>&& upCipherPackage)>;
 
-    explicit Resolver(Security::Context context);
+    Resolver();
     ~Resolver();
 
     Resolver(Resolver&& other) = delete;
@@ -47,32 +47,26 @@ public:
 
     // IExchangeObserver {
     virtual void OnExchangeClose(ExchangeStatus status) override;
-    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) override;
+    virtual void OnFulfilledStrategy(std::unique_ptr<Security::CipherPackage>&& upCipherPackage) override;
     // } IExchangeObserver
 
     [[nodiscard]] IMessageSink* GetExchangeSink() const;
     void BindCompletionHandlers(OnStrategyFulfilled const& onFulfilled, OnExchangeCompleted const& onCompleted);
 
     [[nodiscard]] std::optional<std::string> SetupExchangeInitiator(
-        Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
+       std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     [[nodiscard]] bool SetupExchangeAcceptor(
-        Security::Strategy strategy, std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider);
 
     // Testing Methods  {
-    UT_SupportMethod([[nodiscard]] bool SetupTestProcessor(
+    UT_SupportMethod([[nodiscard]] bool SetupCustomExchange(
         std::shared_ptr<Node::ServiceProvider> const& spServiceProvider,
-        std::unique_ptr<ISecurityStrategy>&& upStrategy));
+        std::unique_ptr<ISynchronizer>&& upSynchronizer));
     // } Testing Methods 
 
 private:
-    [[nodiscard]] bool SetupExchangeProcessor(
-        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider,
-        std::unique_ptr<ISecurityStrategy>&& upStrategy);
-        
     mutable std::shared_mutex m_mutex;
-
-    Security::Context m_context;
     std::unique_ptr<ExchangeProcessor> m_upExchange;
     OnStrategyFulfilled m_onStrategyFulfilled;
     OnExchangeCompleted m_onExchangeCompleted;

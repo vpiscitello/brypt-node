@@ -3,11 +3,11 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "ProxyStore.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/PlatformMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/PlatformMessage.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Security/SecurityDefinitions.hpp"
@@ -17,7 +17,6 @@
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Interfaces/PeerObserver.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
 #include <random>
@@ -37,13 +36,11 @@ namespace local {
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 Peer::ProxyStore::ProxyStore(
-    Security::Strategy strategy,
     std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
     std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
     : m_spDelegate()
     , m_spNodeIdentifier()
     , m_spEventPublisher(spServiceProvider->Fetch<Event::Publisher>())
-    , m_strategyType(strategy)
     , m_observersMutex()
     , m_observers()
     , m_resolvingMutex()
@@ -56,8 +53,6 @@ Peer::ProxyStore::ProxyStore(
     , m_spConnectProtocol(spServiceProvider->Fetch<IConnectProtocol>())
     , m_wpServiceProvider(spServiceProvider)
 {
-    assert(m_strategyType != Security::Strategy::Invalid);
-
     m_spDelegate = spRegistrar->Register<Peer::ProxyStore>([this] (Scheduler::Frame const&) -> std::size_t {
         return Execute();  // Dispatch any fulfilled awaiting messages since this last cycle. 
     }); 
@@ -114,8 +109,8 @@ Peer::ProxyStore::OptionalRequest Peer::ProxyStore::DeclareResolvingPeer(
     }
     
     // Store the resolver such that when the endpoint links the peer it can be attached to the real peer proxy. 
-    auto upResolver = std::make_unique<Resolver>(Security::Context::Unique);
-    auto optRequest = upResolver->SetupExchangeInitiator(m_strategyType, spServiceProvider);
+    auto upResolver = std::make_unique<Resolver>();
+    auto optRequest = upResolver->SetupExchangeInitiator(spServiceProvider);
     assert(optRequest);
 
     m_resolving[address] = std::move(upResolver);
@@ -535,7 +530,7 @@ Peer::ProxyStore::OptionalRequest Peer::ProxyStore::GenerateShortCircuitRequest(
     // If the peer is not currently tracked, a exchange short circuit message cannot be generated. 
     if(auto const itr = m_peers.find(*spPeerIdentifier); itr == m_peers.end()) { return {}; }
 
-    // Currently, the short circuiting method is to notify the peer via a heatbeat request. 
+    // Currently, the short circuiting method is to notify the peer via a heartbeat request. 
     auto const optRequest = Message::Platform::Parcel::GetBuilder()
         .SetSource(*m_spNodeIdentifier)
         .SetDestination(*spPeerIdentifier)
@@ -579,8 +574,7 @@ void Peer::ProxyStore::AttachOrCreateExchange(std::shared_ptr<Proxy> const& spPr
     }
 
     if (auto const spServiceProvider = m_wpServiceProvider.lock(); spServiceProvider) {
-        [[maybe_unused]] bool const result = spProxy->StartExchange(
-            m_strategyType, Security::Role::Acceptor, spServiceProvider);
+        [[maybe_unused]] bool const result = spProxy->StartExchange(Security::ExchangeRole::Acceptor, spServiceProvider);
         assert(result);
     }
 }
@@ -591,7 +585,7 @@ template<typename FunctionType, typename...Args>
 void Peer::ProxyStore::NotifyObservers(FunctionType const& function, Args&&...args)
 {
     for (auto itr = m_observers.cbegin(); itr != m_observers.cend();) {
-        auto const& observer = *itr; // Get a refernce to the current observer pointer.
+        auto const& observer = *itr; // Get a reference to the current observer pointer.
         // If the observer is no longer valid erase the dangling pointer from the set.
         if (!observer) { itr = m_observers.erase(itr); continue; } 
         auto const binder = std::bind(function, observer, std::forward<Args>(args)...);
