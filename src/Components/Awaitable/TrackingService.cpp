@@ -3,8 +3,8 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "TrackingService.hpp"
-#include "BryptNode/ServiceProvider.hpp"
-#include "Components/MessageControl/AuthorizedProcessor.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Processor/AuthorizedProcessor.hpp"
 #include "Components/Scheduler/Delegate.hpp"
 #include "Components/Scheduler/Registrar.hpp"
 #include "Components/Scheduler/TaskService.hpp"
@@ -26,7 +26,7 @@ Awaitable::TrackingService::TrackingService(std::shared_ptr<Scheduler::Registrar
     , m_mutex()
     , m_trackers()
     , m_ready()
-    , m_logger(spdlog::get(Logger::Name::Core.data()))
+    , m_logger(spdlog::get(Logger::Name.data()))
 {
     assert(Assertions::Threading::IsCoreThread());
     assert(m_logger);
@@ -299,24 +299,24 @@ std::optional<Awaitable::TrackerKey> Awaitable::TrackingService::GenerateKey(Nod
     std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> upDigestContext(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
     std::array<std::uint8_t, MD5_DIGEST_LENGTH> digest{ 0 };
 	
-    if (ERR_get_error() != 0 || upDigestContext == nullptr) { return {}; }
+    if (!upDigestContext) { return {}; }
 
-    if(!EVP_DigestInit_ex(upDigestContext.get(), EVP_md5(), nullptr)) { return { }; }
+    if(EVP_DigestInit_ex(upDigestContext.get(), EVP_md5(), nullptr) <= 0) { return { }; }
 
     Node::Internal::Identifier const internal = identifier;
-    if (!EVP_DigestUpdate(upDigestContext.get(), &internal, sizeof(internal))) { return { }; }
+    if (EVP_DigestUpdate(upDigestContext.get(), &internal, sizeof(internal)) <= 0) { return { }; }
 
     auto const timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
-    if (!EVP_DigestUpdate(upDigestContext.get(), &timestamp, sizeof(timestamp))) { return { }; }
+    if (EVP_DigestUpdate(upDigestContext.get(), &timestamp, sizeof(timestamp)) <= 0) { return { }; }
 
     constexpr std::int32_t SaltSize = 8;
     std::array<std::uint8_t, SaltSize> salt;
-    if (!RAND_bytes(salt.data(), SaltSize)) { return { }; }
-    if (!EVP_DigestUpdate(upDigestContext.get(), salt.data(), salt.size())) { return { }; }
+    if (RAND_bytes(salt.data(), SaltSize) <= 0) { return { }; }
+    if (EVP_DigestUpdate(upDigestContext.get(), salt.data(), salt.size()) <= 0) { return { }; }
 
     std::uint32_t length = MD5_DIGEST_LENGTH;
-    if (!EVP_DigestFinal_ex(upDigestContext.get(), digest.data(), &length)) { return { }; }
+    if (EVP_DigestFinal_ex(upDigestContext.get(), digest.data(), &length) <= 0) { return { }; }
     if(length != digest.size()) { return { }; }
 
     return digest;

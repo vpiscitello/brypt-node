@@ -4,9 +4,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/Payload.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/Payload.hpp"
 #include "Components/Peer/Action.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------
