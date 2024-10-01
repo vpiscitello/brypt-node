@@ -50,10 +50,8 @@ inline bool FileUtils::IsNewlineOrTab(char c)
 {
     switch (c) {
         case '\n':
-        case '\t':
-            return true;
-        default:
-            return false;
+        case '\t': return true;
+        default: return false;
     }
 }
 
