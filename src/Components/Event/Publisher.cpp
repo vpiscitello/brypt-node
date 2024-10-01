@@ -105,7 +105,7 @@ std::size_t Event::Publisher::Dispatch()
     // Pull and clear the publisher's queued events to quickly unblock future events.
     auto const events = ( std::scoped_lock{ m_eventsMutex }, std::exchange(m_events, {}) );
     for (auto const& upEventProxy : events) {
-        // Get the listeners for the event. If there is an event to be published, it should be guarenteed that there
+        // Get the listeners for the event. If there is an event to be published, it should be guarantied that there
         // is at least one listener for that particular event. 
         auto const& listeners = m_listeners[upEventProxy->GetType()];
         assert(listeners.size() != 0); 
@@ -121,7 +121,7 @@ std::size_t Event::Publisher::Dispatch()
 
 void Event::Publisher::Publish(Type type, EventProxy&& upEventProxy)
 {
-    assert(m_hasSuspendedSubscriptions); // We assert that subscriptions has been suspended before publsihing has begun.
+    assert(m_hasSuspendedSubscriptions); // We assert that subscriptions has been suspended before publishing has begun.
 
     // If there are no listeners for the specified event, there is point in adding it to the queue. All event listeners
     // should be registered before starting the node. 
