@@ -87,7 +87,7 @@ BRYPT_CONSTANT brypt_option_t BRYPT_OPT_BASE_FILEPATH = BRYPT_CONFIGURATION_VALU
 BRYPT_CONSTANT brypt_option_t BRYPT_OPT_CONFIGURATION_FILENAME = BRYPT_CONFIGURATION_VALUE(2);
 BRYPT_CONSTANT brypt_option_t BRYPT_OPT_BOOTSTRAP_FILENAME = BRYPT_CONFIGURATION_VALUE(3);
 BRYPT_CONSTANT brypt_option_t BRYPT_OPT_CORE_THREADS = BRYPT_CONFIGURATION_VALUE(10);
-BRYPT_CONSTANT brypt_option_t BRYPT_OPT_IDENTIFIER_TYPE = BRYPT_CONFIGURATION_VALUE(16);
+BRYPT_CONSTANT brypt_option_t BRYPT_OPT_IDENTIFIER_PERSISTENCE = BRYPT_CONFIGURATION_VALUE(16);
 BRYPT_CONSTANT brypt_option_t BRYPT_OPT_USE_BOOTSTRAPS = BRYPT_CONFIGURATION_VALUE(17);
 BRYPT_CONSTANT brypt_option_t BRYPT_OPT_NODE_NAME = BRYPT_CONFIGURATION_VALUE(32);
 BRYPT_CONSTANT brypt_option_t BRYPT_OPT_NODE_DESCRIPTION = BRYPT_CONFIGURATION_VALUE(33);
@@ -188,9 +188,16 @@ BRYPT_CONSTANT int32_t BRYPT_DISABLE_CORE_THREAD = 0;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-typedef int32_t brypt_identifier_type_t;
-BRYPT_CONSTANT brypt_identifier_type_t BRYPT_IDENTIFIER_EPHEMERAL = 0;
-BRYPT_CONSTANT brypt_identifier_type_t BRYPT_IDENTIFIER_PERSISTENT = 1;
+typedef int32_t brypt_identifier_persistence_t;
+BRYPT_CONSTANT brypt_identifier_persistence_t BRYPT_IDENTIFIER_EPHEMERAL = 0;
+BRYPT_CONSTANT brypt_identifier_persistence_t BRYPT_IDENTIFIER_PERSISTENT = 1;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+typedef int32_t brypt_confidentiality_level_t;
+BRYPT_CONSTANT brypt_confidentiality_level_t BRYPT_CONFIDENTIALITY_LEVEL_LOW = 1;
+BRYPT_CONSTANT brypt_confidentiality_level_t BRYPT_CONFIDENTIALITY_LEVEL_MEDIUM = 2;
+BRYPT_CONSTANT brypt_confidentiality_level_t BRYPT_CONFIDENTIALITY_LEVEL_HIGH = 3;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -210,11 +217,6 @@ typedef int32_t brypt_authorization_state_t;
 BRYPT_CONSTANT brypt_authorization_state_t BRYPT_UNAUTHORIZED_STATE = 1;
 BRYPT_CONSTANT brypt_authorization_state_t BRYPT_AUTHORIZED_STATE = 2;
 BRYPT_CONSTANT brypt_authorization_state_t BRYPT_FLAGGED_STATE = 3;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-typedef int32_t brypt_strategy_t;
-BRYPT_CONSTANT brypt_strategy_t BRYPT_STRATEGY_PQNISTL3 = 4099;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -248,12 +250,25 @@ BRYPT_DECLARE_HANDLE(next_key);
 
 //----------------------------------------------------------------------------------------------------------------------
 
+struct brypt_option_algorithms_package_t
+{
+    brypt_confidentiality_level_t level;
+    char const* const* const key_agreements;
+    size_t key_agreements_size;
+    char const* const* const ciphers;
+    size_t ciphers_size;
+    char const* const* const hash_functions;
+    size_t hash_functions_size;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
 struct brypt_option_endpoint_t
 {
     brypt_protocol_t protocol;
-    char const* interface;
-    char const* binding;
-    char const* bootstrap;
+    char const* const interface;
+    char const* const binding;
+    char const* const bootstrap;
 };
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -261,7 +276,7 @@ struct brypt_option_endpoint_t
 struct brypt_remote_address_t
 {
     brypt_protocol_t protocol;
-    char const* uri;
+    char const* const uri;
     size_t size;
     bool bootstrapable;
 };
@@ -280,7 +295,7 @@ struct brypt_peer_details_t
 {
     brypt_connection_state_t connection_state;
     brypt_authorization_state_t authorization_state;
-    brypt_remote_address_t const* remotes;
+    brypt_remote_address_t const* const remotes;
     size_t remotes_size;
     brypt_peer_statistics_t statistics;
 };
@@ -361,6 +376,10 @@ struct brypt_next_defer_t
     notice_t notice;
     response_t response;
 };
+
+//----------------------------------------------------------------------------------------------------------------------
+
+typedef bool (*brypt_option_supported_algorithms_reader_t) (brypt_option_algorithms_package_t const* const options, void* context);
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -450,6 +469,23 @@ BRYPT_EXPORT brypt_result_t brypt_option_set_string(
 BRYPT_EXPORT bool brypt_option_is_bool_type(brypt_option_t option) BRYPT_NOEXCEPT;
 BRYPT_EXPORT bool brypt_option_is_int_type(brypt_option_t option) BRYPT_NOEXCEPT;
 BRYPT_EXPORT bool brypt_option_is_string_type(brypt_option_t option) BRYPT_NOEXCEPT;
+
+BRYPT_EXPORT brypt_result_t brypt_option_read_supported_algorithms(
+    brypt_service_t const* const service, brypt_option_supported_algorithms_reader_t callback, void* context) BRYPT_NOEXCEPT;
+BRYPT_EXPORT brypt_result_t brypt_option_clear_supported_algorithms(brypt_service_t* const service) BRYPT_NOEXCEPT;
+BRYPT_EXPORT brypt_result_t brypt_option_set_supported_algorithms(
+    brypt_service_t* const service,
+    brypt_option_algorithms_package_t const* const* const entries,
+    size_t size) BRYPT_NOEXCEPT;
+BRYPT_EXPORT brypt_result_t brypt_option_set_algorithms_for_level(
+    brypt_service_t* const service,
+    brypt_confidentiality_level_t level,
+    char const* const* const key_agreements,
+    size_t key_agreements_size,
+    char const* const* const ciphers,
+    size_t ciphers_size,
+    char const* const* const hash_functions,
+    size_t hash_functions_size) BRYPT_NOEXCEPT;
 
 BRYPT_EXPORT size_t brypt_option_get_endpoint_count(brypt_service_t const* const service) BRYPT_NOEXCEPT;
 BRYPT_EXPORT brypt_result_t brypt_option_read_endpoints(

@@ -17,7 +17,7 @@ namespace brypt {
 
 class identifier;
 
-enum class identifier_type : std::int32_t {
+enum class identifier_persistence : std::int32_t {
     unknown = BRYPT_UNKNOWN,
     ephemeral = BRYPT_IDENTIFIER_EPHEMERAL,
     persistent = BRYPT_IDENTIFIER_PERSISTENT
@@ -53,6 +53,8 @@ public:
     bool operator==(std::string_view external) const noexcept;
     std::strong_ordering operator<=>(identifier const& other) const noexcept;
     std::strong_ordering operator<=>(std::string_view external) const noexcept;
+
+    [[nodiscard]] std::string const& as_string() const noexcept;
 
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] std::size_t size() const noexcept;
@@ -160,6 +162,10 @@ inline std::strong_ordering brypt::identifier::operator<=>(std::string_view exte
 {
     return m_external <=> external;
 }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline std::string const& brypt::identifier::as_string() const noexcept { return m_external; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

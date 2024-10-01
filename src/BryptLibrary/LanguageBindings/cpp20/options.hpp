@@ -8,11 +8,13 @@
 #include <brypt/helpers.hpp>
 #include <brypt/identifier.hpp>
 #include <brypt/protocol.hpp>
+#include <brypt/result.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <any>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -23,11 +25,14 @@ namespace brypt {
 //----------------------------------------------------------------------------------------------------------------------
 
 class option;
+class algorithms_package;
 class endpoint_options;
 
-enum class security_strategy : std::int32_t {
+enum class confidentiality_level : std::int32_t {
     unknown = BRYPT_UNKNOWN,
-    pqnistl3 = BRYPT_STRATEGY_PQNISTL3
+    low = BRYPT_CONFIDENTIALITY_LEVEL_LOW,
+    medium = BRYPT_CONFIDENTIALITY_LEVEL_MEDIUM,
+    high = BRYPT_CONFIDENTIALITY_LEVEL_HIGH
 };
 
 enum class log_level : std::int32_t {
@@ -41,7 +46,9 @@ enum class log_level : std::int32_t {
     critical = BRYPT_LOG_LEVEL_CRITICAL,
 };
 
-// Note: Supported primitive and string types are specified seperatley to allow the std::string_view constructor. 
+using supported_algorithms = std::map<confidentiality_level, algorithms_package>;
+
+// Note: Supported primitive and string types are specified separately to allow the std::string_view constructor. 
 // Otherwise, std::string would be taken by reference instead of copy and char const*/char const[] would not be allowed.
 template<typename ValueType>
 concept supported_primitive_type =
@@ -80,10 +87,9 @@ public:
     };
 
     enum serialized_options : brypt_option_t {
-        identifier_type = BRYPT_OPT_IDENTIFIER_TYPE,
+        identifier_persistence = BRYPT_OPT_IDENTIFIER_PERSISTENCE,
         node_name = BRYPT_OPT_NODE_NAME,
         node_description = BRYPT_OPT_NODE_DESCRIPTION,
-        security_strategy = BRYPT_OPT_SECURITY_STRATEGY,
         connection_timeout = BRYPT_OPT_CONNECTION_TIMEOUT,
         connection_retry_limit = BRYPT_OPT_CONNECTION_RETRY_LIMIT,
         connection_retry_interval = BRYPT_OPT_CONNECTION_RETRY_INTERVAL
@@ -93,11 +99,10 @@ public:
     using bootstrap_filename_t = std::string;
     using configuration_filename_t = std::string;
     using core_threads_t = std::int32_t;
-    using identifier_type_t = brypt::identifier_type;
+    using identifier_persistence_t = brypt::identifier_persistence;
     using use_bootstraps_t = bool;
     using node_name_t = std::string;
     using node_description_t = std::string;
-    using security_strategy_t = brypt::security_strategy;
     using log_level_t = brypt::log_level;
     using connection_timeout_t = std::chrono::milliseconds;
     using connection_retry_limit_t = std::int32_t;
@@ -293,40 +298,113 @@ template<brypt::supported_option_type ValueType>
 constexpr bool brypt::matches_option_type(brypt_option_t name)
 {
     switch (name) {
-    case option::use_bootstraps: {
-        return std::is_same_v<ValueType, bool>;
-    }
-    case option::core_threads:
-    case option::connection_retry_limit: {
-        return std::is_same_v<ValueType, std::int32_t>;
-    }
-    case option::identifier_type:
-    case option::security_strategy:
-    case option::log_level: {
-        if constexpr (std::is_enum_v<ValueType>) {
-            return std::is_same_v<std::underlying_type_t<ValueType>, std::int32_t>;
+        case option::use_bootstraps: {
+            return std::is_same_v<ValueType, bool>;
         }
-        else {
-            return false;
+        case option::core_threads:
+        case option::connection_retry_limit: {
+            return std::is_same_v<ValueType, std::int32_t>;
         }
-    }
-    case option::connection_timeout:
-    case option::connection_retry_interval: {
-        return std::is_same_v<ValueType, std::int32_t> || std::is_same_v<ValueType, std::chrono::milliseconds>;
-    }
-    case option::base_path:
-    case option::configuration_filename:
-    case option::bootstrap_filename:
-    case option::node_name:
-    case option::node_description: {
-        return std::is_same_v<ValueType, std::string>;
-    }
-    default: return false;
+        case option::identifier_persistence:
+        case option::log_level: {
+            if constexpr (std::is_enum_v<ValueType>) {
+                return std::is_same_v<std::underlying_type_t<ValueType>, std::int32_t>;
+            }
+            else {
+                return false;
+            }
+        }
+        case option::connection_timeout:
+        case option::connection_retry_interval: {
+            return std::is_same_v<ValueType, std::int32_t> || std::is_same_v<ValueType, std::chrono::milliseconds>;
+        }
+        case option::base_path:
+        case option::configuration_filename:
+        case option::bootstrap_filename:
+        case option::node_name:
+        case option::node_description: {
+            return std::is_same_v<ValueType, std::string>;
+        }
+        default: return false;
     }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 // } brypt::option
+//----------------------------------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------------------------------
+// brypt::algorithms_package {
+//----------------------------------------------------------------------------------------------------------------------
+
+class brypt::algorithms_package
+{
+public:
+    algorithms_package() noexcept = default;
+    
+    explicit algorithms_package(brypt_option_algorithms_package_t const* const options);
+
+    algorithms_package(
+        std::vector<std::string> key_agreements,
+        std::vector<std::string> ciphers,
+        std::vector<std::string> hash_functions);
+
+    ~algorithms_package() = default;
+    algorithms_package(algorithms_package const& other) = default;
+    algorithms_package(algorithms_package&& other) = default;
+    algorithms_package& operator=(algorithms_package const& other) = default;
+    algorithms_package& operator=(algorithms_package&& other) = default;
+    
+    std::vector<std::string> const& get_key_agreements() const { return m_key_agreements; }
+    std::vector<std::string> const& get_ciphers() const { return m_ciphers; }
+    std::vector<std::string> const& get_hash_functions() const { return m_hash_functions; }
+
+private:
+    std::vector<std::string> m_key_agreements;
+    std::vector<std::string> m_ciphers;
+    std::vector<std::string> m_hash_functions;
+};
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::algorithms_package::algorithms_package(
+    brypt_option_algorithms_package_t const* const options)
+    : m_key_agreements()
+    , m_ciphers()
+    , m_hash_functions()
+{
+    if (options) {
+        m_key_agreements.reserve(options->key_agreements_size);
+        for (std::size_t idx = 0; idx < options->key_agreements_size; ++idx) {
+            m_key_agreements.emplace_back(options->key_agreements[idx]);
+        }
+
+        m_ciphers.reserve(options->ciphers_size);
+        for (std::size_t idx = 0; idx < options->ciphers_size; ++idx) {
+            m_ciphers.emplace_back(options->ciphers[idx]);
+        }
+
+        m_hash_functions.reserve(options->hash_functions_size);
+        for (std::size_t idx = 0; idx < options->hash_functions_size; ++idx) {
+            m_hash_functions.emplace_back(options->hash_functions[idx]);
+        }
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::algorithms_package::algorithms_package(
+    std::vector<std::string> key_agreements,
+    std::vector<std::string> ciphers,
+    std::vector<std::string> hash_functions)
+    : m_key_agreements(std::move(key_agreements))
+    , m_ciphers(std::move(ciphers))
+    , m_hash_functions(std::move(hash_functions))
+{
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+// } brypt::algorithms_package
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -336,13 +414,15 @@ constexpr bool brypt::matches_option_type(brypt_option_t name)
 class brypt::endpoint_options
 {
 public:
-    endpoint_options() noexcept;
+    endpoint_options() noexcept = default;
+
     explicit endpoint_options(brypt_option_endpoint_t const* const options);
+
     endpoint_options(
         brypt::protocol protocol,
         std::string_view interface,
         std::string_view binding,
-        std::optional<std::string> const& bootstrap = {}) noexcept;
+        std::optional<std::string> const& bootstrap = {});
 
     ~endpoint_options() = default;
     endpoint_options(endpoint_options const& other) = default;
@@ -372,16 +452,6 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-inline brypt::endpoint_options::endpoint_options() noexcept
-    : m_protocol()
-    , m_interface()
-    , m_binding()
-    , m_bootstrap()
-{
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
 inline brypt::endpoint_options::endpoint_options(brypt_option_endpoint_t const* const options)
     : m_protocol()
     , m_interface()
@@ -404,7 +474,7 @@ inline brypt::endpoint_options::endpoint_options(
     brypt::protocol protocol,
     std::string_view interface,
     std::string_view binding,
-    std::optional<std::string> const& bootstrap) noexcept
+    std::optional<std::string> const& bootstrap)
     : m_protocol(protocol)
     , m_interface(interface)
     , m_binding(binding)

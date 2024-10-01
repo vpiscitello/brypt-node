@@ -7,9 +7,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "brypt.h"
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptNode/ExecutionToken.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/Options.hpp"
+#include "Components/Core/ExecutionToken.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/base_sink.h>
@@ -69,9 +69,9 @@ public:
     [[nodiscard]] char const* get_bootstrap_filename() const noexcept;
     [[nodiscard]] std::int32_t get_core_threads() const noexcept;
     [[nodiscard]] bool get_use_bootstraps() const noexcept;
-    [[nodiscard]] std::int32_t get_identifier_type() const noexcept;
+    [[nodiscard]] std::int32_t get_identifier_persistence() const noexcept;
     [[nodiscard]] std::string const& get_identifier();
-    [[nodiscard]] brypt_strategy_t get_security_strategy() const noexcept;
+    [[nodicard]] Configuration::Options::SupportedAlgorithms const& get_supported_algorithms() const;
     [[nodiscard]] std::string const& get_node_name() const noexcept;
     [[nodiscard]] std::string const& get_node_description() const noexcept;
     [[nodiscard]] brypt_log_level_t get_log_level() const noexcept;
@@ -88,8 +88,13 @@ public:
     [[nodiscard]] brypt_result_t set_bootstrap_filename(std::string_view filename);
     [[nodiscard]] brypt_result_t set_core_threads(std::int32_t threads) noexcept;
     void set_use_bootstraps(bool value) noexcept;
-    [[nodiscard]] brypt_result_t set_identifier_type(brypt_identifier_type_t type) noexcept;
-    [[nodiscard]] brypt_result_t set_security_strategy(brypt_strategy_t strategy) noexcept;
+    [[nodiscard]] brypt_result_t set_identifier_persistence(brypt_identifier_persistence_t type) noexcept;
+    [[nodiscard]] void clear_supported_algorithms() noexcept;
+    [[nodiscard]] brypt_result_t set_supported_algorithms(
+        ::Security::ConfidentialityLevel level,
+        std::vector<std::string>&& keyAgreements,
+        std::vector<std::string>&& ciphers,
+        std::vector<std::string>&& hashFunctions) noexcept;
     [[nodiscard]] brypt_result_t set_node_name(std::string_view name);
     [[nodiscard]] brypt_result_t set_node_description(std::string_view description);
     [[nodiscard]] brypt_result_t set_log_level(brypt_log_level_t level) noexcept;

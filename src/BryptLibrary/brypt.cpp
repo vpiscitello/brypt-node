@@ -2,12 +2,12 @@
 #include "brypt.h"
 #include "service.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptNode/RuntimeContext.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Components/Configuration/Parser.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/RuntimeContext.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp" 
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionState.hpp"
 #include "Components/Network/EndpointTypes.hpp"
@@ -30,6 +30,7 @@
 #include <random>
 #include <string>
 #include <string_view>
+#include <optional>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -40,6 +41,8 @@ namespace local {
 using BindingFailure = Event::Message<Event::Type::BindingFailed>::Cause;
 using ConnectionFailure = Event::Message<Event::Type::ConnectionFailed>::Cause;
 
+brypt_confidentiality_level_t translate_confidentiality_level(Security::ConfidentialityLevel level);
+Security::ConfidentialityLevel translate_confidentiality_level(brypt_confidentiality_level_t level);
 brypt_protocol_t translate_protocol(Network::Protocol protocol);
 Network::Protocol translate_protocol(brypt_protocol_t protocol);
 brypt_connection_state_t translate_connection_state(Network::Connection::State state);
@@ -59,9 +62,6 @@ static_assert(BRYPT_IDENTIFIER_MIN_SIZE == Node::Identifier::MinimumSize, "Brypt
 static_assert(BRYPT_IDENTIFIER_MAX_SIZE == Node::Identifier::MaximumSize, "Brypt Identifier Maximum Size Mismatch!");
 
 static_assert(BRYPT_REQUEST_KEY_SIZE == Awaitable::TrackerKey{ 0 }.size(), "Request Key Size Mismatch!");
-
-static_assert(
-    BRYPT_STRATEGY_PQNISTL3 == static_cast<brypt_strategy_t>(Security::Strategy::PQNISTL3), "PQNISTL3 Value Mismatch!");
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -161,8 +161,8 @@ int32_t brypt_option_get_int32(brypt_service_t const* const service, brypt_optio
 
     switch (option) {
         case BRYPT_OPT_CORE_THREADS: return service->get_core_threads();
-        case BRYPT_OPT_IDENTIFIER_TYPE: return service->get_identifier_type(); 
-        case BRYPT_OPT_SECURITY_STRATEGY: return service->get_security_strategy();
+        case BRYPT_OPT_IDENTIFIER_PERSISTENCE: return service->get_identifier_persistence(); 
+        //case BRYPT_OPT_SECURITY_STRATEGY: return service->get_security_strategy();
         case BRYPT_OPT_LOG_LEVEL: return service->get_log_level();
         case BRYPT_OPT_CONNECTION_TIMEOUT: {
             auto const timeout = service->get_connection_timeout();
@@ -219,8 +219,8 @@ brypt_result_t brypt_option_set_int32(brypt_service_t* const service, brypt_opti
 
     switch (option) {
         case BRYPT_OPT_CORE_THREADS: return service->set_core_threads(value);
-        case BRYPT_OPT_IDENTIFIER_TYPE: return service->set_identifier_type(value);
-        case BRYPT_OPT_SECURITY_STRATEGY: return service->set_security_strategy(value);
+        case BRYPT_OPT_IDENTIFIER_PERSISTENCE: return service->set_identifier_persistence(value);
+        //case BRYPT_OPT_SECURITY_STRATEGY: return service->set_security_strategy(value);
         case BRYPT_OPT_LOG_LEVEL: return service->set_log_level(value);
         case BRYPT_OPT_CONNECTION_TIMEOUT: return service->set_connection_timeout(value);
         case BRYPT_OPT_CONNECTION_RETRY_LIMIT: return service->set_connection_retry_limit(value);
@@ -267,7 +267,7 @@ bool brypt_option_is_int_type(brypt_option_t option) noexcept
 {
     switch (option) {
         case BRYPT_OPT_CORE_THREADS: 
-        case BRYPT_OPT_IDENTIFIER_TYPE: 
+        case BRYPT_OPT_IDENTIFIER_PERSISTENCE: 
         case BRYPT_OPT_SECURITY_STRATEGY: 
         case BRYPT_OPT_LOG_LEVEL: 
         case BRYPT_OPT_CONNECTION_TIMEOUT: 
@@ -293,6 +293,166 @@ bool brypt_option_is_string_type(brypt_option_t option) noexcept
 
 //----------------------------------------------------------------------------------------------------------------------
 
+brypt_result_t brypt_option_read_supported_algorithms(
+    brypt_service_t const* const service, brypt_option_supported_algorithms_reader_t callback, void* context) noexcept
+{
+    if (brypt_service_t::not_created(service)) { return BRYPT_EINVALIDARGUMENT; }
+    try {
+        using Security::ConfidentialityLevel;
+        using Configuration::Options::Algorithms;
+
+        auto const& supportedAlgorithms = service->get_supported_algorithms();
+        bool const result = supportedAlgorithms.ForEachSupportedAlgorithm([&] (ConfidentialityLevel level, Algorithms const& algorithms) {
+            auto const _level = local::translate_confidentiality_level(level);
+
+            std::vector<char const*> key_agreements;
+            key_agreements.reserve(algorithms.GetKeyAgreements().size());
+            std::ranges::transform(algorithms.GetKeyAgreements(), std::back_inserter(key_agreements), [] (std::string const& name) {
+                return name.c_str();
+            });
+
+            std::vector<char const*> ciphers;
+            ciphers.reserve(algorithms.GetCiphers().size());
+            std::ranges::transform(algorithms.GetCiphers(), std::back_inserter(ciphers), [] (std::string const& name) {
+                return name.c_str();
+            });
+
+            std::vector<char const*> hash_functions;
+            hash_functions.reserve(algorithms.GetHashFunctions().size());
+            std::ranges::transform(algorithms.GetHashFunctions(), std::back_inserter(hash_functions), [] (std::string const& name) {
+                return name.c_str();
+            });
+
+            brypt_option_algorithms_package_t package = {
+                .level = _level,
+                .key_agreements = key_agreements.data(),
+                .key_agreements_size = key_agreements.size(),
+                .ciphers = ciphers.data(),
+                .ciphers_size = ciphers.size(),
+                .hash_functions = hash_functions.data(),
+                .hash_functions_size = hash_functions.size()
+            };
+
+            if (!callback(&package, context)) { return CallbackIteration::Stop; }
+
+            return CallbackIteration::Continue;
+        });
+
+        if (!result) {
+            return BRYPT_ECANCELED;
+        }
+    }
+    catch ([[maybe_unused]] std::bad_alloc const& exception) { return BRYPT_EOUTOFMEMORY; }
+    catch (...) { return BRYPT_EUNSPECIFIED; }
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_result_t brypt_option_clear_supported_algorithms(brypt_service_t* const service) noexcept
+{
+    if (brypt_service_t::not_created(service)) { return BRYPT_EINVALIDARGUMENT; }
+    try {
+        service->clear_supported_algorithms();
+    }
+    catch ([[maybe_unused]] std::bad_alloc const& exception) { return BRYPT_EOUTOFMEMORY; }
+    catch (...) { return BRYPT_EUNSPECIFIED; }
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_result_t brypt_option_set_supported_algorithms(
+    brypt_service_t* const service,
+    brypt_option_algorithms_package_t const* const* const entries,
+    size_t size) noexcept
+{
+    if (brypt_service_t::not_created(service)) { return BRYPT_EINVALIDARGUMENT; }
+    try {
+        for (std::size_t idx = 0; idx < size; ++idx) {
+            if (entries[idx] != nullptr) {
+                brypt_option_algorithms_package_t const* const entry = entries[idx];
+                brypt_result_t result = brypt_option_set_algorithms_for_level(
+                    service,
+                    entry->level,
+                    entry->key_agreements,
+                    entry->key_agreements_size,
+                    entry->ciphers,
+                    entry->ciphers_size,
+                    entry->hash_functions,
+                    entry->hash_functions_size);
+
+                if (result != BRYPT_ACCEPTED) {
+                    return result;
+                }
+            } else {
+                return BRYPT_EINVALIDARGUMENT;
+            }
+        }
+    }
+    catch ([[maybe_unused]] std::bad_alloc const& exception) { return BRYPT_EOUTOFMEMORY; }
+    catch (...) { return BRYPT_EUNSPECIFIED; }
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_result_t brypt_option_set_algorithms_for_level(
+    brypt_service_t* const service,
+    brypt_confidentiality_level_t _level,
+    char const* const* const _key_agreements,
+    size_t key_agreements_size,
+    char const* const* const _ciphers,
+    size_t ciphers_size,
+    char const* const* const _hash_functions,
+    size_t hash_functions_size) noexcept
+{
+    if (brypt_service_t::not_created(service)) { return BRYPT_EINVALIDARGUMENT; }
+    try {
+        auto const level = local::translate_confidentiality_level(_level);
+        if (level == Security::ConfidentialityLevel::Unknown) { return BRYPT_EINVALIDARGUMENT; }
+
+        std::vector<std::string> key_agreements;
+        for (std::size_t idx = 0; idx < key_agreements_size; ++idx) {
+            if (_key_agreements[idx] != nullptr) {
+                key_agreements.emplace_back(_key_agreements[idx]);
+            } else {
+                return BRYPT_EINVALIDARGUMENT;
+            }
+        }
+
+        std::vector<std::string> ciphers;
+        for (std::size_t idx = 0; idx < ciphers_size; ++idx) {
+            if (_ciphers[idx] != nullptr) {
+                ciphers.emplace_back(_ciphers[idx]);
+            } else {
+                return BRYPT_EINVALIDARGUMENT;
+            }
+        }
+
+        std::vector<std::string> hash_functions;
+        for (std::size_t idx = 0; idx < hash_functions_size; ++idx) {
+            if (_hash_functions[idx] != nullptr) {
+                hash_functions.emplace_back(_hash_functions[idx]);
+            } else {
+                return BRYPT_EINVALIDARGUMENT;
+            }
+        }
+
+        return service->set_supported_algorithms(
+            level, std::move(key_agreements), std::move(ciphers), std::move(hash_functions));
+    }
+    catch ([[maybe_unused]] std::bad_alloc const& exception) { return BRYPT_EOUTOFMEMORY; }
+    catch (...) { return BRYPT_EUNSPECIFIED; }
+
+    return BRYPT_ACCEPTED;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 size_t brypt_option_get_endpoint_count(brypt_service_t const* const service) noexcept
 {
     if (brypt_service_t::not_created(service)) { return BRYPT_EINVALIDARGUMENT; }
@@ -308,14 +468,16 @@ brypt_result_t brypt_option_read_endpoints(
     try {
         for (auto const& endpoint : service->get_endpoints()) {
             auto const& interface = endpoint.GetInterface();
-            auto const& binding = endpoint.GetBindingField();
-            auto const& optBootstrap = endpoint.GetBootstrapField();
+            auto const& binding = endpoint.GetBindingString();
+            auto const& optBootstrap = endpoint.GetBootstrap();
+
             brypt_option_endpoint_t _endpoint = {
                 .protocol = local::translate_protocol(endpoint.GetProtocol()),
                 .interface = interface.c_str(),
                 .binding = binding.c_str(),
-                .bootstrap = (optBootstrap.has_value()) ? optBootstrap.value().c_str() : nullptr
+                .bootstrap = (optBootstrap.has_value()) ? optBootstrap->GetAuthority().data() : nullptr
             };
+
             if (!callback(&_endpoint, context)) { return BRYPT_ECANCELED; }
         }
     }
@@ -343,20 +505,21 @@ brypt_result_t brypt_option_find_endpoint(
         auto const itr = std::ranges::find_if(endpoints, [&] (auto const& options) {
             // We can match to the configured binding or the constructed binding. 
             bool const found = protocol == options.GetProtocol() && 
-                (binding == options.GetBindingField() || binding == options.GetBinding().GetAuthority());
+                (binding == options.GetBindingString() || binding == options.GetBinding().GetAuthority());
             return found;
         });
 
         if (itr == endpoints.end()) { return BRYPT_ENOTFOUND; }
 
         auto const& interface = itr->GetInterface();
-        auto const& binding = itr->GetBindingField();
-        auto const& optBootstrap = itr->GetBootstrapField();
+        auto const& binding = itr->GetBindingString();
+        auto const& optBootstrap = itr->GetBootstrap();
+
         brypt_option_endpoint_t endpoint = {
             .protocol = _protocol,
             .interface = interface.c_str(),
             .binding = binding.c_str(),
-            .bootstrap = (optBootstrap.has_value()) ? optBootstrap.value().c_str() : nullptr
+            .bootstrap = (optBootstrap.has_value()) ? optBootstrap->GetAuthority().data() : nullptr
         };
 
         if (!callback(&endpoint, context)) { return BRYPT_ECANCELED; }
@@ -370,27 +533,32 @@ brypt_result_t brypt_option_find_endpoint(
 //----------------------------------------------------------------------------------------------------------------------
 
 brypt_result_t brypt_option_attach_endpoint(
-    brypt_service_t* const service, brypt_option_endpoint_t const* const options) noexcept
+    brypt_service_t* const service, brypt_option_endpoint_t const* const _options) noexcept
 {
     if (brypt_service_t::not_created(service)) { return BRYPT_EINVALIDARGUMENT; }
-    if (!options) { return BRYPT_EINVALIDARGUMENT; }
+    if (!_options) { return BRYPT_EINVALIDARGUMENT; }
 
     brypt_result_t result = BRYPT_ACCEPTED;
     try {
-        auto const protocol = local::translate_protocol(options->protocol);
+        auto const protocol = local::translate_protocol(_options->protocol);
         if (protocol == Network::Protocol::Invalid) { return BRYPT_EINVALIDARGUMENT; }
 
-        Configuration::Options::Endpoint endpoint = {
+        Configuration::Options::Endpoint options = {
             protocol,
-            (options->interface) ? options->interface : "",
-            (options->binding) ? options->binding : "",
-            (options->bootstrap) ? std::optional<std::string>{ options->bootstrap } : std::nullopt
+            (_options->interface) ? _options->interface : "",
+            (_options->binding) ? _options->binding : "",
+            (_options->bootstrap) ? std::optional<std::string>{ _options->bootstrap } : std::nullopt
         };
 
-        result = service->attach_endpoint(std::move(endpoint));
+        // Before performing any operations using the provided options, ensure that all fields are valid. 
+        if (auto const [result, message] = options.AreOptionsAllowable(); result != Configuration::StatusCode::Success) {
+            return BRYPT_EINVALIDARGUMENT;
+        }
+
+        result = service->attach_endpoint(std::move(options));
     }
     catch ([[maybe_unused]] std::bad_alloc const& exception) { return BRYPT_EOUTOFMEMORY; }
-    catch (...) { return BRYPT_EUNSPECIFIED; }
+    catch (...) { return BRYPT_EINVALIDARGUMENT; }
 
     return result;
 }
@@ -1382,7 +1550,7 @@ char const* brypt_error_description(brypt_result_t code) noexcept
         case BRYPT_ENETWORKDOWN: return "Network down";
         case BRYPT_ENETWORKUNREACHABLE: return "Network unreachable";
         case BRYPT_ENETWORKRESET: return "Connection dropped due to a network reset";
-        case BRYPT_ENETWORKPERMISSIONS: return "Network lacks appropiate permissions";
+        case BRYPT_ENETWORKPERMISSIONS: return "Network lacks appropriate permissions";
         case BRYPT_ESESSIONCLOSED: return "Session closed by the peer";
         default: return "Unknown error";
     }
@@ -1416,12 +1584,36 @@ char const* brypt_status_code_description(brypt_status_code_t code) noexcept
         case BRYPT_STATUS_UPGRADE_REQUIRED: return "Upgrade Required";
         case BRYPT_STATUS_TOO_MANY_REQUESTS: return "Too Many Requests";
         case BRYPT_STATUS_UNAVAILABLE_FOR_LEGAL_REASONS: return "Unavailable for Legal Reasons";
-        case BRYPT_STATUS_INTERNAL_SERVER_ERROR: return "Internal Server Errror";
+        case BRYPT_STATUS_INTERNAL_SERVER_ERROR: return "Internal Server Error";
         case BRYPT_STATUS_NOT_IMPLEMENTED: return "Not Implemented";
         case BRYPT_STATUS_SERVICE_UNAVAILABLE: return "Service Unavailable";
         case BRYPT_STATUS_INSUFFICIENT_STORAGE: return "Insufficient Storage";
         case BRYPT_STATUS_LOOP_DETECTED: return "Loop Detected";
         default: return "Unknown";
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+brypt_confidentiality_level_t local::translate_confidentiality_level(Security::ConfidentialityLevel level)
+{
+    switch (level) {
+        case Security::ConfidentialityLevel::Low: return BRYPT_CONFIDENTIALITY_LEVEL_LOW;
+        case Security::ConfidentialityLevel::Medium: return BRYPT_CONFIDENTIALITY_LEVEL_MEDIUM;
+        case Security::ConfidentialityLevel::High: return BRYPT_CONFIDENTIALITY_LEVEL_HIGH;
+        default: return BRYPT_UNKNOWN;
+    }
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+Security::ConfidentialityLevel local::translate_confidentiality_level(brypt_confidentiality_level_t level)
+{
+    switch (level) {
+        case BRYPT_CONFIDENTIALITY_LEVEL_LOW: return Security::ConfidentialityLevel::Low;
+        case BRYPT_CONFIDENTIALITY_LEVEL_MEDIUM: return Security::ConfidentialityLevel::Medium;
+        case BRYPT_CONFIDENTIALITY_LEVEL_HIGH: return Security::ConfidentialityLevel::High;
+        default: return Security::ConfidentialityLevel::Unknown;
     }
 }
 

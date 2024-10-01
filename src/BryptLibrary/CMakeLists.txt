@@ -5,67 +5,9 @@ project(brypt LANGUAGES CXX VERSION ${PROJECT_VERSION})
 add_library(${PROJECT_NAME} SHARED)
 #-----------------------------------------------------------------------------------------------------------------------
 
-set(
-    PROJECT_SOURCES
-    ${CMAKE_SOURCE_DIR}/BryptIdentifier/BryptIdentifier.cpp
-    ${CMAKE_SOURCE_DIR}/BryptIdentifier/ReservedIdentifiers.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/ApplicationMessage.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/Extension.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/MessageContext.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/MessageHeader.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/MessageUtils.cpp
-    ${CMAKE_SOURCE_DIR}/BryptMessage/PlatformMessage.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/BryptNode.cpp
-    ${CMAKE_SOURCE_DIR}/BryptNode/RuntimePolicy.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Awaitable/Tracker.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Awaitable/TrackingService.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Configuration/BootstrapService.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Configuration/Parser.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Configuration/Options.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Event/Publisher.cpp
-    ${CMAKE_SOURCE_DIR}/Components/MessageControl/AuthorizedProcessor.cpp
-    ${CMAKE_SOURCE_DIR}/Components/MessageControl/ExchangeProcessor.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/Address.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/Endpoint.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/Manager.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/LoRa/Endpoint.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Endpoint.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Events.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Network/TCP/Session.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/ProxyStore.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Proxy.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Action.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Registration.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Resolver.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Peer/Statistics.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Route/Auxiliary.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Route/Connect.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Route/Information.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Route/MessageHandler.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Route/Path.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Route/Router.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/KeyStore.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/SecureBuffer.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/SecurityUtils.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Security/PostQuantum/NISTSecurityLevelThree.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Scheduler/Delegate.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Scheduler/Registrar.cpp
-    ${CMAKE_SOURCE_DIR}/Components/Scheduler/TaskService.cpp
-    ${CMAKE_SOURCE_DIR}/Components/State/CoordinatorState.cpp
-    ${CMAKE_SOURCE_DIR}/Components/State/NetworkState.cpp
-    ${CMAKE_SOURCE_DIR}/Components/State/NodeState.cpp
-    ${CMAKE_SOURCE_DIR}/Components/State/SecurityState.cpp)
-
-target_sources(
-    ${PROJECT_NAME} PRIVATE
-    ${PROJECT_SOURCES}
-    brypt.cpp
-    service.cpp)
-
 set(C_INTERFACE_EXPORTED_HEADERS brypt.h)
 
-set(
-    CXX20_EXPORTED_HEADERS 
+set(CXX20_EXPORTED_HEADERS 
     LanguageBindings/cpp20/action.hpp
     LanguageBindings/cpp20/brypt.hpp
     LanguageBindings/cpp20/helpers.hpp
@@ -75,6 +17,14 @@ set(
     LanguageBindings/cpp20/protocol.hpp
     LanguageBindings/cpp20/result.hpp
     LanguageBindings/cpp20/status.hpp)
+    
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${CMAKE_BINARY_DIR}/include/)
+
+target_sources(
+    ${PROJECT_NAME} PRIVATE
+    ${C_INTERFACE_EXPORTED_HEADERS} ${CXX20_EXPORTED_HEADERS}
+    brypt.cpp
+    service.cpp)
 
 set(EXPORTED_HEADERS ${C_INTERFACE_EXPORTED_HEADERS} ${CXX20_EXPORTED_HEADERS})
 
@@ -91,41 +41,12 @@ set_target_properties(
     VISIBILITY_INLINES_HIDDEN ON
     DEBUG_POSTFIX d)
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE BRYPT_SHARED)
+target_compile_definitions(${PROJECT_NAME} PRIVATE -DBRYPT_SHARED)
 
-# Internal include dependencies
-target_include_directories(
-    ${PROJECT_NAME} SYSTEM PRIVATE
-    ${Boost_INCLUDE_DIRS}
-    ${OPENSSL_INCLUDE_DIR}
-    ${OQS_INCLUDE_DIRS}
-    ${OQSCPP_INCLUDE_DIRS} 
-    ${spdlog_INCLUDE_DIRS})
-
-# Exported library dependencies
-target_link_libraries(
-    ${PROJECT_NAME} PRIVATE
-    ${Boost_LIBRARIES}
-    ${OPENSSL_CRYPTO_LIBRARY}
-    ${OQS_LIBRARIES}
-    ${spdlog_LIBRARIES}
-    ${NETWORK_SYSTEM_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC Core)
 
 # Compiler options
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
-
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_BUILD_TYPE STREQUAL "Release")
-        add_compile_options(-fdata-sections)
-        add_compile_options(-ffunction-sections)
-        add_compile_options(-Wl,--gc-sections)
-    endif()
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    target_compile_options(${PROJECT_NAME} PRIVATE /EHsc /W4 /c)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE WIN_EXPORT)
-    set_target_properties(${PROJECT_NAME} PROPERTIES CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    target_link_libraries(${PROJECT_NAME} PRIVATE iphlpapi)
-endif()
 
 #-----------------------------------------------------------------------------------------------------------------------
 

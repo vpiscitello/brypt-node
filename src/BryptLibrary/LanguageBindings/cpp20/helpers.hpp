@@ -17,14 +17,14 @@
 namespace brypt::helpers {
 //----------------------------------------------------------------------------------------------------------------------
 
-[[nodiscard]] std::span<std::uint8_t const> marshall(std::string_view payload);
+[[nodiscard]] std::span<std::uint8_t const> marshal(std::string_view payload);
 [[nodiscard]] std::string_view to_string_view(std::span<std::uint8_t const> payload);
 
 //----------------------------------------------------------------------------------------------------------------------
 } // brypt::helpers namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-inline std::span<std::uint8_t const> brypt::helpers::marshall(std::string_view payload)
+inline std::span<std::uint8_t const> brypt::helpers::marshal(std::string_view payload)
 {
     return std::span<uint8_t const>{
         reinterpret_cast<std::uint8_t const*>(payload.data()), payload.size()

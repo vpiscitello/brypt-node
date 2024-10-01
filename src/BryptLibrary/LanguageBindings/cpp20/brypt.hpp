@@ -15,6 +15,7 @@
 #include <brypt/status.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <any>
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <concepts>
@@ -105,6 +106,16 @@ public:
 
     template<typename Rep, typename Period>
     result set_option(brypt_option_t name, std::chrono::duration<Rep, Period> const& value);
+
+    [[nodiscard]] supported_algorithms get_supported_algorithms() const;
+    result clear_supported_algorithms();
+    result set_supported_algorithms(supported_algorithms const& supported_algorithms);
+    result set_supported_algorithms(confidentiality_level level, algorithms_package const& package);
+    result set_supported_algorithms(
+        confidentiality_level level,
+        std::vector<std::string> const& key_agreements,
+        std::vector<std::string> const& ciphers,
+        std::vector<std::string> const& hash_functions);
 
     [[nodiscard]] std::vector<endpoint_options> get_endpoints() const;
     [[nodiscard]] std::optional<endpoint_options> find_endpoint(protocol protocol, std::string_view binding) const;
@@ -278,11 +289,8 @@ inline brypt::option brypt::service::get_option(brypt_option_t name) const
         case option::connection_retry_limit: {
             return option{ name, brypt_option_get_int32(m_service.get(), name) };
         }
-        case option::identifier_type: {
-            return option{ name, static_cast<identifier_type>(brypt_option_get_int32(m_service.get(), name)) };
-        }
-        case option::security_strategy: {
-            return option{ name, static_cast<security_strategy>(brypt_option_get_int32(m_service.get(), name)) };
+        case option::identifier_persistence: {
+            return option{ name, static_cast<identifier_persistence>(brypt_option_get_int32(m_service.get(), name)) };
         }
         case option::log_level: {
             return option{ name, static_cast<log_level>(brypt_option_get_int32(m_service.get(), name)) };
@@ -320,11 +328,8 @@ inline brypt::option brypt::service::get_option(brypt_option_t name, result& res
         case option::connection_retry_limit: {
             return option{ name, brypt_option_get_int32(m_service.get(), name) };
         }
-        case option::identifier_type: {
-            return option{ name, static_cast<identifier_type>(brypt_option_get_int32(m_service.get(), name)) };
-        }
-        case option::security_strategy: {
-            return option{ name, static_cast<security_strategy>(brypt_option_get_int32(m_service.get(), name)) };
+        case option::identifier_persistence: {
+            return option{ name, static_cast<identifier_persistence>(brypt_option_get_int32(m_service.get(), name)) };
         }
         case option::log_level: {
             return option{ name, static_cast<log_level>(brypt_option_get_int32(m_service.get(), name)) };
@@ -363,8 +368,7 @@ inline ValueType brypt::service::get_option(brypt_option_t name) const
     } else if constexpr (std::is_same_v<ValueType, std::int32_t>) {
         switch (name) {
             case option::core_threads: 
-            case option::identifier_type:
-            case option::security_strategy:
+            case option::identifier_persistence:
             case option::log_level:
             case option::connection_timeout:
             case option::connection_retry_limit:
@@ -376,8 +380,7 @@ inline ValueType brypt::service::get_option(brypt_option_t name) const
     } else if constexpr (std::is_enum_v<ValueType>) {
         if constexpr (std::is_same_v<std::underlying_type_t<ValueType>, std::int32_t>) {
             switch (name) {
-                case option::identifier_type:
-                case option::security_strategy:
+                case option::identifier_persistence:
                 case option::log_level: {
                     return static_cast<ValueType>(brypt_option_get_int32(m_service.get(), name));
                 }
@@ -424,22 +427,14 @@ inline brypt::result brypt::service::set_option(option const& opt) noexcept
         case option::connection_retry_limit: if (opt.contains<std::int32_t>()) {
             result = brypt_option_set_int32(m_service.get(), opt.name(), opt.value<std::int32_t>());
         } break;
-        case option::identifier_type: {
+        case option::identifier_persistence: {
             if (opt.contains<std::int32_t>()) {
                 result = brypt_option_set_int32(m_service.get(), opt.name(), opt.value<std::int32_t>());
-            } else if (opt.contains<identifier_type>()) {
-                auto const& level = opt.value<identifier_type>();
+            } else if (opt.contains<identifier_persistence>()) {
+                auto const& level = opt.value<identifier_persistence>();
                 result = brypt_option_set_int32(m_service.get(), opt.name(), static_cast<std::int32_t>(level));
             }
             if (result.is_success()) { result = fetch_identifier(); }
-        } break;
-        case option::security_strategy: {
-            if (opt.contains<std::int32_t>()) {
-                result = brypt_option_set_int32(m_service.get(), opt.name(), opt.value<std::int32_t>());
-            } else if (opt.contains<security_strategy>()) {
-                auto const& level = opt.value<security_strategy>();
-                result = brypt_option_set_int32(m_service.get(), opt.name(), static_cast<std::int32_t>(level));
-            }
         } break;
         case option::log_level: {
             if (opt.contains<std::int32_t>()) {
@@ -523,14 +518,13 @@ inline brypt::result brypt::service::set_option(brypt_option_t name, ValueType v
     } else if constexpr (std::is_same_v<ValueType, std::int32_t>) {
         switch (name) {
             case option::core_threads:
-            case option::identifier_type:
-            case option::security_strategy:
+            case option::identifier_persistence:
             case option::log_level:
             case option::connection_timeout:
             case option::connection_retry_limit:
             case option::connection_retry_interval: {
                 result = brypt_option_set_int32(m_service.get(), name, value);
-                if (result.is_success() && name == option::identifier_type) { 
+                if (result.is_success() && name == option::identifier_persistence) { 
                     result = fetch_identifier(); 
                 }
             } break;
@@ -540,11 +534,10 @@ inline brypt::result brypt::service::set_option(brypt_option_t name, ValueType v
         if constexpr (std::is_same_v<std::underlying_type_t<ValueType>, std::int32_t>) {
             auto const casted = static_cast<std::int32_t>(value);
             switch (name) {
-                case option::identifier_type:
-                case option::security_strategy:
+                case option::identifier_persistence:
                 case option::log_level: {
                     result = brypt_option_set_int32(m_service.get(), name, casted);
-                    if (result.is_success() && name == option::identifier_type) {
+                    if (result.is_success() && name == option::identifier_persistence) {
                         result = fetch_identifier();
                     }
                 } break;
@@ -591,6 +584,99 @@ brypt::result brypt::service::set_option(brypt_option_t name, std::chrono::durat
     }
 
     return result;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+extern "C" inline bool brypt_read_supported_algorithms_wrapper(brypt_option_algorithms_package_t const* const options, void* context)
+{
+    auto const config = static_cast<brypt::supported_algorithms* const>(context);
+    assert(config);
+    auto const [itr, emplaced] = config->emplace(
+        static_cast<brypt::confidentiality_level>(options->level), options);
+    return emplaced;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::supported_algorithms brypt::service::get_supported_algorithms() const
+{
+    assert(m_service);
+    supported_algorithms options;
+    brypt_option_read_supported_algorithms(m_service.get(), brypt_read_supported_algorithms_wrapper, &options);
+    return options;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::result brypt::service::clear_supported_algorithms()
+{
+    assert(m_service);
+    return brypt_option_clear_supported_algorithms(m_service.get());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::result brypt::service::set_supported_algorithms(supported_algorithms const& supported_algorithms)
+{
+    assert(m_service);
+    if (auto const result = brypt_option_clear_supported_algorithms(m_service.get()); result != BRYPT_ACCEPTED) {
+        return result;
+    }
+
+
+    for (auto const& [level, package] : supported_algorithms) {
+        if (auto const result = set_supported_algorithms(level, package); result != result_code::accepted) {
+            return result;
+        }
+    }
+
+    return brypt::result{ result_code::accepted };
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::result brypt::service::set_supported_algorithms(confidentiality_level level, algorithms_package const& package)
+{
+    assert(m_service); 
+    return set_supported_algorithms(level, package.get_key_agreements(), package.get_ciphers(), package.get_hash_functions());
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+inline brypt::result brypt::service::set_supported_algorithms(
+    confidentiality_level level,
+    std::vector<std::string> const& key_agreements,
+    std::vector<std::string> const& ciphers,
+    std::vector<std::string> const& hash_functions)
+{
+    std::vector<char const*> _key_agreements;
+    _key_agreements.reserve(key_agreements.size());
+    std::ranges::transform(key_agreements, std::back_inserter(_key_agreements), [] (std::string const& name) {
+        return name.c_str();
+    });
+
+    std::vector<char const*> _ciphers;
+    _ciphers.reserve(ciphers.size());
+    std::ranges::transform(ciphers, std::back_inserter(_ciphers), [] (std::string const& name) {
+        return name.c_str();
+    });
+
+    std::vector<char const*> _hash_functions;
+    _hash_functions.reserve(hash_functions.size());
+    std::ranges::transform(hash_functions, std::back_inserter(_hash_functions), [] (std::string const& name) {
+        return name.c_str();
+    });
+
+    return brypt_option_set_algorithms_for_level(
+        m_service.get(),
+        static_cast<brypt_confidentiality_level_t>(level),
+        _key_agreements.data(),
+        _key_agreements.size(),
+        _ciphers.data(),
+        _ciphers.size(),
+        _hash_functions.data(),
+        _hash_functions.size());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -650,7 +736,7 @@ inline brypt::result brypt::service::attach_endpoint(endpoint_options const& opt
 inline brypt::result brypt::service::detach_endpoint(brypt::protocol protocol, std::string_view binding)
 {
     assert(m_service);
-    return brypt_option_detach_endpoint(m_service.get(), static_cast<std::int32_t>(protocol), binding.data());
+    return brypt_option_detach_endpoint(m_service.get(), static_cast<brypt_protocol_t>(protocol), binding.data());
 }
 
 //----------------------------------------------------------------------------------------------------------------------
