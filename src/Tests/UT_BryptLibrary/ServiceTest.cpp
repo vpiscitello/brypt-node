@@ -319,19 +319,19 @@ TEST_F(LibraryServiceSuite, CoreThreadsOptionTest)
 TEST_F(LibraryServiceSuite, IdentifierOptionTest)
 {
     test::IntegerExpectations const expectations = {
-        { static_cast<std::int32_t>(brypt::identifier_type::ephemeral), true },
-        { static_cast<std::int32_t>(brypt::identifier_type::persistent), true },
-        { static_cast<std::int32_t>(brypt::identifier_type::ephemeral) - 1, false },
-        { static_cast<std::int32_t>(brypt::identifier_type::persistent) + 1, false },
+        { static_cast<std::int32_t>(brypt::identifier_persistence::ephemeral), true },
+        { static_cast<std::int32_t>(brypt::identifier_persistence::persistent), true },
+        { static_cast<std::int32_t>(brypt::identifier_persistence::ephemeral) - 1, false },
+        { static_cast<std::int32_t>(brypt::identifier_persistence::persistent) + 1, false },
         { std::numeric_limits<std::int32_t>::min(), false },
         { std::numeric_limits<std::int32_t>::max(), false },
     };
 
-    // Verify that service has disabled logging by default.
+    // Verify that service has an ephemeral identifer by default
     {
-        auto const option = m_upService->get_option(brypt::option::identifier_type);
-        ASSERT_TRUE(option.has_value() && option.contains<brypt::identifier_type>());
-        ASSERT_EQ(option.value<brypt::identifier_type>(), brypt::identifier_type::persistent);
+        auto const option = m_upService->get_option(brypt::option::identifier_persistence);
+        ASSERT_TRUE(option.has_value() && option.contains<brypt::identifier_persistence>());
+        ASSERT_EQ(option.value<brypt::identifier_persistence>(), brypt::identifier_persistence::ephemeral);
     }
 
     auto const identifier = m_upService->get_identifier();
@@ -339,17 +339,17 @@ TEST_F(LibraryServiceSuite, IdentifierOptionTest)
 
     // Verify that the set of possible inputs match the expected setter and getter results. 
     for (auto const& [input, validity] : expectations) {
-        auto const result = m_upService->set_option(brypt::option::identifier_type, input);
+        auto const result = m_upService->set_option(brypt::option::identifier_persistence, input);
         EXPECT_EQ(result.is_success(), validity);
         if (result.is_success()) { EXPECT_NE(identifier, m_upService->get_identifier()); }
 
         // If the value to be set was invalid, the value returned should be set to the last valid value. 
-        auto const value = m_upService->get_option<brypt::identifier_type>(brypt::option::identifier_type);
+        auto const value = m_upService->get_option<brypt::identifier_persistence>(brypt::option::identifier_persistence);
         EXPECT_EQ(static_cast<std::int32_t>(value) == input, validity); 
     }
 
     // Reset the identifier type for the rest of the tests. 
-    auto const result = m_upService->set_option({ brypt::option::identifier_type, brypt::identifier_type::persistent });
+    auto const result = m_upService->set_option({ brypt::option::identifier_persistence, brypt::identifier_persistence::persistent });
     ASSERT_TRUE(result.is_success());
 }
 
@@ -381,13 +381,13 @@ TEST_F(LibraryServiceSuite, UseBootstrapsOptionTest)
 
 TEST_F(LibraryServiceSuite, NodeNameOptionTest)
 {
-    constexpr std::size_t limit = 64;
+    constexpr std::size_t limit = 256;
     test::StringExpectations const expectations = {
         { "", true },
         { "test_name", true },
         { std::string(limit, '0'), true },
         { std::string(limit + 1, '0'), false },
-        { std::string(1024, '0'), false },
+        { std::string(limit * 4, '0'), false },
     };
 
     // Verify that service has disabled logging by default.
@@ -415,13 +415,13 @@ TEST_F(LibraryServiceSuite, NodeNameOptionTest)
 
 TEST_F(LibraryServiceSuite, NodeDescriptionOptionTest)
 {
-    constexpr std::size_t limit = 256;
+    constexpr std::size_t limit = 1024;
     test::StringExpectations const expectations = {
         { "", true },
         { "test_description", true },
         { std::string(limit, '0'), true },
         { std::string(limit + 1, '0'), false },
-        { std::string(1024, '0'), false },
+        { std::string(limit * 4, '0'), false },
     };
 
     // Verify that service has disabled logging by default.
@@ -433,6 +433,7 @@ TEST_F(LibraryServiceSuite, NodeDescriptionOptionTest)
 
     // Verify that the set of possible inputs match the expected setter and getter results. 
     for (auto const& [input, validity] : expectations) {
+        std::cout << std::format("Testing: {}, Expected: {}", input, validity) << std::endl;
         auto const result = m_upService->set_option(brypt::option::node_description, input);
         EXPECT_EQ(result.is_success(), validity);
 
@@ -442,40 +443,6 @@ TEST_F(LibraryServiceSuite, NodeDescriptionOptionTest)
 
     // Reset the node description for the rest of the tests. 
     auto const result = m_upService->set_option({ brypt::option::node_description, "description" });
-    ASSERT_TRUE(result.is_success());
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-TEST_F(LibraryServiceSuite, SecurityStrategyOptionTest)
-{
-    test::IntegerExpectations const expectations = {
-        { static_cast<std::int32_t>(brypt::security_strategy::pqnistl3), true },
-        { static_cast<std::int32_t>(brypt::security_strategy::pqnistl3) - 1, false },
-        { static_cast<std::int32_t>(brypt::security_strategy::pqnistl3) + 1, false },
-        { std::numeric_limits<std::int32_t>::min(), false },
-        { std::numeric_limits<std::int32_t>::max(), false },
-    };
-
-    // Verify that service has disabled logging by default.
-    {
-        auto const option = m_upService->get_option(brypt::option::security_strategy);
-        ASSERT_TRUE(option.has_value() && option.contains<brypt::security_strategy>());
-        ASSERT_EQ(option.value<brypt::security_strategy>(), brypt::security_strategy::pqnistl3);
-    }
-
-    // Verify that the set of possible inputs match the expected setter and getter results. 
-    for (auto const& [input, validity] : expectations) {
-        auto const result = m_upService->set_option(brypt::option::security_strategy, input);
-        EXPECT_EQ(result.is_success(), validity);
-
-        auto const value = m_upService->get_option<brypt::security_strategy>(brypt::option::security_strategy);
-        EXPECT_EQ(static_cast<std::int32_t>(value) == input, validity);
-    }
-
-    // Reset the security strategy for the rest of the tests. 
-    auto const result = m_upService->set_option(
-        { brypt::option::security_strategy, brypt::security_strategy::pqnistl3 });
     ASSERT_TRUE(result.is_success());
 }
 
@@ -653,9 +620,9 @@ TEST_F(LibraryServiceSuite, EndpointOptionTest)
 
     // Verify the initial endpoint configuration matches the values set in the configuration file.
     {
-        auto const endpooints = m_upService->get_endpoints();
-        ASSERT_EQ(endpooints.size(), 1);
-        brypt::endpoint_options const& options = endpooints.front();
+        auto const endpoints = m_upService->get_endpoints();
+        ASSERT_EQ(endpoints.size(), 1);
+        brypt::endpoint_options const& options = endpoints.front();
         EXPECT_EQ(options.get_protocol(), brypt::protocol::tcp);
         EXPECT_EQ(options.get_interface(), "lo");
         EXPECT_EQ(options.get_binding(), "127.0.0.1:35217");
@@ -701,6 +668,7 @@ TEST_F(LibraryServiceSuite, EndpointOptionTest)
     for (auto const& [input, validity] : expectations) {
         {
             auto const result = m_upService->attach_endpoint(input);
+            std::cout << std::format("Testing: {}, validity is: {}", input.get_binding(), validity) << std::endl;
             EXPECT_EQ(result.is_success(), validity);
         }
 
@@ -736,14 +704,11 @@ TEST_F(LibraryServiceSuite, DefaultConfigurationTest)
     EXPECT_EQ(m_upTarget->get_option<brypt::option::bootstrap_filename_t>(bootstrap_filename), "");
     EXPECT_EQ(m_upTarget->get_option<brypt::option::core_threads_t>(core_threads), 1);
     EXPECT_EQ(
-        m_upTarget->get_option<brypt::option::identifier_type_t>(identifier_type),
-        brypt::identifier_type::ephemeral);
+        m_upTarget->get_option<brypt::option::identifier_persistence_t>(identifier_persistence),
+        brypt::identifier_persistence::ephemeral);
     EXPECT_EQ(m_upTarget->get_option<brypt::option::use_bootstraps_t>(use_bootstraps), true);
     EXPECT_EQ(m_upTarget->get_option<brypt::option::node_name_t>(node_name), "");
     EXPECT_EQ(m_upTarget->get_option<brypt::option::node_description_t>(node_description), "");
-    EXPECT_EQ(
-        m_upTarget->get_option<brypt::option::security_strategy_t>(security_strategy),
-        brypt::security_strategy::pqnistl3);
     EXPECT_EQ(m_upTarget->get_option<brypt::option::log_level_t>(log_level), brypt::log_level::off);
     EXPECT_EQ(m_upTarget->get_option<brypt::option::connection_timeout_t>(connection_timeout), 15'000ms);
     EXPECT_EQ(m_upTarget->get_option<brypt::option::connection_retry_limit_t>(connection_retry_limit), 3);
@@ -784,13 +749,24 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
         EXPECT_TRUE(attached.is_success());
     }
 
+    {
+        EXPECT_TRUE(m_upTarget->set_supported_algorithms({{
+            brypt::confidentiality_level::high,
+            {
+                { "kem-kyber768" },
+                { "aes-256-ctr" },
+                { "blake2b512" }
+            }
+        }}));
+    }
+
     // Setup the messaging routes on the service and target.
     {
         auto const setup = m_upTarget->route(
             "/ping", [&] (std::string_view source, std::span<uint8_t const> payload, brypt::next const& next) {
                 EXPECT_EQ(source, serviceIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(payload), "dispatch");
-                auto const result = next.dispatch("/pong", brypt::helpers::marshall("dispatch"));
+                auto const result = next.dispatch("/pong", brypt::helpers::marshal("dispatch"));
                 EXPECT_TRUE(result.is_success());
                 return result.is_success();
             });
@@ -802,7 +778,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
             "/query", [&] (std::string_view source, std::span<uint8_t const> payload, brypt::next const& next) {
                 EXPECT_EQ(source, serviceIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(payload), "request");
-                auto const result = next.respond(brypt::helpers::marshall("response"), brypt::status_code::ok);
+                auto const result = next.respond(brypt::helpers::marshal("response"), brypt::status_code::ok);
                 EXPECT_TRUE(result.is_success());
                 return result.is_success();
             });
@@ -814,7 +790,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
             "/rejecting", [&](std::string_view source, std::span<uint8_t const> payload, brypt::next const& next) {
                 EXPECT_EQ(source, serviceIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(payload), "request");
-                auto const result = next.respond(brypt::helpers::marshall("rejected"), brypt::status_code::bad_request);
+                auto const result = next.respond(brypt::helpers::marshal("rejected"), brypt::status_code::bad_request);
                 EXPECT_TRUE(result.is_success());
                 return result.is_success();
             });
@@ -855,11 +831,10 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
         EXPECT_FALSE(m_upService->set_option(brypt::option::configuration_filename, "filename"));
         EXPECT_FALSE(m_upService->set_option(brypt::option::bootstrap_filename, "filename"));
         EXPECT_FALSE(m_upService->set_option(brypt::option::core_threads, 1));
-        EXPECT_FALSE(m_upService->set_option(brypt::option::identifier_type, brypt::identifier_type::ephemeral));
+        EXPECT_FALSE(m_upService->set_option(brypt::option::identifier_persistence, brypt::identifier_persistence::ephemeral));
         EXPECT_FALSE(m_upService->set_option(brypt::option::use_bootstraps, false));
         EXPECT_FALSE(m_upService->set_option(brypt::option::node_name, "name"));
         EXPECT_FALSE(m_upService->set_option(brypt::option::node_description, "description"));
-        EXPECT_FALSE(m_upService->set_option(brypt::option::security_strategy, brypt::security_strategy::pqnistl3));
         EXPECT_FALSE(m_upService->set_option(brypt::option::log_level, brypt::log_level::off));
     }
 
@@ -879,24 +854,24 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
     
     // Verify message dispatching.
     {
-        auto const result = m_upService->dispatch(targetIdentifier, "/ping", brypt::helpers::marshall("dispatch"));
+        auto const result = m_upService->dispatch(targetIdentifier, "/ping", brypt::helpers::marshal("dispatch"));
         EXPECT_TRUE(result.is_success());
     }
 
     {
-        auto const optDispatched = m_upService->cluster_dispatch("/ping", brypt::helpers::marshall("dispatch"));
+        auto const optDispatched = m_upService->cluster_dispatch("/ping", brypt::helpers::marshal("dispatch"));
         EXPECT_EQ(optDispatched, std::size_t{ 1 });
     }
 
     {
-        auto const optDispatched = m_upService->sample_dispatch("/ping", brypt::helpers::marshall("dispatch"), 0.5);
+        auto const optDispatched = m_upService->sample_dispatch("/ping", brypt::helpers::marshal("dispatch"), 0.5);
         EXPECT_TRUE(optDispatched);
     }
 
     // Verify message requests. 
     {
         auto const result = m_upService->request(
-            targetIdentifier, "/query", brypt::helpers::marshall("request"), 
+            targetIdentifier, "/query", brypt::helpers::marshal("request"), 
             [&] (brypt::response const& response) {
                 EXPECT_EQ(response.get_source(), targetIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(response.get_payload()), "response");
@@ -907,7 +882,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
 
     {
         auto const optRequested = m_upService->cluster_request(
-            "/query", brypt::helpers::marshall("request"), 
+            "/query", brypt::helpers::marshal("request"), 
             [&] (brypt::response const& response) {
                 EXPECT_EQ(response.get_source(), targetIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(response.get_payload()), "response");
@@ -918,7 +893,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
 
     {
         auto const optRequested = m_upService->sample_request(
-            "/query", brypt::helpers::marshall("request"), 0.5, 
+            "/query", brypt::helpers::marshal("request"), 0.5, 
             [&] (brypt::response const& response) {
                 EXPECT_EQ(response.get_source(), targetIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(response.get_payload()), "response");
@@ -930,7 +905,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
     // Verify requests work more than once. 
     {
         auto const result = m_upService->request(
-            targetIdentifier, "/query", brypt::helpers::marshall("request"), 
+            targetIdentifier, "/query", brypt::helpers::marshal("request"), 
             [&] (brypt::response const& response) {
                 EXPECT_EQ(response.get_source(), targetIdentifier);
                 EXPECT_EQ(brypt::helpers::to_string_view(response.get_payload()), "response");
@@ -942,7 +917,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
     // Verify requests to missing routes. 
     {
         auto const result = m_upService->request(
-            targetIdentifier, "/missing", brypt::helpers::marshall("request"), 
+            targetIdentifier, "/missing", brypt::helpers::marshal("request"), 
             [] (brypt::response const&) { EXPECT_FALSE(true); },
             [&] (brypt::response const& response) {
                 EXPECT_EQ(response.get_source(), targetIdentifier);
@@ -956,7 +931,7 @@ TEST_F(LibraryServiceSuite, ServiceLifecycleTest)
     // Verify requests to rejecting routes. 
     {
         auto const result = m_upService->request(
-            targetIdentifier, "/rejecting", brypt::helpers::marshall("request"),
+            targetIdentifier, "/rejecting", brypt::helpers::marshal("request"),
             [](brypt::response const&) { EXPECT_FALSE(true); },
             [&](brypt::response const& response) {
                 EXPECT_EQ(response.get_source(), targetIdentifier);

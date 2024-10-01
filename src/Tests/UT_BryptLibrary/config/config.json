@@ -1,7 +1,7 @@
 {
 	"version": "0.0.0",
 	"identifier": {
-		"type": "Persistent"
+		"persistence": "Persistent"
 	},
 	"details": {
 		"name": "name",
@@ -23,10 +23,26 @@
 				"limit": 5,
 				"interval": "100ms"
 			}
-		}
+		},
+		"token": "token"
 	},
 	"security": {
-		"strategy": "PQNISTL3",
-		"token": "token"
+		"algorithms": {
+			"high": {
+				"key_agreements": [ "kem-kyber768" ],
+				"ciphers": [ "aes-256-ctr", "aria-256-ctr", "camellia-256-ctr" ],
+				"hash_functions": [ "sha512", "blake2b512" ]
+			},
+			"medium": {
+				"key_agreements": [ "ecdh-secp-521-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-512-r1" ],
+				"ciphers": [ "aes-128-cbc", "aes-256-ctr" ],
+				"hash_functions": [ "sha1" ]
+			},
+			"low": {
+				"key_agreements": [ "ffdhe-2048", "ffdhe-4096" ],
+				"ciphers": [ "des-ede-cbc" ],
+				"hash_functions": [ "md5", "md5-sha1" ]
+			}
+		}
 	}
 }
