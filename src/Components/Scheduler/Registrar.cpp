@@ -50,7 +50,7 @@ void Scheduler::Sentinel::OnTaskCompleted(std::size_t completed) { m_available -
 //----------------------------------------------------------------------------------------------------------------------
 
 Scheduler::Registrar::Registrar()
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
     , m_delegates()
     , m_frame(0)
     , m_initialized(false)
