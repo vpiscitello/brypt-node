@@ -1,113 +1,67 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: ConnectionDetails.hpp
 // Description: 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #pragma once
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "ConnectionState.hpp"
 #include "Address.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "Components/BryptPeer/BryptPeer.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Peer/Proxy.hpp"
 #include "Utilities/TimeUtils.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <functional>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 class ConnectionDetailsBase
 {
 public:
     explicit ConnectionDetailsBase(Network::RemoteAddress const& address)
         : m_address(address)
-        , m_updateTimepoint()
-        , m_sequenceNumber(0)
-        , m_connectionState(ConnectionState::Resolving)
-        , m_spBryptPeer()
+        , m_updated()
+        , m_state(Network::Connection::State::Resolving)
+        , m_spPeerProxy()
     {
     }
 
-    explicit ConnectionDetailsBase(std::shared_ptr<BryptPeer> const& spBryptPeer)
+    explicit ConnectionDetailsBase(std::shared_ptr<Peer::Proxy> const& spPeerProxy)
         : m_address()
-        , m_updateTimepoint()
-        , m_sequenceNumber(0)
-        , m_connectionState(ConnectionState::Resolving)
-        , m_spBryptPeer(spBryptPeer)
+        , m_updated()
+        , m_state(Network::Connection::State::Resolving)
+        , m_spPeerProxy(spPeerProxy)
     {
     }
 
     Network::RemoteAddress GetAddress() const { return m_address; }
-    TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updateTimepoint; }
-    std::uint32_t GetMessageSequenceNumber() const { return m_sequenceNumber; }
-    ConnectionState GetConnectionState() const { return m_connectionState; }
-    std::shared_ptr<BryptPeer> GetBryptPeer() const { return m_spBryptPeer; }
-    BryptIdentifier::SharedContainer GetBryptIdentifier() const
+    TimeUtils::Timepoint GetUpdateTimepoint() const { return m_updated; }
+    Network::Connection::State GetConnectionState() const { return m_state; }
+    std::shared_ptr<Peer::Proxy> GetPeerProxy() const { return m_spPeerProxy; }
+    Node::SharedIdentifier GetNodeIdentifier() const
     {
-        if (!m_spBryptPeer) {
-            return {};
-        }
-        return m_spBryptPeer->GetBryptIdentifier();
+        if (!m_spPeerProxy) { return {}; }
+        return m_spPeerProxy->GetIdentifier();
     }
 
-    void SetAddress(Network::RemoteAddress const& address)
-    {
-        m_address = address;
-    }
-
-    void SetUpdatedTimepoint(TimeUtils::Timepoint const& timepoint)
-    {
-        m_updateTimepoint = timepoint;
-    }
-
-    void SetMessageSequenceNumber(std::uint32_t sequenceNumber)
-    {
-        m_sequenceNumber = sequenceNumber;
-    }
-
-    void IncrementMessageSequence()
-    {
-        ++m_sequenceNumber;
-    }
-
-    void SetConnectionState(ConnectionState state)
-    {
-        m_connectionState = state;
-        Updated();
-    }
-
-    void SetBryptPeer(std::shared_ptr<BryptPeer> const& spBryptPeer)
-    {
-        m_spBryptPeer = spBryptPeer;
-    }
-
-    void Updated()
-    {
-        m_updateTimepoint = TimeUtils::GetSystemTimepoint();
-    }
-
-    bool HasAssociatedPeer() const 
-    {
-        if (!m_spBryptPeer) {
-            return false;
-        }
-
-        return true;
-    }
+    void SetAddress(Network::RemoteAddress const& address){ m_address = address; }
+    void SetUpdatedTimepoint(TimeUtils::Timepoint const& timepoint) { m_updated = timepoint; }
+    void SetConnectionState(Network::Connection::State state) { m_state = state; Updated(); }
+    void SetPeerProxy(std::shared_ptr<Peer::Proxy> const& spPeerProxy) { m_spPeerProxy = spPeerProxy; }
+    void Updated() { m_updated = TimeUtils::GetSystemTimepoint(); }
+    bool HasAssociatedPeer() const { return m_spPeerProxy != nullptr; }
 
 protected: 
     Network::RemoteAddress m_address;
-    TimeUtils::Timepoint m_updateTimepoint;
-    std::uint32_t m_sequenceNumber;
-    ConnectionState m_connectionState;
-    
-    std::shared_ptr<BryptPeer> m_spBryptPeer;
-
+    TimeUtils::Timepoint m_updated;
+    Network::Connection::State m_state;
+    std::shared_ptr<Peer::Proxy> m_spPeerProxy;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType = void, typename Enabled = void>
 class ConnectionDetails;
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
 class ConnectionDetails<ExtensionType, std::enable_if_t<
@@ -122,16 +76,14 @@ public:
     ConnectionDetails& operator=(ConnectionDetails const& other)
     {
         if (other.m_address.IsValid()) { m_address = other.m_address;}
-        m_updateTimepoint = other.m_updateTimepoint;
-        m_sequenceNumber = other.m_sequenceNumber;
-        m_connectionState = other.m_connectionState;
-        m_spBryptPeer = other.m_spBryptPeer;
+        m_updated = other.m_updated;
+        m_state = other.m_state;
+        m_spPeerProxy = other.m_spPeerProxy;
         return *this;
     }
-
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 template <typename ExtensionType>
 class ConnectionDetails<ExtensionType, std::enable_if_t<
@@ -139,22 +91,17 @@ class ConnectionDetails<ExtensionType, std::enable_if_t<
 {
 public:
     using ConnectionDetailsBase::ConnectionDetailsBase;
-
     using ReadExtensionFunction = std::function<void(ExtensionType const&)>;
     using UpdateExtensionFunction = std::function<void(ExtensionType&)>;
 
-    ConnectionDetails(
-        BryptIdentifier::SharedContainer const& spBryptIdentifier,
-        ExtensionType const& extension)
-        : ConnectionDetailsBase(spBryptIdentifier)
+    ConnectionDetails(Network::RemoteAddress const& address, ExtensionType const& extension)
+        : ConnectionDetailsBase(address)
         , m_extension(extension)
     {
     }
 
-    ConnectionDetails(
-        Network::RemoteAddress const& address,
-        ExtensionType const& extension)
-        : ConnectionDetailsBase(address)
+    ConnectionDetails(Node::SharedIdentifier const& spNodeIdentifier, ExtensionType const& extension)
+        : ConnectionDetailsBase(spNodeIdentifier)
         , m_extension(extension)
     {
     }
@@ -165,31 +112,19 @@ public:
     ConnectionDetails& operator=(ConnectionDetails const& other)
     {
         if (other.m_address.IsValid()) { m_address = other.m_address; }
-        m_updateTimepoint = other.m_updateTimepoint;
-        m_sequenceNumber = other.m_sequenceNumber;
-        m_connectionState = other.m_connectionState;
-        m_spBryptPeer = other.spBryptPeer;
+        m_updated = other.m_updated;
+        m_state = other.m_state;
+        m_spPeerProxy = other.spPeerProxy;
         m_extension = other.m_extension;
         return *this;
     }
 
     ExtensionType GetExtension() const { return m_extension; }
-
-    void ReadExtension(ReadExtensionFunction const& readFunction) const
-    {
-        readFunction(m_extension);
-    }
-    
-    void UpdateExtension(UpdateExtensionFunction const& updateFunction)
-    {
-        updateFunction(m_extension);
-    }
+    void ReadExtension(ReadExtensionFunction const& readFunction) const { readFunction(m_extension); }
+    void UpdateExtension(UpdateExtensionFunction const& updateFunction) { updateFunction(m_extension); }
 
 private:
-    // Each connection must define an extension class/struct that contains information 
-    // it cares to track about each node. 
     ExtensionType m_extension;
-
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

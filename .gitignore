@@ -2,19 +2,26 @@
 *.a
 *.d
 *.so
+*.dylib
+*.dll
 *.exe
 *.test
 *.pem
 *.pipe
+*.nosync
+*.tmp*
+out
+msvc
+wsl
 .vscode
+.vs
+external
+src/build
 
+external/*
 src/temp/*
-src/external/*
-src/build/*
+src/*build*/*
 src/bin/*
 
-src/Libraries/googletest/*
-src/Libraries/liboqs/*
-src/Libraries/liboqs-cpp/*
-src/Libraries/lithium/*
-src/Libraries/spdlog/*
+.DS_Store
+/build/Debug

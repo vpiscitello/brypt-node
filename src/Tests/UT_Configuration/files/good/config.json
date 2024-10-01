@@ -1,23 +1,47 @@
 {
 	"version": "0.0.0",
 	"identifier": {
-		"type": "Ephemeral"
+		"persistence": "Ephemeral"
 	},
 	"details": {
 		"name": "alpha",
-		"description": "The first node on the Brypt network.",
+		"description": "The first node on the brypt network.",
 		"location": "44.5638° N, 123.2794° W"
 	},
-	"endpoints": [
-		{
-			"protocol": "TCP",
-			"interface": "lo",
-			"binding": "*:35216"
-		}
-	],
+	"network": {
+		"endpoints": [
+			{
+				"protocol": "tcp",
+				"interface": "lo",
+				"binding": "*:35216"
+			}
+		],
+		"connection": {
+			"timeout": "100min",
+			"retry": {
+				"limit": 5,
+				"interval": "500ms"
+			}
+		},
+		"token": "token"
+	},
 	"security": {
-		"strategy": "PQNISTL3",
-		"token": "",
-		"authority": ""
+		"algorithms": {
+			"high": {
+				"key_agreements": [ "kem-kyber768" ],
+				"ciphers": [ "aes-256-ctr", "aria-256-ctr", "camellia-256-ctr" ],
+				"hash_functions": [ "sha512", "blake2b512" ]
+			},
+			"medium": {
+				"key_agreements": [ "ecdh-secp-521-r1", "ecdh-sect-571-r1", "ecdh-brainpool-p-512-r1" ],
+				"ciphers": [ "aes-128-cbc", "aes-256-ctr" ],
+				"hash_functions": [ "sha1" ]
+			},
+			"low": {
+				"key_agreements": [ "ffdhe-2048", "ffdhe-4096" ],
+				"ciphers": [ "des-ede-cbc" ],
+				"hash_functions": [ "md5", "md5-sha1" ]
+			}
+		}
 	}
 }

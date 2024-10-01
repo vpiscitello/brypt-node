@@ -1,9 +1,9 @@
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 message(STATUS "Configuring UT_Configuration...")
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 project(UT_Configuration LANGUAGES CXX)
-add_executable(UT_Configuration)
-#------------------------------------------------------------------------------------------------
+add_executable(${PROJECT_NAME})
+#-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
     # Library Name
@@ -12,26 +12,28 @@ target_sources(
     PRIVATE
     # Source Files
     ConfigurationTest.cpp
-    PeerPersistorTest.cpp
+    BootstrapServiceTest.cpp
     UT_Configuration.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Security Configuration MessageControl Network BryptMessage BryptIdentifier 
-    ${GTEST_LIBRARIES})
+    Awaitable Route Peer Security Configuration Processor Network State Event Scheduler Message Identifier 
+    ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
-target_link_libraries(${PROJECT_NAME} PUBLIC  PROJECT_OPTIONS)
+target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
-#------------------------------------------------------------------------------------------------
+copy_dependencies(${PROJECT_NAME})
+
+#-----------------------------------------------------------------------------------------------------------------------
 
 configure_file("files/good/config.json" "files/good/config.json" COPYONLY)
-configure_file("files/good/peers.json" "files/good/peers.json" COPYONLY)
+configure_file("files/good/bootstrap.json" "files/good/bootstrap.json" COPYONLY)
 configure_file("files/malformed/config.json" "files/malformed/config.json" COPYONLY)
-configure_file("files/malformed/peers.json" "files/malformed/peers.json" COPYONLY)
-configure_file("files/missing/peers.json" "files/missing/peers.json" COPYONLY)
+configure_file("files/malformed/bootstrap.json" "files/malformed/bootstrap.json" COPYONLY)
+configure_file("files/missing/bootstrap.json" "files/missing/bootstrap.json" COPYONLY)
 
-#------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_Configuration)
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
+gtest_discover_tests(${PROJECT_NAME})
+#-----------------------------------------------------------------------------------------------------------------------

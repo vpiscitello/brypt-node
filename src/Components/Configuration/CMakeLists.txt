@@ -1,9 +1,9 @@
-#------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Configuration Library...")
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
+message(STATUS "Configuring Configuration Static Library...")
+#-----------------------------------------------------------------------------------------------------------------------
 project(Configuration LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
     # Library Name
@@ -11,15 +11,17 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
-    Configuration.cpp
-    ConfigurationManager.cpp
-    PeerPersistor.cpp)
+    BootstrapService.cpp
+    Options.cpp
+    Parser.cpp)
 
 # Internal include dependencies
-target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
-    ${Boost_INCLUDE_DIRS} ${LITHIUM_JSON_INCLUDE_DIR} ${spdlog_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
-# Compilier options
+# Exported library dependencies
+target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
+
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)
 
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------

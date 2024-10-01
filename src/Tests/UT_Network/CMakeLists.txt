@@ -1,9 +1,9 @@
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 message(STATUS "Configuring UT_Network...")
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 project(UT_Network LANGUAGES CXX)
-add_executable(UT_Network)
-#------------------------------------------------------------------------------------------------
+add_executable(${PROJECT_NAME})
+#-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
     # Library Name
@@ -13,9 +13,7 @@ target_sources(
     # Source Files
     AddressTest.cpp
     ConnectionDetailsTest.cpp
-    EndpointManagerTest.cpp
-    MessageSinkStub.cpp
-    SinglePeerMediatorStub.cpp
+    NetworkManagerTest.cpp
     TcpEndpointTest.cpp
     UT_Network.cpp)
 
@@ -23,11 +21,13 @@ target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC
-    BryptPeer Network Security MessageControl Configuration BryptMessage BryptIdentifier 
-    ${GTEST_LIBRARIES})
+    Awaitable Peer Network Security Processor Configuration Route Event Scheduler State Message Identifier 
+    ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)
 
-#------------------------------------------------------------------------------------------------
-gtest_discover_tests(UT_Network)
-#------------------------------------------------------------------------------------------------
+copy_dependencies(${PROJECT_NAME})
+
+#-----------------------------------------------------------------------------------------------------------------------
+gtest_discover_tests(${PROJECT_NAME})
+#-----------------------------------------------------------------------------------------------------------------------

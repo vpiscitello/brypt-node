@@ -1,0 +1,46 @@
+﻿{
+    "configurations": [
+        {
+            "name": "Debug",
+            "generator": "Visual Studio 17 2022 Win64",
+            "configurationType": "Debug",
+            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "buildRoot": "${projectDir}\\..\\build\\${name}",
+            "installRoot": "${projectDir}\\install\\${name}",
+            "ctestCommandArgs": "",
+            "cmakeCommandArgs": "--log-level=debug",
+            "addressSanitizerEnabled": false,
+            "variables": [
+                {
+                    "name": "CMAKE_BUILD_TYPE",
+                    "value": "Debug",
+                    "type": "STRING"
+                },
+                {
+                    "name": "BUILD_EXTERNAL",
+                    "value": "True",
+                    "type": "BOOL"
+                }
+            ]
+        },
+        {
+            "name": "Release",
+            "generator": "Visual Studio 17 2022 Win64",
+            "configurationType": "Release",
+            "buildRoot": "${projectDir}\\build\\${name}",
+            "installRoot": "${projectDir}\\install\\${name}",
+            "cmakeCommandArgs": "--log-level=debug",
+            "ctestCommandArgs": "",
+            "inheritEnvironments": [ "msvc_x64_x64" ],
+            "addressSanitizerEnabled": false,
+            "intelliSenseMode": "windows-msvc-x64",
+            "variables": [
+                {
+                    "name": "CMAKE_BUILD_TYPE",
+                    "value": "Release",
+                    "type": "STRING"
+                }
+            ]
+        }
+    ]
+}

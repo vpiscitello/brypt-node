@@ -1,9 +1,9 @@
-#------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Security Library...")
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
+message(STATUS "Configuring Security Static Library...")
+#-----------------------------------------------------------------------------------------------------------------------
 project(Security LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 
 target_sources(
     # Library Name
@@ -11,11 +11,16 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    CipherPackage.cpp
+    CipherService.cpp
+    "PackageSynchronizer.cpp"
     KeyStore.cpp
     SecureBuffer.cpp
-    SecurityMediator.cpp
     SecurityUtils.cpp
-    PostQuantum/NISTSecurityLevelThree.cpp)
+    SynchronizerContext.cpp
+    "Classical/FiniteFieldDiffieHellmanModel.cpp"
+    Classical/EllipticCurveDiffieHellmanModel.cpp
+    PostQuantum/KeyEncapsulationModel.cpp)
 
 # Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
@@ -28,7 +33,7 @@ target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE
 # Exported library dependencies
 target_link_libraries(${PROJECT_NAME} PUBLIC ${OPENSSL_CRYPTO_LIBRARY} ${OQS_LIBRARIES})
 
-# Compilier options
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)
 
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------

@@ -12,7 +12,5 @@
 		}
 	],
 	"security": {
-		"strategy": "PQNISTL3",
 		"": "",
-		"central_authority": ""
 }

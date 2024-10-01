@@ -1,130 +1,115 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: Endpoint.hpp
 // Description: Declaration of the TCP Endpoint.
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #pragma once
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "AsioUtils.hpp"
 #include "EndpointDefinitions.hpp"
 #include "Events.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Event/SharedPublisher.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Network/Actions.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/ConnectionDetails.hpp"
 #include "Components/Network/ConnectionTracker.hpp"
 #include "Components/Network/Endpoint.hpp"
 #include "Components/Network/EndpointTypes.hpp"
-#include "Components/Network/MessageScheduler.hpp"
 #include "Components/Network/Protocol.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include <any>
 #include <atomic>
 #include <deque>
+#include <latch>
 #include <mutex>
 #include <shared_mutex>
 #include <span>
 #include <stop_token>
 #include <string_view>
 #include <thread>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 namespace spdlog { class logger; }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 namespace Network::TCP {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-class Session;
 class Endpoint;
 
-//------------------------------------------------------------------------------------------------
-} // TCP namespace
-//------------------------------------------------------------------------------------------------
+class Session;
+using SharedSession = std::shared_ptr<Session>;
 
-class Network::TCP::Endpoint : public Network::IEndpoint
+//----------------------------------------------------------------------------------------------------------------------
+} // Network::TCP namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Network::TCP::Endpoint final : public Network::IEndpoint
 {
 public:
-    using SessionTracker = ConnectionTracker<std::shared_ptr<Session>>;
+    using SessionTracker = ConnectionTracker<SharedSession>;
 
-    explicit Endpoint(Operation operation);
+    explicit Endpoint(Network::Endpoint::Properties const& properties);
     ~Endpoint() override;
 
-    // IEndpoint{
+    // IEndpoint {
     [[nodiscard]] virtual Network::Protocol GetProtocol() const override;
-    [[nodiscard]] virtual std::string GetScheme() const override;
+    [[nodiscard]] virtual std::string_view GetScheme() const override;
     [[nodiscard]] virtual BindingAddress GetBinding() const override;
 
     virtual void Startup() override;
     [[nodiscard]] virtual bool Shutdown() override;
     [[nodiscard]] virtual bool IsActive() const override;
 
-    virtual void ScheduleBind(BindingAddress const& binding) override;
-
-    virtual void ScheduleConnect(RemoteAddress const& address) override;
-    virtual void ScheduleConnect(RemoteAddress&& address) override;
-    virtual void ScheduleConnect(
-        RemoteAddress&& address,
-        BryptIdentifier::SharedContainer const& spIdentifier) override;
-
+    [[nodiscard]] virtual bool ScheduleBind(BindingAddress const& binding) override;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress const& address) override;
+    [[nodiscard]] virtual bool ScheduleConnect(RemoteAddress&& address) override;
+    [[nodiscard]] virtual bool ScheduleConnect(
+        RemoteAddress&& address, Node::SharedIdentifier const& spIdentifier) override;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress const& address) override;
+    [[nodiscard]] virtual bool ScheduleDisconnect(RemoteAddress&& address) override;
+    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, std::string&& message) override;
     [[nodiscard]] virtual bool ScheduleSend(
-        BryptIdentifier::Container const& identifier, std::string_view message) override;
-    // }IEndpoint
+        Node::Identifier const& identifier, Message::ShareablePack const& spSharedPack) override;
+    [[nodiscard]] virtual bool ScheduleSend(Node::Identifier const& identifier, MessageVariant&& message) override;
+    // } IEndpoint
     
 private:
-    using ExtendedConnectionDetails = ConnectionDetails<void>;
+    using EndpointInstance = Endpoint&;
+    using ExtendedDetails = ConnectionDetails<void>;
 
-    using EventDeque = std::deque<std::any>;
-    using EventProcessors = std::unordered_map<
-        std::type_index, std::function<void(std::any const&)>>;
+    class Agent;
 
-    void ServerWorker(std::stop_token token);    
-    void ClientWorker(std::stop_token token);
-
+    void PollContext();
     void ProcessEvents(std::stop_token token);
-    void ProcessBindEvent(BindEvent const& event);
-    void ProcessConnectEvent(ConnectEvent const& event);
-    void ProcessDispatchEvent(DispatchEvent const& event);
+    void OnBindEvent(BindEvent const& event);
+    void OnConnectEvent(ConnectEvent& event);
+    void OnDisconnectEvent(DisconnectEvent const& event);
+    void OnDispatchEvent(DispatchEvent& event);
 
-    [[nodiscard]] std::shared_ptr<Session> CreateSession();
+    [[nodiscard]] SharedSession CreateSession();
 
-    [[nodiscard]] bool Bind(BindingAddress const& binding);
-    [[nodiscard]] SocketProcessor ListenProcessor();
-
-    [[nodiscard]] ConnectStatusCode Connect(
-        RemoteAddress const& address,
-        BryptIdentifier::SharedContainer const& spIdentifier);
-    [[nodiscard]] SocketProcessor ConnectionProcessor(
-        RemoteAddress address,
-        BryptIdentifier::SharedContainer spIdentifier);
-
-    void OnSessionStarted(std::shared_ptr<Session> const& spSession);
-    void OnSessionStopped(std::shared_ptr<Session> const& spSession);
+    void OnSessionStarted(SharedSession const& spSession, RemoteAddress::Origin origin, bool bootstrappable);
+    void OnSessionStopped(SharedSession const& spSession);
 
     [[nodiscard]] bool OnMessageReceived(
-        std::shared_ptr<Session> const& spSession,
-        BryptIdentifier::Container const& source,
-        std::span<std::uint8_t const> message);
-    void OnMessageDispatched(std::shared_ptr<Session> const& spSession);
+        SharedSession const& spSession, Node::Identifier const& source, std::span<std::uint8_t const> message);
+
+    [[nodiscard]] ConflictResult IsConflictingAddress(
+        RemoteAddress const& address, Node::SharedIdentifier const& spIdentifier) const;
 
     mutable std::shared_mutex m_detailsMutex;
-	std::atomic_bool m_active;
-    std::jthread m_worker;
 
     boost::asio::io_context m_context;
-    boost::asio::ip::tcp::acceptor m_acceptor;
-    boost::asio::ip::tcp::resolver m_resolver;
-    
-    mutable std::mutex m_eventsMutex;
-    EventDeque m_events;
-    EventProcessors m_processors;
-
+    std::unique_ptr<Agent> m_upAgent;
     SessionTracker m_tracker;
+    MessageAction m_messenger;
+    DisconnectAction m_disconnector;
 
-    MessageScheduler m_scheduler;
-
-    std::shared_ptr<spdlog::logger> m_spLogger;
+    std::shared_ptr<spdlog::logger> m_logger;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

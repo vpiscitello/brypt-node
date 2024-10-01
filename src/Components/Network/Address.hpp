@@ -1,61 +1,79 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: Address.hpp
 // Description: A class to encapsulate connection uris (i.e. tcp://127.0.0.1:35216). 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #pragma once
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "Protocol.hpp"
-//------------------------------------------------------------------------------------------------
+#include "Utilities/InvokeContext.hpp"
+//----------------------------------------------------------------------------------------------------------------------
 #include <spdlog/fmt/bundled/format.h>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+#include <compare>
 #include <concepts>
 #include <string>
 #include <string_view>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+namespace boost::asio::ip { 
+    template<typename protocol_type> class basic_endpoint;
+    class tcp;
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 namespace Network {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 constexpr std::string_view Wildcard = "*"; 
-constexpr std::string_view ComponentSeperator = ":";
-constexpr std::string_view SchemeSeperator = "://";
+constexpr std::string_view ComponentSeparator = ":";
+constexpr std::string_view SchemeSeparator = "://";
+constexpr std::string_view ScopeSeparator = "%";
+
+constexpr std::string_view LoopbackInterface = "lo";
 
 class Address;
 class BindingAddress;
 class RemoteAddress;
 
-template <typename AddressType>
-    requires std::derived_from<AddressType, Network::Address>
+template<typename AddressType>
+concept ValidAddressType = std::derived_from<AddressType, Network::Address>;
+
+template <ValidAddressType AddressType>
 struct AddressHasher;
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 namespace Socket {
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 enum class Type : std::uint8_t { IPv4, IPv6, Invalid };
 
 struct Components;
 
-Type ParseAddressType(Address const& address);
-Components GetAddressComponents(Address const& address);
+[[nodiscard]] Type ParseAddressType(Address const& address);
+[[nodiscard]] Type ParseAddressType(std::string_view const& partition);
+[[nodiscard]] bool IsValidAddressSize(Address const& address);
+[[nodiscard]] bool IsValidPortNumber(std::string_view const& partition);
+[[nodiscard]] Components GetAddressComponents(Address const& address);
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 } // Socket namespace
 } // Network namespace
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 class Network::Address
 {
 public:
     virtual ~Address() = default;
     
-    Address& operator=(Address const& other);
     Address(Address const& other);
-    Address(Address&& other);
+    Address& operator=(Address const& other);
 
-    bool operator==(Address const& other) const;
-    bool operator!=(Address const& other) const;
+    Address(Address&& other) noexcept = default;
+    Address& operator=(Address&& other) noexcept = default;
+
+    [[nodiscard]] std::strong_ordering operator<=>(Address const& other) const;
+    [[nodiscard]] bool operator==(Address const& other) const;
+    [[nodiscard]] bool operator!=(Address const& other) const;
 
     [[nodiscard]] Network::Protocol GetProtocol() const;
     [[nodiscard]] std::string const& GetUri() const;
@@ -65,16 +83,23 @@ public:
     [[nodiscard]] std::size_t GetSize() const;
     [[nodiscard]] bool IsValid() const;
 
+    template <ValidAddressType AddressType>
+    [[nodiscard]] bool Equivalent(AddressType const& other) const;
+
     // Socket Address Helpers {
     friend Socket::Type Socket::ParseAddressType(Address const& address);
+    friend bool Socket::IsValidAddressSize(Address const& address);
     friend Socket::Components Socket::GetAddressComponents(Address const& address);
     // } Socket Address Helpers
 
 protected:
     Address();
-    Address(Protocol protocol, std::string_view uri, bool bootstrapable);
+    Address(Protocol protocol, std::string_view uri, bool bootstrapable, bool skipAddressValidation = false);
 
-    bool CacheAddressPartitions();
+    [[nodiscard]] bool CacheAddressPartitions(bool skipAddressValidation);
+    void CopyAddressPartitions(Address const& other);
+    [[nodiscard]] std::size_t GetSchemeBoundary();
+    [[nodiscard]] std::size_t PrependScheme();
     void Reset();
 
     Protocol m_protocol;
@@ -87,57 +112,96 @@ protected:
     bool m_bootstrapable;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+
+template <Network::ValidAddressType AddressType>
+bool Network::Address::Equivalent(AddressType const& other) const
+{
+    return operator==(static_cast<Address const&>(other));
+}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+template <>
+inline bool Network::Address::Equivalent(Address const& other) const
+{
+    return operator==(other);
+}
+
+//----------------------------------------------------------------------------------------------------------------------
 
 class Network::BindingAddress : public Network::Address
 {
 public:
     BindingAddress();
     BindingAddress(Protocol protocol, std::string_view uri, std::string_view interface);
+    ~BindingAddress() = default;
 
     BindingAddress& operator=(BindingAddress const& other) = default;
     BindingAddress(BindingAddress const& other) = default;
+    BindingAddress& operator=(BindingAddress&& other) = default;
     BindingAddress(BindingAddress&& other) = default;
 
-    bool operator==(BindingAddress const& other) const;
-    bool operator!=(BindingAddress const& other) const;
+    std::strong_ordering operator<=>(BindingAddress const& other) const;
+    [[nodiscard]] bool operator==(BindingAddress const& other) const;
+    [[nodiscard]] bool operator!=(BindingAddress const& other) const;
 
-    std::string const& GetInterface() const;
+    [[nodiscard]] std::string const& GetInterface() const;
+
+    UT_SupportMethod(static BindingAddress CreateTestAddress(std::string_view uri, std::string_view interface));
 
 private:
+    BindingAddress(InvokeContext, std::string_view uri, std::string_view interface);
+
     std::string m_interface;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 class Network::RemoteAddress : public Network::Address
 {
 public:
+    enum class Origin : std::uint32_t { Invalid, Cache, Network, User };
+
     RemoteAddress();
-    RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable);
-    
+    RemoteAddress(Protocol protocol, std::string_view uri, bool bootstrapable, Origin origin = Origin::Network);
+    RemoteAddress(
+        boost::asio::ip::basic_endpoint<boost::asio::ip::tcp> const& endpoint, bool bootstrapable, Origin origin);
+    ~RemoteAddress() = default;
+
     RemoteAddress& operator=(RemoteAddress const& other) = default;
     RemoteAddress(RemoteAddress const& other) = default;
+    RemoteAddress& operator=(RemoteAddress&& other) = default;
     RemoteAddress(RemoteAddress&& other) = default;
-
-    bool operator==(RemoteAddress const& other) const;
-    bool operator!=(RemoteAddress const& other) const;
+    
+    std::strong_ordering operator<=>(RemoteAddress const& other) const;
+    [[nodiscard]] bool operator==(RemoteAddress const& other) const;
+    [[nodiscard]] bool operator!=(RemoteAddress const& other) const;
 
     [[nodiscard]] bool IsBootstrapable() const;
+    [[nodiscard]] Origin GetOrigin() const;
+
+    UT_SupportMethod(static RemoteAddress CreateTestAddress(
+        std::string_view uri, bool bootstrapable, Origin origin = Origin::Network));
+
+private:
+    RemoteAddress(InvokeContext, std::string_view uri, bool bootstrapable, Origin origin = Origin::Network);
+
+    Origin m_origin;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-template <typename AddressType>
-    requires std::derived_from<AddressType, Network::Address>
-struct Network::AddressHasher  {
+template <Network::ValidAddressType AddressType>
+struct Network::AddressHasher
+{
     std::size_t operator()(AddressType const& address) const
     {
         return std::hash<std::string>()(address.GetUri());
     }
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 struct Network::Socket::Components
 {
@@ -151,10 +215,9 @@ struct Network::Socket::Components
     std::string_view const& port;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-template <typename AddressType>
-    requires std::derived_from<AddressType, Network::Address>
+template <Network::ValidAddressType AddressType>
 struct fmt::formatter<AddressType>
 {
     constexpr auto parse(format_parse_context& ctx)
@@ -165,13 +228,13 @@ struct fmt::formatter<AddressType>
     }
 
     template <typename FormatContext>
-    auto format(Network::Address const& address, FormatContext& ctx)
+    auto format(Network::Address const& address, FormatContext& ctx) const -> decltype(ctx.out())
     {
         if (!address.IsValid()) {
-            return format_to(ctx.out(), "[Unknown Address]");
+            return fmt::format_to(ctx.out(), "[Unknown Address]");
         }
-        return format_to(ctx.out(), "{}", address.GetUri());
+        return fmt::format_to(ctx.out(), "{}", address.GetUri());
     }
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

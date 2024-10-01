@@ -1,64 +1,40 @@
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 // File: SecurityUtils.cpp
 // Description: 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #include "SecurityUtils.hpp"
-#include "Components/Security/PostQuantum/NISTSecurityLevelThree.hpp"
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #ifndef __STDC_WANT_LIB_EXT1__
 #define __STDC_WANT_LIB_EXT1__ 1
 #endif
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+#include <openssl/rand.h>
+//----------------------------------------------------------------------------------------------------------------------
+#include <cassert>
 #include <cstring>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-Security::Strategy Security::ConvertToStrategy(std::underlying_type_t<Security::Strategy> strategy)
+//----------------------------------------------------------------------------------------------------------------------
+// Description: Generate and return a buffer of the provided size filled with random data. 
+//----------------------------------------------------------------------------------------------------------------------
+Security::OptionalBuffer Security::GenerateRandomData(std::size_t size)
 {
-    using StrategyType = std::underlying_type_t<Security::Strategy>;
-
-    switch (strategy) {
-        case static_cast<StrategyType>(Security::Strategy::PQNISTL3): {
-            return Security::Strategy::PQNISTL3;
-        }
-        default: break;
-    }
-    return Security::Strategy::Invalid;
+    assert(std::in_range<std::int32_t>(size));
+    auto buffer = std::vector<std::uint8_t>(size, 0x00);
+    if (!RAND_bytes(buffer.data(), static_cast<std::int32_t>(size))) { return {}; }
+    return buffer;
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-Security::Strategy Security::ConvertToStrategy(std::string strategy)
+bool Security::GenerateRandomData(WriteableView writeable)
 {
-    static std::unordered_map<std::string, Strategy> const strategies = {
-        {"PQNISTL3", Strategy::PQNISTL3},
-    };
-
-    std::transform(strategy.begin(), strategy.end(), strategy.begin(),
-    [](unsigned char c){
-        return std::toupper(c);
-    });
-
-    if(auto const itr = strategies.find(strategy.data()); itr != strategies.end()) {
-        return itr->second;
-    }
-    return Strategy::Invalid;
+    assert(std::in_range<std::int32_t>(writeable.size()));
+    if (!RAND_bytes(writeable.data(), static_cast<std::int32_t>(writeable.size()))) { return false; }
+    return true;
 }
 
-//------------------------------------------------------------------------------------------------
-
-std::unique_ptr<ISecurityStrategy> Security::CreateStrategy(
-    Security::Strategy strategy, Security::Role role, Security::Context context)
-{
-    switch (strategy) {
-        case Security::Strategy::PQNISTL3: {
-            return std::make_unique<PQNISTL3::Strategy>(role, context);
-        }
-        case Security::Strategy::Invalid: 
-        default: return nullptr;
-    }
-}
-
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
 void Security::EraseMemory(void* begin, std::size_t size)
 {
@@ -72,4 +48,4 @@ void Security::EraseMemory(void* begin, std::size_t size)
 #endif
 }
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

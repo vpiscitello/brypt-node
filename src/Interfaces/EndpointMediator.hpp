@@ -1,25 +1,23 @@
-//------------------------------------------------------------------------------------------------
-// File: IEndpointMediator.hpp
+//----------------------------------------------------------------------------------------------------------------------
+// File: EndpointMediator.hpp
 // Description: 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 #pragma once
-//------------------------------------------------------------------------------------------------
-#include "Components/Network/Protocol.hpp"
-//------------------------------------------------------------------------------------------------
-#include <string>
-#include <set>
-#include <unordered_map>
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+#include "Components/Network/EndpointIdentifier.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+
+namespace Network { class Address; class BindingAddress; }
+
+//----------------------------------------------------------------------------------------------------------------------
 
 class IEndpointMediator
 {
 public:
-    using EndpointEntryMap = std::unordered_map<Network::Protocol, std::string>;
-    using EndpointUriSet = std::set<std::string>;
-
     virtual ~IEndpointMediator() = default;
-    [[nodiscard]] virtual EndpointEntryMap GetEndpointEntries() const = 0;
-    [[nodiscard]] virtual EndpointUriSet GetEndpointUris() const = 0;
+
+    [[nodiscard]] virtual bool IsRegisteredAddress(Network::Address const& address) const = 0;
+    virtual void UpdateBinding(Network::Endpoint::Identifier identifier, Network::BindingAddress const& binding) = 0;
 };
 
-//------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------

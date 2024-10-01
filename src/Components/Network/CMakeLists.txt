@@ -1,11 +1,11 @@
-#------------------------------------------------------------------------------------------------
-message(STATUS "Configuring Network Library...")
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
+message(STATUS "Configuring Network Static Library...")
+#-----------------------------------------------------------------------------------------------------------------------
 project(Network LANGUAGES CXX)
 add_library(${PROJECT_NAME} STATIC)
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
 
-set(BASE_ENDPOINT_SOURCES Endpoint.cpp EndpointManager.cpp Address.cpp)
+set(BASE_ENDPOINT_SOURCES Endpoint.cpp Manager.cpp Address.cpp)
 set(LORA_ENDPOINT_SOURCES LoRa/Endpoint.cpp)
 set(TCP_ENDPOINT_SOURCES TCP/Endpoint.cpp TCP/Events.cpp TCP/Session.cpp)
 
@@ -21,10 +21,14 @@ target_sources(
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${Boost_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
 
-# Exported library dependencies
-target_link_libraries(${PROJECT_NAME} PUBLIC ${Boost_LIBRARIES})
+if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(NETWORK_SYSTEM_LIBRARIES iphlpapi)
+endif()
 
-# Compilier options
+# Exported library dependencies
+target_link_libraries(${PROJECT_NAME} PUBLIC ${NETWORK_SYSTEM_LIBRARIES} ${Boost_LIBRARIES})
+
+# Compiler options
 target_link_libraries(${PROJECT_NAME} PRIVATE PROJECT_OPTIONS)
 
-#------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------------
