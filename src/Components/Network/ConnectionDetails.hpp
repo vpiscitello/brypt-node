@@ -6,7 +6,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "ConnectionState.hpp"
 #include "Address.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Utilities/TimeUtils.hpp"
 //----------------------------------------------------------------------------------------------------------------------

@@ -5,8 +5,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/ShareablePack.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/ShareablePack.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <functional>
 #include <variant>

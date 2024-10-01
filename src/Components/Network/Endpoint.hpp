@@ -9,11 +9,11 @@
 #include "EndpointTypes.hpp"
 #include "EndpointIdentifier.hpp"
 #include "Protocol.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ShareablePack.hpp"
 #include "Components/Configuration/Options.hpp"
 #include "Components/Event/Events.hpp"
 #include "Components/Event/SharedPublisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ShareablePack.hpp"
 #include "Interfaces/EndpointMediator.hpp"
 #include "Interfaces/ResolutionService.hpp"
 //----------------------------------------------------------------------------------------------------------------------

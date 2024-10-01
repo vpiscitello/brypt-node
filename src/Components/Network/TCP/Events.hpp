@@ -4,7 +4,7 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
 #include "Components/Network/Actions.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointTypes.hpp"

@@ -6,8 +6,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Address.hpp"
 #include "Endpoint.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
@@ -125,7 +125,7 @@ bool Network::Manager::Attach(
     // Create the endpoint resources required for the given protocol. 
     switch (protocol) {
         case Protocol::TCP: { CreateTcpEndpoints(endpoint, spServiceProvider); } break;
-        default: break; // No other protocols have implemented endpoints
+        default: return false; // No other protocols have implemented endpoints
     }
 
     // If the manager has already been started, spin-up the new endpoints for the given protocol. 
@@ -379,7 +379,7 @@ void Network::Manager::OnBindingFailed(RuntimeContext context)
         // When operating as a background process, the end user is able to determine how to resolve the error. 
         case RuntimeContext::Background: break;
         // It's not currently possible to determine the error's resolution when operating in the foreground 
-        // We must shutdown and indicate that critical error occured that shutdown the network. 
+        // We must shutdown and indicate that critical error occurred that shutdown the network. 
         case RuntimeContext::Foreground: OnCriticalError(); break;
         default: assert(false); break; // What is this? 
     }

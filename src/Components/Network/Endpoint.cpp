@@ -5,10 +5,10 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "Endpoint.hpp"
 #include "Address.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Configuration/Defaults.hpp"
 #include "Components/Event/Publisher.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/LoRa/Endpoint.hpp"
 #include "Components/Network/TCP/Endpoint.hpp"
 #include "Components/Peer/Proxy.hpp"

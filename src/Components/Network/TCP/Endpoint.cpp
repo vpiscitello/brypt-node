@@ -117,7 +117,7 @@ Network::TCP::Endpoint::Endpoint(Network::Endpoint::Properties const& properties
     , m_tracker()
     , m_messenger()
     , m_disconnector()
-    , m_logger(spdlog::get(Logger::Name::TCP.data()))
+    , m_logger(spdlog::get(Logger::Name.data()))
 {
     assert(m_properties.GetProtocol() == Protocol::TCP);
     assert(m_logger);
@@ -132,7 +132,7 @@ Network::TCP::Endpoint::Endpoint(Network::Endpoint::Properties const& properties
 
 Network::TCP::Endpoint::~Endpoint()
 {
-    if (!Shutdown()) [[unlikely]] { m_logger->error("An unexpected error occured during endpoint shutdown!"); }
+    if (!Shutdown()) [[unlikely]] { m_logger->error("An unexpected error occurred during endpoint shutdown!"); }
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -315,7 +315,7 @@ void Network::TCP::Endpoint::PollContext()
 void Network::TCP::Endpoint::ProcessEvents(std::stop_token token)
 {
     // Keep the event loop running while the thread should be active. Relying on the stopped state of the asio context 
-    // is not suffcient as io_context.run() may return any time no work is available. Not having ready handlers does
+    // is not sufficient as io_context.run() may return any time no work is available. Not having ready handlers does
     // not imply the endpoint has received a requested shutdown. 
     while(!token.stop_requested()) {
         if (m_context.stopped()) { m_context.restart(); } // Ensure the next io_context.run() call is valid. 
@@ -513,7 +513,7 @@ void Network::TCP::Endpoint::Agent::Launch()
         m_active = false; // Indicate that the event processing loop has ended. 
         Teardown(); // Notify the derived agent that it should teardown resources used is the thread. 
         m_endpoint.PollContext(); // Give any waiting teardown handlers a chance to run. 
-        m_endpoint.OnStopped(); // Trigger the EndpointStipped event after the thread is in a fully stopped state. 
+        m_endpoint.OnStopped(); // Trigger the EndpointStopped event after the thread is in a fully stopped state. 
     });
 
     assert(m_worker.joinable()); // A thread must be spawned as a result of Launch(). 
@@ -524,7 +524,7 @@ void Network::TCP::Endpoint::Agent::Launch()
 void Network::TCP::Endpoint::Agent::Stop()
 {
     // Note: A derived must call this method during destruction. Otherwise, the teardown method of the thread will 
-    // reference a destoryed virtual method. 
+    // reference a destroyed virtual method. 
     m_worker.request_stop(); // Notify the worker that the endpoint has received a shutdown request. 
     m_endpoint.m_context.stop(); // Stop the asio context such that the thread can check for the shutdown request. 
     if (m_worker.joinable()) { m_worker.join(); }
@@ -597,8 +597,8 @@ Network::TCP::Endpoint::Agent::Listener::Listener(AgentInstance instance, boost:
 
 Network::TCP::SocketProcessor Network::TCP::Endpoint::Agent::Listener::operator()()
 {
-    constexpr std::string_view WaitError = "An unexpected error occured while waiting for a binding!";
-    constexpr std::string_view AcceptError = "An unexpected error occured while accepting a connection on {}!";
+    constexpr std::string_view WaitError = "An unexpected error occurred while waiting for a binding!";
+    constexpr std::string_view AcceptError = "An unexpected error occurred while accepting a connection on {}!";
 
     auto& endpoint = m_agent.m_endpoint;
     while (m_agent.m_active) {
@@ -709,7 +709,7 @@ void Network::TCP::Endpoint::Agent::Connect(RemoteAddress&& address, Node::Share
     auto const& logger = m_endpoint.m_logger;
     switch (m_endpoint.IsConflictingAddress(address, spIdentifier)) {
         case ConflictResult::Success: break; // If the address doesn't conflict with any existing address we can proceed. 
-        // If an error has occured, log a debugging statement and early return.
+        // If an error has occurred, log a debugging statement and early return.
         case ConflictResult::Duplicate: { 
             logger->debug(DuplicateWarning, address);
             m_endpoint.OnConnectionFailed(address, ConnectionFailure::Duplicate);
@@ -772,43 +772,48 @@ Network::RemoteAddress const& Network::TCP::Endpoint::Agent::Delegate::GetAddres
 
 Network::TCP::SocketProcessor Network::TCP::Endpoint::Agent::Delegate::operator()()
 {
-    // Get the connection request message from the peer mediator. The mediator will decide whether or not the address 
-    // or identifier takes precedence when generating the message. Currently, it is assumed that if we are not provided
-    // a connection request it implies that the connection process is on going. Another existing coroutine has been
-    // launched and is activley trying to establish a connection 
-    auto const pResolutionService = m_agent.m_endpoint.m_pResolutionService;
-    std::optional<std::string> optConnectionRequest = pResolutionService->DeclareResolvingPeer(m_address, m_spIdentifier);
-    if (!optConnectionRequest) {
-        m_agent.m_endpoint.OnConnectionFailed(m_address, ConnectionFailure::InProgress);
+    try {
+        // Get the connection request message from the peer mediator. The mediator will decide whether or not the address 
+        // or identifier takes precedence when generating the message. Currently, it is assumed that if we are not provided
+        // a connection request it implies that the connection process is on going. Another existing coroutine has been
+        // launched and is actively trying to establish a connection 
+        auto const pResolutionService = m_agent.m_endpoint.m_pResolutionService;
+        std::optional<std::string> optConnectionRequest = pResolutionService->DeclareResolvingPeer(m_address, m_spIdentifier);
+        if (!optConnectionRequest) {
+            m_agent.m_endpoint.OnConnectionFailed(m_address, ConnectionFailure::InProgress);
+            co_return CompletionOrigin::Self;
+        }
+
+        boost::asio::ip::tcp::resolver::results_type resolved;
+        if (bool const result = co_await Resolve(resolved); !result) { co_return GetCompletionOrigin(); }
+
+        m_spSession = m_agent.m_endpoint.CreateSession();
+        assert(m_spSession);
+
+        m_agent.m_endpoint.m_logger->info("Attempting a connection with {}.", m_address);
+
+        // Start attempting the connection to the peer. If the connection fails for any reason, the connection processor 
+        // will wait a period of time until retrying until the number of retries exceeds a predefined limit. 
+        std::optional<bool> optConnectStatus;
+        do { optConnectStatus = co_await TryConnect(resolved); } while (!optConnectStatus);
+
+        // If a connection could not be established, handle cleaning up the connection attempt. 
+        if (optConnectStatus.value() == false) {
+            pResolutionService->RescindResolvingPeer(m_address);
+            co_return GetCompletionOrigin();
+        }
+
+        // The session must be started before sending the initial request. 
+        m_agent.m_endpoint.OnSessionStarted(m_spSession, m_address.GetOrigin(), true);
+
+        // Send the initial connection request to the peer. If there is an error indicate the session need
+        if (!m_spSession->ScheduleSend(std::move(*optConnectionRequest))) { co_return CompletionOrigin::Error; }
+
+        co_return GetCompletionOrigin();
+    } catch(...) {
+        m_agent.m_endpoint.OnConnectionFailed(m_address, ConnectionFailure::UnexpectedError);
         co_return CompletionOrigin::Self;
     }
-
-    boost::asio::ip::tcp::resolver::results_type resolved;
-    if (bool const result = co_await Resolve(resolved); !result) { co_return GetCompletionOrigin(); }
-
-    m_spSession = m_agent.m_endpoint.CreateSession();
-    assert(m_spSession);
-
-    m_agent.m_endpoint.m_logger->info("Attempting a connection with {}.", m_address);
-
-    // Start attempting the connection to the peer. If the connection fails for any reason, the connection processor 
-    // will wait a period of time until retrying until the number of retries exceeds a predefined limit. 
-    std::optional<bool> optConnectStatus;
-    do { optConnectStatus = co_await TryConnect(resolved); } while (!optConnectStatus);
-
-    // If a connection could not be established, handle cleaning up the connection attempt. 
-    if (optConnectStatus.value() == false) {
-        pResolutionService->RescindResolvingPeer(m_address);
-        co_return GetCompletionOrigin();
-    }
-
-    // The session must be started before sending the initial request. 
-    m_agent.m_endpoint.OnSessionStarted(m_spSession, m_address.GetOrigin(), true);
-
-    // Send the initial connection request to the peer. If there is an error indicate the session need
-    if (!m_spSession->ScheduleSend(std::move(*optConnectionRequest))) { co_return CompletionOrigin::Error; }
-
-    co_return GetCompletionOrigin();
 }
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -823,10 +828,10 @@ Network::TCP::Endpoint::Agent::Delegate::ResolveResult Network::TCP::Endpoint::A
     resolved = co_await m_agent.m_resolver.async_resolve(
         ip, port, boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
 
-    // If an error has occured, indicate an error and log a warning if not caused by cancellation. 
+    // If an error has occurred, indicate an error and log a warning if not caused by cancellation. 
     if (m_error) {
         if (!IsInducedError(m_error)) { m_agent.m_endpoint.m_logger->warn(ResolveWarning, m_address); }
-        co_return false; // Instruct the delgate to halt the connection attempt. 
+        co_return false; // Instruct the delegate to halt the connection attempt. 
     }
     
     co_return true; // Indicates that the connection attempt can proceed. 

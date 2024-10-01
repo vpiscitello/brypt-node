@@ -5,7 +5,7 @@
 #include "Endpoint.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "EndpointDefinitions.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointDefinitions.hpp"
 //----------------------------------------------------------------------------------------------------------------------

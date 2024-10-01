@@ -8,9 +8,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "ConnectionDetails.hpp"
 #include "ConnectionState.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptIdentifier/ReservedIdentifiers.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Identifier/ReservedIdentifiers.hpp"
 #include "Components/Network/Address.hpp"
 #include "Utilities/CallbackIteration.hpp"
 #include "Utilities/EnumMaskUtils.hpp"

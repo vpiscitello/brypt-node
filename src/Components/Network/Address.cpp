@@ -175,19 +175,19 @@ bool Network::Address::CacheAddressPartitions(bool skipAddressValidation)
     auto const schemeBoundary = GetSchemeBoundary();
     m_scheme = { m_uri.begin(), m_uri.begin() + schemeBoundary }; // Cache representation: <tcp>://127.0.0.1:1024.
 
-    // Check to ensure the provided uri has a component seperator that we can parition. 
-    std::size_t componentBoundary = m_uri.find_last_of(Network::ComponentSeperator);
-    // Ensure the component boundary can be used to parition the string. 
+    // Check to ensure the provided uri has a component separator that we can partition. 
+    std::size_t componentBoundary = m_uri.find_last_of(Network::ComponentSeparator);
+    // Ensure the component boundary can be used to partition the string. 
     if (componentBoundary == std::string::npos || componentBoundary == m_uri.size()) { return false; }
 
-    std::string::const_iterator const primary = m_uri.begin() + (m_scheme.size() + Network::SchemeSeperator.size());
+    std::string::const_iterator const primary = m_uri.begin() + (m_scheme.size() + Network::SchemeSeparator.size());
     std::string::const_iterator const secondary = m_uri.begin() + componentBoundary + 1;
     m_authority = { primary, m_uri.end() }; // Cache representation: e.g. tcp://<127.0.0.1:1024>.
     m_primary = { primary, secondary - 1 }; // Cache representation: e.g. tcp://<127.0.0.1>:1024.
     m_secondary = { secondary, m_uri.end() }; // Cache representation:e.g. tcp://127.0.0.1:<1024>.
 
     // If we need to validate the address, do so. We should only be skipping address validation if the address
-    // was constructed from a trusted third-party resouces (i.e. an actual socket already in use). 
+    // was constructed from a trusted third-party resources (i.e. an actual socket already in use). 
     if (!skipAddressValidation) {
         switch (m_protocol) {
             case Protocol::TCP: return ( Socket::ParseAddressType(*this) != Socket::Type::Invalid );
@@ -207,7 +207,7 @@ void Network::Address::CopyAddressPartitions(Address const& other)
     if (m_uri.empty()) { return; }
     m_scheme = { m_uri.begin(), m_uri.begin() + other.m_scheme.size() };
 
-    std::string::const_iterator const primary = m_uri.begin() + (m_scheme.size() + Network::SchemeSeperator.size());
+    std::string::const_iterator const primary = m_uri.begin() + (m_scheme.size() + Network::SchemeSeparator.size());
     std::string::const_iterator const secondary = primary + other.m_primary.size() + 1;
 
     m_authority = { primary, m_uri.end()};
@@ -219,7 +219,7 @@ void Network::Address::CopyAddressPartitions(Address const& other)
 
 std::size_t Network::Address::GetSchemeBoundary()
 {
-    std::size_t end = m_uri.find(Network::SchemeSeperator);
+    std::size_t end = m_uri.find(Network::SchemeSeparator);
     return (end != std::string::npos) ? end : PrependScheme(); // If there is no scheme, append the prepend one.
 }
 
@@ -235,7 +235,7 @@ std::size_t Network::Address::PrependScheme()
         case Protocol::Test: { scheme = Network::TestScheme; } break;
         default: assert(false); return 0;
     }
-    oss << scheme << Network::SchemeSeperator << m_uri; // <scheme>://<uri>
+    oss << scheme << Network::SchemeSeparator << m_uri; // <scheme>://<uri>
     m_uri = oss.str(); // Replace the uri with the scheme prepended. 
     return scheme.size(); // Notify the caller of the number of characters appended. 
 }
@@ -446,7 +446,7 @@ Network::Socket::Type Network::Socket::ParseAddressType(std::string_view const& 
             }
         } [[fallthrough]];
         case AF_INET6: {
-            std::size_t boundary = check.find_last_of(Network::ScopeSeperator);
+            std::size_t boundary = check.find_last_of(Network::ScopeSeparator);
             if (boundary != std::string::npos) {
                 check.erase(check.begin() + boundary, check.end());
             }
@@ -540,9 +540,9 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
     std::ostringstream binding;
     
     // Attempt to find the scheme partition of the provided uri. If it cannot be found add
-    // the appriopiate scheme depending upon the protocol type. Otherwise, copy the scheme 
+    // the appropriate scheme depending upon the protocol type. Otherwise, copy the scheme 
     // into the generated binding. 
-    std::size_t const scheme = uri.find(Network::SchemeSeperator);
+    std::size_t const scheme = uri.find(Network::SchemeSeparator);
     if (scheme == std::string::npos) {
         switch (protocol) {
             case Network::Protocol::TCP: binding << Network::TCP::Scheme; break;
@@ -550,17 +550,17 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
             case Network::Protocol::Test: binding << Network::TestScheme; break;
             default: assert(false); break; // What is this?
         }
-        binding << Network::SchemeSeperator;
+        binding << Network::SchemeSeparator;
     } else {
         std::copy(
-            uri.begin(), uri.begin() + scheme + Network::SchemeSeperator.size(),
+            uri.begin(), uri.begin() + scheme + Network::SchemeSeparator.size(),
             std::ostream_iterator<char>(binding));
     }
 
-    // Attempt to find the primary and secondary component seperator. If it is not found, 
+    // Attempt to find the primary and secondary component separator. If it is not found, 
     // a binding uri cannot be generated. 
-    std::size_t const seperator = uri.find_last_of(Network::ComponentSeperator);
-    if (seperator == std::string::npos) { return {}; }
+    std::size_t const separator = uri.find_last_of(Network::ComponentSeparator);
+    if (separator == std::string::npos) { return {}; }
 
     // Determine if the provided uri contains a wildcard. If it does the automatically determine
     // the primary address for the interface. Otherwise copy the primary address into the
@@ -573,13 +573,13 @@ std::string local::BuildBindingUri(Network::Protocol protocol, std::string_view 
             default: assert(false); break; // What is this?
         }
     } else {
-        std::size_t const start = (scheme != std::string::npos) ? scheme + Network::SchemeSeperator.size() : 0;
-        if (start >= seperator) { return {}; }
-        std::copy(uri.begin() + start, uri.begin() + seperator, std::ostream_iterator<char>(binding));
+        std::size_t const start = (scheme != std::string::npos) ? scheme + Network::SchemeSeparator.size() : 0;
+        if (start >= separator) { return {}; }
+        std::copy(uri.begin() + start, uri.begin() + separator, std::ostream_iterator<char>(binding));
     }
 
     // Copy the remaining uri content into the generated buffer. 
-    std::copy(uri.begin() + seperator, uri.end(), std::ostream_iterator<char>(binding));
+    std::copy(uri.begin() + separator, uri.end(), std::ostream_iterator<char>(binding));
 
     return binding.str();
 }
@@ -699,7 +699,7 @@ std::string local::GetInterfaceAddress(std::string_view interface)
 std::string local::BuildRemoteAddress(boost::asio::ip::tcp::endpoint const& endpoint)
 {
     std::ostringstream uri;
-    uri << Network::TCP::Scheme << Network::SchemeSeperator;
+    uri << Network::TCP::Scheme << Network::SchemeSeparator;
     if (auto const& address = endpoint.address(); address.is_v6()) {
         auto const ipv6 = address.to_v6();
         ipv6.scope_id();
@@ -707,7 +707,7 @@ std::string local::BuildRemoteAddress(boost::asio::ip::tcp::endpoint const& endp
     } else {
         uri << address.to_string();
     }
-    uri << Network::ComponentSeperator << endpoint.port();
+    uri << Network::ComponentSeparator << endpoint.port();
     return uri.str();
 }
 

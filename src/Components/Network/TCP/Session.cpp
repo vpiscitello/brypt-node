@@ -2,8 +2,8 @@
 #include "Session.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include "EndpointDefinitions.hpp"
-#include "BryptMessage/MessageHeader.hpp"
-#include "BryptMessage/MessageUtils.hpp"
+#include "Components/Message/MessageHeader.hpp"
+#include "Components/Message/MessageUtils.hpp"
 #include "Utilities/Z85.hpp"
 #include "Utilities/Logger.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -188,7 +188,7 @@ Network::TCP::CompletionOrigin Network::TCP::Session::OnSocketError(boost::syste
     switch (error.value()) {
         case boost::asio::error::connection_reset:
         case boost::asio::error::eof: { OnPeerDisconnected(); } return CompletionOrigin::Peer;
-        default: { OnUnexpectedError("An unexpected socket error occured");  } return CompletionOrigin::Error;
+        default: { OnUnexpectedError("An unexpected socket error occurred");  } return CompletionOrigin::Error;
     }
 }
 
@@ -263,7 +263,7 @@ Network::TCP::Session::Receiver::ReceiveResult Network::TCP::Session::Receiver::
         boost::asio::dynamic_buffer(m_buffer, ExpectedHeaderSize),
         boost::asio::redirect_error(boost::asio::use_awaitable, m_error));
 
-    // If the bytes received does not match the minimum peekable size, an error occured.
+    // If the bytes received does not match the minimum peekable size, an error occurred.
     if (m_error || received != ExpectedHeaderSize) [[unlikely]] { co_return std::nullopt; }
 
     // Decode the buffer into the message buffer after the header bytes.

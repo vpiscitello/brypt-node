@@ -25,9 +25,9 @@ namespace Network {
 //----------------------------------------------------------------------------------------------------------------------
 
 constexpr std::string_view Wildcard = "*"; 
-constexpr std::string_view ComponentSeperator = ":";
-constexpr std::string_view SchemeSeperator = "://";
-constexpr std::string_view ScopeSeperator = "%";
+constexpr std::string_view ComponentSeparator = ":";
+constexpr std::string_view SchemeSeparator = "://";
+constexpr std::string_view ScopeSeparator = "%";
 
 constexpr std::string_view LoopbackInterface = "lo";
 

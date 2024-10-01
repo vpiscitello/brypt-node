@@ -6,8 +6,8 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "AsioUtils.hpp"
 #include "SignalService.hpp"
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/ShareablePack.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/ShareablePack.hpp"
 #include "Components/Network/Actions.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointTypes.hpp"
