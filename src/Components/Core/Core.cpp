@@ -98,7 +98,9 @@ bool Node::Core::CreateConfiguredResources(
 
     // Create the cipher service and register it with the service provider. 
     {
-        m_spCipherService = std::make_shared<Security::CipherService>(upParser->GetSupportedAlgorithms());
+        auto const& supportedAlgorithms = upParser->GetSupportedAlgorithms();
+        if (supportedAlgorithms.Empty()) { return false; }
+        m_spCipherService = std::make_shared<Security::CipherService>(supportedAlgorithms);
         m_spServiceProvider->Register(m_spCipherService);
     }
 
