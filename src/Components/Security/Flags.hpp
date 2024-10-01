@@ -1,35 +1,26 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: SecurityTypes.hpp
-// Description: 
+// File: Flags.hpp
+// Description: Defines values for declaring a security flag.
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "SecurityDefinitions.hpp"
-//----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
-#include <functional>
-#include <optional>
-#include <span>
-#include <utility>
-#include <vector>
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace Security {
+namespace Security::Flag {
 //----------------------------------------------------------------------------------------------------------------------
 
-using Buffer = std::vector<std::uint8_t>;
-using ReadableView = std::span<std::uint8_t const, std::dynamic_extent>;
-using WriteableView = std::span<std::uint8_t, std::dynamic_extent>;
-using OptionalBuffer = std::optional<Buffer>;
-using SynchronizationResult = std::pair<SynchronizationStatus, Buffer>;
+enum class Source : std::uint32_t { Identifier, Uri, Unknown };
 
-using Encryptor = std::function<bool(ReadableView, Buffer&)>;
-using Decryptor = std::function<OptionalBuffer(ReadableView)>;
-using EncryptedSizeGetter = std::function<std::size_t(std::size_t)>;
-using Signator = std::function<bool(Buffer&)>;
-using Verifier = std::function<VerificationStatus(ReadableView)>;
-using SignatureSizeGetter = std::function<std::size_t()>;
+enum class Reason : std::uint32_t {
+    UnknownHandshake,
+    KeyExchangeFailed, 
+    KeyCompromised,
+    MissedHeartbeat,
+    SuspectMessage,
+    FloodedMessages
+};
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Security namespace

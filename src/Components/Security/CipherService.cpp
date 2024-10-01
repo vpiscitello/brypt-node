@@ -1,77 +1,46 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: SecureBuffer.cpp
+// File: CipherService.cpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
-#include "SecureBuffer.hpp"
-#include "SecurityUtils.hpp"
+#include "CipherService.hpp"
+#include "CipherPackage.hpp"
+#include "PackageSynchronizer.hpp"
+#include "Components/Configuration/Options.hpp"
+#include "Components/Message/PackUtils.hpp"
+//----------------------------------------------------------------------------------------------------------------------
+#include <boost/json.hpp>
 //----------------------------------------------------------------------------------------------------------------------
 #include <cassert>
-#include <iostream>
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::SecureBuffer::SecureBuffer(std::size_t size)
-    : m_buffer(size)
+//----------------------------------------------------------------------------------------------------------------------
+namespace {
+namespace local {
+//----------------------------------------------------------------------------------------------------------------------
+
+//----------------------------------------------------------------------------------------------------------------------
+} // local namespace
+} // namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+Security::CipherService::CipherService(Configuration::Options::SupportedAlgorithms const& options)
+    : m_spSupportedAlgorithms(std::make_shared<Configuration::Options::SupportedAlgorithms>(options))
 {
+    PackageSynchronizer::PackAndCacheSupportedAlgorithms(*m_spSupportedAlgorithms);
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::SecureBuffer::~SecureBuffer()
+Configuration::Options::SupportedAlgorithms const& Security::CipherService::GetSupportedAlgorithms() const
 {
-    EraseMemory(m_buffer.data(), m_buffer.size());
+    return *m_spSupportedAlgorithms;
 }
 
 //----------------------------------------------------------------------------------------------------------------------
 
-Security::ReadableView Security::SecureBuffer::GetData() const
+std::unique_ptr<Security::PackageSynchronizer> Security::CipherService::CreateSynchronizer(ExchangeRole role) const
 {
-    return m_buffer;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Security::WriteableView Security::SecureBuffer::GetData()
-{
-    return m_buffer;
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-Security::ReadableView Security::SecureBuffer::GetCordon(std::size_t offset, std::size_t size) const
-{
-    assert(offset + size <= m_buffer.size());
-    auto const begin = m_buffer.data() + offset;
-    auto const end = begin + size;
-    return ReadableView(begin, end);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Security::SecureBuffer::GetSize() const
-{
-    return m_buffer.size();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::size_t Security::SecureBuffer::IsEmpty() const
-{
-    return m_buffer.empty();
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Security::SecureBuffer::Resize(std::size_t size)
-{
-    m_buffer.resize(size);
-}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-void Security::SecureBuffer::Erase()
-{
-    EraseMemory(m_buffer.data(), m_buffer.size());
-    m_buffer.clear();
+    return std::make_unique<PackageSynchronizer>(role, m_spSupportedAlgorithms);
 }
 
 //----------------------------------------------------------------------------------------------------------------------

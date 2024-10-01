@@ -11,10 +11,16 @@ target_sources(
     # Source Type
     PRIVATE
     # Source Files
+    CipherPackage.cpp
+    CipherService.cpp
+    "PackageSynchronizer.cpp"
     KeyStore.cpp
     SecureBuffer.cpp
     SecurityUtils.cpp
-    PostQuantum/NISTSecurityLevelThree.cpp)
+    SynchronizerContext.cpp
+    "Classical/FiniteFieldDiffieHellmanModel.cpp"
+    Classical/EllipticCurveDiffieHellmanModel.cpp
+    PostQuantum/KeyEncapsulationModel.cpp)
 
 # Exported include dependencies
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC

@@ -1,36 +1,45 @@
 //----------------------------------------------------------------------------------------------------------------------
-// File: SecurityTypes.hpp
+// File: CipherService.hpp
 // Description: 
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
 #include "SecurityDefinitions.hpp"
+#include "Components/Configuration/Options.hpp"
 //----------------------------------------------------------------------------------------------------------------------
-#include <cstdint>
-#include <functional>
-#include <optional>
-#include <span>
+#include <map>
+#include <memory>
+#include <shared_mutex>
+#include <string>
+#include <string_view>
 #include <utility>
-#include <vector>
 //----------------------------------------------------------------------------------------------------------------------
+
+namespace Node { class ServiceProvider; }
 
 //----------------------------------------------------------------------------------------------------------------------
 namespace Security {
 //----------------------------------------------------------------------------------------------------------------------
 
-using Buffer = std::vector<std::uint8_t>;
-using ReadableView = std::span<std::uint8_t const, std::dynamic_extent>;
-using WriteableView = std::span<std::uint8_t, std::dynamic_extent>;
-using OptionalBuffer = std::optional<Buffer>;
-using SynchronizationResult = std::pair<SynchronizationStatus, Buffer>;
-
-using Encryptor = std::function<bool(ReadableView, Buffer&)>;
-using Decryptor = std::function<OptionalBuffer(ReadableView)>;
-using EncryptedSizeGetter = std::function<std::size_t(std::size_t)>;
-using Signator = std::function<bool(Buffer&)>;
-using Verifier = std::function<VerificationStatus(ReadableView)>;
-using SignatureSizeGetter = std::function<std::size_t()>;
+class CipherService;
+class CipherSuite;
+class PackageSynchronizer;
 
 //----------------------------------------------------------------------------------------------------------------------
 } // Security namespace
+//----------------------------------------------------------------------------------------------------------------------
+
+class Security::CipherService
+{
+public:
+    explicit CipherService(Configuration::Options::SupportedAlgorithms const& options);
+
+    [[nodiscard]] Configuration::Options::SupportedAlgorithms const& GetSupportedAlgorithms() const;
+
+    [[nodiscard]] std::unique_ptr<Security::PackageSynchronizer> CreateSynchronizer(ExchangeRole role) const;
+
+private:
+    std::shared_ptr<Configuration::Options::SupportedAlgorithms> const m_spSupportedAlgorithms;
+};
+
 //----------------------------------------------------------------------------------------------------------------------
