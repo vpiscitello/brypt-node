@@ -1,7 +1,7 @@
 #-----------------------------------------------------------------------------------------------------------------------
-message(STATUS "Configuring UT_MessageControl...")
+message(STATUS "Configuring UT_Processor...")
 #-----------------------------------------------------------------------------------------------------------------------
-project(UT_MessageControl LANGUAGES CXX)
+project(UT_Processor LANGUAGES CXX)
 add_executable(${PROJECT_NAME})
 #-----------------------------------------------------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ target_sources(
     # Source Files
     AuthorizedProcessorTest.cpp
     ExchangeProcessorTest.cpp
-    UT_MessageControl.cpp)
+    UT_Processor.cpp)
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
     ${GTEST_INCLUDE_DIRS} ${spdlog_INCLUDE_DIRS})
@@ -25,13 +25,13 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Network
     Security
     Configuration
-    MessageControl
+    Processor
     Network
     Event
     Scheduler
     State
-    BryptMessage
-    BryptIdentifier 
+    Message
+    Identifier 
     ${GTEST_LIBRARIES} ${spdlog_LIBRARIES})
 
 target_link_libraries(${PROJECT_NAME} PUBLIC PROJECT_OPTIONS)

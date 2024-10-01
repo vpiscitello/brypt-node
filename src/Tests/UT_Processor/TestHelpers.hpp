@@ -1,7 +1,7 @@
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
 #include "Components/Awaitable/Definitions.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Network/Address.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
@@ -9,7 +9,6 @@
 #include "Interfaces/PeerCache.hpp"
 #include "Interfaces/ConnectProtocol.hpp"
 #include "Interfaces/ExchangeObserver.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <cstdint>
 #include <ranges>
@@ -17,10 +16,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 
 //----------------------------------------------------------------------------------------------------------------------
-namespace MessageControl::Test {
+namespace Processor::Test {
 //----------------------------------------------------------------------------------------------------------------------
 
-class SecurityStrategy;
 class ConnectProtocol;
 class ExchangeObserver;
 
@@ -38,45 +36,10 @@ constexpr Awaitable::TrackerKey TrackerKey = {
 };
 
 //----------------------------------------------------------------------------------------------------------------------
-} // MessageControl::Test namespace
+} // Processor::Test namespace
 //----------------------------------------------------------------------------------------------------------------------
 
-class MessageControl::Test::SecurityStrategy : public ISecurityStrategy
-{
-public:
-    SecurityStrategy() {}
-
-    virtual Security::Strategy GetStrategyType() const override { return Security::Strategy::Invalid; }
-    virtual Security::Role GetRoleType() const override { return Security::Role::Initiator; }
-    virtual Security::Context GetContextType() const override { return Security::Context::Unique; }
-    virtual std::size_t GetSignatureSize() const override { return 0; }
-
-    virtual std::uint32_t GetSynchronizationStages() const override { return 0; }
-    virtual Security::SynchronizationStatus GetSynchronizationStatus() const override
-        { return Security::SynchronizationStatus::Processing; }
-    virtual Security::SynchronizationResult PrepareSynchronization() override
-        { return { Security::SynchronizationStatus::Processing, {} }; }
-    virtual Security::SynchronizationResult Synchronize(Security::ReadableView) override
-        { return { Security::SynchronizationStatus::Processing, {} }; }
-
-    virtual Security::OptionalBuffer Encrypt(Security::ReadableView buffer, std::uint64_t) const override
-        { return Security::Buffer(buffer.begin(), buffer.end()); }
-    virtual Security::OptionalBuffer Decrypt(Security::ReadableView buffer, std::uint64_t) const override
-        { return Security::Buffer(buffer.begin(), buffer.end()); }
-
-    virtual std::int32_t Sign(Security::Buffer&) const override { return 0; }
-    virtual Security::VerificationStatus Verify(Security::ReadableView) const override
-        { return Security::VerificationStatus::Success; }
-
-private: 
-    virtual std::int32_t Sign(Security::ReadableView, Security::Buffer&) const override { return 0; }
-    virtual Security::OptionalBuffer GenerateSignature(Security::ReadableView, Security::ReadableView) const override
-        { return {}; }
-};
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class MessageControl::Test::ConnectProtocol : public IConnectProtocol
+class Processor::Test::ConnectProtocol : public IConnectProtocol
 {
 public:
     ConnectProtocol() : m_success(true), m_callers(0) { }
@@ -106,17 +69,17 @@ private:
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class MessageControl::Test::ExchangeObserver : public IExchangeObserver
+class Processor::Test::ExchangeObserver : public IExchangeObserver
 {
 public:
-    ExchangeObserver() : m_optStatus(), m_upSecurityStrategy() { }
+    ExchangeObserver() : m_optStatus(), m_upCipherPackage() { }
 
     // IExchangeObserver {
     virtual void OnExchangeClose(ExchangeStatus status) override { m_optStatus = status; }
 
-    virtual void OnFulfilledStrategy(std::unique_ptr<ISecurityStrategy>&& upStrategy) override
+    virtual void OnFulfilledStrategy(std::unique_ptr<Security::CipherPackage>&& upCipherPackage) override
     {
-        m_upSecurityStrategy = std::move(upStrategy);
+        m_upCipherPackage = std::move(upCipherPackage);
     }
     // } IExchangeObserver 
 
@@ -128,15 +91,12 @@ public:
         // The exchange was successful if we were notified of a success and acquired a synchronized
         // security strategy. 
         bool const success = (m_optStatus == ExchangeStatus::Success);
-        bool const ready = (
-            m_upSecurityStrategy &&
-            m_upSecurityStrategy->GetSynchronizationStatus() == Security::SynchronizationStatus::Ready);
-        return (success && ready);
+        return (success && m_upCipherPackage);
     }
 
 private: 
     std::optional<ExchangeStatus> m_optStatus;
-    std::unique_ptr<ISecurityStrategy> m_upSecurityStrategy;
+    std::unique_ptr<Security::CipherPackage> m_upCipherPackage;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

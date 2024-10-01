@@ -1,12 +1,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 #include "TestHelpers.hpp"
-#include "BryptIdentifier/BryptIdentifier.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/PlatformMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
 #include "Components/Event/Publisher.hpp"
-#include "Components/MessageControl/AuthorizedProcessor.hpp"
+#include "Components/Identifier/BryptIdentifier.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/PlatformMessage.hpp"
+#include "Components/Processor/AuthorizedProcessor.hpp"
 #include "Components/Network/EndpointIdentifier.hpp"
 #include "Components/Network/Protocol.hpp"
 #include "Components/Peer/Proxy.hpp"
@@ -16,8 +16,8 @@
 #include "Components/Scheduler/TaskService.hpp"
 #include "Components/State/NodeState.hpp"
 #include "Interfaces/MessageSink.hpp"
-#include "Interfaces/SecurityStrategy.hpp"
 #include "Utilities/InvokeContext.hpp"
+#include "Tests/UT_Security/TestHelpers.hpp"
 //----------------------------------------------------------------------------------------------------------------------
 #include <gtest/gtest.h>
 //----------------------------------------------------------------------------------------------------------------------
@@ -157,17 +157,17 @@ protected:
         EXPECT_EQ(m_spAuthorizedProcessor->Execute(), std::size_t{ 0 });
 
         m_spProxy = Peer::Proxy::CreateInstance(test::ClientIdentifier, m_spServiceProvider);
-        m_spProxy->AttachSecurityStrategy<InvokeContext::Test>(std::make_unique<MessageControl::Test::SecurityStrategy>());
+        m_spProxy->AttachCipherPackage<InvokeContext::Test>(Security::Test::GenerateCipherPackage());
         m_spProxy->RegisterSilentEndpoint<InvokeContext::Test>(
-            MessageControl::Test::EndpointIdentifier,
-            MessageControl::Test::EndpointProtocol,
-            MessageControl::Test::RemoteClientAddress,
+            Processor::Test::EndpointIdentifier,
+            Processor::Test::EndpointProtocol,
+            Processor::Test::RemoteClientAddress,
             [this] ([[maybe_unused]] auto const& destination, auto&& message) -> bool {
                 m_optResult = std::get<std::string>(message);
                 return true;
             });
 
-        auto const optContext = m_spProxy->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        auto const optContext = m_spProxy->GetMessageContext(Processor::Test::EndpointIdentifier);
         ASSERT_TRUE(optContext);
         m_context = *optContext;
         
@@ -176,9 +176,9 @@ protected:
             .SetSource(test::ClientIdentifier)
             .SetDestination(*test::ServerIdentifier)
             .SetRoute(test::InspectableRoute)
-            .SetPayload(MessageControl::Test::Message)
+            .SetPayload(Processor::Test::Message)
             .BindExtension<Message::Extension::Awaitable>(
-                Message::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+                Message::Extension::Awaitable::Request, Processor::Test::TrackerKey)
             .ValidatedBuild();
         ASSERT_TRUE(optRequest);
         m_request = *optRequest;
@@ -188,9 +188,9 @@ protected:
             .SetSource(*test::ServerIdentifier)
             .SetDestination(test::ClientIdentifier)
             .SetRoute(test::InspectableRoute)
-            .SetPayload(MessageControl::Test::Message)
+            .SetPayload(Processor::Test::Message)
             .BindExtension<Message::Extension::Awaitable>(
-                Message::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
+                Message::Extension::Awaitable::Response, Processor::Test::TrackerKey)
             .ValidatedBuild();
         ASSERT_TRUE(optResponse);
         m_response = *optResponse;
@@ -200,7 +200,7 @@ protected:
     {
         if (!m_optResult) { return {}; }
 
-        auto const optContext = m_spProxy->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        auto const optContext = m_spProxy->GetMessageContext(Processor::Test::EndpointIdentifier);
         if (!optContext) { return {}; }
 
         auto const optMessage = Message::Application::Parcel::GetBuilder()
@@ -216,7 +216,7 @@ protected:
     {
         if (!m_optResult) { return {}; }
         
-        auto const optContext = m_spProxy->GetMessageContext(MessageControl::Test::EndpointIdentifier);
+        auto const optContext = m_spProxy->GetMessageContext(Processor::Test::EndpointIdentifier);
         if (!optContext) { return {}; }
 
         auto const optMessage = Message::Platform::Parcel::GetBuilder()
@@ -274,7 +274,7 @@ TEST_F(AuthorizedProcessorSuite, CollectSingleMessageTest)
         EXPECT_EQ(spAssociatedPeer, m_spProxy);
         
         // Send a message through the peer to further verify that it is correct.
-        EXPECT_TRUE(spAssociatedPeer->ScheduleSend(MessageControl::Test::EndpointIdentifier, m_response.GetPack()));
+        EXPECT_TRUE(spAssociatedPeer->ScheduleSend(Processor::Test::EndpointIdentifier, m_response.GetPack()));
     }
 
     // Verify that the response passed through the capturing endpoint and matches the correct message. 
@@ -312,7 +312,7 @@ TEST_F(AuthorizedProcessorSuite, CollectMultipleMessagesTest)
             EXPECT_EQ(spAssociatedPeer, m_spProxy);
             
             // Send a message through the peer to further verify that it is correct.
-            EXPECT_TRUE(spAssociatedPeer->ScheduleSend(MessageControl::Test::EndpointIdentifier, m_response.GetPack()));
+            EXPECT_TRUE(spAssociatedPeer->ScheduleSend(Processor::Test::EndpointIdentifier, m_response.GetPack()));
         }
 
         // Verify that the response passed through the capturing endpoint and matches the correct  message. 
@@ -354,9 +354,9 @@ TEST_F(AuthorizedProcessorSuite, ProcessorExecutionRoutingFailingHanderTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::FailingRoute)
-        .SetPayload(MessageControl::Test::Message)
+        .SetPayload(Processor::Test::Message)
         .BindExtension<Message::Extension::Awaitable>(
-            Message::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+            Message::Extension::Awaitable::Request, Processor::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optFailingRequest);
 
@@ -402,7 +402,7 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelAwaitableResponseTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::InspectableRoute)
-        .SetPayload(MessageControl::Test::Message)
+        .SetPayload(Processor::Test::Message)
         .BindExtension<Message::Extension::Awaitable>(
             Message::Extension::Awaitable::Response, *optTrackerKey)
         .ValidatedBuild();
@@ -427,9 +427,9 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelUnexpectedDestinationTe
         .SetSource(*test::ServerIdentifier)
         .SetDestination(test::ClientIdentifier)
         .SetRoute(test::FailingRoute)
-        .SetPayload(MessageControl::Test::Message)
+        .SetPayload(Processor::Test::Message)
         .BindExtension<Message::Extension::Awaitable>(
-            Message::Extension::Awaitable::Request, MessageControl::Test::TrackerKey)
+            Message::Extension::Awaitable::Request, Processor::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
@@ -446,9 +446,9 @@ TEST_F(AuthorizedProcessorSuite, CollectApplicationParcelUnexpectedAwaitableResp
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .SetRoute(test::FailingRoute)
-        .SetPayload(MessageControl::Test::Message)
+        .SetPayload(Processor::Test::Message)
         .BindExtension<Message::Extension::Awaitable>(
-            Message::Extension::Awaitable::Response, MessageControl::Test::TrackerKey)
+            Message::Extension::Awaitable::Response, Processor::Test::TrackerKey)
         .ValidatedBuild();
     ASSERT_TRUE(optResponse);
 
@@ -543,7 +543,7 @@ TEST_F(AuthorizedProcessorSuite, CollectPlatformParcelHandshakeMessageTest)
         .SetSource(test::ClientIdentifier)
         .SetDestination(*test::ServerIdentifier)
         .MakeHandshakeMessage()
-        .SetPayload(MessageControl::Test::Message)
+        .SetPayload(Processor::Test::Message)
         .ValidatedBuild();
     ASSERT_TRUE(optHandshakeMessageWithDestination);
     EXPECT_TRUE(
