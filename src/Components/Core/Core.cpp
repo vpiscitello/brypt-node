@@ -38,7 +38,6 @@ Node::Core::Core(std::reference_wrapper<ExecutionToken> const& token)
     , m_spNodeState()
     , m_spCoordinatorState(std::make_shared<CoordinatorState>())
     , m_spNetworkState(std::make_shared<NetworkState>())
-    , m_spSecurityState()
     , m_spTaskService(std::make_shared<Scheduler::TaskService>(m_spScheduler))
     , m_spEventPublisher(std::make_shared<Event::Publisher>(m_spScheduler))
     , m_spRouter(std::make_shared<Route::Router>())
@@ -205,10 +204,6 @@ std::weak_ptr<CoordinatorState> Node::Core::GetCoordinatorState() const { return
 //----------------------------------------------------------------------------------------------------------------------
 
 std::weak_ptr<NetworkState> Node::Core::GetNetworkState() const { return m_spNetworkState; }
-
-//----------------------------------------------------------------------------------------------------------------------
-
-std::weak_ptr<SecurityState> Node::Core::GetSecurityState() const { return m_spSecurityState; }
 
 //----------------------------------------------------------------------------------------------------------------------
 

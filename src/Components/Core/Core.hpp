@@ -87,7 +87,6 @@ public:
     [[nodiscard]] std::weak_ptr<NodeState> GetNodeState() const;
     [[nodiscard]] std::weak_ptr<CoordinatorState> GetCoordinatorState() const;
     [[nodiscard]] std::weak_ptr<NetworkState> GetNetworkState() const;
-    [[nodiscard]] std::weak_ptr<SecurityState> GetSecurityState() const;
 
     [[nodiscard]] std::weak_ptr<Event::Publisher> GetEventPublisher() const;
     [[nodiscard]] std::weak_ptr<Route::Router> GetRouter() const;
@@ -113,7 +112,6 @@ private:
     std::shared_ptr<NodeState> m_spNodeState;
     std::shared_ptr<CoordinatorState> m_spCoordinatorState;
     std::shared_ptr<NetworkState> m_spNetworkState;
-    std::shared_ptr<SecurityState> m_spSecurityState;
     
     std::shared_ptr<Scheduler::TaskService> m_spTaskService;
     std::shared_ptr<Event::Publisher> m_spEventPublisher;
