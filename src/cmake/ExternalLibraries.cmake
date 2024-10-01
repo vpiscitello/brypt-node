@@ -7,7 +7,7 @@ if(BUILD_EXTERNAL)
     add_custom_target(external)
 endif()
 
-set(DEPENDENCY_DIRECTORY ${CMAKE_SOURCE_DIR}/external)
+set(DEPENDENCY_DIRECTORY ${CMAKE_SOURCE_DIR}/../external)
 set(DEPENDENCY_TEMP_DIRECTORY ${DEPENDENCY_DIRECTORY}/temp)
 set(DEPENDENCY_DOWNLOAD_DIRECTORY ${DEPENDENCY_DIRECTORY}/download)
 
@@ -42,10 +42,10 @@ endif()
 #-----------------------------------------------------------------------------------------------------------------------
 # Boost Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(BOOST_VERSION "1.79.0")
-set(BOOST_DOWNLOAD_TARGET "boost_1_79_0.tar.gz")
+set(BOOST_VERSION "1.81.0")
+set(BOOST_DOWNLOAD_TARGET "boost_1_81_0.tar.gz")
 set(BOOST_URL "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_DOWNLOAD_TARGET}")
-set(BOOST_HASH "SHA256=273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c")
+set(BOOST_HASH "SHA256=205666dea9f6a7cfed87c7a6dfbeb52a2c1b9de55712c9c1a87735d7181452b6")
 set(BOOST_DIRECTORY ${DEPENDENCY_DIRECTORY}/boost/${BOOST_VERSION})
 set(BOOST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/boost/${BOOST_VERSION})
 
@@ -64,7 +64,8 @@ if (NOT Boost_FOUND AND BUILD_EXTERNAL)
             URL_HASH ${BOOST_HASH}
             TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
             DOWNLOAD_DIR ${BOOST_DOWNLOAD_DIRECTORY}
-            SOURCE_DIR ${BOOST_DOWNLOAD_DIRECTORY})
+            SOURCE_DIR ${BOOST_DOWNLOAD_DIRECTORY}
+            DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 
         FetchContent_Populate(boost)
         
@@ -141,9 +142,9 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(BOOST_LIBRARY_TAGS "-vc143-mt-gd-x64-1_79")
+        set(BOOST_LIBRARY_TAGS "-vc143-mt-gd-x64-1_81")
     else()
-        set(BOOST_LIBRARY_TAGS "-vc143-mt-x64-1_79")
+        set(BOOST_LIBRARY_TAGS "-vc143-mt-x64-1_81")
     endif()
 endif()
 
@@ -174,7 +175,7 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include/boost-1_79 CACHE FILEPATH "" FORCE)
+    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include/boost-1_81 CACHE FILEPATH "" FORCE)
 endif()
 
 set(Boost_LIBRARIES Boost::json Boost::container Boost::system CACHE FILEPATH "" FORCE)
@@ -204,7 +205,8 @@ if (NOT GTEST_FOUND AND BUILD_EXTERNAL)
             URL_HASH ${GOOGLETEST_HASH}
             TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
             DOWNLOAD_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
-            SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY})
+            SOURCE_DIR ${GOOGLETEST_DOWNLOAD_DIRECTORY}
+            DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 
         FetchContent_Populate(googletest)
         
@@ -314,9 +316,9 @@ message(DEBUG "GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OpenSSL Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OPENSSL_VERSION "3.0.3")
+set(OPENSSL_VERSION "3.0.8")
 set(OPENSSL_URL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz")
-set(OPENSSL_HASH "SHA256=ee0078adcef1de5f003c62c80cc96527721609c6f3bb42b7795df31f8b558c0b")
+set(OPENSSL_HASH "SHA256=6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e")
 set(OPENSSL_DIRECTORY ${DEPENDENCY_DIRECTORY}/openssl/${OPENSSL_VERSION}${OPENSSL_PATCH})
 set(OPENSSL_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/openssl/${OPENSSL_VERSION}${OPENSSL_PATCH})
 
@@ -340,7 +342,8 @@ if ((NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD}) AND BUILD_EXTERNA
             URL_HASH ${OPENSSL_HASH}
             TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
             DOWNLOAD_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
-            SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY})
+            SOURCE_DIR ${OPENSSL_DOWNLOAD_DIRECTORY}
+            DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 
         FetchContent_Populate(openssl)
         
@@ -348,9 +351,8 @@ if ((NOT OPENSSL_FOUND OR DEFINED CACHE{OPENSSL_CUSTOM_BUILD}) AND BUILD_EXTERNA
     endif()
 
     set(OPENSSL_CONFIGURE_MODULES
-        no-cast no-md2 no-md4 no-mdc2 no-rc4 no-rc5 no-engine no-idea no-mdc2 no-rc5
-        no-camellia no-ssl3 no-gost no-deprecated no-capieng no-comp no-dtls
-        no-psk no-srp no-dso no-dsa no-rc2 no-des)
+        no-engine no-ssl3 no-gost no-deprecated
+        no-capieng no-comp no-dtls no-psk no-srp no-dso no-dsa)
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         set(OPENSSL_CONFIGURE "./config")
@@ -491,9 +493,9 @@ message(DEBUG "OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQS_VERSION "0.7.1")
+set(OQS_VERSION "0.8.0")
 set(OQS_URL "https://github.com/open-quantum-safe/liboqs/archive/${OQS_VERSION}.tar.gz")
-set(OQS_HASH "SHA256=c8a1ffcfd4facc90916557c0efae9a28c46e803b088d0cb32ee7b0b010555d3a")
+set(OQS_HASH "SHA256=542e2d6cd4d3013bc4f97843cb1e9521b1b8d8ea72a55c9f5f040857486b0157")
 set(OQS_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs/${OQS_VERSION})
 set(OQS_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs/${OQS_VERSION})
 
@@ -508,7 +510,8 @@ if (NOT EXISTS ${OQS_DOWNLOAD_DIRECTORY} AND BUILD_EXTERNAL)
         URL_HASH ${OQS_HASH}
         TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
         DOWNLOAD_DIR ${OQS_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY})
+        SOURCE_DIR ${OQS_DOWNLOAD_DIRECTORY}
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 
     FetchContent_Populate(liboqs)
     
@@ -638,9 +641,9 @@ message(DEBUG "OQS_LIBRARIES: ${OQS_LIBRARIES}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS CPP Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQSCPP_VERSION "0.7.1")
+set(OQSCPP_VERSION "0.8.0")
 set(OQSCPP_URL "https://github.com/open-quantum-safe/liboqs-cpp/archive/${OQSCPP_VERSION}.tar.gz")
-set(OQSCPP_HASH "SHA256=86ea3fbeec2fd69639065cc1b537fbe5c156bc0adb9fde7e0e3dc4b5c92b8e12")
+set(OQSCPP_HASH "SHA256=4bcdcaf556fab826b43d104e3e01c6acd6646e9f54fbaa6505d89f74e3c8b8b3")
 set(OQSCPP_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs-cpp/${OQSCPP_VERSION})
 set(OQSCPP_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs-cpp/${OQSCPP_VERSION})
 
@@ -653,7 +656,8 @@ if (NOT EXISTS ${OQSCPP_DIRECTORY} AND BUILD_EXTERNAL)
         URL_HASH ${OQSCPP_HASH}
         TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
         DOWNLOAD_DIR ${OQSCPP_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${OQSCPP_DOWNLOAD_DIRECTORY})
+        SOURCE_DIR ${OQSCPP_DOWNLOAD_DIRECTORY}
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 
     FetchContent_Populate(liboqs-cpp)
 
@@ -671,9 +675,9 @@ message(DEBUG "OQSCPP_INCLUDE_DIRS: ${OQSCPP_INCLUDE_DIRS}")
 #-----------------------------------------------------------------------------------------------------------------------
 # spdlog Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(SPDLOG_VERSION "1.10.0")
+set(SPDLOG_VERSION "1.11.0")
 set(SPDLOG_URL "https://github.com/gabime/spdlog/archive/v${SPDLOG_VERSION}.tar.gz")
-set(SPDLOG_HASH "SHA256=697f91700237dbae2326b90469be32b876b2b44888302afbc7aceb68bcfe8224")
+set(SPDLOG_HASH "SHA256=ca5cae8d6cac15dae0ec63b21d6ad3530070650f68076f3a4a862ca293a858bb")
 set(SPDLOG_DIRECTORY ${DEPENDENCY_DIRECTORY}/spdlog/${SPDLOG_VERSION})
 set(SPDLOG_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/spdlog/${SPDLOG_VERSION})
 
@@ -686,7 +690,8 @@ if (NOT EXISTS ${SPDLOG_DOWNLOAD_DIRECTORY} AND BUILD_EXTERNAL)
         URL_HASH ${SPDLOG_HASH}
         TMP_DIR ${DEPENDENCY_TEMP_DIRECTORY}
         DOWNLOAD_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
-        SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY})
+        SOURCE_DIR ${SPDLOG_DOWNLOAD_DIRECTORY}
+        DOWNLOAD_EXTRACT_TIMESTAMP FALSE)
 
     FetchContent_Populate(spdlog)
     
@@ -808,6 +813,7 @@ function(copy_dependencies target_name)
         "${SPDLOG_IMPORT_LOCATION}")
 
     foreach(dependency_file ${dependency_files})
+        set(OUTPUT_FILEDIR $<TARGET_FILE_DIR:${target_name}>)
         add_custom_command(TARGET ${target_name} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 ${dependency_file}
