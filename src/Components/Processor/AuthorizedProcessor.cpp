@@ -3,13 +3,13 @@
 // Description:
 //----------------------------------------------------------------------------------------------------------------------
 #include "AuthorizedProcessor.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
-#include "BryptMessage/MessageContext.hpp"
-#include "BryptMessage/MessageUtils.hpp"
-#include "BryptMessage/PlatformMessage.hpp"
-#include "BryptNode/ServiceProvider.hpp"
 #include "Components/Awaitable/TrackingService.hpp"
 #include "Components/Configuration/BootstrapService.hpp"
+#include "Components/Core/ServiceProvider.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
+#include "Components/Message/MessageContext.hpp"
+#include "Components/Message/MessageUtils.hpp"
+#include "Components/Message/PlatformMessage.hpp"
 #include "Components/Peer/Proxy.hpp"
 #include "Components/Scheduler/Delegate.hpp"
 #include "Components/Scheduler/Registrar.hpp"
@@ -24,7 +24,7 @@
 AuthorizedProcessor::AuthorizedProcessor(
 	std::shared_ptr<Scheduler::Registrar> const& spRegistrar,
 	std::shared_ptr<Node::ServiceProvider> const& spServiceProvider)
-    : m_logger(spdlog::get(Logger::Name::Core.data()))
+    : m_logger(spdlog::get(Logger::Name.data()))
 	, m_spDelegate()
 	, m_spNodeIdentifier()
 	, m_spRouter(spServiceProvider->Fetch<Route::Router>())

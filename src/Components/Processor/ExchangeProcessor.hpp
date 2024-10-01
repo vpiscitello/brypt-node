@@ -4,11 +4,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/MessageTypes.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/MessageTypes.hpp"
 #include "Components/Security/SecurityState.hpp"
 #include "Interfaces/ExchangeObserver.hpp"
 #include "Interfaces/MessageSink.hpp"
+#include "Interfaces/Synchronizer.hpp"
 #include "Utilities/TimeUtils.hpp"
 #include "Utilities/InvokeContext.hpp"
 //----------------------------------------------------------------------------------------------------------------------
@@ -25,7 +26,6 @@ namespace Node { class ServiceProvider; }
 namespace Peer { class Proxy; }
 
 class IConnectProtocol;
-class ISecurityStrategy;
 
 //----------------------------------------------------------------------------------------------------------------------
 // Description:
@@ -37,10 +37,15 @@ public:
     using PreparationResult = std::pair<bool, std::string>;
 
     ExchangeProcessor(
-        IExchangeObserver* const pExchangeObserver,
+        Security::ExchangeRole role,
         std::shared_ptr<Node::ServiceProvider> const& spServiceProvider,
-        std::unique_ptr<ISecurityStrategy>&& upStrategy);
-        
+        IExchangeObserver* const pExchangeObserver);
+    
+    ExchangeProcessor(
+        std::shared_ptr<Node::ServiceProvider> const& spServiceProvider,
+        std::unique_ptr<ISynchronizer>&& upSynchronizer,
+        IExchangeObserver* const pExchangeObserver);
+
     ~ExchangeProcessor() = default;
 
     ProcessStage const& GetProcessStage() const;
@@ -52,26 +57,22 @@ public:
     [[nodiscard]] virtual bool CollectMessage(
         Message::Context const& context, std::span<std::uint8_t const> buffer) override;
     // }IMessageSink
-    
+
     UT_SupportMethod(void SetStage(ProcessStage stage));
 
 private:
+    static constexpr TimeUtils::Timestamp ExpirationPeriod{ 1500 };
 
-    static constexpr TimeUtils::Timestamp ExpirationPeriod = std::chrono::milliseconds(1500);
-
-    [[nodiscard]] bool OnMessageCollected(
-        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Platform::Parcel const& message);
-
-    [[nodiscard]] bool OnSynchronizationMessageCollected(
-        std::shared_ptr<Peer::Proxy> const& spProxy, Message::Platform::Parcel const& message);
+    [[nodiscard]] bool OnMessageCollected(Message::Context const& context, std::span<std::uint8_t const> buffer);
+    [[nodiscard]] bool OnMessageCollected(std::shared_ptr<Peer::Proxy> const& spProxy, Message::Platform::Parcel const& message);
 
     ProcessStage m_stage;
     TimeUtils::Timepoint const m_expiration;
 
     Node::SharedIdentifier m_spNodeIdentifier;
     std::shared_ptr<IConnectProtocol> m_spConnector;
+    std::unique_ptr<ISynchronizer> m_upSynchronizer;
     IExchangeObserver* const m_pExchangeObserver;
-    std::unique_ptr<ISecurityStrategy> m_upStrategy;
 };
 
 //----------------------------------------------------------------------------------------------------------------------

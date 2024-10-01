@@ -4,9 +4,9 @@
 //----------------------------------------------------------------------------------------------------------------------
 #pragma once
 //----------------------------------------------------------------------------------------------------------------------
-#include "BryptIdentifier/IdentifierTypes.hpp"
-#include "BryptMessage/MessageTypes.hpp"
-#include "BryptMessage/ApplicationMessage.hpp"
+#include "Components/Identifier/IdentifierTypes.hpp"
+#include "Components/Message/MessageTypes.hpp"
+#include "Components/Message/ApplicationMessage.hpp"
 #include "Components/Route/MessageHandler.hpp"
 #include "Interfaces/MessageSink.hpp"
 #include "Utilities/InvokeContext.hpp"
