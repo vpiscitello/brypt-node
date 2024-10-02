@@ -260,41 +260,44 @@ TEST(QuantumSynchronizerSuite, SynchronizeWithMutatedPublicKeyTest)
             }
 
             auto const optInitiatorResult = initiatorModel.ComputeSharedSecret(*initiatorKeyStore.GetPeerPublicKey());
-            ASSERT_TRUE(optInitiatorResult);
 
-            auto const& [initiatorSharedSecret, supplementalData] = *optInitiatorResult;
-            EXPECT_FALSE(initiatorSharedSecret.IsEmpty());
-            EXPECT_EQ(supplementalData.GetSize(), initiatorModel.GetSupplementalDataSize());
+            // The mutated key may or may not result in a valid shared secret. If it does, validate that the resulting shared
+            // secret can not be used to finalize the syncronization process. 
+            if (optInitiatorResult) {
+                auto const& [initiatorSharedSecret, supplementalData] = *optInitiatorResult;
+                EXPECT_FALSE(initiatorSharedSecret.IsEmpty());
+                EXPECT_EQ(supplementalData.GetSize(), initiatorModel.GetSupplementalDataSize());
 
-            // There are two possible results from computing a shared secret using malformed data, either the external library 
-            // will detect the mutation and throw an error or not. In the case it is not detected, we need to verify that the
-            // two sides do not have a secret that actually matches. 
-            if (auto const optAcceptorResult = acceptorModel.ComputeSharedSecret(supplementalData); optAcceptorResult) {
-                auto const& acceptorSharedSecret = *optAcceptorResult;
-                EXPECT_FALSE(acceptorSharedSecret.IsEmpty());
+                // There are two possible results from computing a shared secret using malformed data, either the external library 
+                // will detect the mutation and throw an error or not. In the case it is not detected, we need to verify that the
+                // two sides do not have a secret that actually matches. 
+                if (auto const optAcceptorResult = acceptorModel.ComputeSharedSecret(supplementalData); optAcceptorResult) {
+                    auto const& acceptorSharedSecret = *optAcceptorResult;
+                    EXPECT_FALSE(acceptorSharedSecret.IsEmpty());
 
-                // If the model uses a public key that has been altered, the resulting shared secret should not be the same. 
-                EXPECT_NE(initiatorSharedSecret, acceptorSharedSecret);
+                    // If the model uses a public key that has been altered, the resulting shared secret should not be the same. 
+                    EXPECT_NE(initiatorSharedSecret, acceptorSharedSecret);
 
-                auto const optInitiatorVerificationData = initiatorKeyStore.GenerateSessionKeys(
-                    Security::ExchangeRole::Initiator, cipherSuite, initiatorSharedSecret);
-                ASSERT_TRUE(optInitiatorVerificationData);
-                EXPECT_TRUE(initiatorKeyStore.HasGeneratedKeys());
+                    auto const optInitiatorVerificationData = initiatorKeyStore.GenerateSessionKeys(
+                        Security::ExchangeRole::Initiator, cipherSuite, initiatorSharedSecret);
+                    ASSERT_TRUE(optInitiatorVerificationData);
+                    EXPECT_TRUE(initiatorKeyStore.HasGeneratedKeys());
 
-                auto const optAcceptorVerificationData = acceptorKeyStore.GenerateSessionKeys(
-                    Security::ExchangeRole::Acceptor, cipherSuite, acceptorSharedSecret);
-                ASSERT_TRUE(optAcceptorVerificationData);
-                EXPECT_TRUE(acceptorKeyStore.HasGeneratedKeys());
+                    auto const optAcceptorVerificationData = acceptorKeyStore.GenerateSessionKeys(
+                        Security::ExchangeRole::Acceptor, cipherSuite, acceptorSharedSecret);
+                    ASSERT_TRUE(optAcceptorVerificationData);
+                    EXPECT_TRUE(acceptorKeyStore.HasGeneratedKeys());
 
-                // Using a shared secret that differs should result in keys that don't match. 
-                EXPECT_NE(*optInitiatorVerificationData, *optAcceptorVerificationData);
+                    // Using a shared secret that differs should result in keys that don't match. 
+                    EXPECT_NE(*optInitiatorVerificationData, *optAcceptorVerificationData);
 
-                EXPECT_EQ(initiatorKeyStore.GetPublicKey(), acceptorKeyStore.GetPeerPublicKey());
-                EXPECT_NE(initiatorKeyStore.GetPeerPublicKey(), acceptorKeyStore.GetPublicKey());
-                EXPECT_NE(initiatorKeyStore.GetContentKey(), acceptorKeyStore.GetPeerContentKey());
-                EXPECT_NE(initiatorKeyStore.GetPeerContentKey(), acceptorKeyStore.GetContentKey());
-                EXPECT_NE(initiatorKeyStore.GetSignatureKey(), acceptorKeyStore.GetPeerSignatureKey());
-                EXPECT_NE(initiatorKeyStore.GetPeerSignatureKey(), acceptorKeyStore.GetSignatureKey());
+                    EXPECT_EQ(initiatorKeyStore.GetPublicKey(), acceptorKeyStore.GetPeerPublicKey());
+                    EXPECT_NE(initiatorKeyStore.GetPeerPublicKey(), acceptorKeyStore.GetPublicKey());
+                    EXPECT_NE(initiatorKeyStore.GetContentKey(), acceptorKeyStore.GetPeerContentKey());
+                    EXPECT_NE(initiatorKeyStore.GetPeerContentKey(), acceptorKeyStore.GetContentKey());
+                    EXPECT_NE(initiatorKeyStore.GetSignatureKey(), acceptorKeyStore.GetPeerSignatureKey());
+                    EXPECT_NE(initiatorKeyStore.GetPeerSignatureKey(), acceptorKeyStore.GetSignatureKey());
+                }
             }
         }
     }

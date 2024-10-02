@@ -569,11 +569,18 @@ TEST_F(SynchronizerSuite, LargeSupportedAlgorithmsSynchronizationTest)
             }
         });
 
+    // Note: This method must be called to cache the supported algorithms cache pack for all deployed synchronizers. 
+    // This is done when the cipher service is first created, but this test does not make use of one. 
+    Security::PackageSynchronizer::PackAndCacheSupportedAlgorithms(*spSupportedAlgorithms);
+
     Security::PackageSynchronizer initiator{ Security::ExchangeRole::Initiator, spSupportedAlgorithms };
     Security::PackageSynchronizer acceptor{ Security::ExchangeRole::Acceptor, spSupportedAlgorithms };
 
     auto const [initiatorStageZeroStatus, initiatorStageZeroBuffer] = initiator.Initialize();
-    [[maybe_unused]] auto const [acceptorStageZeroStatus, acceptorStageZeroBuffer] = acceptor.Initialize();
+    ASSERT_EQ(initiatorStageZeroStatus, Security::SynchronizationStatus::Processing);
+
+    auto const [acceptorStageZeroStatus, acceptorStageZeroBuffer] = acceptor.Initialize();
+    ASSERT_EQ(acceptorStageZeroStatus, Security::SynchronizationStatus::Processing);
 
     auto const [acceptorStageOneStatus, acceptorStageOneBuffer] = acceptor.Synchronize(initiatorStageZeroBuffer);
     EXPECT_EQ(acceptorStageOneStatus, Security::SynchronizationStatus::Error);
