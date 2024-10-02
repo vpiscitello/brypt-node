@@ -480,7 +480,7 @@ Configuration::StatusCode BootstrapService::Deserialize()
                 });
 
             if (!MaybeAddDefaultBootstrap(protocol, bootstraps)) {
-                m_logger->warn("The {} network protocol has no associated bootstraps.", protocolField);
+                m_logger->warn("The {} network protocol has no associated bootstraps.", protocolField.c_str());
             }
         }
     } catch (...) {

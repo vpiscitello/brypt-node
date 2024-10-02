@@ -42,10 +42,11 @@ endif()
 #-----------------------------------------------------------------------------------------------------------------------
 # Boost Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(BOOST_VERSION "1.81.0")
-set(BOOST_DOWNLOAD_TARGET "boost_1_81_0.tar.gz")
-set(BOOST_URL "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VERSION}/source/${BOOST_DOWNLOAD_TARGET}")
-set(BOOST_HASH "SHA256=205666dea9f6a7cfed87c7a6dfbeb52a2c1b9de55712c9c1a87735d7181452b6")
+
+set(BOOST_VERSION "1.86.0")
+set(BOOST_DOWNLOAD_TARGET "boost_1_86_0.tar.gz")
+set(BOOST_URL "https://archives.boost.io/release/${BOOST_VERSION}/source/${BOOST_DOWNLOAD_TARGET}")
+set(BOOST_HASH "SHA256=2575e74ffc3ef1cd0babac2c1ee8bdb5782a0ee672b1912da40e5b4b591ca01f")
 set(BOOST_DIRECTORY ${DEPENDENCY_DIRECTORY}/boost/${BOOST_VERSION})
 set(BOOST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/boost/${BOOST_VERSION})
 
@@ -142,9 +143,9 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(BOOST_LIBRARY_TAGS "-vc143-mt-gd-x64-1_81")
+        set(BOOST_LIBRARY_TAGS "-vc143-mt-gd-x64-1_86")
     else()
-        set(BOOST_LIBRARY_TAGS "-vc143-mt-x64-1_81")
+        set(BOOST_LIBRARY_TAGS "-vc143-mt-x64-1_86")
     endif()
 endif()
 
@@ -175,7 +176,7 @@ endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include CACHE FILEPATH "" FORCE)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include/boost-1_81 CACHE FILEPATH "" FORCE)
+    set(Boost_INCLUDE_DIRS ${BOOST_DIRECTORY}/include/boost-1_86 CACHE FILEPATH "" FORCE)
 endif()
 
 set(Boost_LIBRARIES Boost::json Boost::container Boost::system CACHE FILEPATH "" FORCE)
@@ -188,12 +189,12 @@ message(DEBUG "Boost_LIBRARIES: ${Boost_LIBRARIES}")
 #-----------------------------------------------------------------------------------------------------------------------
 # Googletest Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(GOOGLETEST_VERSION "1.10.0")
-set(GOOGLETEST_URL "https://github.com/google/googletest/archive/release-${GOOGLETEST_VERSION}.tar.gz")
-set(GOOGLETEST_HASH "SHA256=9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb")
+set(GOOGLETEST_VERSION "1.15.2")
+set(GOOGLETEST_URL "https://github.com/google/googletest/releases/download/v${GOOGLETEST_VERSION}/googletest-${GOOGLETEST_VERSION}.tar.gz")
+set(GOOGLETEST_HASH "SHA256=7b42b4d6ed48810c5362c265a17faebe90dc2373c885e5216439d37927f02926")
 set(GOOGLETEST_DIRECTORY ${DEPENDENCY_DIRECTORY}/googletest/${GOOGLETEST_VERSION})
 set(GOOGLETEST_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/googletest/${GOOGLETEST_VERSION})
- 
+
 find_package(GTest ${GOOGLETEST_VERSION} HINTS ${GOOGLETEST_DIRECTORY} QUIET)
 if (NOT GTEST_FOUND AND BUILD_EXTERNAL)
     if (NOT EXISTS ${GOOGLETEST_DOWNLOAD_DIRECTORY})
@@ -299,7 +300,7 @@ if (NOT TARGET GTest::gtest)
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         set(GTEST_IMPORT_LOCATION ${GOOGLETEST_DIRECTORY}/lib/libgtest.${STATIC_EXTENSION})
     elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set(GTEST_IMPORT_LOCATION ${GOOGLETEST_DIRECTORY}/${LIBRARY_BUILD_FOLDER}/lib/gtest${LIBRARY_BUILD_SUFFIX}.${STATIC_EXTENSION})
+        set(GTEST_IMPORT_LOCATION ${GOOGLETEST_DIRECTORY}/${LIBRARY_BUILD_FOLDER}/lib/gtest.${STATIC_EXTENSION})
     endif()
 
     set_target_properties(GTest::gtest PROPERTIES IMPORTED_LOCATION ${GTEST_IMPORT_LOCATION})
@@ -316,9 +317,9 @@ message(DEBUG "GTEST_LIBRARIES: ${GTEST_LIBRARIES}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OpenSSL Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OPENSSL_VERSION "3.0.8")
-set(OPENSSL_URL "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz")
-set(OPENSSL_HASH "SHA256=6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e")
+set(OPENSSL_VERSION "3.3.2")
+set(OPENSSL_URL "https://github.com/openssl/openssl/releases/download/openssl-${OPENSSL_VERSION}/openssl-${OPENSSL_VERSION}.tar.gz")
+set(OPENSSL_HASH "SHA256=2e8a40b01979afe8be0bbfb3de5dc1c6709fedb46d6c89c10da114ab5fc3d281")
 set(OPENSSL_DIRECTORY ${DEPENDENCY_DIRECTORY}/openssl/${OPENSSL_VERSION}${OPENSSL_PATCH})
 set(OPENSSL_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/openssl/${OPENSSL_VERSION}${OPENSSL_PATCH})
 
@@ -493,9 +494,9 @@ message(DEBUG "OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQS_VERSION "0.8.0")
-set(OQS_URL "https://github.com/open-quantum-safe/liboqs/archive/${OQS_VERSION}.tar.gz")
-set(OQS_HASH "SHA256=542e2d6cd4d3013bc4f97843cb1e9521b1b8d8ea72a55c9f5f040857486b0157")
+set(OQS_VERSION "0.11.0")
+set(OQS_URL "https://github.com/open-quantum-safe/liboqs/archive/refs/tags/${OQS_VERSION}.tar.gz")
+set(OQS_HASH "SHA256=f77b3eff7dcd77c84a7cd4663ef9636c5c870f30fd0a5b432ad72f7b9516b199")
 set(OQS_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs/${OQS_VERSION})
 set(OQS_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs/${OQS_VERSION})
 
@@ -641,9 +642,9 @@ message(DEBUG "OQS_LIBRARIES: ${OQS_LIBRARIES}")
 #-----------------------------------------------------------------------------------------------------------------------
 # OQS CPP Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(OQSCPP_VERSION "0.8.0")
+set(OQSCPP_VERSION "0.10.0")
 set(OQSCPP_URL "https://github.com/open-quantum-safe/liboqs-cpp/archive/${OQSCPP_VERSION}.tar.gz")
-set(OQSCPP_HASH "SHA256=4bcdcaf556fab826b43d104e3e01c6acd6646e9f54fbaa6505d89f74e3c8b8b3")
+set(OQSCPP_HASH "SHA256=076d8f6fd18afb2db66fea1d1f237d560ee8cb87715b88397862183f2275f0d5")
 set(OQSCPP_DIRECTORY ${DEPENDENCY_DIRECTORY}/liboqs-cpp/${OQSCPP_VERSION})
 set(OQSCPP_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/liboqs-cpp/${OQSCPP_VERSION})
 
@@ -675,9 +676,9 @@ message(DEBUG "OQSCPP_INCLUDE_DIRS: ${OQSCPP_INCLUDE_DIRS}")
 #-----------------------------------------------------------------------------------------------------------------------
 # spdlog Dependency
 #-----------------------------------------------------------------------------------------------------------------------
-set(SPDLOG_VERSION "1.11.0")
-set(SPDLOG_URL "https://github.com/gabime/spdlog/archive/v${SPDLOG_VERSION}.tar.gz")
-set(SPDLOG_HASH "SHA256=ca5cae8d6cac15dae0ec63b21d6ad3530070650f68076f3a4a862ca293a858bb")
+set(SPDLOG_VERSION "1.14.1")
+set(SPDLOG_URL "https://github.com/gabime/spdlog/archive/refs/tags/v${SPDLOG_VERSION}.tar.gz")
+set(SPDLOG_HASH "SHA256=1586508029a7d0670dfcb2d97575dcdc242d3868a259742b69f100801ab4e16b")
 set(SPDLOG_DIRECTORY ${DEPENDENCY_DIRECTORY}/spdlog/${SPDLOG_VERSION})
 set(SPDLOG_DOWNLOAD_DIRECTORY ${DEPENDENCY_DOWNLOAD_DIRECTORY}/spdlog/${SPDLOG_VERSION})
 
