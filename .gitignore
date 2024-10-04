@@ -25,3 +25,4 @@ src/bin/*
 
 .DS_Store
 /build/Debug
+/build
