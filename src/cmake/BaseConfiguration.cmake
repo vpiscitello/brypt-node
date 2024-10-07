@@ -1,11 +1,7 @@
 #-----------------------------------------------------------------------------------------------------------------------
 # Set the C++ Standard properties. 
 #-----------------------------------------------------------------------------------------------------------------------
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    set(CMAKE_CXX_STANDARD 20)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    set(CMAKE_CXX_STANDARD 23)
-endif()
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -28,10 +24,10 @@ endif()
 # Compiler checks. 
 #-----------------------------------------------------------------------------------------------------------------------
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11.1)
+    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 14.2)
         message(
             FATAL_ERROR
-            "GCC 11.1 or later is required to buld Brypt Node. Found: " ${CMAKE_CXX_COMPILER_VERSION})
+            "GCC 14.2 or later is required to buld Brypt Node. Found: " ${CMAKE_CXX_COMPILER_VERSION})
     endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19.31.31104.0)
