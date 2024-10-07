@@ -38,8 +38,8 @@ include_directories(${CMAKE_SOURCE_DIR})
 #-----------------------------------------------------------------------------------------------------------------------
 # Options
 #-----------------------------------------------------------------------------------------------------------------------
-option(ENABLE_TESTS "Enable Unit Test Builds" ON)
-option(ENABLE_EXAMPLES "Enable Examples Builds" ON)
+option(BUILD_TESTS "Enable Unit Test Builds" ON)
+option(BUILD_EXAMPLES "Enable Examples Builds" ON)
 option(BUILD_EXTERNAL "Download and Add External Dependencies as Targets" OFF)
 #-----------------------------------------------------------------------------------------------------------------------
 
